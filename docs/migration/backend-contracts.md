@@ -28,3 +28,5 @@ Success envelope `{ok:true,data,meta:{requestId,serverTime}}`; failure `{ok:fals
 
 RuntimeAccessService resolves account installation/release and granted permissions; records permission grammar is `records:module.{moduleID}.{collection}:{read|write|delete}`. Backend module-to-service token machinery exists but is not evidence of client-scoped credentials suitable for arbitrary RN code. N1 host-mediated requests have allowlisted methods/collections and cannot choose arbitrary URLs, headers or account IDs.
 
+
+Follow-up live read: catalogue detail returned HTTP 200 with canonical ID `digital.modula.vault-notes`, name Vault Notes, latestVersion **1.7.0**. No authenticated CRUD was claimed from this public probe.
