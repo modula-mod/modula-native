@@ -1,3 +1,4 @@
+#include? "../Pods/Target Support Files/Pods-Modula/Pods-Modula.debug.xcconfig"
 #include "Base.xcconfig"
 SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) DEBUG
 #include? "Debug.local.xcconfig"

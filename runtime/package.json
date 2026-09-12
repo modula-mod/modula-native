@@ -1,0 +1,9 @@
+{
+  "name": "@modula/runtime",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {"node": ">=22.13.0 <23"},
+  "scripts": {"start": "react-native start --config metro.config.js"},
+  "dependencies": {"react": "19.2.3", "react-native": "0.87.1", "@modula/host-bridge": "0.1.0", "@modula/module-contracts": "0.1.0", "@modula/module-sdk": "0.1.0"},
+  "devDependencies": {"@react-native/babel-preset": "0.87.1", "@react-native/metro-config": "0.87.1", "@react-native-community/cli": "20.0.2", "@react-native-community/cli-platform-ios": "20.0.2"}
+}

@@ -7,18 +7,31 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		001526FE43E0E8C9671B4E84 /* ModuleHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */; };
 		0139D48F433333A6C105C394 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E9539623085AAA12077638F /* SettingsView.swift */; };
+		02ED22D448BC35987DA41C41 /* RuntimeDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */; };
 		045022BFF07BCC1674A60821 /* NavigationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */; };
+		083850E345065E6A6AB4731F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 586EC2A3D1894A46296513D8 /* PrivacyInfo.xcprivacy */; };
+		0D772D4E34456894E5A2A5FD /* libPods-ModulaTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DE7A82A7615F703ED7EFABC2 /* libPods-ModulaTests.a */; };
 		0D960245240024C1142077ED /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BEF0F5DFEB2FC30D2769C391 /* Foundation.framework */; };
+		1175B13D8406B4BE1358B31A /* libPods-Modula.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D902DDFA87CA1FD5224F1994 /* libPods-Modula.a */; };
+		118234885584A931FC29652A /* ReactNativeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D0904A1437768EB6AFED58D /* ReactNativeViewController.swift */; };
+		18C0C36383D976CD0F415505 /* ReactNativeContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A632D57B46DA145ADCE10292 /* ReactNativeContainer.swift */; };
 		21638B169590129BA65823F1 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 003916B967E1900F61DFB206 /* SettingsStore.swift */; };
+		2EB8E6563046CB7FD4D651AD /* ModulaHostBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = 11C7225BC261899B6AA2414A /* ModulaHostBridge.mm */; };
+		36217ECF8FA82AEF220905B2 /* ModuleSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90EAE77878B8E7792468645E /* ModuleSession.swift */; };
 		3DFCE2030F6AC41D3386B2F5 /* NativeLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AA9CD0861813EF42C424B9A /* NativeLaunchTests.swift */; };
 		470E5C0C13B495ADACC3BDC8 /* ModulaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8D0072715530545613031A3 /* ModulaApp.swift */; };
 		4750A3C17078F3B24F7D4A7E /* ModulaColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0953B7C9CBB401D9F7D74DE /* ModulaColor.swift */; };
 		48A32338CAC0656514D71CF9 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BEF0F5DFEB2FC30D2769C391 /* Foundation.framework */; };
+		490B3AA11BC41A7FD192FAA4 /* ModulaBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35DD2D0F98FBF95AC2D68618 /* ModulaBridge.swift */; };
 		63CC3E79BDCFF0F138189C2B /* ModulaLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4000338D069CCD91CB36D32 /* ModulaLog.swift */; };
+		7D7AABC4EB1C0A2313444D79 /* ModuleEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435419F8D75EB3FA37353703 /* ModuleEnvironment.swift */; };
 		90EC78DC1C87A9562EC08717 /* AppRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */; };
+		9314852BE26D5B1EB2360CE8 /* ModuleRuntimeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */; };
 		93AFDE81000E32DA131CDFB4 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46F14EB7791E789BBE2A473A /* HomeView.swift */; };
 		A7847EFDADE6BEEF365C2F21 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BEF0F5DFEB2FC30D2769C391 /* Foundation.framework */; };
+		A7C9B3B1BD7B84C45951A4CE /* manifests.json in Resources */ = {isa = PBXBuildFile; fileRef = 9BDB10B4EB59E29CECC0719A /* manifests.json */; };
 		B9825B0168E160AB5B8411B9 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ECAD5355D79305D770912A /* ProfileView.swift */; };
 		C5321327FFFE3ADE609BB112 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 084039C8EE9493F07C7F4946 /* AppEnvironment.swift */; };
 		C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */; };
@@ -45,25 +58,44 @@
 
 /* Begin PBXFileReference section */
 		003916B967E1900F61DFB206 /* SettingsStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsStore.swift; path = Features/Settings/SettingsStore.swift; sourceTree = "<group>"; };
+		007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RuntimeDiagnosticsView.swift; path = ModuleRuntime/RuntimeDiagnosticsView.swift; sourceTree = "<group>"; };
 		084039C8EE9493F07C7F4946 /* AppEnvironment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppEnvironment.swift; path = App/AppEnvironment.swift; sourceTree = "<group>"; };
 		1105A971BF52022B31F2CB36 /* ModulaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ModulaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		11C7225BC261899B6AA2414A /* ModulaHostBridge.mm */ = {isa = PBXFileReference; includeInIndex = 1; name = ModulaHostBridge.mm; path = ModuleRuntime/Bridge/ModulaHostBridge.mm; sourceTree = "<group>"; };
 		2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NavigationCoordinator.swift; path = Navigation/NavigationCoordinator.swift; sourceTree = "<group>"; };
+		35DD2D0F98FBF95AC2D68618 /* ModulaBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaBridge.swift; path = ModuleRuntime/Bridge/ModulaBridge.swift; sourceTree = "<group>"; };
+		435419F8D75EB3FA37353703 /* ModuleEnvironment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleEnvironment.swift; path = ModuleRuntime/ModuleEnvironment.swift; sourceTree = "<group>"; };
 		46F14EB7791E789BBE2A473A /* HomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeView.swift; path = Features/Home/HomeView.swift; sourceTree = "<group>"; };
+		586EC2A3D1894A46296513D8 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = ../PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		6892B51E34CC27875E30261C /* Pods-ModulaTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ModulaTests.release.xcconfig"; path = "Target Support Files/Pods-ModulaTests/Pods-ModulaTests.release.xcconfig"; sourceTree = "<group>"; };
+		7658F204F337CC6A7FAA4441 /* Pods-Modula-ModulaTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modula-ModulaTests.release.xcconfig"; path = "Target Support Files/Pods-Modula-ModulaTests/Pods-Modula-ModulaTests.release.xcconfig"; sourceTree = "<group>"; };
 		790594A395FC6962F78767AC /* Modula.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Modula.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7D0904A1437768EB6AFED58D /* ReactNativeViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactNativeViewController.swift; path = ModuleRuntime/ReactNativeViewController.swift; sourceTree = "<group>"; };
+		87FAF528B548627542BBEB0D /* Pods-Modula-ModulaTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modula-ModulaTests.debug.xcconfig"; path = "Target Support Files/Pods-Modula-ModulaTests/Pods-Modula-ModulaTests.debug.xcconfig"; sourceTree = "<group>"; };
 		8E9539623085AAA12077638F /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsView.swift; path = Features/Settings/SettingsView.swift; sourceTree = "<group>"; };
 		9041733DFED31156EFEE81C2 /* ModulaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ModulaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		90EAE77878B8E7792468645E /* ModuleSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleSession.swift; path = ModuleRuntime/ModuleSession.swift; sourceTree = "<group>"; };
 		9AA9CD0861813EF42C424B9A /* NativeLaunchTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeLaunchTests.swift; sourceTree = "<group>"; };
+		9BDB10B4EB59E29CECC0719A /* manifests.json */ = {isa = PBXFileReference; includeInIndex = 1; name = manifests.json; path = ../runtime/src/registry/manifests.json; sourceTree = "<group>"; };
+		A632D57B46DA145ADCE10292 /* ReactNativeContainer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactNativeContainer.swift; path = ModuleRuntime/ReactNativeContainer.swift; sourceTree = "<group>"; };
+		AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleRuntimeController.swift; path = ModuleRuntime/ModuleRuntimeController.swift; sourceTree = "<group>"; };
 		B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppRoute.swift; path = Navigation/AppRoute.swift; sourceTree = "<group>"; };
 		B305577CCD34598919E97E55 /* Release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		B8D0072715530545613031A3 /* ModulaApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaApp.swift; path = App/ModulaApp.swift; sourceTree = "<group>"; };
+		BB8E23944EDA4143B0141E3D /* Pods-Modula.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modula.debug.xcconfig"; path = "Target Support Files/Pods-Modula/Pods-Modula.debug.xcconfig"; sourceTree = "<group>"; };
 		BEF0F5DFEB2FC30D2769C391 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		C3C0363819593AB6B8477B79 /* Pods-Modula.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modula.release.xcconfig"; path = "Target Support Files/Pods-Modula/Pods-Modula.release.xcconfig"; sourceTree = "<group>"; };
 		C4000338D069CCD91CB36D32 /* ModulaLog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaLog.swift; path = Core/Logging/ModulaLog.swift; sourceTree = "<group>"; };
 		C8ECAD5355D79305D770912A /* ProfileView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileView.swift; path = Features/Profile/ProfileView.swift; sourceTree = "<group>"; };
 		CE413545A422ACB4BACBB3DF /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RootView.swift; path = App/RootView.swift; sourceTree = "<group>"; };
+		D902DDFA87CA1FD5224F1994 /* libPods-Modula.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Modula.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductHubView.swift; path = Features/ProductHub/ProductHubView.swift; sourceTree = "<group>"; };
 		DC4EF43E9E96C1202C4F7E36 /* Debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		DE7A82A7615F703ED7EFABC2 /* libPods-ModulaTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ModulaTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E0953B7C9CBB401D9F7D74DE /* ModulaColor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaColor.swift; path = DesignSystem/Tokens/ModulaColor.swift; sourceTree = "<group>"; };
 		E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeFoundationTests.swift; sourceTree = "<group>"; };
+		E490C161A4B61D0F2ED2F9CE /* Pods-ModulaTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ModulaTests.debug.xcconfig"; path = "Target Support Files/Pods-ModulaTests/Pods-ModulaTests.debug.xcconfig"; sourceTree = "<group>"; };
+		E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleHost.swift; path = ModuleRuntime/ModuleHost.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -72,6 +104,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				48A32338CAC0656514D71CF9 /* Foundation.framework in Frameworks */,
+				0D772D4E34456894E5A2A5FD /* libPods-ModulaTests.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -80,6 +113,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0D960245240024C1142077ED /* Foundation.framework in Frameworks */,
+				1175B13D8406B4BE1358B31A /* libPods-Modula.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -103,6 +137,8 @@
 				2ADAF6A38EF8AFA036ABB851 /* ModulaTests */,
 				2E8838EEE4D837D181A4729A /* ModulaUITests */,
 				3E2597B4A7A2AD68617D46D6 /* Configuration */,
+				DE4DA79E345ADA269FBF5B6E /* Pods */,
+				9D1C095B8CB90D26A1DCC1AF /* Runtime resources */,
 			);
 			sourceTree = "<group>";
 		};
@@ -167,17 +203,51 @@
 				8E9539623085AAA12077638F /* SettingsView.swift */,
 				B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */,
 				2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */,
+				586EC2A3D1894A46296513D8 /* PrivacyInfo.xcprivacy */,
+				35DD2D0F98FBF95AC2D68618 /* ModulaBridge.swift */,
+				11C7225BC261899B6AA2414A /* ModulaHostBridge.mm */,
+				435419F8D75EB3FA37353703 /* ModuleEnvironment.swift */,
+				E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */,
+				AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */,
+				90EAE77878B8E7792468645E /* ModuleSession.swift */,
+				A632D57B46DA145ADCE10292 /* ReactNativeContainer.swift */,
+				7D0904A1437768EB6AFED58D /* ReactNativeViewController.swift */,
+				007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */,
 			);
 			name = Modula;
 			path = Modula;
+			sourceTree = "<group>";
+		};
+		9D1C095B8CB90D26A1DCC1AF /* Runtime resources */ = {
+			isa = PBXGroup;
+			children = (
+				9BDB10B4EB59E29CECC0719A /* manifests.json */,
+			);
+			name = "Runtime resources";
 			sourceTree = "<group>";
 		};
 		D90B6BB670947FFE90B38EA9 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
 				8AF3E97CE6362308C0163F8C /* iOS */,
+				D902DDFA87CA1FD5224F1994 /* libPods-Modula.a */,
+				DE7A82A7615F703ED7EFABC2 /* libPods-ModulaTests.a */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		DE4DA79E345ADA269FBF5B6E /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				C3C0363819593AB6B8477B79 /* Pods-Modula.release.xcconfig */,
+				BB8E23944EDA4143B0141E3D /* Pods-Modula.debug.xcconfig */,
+				7658F204F337CC6A7FAA4441 /* Pods-Modula-ModulaTests.release.xcconfig */,
+				87FAF528B548627542BBEB0D /* Pods-Modula-ModulaTests.debug.xcconfig */,
+				6892B51E34CC27875E30261C /* Pods-ModulaTests.release.xcconfig */,
+				E490C161A4B61D0F2ED2F9CE /* Pods-ModulaTests.debug.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -205,9 +275,13 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 427514BA83F2068C57EA9BAE /* Build configuration list for PBXNativeTarget "Modula" */;
 			buildPhases = (
+				14E9B272657C4558AF071990 /* [CP] Check Pods Manifest.lock */,
 				E1D3491529869E8D3684FF31 /* Sources */,
 				381B3F4C1054333B804D4598 /* Frameworks */,
 				5EE9473C3610AC77526F55FC /* Resources */,
+				D6EDBC73E6841E5E98AA1FD3 /* [CP] Embed Pods Frameworks */,
+				A77EE5A93E5D00B1846E5458 /* [CP] Copy Pods Resources */,
+				90DA8DE1E37F832740F77A18 /* Bundle module runtime */,
 			);
 			buildRules = (
 			);
@@ -222,6 +296,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 7B93A39116B3BBF3BDFD9F2C /* Build configuration list for PBXNativeTarget "ModulaTests" */;
 			buildPhases = (
+				1EF8E08499E1C9610B0D3079 /* [CP] Check Pods Manifest.lock */,
 				3C722A2F5893B6DD98F060EF /* Sources */,
 				317741D4BE964F4452EFAB98 /* Frameworks */,
 				8FD0731738C35D67EA9FCC67 /* Resources */,
@@ -279,6 +354,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				083850E345065E6A6AB4731F /* PrivacyInfo.xcprivacy in Resources */,
+				A7C9B3B1BD7B84C45951A4CE /* manifests.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -290,6 +367,114 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		14E9B272657C4558AF071990 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-Modula-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		1EF8E08499E1C9610B0D3079 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-ModulaTests-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		90DA8DE1E37F832740F77A18 /* Bundle module runtime */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Bundle module runtime";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"$SRCROOT/../scripts/bundle-runtime.sh\"";
+		};
+		A77EE5A93E5D00B1846E5458 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Modula/Pods-Modula-resources.sh",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-timing/React-timing_privacy.bundle",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-timing_privacy.bundle",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Modula/Pods-Modula-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		D6EDBC73E6841E5E98AA1FD3 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Modula/Pods-Modula-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermesvm.framework/hermesvm",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermesvm.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Modula/Pods-Modula-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		146D798D2AC7E6C16ACD8998 /* Sources */ = {
@@ -324,6 +509,15 @@
 				0139D48F433333A6C105C394 /* SettingsView.swift in Sources */,
 				90EC78DC1C87A9562EC08717 /* AppRoute.swift in Sources */,
 				045022BFF07BCC1674A60821 /* NavigationCoordinator.swift in Sources */,
+				490B3AA11BC41A7FD192FAA4 /* ModulaBridge.swift in Sources */,
+				2EB8E6563046CB7FD4D651AD /* ModulaHostBridge.mm in Sources */,
+				7D7AABC4EB1C0A2313444D79 /* ModuleEnvironment.swift in Sources */,
+				001526FE43E0E8C9671B4E84 /* ModuleHost.swift in Sources */,
+				9314852BE26D5B1EB2360CE8 /* ModuleRuntimeController.swift in Sources */,
+				36217ECF8FA82AEF220905B2 /* ModuleSession.swift in Sources */,
+				18C0C36383D976CD0F415505 /* ReactNativeContainer.swift in Sources */,
+				118234885584A931FC29652A /* ReactNativeViewController.swift in Sources */,
+				02ED22D448BC35987DA41C41 /* RuntimeDiagnosticsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -351,10 +545,16 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
+				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/build/generated/ios",
+				);
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = digital.modula.app.native;
@@ -372,7 +572,7 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -420,10 +620,21 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
+				PODFILE_DIR = "$(SRCROOT)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
+				USE_HERMES = true;
 			};
 			name = Debug;
 		};
@@ -433,10 +644,16 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
+				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/build/generated/ios",
+				);
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = digital.modula.app.native;
@@ -454,6 +671,7 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
+				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -470,10 +688,12 @@
 		};
 		B69B4B431E40ABA8CF9DA7A4 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = E490C161A4B61D0F2ED2F9CE /* Pods-ModulaTests.debug.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
+				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -489,10 +709,12 @@
 		};
 		BFFEAFA3D61857A5E1395767 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 6892B51E34CC27875E30261C /* Pods-ModulaTests.release.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
+				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -512,6 +734,7 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
+				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -531,7 +754,7 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -572,10 +795,21 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
+				PODFILE_DIR = "$(SRCROOT)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
+				USE_HERMES = true;
 			};
 			name = Release;
 		};

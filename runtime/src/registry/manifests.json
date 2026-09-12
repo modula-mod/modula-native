@@ -1,0 +1,3 @@
+[
+  {"id":"modula.runtime-diagnostic","name":"Runtime Diagnostic","version":"0.1.0","runtime":"react-native","entry":"diagnostic","permissions":["navigation.open","haptics.selection","diagnostics.ready","diagnostics.fail"],"minHostVersion":"0.1.0","minBridgeVersion":"0.1.0"}
+]

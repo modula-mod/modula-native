@@ -16,6 +16,9 @@ struct SettingsView: View {
                 Text("Appearance is saved on this device. Account settings will follow in the next phase.")
                     .foregroundStyle(.secondary)
             }
+            #if DEBUG
+            Section("Developer") { NavigationLink("Runtime diagnostics") { RuntimeDiagnosticsView() } }
+            #endif
             Section("About") { LabeledContent("Version", value: "0.1.0 · Native foundation") }
         }
         .navigationTitle("Settings")

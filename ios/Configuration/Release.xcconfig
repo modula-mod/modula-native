@@ -1,2 +1,3 @@
+#include? "../Pods/Target Support Files/Pods-Modula/Pods-Modula.release.xcconfig"
 #include "Base.xcconfig"
 #include? "Release.local.xcconfig"

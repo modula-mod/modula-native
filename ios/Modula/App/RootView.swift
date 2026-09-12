@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct RootView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(AppEnvironment.self) private var app
     var body: some View {
         @Bindable var navigation = app.navigation
@@ -14,10 +15,17 @@ struct RootView: View {
                     case .settings: SettingsView()
                     case .post: ContentUnavailableView("Post", systemImage: "text.bubble")
                     case .product: ProductHubView()
-                    case .module: ContentUnavailableView("Module unavailable", systemImage: "square.stack.3d.up")
+                    case .module(let id): ModuleHost(moduleID: id)
                     }
                 }
         }
+        .onChange(of: scenePhase) { previous, phase in
+            if phase == .active {
+                if previous == .background { app.runtime.lifecycle("foregrounded") }
+                app.runtime.lifecycle("active")
+            } else { app.runtime.lifecycle(phase == .background ? "backgrounded" : "inactive") }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in app.runtime.lifecycle("memoryPressure") }
         .background(app.settings.appearance == .oled ? Color.black : ModulaColor.background)
     }
 }
