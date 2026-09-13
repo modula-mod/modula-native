@@ -10,6 +10,7 @@ xcuserdata/
 !.env.example
 *.local
 *.local.xcconfig
+*.local.xcscheme
 *.p12
 *.mobileprovision
 *.pem
