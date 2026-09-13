@@ -8,8 +8,8 @@ struct ModulaApp: App {
         WindowGroup {
             RootView()
                 .environment(environment)
-                .tint(ModulaColor.accent)
-                .preferredColorScheme(environment.settings.colorScheme)
+                .tint(environment.appearance.accent.color)
+                .preferredColorScheme(environment.appearance.colorScheme)
         }
     }
 }

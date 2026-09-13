@@ -17,6 +17,7 @@
 		1175B13D8406B4BE1358B31A /* libPods-Modula.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D902DDFA87CA1FD5224F1994 /* libPods-Modula.a */; };
 		118234885584A931FC29652A /* ReactNativeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D0904A1437768EB6AFED58D /* ReactNativeViewController.swift */; };
 		18C0C36383D976CD0F415505 /* ReactNativeContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A632D57B46DA145ADCE10292 /* ReactNativeContainer.swift */; };
+		20DD2162957F75B8920F2E80 /* ModulaDesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADB419E3CAE3BA05CB1C1E59 /* ModulaDesignSystem.swift */; };
 		21638B169590129BA65823F1 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 003916B967E1900F61DFB206 /* SettingsStore.swift */; };
 		2EB8E6563046CB7FD4D651AD /* ModulaHostBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = 11C7225BC261899B6AA2414A /* ModulaHostBridge.mm */; };
 		36217ECF8FA82AEF220905B2 /* ModuleSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90EAE77878B8E7792468645E /* ModuleSession.swift */; };
@@ -28,11 +29,13 @@
 		48A32338CAC0656514D71CF9 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BEF0F5DFEB2FC30D2769C391 /* Foundation.framework */; };
 		48EF6D3FADBF1FED0E9DC0F6 /* ModuleBackendRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97029B142178008022F2424B /* ModuleBackendRequest.swift */; };
 		490B3AA11BC41A7FD192FAA4 /* ModulaBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35DD2D0F98FBF95AC2D68618 /* ModulaBridge.swift */; };
+		4D06B1162F85CC39C781DF95 /* ShellComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C4472E61C35766446322975 /* ShellComponents.swift */; };
 		63CC3E79BDCFF0F138189C2B /* ModulaLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4000338D069CCD91CB36D32 /* ModulaLog.swift */; };
 		7D7AABC4EB1C0A2313444D79 /* ModuleEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435419F8D75EB3FA37353703 /* ModuleEnvironment.swift */; };
 		90EC78DC1C87A9562EC08717 /* AppRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */; };
 		9314852BE26D5B1EB2360CE8 /* ModuleRuntimeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */; };
 		93AFDE81000E32DA131CDFB4 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46F14EB7791E789BBE2A473A /* HomeView.swift */; };
+		9B142191BFBCE380907C8378 /* GeneratedDesignContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69B093117E45986E847387DC /* GeneratedDesignContract.swift */; };
 		9EC0F892BB40CDA543E31677 /* AuthenticationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6336CC5D11266D84679C3C6A /* AuthenticationStore.swift */; };
 		A7847EFDADE6BEEF365C2F21 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BEF0F5DFEB2FC30D2769C391 /* Foundation.framework */; };
 		A7C9B3B1BD7B84C45951A4CE /* manifests.json in Resources */ = {isa = PBXBuildFile; fileRef = 9BDB10B4EB59E29CECC0719A /* manifests.json */; };
@@ -78,6 +81,8 @@
 		6336CC5D11266D84679C3C6A /* AuthenticationStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthenticationStore.swift; path = Core/Authentication/AuthenticationStore.swift; sourceTree = "<group>"; };
 		65C4B3534ABCFCD2C0AE4AB5 /* KeychainStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = KeychainStore.swift; path = Core/Persistence/KeychainStore.swift; sourceTree = "<group>"; };
 		6892B51E34CC27875E30261C /* Pods-ModulaTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ModulaTests.release.xcconfig"; path = "Target Support Files/Pods-ModulaTests/Pods-ModulaTests.release.xcconfig"; sourceTree = "<group>"; };
+		69B093117E45986E847387DC /* GeneratedDesignContract.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GeneratedDesignContract.swift; path = DesignSystem/Tokens/GeneratedDesignContract.swift; sourceTree = "<group>"; };
+		6C4472E61C35766446322975 /* ShellComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShellComponents.swift; path = DesignSystem/ShellComponents.swift; sourceTree = "<group>"; };
 		7658F204F337CC6A7FAA4441 /* Pods-Modula-ModulaTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modula-ModulaTests.release.xcconfig"; path = "Target Support Files/Pods-Modula-ModulaTests/Pods-Modula-ModulaTests.release.xcconfig"; sourceTree = "<group>"; };
 		790594A395FC6962F78767AC /* Modula.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Modula.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7D0904A1437768EB6AFED58D /* ReactNativeViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactNativeViewController.swift; path = ModuleRuntime/ReactNativeViewController.swift; sourceTree = "<group>"; };
@@ -91,6 +96,7 @@
 		9DD632C1523A313A40D2B0D3 /* GreenfieldClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GreenfieldClient.swift; path = Core/Networking/GreenfieldClient.swift; sourceTree = "<group>"; };
 		A632D57B46DA145ADCE10292 /* ReactNativeContainer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactNativeContainer.swift; path = ModuleRuntime/ReactNativeContainer.swift; sourceTree = "<group>"; };
 		AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleRuntimeController.swift; path = ModuleRuntime/ModuleRuntimeController.swift; sourceTree = "<group>"; };
+		ADB419E3CAE3BA05CB1C1E59 /* ModulaDesignSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaDesignSystem.swift; path = DesignSystem/ModulaDesignSystem.swift; sourceTree = "<group>"; };
 		B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppRoute.swift; path = Navigation/AppRoute.swift; sourceTree = "<group>"; };
 		B305577CCD34598919E97E55 /* Release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		B8D0072715530545613031A3 /* ModulaApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaApp.swift; path = App/ModulaApp.swift; sourceTree = "<group>"; };
@@ -231,6 +237,9 @@
 				093D191569CDD66161FC3552 /* JSONValue.swift */,
 				65C4B3534ABCFCD2C0AE4AB5 /* KeychainStore.swift */,
 				97029B142178008022F2424B /* ModuleBackendRequest.swift */,
+				ADB419E3CAE3BA05CB1C1E59 /* ModulaDesignSystem.swift */,
+				6C4472E61C35766446322975 /* ShellComponents.swift */,
+				69B093117E45986E847387DC /* GeneratedDesignContract.swift */,
 			);
 			name = Modula;
 			path = Modula;
@@ -542,6 +551,9 @@
 				EC29FF07954140DE802361CB /* JSONValue.swift in Sources */,
 				E706DA503AC96378DE9BE822 /* KeychainStore.swift in Sources */,
 				48EF6D3FADBF1FED0E9DC0F6 /* ModuleBackendRequest.swift in Sources */,
+				20DD2162957F75B8920F2E80 /* ModulaDesignSystem.swift in Sources */,
+				4D06B1162F85CC39C781DF95 /* ShellComponents.swift in Sources */,
+				9B142191BFBCE380907C8378 /* GeneratedDesignContract.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

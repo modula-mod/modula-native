@@ -13,7 +13,9 @@
     "start": "npm run start --workspace @modula/runtime",
     "typecheck": "tsc --noEmit -p runtime/tsconfig.json",
     "test": "tsx --test runtime/tests/*.test.ts",
-    "verify:boundary": "python3 scripts/verify-boundaries.py"
+    "verify:boundary": "python3 scripts/verify-boundaries.py",
+    "generate:design": "node scripts/generate-design-contracts.mjs",
+    "verify:design": "node scripts/generate-design-contracts.mjs --check"
   },
   "devDependencies": {
     "typescript": "6.0.3",
