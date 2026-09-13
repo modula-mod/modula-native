@@ -4,7 +4,8 @@ import type {Host, ModuleContext} from '@modula/module-sdk';
 import {saveData, textEditable, type NotePage, type NoteRow} from './model';
 type Props = {context: ModuleContext; host: Host; lifecycle: string};
 export function VaultNotes({context,host,lifecycle}: Props) {
-  const [editor,setEditor] = useState<{record?: NoteRow} | null>(null);
+  const initialNoteID = context.initialPath?.match(/^\/note\/([A-Za-z0-9._:-]+)(?:\/edit)?$/)?.[1];
+  const [editor,setEditor] = useState<{record?: NoteRow} | null>(context.initialPath === '/new' ? {} : null);
   const [revision,setRevision] = useState(0);
   const dark = context.environment.colorScheme === 'dark';
   const colors = {background:context.environment.oled?'#000':dark?'#15191a':'#f5f8f8',text:dark?'#f5f8f8':'#172426',card:dark?'#242e30':'#fff',accent:context.environment.accent};
@@ -15,14 +16,14 @@ export function VaultNotes({context,host,lifecycle}: Props) {
     </View>
     {!context.userID ? <Text style={[styles.message,{color:colors.text}]}>Sign in through native Settings to open your Vault.</Text> : editor
       ? <Editor key={editor.record?.record_id??'new'} record={editor.record} host={host} colors={colors} close={()=>{setEditor(null);setRevision(value=>value+1);}}/>
-      : <Notes key={revision} host={host} colors={colors} open={record=>setEditor({record})} create={()=>setEditor({})}/>}
+      : <Notes key={revision} host={host} colors={colors} initialNoteID={initialNoteID} open={record=>setEditor({record})} create={()=>setEditor({})}/>}
     <View style={styles.footer}><Button title="Open my native Profile" color={colors.accent} onPress={()=>{
       void host.request('navigation.open',{route:'profile',userId:context.userID??'me'}).catch(()=>{});
     }}/></View>
   </View>;
 }
 type Colors = {background:string;text:string;card:string;accent:string};
-function Notes({host,colors,open,create}:{host:Host;colors:Colors;open:(row:NoteRow)=>void;create:()=>void}) {
+function Notes({host,colors,initialNoteID,open,create}:{host:Host;colors:Colors;initialNoteID?:string;open:(row:NoteRow)=>void;create:()=>void}) {
   const [rows,setRows] = useState<NoteRow[]>([]);
   const [cursor,setCursor] = useState<string|null>(null);
   const [loading,setLoading] = useState(true);
@@ -30,18 +31,25 @@ function Notes({host,colors,open,create}:{host:Host;colors:Colors;open:(row:Note
   const alive = useRef(true);
   const generation = useRef(0);
   const reportedDataReady = useRef(false);
+  const appliedInitialPath = useRef(false);
   async function load(next?:string) {
     const request = ++generation.current;setLoading(true);setError(null);
     try {
       const page=await host.request<NotePage>('backend.records.list',{collection:'note',...(next?{cursor:next}:{})});
       if(alive.current && generation.current===request){
         setRows(old=>next?[...old,...page.items]:page.items);setCursor(page.nextCursor);
+        if(!next&&initialNoteID&&!appliedInitialPath.current){
+          appliedInitialPath.current=true;
+          const local=page.items.find(row=>row.record_id===initialNoteID);
+          if(local)open(local);
+          else void host.request<NoteRow>('backend.records.get',{collection:'note',recordID:initialNoteID}).then(open).catch(()=>{});
+        }
         if(!reportedDataReady.current){reportedDataReady.current=true;void host.request('diagnostics.dataReady').catch(()=>{});}
       }
     } catch(error) {if(alive.current && generation.current===request)setError(error instanceof Error?error.message:'Notes could not load.');}
     finally {if(alive.current && generation.current===request)setLoading(false);}
   }
-  useEffect(()=>{alive.current=true;void load();return()=>{alive.current=false;generation.current++;};},[host]);
+  useEffect(()=>{alive.current=true;void load();return()=>{alive.current=false;generation.current++;};},[host,initialNoteID]);
   return <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
     <Text accessibilityRole="header" style={[styles.heading,{color:colors.text}]}>Your notes</Text>
     <View style={styles.actions}><Button title="New Note" color={colors.accent} onPress={create}/><Button title="Reload notes" color={colors.accent} disabled={loading} onPress={()=>void load()}/></View>

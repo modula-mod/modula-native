@@ -36,10 +36,10 @@ final class ModuleRuntimeController {
         }
     }
 
-    func prepare(moduleID: String, environment: ModuleEnvironment) -> ModuleSession? {
+    func prepare(moduleID: String, environment: ModuleEnvironment, initialLocalPath: String? = nil) -> ModuleSession? {
         guard let manifest = manifests.first(where: { $0.id == moduleID }), manifest.runtime == "react-native",
               manifest.minBridgeVersion == Self.bridgeVersion, manifest.minHostVersion == "0.1.0" else { return nil }
-        let session = ModuleSession(manifest: manifest, environment: environment, accountID: accountID)
+        let session = ModuleSession(manifest: manifest, environment: environment, accountID: accountID, initialLocalPath: initialLocalPath)
         ModulaLog.runtime.debug("Preparing module surface")
         sessions[session.id] = session
         lastSession = session
@@ -108,7 +108,7 @@ final class ModuleRuntimeController {
         [
             "sessionID": session.id, "moduleID": session.manifest.id,
             "bridgeVersion": Self.bridgeVersion, "environment": session.environment.dictionary,
-            "userID": session.accountID as Any? ?? NSNull()
+            "userID": session.accountID as Any? ?? NSNull(), "initialPath": session.initialLocalPath as Any? ?? NSNull()
         ]
     }
 
@@ -187,7 +187,11 @@ extension Duration {
 }
 private extension ModuleEnvironment {
     var dictionary: [String: Any] {
-        ["colorScheme": colorScheme, "oled": oled, "accent": accent, "surfacePreference": surfacePreference,
+        ["designContractVersion": designContractVersion, "colorScheme": colorScheme, "theme": theme,
+         "darkStyle": darkStyle, "oled": oled, "accent": accent, "fontFamily": fontFamily,
+         "density": density, "motionPersonality": motionPersonality, "hapticIntensity": hapticIntensity,
+         "contrastPreference": contrastPreference, "transparencyPreference": transparencyPreference,
+         "iconStyle": iconStyle, "interfaceShape": interfaceShape, "moduleBranding": moduleBranding,
          "reduceMotion": reduceMotion, "textScale": textScale]
     }
 }

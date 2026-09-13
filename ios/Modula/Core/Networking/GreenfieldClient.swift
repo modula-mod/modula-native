@@ -19,6 +19,23 @@ struct GreenfieldAccount: Codable, Sendable {
     let primaryHandle: String
     let status: String
 }
+struct CatalogueProduct: Codable, Sendable, Identifiable, Hashable {
+    var id: String { moduleId }
+    let moduleId: String
+    let productKind: String
+    let name: String
+    let description: String
+    let publisherId: String
+    let publisherName: String
+    let latestVersion: String?
+    let status: String
+    let installable: Bool
+    let platforms: [String]
+    let betaClassification: String?
+    let installability: Installability?
+    struct Installability: Codable, Sendable, Hashable { let status: String; let reasonCode: String?; let reason: String? }
+}
+private struct CataloguePage: Codable, Sendable { let items: [CatalogueProduct] }
 private struct SessionTokens: Codable, Sendable {
     let accessToken: String
     let refreshToken: String
@@ -78,6 +95,23 @@ actor GreenfieldClient {
         tokens = nil; accountID = nil
         try keychain.clear()
         if let bearer { let _: JSONValue = try await send("DELETE", path: "/v1/sessions/current", bearer: bearer) }
+    }
+    func catalogue() async throws -> [CatalogueProduct] {
+        let page: CataloguePage = try await send("GET", path: "/v1/registry/products")
+        return page.items
+    }
+    func installedModuleIDs() async throws -> Set<String> {
+        let value: JSONValue = try await authenticated("GET", path: "/v1/modules/installed")
+        return Self.installedIDs(from: value)
+    }
+    nonisolated static func installedIDs(from value: JSONValue) -> Set<String> {
+        let items: [JSONValue]
+        if case .array(let values) = value { items = values }
+        else if case .array(let values) = value["items"] { items = values }
+        else { return [] }
+        return Set(items.compactMap { item in
+            item["moduleId"]?.string ?? item["module_id"]?.string ?? item["productId"]?.string
+        })
     }
     func moduleRequest(method: String, path: String, body: JSONValue?, expectedAccountID: String) async throws -> JSONValue {
         guard accountID == expectedAccountID else { throw APIError.accountChanged }

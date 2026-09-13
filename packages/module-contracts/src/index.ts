@@ -5,12 +5,23 @@ export type ModuleManifest = {
   collections?: string[];
 };
 export type ModuleEnvironment = {
-  colorScheme: 'light' | 'dark'; oled: boolean; accent: string;
-  surfacePreference: 'native'; reduceMotion: boolean; textScale: number;
+  designContractVersion?: 1;
+  colorScheme: 'light' | 'dark'; theme?: 'system' | 'light' | 'dark';
+  darkStyle?: 'standard' | 'dim' | 'oled'; oled: boolean; accent: string;
+  fontFamily?: 'system' | 'rounded' | 'humanist' | 'geometric' | 'editorial' | 'mono';
+  density?: 'compact' | 'standard' | 'comfortable';
+  motionPersonality?: 'calm' | 'standard' | 'expressive';
+  hapticIntensity?: 'off' | 'light' | 'standard' | 'strong';
+  contrastPreference?: 'standard' | 'higherContrast';
+  transparencyPreference?: 'standard' | 'reduceTransparency';
+  iconStyle?: 'outline' | 'balanced' | 'filled';
+  interfaceShape?: 'soft' | 'balanced' | 'precise';
+  moduleBranding?: 'moduleIdentity' | 'blend' | 'preferUserAccent';
+  reduceMotion: boolean; textScale: number;
 };
 export type ModuleContext = {
   sessionID: string; moduleID: string; bridgeVersion: string;
-  environment: ModuleEnvironment; userID: string | null;
+  environment: ModuleEnvironment; userID: string | null; initialPath?: string | null;
 };
 export type HostEvent = {sessionID: string; name: string; environment?: ModuleEnvironment};
 export function compatibleVersion(actual: string, minimum: string): boolean {

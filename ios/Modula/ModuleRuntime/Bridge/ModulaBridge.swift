@@ -50,7 +50,7 @@ import UIKit
         case "diagnostics.ready": runtime.ready(session)
         case "diagnostics.dataReady": runtime.dataReady(session)
         case "diagnostics.fail": runtime.fail(session)
-        case "haptics.selection": UISelectionFeedbackGenerator().selectionChanged()
+        case "haptics.selection": HapticEngine.shared.play(.selection)
         case "navigation.open":
             guard let route = Self.route(params), let navigation else {
                 completion(Self.reply(error: "INVALID_ROUTE")); return
@@ -68,15 +68,15 @@ import UIKit
         let expected: Set<String> = route == "profile" ? ["route", "userId"] : route == "post" ? ["route", "postId"] : ["route"]
         guard Set(params.keys) == expected else { return nil }
         switch route {
-        case "home": return .home
-        case "settings": return .settings
-        case "productHub": return .productHub
+        case "home": return .home(.following)
+        case "settings": return .settings(.root)
+        case "productHub": return .productHub(.featured)
         case "profile":
             guard let id = params["userId"] as? String, validID(id) else { return nil }
-            return .profile(id)
+            return .profile(id, .overview)
         case "post":
             guard let id = params["postId"] as? String, validID(id) else { return nil }
-            return .post(id)
+            return .post(id, .root)
         default: return nil
         }
     }
