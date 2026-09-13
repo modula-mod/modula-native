@@ -107,6 +107,17 @@ final class NativeFoundationTests: XCTestCase {
         XCTAssertTrue(ShellChromePolicy.policy(for: .home(.following)).contextRailVisible)
     }
 
+    func testContextRailLoopShapeStaysEdgeDockedAcrossMorph() {
+        let rect = CGRect(x: 0, y: 0, width: 62, height: 236)
+        for progress in [CGFloat(0), CGFloat(0.5), CGFloat(1)] {
+            let bounds = ModulaRailShape(revealProgress: progress).path(in: rect).boundingRect
+            XCTAssertGreaterThanOrEqual(bounds.minX, rect.minX)
+            XCTAssertLessThanOrEqual(bounds.maxX, rect.maxX)
+            XCTAssertEqual(bounds.minY, rect.minY, accuracy: 0.001)
+            XCTAssertEqual(bounds.maxY, rect.maxY, accuracy: 0.001)
+        }
+    }
+
     func testInstalledProductStateUsesGreenfieldResponseNotBundlePresence() {
         let response: JSONValue = .array([
             .object(["moduleId": .string("digital.modula.vault-notes"), "status": .string("enabled")]),

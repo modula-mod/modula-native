@@ -1,38 +1,207 @@
 import SwiftUI
 
+private struct HomeSignalArtwork: View {
+    let mode: HomeMode
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack {
+                Color(hex: "#071C20")
+                Circle()
+                    .fill(app.appearance.accent.color.opacity(0.2))
+                    .frame(width: proxy.size.width * 0.82)
+                    .offset(x: proxy.size.width * 0.32, y: -proxy.size.height * 0.27)
+                Circle()
+                    .stroke(app.appearance.accent.color.opacity(0.48), lineWidth: 1)
+                    .frame(width: proxy.size.width * 0.56)
+                    .offset(x: proxy.size.width * 0.32, y: -proxy.size.height * 0.27)
+                VStack(alignment: .trailing, spacing: 10) {
+                    ForEach(0..<3, id: \.self) { index in
+                        Capsule()
+                            .fill(Color.white.opacity(index == modeIndex ? 0.72 : 0.18))
+                            .frame(width: CGFloat(34 + index * 23), height: 7)
+                    }
+                }
+                .rotationEffect(.degrees(-18))
+                .offset(x: proxy.size.width * 0.27, y: proxy.size.height * 0.17)
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    .frame(width: proxy.size.width * 0.42, height: proxy.size.height * 0.5)
+                    .rotationEffect(.degrees(12))
+                    .offset(x: -proxy.size.width * 0.31, y: -proxy.size.height * 0.26)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private var modeIndex: Int {
+        switch mode { case .following: 0; case .forYou: 1; case .modules: 2 }
+    }
+}
+
+private struct HomeHero: View {
+    let mode: HomeMode
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            HomeSignalArtwork(mode: mode)
+            VStack(alignment: .leading, spacing: 7) {
+                Text(subtitle.uppercased())
+                    .font(.caption.weight(.bold))
+                    .tracking(1.4)
+                    .foregroundStyle(.white.opacity(0.62))
+                Text(title)
+                    .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(22)
+        }
+        .frame(height: 280)
+        .clipShape(RoundedRectangle(cornerRadius: 29, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+}
+
 struct HomeView: View {
     let mode: HomeMode
     @Environment(AppEnvironment.self) private var app
+
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
-                ModulaTopBar(title: "Modula") { app.navigation.open(.settings(.root)) }
-                ModulaHero(title: title, subtitle: subtitle) {
-                    LinearGradient(colors: [app.appearance.accent.color.opacity(0.82), Color.indigo.opacity(0.5), Color.black.opacity(0.72)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                        .overlay(alignment: .topTrailing) { Image(systemName: symbol).font(.system(size: 76, weight: .ultraLight)).foregroundStyle(.white.opacity(0.6)).padding(28) }
-                }
-                ModulaSection(title: "Foundation feed") {
-                    ModulaCard { VStack(alignment: .leading, spacing: 10) { ModulaBadge(title: "N2 native", symbol: "swift"); ModulaText(text: "The native shell owns this route, its chrome, and its appearance.", role: .headline); Text("Feed data arrives in N3. This sample proves scroll behavior and keeps the product state honest.").foregroundStyle(.secondary) } }
+            LazyVStack(alignment: .leading, spacing: 22) {
+                HomeHero(mode: mode, title: title, subtitle: subtitle)
+                ModulaSection(title: "Today") {
+                    ModulaCard {
+                        VStack(alignment: .leading, spacing: 11) {
+                            HStack {
+                                ModulaBadge(title: "Native foundation", symbol: "swift")
+                                Spacer()
+                                Text("N2").font(.caption2.weight(.bold)).foregroundStyle(.tertiary)
+                            }
+                            ModulaText(text: "Your shell is ready for what comes next.", role: .headline)
+                            Text("Feed data arrives in N3. Routing, appearance, secure module hosting, and independent destination state are already native.")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
                 ModulaSection(title: "Quick access") {
-                    ModulaCard { VStack { ModulaListRow(title: "Product Hub", subtitle: "Browse native module pages", symbol: "shippingbox") { app.navigation.open(.productHub(.featured)) }; ModulaListRow(title: "Profile", symbol: "person.crop.circle") { app.navigation.open(.me(.overview)) }; ModulaListRow(title: "Settings", symbol: "gearshape") { app.navigation.open(.settings(.root)) } } }
+                    ModulaCard {
+                        VStack(spacing: 0) {
+                            ModulaListRow(title: "Product Hub", subtitle: "Browse native module pages", symbol: "shippingbox") {
+                                app.navigation.open(.productHub(.featured))
+                            }
+                            Divider().padding(.leading, 42)
+                            ModulaListRow(title: "Appearance", subtitle: "Make Modula feel like yours", symbol: "paintpalette") {
+                                app.navigation.open(.settings(.appearance(.root)))
+                            }
+                            Divider().padding(.leading, 42)
+                            ModulaListRow(title: "Settings", symbol: "gearshape") {
+                                app.navigation.open(.settings(.root))
+                            }
+                        }
+                    }
                 }
-            }.padding(.horizontal, ModulaLayout.contentInset).padding(.bottom, 24)
+            }
+            .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.top, 8)
+            .padding(.bottom, 26)
         }
-        .navigationTitle("Modula").navigationBarTitleDisplayMode(.inline).accessibilityIdentifier("native.home").accessibilityValue(RouteSerializer.serialize(.home(mode)))
+        .modulaCanvas()
+        .navigationTitle("Modula")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { app.navigation.open(.settings(.root)) } label: { Image(systemName: "gearshape") }
+                    .accessibilityLabel("Settings")
+            }
+        }
+        .accessibilityIdentifier("native.home")
+        .accessibilityValue(RouteSerializer.serialize(.home(mode)))
     }
-    private var title: String { switch mode { case .following: "Your people, in focus."; case .forYou: "Fresh perspectives."; case .modules: "Tools in your flow." } }
-    private var subtitle: String { switch mode { case .following: "Following"; case .forYou: "For You"; case .modules: "Modules" } }
-    private var symbol: String { switch mode { case .following: "person.2.fill"; case .forYou: "sparkles"; case .modules: "shippingbox.fill" } }
+
+    private var title: String {
+        switch mode {
+        case .following: "Your people, in focus."
+        case .forYou: "Fresh perspectives."
+        case .modules: "Tools in your flow."
+        }
+    }
+
+    private var subtitle: String {
+        switch mode {
+        case .following: "Following"
+        case .forYou: "For You"
+        case .modules: "Modules"
+        }
+    }
 }
 
 struct DiscoverView: View {
     let section: DiscoverRoute
     @State private var query = ""
-    var body: some View { ScrollView { VStack(spacing: 18) { ModulaTopBar(title: "Discover"); ModulaSearchField(text: $query, prompt: "People, posts, topics, modules"); ModulaCard { VStack(alignment: .leading, spacing: 8) { ModulaBadge(title: section.rawValue.capitalized, symbol: "safari"); ModulaText(text: "Explore Modula", role: .title); Text("Discovery data will connect in a later product phase.").foregroundStyle(.secondary) } } }.padding(.horizontal, 18) }.navigationBarHidden(true) }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Discover").font(.largeTitle.bold())
+                    Text("People, ideas, and modules—when they are ready.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                ModulaSearchField(text: $query, prompt: "People, posts, topics, modules")
+                ModulaCard {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ModulaBadge(title: section.rawValue.capitalized, symbol: "safari")
+                        ModulaText(text: "Explore Modula", role: .title)
+                        Text("Discovery data connects in a later product phase. This foundation preserves the native route without inventing content.")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.top, 12)
+        }
+        .modulaCanvas()
+        .navigationTitle("Discover")
+        .navigationBarTitleDisplayMode(.inline)
+    }
 }
 
 struct ActivityView: View {
     let mode: ActivityMode
-    var body: some View { ScrollView { VStack(spacing: 18) { ModulaTopBar(title: "Activity"); ModulaEmptyState(title: mode.rawValue.capitalized, message: "You’re all caught up. Activity data connects in a later phase.", symbol: mode == .mentions ? "at" : "bell") }.padding(.horizontal, 18) }.navigationBarHidden(true).accessibilityIdentifier("activity.\(mode.rawValue)") }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Activity").font(.largeTitle.bold())
+                    Text("A quiet place for what needs your attention.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                ModulaCard {
+                    ModulaEmptyState(
+                        title: display(mode.rawValue),
+                        message: "You’re all caught up. Activity data connects in a later phase.",
+                        symbol: mode == .mentions ? "at" : "bell"
+                    )
+                }
+            }
+            .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.top, 12)
+        }
+        .modulaCanvas()
+        .navigationTitle("Activity")
+        .navigationBarTitleDisplayMode(.inline)
+        .accessibilityIdentifier("activity.\(mode.rawValue)")
+    }
+
+    private func display(_ value: String) -> String {
+        value.replacingOccurrences(of: "-", with: " ").capitalized
+    }
 }

@@ -28,7 +28,9 @@ struct RootView: View {
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if ShellChromePolicy.policy(for: navigation.currentRoute).bottomBarVisible { ModulaTabBar() }
+            if ShellChromePolicy.policy(for: navigation.currentRoute).bottomBarVisible {
+                ModulaBottomChrome(route: navigation.currentRoute)
+            }
         }
         .sheet(item: $navigation.presented) { presentation in
             ModulaSheet { PresentationView(presentation: presentation) }
