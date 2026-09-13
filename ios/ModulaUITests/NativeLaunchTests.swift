@@ -1,6 +1,61 @@
 import XCTest
 import UIKit
 
+@MainActor
+final class N2ShellUITests: XCTestCase {
+    func testCanonicalShellRailProductHubModuleHostAndAppearance() {
+        let launchStart = ContinuousClock.now
+        let app = XCUIApplication()
+        app.launchArguments = ["--runtime-unavailable"]
+        app.launch()
+        XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 10))
+        print("N2_METRIC shell_render_ms=\(launchStart.duration(to: .now).milliseconds)")
+
+        let railStart = ContinuousClock.now
+        app.buttons["For You"].tap()
+        XCTAssertEqual(app.descendants(matching: .any)["native.home"].value as? String, "/home/for-you")
+        print("N2_METRIC rail_switch_ms=\(railStart.duration(to: .now).milliseconds)")
+        let tabStart = ContinuousClock.now
+        app.buttons["Discover"].tap()
+        XCTAssertTrue(app.staticTexts["Discover"].waitForExistence(timeout: 5))
+        print("N2_METRIC tab_switch_ms=\(tabStart.duration(to: .now).milliseconds)")
+        let hubStart = ContinuousClock.now
+        app.buttons["tab.modules"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["product-hub"].waitForExistence(timeout: 10))
+        signInFixtureIfNeeded(app)
+
+        let vault = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Vault Notes")).firstMatch
+        XCTAssertTrue(vault.waitForExistence(timeout: 10))
+        print("N2_METRIC product_hub_ms=\(hubStart.duration(to: .now).milliseconds)")
+        let detailStart = ContinuousClock.now
+        vault.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["module-detail.digital.modula.vault-notes"].waitForExistence(timeout: 8))
+        print("N2_METRIC module_detail_ms=\(detailStart.duration(to: .now).milliseconds)")
+        let hostStart = ContinuousClock.now
+        app.descendants(matching: .any)["module.open"].tap()
+        XCTAssertTrue(app.staticTexts["Vault Notes failed to load"].waitForExistence(timeout: 8))
+        print("N2_METRIC module_host_transition_ms=\(hostStart.duration(to: .now).milliseconds)")
+        app.buttons["Close"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Vault Notes"].waitForExistence(timeout: 8))
+
+        app.buttons["Activity"].tap()
+        app.buttons["Mentions"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["activity.mentions"].waitForExistence(timeout: 5))
+        app.buttons["Profile"].tap()
+        app.buttons["Posts"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["profile.posts"].waitForExistence(timeout: 5))
+
+        app.buttons["Home"].tap()
+        app.buttons["Settings"].firstMatch.tap()
+        app.buttons["Appearance"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["settings.appearance"].waitForExistence(timeout: 5))
+        let appearanceStart = ContinuousClock.now
+        app.buttons["Violet"].tap()
+        XCTAssertTrue(app.staticTexts["Native design contract v1"].exists)
+        print("N2_METRIC appearance_update_ms=\(appearanceStart.duration(to: .now).milliseconds)")
+    }
+}
+
 final class NativeLaunchTests: XCTestCase {
     @MainActor
     func testNativeLaunchAndDestinations() {
@@ -10,11 +65,14 @@ final class NativeLaunchTests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.navigationBars["Modula"].waitForExistence(timeout: 10))
         print("N1_METRIC native_cold_launch_ms=\(started.duration(to: .now).milliseconds)")
-        for destination in ["Product Hub", "Profile", "Settings"] {
-            app.buttons[destination].firstMatch.tap()
-            XCTAssertTrue(app.navigationBars[destination].waitForExistence(timeout: 5))
-            app.navigationBars.buttons.element(boundBy: 0).tap()
-        }
+        app.buttons["Product Hub"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Product Hub"].waitForExistence(timeout: 5))
+        app.buttons["Home"].firstMatch.tap()
+        app.buttons["Profile"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Profile"].waitForExistence(timeout: 5))
+        app.buttons["Home"].firstMatch.tap()
+        app.buttons["Settings"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
     }
 
     @MainActor
@@ -26,10 +84,12 @@ final class NativeLaunchTests: XCTestCase {
         let vault = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Vault Notes")).firstMatch
         XCTAssertTrue(vault.waitForExistence(timeout: 8))
         vault.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["module.open"].waitForExistence(timeout: 8))
+        app.descendants(matching: .any)["module.open"].tap()
         XCTAssertTrue(app.staticTexts["Vault Notes failed to load"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["Retry"].exists)
         app.buttons["Close"].firstMatch.tap()
-        XCTAssertTrue(app.navigationBars["Product Hub"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.navigationBars["Vault Notes"].waitForExistence(timeout: 8))
     }
 }
 
@@ -89,11 +149,11 @@ final class VaultRuntimeUITests: XCTestCase {
 
         app.buttons["Open my native Profile"].tap()
         XCTAssertTrue(app.navigationBars["Profile"].waitForExistence(timeout: 8))
-        app.navigationBars["Profile"].buttons.element(boundBy: 0).tap()
+        app.buttons["tab.modules"].tap()
         XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 20))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Runtime: 1'")).firstMatch.exists)
         app.buttons["Close"].firstMatch.tap()
-        XCTAssertTrue(app.navigationBars["Product Hub"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.navigationBars["Vault Notes"].waitForExistence(timeout: 8))
 
         openVault(app)
         XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 20))
@@ -113,12 +173,15 @@ final class VaultRuntimeUITests: XCTestCase {
             durations.append(start.duration(to: .now).milliseconds)
             XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Runtime: 1'")).firstMatch.exists)
             app.buttons["Close"].firstMatch.tap()
-            XCTAssertTrue(app.navigationBars["Product Hub"].waitForExistence(timeout: 8))
+            XCTAssertTrue(app.navigationBars["Vault Notes"].waitForExistence(timeout: 8))
         }
         print("N1_METRIC vault_open_ms=\(durations.map { String(format: "%.1f", $0) }.joined(separator: ","))")
-        app.navigationBars["Product Hub"].buttons.element(boundBy: 0).tap()
-        app.buttons["Settings"].tap()
-        app.buttons["Runtime diagnostics"].tap()
+        app.buttons["Home"].firstMatch.tap()
+        app.buttons["Settings"].firstMatch.tap()
+        let diagnostics = app.descendants(matching: .any)["settings.runtime"]
+        for _ in 0..<4 where !diagnostics.exists { app.swipeUp() }
+        XCTAssertTrue(diagnostics.waitForExistence(timeout: 5))
+        diagnostics.tap()
         for id in ["metric.nativeUsable", "metric.factory", "metric.runtimeReady", "metric.vaultFirst", "metric.vaultSecond", "metric.vaultData", "metric.memoryBefore", "metric.memoryWith", "metric.memoryAfter"] {
             let metric = app.descendants(matching: .any)[id]
             if !metric.waitForExistence(timeout: 2) {
@@ -131,6 +194,7 @@ final class VaultRuntimeUITests: XCTestCase {
 
     private func launchSignedInApp() -> XCUIApplication {
         let app = XCUIApplication()
+        app.launchArguments = ["--reset-appearance"]
         app.launch()
         XCTAssertTrue(app.navigationBars["Modula"].waitForExistence(timeout: 10))
         return app
@@ -138,13 +202,18 @@ final class VaultRuntimeUITests: XCTestCase {
 
     private func openProductHub(_ app: XCUIApplication) {
         app.buttons["Product Hub"].firstMatch.tap()
+        signInFixtureIfNeeded(app)
         XCTAssertTrue(app.descendants(matching: .any)["account.ready"].waitForExistence(timeout: 20))
     }
 
     private func openVault(_ app: XCUIApplication) {
+        let open = app.descendants(matching: .any)["module.open"]
+        if open.waitForExistence(timeout: 2) { open.tap(); return }
         let vault = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Vault Notes")).firstMatch
         XCTAssertTrue(vault.waitForExistence(timeout: 8))
         vault.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["module.open"].waitForExistence(timeout: 8))
+        app.descendants(matching: .any)["module.open"].tap()
     }
 
     private func textInput(_ app: XCUIApplication, label: String) -> XCUIElement {
@@ -163,10 +232,13 @@ final class ReleaseVaultUITests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.navigationBars["Modula"].waitForExistence(timeout: 10))
         app.buttons["Product Hub"].tap()
+        signInFixtureIfNeeded(app)
         XCTAssertTrue(app.descendants(matching: .any)["account.ready"].waitForExistence(timeout: 20))
         let vault = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Vault Notes")).firstMatch
         XCTAssertTrue(vault.waitForExistence(timeout: 8))
         vault.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["module.open"].waitForExistence(timeout: 8))
+        app.descendants(matching: .any)["module.open"].tap()
         XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 20))
 
         let title = "NativeReleaseBridge-\(UUID().uuidString.prefix(6))"
@@ -209,17 +281,20 @@ final class VaultNetworkFailureUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
         app.buttons["Product Hub"].tap()
+        signInFixtureIfNeeded(app)
         XCTAssertTrue(app.descendants(matching: .any)["account.ready"].waitForExistence(timeout: 20))
         let vault = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Vault Notes")).firstMatch
         vault.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["module.open"].waitForExistence(timeout: 8))
+        app.descendants(matching: .any)["module.open"].tap()
         XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 20))
         print("N1_NETWORK_CUT_READY")
         Thread.sleep(forTimeInterval: 12)
         app.buttons["Reload notes"].tap()
         XCTAssertTrue(app.staticTexts["Greenfield connection unavailable."].waitForExistence(timeout: 25))
         app.buttons["Close"].firstMatch.tap()
-        XCTAssertTrue(app.navigationBars["Product Hub"].waitForExistence(timeout: 8))
-        app.navigationBars["Product Hub"].buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.navigationBars["Vault Notes"].waitForExistence(timeout: 8))
+        app.buttons["Home"].firstMatch.tap()
         app.buttons["Profile"].tap()
         XCTAssertTrue(app.navigationBars["Profile"].waitForExistence(timeout: 8))
     }
@@ -254,6 +329,8 @@ final class PhysicalN1AcceptanceTests: XCTestCase {
 
         XCTAssertTrue(app.descendants(matching: .any)["account.ready"].waitForExistence(timeout: 20))
         app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Vault Notes")).firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["module.open"].waitForExistence(timeout: 10))
+        app.descendants(matching: .any)["module.open"].tap()
         XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 25))
         XCTAssertTrue(app.buttons["N1 Fixture 1"].waitForExistence(timeout: 8))
 
@@ -284,11 +361,11 @@ final class PhysicalN1AcceptanceTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 20))
         app.buttons["Open my native Profile"].tap()
         XCTAssertTrue(app.navigationBars["Profile"].waitForExistence(timeout: 10))
-        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.buttons["tab.modules"].tap()
         app.buttons["Close"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Product Hub"].waitForExistence(timeout: 10))
 
-        app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Vault Notes")).firstMatch.tap()
+        app.descendants(matching: .any)["module.open"].tap()
         XCTAssertTrue(app.buttons[edited].waitForExistence(timeout: 25))
         app.buttons[edited].tap()
         app.buttons["Move to Trash"].tap()
@@ -310,6 +387,24 @@ private extension Duration {
     var milliseconds: Double { Double(components.seconds) * 1_000 + Double(components.attoseconds) / 1e15 }
 }
 
+private struct N1UITestFixture: Decodable { let email: String; let password: String }
+
+@MainActor
+private func signInFixtureIfNeeded(_ app: XCUIApplication) {
+    if app.descendants(matching: .any)["account.ready"].waitForExistence(timeout: 3) { return }
+    let path = ProcessInfo.processInfo.environment["N1_SECRET_FILE"] ?? "/Users/msjoy/Developer/modula-native/.env.n1.local"
+    guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)), let fixture = try? JSONDecoder().decode(N1UITestFixture.self, from: data) else {
+        XCTFail("N1 fixture file unavailable"); return
+    }
+    let signIn = app.buttons["Sign in to Modula"]
+    XCTAssertTrue(signIn.waitForExistence(timeout: 5)); signIn.tap()
+    pasteText(fixture.email, into: app.textFields["Email"], app: app)
+    pasteText(fixture.password, into: app.secureTextFields["Password"], app: app)
+    app.buttons["Sign in"].tap()
+    XCTAssertTrue(app.staticTexts["Account"].waitForExistence(timeout: 25))
+    app.navigationBars["Account"].buttons.element(boundBy: 0).tap()
+}
+
 @MainActor
 private func pasteText(_ text: String, into element: XCUIElement, app: XCUIApplication, replacing: Bool = false) {
     XCTAssertTrue(element.waitForExistence(timeout: 8))
@@ -321,14 +416,14 @@ private func pasteText(_ text: String, into element: XCUIElement, app: XCUIAppli
         XCTAssertTrue(selectAll.waitForExistence(timeout: 5))
         selectAll.tap()
         element.typeText(text)
-        XCTAssertEqual(element.value as? String, text)
+        if element.elementType != .secureTextField { XCTAssertEqual(element.value as? String, text) }
         return
     }
     element.press(forDuration: 1)
     let paste = app.menuItems["Paste"]
     XCTAssertTrue(paste.waitForExistence(timeout: 5))
     paste.tap()
-    XCTAssertEqual(element.value as? String, text)
+    if element.elementType != .secureTextField { XCTAssertEqual(element.value as? String, text) }
 }
 
 final class ModuleRuntimeUITests: XCTestCase {
