@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://modula.digital/modules/vault-notes/schemas/saved-source-1.0.0.json",
+  "title": "Vault Saved Source",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sourceType", "capturedAt"],
+  "properties": {
+    "sourceType": {"enum": ["modula-post", "modula-comment", "web-url", "file", "manual"]},
+    "sourceId": {"type": "string", "maxLength": 240},
+    "sourceUrl": {"type": "string", "format": "uri", "maxLength": 2048},
+    "title": {"type": "string", "maxLength": 240},
+    "authorDisplayName": {"type": "string", "maxLength": 160},
+    "capturedAt": {"type": "string", "format": "date-time"},
+    "metadata": {"type": "object"}
+  },
+  "x-greenfield": {
+    "fields": [
+      {"fieldId": "sourceType", "name": "sourceType", "type": "singleSelect", "label": "Source type", "required": true, "options": [{"value": "modula-post", "label": "Modula post"}, {"value": "modula-comment", "label": "Modula comment"}, {"value": "web-url", "label": "Web URL"}, {"value": "file", "label": "File"}, {"value": "manual", "label": "Manual"}]},
+      {"fieldId": "sourceId", "name": "sourceId", "type": "text", "label": "Source ID"},
+      {"fieldId": "sourceUrl", "name": "sourceUrl", "type": "url", "label": "Source URL"},
+      {"fieldId": "title", "name": "title", "type": "text", "label": "Title"},
+      {"fieldId": "authorDisplayName", "name": "authorDisplayName", "type": "text", "label": "Author"},
+      {"fieldId": "capturedAt", "name": "capturedAt", "type": "dateTime", "label": "Captured at", "required": true},
+      {"fieldId": "metadata", "name": "metadata", "type": "json", "label": "Metadata"}
+    ],
+    "searchableFields": ["title", "authorDisplayName"],
+    "filterableFields": ["sourceType"],
+    "sortableFields": ["capturedAt"],
+    "retentionPolicy": "keepOnUninstall"
+  }
+}

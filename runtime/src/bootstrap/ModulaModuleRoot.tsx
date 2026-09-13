@@ -23,6 +23,6 @@ function Surface({context: initial, host}: {context: ModuleContext; host: Host})
   return <Module context={context} host={host} lifecycle={lifecycle}/>;
 }
 export function ModulaModuleRoot(context: ModuleContext) {
-  const host = useMemo(() => createHost(context.sessionID), [context.sessionID]);
+  const host = useMemo(() => createHost(context.sessionID, context.moduleID), [context.sessionID, context.moduleID]);
   return <ModuleBoundary host={host}><Surface context={context} host={host}/></ModuleBoundary>;
 }

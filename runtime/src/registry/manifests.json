@@ -1,3 +1,41 @@
 [
-  {"id":"modula.runtime-diagnostic","name":"Runtime Diagnostic","version":"0.1.0","runtime":"react-native","entry":"diagnostic","permissions":["navigation.open","haptics.selection","diagnostics.ready","diagnostics.fail"],"minHostVersion":"0.1.0","minBridgeVersion":"0.1.0"}
+  {
+    "id": "modula.runtime-diagnostic",
+    "name": "Runtime Diagnostic",
+    "version": "0.1.0",
+    "runtime": "react-native",
+    "entry": "diagnostic",
+    "permissions": [
+      "navigation.open",
+      "haptics.selection",
+      "diagnostics.ready",
+      "diagnostics.fail"
+    ],
+    "minHostVersion": "0.1.0",
+    "minBridgeVersion": "0.1.0"
+  },
+  {
+    "id": "digital.modula.vault-notes",
+    "name": "Vault Notes",
+    "version": "1.7.0",
+    "runtime": "react-native",
+    "entry": "vault",
+    "permissions": [
+      "navigation.open",
+      "haptics.selection",
+      "diagnostics.ready",
+      "diagnostics.dataReady",
+      "diagnostics.fail",
+      "backend.records.list",
+      "backend.records.get",
+      "backend.records.create",
+      "backend.records.update",
+      "backend.records.delete"
+    ],
+    "collections": [
+      "note"
+    ],
+    "minHostVersion": "0.1.0",
+    "minBridgeVersion": "0.1.0"
+  }
 ]

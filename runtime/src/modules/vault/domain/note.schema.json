@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://modula.digital/modules/vault-notes/schemas/note-1.0.0.json",
+  "title": "Vault Note",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["title", "document", "plainTextProjection", "tagIds", "pinned", "favourite", "archived", "dataSchemaVersion"],
+  "properties": {
+    "id": {"type": "string", "minLength": 1, "maxLength": 120},
+    "title": {"type": "string", "minLength": 1, "maxLength": 240},
+    "document": {"type": "object"},
+    "plainTextProjection": {"type": "string", "maxLength": 200000},
+    "folderId": {"type": "string", "maxLength": 120},
+    "tagIds": {"type": "array", "items": {"type": "string", "maxLength": 120}, "maxItems": 100},
+    "pinned": {"type": "boolean"},
+    "favourite": {"type": "boolean"},
+    "archived": {"type": "boolean"},
+    "source": {"$ref": "./saved-source.schema.json"},
+    "revision": {"type": "integer", "minimum": 1},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"},
+    "deletedAt": {"type": "string", "format": "date-time"},
+    "dataSchemaVersion": {"const": "1.0.0"}
+  },
+  "x-greenfield": {
+    "fields": [
+      {"fieldId": "title", "name": "title", "type": "text", "label": "Title", "required": true},
+      {"fieldId": "document", "name": "document", "type": "json", "label": "Document", "required": true},
+      {"fieldId": "plainTextProjection", "name": "plainTextProjection", "type": "multilineText", "label": "Plain text", "required": true},
+      {"fieldId": "folderId", "name": "folderId", "type": "recordReference", "label": "Folder"},
+      {"fieldId": "tagIds", "name": "tagIds", "type": "tags", "label": "Tags"},
+      {"fieldId": "pinned", "name": "pinned", "type": "boolean", "label": "Pinned"},
+      {"fieldId": "favourite", "name": "favourite", "type": "boolean", "label": "Favourite"},
+      {"fieldId": "archived", "name": "archived", "type": "boolean", "label": "Archived"},
+      {"fieldId": "source", "name": "source", "type": "json", "label": "Source"},
+      {"fieldId": "dataSchemaVersion", "name": "dataSchemaVersion", "type": "text", "label": "Data schema", "required": true}
+    ],
+    "searchableFields": ["title", "plainTextProjection", "tagIds"],
+    "filterableFields": ["folderId", "tagIds", "pinned", "favourite", "archived"],
+    "sortableFields": ["createdAt", "updatedAt", "title"],
+    "folderField": "folderId",
+    "referenceFields": ["folderId", "tagIds"],
+    "retentionPolicy": "keepOnUninstall"
+  }
+}
