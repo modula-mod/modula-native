@@ -47,12 +47,55 @@ final class N2ShellUITests: XCTestCase {
 
         app.buttons["Home"].tap()
         app.buttons["Settings"].firstMatch.tap()
-        app.buttons["Appearance"].tap()
+        app.buttons["Appearance"].firstMatch.tap()
         XCTAssertTrue(app.descendants(matching: .any)["settings.appearance"].waitForExistence(timeout: 5))
         let appearanceStart = ContinuousClock.now
         app.buttons["Violet"].tap()
         XCTAssertTrue(app.staticTexts["Native design contract v1"].exists)
         print("N2_METRIC appearance_update_ms=\(appearanceStart.duration(to: .now).milliseconds)")
+    }
+}
+
+@MainActor
+final class N2PolishAccessibilityUITests: XCTestCase {
+    func testLoopingRailAccessoryAndCompactChromeRemainReachable() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--runtime-unavailable", "--reset-appearance", "--ui-light", "--ui-compact"]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 10))
+        for identifier in ["tab.home", "tab.discover", "tab.modules", "tab.activity", "tab.profile", "accessory.search", "accessory.more"] {
+            let element = app.descendants(matching: .any)[identifier]
+            XCTAssertTrue(element.exists, "Missing shell control \(identifier)")
+            XCTAssertTrue(element.isHittable, "Unreachable shell control \(identifier)")
+        }
+
+        app.buttons["Modules"].firstMatch.tap()
+        XCTAssertEqual(app.descendants(matching: .any)["native.home"].value as? String, "/home/modules")
+        app.buttons["Following"].firstMatch.tap()
+        XCTAssertEqual(app.descendants(matching: .any)["native.home"].value as? String, "/home/following")
+
+        app.descendants(matching: .any)["accessory.more"].tap()
+        XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Appearance"].exists)
+    }
+
+    func testLargeDynamicTypeReducedTransparencyAndOLEDHaveStableLandmarks() {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--runtime-unavailable", "--reset-appearance", "--ui-oled", "--ui-large-text", "--ui-reduce-transparency",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityExtraExtraLarge"
+        ]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["Settings"].firstMatch.isHittable)
+        XCTAssertTrue(app.descendants(matching: .any)["tab.home"].isHittable)
+        XCTAssertTrue(app.buttons["For You"].firstMatch.isHittable)
+        app.descendants(matching: .any)["accessory.more"].tap()
+        app.buttons["Appearance"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["settings.appearance"].waitForExistence(timeout: 6))
+        XCTAssertTrue(app.staticTexts["Native design contract v1"].exists)
     }
 }
 

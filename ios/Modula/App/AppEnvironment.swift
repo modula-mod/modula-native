@@ -11,7 +11,20 @@ final class AppEnvironment {
     let catalogue: ProductHubStore
     let auth: AuthenticationStore
     init() {
-        if ProcessInfo.processInfo.arguments.contains("--reset-appearance") { appearance.reset() }
+        let launchArguments = ProcessInfo.processInfo.arguments
+        if launchArguments.contains("--reset-appearance") { appearance.reset() }
+        #if DEBUG
+        // Deterministic visual-acceptance overrides still flow through the sole
+        // AppearanceStore authority; production builds expose no test surface.
+        if launchArguments.contains("--ui-light") { appearance.theme = .light }
+        if launchArguments.contains("--ui-standard-dark") { appearance.theme = .dark; appearance.darkStyle = .standard }
+        if launchArguments.contains("--ui-dim") { appearance.theme = .dark; appearance.darkStyle = .dim }
+        if launchArguments.contains("--ui-oled") { appearance.theme = .dark; appearance.darkStyle = .oled }
+        if launchArguments.contains("--ui-compact") { appearance.density = .compact }
+        if launchArguments.contains("--ui-large-text") { appearance.textSize = .large }
+        if launchArguments.contains("--ui-higher-contrast") { appearance.contrastTransparency = .higherContrast }
+        if launchArguments.contains("--ui-reduce-transparency") { appearance.contrastTransparency = .reduceTransparency }
+        #endif
         let url = (Bundle.main.object(forInfoDictionaryKey: "ModulaAPIURL") as? String).flatMap(URL.init(string:))
         client = GreenfieldClient(baseURL: url)
         catalogue = ProductHubStore(client: client)
