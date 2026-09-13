@@ -38,6 +38,13 @@ struct ModuleHost: View {
             ToolbarItem(placement: .topBarTrailing) { Button("Close", systemImage: "xmark") { app.navigation.close() } }
             #if DEBUG
             ToolbarItem(placement: .bottomBar) { Text("Runtime: \(app.runtime.initializationCount) · \(session?.state.rawValue ?? "idle")").font(.caption).accessibilityIdentifier("runtime.status") }
+            ToolbarItem(placement: .bottomBar) {
+                Menu("Test appearance", systemImage: "circle.lefthalf.filled") {
+                    Button("Use Light Appearance") { app.settings.appearance = .light }
+                    Button("Use Dark Appearance") { app.settings.appearance = .dark }
+                    Button("Use OLED Appearance") { app.settings.appearance = .oled }
+                }
+            }
             #endif
         }
         .onAppear { if session == nil || session?.isValid == false { session = app.runtime.prepare(moduleID: moduleID, environment: appearance) } }

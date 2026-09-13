@@ -23,8 +23,12 @@ final class ModuleSession: Identifiable {
     var error: String?
     let startedAt = ContinuousClock.now
     var loadMilliseconds: Double?
+    var dataReadyMilliseconds: Double?
     var isValid = true
-    init(manifest: ModuleManifest, environment: ModuleEnvironment) {
+    let accountID: String?
+    var expiresAt = Date().addingTimeInterval(15 * 60)
+    init(manifest: ModuleManifest, environment: ModuleEnvironment, accountID: String? = nil) {
+        self.accountID = accountID
         self.manifest = manifest
         self.environment = environment
     }

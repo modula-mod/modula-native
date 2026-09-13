@@ -12,6 +12,7 @@ struct RootView: View {
                     case .home: HomeView()
                     case .productHub: ProductHubView()
                     case .profile(let id): ProfileView(userID: id)
+                    case .account: SignInView()
                     case .settings: SettingsView()
                     case .post: ContentUnavailableView("Post", systemImage: "text.bubble")
                     case .product: ProductHubView()
@@ -19,6 +20,8 @@ struct RootView: View {
                     }
                 }
         }
+        .onAppear { app.runtime.markNativeUsable() }
+        .task { await app.auth.restore() }
         .onChange(of: scenePhase) { previous, phase in
             if phase == .active {
                 if previous == .background { app.runtime.lifecycle("foregrounded") }

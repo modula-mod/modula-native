@@ -4,6 +4,7 @@ import UIKit
 import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
+import Darwin
 
 @MainActor @Observable
 final class ModuleRuntimeController {
@@ -15,7 +16,17 @@ final class ModuleRuntimeController {
     private(set) var lastSession: ModuleSession?
     private(set) var memoryWarnings = 0
     private(set) var initializationMilliseconds: Double?
+    private(set) var nativeUsableMilliseconds: Double?
+    private(set) var memoryBeforeRuntimeMB: Double?
+    private(set) var memoryWithModuleMB: Double?
+    private(set) var memoryAfterCloseMB: Double?
+    private(set) var firstVaultDataReadyMilliseconds: Double?
+    private(set) var firstRuntimeReadyMilliseconds: Double?
+    private(set) var vaultMountMilliseconds: [Double] = []
     private(set) var manifests: [ModuleManifest] = []
+    private(set) var accountID: String?
+    private(set) var lastRejectedAction: String?
+    private let processStartedUptime = ProcessInfo.processInfo.systemUptime
     var state: String { factory == nil ? "uninitialized" : "initialized" }
 
     init() {
@@ -28,15 +39,41 @@ final class ModuleRuntimeController {
     func prepare(moduleID: String, environment: ModuleEnvironment) -> ModuleSession? {
         guard let manifest = manifests.first(where: { $0.id == moduleID }), manifest.runtime == "react-native",
               manifest.minBridgeVersion == Self.bridgeVersion, manifest.minHostVersion == "0.1.0" else { return nil }
-        let session = ModuleSession(manifest: manifest, environment: environment)
-        ModulaLog.runtime.debug("Preparing surface \(session.id, privacy: .public)")
+        let session = ModuleSession(manifest: manifest, environment: environment, accountID: accountID)
+        ModulaLog.runtime.debug("Preparing module surface")
         sessions[session.id] = session
         lastSession = session
+        if ProcessInfo.processInfo.arguments.contains("--runtime-unavailable") ||
+            Bundle.main.url(forResource: "main", withExtension: "jsbundle") == nil {
+            session.state = .unavailable
+            session.error = "The module bundle is unavailable."
+        }
         return session
     }
 
+    func setAccount(_ id: String?) {
+        guard id != accountID else { return }
+        revokeAll()
+        accountID = id
+    }
+    func revokeAll() {
+        for session in Array(sessions.values) {
+            fail(session, message: "This module session ended. Close and reopen after signing in.")
+            unmount(session)
+        }
+    }
+    func authorize(_ session: ModuleSession) -> Bool {
+        session.isValid && session.expiresAt > Date() && sessions[session.id] === session && session.accountID == accountID
+    }
+    func reject(_ reason: String) { lastRejectedAction = reason }
+
+    func markNativeUsable() {
+        guard nativeUsableMilliseconds == nil else { return }
+        nativeUsableMilliseconds = (ProcessInfo.processInfo.systemUptime - processStartedUptime) * 1_000
+    }
+
     func makeSurface(_ session: ModuleSession) -> UIView? {
-        ModulaLog.runtime.debug("Creating surface \(session.id, privacy: .public), valid \(session.isValid)")
+        ModulaLog.runtime.debug("Creating module surface, valid \(session.isValid)")
         guard session.isValid else { return nil }
         guard !ProcessInfo.processInfo.arguments.contains("--runtime-unavailable"),
               Bundle.main.url(forResource: "main", withExtension: "jsbundle") != nil else {
@@ -46,6 +83,7 @@ final class ModuleRuntimeController {
         }
         if factory == nil {
             session.state = .startingRuntime
+            memoryBeforeRuntimeMB = residentMemoryMB()
             let start = ContinuousClock.now
             let delegate = RuntimeDelegate()
             delegate.dependencyProvider = RCTAppDependencyProvider()
@@ -56,11 +94,7 @@ final class ModuleRuntimeController {
             ModulaLog.runtime.info("Runtime factory initialized")
         }
         session.state = .loadingModule
-        let props: [String: Any] = [
-            "sessionID": session.id, "moduleID": session.manifest.id,
-            "bridgeVersion": Self.bridgeVersion, "environment": session.environment.dictionary,
-            "userID": NSNull()
-        ]
+        let props = initialProperties(for: session)
         let view = factory?.rootViewFactory.view(withModuleName: "ModulaModuleRoot", initialProperties: props)
         Task { [weak self, weak session] in
             try? await Task.sleep(for: .seconds(20))
@@ -70,10 +104,23 @@ final class ModuleRuntimeController {
         return view
     }
 
+    func initialProperties(for session: ModuleSession) -> [String: Any] {
+        [
+            "sessionID": session.id, "moduleID": session.manifest.id,
+            "bridgeVersion": Self.bridgeVersion, "environment": session.environment.dictionary,
+            "userID": session.accountID as Any? ?? NSNull()
+        ]
+    }
+
     func ready(_ session: ModuleSession) {
         guard session.isValid, session.state == .loadingModule else { return }
         session.state = .ready
         session.loadMilliseconds = session.startedAt.duration(to: .now).milliseconds
+        if firstRuntimeReadyMilliseconds == nil { firstRuntimeReadyMilliseconds = session.loadMilliseconds }
+        if session.manifest.id == "digital.modula.vault-notes", let duration = session.loadMilliseconds {
+            vaultMountMilliseconds.append(duration)
+        }
+        memoryWithModuleMB = residentMemoryMB()
         emit("active", session: session)
         ModulaLog.runtime.info("Module ready in \(session.loadMilliseconds ?? 0) ms")
     }
@@ -81,12 +128,20 @@ final class ModuleRuntimeController {
         session.state = .failed
         session.error = message
     }
+    func dataReady(_ session: ModuleSession) {
+        guard authorize(session), session.state == .ready else { return }
+        session.dataReadyMilliseconds = session.startedAt.duration(to: .now).milliseconds
+        if session.manifest.id == "digital.modula.vault-notes", firstVaultDataReadyMilliseconds == nil {
+            firstVaultDataReadyMilliseconds = session.dataReadyMilliseconds
+        }
+    }
     func unmount(_ session: ModuleSession) {
-        ModulaLog.runtime.debug("Unmounting surface \(session.id, privacy: .public)")
+        ModulaLog.runtime.debug("Unmounting module surface")
         guard session.isValid else { return }
         emit("unmounted", session: session)
         session.isValid = false
         sessions.removeValue(forKey: session.id)
+        memoryAfterCloseMB = residentMemoryMB()
         if session.state != .failed { session.state = .idle }
     }
     func update(_ environment: ModuleEnvironment, session: ModuleSession) {
@@ -107,6 +162,17 @@ final class ModuleRuntimeController {
         guard let data = try? JSONSerialization.data(withJSONObject: payload), let wire = String(data: data, encoding: .utf8) else { return }
         NotificationCenter.default.post(name: Notification.Name("ModulaHostEvent"), object: wire)
     }
+}
+
+private func residentMemoryMB() -> Double? {
+    var info = mach_task_basic_info()
+    var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info_data_t>.size / MemoryLayout<natural_t>.size)
+    let result = withUnsafeMutablePointer(to: &info) { pointer in
+        pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { rebound in
+            task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), rebound, &count)
+        }
+    }
+    return result == KERN_SUCCESS ? Double(info.resident_size) / 1_048_576 : nil
 }
 
 private final class RuntimeDelegate: RCTDefaultReactNativeFactoryDelegate {

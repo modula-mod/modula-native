@@ -24,3 +24,5 @@ export function validateManifest(manifest: ModuleManifest): void {
       || !manifest.entry || !compatibleVersion('0.1.0', manifest.minHostVersion)
       || !compatibleVersion(BRIDGE_VERSION, manifest.minBridgeVersion)) throw new Error('Incompatible module manifest');
 }
+
+export type HostAction = 'navigation.open' | 'haptics.selection' | 'diagnostics.ready' | 'diagnostics.dataReady' | 'diagnostics.fail' | 'backend.records.list' | 'backend.records.get' | 'backend.records.create' | 'backend.records.update' | 'backend.records.delete';

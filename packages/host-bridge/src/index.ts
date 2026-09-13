@@ -1,9 +1,9 @@
 import NativeHost from './specs/NativeModulaHost';
-import {BRIDGE_VERSION, type HostEvent} from '@modula/module-contracts';
-export function createHost(sessionID: string) {
+import {BRIDGE_VERSION, type HostEvent, type HostAction} from '@modula/module-contracts';
+export function createHost(sessionID: string, moduleID: string) {
   return {
-    async request<T = unknown>(action: string, params: Record<string, unknown> = {}): Promise<T> {
-      const wire = await NativeHost.request(JSON.stringify({version: BRIDGE_VERSION, sessionID, action, params}));
+    async request<T = unknown>(action: HostAction, params: Record<string, unknown> = {}): Promise<T> {
+      const wire = await NativeHost.request(JSON.stringify({version: BRIDGE_VERSION, sessionID, moduleID, action, params}));
       const result = JSON.parse(wire) as {ok: boolean; data?: T; error?: {code: string; message: string}};
       if (!result.ok) throw new Error(result.error?.message ?? 'Host request rejected');
       return result.data as T;

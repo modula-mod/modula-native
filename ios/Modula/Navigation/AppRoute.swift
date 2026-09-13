@@ -7,5 +7,6 @@ enum AppRoute: Hashable {
     case post(String)
     case product(String)
     case module(String)
+    case account
     case settings
 }

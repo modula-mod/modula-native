@@ -5,6 +5,7 @@ struct SettingsView: View {
     var body: some View {
         @Bindable var settings = app.settings
         Form {
+            Section { Button("Account") { app.navigation.open(.account) } }
             Section("Appearance") {
                 Picker("Color scheme", selection: $settings.appearance) {
                     ForEach(SettingsStore.Appearance.allCases, id: \.self) { value in
