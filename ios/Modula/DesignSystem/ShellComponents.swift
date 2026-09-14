@@ -6,13 +6,13 @@ struct ModulaBottomChrome: View {
     let route: AppRoute
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             ModulaTabAccessory(route: route)
             ModulaTabBar()
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
-        .padding(.bottom, 7)
+        .padding(.horizontal, 10)
+        .padding(.top, 5)
+        .padding(.bottom, 5)
     }
 }
 
@@ -31,7 +31,7 @@ struct ModulaTabBar: View {
                 } label: {
                     VStack(spacing: 3) {
                         Image(systemName: selected ? tab.selectedIcon : tab.icon)
-                            .font(.system(size: 18, weight: selected ? .semibold : .medium))
+                            .font(.system(size: 17, weight: selected ? .semibold : .medium))
                             .symbolEffect(.bounce, value: selected)
                         Text(tab.title)
                             .font(.caption2.weight(selected ? .semibold : .medium))
@@ -39,7 +39,7 @@ struct ModulaTabBar: View {
                             .minimumScaleFactor(0.78)
                     }
                     .foregroundStyle(selected ? app.appearance.accent.color : .secondary)
-                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .frame(maxWidth: .infinity, minHeight: 46)
                     .background {
                         if selected {
                             Capsule()
@@ -56,8 +56,8 @@ struct ModulaTabBar: View {
                 .accessibilityIdentifier("tab.\(tab.rawValue)")
             }
         }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 5)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
         .frame(maxWidth: 560)
         .modulaChrome(in: Capsule(), opaque: reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency)
         .shadow(color: .black.opacity(0.11), radius: 16, y: 8)
@@ -73,22 +73,25 @@ struct ModulaTabBar: View {
 /// not expose contextual modes: the edge rail remains their only selector.
 struct ModulaTabAccessory: View {
     let route: AppRoute
+    var nativeHosted = false
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Image(systemName: context.symbol)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(app.appearance.accent.color)
-                .frame(width: 28, height: 28)
+                .frame(width: 26, height: 26)
                 .background(app.appearance.accent.color.opacity(0.12), in: Circle())
+                .contentTransition(.symbolEffect(.replace))
             VStack(alignment: .leading, spacing: 0) {
                 Text(context.eyebrow)
-                    .font(.caption2.weight(.semibold))
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(0.5)
                     .foregroundStyle(.secondary)
                 Text(context.title)
-                    .font(.caption.weight(.semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .lineLimit(1)
             }
             Spacer(minLength: 6)
@@ -98,16 +101,34 @@ struct ModulaTabAccessory: View {
             } label: {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 15, weight: .semibold))
-                    .frame(width: 34, height: 34)
+                    .frame(width: 32, height: 32)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Search Modula")
             .accessibilityIdentifier("accessory.search")
             Menu {
-                Button("Settings", systemImage: "gearshape") { app.navigation.open(.settings(.root)) }
-                Button("Appearance", systemImage: "paintpalette") { app.navigation.open(.settings(.appearance(.root))) }
-                Button("Share Modula", systemImage: "square.and.arrow.up") {
-                    PresentationCoordinator.present(.share(route), in: app.navigation)
+                Section("Quick Access") {
+                    Button("Settings", systemImage: "gearshape") { app.navigation.open(.settings(.root)) }
+                    Button("Appearance", systemImage: "paintpalette") { app.navigation.open(.settings(.appearance(.root))) }
+                    Button("Account", systemImage: "person.crop.circle") {
+                        app.navigation.open(app.auth.account == nil ? .auth(.login) : .settings(.account(.root)))
+                    }
+                }
+                Section("Modules") {
+                    Button("Product Hub", systemImage: "shippingbox") { app.navigation.open(.productHub(.featured)) }
+                    Button("Installed Modules", systemImage: "checkmark.circle") {
+                        app.navigation.open(.productHub(.collection(.installed)))
+                    }
+                    Button("Updates", systemImage: "arrow.triangle.2.circlepath") {
+                        app.navigation.open(.productHub(.collection(.updates)))
+                    }
+                }
+                Section("Privacy & Information") {
+                    Button("Privacy & Security", systemImage: "lock.shield") { app.navigation.open(.settings(.privacy(.root))) }
+                    Button("About Modula", systemImage: "info.circle") { app.navigation.open(.settings(.about(.root))) }
+                    Button("Share Modula", systemImage: "square.and.arrow.up") {
+                        PresentationCoordinator.present(.share(route), in: app.navigation)
+                    }
                 }
                 #if DEBUG
                 Divider()
@@ -116,18 +137,21 @@ struct ModulaTabAccessory: View {
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 16, weight: .bold))
-                    .frame(width: 34, height: 34)
+                    .frame(width: 32, height: 32)
             }
             .accessibilityLabel("More")
             .accessibilityIdentifier("accessory.more")
         }
-        .padding(.leading, 8)
-        .padding(.trailing, 5)
-        .padding(.vertical, 4)
-        .frame(maxWidth: 330, minHeight: 44)
-        .modulaChrome(in: Capsule(), opaque: reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency)
-        .shadow(color: .black.opacity(0.08), radius: 12, y: 6)
+        .padding(.leading, nativeHosted ? 2 : 7)
+        .padding(.trailing, nativeHosted ? 2 : 4)
+        .frame(maxWidth: nativeHosted ? .infinity : 310, minHeight: 38)
+        .modulaAccessorySurface(
+            nativeHosted: nativeHosted,
+            opaque: reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
+        )
         .dynamicTypeSize(...DynamicTypeSize.large)
+        .contentTransition(.interpolate)
+        .animation(.snappy(duration: 0.28), value: context.title)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("tab.accessory")
     }
@@ -159,10 +183,10 @@ struct ModulaRailShape: Shape {
         set { revealProgress = newValue }
     }
 
-    func path(in rect: CGRect) -> Path {
+    nonisolated func path(in rect: CGRect) -> Path {
         let p = min(max(revealProgress, 0), 1)
-        let shoulder = 25 + (p * 8)
-        let waist = 9 - (p * 2)
+        let shoulder = 22 + (p * 8)
+        let waist = 8 - (p * 2)
         var path = Path()
         path.move(to: CGPoint(x: rect.maxX, y: rect.minY))
         path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
@@ -205,10 +229,10 @@ struct ModulaContextRail: View {
     var interaction: Interaction = .idle
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var revealedID: String?
     @State private var collapseTask: Task<Void, Never>?
     @GestureState private var dragOffset: CGFloat = 0
+    @Namespace private var selectionMorph
 
     private var items: [Item] {
         switch route {
@@ -259,8 +283,6 @@ struct ModulaContextRail: View {
     private var isRevealed: Bool { revealedID == selectedID }
     private var selectedHeight: CGFloat { isRevealed ? 96 : 46 }
     private var railHeight: CGFloat { (46 * 2) + selectedHeight + (12 * 2) + 20 }
-    private var opaque: Bool { reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency }
-
     var body: some View {
         let shape = ModulaRailShape(revealProgress: isRevealed ? 1 : 0)
         VStack(spacing: 12) {
@@ -269,12 +291,11 @@ struct ModulaContextRail: View {
             }
         }
         .padding(.vertical, 10)
-        .padding(.horizontal, 6)
-        .frame(width: 62, height: railHeight)
+        .padding(.horizontal, 4)
+        .frame(width: 54, height: railHeight)
+        .offset(x: 2)
         .offset(y: dragOffset * 0.28)
-        .background(opaque ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(.regularMaterial), in: shape)
-        .overlay(shape.stroke(.primary.opacity(opaque ? 0.15 : 0.08), lineWidth: 0.75))
-        .shadow(color: .black.opacity(opaque ? 0.08 : 0.16), radius: 20, x: -7, y: 8)
+        .background(Color.black.opacity(0.93), in: shape)
         .contentShape(Rectangle().inset(by: -12))
         .gesture(reelGesture)
         .accessibilityElement(children: .contain)
@@ -300,8 +321,7 @@ struct ModulaContextRail: View {
         Button { select(item) } label: {
             Group {
                 if selected && isRevealed {
-                    Label(item.title, systemImage: item.symbol)
-                        .labelStyle(.titleAndIcon)
+                    Text(item.title)
                         .font(.caption2.weight(.bold))
                         .fixedSize()
                         .rotationEffect(.degrees(-90))
@@ -314,7 +334,13 @@ struct ModulaContextRail: View {
             }
             .foregroundStyle(selected ? Color.white : Color.primary.opacity(0.68))
             .frame(width: 46, height: selected ? selectedHeight : 46)
-            .background(selected ? app.appearance.accent.color : Color.clear, in: Capsule())
+            .background {
+                if selected {
+                    Capsule()
+                        .fill(app.appearance.accent.color)
+                        .matchedGeometryEffect(id: "rail.selection", in: selectionMorph)
+                }
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -365,6 +391,17 @@ private extension View {
             self
                 .background(opaque ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(.regularMaterial), in: shape)
                 .overlay(shape.stroke(.primary.opacity(opaque ? 0.14 : 0.08), lineWidth: 0.75))
+        }
+    }
+
+    @ViewBuilder
+    func modulaAccessorySurface(nativeHosted: Bool, opaque: Bool) -> some View {
+        if nativeHosted {
+            self
+        } else {
+            self
+                .modulaChrome(in: Capsule(), opaque: opaque)
+                .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
         }
     }
 }

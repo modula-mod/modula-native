@@ -68,7 +68,7 @@ struct ProfileView: View {
         }
         .modulaCanvas()
         .navigationTitle("Profile")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
         .accessibilityIdentifier("profile.\(section.rawValue)")
     }
 

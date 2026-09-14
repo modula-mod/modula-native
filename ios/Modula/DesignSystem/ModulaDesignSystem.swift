@@ -96,7 +96,18 @@ private struct ModulaCanvasModifier: ViewModifier {
     @Environment(\.colorScheme) private var scheme
     func body(content: Content) -> some View { content.scrollContentBackground(.hidden).background(ModulaPalette.resolve(app.appearance, scheme: scheme).canvas) }
 }
-extension View { func modulaCanvas() -> some View { modifier(ModulaCanvasModifier()) } }
+extension View {
+    func modulaCanvas() -> some View { modifier(ModulaCanvasModifier()) }
+
+    @ViewBuilder
+    func modulaMinimizedSearchToolbar() -> some View {
+        if #available(iOS 26.0, *) {
+            searchToolbarBehavior(.minimize)
+        } else {
+            self
+        }
+    }
+}
 struct ModulaListRow: View { var title: String; var subtitle: String?; var symbol: String; var action: (() -> Void)?; var body: some View { Button { action?() } label: { HStack(spacing: 14) { Image(systemName: symbol).frame(width: 28).foregroundStyle(.tint); VStack(alignment: .leading, spacing: 2) { Text(title).font(.body.weight(.medium)); if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary) } }; Spacer(); if action != nil { Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) } }.frame(minHeight: 48).contentShape(Rectangle()) }.buttonStyle(.plain).disabled(action == nil).accessibilityLabel(title).accessibilityValue(subtitle ?? "") } }
 struct ModulaSection<Content: View>: View { var title: String; @ViewBuilder var content: Content; var body: some View { VStack(alignment: .leading, spacing: 12) { Text(title).font(.headline); content }.frame(maxWidth: .infinity, alignment: .leading) } }
 struct ModulaSearchField: View { @Binding var text: String; var prompt = "Search"; var body: some View { TextField(prompt, text: $text).textFieldStyle(.plain).padding(.horizontal, 14).frame(minHeight: 44).background(.thinMaterial, in: Capsule()).accessibilityLabel(prompt) } }

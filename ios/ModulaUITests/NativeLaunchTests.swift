@@ -20,7 +20,7 @@ final class N2ShellUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Discover"].waitForExistence(timeout: 5))
         print("N2_METRIC tab_switch_ms=\(tabStart.duration(to: .now).milliseconds)")
         let hubStart = ContinuousClock.now
-        app.buttons["tab.modules"].tap()
+        app.tabBars.firstMatch.buttons["Modules"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["product-hub"].waitForExistence(timeout: 10))
         signInFixtureIfNeeded(app)
 
@@ -64,7 +64,14 @@ final class N2PolishAccessibilityUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 10))
-        for identifier in ["tab.home", "tab.discover", "tab.modules", "tab.activity", "tab.profile", "accessory.search", "accessory.more"] {
+        let tabBar = app.tabBars.firstMatch
+        XCTAssertTrue(tabBar.exists)
+        for title in ["Home", "Discover", "Modules", "Activity", "Profile"] {
+            let element = tabBar.buttons[title]
+            XCTAssertTrue(element.exists, "Missing native tab \(title)")
+            XCTAssertTrue(element.isHittable, "Unreachable native tab \(title)")
+        }
+        for identifier in ["accessory.search", "accessory.more"] {
             let element = app.descendants(matching: .any)[identifier]
             XCTAssertTrue(element.exists, "Missing shell control \(identifier)")
             XCTAssertTrue(element.isHittable, "Unreachable shell control \(identifier)")
@@ -72,6 +79,7 @@ final class N2PolishAccessibilityUITests: XCTestCase {
 
         app.buttons["Modules"].firstMatch.tap()
         XCTAssertEqual(app.descendants(matching: .any)["native.home"].value as? String, "/home/modules")
+        attachScreenshot(app, name: "edge-rail-revealed-loop-state")
         app.buttons["Following"].firstMatch.tap()
         XCTAssertEqual(app.descendants(matching: .any)["native.home"].value as? String, "/home/following")
 
@@ -90,12 +98,34 @@ final class N2PolishAccessibilityUITests: XCTestCase {
 
         XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["Settings"].firstMatch.isHittable)
-        XCTAssertTrue(app.descendants(matching: .any)["tab.home"].isHittable)
+        XCTAssertTrue(app.tabBars.firstMatch.buttons["Home"].isHittable)
         XCTAssertTrue(app.buttons["For You"].firstMatch.isHittable)
         app.descendants(matching: .any)["accessory.more"].tap()
         app.buttons["Appearance"].firstMatch.tap()
         XCTAssertTrue(app.descendants(matching: .any)["settings.appearance"].waitForExistence(timeout: 6))
         XCTAssertTrue(app.staticTexts["Native design contract v1"].exists)
+    }
+
+    func testNativeTabMinimizationAndSettingsLargeTitle() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--runtime-unavailable", "--reset-appearance", "--ui-dim"]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 10))
+        app.swipeUp()
+        attachScreenshot(app, name: "home-native-tab-minimized")
+
+        app.buttons["Settings"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["settings.root"].waitForExistence(timeout: 6))
+        XCTAssertTrue(app.navigationBars["Settings"].exists)
+        attachScreenshot(app, name: "settings-large-title-and-search")
+    }
+
+    private func attachScreenshot(_ app: XCUIApplication, name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 }
 

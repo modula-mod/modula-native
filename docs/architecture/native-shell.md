@@ -2,9 +2,9 @@
 
 The Modula application shell is SwiftUI. It owns Home, Discover, Product Hub, Activity, Profile, Search, composer presentation, Settings, Appearance, navigation, shell chrome, native module detail, and `ModuleHost`. React Native begins only below `ModuleHost`.
 
-The five frozen destinations are Home, Discover, Modules, Activity, and Profile. Modules maps to `/product-hub/featured`; Profile maps to `/me`. A native `TabView` retains one `NavigationStack` per destination while `ModulaTabBar` supplies the visible global navigation. `NavigationCoordinator` preserves each stack and contextual root independently.
+The five frozen destinations are Home, Discover, Modules, Activity, and Profile. Modules maps to `/product-hub/featured`; Profile maps to `/me`. A native `TabView` retains one `NavigationStack` per destination and supplies the visible global navigation on iOS 26 and later. It uses the system `tabViewBottomAccessory` and `onScrollDown` minimization, allowing the selected tab and accessory to morph into compact native chrome. `ModulaTabBar` and `ModulaBottomChrome` remain the iOS 18 fallback. `NavigationCoordinator` preserves each stack and contextual root independently.
 
-`ModulaBottomChrome` gives the tab bar a separate attached accessory. The tab bar remains navigation-only and always contains the same five destinations. The accessory summarizes the current area and exposes truthful Search, Settings, Appearance, Share, and development-catalog entry points through compact buttons and a More menu. It never duplicates the contextual mode routes owned by the right rail.
+The tab bar remains navigation-only and always contains the same five destinations. Its separate accessory summarizes the current area and exposes truthful Search, Settings, Appearance, account, Product Hub, privacy, information, sharing, and development-catalog entry points through compact buttons and a sectioned More menu. It never duplicates the contextual mode routes owned by the right rail.
 
 `ShellChromePolicy` is the only route-to-chrome decision point. Feature views must not invent tab bars, rails, or route-specific shell conditionals. `PresentationCoordinator` owns shell-level sheets and banners. Platform sheets use native presentation semantics.
 

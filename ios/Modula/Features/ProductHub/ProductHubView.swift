@@ -268,25 +268,9 @@ struct ProductHubView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
-                HStack(alignment: .firstTextBaseline) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Product Hub").font(.largeTitle.bold())
-                        Text("Native modules, grounded in catalogue truth.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Menu {
-                        Button("Installed", systemImage: "checkmark.circle") { app.navigation.open(.productHub(.collection(.installed))) }
-                        Button("Updates", systemImage: "arrow.triangle.2.circlepath") { app.navigation.open(.productHub(.collection(.updates))) }
-                        Button("Module Settings", systemImage: "gearshape") { app.navigation.open(.settings(.modules(.root))) }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .frame(width: 44, height: 44)
-                    }
-                    .accessibilityLabel("Product Hub menu")
-                }
-                ModulaSearchField(text: $query, prompt: "Search the Product Hub")
+                Text("Native modules, grounded in catalogue truth.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                 sessionState
                 catalogueContent
             }
@@ -296,7 +280,25 @@ struct ProductHubView: View {
         }
         .refreshable { await app.catalogue.load() }
         .navigationTitle("Product Hub")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $query, prompt: "Search Product Hub")
+        .modulaMinimizedSearchToolbar()
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Section("Library") {
+                        Button("Installed", systemImage: "checkmark.circle") { app.navigation.open(.productHub(.collection(.installed))) }
+                        Button("Updates", systemImage: "arrow.triangle.2.circlepath") { app.navigation.open(.productHub(.collection(.updates))) }
+                    }
+                    Section("Manage") {
+                        Button("Module Settings", systemImage: "gearshape") { app.navigation.open(.settings(.modules(.root))) }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                }
+                .accessibilityLabel("Product Hub menu")
+            }
+        }
         .accessibilityIdentifier("product-hub")
         .modulaCanvas()
     }

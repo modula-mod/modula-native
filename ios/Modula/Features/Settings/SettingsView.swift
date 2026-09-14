@@ -110,54 +110,81 @@ struct SettingsRouteView: View {
 
 struct SettingsView: View {
     @Environment(AppEnvironment.self) private var app
+    @State private var query = ""
 
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Settings").font(.largeTitle.bold())
-                    Text("One native home for identity, preferences, and modules.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                SettingsGroup(title: "You") {
-                    VStack(spacing: 0) {
-                        SettingsNavigationRow(title: "Account", subtitle: app.auth.account?.primaryHandle ?? "Sign in and personal information", symbol: "person.crop.circle") {
-                            app.navigation.open(app.auth.account == nil ? .auth(.login) : .settings(.account(.root)))
-                        }
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Appearance", subtitle: "Theme, type, motion and module branding", symbol: "paintpalette") {
-                            app.navigation.open(.settings(.appearance(.root)))
+                if query.isEmpty {
+                    SettingsGroup(title: "You", subtitle: "Identity and the way Modula feels on this device.") {
+                        VStack(spacing: 0) {
+                            SettingsNavigationRow(title: "Account", subtitle: app.auth.account?.primaryHandle ?? "Sign in and personal information", symbol: "person.crop.circle") {
+                                app.navigation.open(app.auth.account == nil ? .auth(.login) : .settings(.account(.root)))
+                            }
+                            SettingsDivider()
+                            SettingsNavigationRow(title: "Appearance", subtitle: "Theme, type, motion and module branding", symbol: "paintpalette") {
+                                app.navigation.open(.settings(.appearance(.root)))
+                            }
                         }
                     }
-                }
-                SettingsGroup(title: "Preferences") {
-                    VStack(spacing: 0) {
-                        category("Notifications", "bell", .notifications(.root)); SettingsDivider()
-                        category("Privacy & Security", "lock.shield", .privacy(.root)); SettingsDivider()
-                        category("Modules", "shippingbox", .modules(.root)); SettingsDivider()
-                        category("Data & Storage", "internaldrive", .dataStorage(.root)); SettingsDivider()
-                        category("Accessibility", "accessibility", .accessibility(.root)); SettingsDivider()
-                        category("Features", "switch.2", .features(.root)); SettingsDivider()
-                        category("Updates", "arrow.triangle.2.circlepath", .updates(.root))
+                    SettingsGroup(title: "Quick Controls", subtitle: "Common destinations, grouped without adding new settings state.") {
+                        ControlGroup {
+                            Button { app.navigation.open(.settings(.appearance(.root))) } label: {
+                                Label("Appearance", systemImage: "paintpalette")
+                            }
+                            Button { app.navigation.open(.settings(.privacy(.root))) } label: {
+                                Label("Privacy", systemImage: "lock.shield")
+                            }
+                            Button { app.navigation.open(.settings(.modules(.root))) } label: {
+                                Label("Modules", systemImage: "shippingbox")
+                            }
+                        }
+                        .controlSize(.large)
+                        .frame(maxWidth: .infinity)
                     }
-                }
-                SettingsGroup(title: "Modula") {
-                    VStack(spacing: 0) {
-                        category("About", "info.circle", .about(.root))
-                        #if DEBUG
-                        SettingsDivider()
-                        category("Developer", "hammer", .developer(.root))
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Component Catalog", subtitle: "Canonical native visual reference", symbol: "square.grid.3x3") {
-                            app.navigation.open(.developer(.components))
+                    SettingsGroup(title: "Preferences") {
+                        VStack(spacing: 0) {
+                            category("Notifications", "Push, activity and quiet hours", "bell", .notifications(.root)); SettingsDivider()
+                            category("Privacy & Security", "Security, app lock and blocked accounts", "lock.shield", .privacy(.root)); SettingsDivider()
+                            category("Modules", moduleSummary, "shippingbox", .modules(.root)); SettingsDivider()
+                            category("Data & Storage", "Downloads, cache, backup and export", "internaldrive", .dataStorage(.root)); SettingsDivider()
+                            category("Accessibility", "Text, contrast and motion", "accessibility", .accessibility(.root)); SettingsDivider()
+                            category("Features", "Enabled and experimental capabilities", "switch.2", .features(.root)); SettingsDivider()
+                            category("Updates", "Version and update preferences", "arrow.triangle.2.circlepath", .updates(.root))
                         }
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Runtime diagnostics", subtitle: "N1 runtime and memory evidence", symbol: "stethoscope") {
-                            app.navigation.open(.settings(.developer(.runtime)))
+                    }
+                    SettingsGroup(title: "Modula", subtitle: versionSummary) {
+                        VStack(spacing: 0) {
+                            category("About", "Version, acknowledgements and legal information", "info.circle", .about(.root))
+                            #if DEBUG
+                            SettingsDivider()
+                            category("Developer", "Native shell, bridge and feature diagnostics", "hammer", .developer(.root))
+                            SettingsDivider()
+                            SettingsNavigationRow(title: "Component Catalog", subtitle: "Canonical native visual reference", symbol: "square.grid.3x3") {
+                                app.navigation.open(.developer(.components))
+                            }
+                            SettingsDivider()
+                            SettingsNavigationRow(title: "Runtime diagnostics", subtitle: "N1 runtime and memory evidence", symbol: "stethoscope") {
+                                app.navigation.open(.settings(.developer(.runtime)))
+                            }
+                            .accessibilityIdentifier("settings.runtime")
+                            #endif
                         }
-                        .accessibilityIdentifier("settings.runtime")
-                        #endif
+                    }
+                } else {
+                    SettingsGroup(title: "Results", subtitle: "Matches settings names and descriptions.") {
+                        VStack(spacing: 0) {
+                            ForEach(Array(filteredSearchItems.enumerated()), id: \.element.id) { index, item in
+                                SettingsNavigationRow(title: item.title, subtitle: item.subtitle, symbol: item.symbol) {
+                                    app.navigation.open(.settings(item.route))
+                                }
+                                if index < filteredSearchItems.count - 1 { SettingsDivider() }
+                            }
+                            if filteredSearchItems.isEmpty {
+                                ContentUnavailableView.search(text: query)
+                                    .frame(minHeight: 220)
+                            }
+                        }
                     }
                 }
             }
@@ -167,12 +194,80 @@ struct SettingsView: View {
         }
         .modulaCanvas()
         .navigationTitle("Settings")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $query, prompt: "Search Settings")
+        .modulaMinimizedSearchToolbar()
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Section("Shortcuts") {
+                        Button("Appearance", systemImage: "paintpalette") { app.navigation.open(.settings(.appearance(.root))) }
+                        Button("Privacy & Security", systemImage: "lock.shield") { app.navigation.open(.settings(.privacy(.root))) }
+                        Button("Module Settings", systemImage: "shippingbox") { app.navigation.open(.settings(.modules(.root))) }
+                    }
+                    Section("Information") {
+                        Button("About Modula", systemImage: "info.circle") { app.navigation.open(.settings(.about(.root))) }
+                        Label("Runtime: \(app.runtime.state.capitalized)", systemImage: "memorychip")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                }
+                .accessibilityLabel("Settings menu")
+            }
+        }
         .accessibilityIdentifier("settings.root")
     }
 
-    private func category(_ title: String, _ symbol: String, _ route: SettingsRoute) -> some View {
-        SettingsNavigationRow(title: title, subtitle: nil, symbol: symbol) { app.navigation.open(.settings(route)) }
+    private var moduleSummary: String {
+        let count = app.catalogue.installedIDs.count
+        return "\(count) installed · permissions and updates"
+    }
+
+    private var versionSummary: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+        return "Version \(version) (\(build)) · native SwiftUI shell"
+    }
+
+    private var searchItems: [SettingsSearchItem] {
+        [
+            .init("Account", "Sign-in and personal information", "person.crop.circle", .account(.root)),
+            .init("Appearance", "Theme, type, motion, haptics and app icon", "paintpalette", .appearance(.root)),
+            .init("Notifications", "Push, activity and quiet hours", "bell", .notifications(.root)),
+            .init("Privacy & Security", "Security, app lock and blocked accounts", "lock.shield", .privacy(.root)),
+            .init("Modules", moduleSummary, "shippingbox", .modules(.root)),
+            .init("Data & Storage", "Downloads, cache, backup and export", "internaldrive", .dataStorage(.root)),
+            .init("Accessibility", "Text, contrast and motion", "accessibility", .accessibility(.root)),
+            .init("Features", "Enabled and experimental capabilities", "switch.2", .features(.root)),
+            .init("Updates", "Version and update preferences", "arrow.triangle.2.circlepath", .updates(.root)),
+            .init("About", versionSummary, "info.circle", .about(.root))
+        ]
+    }
+
+    private var filteredSearchItems: [SettingsSearchItem] {
+        searchItems.filter { item in
+            item.title.localizedCaseInsensitiveContains(query) || item.subtitle.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    private func category(_ title: String, _ subtitle: String, _ symbol: String, _ route: SettingsRoute) -> some View {
+        SettingsNavigationRow(title: title, subtitle: subtitle, symbol: symbol) { app.navigation.open(.settings(route)) }
+    }
+}
+
+private struct SettingsSearchItem: Identifiable {
+    let id: String
+    let title: String
+    let subtitle: String
+    let symbol: String
+    let route: SettingsRoute
+
+    init(_ title: String, _ subtitle: String, _ symbol: String, _ route: SettingsRoute) {
+        id = title
+        self.title = title
+        self.subtitle = subtitle
+        self.symbol = symbol
+        self.route = route
     }
 }
 
@@ -339,7 +434,14 @@ struct AppearancePreviewScreen: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 AppearancePreviewView()
-                ModulaSection(title: "Navigation") { ModulaBottomChrome(route: .home(.following)) }
+                ModulaSection(title: "Navigation accessory") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ModulaTabAccessory(route: .home(.following))
+                        Text("The live system tab bar remains visible below and minimizes with this accessory while scrolling.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 ModulaSection(title: "Rail") { HStack { Spacer(); ModulaContextRail(route: .home(.following)) } }
                 ModulaSection(title: "Module sample") {
                     ModulaCard {
@@ -463,7 +565,14 @@ struct ComponentCatalogView: View {
                 if let product = app.catalogue.product("digital.modula.vault-notes") {
                     catalog("Product Hub") { VStack { ProductHero(product: product) {}; ProductCard(product: product, installed: true) {} } }
                 }
-                catalog("Global navigation & accessory") { ModulaBottomChrome(route: .home(.following)) }
+                catalog("Global navigation accessory") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ModulaTabAccessory(route: .home(.following))
+                        Text("The five-item native tab bar is the live shell chrome below this catalog.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 catalog("Looping context rail") { HStack { Spacer(); ModulaContextRail(route: .home(.following)) } }
             }
             .padding(18)

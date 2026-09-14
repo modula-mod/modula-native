@@ -112,7 +112,7 @@ struct HomeView: View {
         }
         .modulaCanvas()
         .navigationTitle("Modula")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { app.navigation.open(.settings(.root)) } label: { Image(systemName: "gearshape") }
@@ -147,13 +147,6 @@ struct DiscoverView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Discover").font(.largeTitle.bold())
-                    Text("People, ideas, and modules—when they are ready.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                ModulaSearchField(text: $query, prompt: "People, posts, topics, modules")
                 ModulaCard {
                     VStack(alignment: .leading, spacing: 10) {
                         ModulaBadge(title: section.rawValue.capitalized, symbol: "safari")
@@ -168,7 +161,43 @@ struct DiscoverView: View {
         }
         .modulaCanvas()
         .navigationTitle("Discover")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $query, prompt: "People, posts, topics, modules")
+        .modulaMinimizedSearchToolbar()
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    ForEach(DiscoverRoute.allCases, id: \.self) { destination in
+                        Button(display(destination.rawValue), systemImage: discoverSymbol(destination)) {
+                            appNavigation(destination)
+                        }
+                    }
+                } label: {
+                    Image(systemName: "line.3.horizontal.decrease")
+                }
+                .accessibilityLabel("Discover sections")
+            }
+        }
+    }
+
+    @Environment(AppEnvironment.self) private var app
+
+    private func appNavigation(_ destination: DiscoverRoute) {
+        app.navigation.replaceContext(with: .discover(destination))
+    }
+
+    private func display(_ value: String) -> String {
+        value.replacingOccurrences(of: "-", with: " ").capitalized
+    }
+
+    private func discoverSymbol(_ route: DiscoverRoute) -> String {
+        switch route {
+        case .trending: "chart.line.uptrend.xyaxis"
+        case .people: "person.2"
+        case .topics: "number"
+        case .posts: "text.bubble"
+        case .modules: "shippingbox"
+        }
     }
 }
 
@@ -178,12 +207,6 @@ struct ActivityView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Activity").font(.largeTitle.bold())
-                    Text("A quiet place for what needs your attention.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
                 ModulaCard {
                     ModulaEmptyState(
                         title: display(mode.rawValue),
@@ -197,7 +220,7 @@ struct ActivityView: View {
         }
         .modulaCanvas()
         .navigationTitle("Activity")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
         .accessibilityIdentifier("activity.\(mode.rawValue)")
     }
 

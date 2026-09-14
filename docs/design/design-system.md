@@ -8,6 +8,6 @@ Neutral values live in `packages/design-contracts/tokens/design-contract.json`. 
 
 Material is reserved for shell chrome and presentations. Content cards use stable surfaces. Teal marks selection, focus, primary action, progress, and links where appropriate; it is not a blanket recolouring rule.
 
-On iOS 26 and later, convex floating tab and accessory capsules adopt native Liquid Glass. Reduced Transparency and the iOS 18 fallback use opaque or standard material surfaces. Nonconvex rail geometry uses clipped native material because visual testing showed that applying custom Liquid Glass to the edge-loop path can refract outside the intended footprint. Dim resolves to a deliberate blue-charcoal canvas and OLED resolves to true black.
+On iOS 26 and later, the system tab bar and bottom accessory supply native Liquid Glass and scroll minimization. Reduced Transparency and the iOS 18 fallback use opaque or standard material surfaces. The nonconvex rail is an opaque black edge cut: applying custom Liquid Glass to that path can refract outside the intended footprint and reveal a ghost of the selected icon. Dim resolves to a deliberate blue-charcoal canvas and OLED resolves to true black.
 
 Accessibility-sized page content remains fully scalable and scrollable. Compact shell labels retain the system Large visual size, matching the stable footprint of a system tab bar; their complete names remain exposed through accessibility labels and the controls preserve at least 44-point targets.

@@ -108,7 +108,7 @@ final class NativeFoundationTests: XCTestCase {
     }
 
     func testContextRailLoopShapeStaysEdgeDockedAcrossMorph() {
-        let rect = CGRect(x: 0, y: 0, width: 62, height: 236)
+        let rect = CGRect(x: 0, y: 0, width: 54, height: 236)
         for progress in [CGFloat(0), CGFloat(0.5), CGFloat(1)] {
             let bounds = ModulaRailShape(revealProgress: progress).path(in: rect).boundingRect
             XCTAssertGreaterThanOrEqual(bounds.minX, rect.minX)
