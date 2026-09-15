@@ -94,7 +94,7 @@ private struct RouteView: View {
         case .home(let mode): HomeView(mode: mode)
         case .discover: DiscoverScreen()
         case .search(let route): SearchScreen(route: route)
-        case .post: DevelopmentRouteView(title: "Post", symbol: "text.bubble")
+        case .post(let id, let section): PostDetailView(postID: id, section: section)
         case .compose(let route): ComposerFoundationView(route: route)
         case .activity(let mode): ActivityScreen(mode: mode)
         case .notification: DevelopmentRouteView(title: "Notification", symbol: "bell")
@@ -129,6 +129,8 @@ private struct PresentationView: View {
         case .activitySummary: ActivitySummarySheet()
         case .activityFilter: ActivityFilterSheet()
         case .discoverFilter: DiscoverFilterSheet()
+        case .homeSummary: HomeSummarySheet()
+        case .homeFeedTools: HomeFeedToolsSheet()
         }
     }
 }

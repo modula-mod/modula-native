@@ -50,11 +50,6 @@
 		C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */; };
 		C89812CA3410607F237A67DC /* AccountSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15D7EBEF5CC806F4A3DB8FD2 /* AccountSettingsView.swift */; };
 		DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */; };
-		E706DA503AC96378DE9BE822 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65C4B3534ABCFCD2C0AE4AB5 /* KeychainStore.swift */; };
-		EC29FF07954140DE802361CB /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 093D191569CDD66161FC3552 /* JSONValue.swift */; };
-		F280213B620AE297E6EC4D78 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE413545A422ACB4BACBB3DF /* RootView.swift */; };
-		F43AEB1A67070000A929D731 /* N1FixtureCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = C086A4FED95A41F19B257A39 /* N1FixtureCredentials.swift */; };
-		FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */; };
 		E20100000000000000000001 /* DiscoverModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000001 /* DiscoverModels.swift */; };
 		E20100000000000000000002 /* DiscoverRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000002 /* DiscoverRepository.swift */; };
 		E20100000000000000000003 /* DiscoverStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000003 /* DiscoverStore.swift */; };
@@ -65,6 +60,20 @@
 		E20100000000000000000008 /* DiscoverScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000008 /* DiscoverScreen.swift */; };
 		E20100000000000000000009 /* SearchScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000009 /* SearchScreen.swift */; };
 		E2010000000000000000000A /* DiscoverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1010000000000000000000A /* DiscoverTests.swift */; };
+		E40100000000000000000001 /* PostModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000001 /* PostModels.swift */; };
+		E40100000000000000000002 /* PostComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000002 /* PostComponents.swift */; };
+		E40100000000000000000003 /* PostDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000003 /* PostDetailView.swift */; };
+		E40100000000000000000004 /* HomeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000004 /* HomeModels.swift */; };
+		E40100000000000000000005 /* HomeRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000005 /* HomeRepository.swift */; };
+		E40100000000000000000006 /* HomeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000006 /* HomeStore.swift */; };
+		E40100000000000000000007 /* HomeTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000007 /* HomeTools.swift */; };
+		E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000008 /* ModulaProgressiveHeader.swift */; };
+		E40100000000000000000009 /* HomeFeedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000009 /* HomeFeedTests.swift */; };
+		E706DA503AC96378DE9BE822 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65C4B3534ABCFCD2C0AE4AB5 /* KeychainStore.swift */; };
+		EC29FF07954140DE802361CB /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 093D191569CDD66161FC3552 /* JSONValue.swift */; };
+		F280213B620AE297E6EC4D78 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE413545A422ACB4BACBB3DF /* RootView.swift */; };
+		F43AEB1A67070000A929D731 /* N1FixtureCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = C086A4FED95A41F19B257A39 /* N1FixtureCredentials.swift */; };
+		FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -138,10 +147,6 @@
 		DC4EF43E9E96C1202C4F7E36 /* Debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		DE7A82A7615F703ED7EFABC2 /* libPods-ModulaTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ModulaTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E0953B7C9CBB401D9F7D74DE /* ModulaColor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaColor.swift; path = DesignSystem/Tokens/ModulaColor.swift; sourceTree = "<group>"; };
-		E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeFoundationTests.swift; sourceTree = "<group>"; };
-		E490C161A4B61D0F2ED2F9CE /* Pods-ModulaTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ModulaTests.debug.xcconfig"; path = "Target Support Files/Pods-ModulaTests/Pods-ModulaTests.debug.xcconfig"; sourceTree = "<group>"; };
-		E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleHost.swift; path = ModuleRuntime/ModuleHost.swift; sourceTree = "<group>"; };
-		EECC47A5007CE1E5BB063A97 /* ShellAccessory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShellAccessory.swift; path = DesignSystem/ShellAccessory.swift; sourceTree = "<group>"; };
 		E10100000000000000000001 /* DiscoverModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverModels.swift; path = Features/Discover/DiscoverModels.swift; sourceTree = "<group>"; };
 		E10100000000000000000002 /* DiscoverRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverRepository.swift; path = Features/Discover/DiscoverRepository.swift; sourceTree = "<group>"; };
 		E10100000000000000000003 /* DiscoverStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverStore.swift; path = Features/Discover/DiscoverStore.swift; sourceTree = "<group>"; };
@@ -152,6 +157,19 @@
 		E10100000000000000000008 /* DiscoverScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverScreen.swift; path = Features/Discover/DiscoverScreen.swift; sourceTree = "<group>"; };
 		E10100000000000000000009 /* SearchScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SearchScreen.swift; path = Features/Search/SearchScreen.swift; sourceTree = "<group>"; };
 		E1010000000000000000000A /* DiscoverTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DiscoverTests.swift; sourceTree = "<group>"; };
+		E30100000000000000000001 /* PostModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostModels.swift; path = Features/Social/PostModels.swift; sourceTree = "<group>"; };
+		E30100000000000000000002 /* PostComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostComponents.swift; path = Features/Social/PostComponents.swift; sourceTree = "<group>"; };
+		E30100000000000000000003 /* PostDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostDetailView.swift; path = Features/Social/PostDetailView.swift; sourceTree = "<group>"; };
+		E30100000000000000000004 /* HomeModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeModels.swift; path = Features/Home/HomeModels.swift; sourceTree = "<group>"; };
+		E30100000000000000000005 /* HomeRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeRepository.swift; path = Features/Home/HomeRepository.swift; sourceTree = "<group>"; };
+		E30100000000000000000006 /* HomeStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeStore.swift; path = Features/Home/HomeStore.swift; sourceTree = "<group>"; };
+		E30100000000000000000007 /* HomeTools.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeTools.swift; path = Features/Home/HomeTools.swift; sourceTree = "<group>"; };
+		E30100000000000000000008 /* ModulaProgressiveHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaProgressiveHeader.swift; path = DesignSystem/ModulaProgressiveHeader.swift; sourceTree = "<group>"; };
+		E30100000000000000000009 /* HomeFeedTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeFeedTests.swift; sourceTree = "<group>"; };
+		E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeFoundationTests.swift; sourceTree = "<group>"; };
+		E490C161A4B61D0F2ED2F9CE /* Pods-ModulaTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ModulaTests.debug.xcconfig"; path = "Target Support Files/Pods-ModulaTests/Pods-ModulaTests.debug.xcconfig"; sourceTree = "<group>"; };
+		E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleHost.swift; path = ModuleRuntime/ModuleHost.swift; sourceTree = "<group>"; };
+		EECC47A5007CE1E5BB063A97 /* ShellAccessory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShellAccessory.swift; path = DesignSystem/ShellAccessory.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -204,6 +222,7 @@
 				E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */,
 				61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */,
 				E1010000000000000000000A /* DiscoverTests.swift */,
+				E30100000000000000000009 /* HomeFeedTests.swift */,
 			);
 			path = ModulaTests;
 			sourceTree = "<group>";
@@ -252,6 +271,13 @@
 				C4000338D069CCD91CB36D32 /* ModulaLog.swift */,
 				E0953B7C9CBB401D9F7D74DE /* ModulaColor.swift */,
 				46F14EB7791E789BBE2A473A /* HomeView.swift */,
+				E30100000000000000000004 /* HomeModels.swift */,
+				E30100000000000000000005 /* HomeRepository.swift */,
+				E30100000000000000000006 /* HomeStore.swift */,
+				E30100000000000000000007 /* HomeTools.swift */,
+				E30100000000000000000001 /* PostModels.swift */,
+				E30100000000000000000002 /* PostComponents.swift */,
+				E30100000000000000000003 /* PostDetailView.swift */,
 				DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */,
 				C8ECAD5355D79305D770912A /* ProfileView.swift */,
 				003916B967E1900F61DFB206 /* SettingsStore.swift */,
@@ -276,6 +302,7 @@
 				65C4B3534ABCFCD2C0AE4AB5 /* KeychainStore.swift */,
 				97029B142178008022F2424B /* ModuleBackendRequest.swift */,
 				ADB419E3CAE3BA05CB1C1E59 /* ModulaDesignSystem.swift */,
+				E30100000000000000000008 /* ModulaProgressiveHeader.swift */,
 				6C4472E61C35766446322975 /* ShellComponents.swift */,
 				69B093117E45986E847387DC /* GeneratedDesignContract.swift */,
 				15D7EBEF5CC806F4A3DB8FD2 /* AccountSettingsView.swift */,
@@ -396,8 +423,9 @@
 		EBDE83ED03DAF5CA2B5616B1 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				BuildIndependentTargetsInParallel = YES;
 				LastSwiftUpdateCheck = 1600;
-				LastUpgradeCheck = 1600;
+				LastUpgradeCheck = 2700;
 			};
 			buildConfigurationList = BB44AE672439BF39318FB933 /* Build configuration list for PBXProject "Modula" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -569,6 +597,7 @@
 				C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */,
 				FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */,
 				E2010000000000000000000A /* DiscoverTests.swift in Sources */,
+				E40100000000000000000009 /* HomeFeedTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -582,6 +611,14 @@
 				63CC3E79BDCFF0F138189C2B /* ModulaLog.swift in Sources */,
 				4750A3C17078F3B24F7D4A7E /* ModulaColor.swift in Sources */,
 				93AFDE81000E32DA131CDFB4 /* HomeView.swift in Sources */,
+				E40100000000000000000004 /* HomeModels.swift in Sources */,
+				E40100000000000000000005 /* HomeRepository.swift in Sources */,
+				E40100000000000000000006 /* HomeStore.swift in Sources */,
+				E40100000000000000000007 /* HomeTools.swift in Sources */,
+				E40100000000000000000001 /* PostModels.swift in Sources */,
+				E40100000000000000000002 /* PostComponents.swift in Sources */,
+				E40100000000000000000003 /* PostDetailView.swift in Sources */,
+				E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */,
 				DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */,
 				B9825B0168E160AB5B8411B9 /* ProfileView.swift in Sources */,
 				21638B169590129BA65823F1 /* SettingsStore.swift in Sources */,
@@ -680,6 +717,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
@@ -710,6 +748,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -741,6 +780,7 @@
 				PODFILE_DIR = "$(SRCROOT)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -869,6 +909,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
@@ -899,6 +940,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -923,6 +965,7 @@
 				PODFILE_DIR = "$(SRCROOT)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;

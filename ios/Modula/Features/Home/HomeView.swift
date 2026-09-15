@@ -1,142 +1,306 @@
 import SwiftUI
 
-private struct HomeSignalArtwork: View {
-    let mode: HomeMode
-    @Environment(AppEnvironment.self) private var app
-
-    var body: some View {
-        GeometryReader { proxy in
-            ZStack {
-                Color(hex: "#071C20")
-                Circle()
-                    .fill(app.appearance.accent.color.opacity(0.2))
-                    .frame(width: proxy.size.width * 0.82)
-                    .offset(x: proxy.size.width * 0.32, y: -proxy.size.height * 0.27)
-                Circle()
-                    .stroke(app.appearance.accent.color.opacity(0.48), lineWidth: 1)
-                    .frame(width: proxy.size.width * 0.56)
-                    .offset(x: proxy.size.width * 0.32, y: -proxy.size.height * 0.27)
-                VStack(alignment: .trailing, spacing: 10) {
-                    ForEach(0..<3, id: \.self) { index in
-                        Capsule()
-                            .fill(Color.white.opacity(index == modeIndex ? 0.72 : 0.18))
-                            .frame(width: CGFloat(34 + index * 23), height: 7)
-                    }
-                }
-                .rotationEffect(.degrees(-18))
-                .offset(x: proxy.size.width * 0.27, y: proxy.size.height * 0.17)
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                    .frame(width: proxy.size.width * 0.42, height: proxy.size.height * 0.5)
-                    .rotationEffect(.degrees(12))
-                    .offset(x: -proxy.size.width * 0.31, y: -proxy.size.height * 0.26)
-            }
-        }
-        .accessibilityHidden(true)
-    }
-
-    private var modeIndex: Int {
-        switch mode { case .following: 0; case .forYou: 1; case .modules: 2 }
-    }
-}
-
-private struct HomeHero: View {
-    let mode: HomeMode
-    let title: String
-    let subtitle: String
-
-    var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            HomeSignalArtwork(mode: mode)
-            VStack(alignment: .leading, spacing: 7) {
-                Text(subtitle.uppercased())
-                    .font(.caption.weight(.bold))
-                    .tracking(1.4)
-                    .foregroundStyle(.white.opacity(0.62))
-                Text(title)
-                    .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                    .foregroundStyle(.white)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(22)
-        }
-        .frame(height: 280)
-        .clipShape(RoundedRectangle(cornerRadius: 29, style: .continuous))
-        .accessibilityElement(children: .combine)
-    }
-}
-
 struct HomeView: View {
     let mode: HomeMode
     @Environment(AppEnvironment.self) private var app
+    @State private var headerProgress: CGFloat = 0
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 22) {
-                HomeHero(mode: mode, title: title, subtitle: subtitle)
-                ModulaSection(title: "Today") {
-                    ModulaCard {
-                        VStack(alignment: .leading, spacing: 11) {
-                            HStack {
-                                ModulaBadge(title: "Native foundation", symbol: "swift")
-                                Spacer()
-                                Text("N2").font(.caption2.weight(.bold)).foregroundStyle(.tertiary)
-                            }
-                            ModulaText(text: "Your shell is ready for what comes next.", role: .headline)
-                            Text("Feed data arrives in N3. Routing, appearance, secure module hosting, and independent destination state are already native.")
-                                .foregroundStyle(.secondary)
-                        }
+        let state = app.home.state(for: mode)
+        ZStack(alignment: .top) {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 18) {
+                    ModulaScrollProgressReader()
+                    hero
+                    quickAccessShelf
+                    if app.home.isOfflineHint && !state.items.isEmpty {
+                        offlineBanner
                     }
+                    feedContent(state)
                 }
-                ModulaSection(title: "Quick access") {
-                    ModulaCard {
-                        VStack(spacing: 0) {
-                            ModulaListRow(title: "Product Hub", subtitle: "Browse native module pages", symbol: "shippingbox") {
-                                app.navigation.open(.productHub(.featured))
-                            }
-                            Divider().padding(.leading, 42)
-                            ModulaListRow(title: "Appearance", subtitle: "Make Modula feel like yours", symbol: "paintpalette") {
-                                app.navigation.open(.settings(.appearance(.root)))
-                            }
-                            Divider().padding(.leading, 42)
-                            ModulaListRow(title: "Settings", symbol: "gearshape") {
-                                app.navigation.open(.settings(.root))
-                            }
-                        }
-                    }
-                }
+                .padding(.horizontal, ModulaLayout.contentInset)
+                .padding(.top, 4)
+                .padding(.bottom, 120)
             }
-            .padding(.horizontal, ModulaLayout.contentInset)
-            .padding(.top, 8)
-            .padding(.bottom, 26)
+            .modulaScrollProgressTracking(progress: $headerProgress)
+            .modulaSoftScrollEdge()
+            .refreshable {
+                await app.home.refresh(mode, signedIn: app.auth.isSignedIn)
+            }
+
+            ModulaProgressiveHeader(
+                largeTitle: "Modula",
+                compactTitle: "Modula",
+                progress: headerProgress
+            ) {
+                Button {
+                    app.navigation.open(.settings(.root))
+                    HapticEngine.shared.play(.navigation)
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Settings")
+            }
+
+            if state.newerAvailable {
+                newerPill
+                    .padding(.top, 96)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
         }
         .modulaCanvas()
-        .navigationTitle("Modula")
-        .navigationBarTitleDisplayMode(.large)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { app.navigation.open(.settings(.root)) } label: { Image(systemName: "gearshape") }
-                    .accessibilityLabel("Settings")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
+        .task(id: mode) {
+            await app.home.loadIfNeeded(mode, signedIn: app.auth.isSignedIn)
+        }
+        .onChange(of: app.auth.account?.accountId) { _, _ in
+            Task { await app.home.refresh(mode, signedIn: app.auth.isSignedIn) }
+        }
+        .overlay(alignment: .bottom) {
+            if let message = app.home.actionError {
+                Label(message, systemImage: "exclamationmark.triangle")
+                    .font(.footnote.weight(.semibold))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(.regularMaterial, in: Capsule())
+                    .padding(.bottom, 12)
+                    .onTapGesture { app.home.clearActionError() }
+                    .accessibilityIdentifier("home.banner")
             }
         }
         .accessibilityIdentifier("native.home")
         .accessibilityValue(RouteSerializer.serialize(.home(mode)))
     }
 
-    private var title: String {
-        switch mode {
-        case .following: "Your people, in focus."
-        case .forYou: "Fresh perspectives."
-        case .modules: "Tools in your flow."
+    private var hero: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(mode.heroSubtitle.uppercased())
+                .font(.caption.weight(.bold))
+                .tracking(1.2)
+                .foregroundStyle(.secondary)
+            Text(mode.heroTitle)
+                .font(.title2.weight(.bold))
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: 72, maxHeight: 120)
+        .padding(.top, 72)
+        .padding(.bottom, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("home.hero")
+    }
+
+    private var quickAccessShelf: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                shelfChip(title: "Product Hub", symbol: "shippingbox") {
+                    app.navigation.open(.productHub(.featured))
+                }
+                shelfChip(title: "Compose", symbol: "square.and.pencil") {
+                    app.navigation.open(.compose(.post))
+                }
+            }
+        }
+        .accessibilityIdentifier("home.shelf")
+    }
+
+    private func shelfChip(title: String, symbol: String, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            HapticEngine.shared.play(.navigation)
+        } label: {
+            Label(title, systemImage: symbol)
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(app.appearance.accent.color.opacity(0.12), in: Capsule())
+                .foregroundStyle(app.appearance.accent.color)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+    }
+
+    private var offlineBanner: some View {
+        Label("Showing cached posts", systemImage: "wifi.slash")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityIdentifier("home.offline")
+    }
+
+    private var newerPill: some View {
+        Button {
+            app.home.acknowledgeNewer(mode)
+            HapticEngine.shared.play(.selection)
+        } label: {
+            Text("New posts")
+                .font(.caption.weight(.bold))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(app.appearance.accent.color, in: Capsule())
+                .foregroundStyle(.white)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.newer")
+    }
+
+    @ViewBuilder
+    private func feedContent(_ state: HomeModeState) -> some View {
+        if mode.requiresAuth && !app.auth.isSignedIn {
+            signedOutFollowing
+        } else {
+            switch state.loadState {
+            case .loading where state.items.isEmpty:
+                skeleton
+            case .failed(let message) where state.items.isEmpty:
+                ModulaErrorState(message: message) {
+                    Task { await app.home.refresh(mode, signedIn: app.auth.isSignedIn) }
+                }
+                .padding(.top, 28)
+                .accessibilityIdentifier("home.error")
+            case _ where state.items.isEmpty:
+                emptyState
+                    .padding(.top, 20)
+            default:
+                ForEach(state.items) { post in
+                    PostCard(
+                        post: post,
+                        onOpenPost: { openPost(post) },
+                        onOpenAuthor: { openAuthor(post) },
+                        onLike: {
+                            Task { await app.home.toggleLike(post, mode: mode) }
+                        },
+                        onComment: {
+                            app.navigation.open(.post(post.id, .comments))
+                            HapticEngine.shared.play(.navigation)
+                        },
+                        onRepost: {
+                            Task { await app.home.toggleRepost(post, mode: mode) }
+                        },
+                        onSave: {
+                            Task { await app.home.toggleSave(post, mode: mode) }
+                        }
+                    )
+                    .onAppear {
+                        if post.id == state.items.suffix(3).first?.id || post.id == state.items.last?.id {
+                            Task { await app.home.loadMore(mode) }
+                        }
+                    }
+                    Divider().opacity(0.35)
+                }
+                if state.loadState == .loadingMore {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .accessibilityIdentifier("home.loading-more")
+                }
+            }
         }
     }
 
-    private var subtitle: String {
-        switch mode {
-        case .following: "Following"
-        case .forYou: "For You"
-        case .modules: "Modules"
+    private var signedOutFollowing: some View {
+        ContentUnavailableView {
+            Label("Sign in to see Following", systemImage: "person.2")
+        } description: {
+            Text("Posts from people you follow appear here after you sign in.")
+        } actions: {
+            Button("Sign In") {
+                app.navigation.requestAuthentication(returningTo: .home(.following))
+                HapticEngine.shared.play(.navigation)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(app.appearance.accent.color)
+            .accessibilityIdentifier("home.sign-in")
         }
+        .padding(.top, 24)
+    }
+
+    private var emptyState: some View {
+        Group {
+            if mode == .following && app.auth.isSignedIn {
+                ContentUnavailableView {
+                    Label("Your feed is quiet", systemImage: "moon.zzz")
+                } description: {
+                    Text("Follow people to fill your Following feed.")
+                } actions: {
+                    Button("Discover people") {
+                        app.navigation.open(.discover(.people))
+                        HapticEngine.shared.play(.navigation)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(app.appearance.accent.color)
+                    .accessibilityIdentifier("home.empty.discover")
+                }
+            } else {
+                ModulaEmptyState(
+                    title: emptyTitle,
+                    message: emptyMessage,
+                    symbol: emptySymbol
+                )
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityIdentifier("home.empty.\(mode.rawValue)")
+    }
+
+    private var emptyTitle: String {
+        switch mode {
+        case .following: "Your feed is quiet"
+        case .forYou: "Nothing ranked yet"
+        case .modules: "No module posts yet"
+        }
+    }
+
+    private var emptyMessage: String {
+        switch mode {
+        case .following: "Follow people to fill your Following feed."
+        case .forYou: "Public posts will show up here as ranking fills in."
+        case .modules: "Module updates and announcements appear in this stream."
+        }
+    }
+
+    private var emptySymbol: String {
+        switch mode {
+        case .following: "moon.zzz"
+        case .forYou: "safari"
+        case .modules: "shippingbox"
+        }
+    }
+
+    private var skeleton: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            ForEach(0..<3, id: \.self) { _ in
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 10) {
+                        Circle().fill(Color.primary.opacity(0.08)).frame(width: 36, height: 36)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Capsule().fill(Color.primary.opacity(0.08)).frame(width: 120, height: 12)
+                            Capsule().fill(Color.primary.opacity(0.06)).frame(width: 80, height: 10)
+                        }
+                    }
+                    RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.06)).frame(height: 64)
+                }
+            }
+        }
+        .padding(.top, 8)
+        .redacted(reason: .placeholder)
+        .accessibilityIdentifier("home.loading")
+    }
+
+    private func openPost(_ post: SocialPost) {
+        app.navigation.open(.post(post.id, .root))
+        HapticEngine.shared.play(.navigation)
+    }
+
+    private func openAuthor(_ post: SocialPost) {
+        guard let author = post.author else { return }
+        app.navigation.open(.profile(author.routeID, .overview))
+        HapticEngine.shared.play(.navigation)
     }
 }
-

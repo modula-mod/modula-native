@@ -85,6 +85,7 @@ final class NavigationCoordinator {
 enum AppPresentation: Identifiable, Hashable {
     case composer(ComposeRoute), share(AppRoute), filters, modulePermissions(String), appearancePicker(AppearanceSettingsRoute)
     case activitySummary, activityFilter, discoverFilter
+    case homeSummary, homeFeedTools
     var id: String { String(describing: self) }
 }
 struct ModulaBanner: Identifiable, Hashable { let id = UUID(); var message: String; var symbol: String }
