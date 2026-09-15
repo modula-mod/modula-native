@@ -10,6 +10,7 @@ final class AppEnvironment {
     let client: GreenfieldClient
     let catalogue: ProductHubStore
     let auth: AuthenticationStore
+    let activity: ActivityStore
     init() {
         let launchArguments = ProcessInfo.processInfo.arguments
         if launchArguments.contains("--reset-appearance") { appearance.reset() }
@@ -29,6 +30,7 @@ final class AppEnvironment {
         client = GreenfieldClient(baseURL: url)
         catalogue = ProductHubStore(client: client)
         auth = AuthenticationStore(client: client)
+        activity = ActivityStore(client: client)
         let catalogueStore = catalogue
         auth.onAccountChange = { [weak runtime, weak catalogueStore] account in
             runtime?.setAccount(account?.accountId)
