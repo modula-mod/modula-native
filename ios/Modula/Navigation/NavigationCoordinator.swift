@@ -8,6 +8,8 @@ final class NavigationCoordinator {
     private(set) var paths: [AppTab: [AppRoute]] = Dictionary(uniqueKeysWithValues: AppTab.allCases.map { ($0, []) })
     var presented: AppPresentation?
     var banner: ModulaBanner?
+    /// Route to restore after a successful authentication challenge.
+    private(set) var pendingReturnRoute: AppRoute?
     var currentRoute: AppRoute { paths[selectedTab]?.last ?? roots[selectedTab] ?? selectedTab.defaultRoute }
     var currentPath: String { RouteSerializer.serialize(currentRoute) }
 
@@ -37,6 +39,26 @@ final class NavigationCoordinator {
         if !paths[selectedTab, default: []].isEmpty { paths[selectedTab]?.removeLast() }
     }
     func home() { selectedTab = .home; paths[.home] = []; roots[.home] = .home(.following) }
+
+    /// Authenticated destinations call this instead of opening login ad-hoc.
+    func requestAuthentication(returningTo route: AppRoute) {
+        pendingReturnRoute = route
+        open(.auth(.login))
+    }
+
+    func completeAuthenticationReturn() {
+        // Pop auth screens from the current stack, then open the intended destination.
+        while let last = paths[selectedTab]?.last, case .auth = last {
+            paths[selectedTab]?.removeLast()
+        }
+        if let pending = pendingReturnRoute {
+            pendingReturnRoute = nil
+            open(pending)
+        } else {
+            close()
+        }
+    }
+
     private func isContextRoot(_ route: AppRoute) -> Bool {
         switch route {
         case .home, .discover, .activity, .profile, .me: true
@@ -48,6 +70,7 @@ final class NavigationCoordinator {
 
 enum AppPresentation: Identifiable, Hashable {
     case composer(ComposeRoute), share(AppRoute), filters, modulePermissions(String), appearancePicker(AppearanceSettingsRoute)
+    case activitySummary, activityFilter
     var id: String { String(describing: self) }
 }
 struct ModulaBanner: Identifiable, Hashable { let id = UUID(); var message: String; var symbol: String }
@@ -60,18 +83,81 @@ struct ShellChromePolicy: Equatable {
     enum TopBarStyle: Equatable { case standard, floating, hidden }
     var bottomBarVisible: Bool
     var contextRailVisible: Bool
+    var shellAccessoryVisible: Bool
     var topBarStyle: TopBarStyle
     var showsBack: Bool
     var showsClose: Bool
     var immersive: Bool
     var hidesForKeyboard: Bool
+
     static func policy(for route: AppRoute) -> Self {
         switch route {
-        case .module: Self(bottomBarVisible: false, contextRailVisible: false, topBarStyle: .standard, showsBack: false, showsClose: true, immersive: true, hidesForKeyboard: true)
-        case .productHub(.module): Self(bottomBarVisible: true, contextRailVisible: false, topBarStyle: .floating, showsBack: true, showsClose: false, immersive: false, hidesForKeyboard: true)
-        case .home, .activity, .profile, .me: Self(bottomBarVisible: true, contextRailVisible: true, topBarStyle: .standard, showsBack: false, showsClose: false, immersive: false, hidesForKeyboard: true)
-        case .auth, .compose: Self(bottomBarVisible: false, contextRailVisible: false, topBarStyle: .standard, showsBack: true, showsClose: false, immersive: false, hidesForKeyboard: true)
-        default: Self(bottomBarVisible: true, contextRailVisible: false, topBarStyle: .standard, showsBack: true, showsClose: false, immersive: false, hidesForKeyboard: true)
+        case .module:
+            Self(
+                bottomBarVisible: false,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .standard,
+                showsBack: false,
+                showsClose: true,
+                immersive: true,
+                hidesForKeyboard: true
+            )
+        case .productHub(.module):
+            Self(
+                bottomBarVisible: true,
+                contextRailVisible: false,
+                shellAccessoryVisible: true,
+                topBarStyle: .floating,
+                showsBack: true,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: true
+            )
+        case .home, .activity, .profile, .me:
+            Self(
+                bottomBarVisible: true,
+                contextRailVisible: true,
+                shellAccessoryVisible: true,
+                topBarStyle: .standard,
+                showsBack: false,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: true
+            )
+        case .auth, .settings(.account), .compose:
+            Self(
+                bottomBarVisible: false,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .standard,
+                showsBack: true,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: true
+            )
+        case .settings:
+            Self(
+                bottomBarVisible: true,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .standard,
+                showsBack: true,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: true
+            )
+        default:
+            Self(
+                bottomBarVisible: true,
+                contextRailVisible: false,
+                shellAccessoryVisible: true,
+                topBarStyle: .standard,
+                showsBack: true,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: true
+            )
         }
     }
 }

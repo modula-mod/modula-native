@@ -84,6 +84,7 @@ struct SettingsRouteView: View {
     var body: some View {
         switch route {
         case .root: SettingsView()
+        case .account(let accountRoute): AccountSettingsView(route: accountRoute)
         case .appearance(.appIcon): AppIconPickerView()
         case .appearance(.preview): AppearancePreviewScreen()
         case .appearance(let focus): AppearanceSettingsView(focus: focus)

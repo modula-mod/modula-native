@@ -44,16 +44,16 @@ struct RootView: View {
         if #available(iOS 26.1, *) {
             tabs(navigation: navigation)
                 .toolbar(policy.bottomBarVisible ? .visible : .hidden, for: .tabBar)
-                .tabViewBottomAccessory(isEnabled: policy.bottomBarVisible) {
-                    ModulaTabAccessory(route: navigation.currentRoute, nativeHosted: true)
+                .tabViewBottomAccessory(isEnabled: policy.shellAccessoryVisible) {
+                    ShellAccessoryHost(route: navigation.currentRoute, nativeHosted: true)
                 }
                 .tabBarMinimizeBehavior(.onScrollDown)
         } else if #available(iOS 26.0, *) {
             tabs(navigation: navigation)
                 .toolbar(policy.bottomBarVisible ? .visible : .hidden, for: .tabBar)
                 .tabViewBottomAccessory {
-                    if policy.bottomBarVisible {
-                        ModulaTabAccessory(route: navigation.currentRoute, nativeHosted: true)
+                    if policy.shellAccessoryVisible {
+                        ShellAccessoryHost(route: navigation.currentRoute, nativeHosted: true)
                     }
                 }
                 .tabBarMinimizeBehavior(.onScrollDown)
@@ -62,7 +62,7 @@ struct RootView: View {
                 .toolbar(.hidden, for: .tabBar)
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     if policy.bottomBarVisible {
-                        ModulaBottomChrome(route: navigation.currentRoute)
+                        ModulaBottomChrome(route: navigation.currentRoute, showsAccessory: policy.shellAccessoryVisible)
                     }
                 }
         }
@@ -90,13 +90,13 @@ private struct RouteView: View {
     var body: some View {
         switch route {
         case .boot: HomeView(mode: .following)
-        case .auth: SignInView()
+        case .auth(let route): AuthRouteView(route: route)
         case .home(let mode): HomeView(mode: mode)
         case .discover(let section): DiscoverView(section: section)
         case .search(let route): SearchFoundationView(route: route)
         case .post: DevelopmentRouteView(title: "Post", symbol: "text.bubble")
         case .compose(let route): ComposerFoundationView(route: route)
-        case .activity(let mode): ActivityView(mode: mode)
+        case .activity(let mode): ActivityScreen(mode: mode)
         case .notification: DevelopmentRouteView(title: "Notification", symbol: "bell")
         case .profile(let id, let section): ProfileView(userID: id, section: section)
         case .me(let section): ProfileView(userID: nil, section: section)
@@ -126,6 +126,8 @@ private struct PresentationView: View {
         case .filters: DevelopmentRouteView(title: "Filters", symbol: "line.3.horizontal.decrease.circle")
         case .modulePermissions: DevelopmentRouteView(title: "Module Permissions", symbol: "hand.raised")
         case .appearancePicker(let route): AppearanceSettingsView(focus: route)
+        case .activitySummary: ActivitySummarySheet()
+        case .activityFilter: ActivityFilterSheet()
         }
     }
 }
