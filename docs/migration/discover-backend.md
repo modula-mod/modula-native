@@ -11,7 +11,7 @@ Success envelope: `{ok:true,data,meta:{requestId,serverTime}}`. Failure: `{ok:fa
 | GET | `/v1/meta` | public | 200 | `engines` includes `search` READY; `publicRead=true` |
 | GET | `/v1/discover` | public | 200 | Discover dashboard blob (not scoped subroutes) |
 | GET | `/v1/discover/trending` and `/v1/discover/{people,topics,posts,modules}` | — | 404 | Native scopes are client taxonomy over this blob + other collections |
-| GET | `/v1/trending` `/v1/feed` `/v1/posts` `/v1/profiles` `/v1/tags` `/v1/hashtags` `/v1/topics` `/v1/suggestions` `/v1/explore` `/v1/social/*` | — | 404 | Do not call |
+| GET | `/v1/trending` `/v1/feed` `/v1/posts` `/v1/profiles` `/v1/tags` `/v1/hashtags` `/v1/topics` `/v1/suggestions` `/v1/explore` `/v1/social/*` | — | 404 | Do not call. **Home uses `/v1/feed/home` (see `home-feed-backend.md`), not bare `/v1/feed`.** |
 | GET | `/v1/search?q=` | public | 200; **400 if `q` missing/empty** | Unified search index |
 | GET | `/v1/search/{people,posts,modules,topics}` | — | 404 | Filter with `entityType`, never typed subpaths |
 | GET | `/v1/registry/products` | public | 200 | Module catalogue; `items[]`, optional `nextCursor` |
