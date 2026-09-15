@@ -46,6 +46,14 @@
 		E706DA503AC96378DE9BE822 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65C4B3534ABCFCD2C0AE4AB5 /* KeychainStore.swift */; };
 		EC29FF07954140DE802361CB /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 093D191569CDD66161FC3552 /* JSONValue.swift */; };
 		F280213B620AE297E6EC4D78 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE413545A422ACB4BACBB3DF /* RootView.swift */; };
+		C89812CA3410607F237A67DC /* AccountSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15D7EBEF5CC806F4A3DB8FD2 /* AccountSettingsView.swift */; };
+		5AF827934E990FCCD5C8DF02 /* ActivityModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D8009D43EDDFCEAF03135C2 /* ActivityModels.swift */; };
+		4154C7AA00AF7AB56F7031B3 /* ActivityRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3DC1AD1EDCCBBF93362A45C /* ActivityRepository.swift */; };
+		8792C88AC2427176A7389799 /* ActivityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BB4C8A7DBAF1068946F2678 /* ActivityStore.swift */; };
+		72C4D78F9C1D0E3C2FD3BB95 /* ActivityComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDA1C8662B298F425D5FC310 /* ActivityComponents.swift */; };
+		22CC6AB6F1DCAECE01085714 /* ActivityScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E0D5A04B04831431C46FFA /* ActivityScreen.swift */; };
+		B7E661790BD11DE3A721C204 /* ShellAccessory.swift in Sources */ = {isa = PBXBuildFile; fileRef = EECC47A5007CE1E5BB063A97 /* ShellAccessory.swift */; };
+		FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -114,6 +122,14 @@
 		E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeFoundationTests.swift; sourceTree = "<group>"; };
 		E490C161A4B61D0F2ED2F9CE /* Pods-ModulaTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ModulaTests.debug.xcconfig"; path = "Target Support Files/Pods-ModulaTests/Pods-ModulaTests.debug.xcconfig"; sourceTree = "<group>"; };
 		E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleHost.swift; path = ModuleRuntime/ModuleHost.swift; sourceTree = "<group>"; };
+		15D7EBEF5CC806F4A3DB8FD2 /* AccountSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AccountSettingsView.swift; path = Core/Authentication/AccountSettingsView.swift; sourceTree = "<group>"; };
+		7D8009D43EDDFCEAF03135C2 /* ActivityModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityModels.swift; path = Features/Activity/ActivityModels.swift; sourceTree = "<group>"; };
+		C3DC1AD1EDCCBBF93362A45C /* ActivityRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityRepository.swift; path = Features/Activity/ActivityRepository.swift; sourceTree = "<group>"; };
+		8BB4C8A7DBAF1068946F2678 /* ActivityStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityStore.swift; path = Features/Activity/ActivityStore.swift; sourceTree = "<group>"; };
+		BDA1C8662B298F425D5FC310 /* ActivityComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityComponents.swift; path = Features/Activity/ActivityComponents.swift; sourceTree = "<group>"; };
+		A5E0D5A04B04831431C46FFA /* ActivityScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityScreen.swift; path = Features/Activity/ActivityScreen.swift; sourceTree = "<group>"; };
+		EECC47A5007CE1E5BB063A97 /* ShellAccessory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShellAccessory.swift; path = DesignSystem/ShellAccessory.swift; sourceTree = "<group>"; };
+		61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityAuthTests.swift; path = ActivityAuthTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -164,6 +180,7 @@
 			isa = PBXGroup;
 			children = (
 				E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */,
+				61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */,
 			);
 			name = ModulaTests;
 			path = ModulaTests;
@@ -240,6 +257,13 @@
 				ADB419E3CAE3BA05CB1C1E59 /* ModulaDesignSystem.swift */,
 				6C4472E61C35766446322975 /* ShellComponents.swift */,
 				69B093117E45986E847387DC /* GeneratedDesignContract.swift */,
+				15D7EBEF5CC806F4A3DB8FD2 /* AccountSettingsView.swift */,
+				7D8009D43EDDFCEAF03135C2 /* ActivityModels.swift */,
+				C3DC1AD1EDCCBBF93362A45C /* ActivityRepository.swift */,
+				8BB4C8A7DBAF1068946F2678 /* ActivityStore.swift */,
+				BDA1C8662B298F425D5FC310 /* ActivityComponents.swift */,
+				A5E0D5A04B04831431C46FFA /* ActivityScreen.swift */,
+				EECC47A5007CE1E5BB063A97 /* ShellAccessory.swift */,
 			);
 			name = Modula;
 			path = Modula;
@@ -517,6 +541,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */,
+				FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -554,6 +579,13 @@
 				20DD2162957F75B8920F2E80 /* ModulaDesignSystem.swift in Sources */,
 				4D06B1162F85CC39C781DF95 /* ShellComponents.swift in Sources */,
 				9B142191BFBCE380907C8378 /* GeneratedDesignContract.swift in Sources */,
+				C89812CA3410607F237A67DC /* AccountSettingsView.swift in Sources */,
+				5AF827934E990FCCD5C8DF02 /* ActivityModels.swift in Sources */,
+				4154C7AA00AF7AB56F7031B3 /* ActivityRepository.swift in Sources */,
+				8792C88AC2427176A7389799 /* ActivityStore.swift in Sources */,
+				72C4D78F9C1D0E3C2FD3BB95 /* ActivityComponents.swift in Sources */,
+				22CC6AB6F1DCAECE01085714 /* ActivityScreen.swift in Sources */,
+				B7E661790BD11DE3A721C204 /* ShellAccessory.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

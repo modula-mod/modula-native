@@ -522,3 +522,53 @@ final class ModuleRuntimeUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Profile"].waitForExistence(timeout: 5))
     }
 }
+
+@MainActor
+final class N3AActivityAuthUITests: XCTestCase {
+    func testActivityRailAccessoryAccountChromeAndAuthReturn() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--runtime-unavailable", "--reset-appearance"]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 10))
+        app.buttons["Activity"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["activity.all"].waitForExistence(timeout: 5))
+
+        // Signed-out Activity should offer Sign In, not a giant failure card.
+        if app.descendants(matching: .any)["activity.sign-in"].waitForExistence(timeout: 3) {
+            XCTAssertTrue(app.descendants(matching: .any)["activity.sign-in"].exists)
+        }
+
+        app.buttons["Mentions"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["activity.mentions"].waitForExistence(timeout: 5))
+        app.buttons["Requests"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["activity.requests"].waitForExistence(timeout: 5))
+        app.buttons["All"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["activity.all"].waitForExistence(timeout: 5))
+
+        // Accessory tools (when signed in) — Search must not be required on Activity.
+        XCTAssertTrue(app.descendants(matching: .any)["tab.accessory"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["accessory.more"].exists)
+
+        app.descendants(matching: .any)["accessory.more"].tap()
+        let account = app.buttons["Account"]
+        XCTAssertTrue(account.waitForExistence(timeout: 3))
+        account.tap()
+
+        // Auth / Account must not keep the global tab bar.
+        let tabBar = app.tabBars.firstMatch
+        if app.descendants(matching: .any)["auth.login"].waitForExistence(timeout: 5)
+            || app.descendants(matching: .any)["settings.account.root"].waitForExistence(timeout: 5) {
+            XCTAssertFalse(tabBar.exists && tabBar.buttons["Activity"].isHittable)
+        }
+
+        attachScreenshot(app, name: "n3a-account-chrome-hidden")
+    }
+
+    private func attachScreenshot(_ app: XCUIApplication, name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}

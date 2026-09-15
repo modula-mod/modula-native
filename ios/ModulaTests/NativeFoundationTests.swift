@@ -105,6 +105,10 @@ final class NativeFoundationTests: XCTestCase {
         XCTAssertEqual(coordinator.path(for: .modules), [.productHub(.module("digital.modula.vault-notes", .overview))])
         XCTAssertFalse(ShellChromePolicy.policy(for: .module("digital.modula.vault-notes", localPath: nil)).bottomBarVisible)
         XCTAssertTrue(ShellChromePolicy.policy(for: .home(.following)).contextRailVisible)
+        XCTAssertFalse(ShellChromePolicy.policy(for: .auth(.login)).bottomBarVisible)
+        XCTAssertFalse(ShellChromePolicy.policy(for: .settings(.account(.root))).bottomBarVisible)
+        XCTAssertFalse(ShellChromePolicy.policy(for: .settings(.account(.root))).shellAccessoryVisible)
+        XCTAssertTrue(ShellChromePolicy.policy(for: .activity(.all)).shellAccessoryVisible)
     }
 
     func testContextRailLoopShapeStaysEdgeDockedAcrossMorph() {
