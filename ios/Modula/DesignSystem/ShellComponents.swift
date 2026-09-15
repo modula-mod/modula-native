@@ -109,20 +109,20 @@ struct ModulaContextRail: View {
         return [items[(selectedIndex - 1 + count) % count], items[selectedIndex], items[(selectedIndex + 1) % count]]
     }
     private var isRevealed: Bool { revealedID == selectedID }
-    private var selectedHeight: CGFloat { isRevealed ? 88 : 42 }
-    private var railHeight: CGFloat { (42 * 2) + selectedHeight + (10 * 2) + 16 }
+    private var selectedHeight: CGFloat { isRevealed ? 72 : 38 }
+    private var railHeight: CGFloat { (38 * 2) + selectedHeight + (8 * 2) + 14 }
 
     var body: some View {
         let shape = ModulaRailShape(revealProgress: isRevealed ? 1 : 0)
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             ForEach(Array(orderedItems.enumerated()), id: \.element.id) { index, item in
                 railButton(item, selected: index == 1)
             }
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 3)
-        .frame(width: 48, height: railHeight)
-        .offset(x: 1)
+        .padding(.vertical, 7)
+        .padding(.horizontal, 2)
+        .frame(width: 44, height: railHeight)
+        .offset(x: 0)
         .offset(y: dragOffset * 0.28)
         .background(Color.black.opacity(0.93), in: shape)
         .contentShape(Rectangle().inset(by: -12))
@@ -162,11 +162,11 @@ struct ModulaContextRail: View {
                 }
             }
             .foregroundStyle(selected ? Color.white : Color.primary.opacity(0.68))
-            .frame(width: 42, height: selected ? selectedHeight : 42)
+            .frame(width: 38, height: selected ? selectedHeight : 38)
             .background {
                 if selected {
                     Capsule()
-                        .fill(app.appearance.accent.color)
+                        .fill(app.appearance.accent.color.opacity(isRevealed ? 1 : 0.92))
                         .matchedGeometryEffect(id: "rail.selection", in: selectionMorph)
                 }
             }
@@ -175,7 +175,7 @@ struct ModulaContextRail: View {
         .buttonStyle(.plain)
         .frame(minWidth: 44, minHeight: 44)
         .opacity(selected ? 1 : 0.72)
-        .scaleEffect(selected ? 1 : 0.9)
+        .scaleEffect(selected ? 1 : 0.88)
         .accessibilityLabel(item.title)
         .accessibilityValue(selected ? "Selected" : "")
         .accessibilityAddTraits(selected ? .isSelected : [])

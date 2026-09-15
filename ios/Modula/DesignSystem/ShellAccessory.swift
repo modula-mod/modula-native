@@ -36,7 +36,17 @@ struct ShellAccessoryConfiguration: Equatable {
                 showsMore: true
             )
         case .home:
-            return Self(title: "Home", symbol: "sparkles", actions: [], showsSearch: true, showsMore: true)
+            return Self(
+                title: "Tools",
+                symbol: "house",
+                actions: [
+                    ShellAccessoryAction(id: "compose", title: "Compose", symbol: "square.and.pencil", enabled: true, accessibilityIdentifier: "accessory.compose"),
+                    ShellAccessoryAction(id: "summary", title: "Summary", symbol: "sparkles", enabled: true, accessibilityIdentifier: "accessory.summary"),
+                    ShellAccessoryAction(id: "tools", title: "Tools", symbol: "slider.horizontal.3", enabled: true, accessibilityIdentifier: "accessory.tools")
+                ],
+                showsSearch: false,
+                showsMore: false
+            )
         case .discover:
             return Self(
                 title: "Tools",
@@ -185,8 +195,17 @@ struct ShellAccessoryHost: View {
     private func perform(_ action: ShellAccessoryAction) {
         HapticEngine.shared.play(.selection)
         switch action.id {
+        case "compose":
+            app.navigation.open(.compose(.post))
+            HapticEngine.shared.play(.navigation)
         case "summary":
-            PresentationCoordinator.present(.activitySummary, in: app.navigation)
+            if case .home = route {
+                PresentationCoordinator.present(.homeSummary, in: app.navigation)
+            } else {
+                PresentationCoordinator.present(.activitySummary, in: app.navigation)
+            }
+        case "tools":
+            PresentationCoordinator.present(.homeFeedTools, in: app.navigation)
         case "filter":
             if case .activity = route {
                 PresentationCoordinator.present(.activityFilter, in: app.navigation)
@@ -204,6 +223,11 @@ struct ShellAccessoryHost: View {
             if case .discover(let scope) = route {
                 Task {
                     await app.discover.refresh(scope)
+                    HapticEngine.shared.play(.confirmation)
+                }
+            } else if case .home(let mode) = route {
+                Task {
+                    await app.home.refresh(mode, signedIn: app.auth.isSignedIn)
                     HapticEngine.shared.play(.confirmation)
                 }
             }
