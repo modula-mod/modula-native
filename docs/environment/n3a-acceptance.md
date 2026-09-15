@@ -1,7 +1,8 @@
 # N3A acceptance notes
 
-Branch: `phase-n3a-ios-activity-auth`
+Branch: `cursor/phase-n3a-ios-activity-auth-54cd`
 Baseline: `main` @ `af1956f` (N2 `75e4b3a` tagged `native-n2`)
+Final HEAD: `97f04af`
 
 ## Implemented in-repo
 
