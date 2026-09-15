@@ -67,10 +67,11 @@ struct ActivityScreen: View {
                 case .loading where state.events.isEmpty:
                     skeleton
                 case .failed(let message) where state.events.isEmpty:
-                    ModulaErrorState(title: "Couldn't load activity", message: message) {
+                    ModulaErrorState(message: message) {
                         Task { await app.activity.refresh(mode, signedIn: true) }
                     }
                     .padding(.top, 40)
+                    .accessibilityIdentifier("activity.error")
                 case _ where state.events.isEmpty:
                     empty
                         .padding(.top, 28)
@@ -250,22 +251,3 @@ struct ActivityFilterSheet: View {
     }
 }
 
-/// Lightweight recoverable error used by Activity.
-struct ModulaErrorState: View {
-    var title: String
-    var message: String
-    var retry: () -> Void
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "wifi.exclamationmark")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-            Text(title).font(.headline)
-            Text(message).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
-            Button("Try Again", action: retry)
-                .buttonStyle(.bordered)
-        }
-        .frame(maxWidth: .infinity)
-        .accessibilityIdentifier("activity.error")
-    }
-}

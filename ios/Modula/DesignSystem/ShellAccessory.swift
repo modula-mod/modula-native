@@ -17,6 +17,7 @@ struct ShellAccessoryConfiguration: Equatable {
     var showsSearch: Bool
     var showsMore: Bool
 
+    @MainActor
     static func configuration(for route: AppRoute, activity: ActivityStore?, signedIn: Bool) -> Self {
         switch route {
         case .activity(let mode):
