@@ -1,178 +1,5 @@
 import SwiftUI
 
-/// Shell-owned bottom chrome. The accessory contains contextual navigation and
-/// actions; the five destinations remain the only tab-bar items.
-struct ModulaBottomChrome: View {
-    let route: AppRoute
-
-    var body: some View {
-        VStack(spacing: 6) {
-            ModulaTabAccessory(route: route)
-            ModulaTabBar()
-        }
-        .padding(.horizontal, 10)
-        .padding(.top, 5)
-        .padding(.bottom, 5)
-    }
-}
-
-struct ModulaTabBar: View {
-    @Environment(AppEnvironment.self) private var app
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    var body: some View {
-        @Bindable var navigation = app.navigation
-        HStack(spacing: 2) {
-            ForEach(AppTab.allCases) { tab in
-                let selected = navigation.selectedTab == tab
-                Button {
-                    navigation.select(tab)
-                    HapticEngine.shared.play(.navigation)
-                } label: {
-                    VStack(spacing: 3) {
-                        Image(systemName: selected ? tab.selectedIcon : tab.icon)
-                            .font(.system(size: 17, weight: selected ? .semibold : .medium))
-                            .symbolEffect(.bounce, value: selected)
-                        Text(tab.title)
-                            .font(.caption2.weight(selected ? .semibold : .medium))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.78)
-                    }
-                    .foregroundStyle(selected ? app.appearance.accent.color : .secondary)
-                    .frame(maxWidth: .infinity, minHeight: 46)
-                    .background {
-                        if selected {
-                            Capsule()
-                                .fill(app.appearance.accent.color.opacity(0.11))
-                                .padding(.horizontal, 3)
-                                .padding(.vertical, 2)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(tab.title)
-                .accessibilityAddTraits(selected ? .isSelected : [])
-                .accessibilityIdentifier("tab.\(tab.rawValue)")
-            }
-        }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 4)
-        .frame(maxWidth: 560)
-        .modulaChrome(in: Capsule(), opaque: reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency)
-        .shadow(color: .black.opacity(0.11), radius: 16, y: 8)
-        // System tab bars keep compact labels at accessibility sizes; the full
-        // names remain available to VoiceOver through each button label.
-        .dynamicTypeSize(...DynamicTypeSize.large)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Global navigation")
-    }
-}
-
-/// A small attached accessory for truthful shell actions. It deliberately does
-/// not expose contextual modes: the edge rail remains their only selector.
-struct ModulaTabAccessory: View {
-    let route: AppRoute
-    var nativeHosted = false
-    @Environment(AppEnvironment.self) private var app
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: context.symbol)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(app.appearance.accent.color)
-                .frame(width: 26, height: 26)
-                .background(app.appearance.accent.color.opacity(0.12), in: Circle())
-                .contentTransition(.symbolEffect(.replace))
-            VStack(alignment: .leading, spacing: 0) {
-                Text(context.eyebrow)
-                    .font(.system(size: 9, weight: .bold))
-                    .tracking(0.5)
-                    .foregroundStyle(.secondary)
-                Text(context.title)
-                    .font(.system(size: 12, weight: .semibold))
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 6)
-            Button {
-                app.navigation.open(.search(.root(nil)))
-                HapticEngine.shared.play(.navigation)
-            } label: {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(width: 32, height: 32)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Search Modula")
-            .accessibilityIdentifier("accessory.search")
-            Menu {
-                Section("Quick Access") {
-                    Button("Settings", systemImage: "gearshape") { app.navigation.open(.settings(.root)) }
-                    Button("Appearance", systemImage: "paintpalette") { app.navigation.open(.settings(.appearance(.root))) }
-                    Button("Account", systemImage: "person.crop.circle") {
-                        app.navigation.open(app.auth.account == nil ? .auth(.login) : .settings(.account(.root)))
-                    }
-                }
-                Section("Modules") {
-                    Button("Product Hub", systemImage: "shippingbox") { app.navigation.open(.productHub(.featured)) }
-                    Button("Installed Modules", systemImage: "checkmark.circle") {
-                        app.navigation.open(.productHub(.collection(.installed)))
-                    }
-                    Button("Updates", systemImage: "arrow.triangle.2.circlepath") {
-                        app.navigation.open(.productHub(.collection(.updates)))
-                    }
-                }
-                Section("Privacy & Information") {
-                    Button("Privacy & Security", systemImage: "lock.shield") { app.navigation.open(.settings(.privacy(.root))) }
-                    Button("About Modula", systemImage: "info.circle") { app.navigation.open(.settings(.about(.root))) }
-                    Button("Share Modula", systemImage: "square.and.arrow.up") {
-                        PresentationCoordinator.present(.share(route), in: app.navigation)
-                    }
-                }
-                #if DEBUG
-                Divider()
-                Button("Component Catalog", systemImage: "square.grid.3x3") { app.navigation.open(.developer(.components)) }
-                #endif
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 16, weight: .bold))
-                    .frame(width: 32, height: 32)
-            }
-            .accessibilityLabel("More")
-            .accessibilityIdentifier("accessory.more")
-        }
-        .padding(.leading, nativeHosted ? 2 : 7)
-        .padding(.trailing, nativeHosted ? 2 : 4)
-        .frame(maxWidth: nativeHosted ? .infinity : 310, minHeight: 38)
-        .modulaAccessorySurface(
-            nativeHosted: nativeHosted,
-            opaque: reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
-        )
-        .dynamicTypeSize(...DynamicTypeSize.large)
-        .contentTransition(.interpolate)
-        .animation(.snappy(duration: 0.28), value: context.title)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("tab.accessory")
-    }
-
-    private var context: (eyebrow: String, title: String, symbol: String) {
-        switch route {
-        case .home(let mode): return ("HOME", display(mode.rawValue), "sparkles")
-        case .discover: return ("DISCOVER", "Explore Modula", "safari")
-        case .search: return ("DISCOVER", "Search", "magnifyingglass")
-        case .productHub: return ("MODULES", "Product Hub", "shippingbox")
-        case .activity(let mode): return ("ACTIVITY", display(mode.rawValue), "bell")
-        case .profile(_, let section), .me(let section): return ("PROFILE", display(section.rawValue), "person.crop.circle")
-        default: return ("MODULA", "Quick Access", "m.circle")
-        }
-    }
-
-    private func display(_ value: String) -> String {
-        value.replacingOccurrences(of: "-", with: " ").capitalized
-    }
-}
-
 /// The edge silhouette follows the Camera Control-inspired reference: a stable
 /// right edge and one continuous concave-to-convex loop on the content side.
 struct ModulaRailShape: Shape {
@@ -185,20 +12,21 @@ struct ModulaRailShape: Shape {
 
     nonisolated func path(in rect: CGRect) -> Path {
         let p = min(max(revealProgress, 0), 1)
-        let shoulder = 22 + (p * 8)
-        let waist = 8 - (p * 2)
+        // Slightly slimmer attachment than N2: less bulbous waist/shoulder.
+        let shoulder = 18 + (p * 7)
+        let waist = 6 - (p * 1.5)
         var path = Path()
         path.move(to: CGPoint(x: rect.maxX, y: rect.minY))
         path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
         path.addCurve(
-            to: CGPoint(x: rect.minX + waist, y: rect.maxY - shoulder - 24),
+            to: CGPoint(x: rect.minX + waist, y: rect.maxY - shoulder - 22),
             control1: CGPoint(x: rect.maxX, y: rect.maxY - shoulder),
             control2: CGPoint(x: rect.minX + waist, y: rect.maxY - shoulder + 2)
         )
         path.addCurve(
-            to: CGPoint(x: rect.minX + waist, y: rect.minY + shoulder + 24),
-            control1: CGPoint(x: rect.minX, y: rect.midY + 40 + (p * 20)),
-            control2: CGPoint(x: rect.minX, y: rect.midY - 40 - (p * 20))
+            to: CGPoint(x: rect.minX + waist, y: rect.minY + shoulder + 22),
+            control1: CGPoint(x: rect.minX, y: rect.midY + 36 + (p * 16)),
+            control2: CGPoint(x: rect.minX, y: rect.midY - 36 - (p * 16))
         )
         path.addCurve(
             to: CGPoint(x: rect.maxX, y: rect.minY),
@@ -281,19 +109,20 @@ struct ModulaContextRail: View {
         return [items[(selectedIndex - 1 + count) % count], items[selectedIndex], items[(selectedIndex + 1) % count]]
     }
     private var isRevealed: Bool { revealedID == selectedID }
-    private var selectedHeight: CGFloat { isRevealed ? 96 : 46 }
-    private var railHeight: CGFloat { (46 * 2) + selectedHeight + (12 * 2) + 20 }
+    private var selectedHeight: CGFloat { isRevealed ? 88 : 42 }
+    private var railHeight: CGFloat { (42 * 2) + selectedHeight + (10 * 2) + 16 }
+
     var body: some View {
         let shape = ModulaRailShape(revealProgress: isRevealed ? 1 : 0)
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             ForEach(Array(orderedItems.enumerated()), id: \.element.id) { index, item in
                 railButton(item, selected: index == 1)
             }
         }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 4)
-        .frame(width: 54, height: railHeight)
-        .offset(x: 2)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 3)
+        .frame(width: 48, height: railHeight)
+        .offset(x: 1)
         .offset(y: dragOffset * 0.28)
         .background(Color.black.opacity(0.93), in: shape)
         .contentShape(Rectangle().inset(by: -12))
@@ -328,12 +157,12 @@ struct ModulaContextRail: View {
                         .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 } else {
                     Image(systemName: item.symbol)
-                        .font(.system(size: 19, weight: selected ? .semibold : .medium))
+                        .font(.system(size: 17, weight: selected ? .semibold : .medium))
                         .symbolVariant(selected ? .fill : .none)
                 }
             }
             .foregroundStyle(selected ? Color.white : Color.primary.opacity(0.68))
-            .frame(width: 46, height: selected ? selectedHeight : 46)
+            .frame(width: 42, height: selected ? selectedHeight : 42)
             .background {
                 if selected {
                     Capsule()
@@ -344,6 +173,7 @@ struct ModulaContextRail: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .frame(minWidth: 44, minHeight: 44)
         .opacity(selected ? 1 : 0.72)
         .scaleEffect(selected ? 1 : 0.9)
         .accessibilityLabel(item.title)
@@ -382,7 +212,7 @@ struct ModulaContextRail: View {
     }
 }
 
-private extension View {
+extension View {
     @ViewBuilder
     func modulaChrome<S: Shape>(in shape: S, opaque: Bool) -> some View {
         if #available(iOS 26.0, *), !opaque {
