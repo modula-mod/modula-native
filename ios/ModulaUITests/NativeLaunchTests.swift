@@ -572,3 +572,73 @@ final class N3AActivityAuthUITests: XCTestCase {
         add(attachment)
     }
 }
+
+@MainActor
+final class N3BDiscoverUITests: XCTestCase {
+    func testDiscoverScopesSearchProfilePostModuleFilterAndRefresh() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--runtime-unavailable", "--reset-appearance"]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 10))
+        app.buttons["Discover"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["discover.trending"].waitForExistence(timeout: 8))
+        XCTAssertEqual(app.descendants(matching: .any)["discover.trending"].value as? String, "/discover/trending")
+
+        app.descendants(matching: .any)["discover.scope.people"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["discover.people"].waitForExistence(timeout: 8))
+        app.descendants(matching: .any)["discover.scope.topics"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["discover.topics"].waitForExistence(timeout: 8))
+        app.descendants(matching: .any)["discover.scope.posts"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["discover.posts"].waitForExistence(timeout: 8))
+        app.descendants(matching: .any)["discover.scope.modules"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["discover.modules"].waitForExistence(timeout: 8))
+        app.descendants(matching: .any)["discover.scope.trending"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["discover.trending"].waitForExistence(timeout: 8))
+
+        app.descendants(matching: .any)["discover.search-entry"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["search.root"].waitForExistence(timeout: 6))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.descendants(matching: .any)["discover.trending"].waitForExistence(timeout: 6))
+
+        let person = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "discover.person")).firstMatch
+        if person.waitForExistence(timeout: 8) {
+            person.tap()
+            XCTAssertTrue(app.navigationBars["Profile"].waitForExistence(timeout: 6))
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+            XCTAssertTrue(app.descendants(matching: .any)["discover.trending"].waitForExistence(timeout: 6))
+        }
+
+        let post = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "discover.post")).firstMatch
+        if post.waitForExistence(timeout: 4) {
+            post.tap()
+            XCTAssertTrue(app.navigationBars["Post"].waitForExistence(timeout: 6))
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+        }
+
+        app.descendants(matching: .any)["discover.scope.modules"].tap()
+        let module = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "product.")).firstMatch
+        if module.waitForExistence(timeout: 10) {
+            module.tap()
+            XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "module-detail.")).firstMatch.waitForExistence(timeout: 8))
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+            XCTAssertTrue(app.descendants(matching: .any)["discover.modules"].waitForExistence(timeout: 6))
+        }
+
+        app.descendants(matching: .any)["accessory.filter"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["discover.filter"].waitForExistence(timeout: 5))
+        app.buttons["Close"].firstMatch.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["accessory.refresh"].waitForExistence(timeout: 3))
+        app.descendants(matching: .any)["accessory.refresh"].tap()
+        XCTAssertTrue(app.tabBars.firstMatch.buttons["Discover"].exists)
+        attachScreenshot(app, name: "n3b-discover-tools")
+    }
+
+    private func attachScreenshot(_ app: XCUIApplication, name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}

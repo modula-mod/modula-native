@@ -43,7 +43,7 @@ N2 authority: `AppRoute` is the in-process route model. `RouteParser` converts p
 /developer/{components,appearance,modules,runtime,bridge,diagnostics}
 ```
 
-Defaults serialize as `/home/following`, `/activity/all`, `/profile/:userId/overview`, and `/product-hub/featured`. `/me` is a semantic current-account route and does not manufacture an account identifier.
+Defaults serialize as `/home/following`, `/discover/trending`, `/activity/all`, `/profile/:userId/overview`, and `/product-hub/featured`. `/me` is a semantic current-account route and does not manufacture an account identifier.
 
 `/product-hub/module/:moduleId` is native product information. `/module/:moduleId` creates the native `ModuleHost`. Anything after the module ID is opaque module-local state; for example `/module/digital.modula.vault-notes/note/123` passes `/note/123` into Vault. Swift never interprets it as an app route.
 

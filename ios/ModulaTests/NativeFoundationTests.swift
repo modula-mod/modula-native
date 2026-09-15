@@ -59,6 +59,7 @@ final class NativeFoundationTests: XCTestCase {
             XCTAssertEqual(RouteParser.parse(RouteSerializer.serialize(route)), route, path)
         }
         XCTAssertEqual(RouteSerializer.serialize(try XCTUnwrap(RouteParser.parse("/home"))), "/home/following")
+        XCTAssertEqual(RouteSerializer.serialize(try XCTUnwrap(RouteParser.parse("/discover"))), "/discover/trending")
         XCTAssertEqual(RouteSerializer.serialize(try XCTUnwrap(RouteParser.parse("/activity"))), "/activity/all")
         XCTAssertEqual(RouteSerializer.serialize(try XCTUnwrap(RouteParser.parse("/profile/user-1"))), "/profile/user-1/overview")
         XCTAssertEqual(RouteSerializer.serialize(try XCTUnwrap(RouteParser.parse("/product-hub"))), "/product-hub/featured")
@@ -109,6 +110,8 @@ final class NativeFoundationTests: XCTestCase {
         XCTAssertFalse(ShellChromePolicy.policy(for: .settings(.account(.root))).bottomBarVisible)
         XCTAssertFalse(ShellChromePolicy.policy(for: .settings(.account(.root))).shellAccessoryVisible)
         XCTAssertTrue(ShellChromePolicy.policy(for: .activity(.all)).shellAccessoryVisible)
+        XCTAssertFalse(ShellChromePolicy.policy(for: .discover(.trending)).contextRailVisible)
+        XCTAssertFalse(ShellChromePolicy.policy(for: .search(.root(nil))).shellAccessoryVisible)
     }
 
     func testContextRailLoopShapeStaysEdgeDockedAcrossMorph() {

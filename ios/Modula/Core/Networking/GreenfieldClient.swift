@@ -201,6 +201,19 @@ actor GreenfieldClient {
         try await authenticated(method, path: path, body: body)
     }
 
+    /// Public JSON fetch (no bearer). Used by Discover/Search when signed out.
+    func publicJSON(_ method: String, path: String, body: JSONValue? = nil) async throws -> JSONValue {
+        try await send(method, path: path, body: body)
+    }
+
+    /// Prefer a restored session so `isFollowing` and similar viewer fields populate; fall back to public.
+    func json(_ method: String, path: String, body: JSONValue? = nil) async throws -> JSONValue {
+        if tokens != nil {
+            return try await authenticated(method, path: path, body: body)
+        }
+        return try await send(method, path: path, body: body)
+    }
+
     func hasSession() -> Bool { tokens != nil }
 
     private func authenticated<T: Decodable & Sendable>(_ method: String, path: String, body: JSONValue? = nil) async throws -> T {

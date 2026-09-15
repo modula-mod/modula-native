@@ -87,7 +87,38 @@ struct ModulaButton: View {
     var body: some View { Button(action: action) { Label(title, systemImage: symbol ?? "arrow.right").frame(maxWidth: .infinity).frame(minHeight: ModulaLayout.minimumTouch).font(.headline) }.buttonStyle(.borderedProminent).tint(app.appearance.accent.color).buttonBorderShape(.capsule) }
 }
 struct ModulaIconButton: View { let title: String; let symbol: String; var action: () -> Void; var body: some View { Button(action: action) { Image(systemName: symbol).frame(width: 44, height: 44) }.accessibilityLabel(title) } }
-struct ModulaAvatar: View { var initials: String; var size = 44.0; @Environment(AppEnvironment.self) private var app; var body: some View { Circle().fill(app.appearance.accent.color.gradient).frame(width: size, height: size).overlay(Text(initials).font(.headline).foregroundStyle(.white)).accessibilityLabel("Profile avatar") } }
+struct ModulaAvatar: View {
+    var initials: String
+    var url: URL? = nil
+    var size = 44.0
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        Group {
+            if let url {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFill()
+                    default:
+                        initialsView
+                    }
+                }
+            } else {
+                initialsView
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .accessibilityLabel("Profile avatar")
+    }
+
+    private var initialsView: some View {
+        Circle()
+            .fill(app.appearance.accent.color.gradient)
+            .overlay(Text(initials).font(.headline).foregroundStyle(.white))
+    }
+}
 struct ModulaBadge: View { var title: String; var symbol: String?; @Environment(AppEnvironment.self) private var app; var body: some View { Label(title, systemImage: symbol ?? "checkmark").font(.caption.weight(.semibold)).padding(.horizontal, 10).padding(.vertical, 6).background(app.appearance.accent.color.opacity(0.14), in: Capsule()).foregroundStyle(app.appearance.accent.color) } }
 struct ModulaCard<Content: View>: View { @ViewBuilder var content: Content; @Environment(AppEnvironment.self) private var app; @Environment(\.colorScheme) private var scheme; var body: some View { content.padding(16 * app.appearance.density.spacingScale).frame(maxWidth: .infinity, alignment: .leading).background(ModulaPalette.resolve(app.appearance, scheme: scheme).surface, in: RoundedRectangle(cornerRadius: radius, style: .continuous)).overlay(RoundedRectangle(cornerRadius: radius).stroke(.primary.opacity(0.07))).accessibilityElement(children: .contain) }; private var radius: Double { switch app.appearance.interfaceShape { case .soft: 24; case .balanced: 17; case .precise: 10 } } }
 

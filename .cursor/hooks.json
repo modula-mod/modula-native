@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "/bin/bash /Users/msjoy/.cursor/hooks/n3b-run.sh afterFileEdit",
+        "timeout": 15
+      }
+    ],
+    "beforeReadFile": [
+      {
+        "command": "/bin/bash /Users/msjoy/.cursor/hooks/n3b-run.sh beforeReadFile",
+        "timeout": 15
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "/bin/bash /Users/msjoy/.cursor/hooks/n3b-run.sh postToolUse",
+        "timeout": 15
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "/bin/bash /Users/msjoy/.cursor/hooks/n3b-run.sh preToolUse",
+        "timeout": 15
+      }
+    ]
+  }
+}

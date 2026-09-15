@@ -92,8 +92,8 @@ private struct RouteView: View {
         case .boot: HomeView(mode: .following)
         case .auth(let route): AuthRouteView(route: route)
         case .home(let mode): HomeView(mode: mode)
-        case .discover(let section): DiscoverView(section: section)
-        case .search(let route): SearchFoundationView(route: route)
+        case .discover: DiscoverScreen()
+        case .search(let route): SearchScreen(route: route)
         case .post: DevelopmentRouteView(title: "Post", symbol: "text.bubble")
         case .compose(let route): ComposerFoundationView(route: route)
         case .activity(let mode): ActivityScreen(mode: mode)
@@ -128,6 +128,7 @@ private struct PresentationView: View {
         case .appearancePicker(let route): AppearanceSettingsView(focus: route)
         case .activitySummary: ActivitySummarySheet()
         case .activityFilter: ActivityFilterSheet()
+        case .discoverFilter: DiscoverFilterSheet()
         }
     }
 }
@@ -135,117 +136,6 @@ private struct PresentationView: View {
 struct DevelopmentRouteView: View {
     var title: String; var symbol: String
     var body: some View { ModulaEmptyState(title: title, message: "This route is ready for a later product phase.", symbol: symbol).navigationTitle(title) }
-}
-private enum ModulaSearchScope: String, CaseIterable, Identifiable {
-    case all, people, posts, modules, topics
-    var id: Self { self }
-    var title: String { rawValue.capitalized }
-}
-
-struct SearchFoundationView: View {
-    let route: SearchRoute
-    @Environment(AppEnvironment.self) private var app
-    @State private var query: String
-    @State private var scope: ModulaSearchScope
-
-    init(route: SearchRoute) {
-        self.route = route
-        switch route {
-        case .root(let query):
-            _query = State(initialValue: query ?? "")
-            _scope = State(initialValue: .all)
-        case .section(let section, let query):
-            _query = State(initialValue: query ?? "")
-            _scope = State(initialValue: ModulaSearchScope(rawValue: section.rawValue) ?? .all)
-        }
-    }
-
-    var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
-                if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    ContentUnavailableView {
-                        Label("Search Modula", systemImage: "magnifyingglass")
-                    } description: {
-                        Text("Search people, posts, modules, and topics from one native field. Only live catalogue-backed module results are shown in N2.")
-                    }
-                    .frame(minHeight: 300)
-                } else {
-                    searchResults
-                }
-            }
-            .padding(.horizontal, ModulaLayout.contentInset)
-            .padding(.bottom, 28)
-        }
-        .modulaCanvas()
-        .navigationTitle("Search")
-        .navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $query, prompt: "Search Modula")
-        .searchScopes($scope) {
-            ForEach(ModulaSearchScope.allCases) { scope in
-                Text(scope.title).tag(scope)
-            }
-        }
-        .modulaMinimizedSearchToolbar()
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button("Browse Product Hub", systemImage: "shippingbox") {
-                        app.navigation.open(.productHub(.featured))
-                    }
-                    Button("Search Settings", systemImage: "gearshape") {
-                        app.navigation.open(.settings(.root))
-                    }
-                    Divider()
-                    Button("Clear Search", systemImage: "xmark.circle") { query = "" }
-                        .disabled(query.isEmpty)
-                } label: {
-                    Image(systemName: "ellipsis")
-                }
-                .accessibilityLabel("Search menu")
-            }
-        }
-        .accessibilityIdentifier("search.root")
-    }
-
-    @ViewBuilder
-    private var searchResults: some View {
-        let matches = moduleMatches
-        if scope == .all || scope == .modules {
-            if matches.isEmpty {
-                ContentUnavailableView.search(text: query)
-                    .frame(minHeight: 260)
-            } else {
-                ModulaSection(title: scope == .all ? "Modules" : "Results") {
-                    VStack(spacing: 12) {
-                        ForEach(matches) { product in
-                            ProductCard(product: product, installed: app.catalogue.installedIDs.contains(product.id)) {
-                                app.navigation.open(.productHub(.module(product.id, .overview)))
-                            }
-                        }
-                    }
-                }
-                if scope == .all {
-                    Text("People, posts, and topics connect in N3; no placeholder results are invented here.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        } else {
-            ContentUnavailableView(
-                "\(scope.title) search is ready",
-                systemImage: "magnifyingglass",
-                description: Text("This result source connects in N3. Modula will not fabricate matches in the meantime.")
-            )
-            .frame(minHeight: 280)
-        }
-    }
-
-    private var moduleMatches: [CatalogueProduct] {
-        app.catalogue.products.filter {
-            $0.name.localizedCaseInsensitiveContains(query) || $0.description.localizedCaseInsensitiveContains(query)
-        }
-    }
 }
 struct ComposerFoundationView: View {
     let route: ComposeRoute

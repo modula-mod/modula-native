@@ -37,8 +37,20 @@ struct ShellAccessoryConfiguration: Equatable {
             )
         case .home:
             return Self(title: "Home", symbol: "sparkles", actions: [], showsSearch: true, showsMore: true)
-        case .discover, .search:
-            return Self(title: "Discover", symbol: "safari", actions: [], showsSearch: true, showsMore: true)
+        case .discover:
+            return Self(
+                title: "Tools",
+                symbol: "safari",
+                actions: [
+                    ShellAccessoryAction(id: "search", title: "Search", symbol: "magnifyingglass", enabled: true, accessibilityIdentifier: "accessory.search"),
+                    ShellAccessoryAction(id: "filter", title: "Filters", symbol: "line.3.horizontal.decrease", enabled: true, accessibilityIdentifier: "accessory.filter"),
+                    ShellAccessoryAction(id: "refresh", title: "Refresh", symbol: "arrow.clockwise", enabled: true, accessibilityIdentifier: "accessory.refresh")
+                ],
+                showsSearch: false,
+                showsMore: false
+            )
+        case .search:
+            return Self(title: "Search", symbol: "magnifyingglass", actions: [], showsSearch: false, showsMore: false)
         case .productHub:
             return Self(title: "Modules", symbol: "shippingbox", actions: [], showsSearch: true, showsMore: true)
         case .profile, .me:
@@ -80,7 +92,8 @@ struct ShellAccessoryHost: View {
                     } label: {
                         Image(systemName: action.symbol)
                             .font(.system(size: 15, weight: .semibold))
-                            .frame(width: 32, height: 32)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(action.title)
@@ -94,7 +107,8 @@ struct ShellAccessoryHost: View {
                 } label: {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 15, weight: .semibold))
-                        .frame(width: 32, height: 32)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Search Modula")
@@ -106,7 +120,7 @@ struct ShellAccessoryHost: View {
         }
         .padding(.leading, nativeHosted ? 2 : 7)
         .padding(.trailing, nativeHosted ? 2 : 4)
-        .frame(maxWidth: nativeHosted ? .infinity : 310, minHeight: 36)
+        .frame(maxWidth: nativeHosted ? .infinity : 310, minHeight: 44)
         .modulaAccessorySurface(
             nativeHosted: nativeHosted,
             opaque: reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
@@ -161,7 +175,8 @@ struct ShellAccessoryHost: View {
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: 16, weight: .bold))
-                .frame(width: 32, height: 32)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .accessibilityLabel("More")
         .accessibilityIdentifier("accessory.more")
@@ -173,10 +188,24 @@ struct ShellAccessoryHost: View {
         case "summary":
             PresentationCoordinator.present(.activitySummary, in: app.navigation)
         case "filter":
-            PresentationCoordinator.present(.activityFilter, in: app.navigation)
+            if case .activity = route {
+                PresentationCoordinator.present(.activityFilter, in: app.navigation)
+            } else {
+                PresentationCoordinator.present(.discoverFilter, in: app.navigation)
+            }
         case "mark-read":
             if case .activity(let mode) = route {
                 Task { await app.activity.markAllRead(mode: mode) }
+            }
+        case "search":
+            app.navigation.open(.search(.root(nil)))
+            HapticEngine.shared.play(.navigation)
+        case "refresh":
+            if case .discover(let scope) = route {
+                Task {
+                    await app.discover.refresh(scope)
+                    HapticEngine.shared.play(.confirmation)
+                }
             }
         default:
             break

@@ -24,6 +24,10 @@ indirect enum JSONValue: Codable, Sendable, Equatable {
     }
     subscript(key: String) -> JSONValue? { if case .object(let value) = self { value[key] } else { nil } }
     var string: String? { if case .string(let v) = self { v } else { nil } }
+    var number: Double? { if case .number(let v) = self { v } else { nil } }
+    var bool: Bool? { if case .bool(let v) = self { v } else { nil } }
+    var array: [JSONValue]? { if case .array(let v) = self { v } else { nil } }
+    var int: Int? { number.map { Int($0) } }
     var foundation: Any {
         switch self {
         case .object(let v): v.mapValues(\.foundation)

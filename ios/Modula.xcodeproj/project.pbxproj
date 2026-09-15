@@ -53,8 +53,18 @@
 		E706DA503AC96378DE9BE822 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65C4B3534ABCFCD2C0AE4AB5 /* KeychainStore.swift */; };
 		EC29FF07954140DE802361CB /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 093D191569CDD66161FC3552 /* JSONValue.swift */; };
 		F280213B620AE297E6EC4D78 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE413545A422ACB4BACBB3DF /* RootView.swift */; };
-		FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */; };
 		F43AEB1A67070000A929D731 /* N1FixtureCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = C086A4FED95A41F19B257A39 /* N1FixtureCredentials.swift */; };
+		FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */; };
+		E20100000000000000000001 /* DiscoverModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000001 /* DiscoverModels.swift */; };
+		E20100000000000000000002 /* DiscoverRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000002 /* DiscoverRepository.swift */; };
+		E20100000000000000000003 /* DiscoverStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000003 /* DiscoverStore.swift */; };
+		E20100000000000000000004 /* DiscoverScopePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000004 /* DiscoverScopePicker.swift */; };
+		E20100000000000000000005 /* DiscoverComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000005 /* DiscoverComponents.swift */; };
+		E20100000000000000000006 /* DiscoverDashboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000006 /* DiscoverDashboard.swift */; };
+		E20100000000000000000007 /* DiscoverFilterSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000007 /* DiscoverFilterSheet.swift */; };
+		E20100000000000000000008 /* DiscoverScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000008 /* DiscoverScreen.swift */; };
+		E20100000000000000000009 /* SearchScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000009 /* SearchScreen.swift */; };
+		E2010000000000000000000A /* DiscoverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1010000000000000000000A /* DiscoverTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -117,6 +127,7 @@
 		BB8E23944EDA4143B0141E3D /* Pods-Modula.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modula.debug.xcconfig"; path = "Target Support Files/Pods-Modula/Pods-Modula.debug.xcconfig"; sourceTree = "<group>"; };
 		BDA1C8662B298F425D5FC310 /* ActivityComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityComponents.swift; path = Features/Activity/ActivityComponents.swift; sourceTree = "<group>"; };
 		BEF0F5DFEB2FC30D2769C391 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		C086A4FED95A41F19B257A39 /* N1FixtureCredentials.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = N1FixtureCredentials.swift; path = Core/Authentication/N1FixtureCredentials.swift; sourceTree = "<group>"; };
 		C3C0363819593AB6B8477B79 /* Pods-Modula.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modula.release.xcconfig"; path = "Target Support Files/Pods-Modula/Pods-Modula.release.xcconfig"; sourceTree = "<group>"; };
 		C3DC1AD1EDCCBBF93362A45C /* ActivityRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityRepository.swift; path = Features/Activity/ActivityRepository.swift; sourceTree = "<group>"; };
 		C4000338D069CCD91CB36D32 /* ModulaLog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaLog.swift; path = Core/Logging/ModulaLog.swift; sourceTree = "<group>"; };
@@ -131,7 +142,16 @@
 		E490C161A4B61D0F2ED2F9CE /* Pods-ModulaTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ModulaTests.debug.xcconfig"; path = "Target Support Files/Pods-ModulaTests/Pods-ModulaTests.debug.xcconfig"; sourceTree = "<group>"; };
 		E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleHost.swift; path = ModuleRuntime/ModuleHost.swift; sourceTree = "<group>"; };
 		EECC47A5007CE1E5BB063A97 /* ShellAccessory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShellAccessory.swift; path = DesignSystem/ShellAccessory.swift; sourceTree = "<group>"; };
-		C086A4FED95A41F19B257A39 /* N1FixtureCredentials.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = N1FixtureCredentials.swift; path = Core/Authentication/N1FixtureCredentials.swift; sourceTree = "<group>"; };
+		E10100000000000000000001 /* DiscoverModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverModels.swift; path = Features/Discover/DiscoverModels.swift; sourceTree = "<group>"; };
+		E10100000000000000000002 /* DiscoverRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverRepository.swift; path = Features/Discover/DiscoverRepository.swift; sourceTree = "<group>"; };
+		E10100000000000000000003 /* DiscoverStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverStore.swift; path = Features/Discover/DiscoverStore.swift; sourceTree = "<group>"; };
+		E10100000000000000000004 /* DiscoverScopePicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverScopePicker.swift; path = Features/Discover/DiscoverScopePicker.swift; sourceTree = "<group>"; };
+		E10100000000000000000005 /* DiscoverComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverComponents.swift; path = Features/Discover/DiscoverComponents.swift; sourceTree = "<group>"; };
+		E10100000000000000000006 /* DiscoverDashboard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverDashboard.swift; path = Features/Discover/DiscoverDashboard.swift; sourceTree = "<group>"; };
+		E10100000000000000000007 /* DiscoverFilterSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverFilterSheet.swift; path = Features/Discover/DiscoverFilterSheet.swift; sourceTree = "<group>"; };
+		E10100000000000000000008 /* DiscoverScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverScreen.swift; path = Features/Discover/DiscoverScreen.swift; sourceTree = "<group>"; };
+		E10100000000000000000009 /* SearchScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SearchScreen.swift; path = Features/Search/SearchScreen.swift; sourceTree = "<group>"; };
+		E1010000000000000000000A /* DiscoverTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DiscoverTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -183,6 +203,7 @@
 			children = (
 				E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */,
 				61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */,
+				E1010000000000000000000A /* DiscoverTests.swift */,
 			);
 			path = ModulaTests;
 			sourceTree = "<group>";
@@ -264,6 +285,15 @@
 				BDA1C8662B298F425D5FC310 /* ActivityComponents.swift */,
 				A5E0D5A04B04831431C46FFA /* ActivityScreen.swift */,
 				EECC47A5007CE1E5BB063A97 /* ShellAccessory.swift */,
+				E10100000000000000000001 /* DiscoverModels.swift */,
+				E10100000000000000000002 /* DiscoverRepository.swift */,
+				E10100000000000000000003 /* DiscoverStore.swift */,
+				E10100000000000000000004 /* DiscoverScopePicker.swift */,
+				E10100000000000000000005 /* DiscoverComponents.swift */,
+				E10100000000000000000006 /* DiscoverDashboard.swift */,
+				E10100000000000000000007 /* DiscoverFilterSheet.swift */,
+				E10100000000000000000008 /* DiscoverScreen.swift */,
+				E10100000000000000000009 /* SearchScreen.swift */,
 			);
 			path = Modula;
 			sourceTree = "<group>";
@@ -538,6 +568,7 @@
 			files = (
 				C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */,
 				FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */,
+				E2010000000000000000000A /* DiscoverTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -583,6 +614,15 @@
 				72C4D78F9C1D0E3C2FD3BB95 /* ActivityComponents.swift in Sources */,
 				22CC6AB6F1DCAECE01085714 /* ActivityScreen.swift in Sources */,
 				B7E661790BD11DE3A721C204 /* ShellAccessory.swift in Sources */,
+				E20100000000000000000001 /* DiscoverModels.swift in Sources */,
+				E20100000000000000000002 /* DiscoverRepository.swift in Sources */,
+				E20100000000000000000003 /* DiscoverStore.swift in Sources */,
+				E20100000000000000000004 /* DiscoverScopePicker.swift in Sources */,
+				E20100000000000000000005 /* DiscoverComponents.swift in Sources */,
+				E20100000000000000000006 /* DiscoverDashboard.swift in Sources */,
+				E20100000000000000000007 /* DiscoverFilterSheet.swift in Sources */,
+				E20100000000000000000008 /* DiscoverScreen.swift in Sources */,
+				E20100000000000000000009 /* SearchScreen.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -768,6 +808,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = M29V4ZGUNK;
 				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -789,6 +830,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = M29V4ZGUNK;
 				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;

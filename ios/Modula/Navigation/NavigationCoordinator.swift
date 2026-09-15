@@ -35,6 +35,20 @@ final class NavigationCoordinator {
         selectedTab = tab
         roots[tab] = route
     }
+    /// Replace the top of the current stack (used by Search scope/query updates) without pushing.
+    func replaceTop(with route: AppRoute) {
+        if let tab = route.tab { selectedTab = tab }
+        if var path = paths[selectedTab], !path.isEmpty {
+            path[path.count - 1] = route
+            paths[selectedTab] = path
+            return
+        }
+        open(route)
+    }
+    /// Push onto the selected tab without stealing another tab’s root. Discover/Search use this for profile, post, and module detail so Back restores the current scope.
+    func push(_ route: AppRoute) {
+        paths[selectedTab, default: []].append(route)
+    }
     func close() {
         if !paths[selectedTab, default: []].isEmpty { paths[selectedTab]?.removeLast() }
     }
@@ -70,7 +84,7 @@ final class NavigationCoordinator {
 
 enum AppPresentation: Identifiable, Hashable {
     case composer(ComposeRoute), share(AppRoute), filters, modulePermissions(String), appearancePicker(AppearanceSettingsRoute)
-    case activitySummary, activityFilter
+    case activitySummary, activityFilter, discoverFilter
     var id: String { String(describing: self) }
 }
 struct ModulaBanner: Identifiable, Hashable { let id = UUID(); var message: String; var symbol: String }
@@ -121,6 +135,28 @@ struct ShellChromePolicy: Equatable {
                 shellAccessoryVisible: true,
                 topBarStyle: .standard,
                 showsBack: false,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: true
+            )
+        case .discover:
+            Self(
+                bottomBarVisible: true,
+                contextRailVisible: false,
+                shellAccessoryVisible: true,
+                topBarStyle: .standard,
+                showsBack: false,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: true
+            )
+        case .search:
+            Self(
+                bottomBarVisible: true,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .standard,
+                showsBack: true,
                 showsClose: false,
                 immersive: false,
                 hidesForKeyboard: true
