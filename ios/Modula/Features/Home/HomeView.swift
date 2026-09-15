@@ -200,31 +200,3 @@ struct DiscoverView: View {
         }
     }
 }
-
-struct ActivityView: View {
-    let mode: ActivityMode
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                ModulaCard {
-                    ModulaEmptyState(
-                        title: display(mode.rawValue),
-                        message: "You’re all caught up. Activity data connects in a later phase.",
-                        symbol: mode == .mentions ? "at" : "bell"
-                    )
-                }
-            }
-            .padding(.horizontal, ModulaLayout.contentInset)
-            .padding(.top, 12)
-        }
-        .modulaCanvas()
-        .navigationTitle("Activity")
-        .navigationBarTitleDisplayMode(.large)
-        .accessibilityIdentifier("activity.\(mode.rawValue)")
-    }
-
-    private func display(_ value: String) -> String {
-        value.replacingOccurrences(of: "-", with: " ").capitalized
-    }
-}
