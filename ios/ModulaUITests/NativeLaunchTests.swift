@@ -71,7 +71,7 @@ final class N2PolishAccessibilityUITests: XCTestCase {
             XCTAssertTrue(element.exists, "Missing native tab \(title)")
             XCTAssertTrue(element.isHittable, "Unreachable native tab \(title)")
         }
-        for identifier in ["accessory.search", "accessory.more"] {
+        for identifier in ["accessory.compose", "accessory.summary", "accessory.tools"] {
             let element = app.descendants(matching: .any)[identifier]
             XCTAssertTrue(element.exists, "Missing shell control \(identifier)")
             XCTAssertTrue(element.isHittable, "Unreachable shell control \(identifier)")
@@ -83,9 +83,10 @@ final class N2PolishAccessibilityUITests: XCTestCase {
         app.buttons["Following"].firstMatch.tap()
         XCTAssertEqual(app.descendants(matching: .any)["native.home"].value as? String, "/home/following")
 
-        app.descendants(matching: .any)["accessory.more"].tap()
-        XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["Appearance"].exists)
+        app.buttons["Settings"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["settings.root"].waitForExistence(timeout: 5))
+        app.buttons["Appearance"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["settings.appearance"].waitForExistence(timeout: 5))
     }
 
     func testLargeDynamicTypeReducedTransparencyAndOLEDHaveStableLandmarks() {
@@ -100,7 +101,7 @@ final class N2PolishAccessibilityUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Settings"].firstMatch.isHittable)
         XCTAssertTrue(app.tabBars.firstMatch.buttons["Home"].isHittable)
         XCTAssertTrue(app.buttons["For You"].firstMatch.isHittable)
-        app.descendants(matching: .any)["accessory.more"].tap()
+        app.buttons["Settings"].firstMatch.tap()
         app.buttons["Appearance"].firstMatch.tap()
         XCTAssertTrue(app.descendants(matching: .any)["settings.appearance"].waitForExistence(timeout: 6))
         XCTAssertTrue(app.staticTexts["Native design contract v1"].exists)
@@ -136,7 +137,7 @@ final class NativeLaunchTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--runtime-unavailable"]
         app.launch()
-        XCTAssertTrue(app.navigationBars["Modula"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 10))
         print("N1_METRIC native_cold_launch_ms=\(started.duration(to: .now).milliseconds)")
         app.buttons["Product Hub"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Product Hub"].waitForExistence(timeout: 5))
@@ -269,7 +270,7 @@ final class VaultRuntimeUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--reset-appearance"]
         app.launch()
-        XCTAssertTrue(app.navigationBars["Modula"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 10))
         return app
     }
 
@@ -303,7 +304,7 @@ final class ReleaseVaultUITests: XCTestCase {
     func testBundledVaultCRUDAndNativeOwnership() {
         let app = XCUIApplication()
         app.launch()
-        XCTAssertTrue(app.navigationBars["Modula"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 10))
         app.buttons["Product Hub"].tap()
         signInFixtureIfNeeded(app)
         XCTAssertTrue(app.descendants(matching: .any)["account.ready"].waitForExistence(timeout: 20))
@@ -383,7 +384,7 @@ final class PhysicalN1AcceptanceTests: XCTestCase {
 
         let app = XCUIApplication()
         app.launch()
-        XCTAssertTrue(app.navigationBars["Modula"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 15))
         app.buttons["Product Hub"].tap()
 
         if !app.descendants(matching: .any)["account.ready"].waitForExistence(timeout: 5) {
@@ -633,6 +634,44 @@ final class N3BDiscoverUITests: XCTestCase {
         app.descendants(matching: .any)["accessory.refresh"].tap()
         XCTAssertTrue(app.tabBars.firstMatch.buttons["Discover"].exists)
         attachScreenshot(app, name: "n3b-discover-tools")
+    }
+
+    private func attachScreenshot(_ app: XCUIApplication, name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}
+
+@MainActor
+final class N3CHomeUITests: XCTestCase {
+    func testHomeFeedLandmarksAndTools() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--runtime-unavailable", "--reset-appearance"]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.descendants(matching: .any)["native.home"].value as? String, "/home/following")
+        XCTAssertTrue(app.descendants(matching: .any)["home.hero"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["home.sign-in"].waitForExistence(timeout: 5))
+
+        XCTAssertTrue(app.descendants(matching: .any)["accessory.compose"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["accessory.summary"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["accessory.tools"].exists)
+
+        app.buttons["For You"].firstMatch.tap()
+        XCTAssertEqual(app.descendants(matching: .any)["native.home"].value as? String, "/home/for-you")
+
+        app.descendants(matching: .any)["accessory.summary"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["home.summary"].waitForExistence(timeout: 5))
+        app.buttons["Close"].firstMatch.tap()
+
+        app.descendants(matching: .any)["accessory.tools"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["home.tools"].waitForExistence(timeout: 5))
+        app.buttons["Close"].firstMatch.tap()
+
+        attachScreenshot(app, name: "n3c-home-tools")
     }
 
     private func attachScreenshot(_ app: XCUIApplication, name: String) {
