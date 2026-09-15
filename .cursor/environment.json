@@ -1,0 +1,17 @@
+{
+  "name": "Modula Native",
+  "install": "npm ci",
+  "terminals": [
+    {
+      "name": "metro",
+      "command": "npm start",
+      "description": "React Native Metro dev server for the @modula/runtime bundle (serves the ModulaModuleRoot JS bundle on port 8081)."
+    }
+  ],
+  "ports": [
+    {
+      "name": "metro",
+      "port": 8081
+    }
+  ]
+}
