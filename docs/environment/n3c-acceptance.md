@@ -1,6 +1,6 @@
 # N3C acceptance
 
-Branch: `cursor/phase-n3c-ios-home-feed` @ `140abcd`  
+Branch: `cursor/phase-n3c-ios-home-feed` @ `ddef659`  
 Base: N3B `cursor/phase-n3b-ios-discover-6553` @ `b606526`
 
 ## Preserved chain
