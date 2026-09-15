@@ -39,6 +39,7 @@ final class AuthenticationStore {
         guard !busy else { return false }
         busy = true; error = nil
         defer { busy = false }
+        let host = await client.apiOriginHost
         do {
             account = try await client.signIn(email: email, password: password)
             #if DEBUG
@@ -46,9 +47,9 @@ final class AuthenticationStore {
             #endif
             return true
         } catch let api as APIError {
-            self.error = api.userFacingMessage
+            self.error = Self.userFacing(api, host: host)
             #if DEBUG
-            lastDiagnostic = api.diagnosticDescription
+            lastDiagnostic = api.diagnosticDescription + (host.map { " · \($0)" } ?? "")
             #endif
             return false
         } catch {
@@ -58,6 +59,13 @@ final class AuthenticationStore {
             #endif
             return false
         }
+    }
+
+    private static func userFacing(_ api: APIError, host: String?) -> String {
+        if case .rejected(_, "INVALID_CREDENTIALS") = api, GreenfieldEnvironmentLabel.isIsolatedFixture(host: host) {
+            return "Incorrect email or password for this environment (\(host ?? "fixture")). Production accounts do not exist here — use the N1 fixture in Debug."
+        }
+        return api.userFacingMessage
     }
 
     func signOut() async {

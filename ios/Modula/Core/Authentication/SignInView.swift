@@ -5,11 +5,30 @@ struct SignInView: View {
     @State private var email = ""
     @State private var password = ""
     @FocusState private var focused: Field?
+    #if DEBUG
+    @State private var fixtureUnavailable = false
+    #endif
 
     private enum Field { case email, password }
 
+    private var apiHost: String? {
+        Bundle.main.object(forInfoDictionaryKey: "ModulaAPIURL")
+            .flatMap { $0 as? String }
+            .flatMap(URL.init(string:))?
+            .host
+    }
+
     var body: some View {
         Form {
+            Section {
+                LabeledContent("Environment", value: GreenfieldEnvironmentLabel.describe(host: apiHost))
+                    .accessibilityIdentifier("auth.environment")
+            } footer: {
+                if GreenfieldEnvironmentLabel.isIsolatedFixture(host: apiHost) {
+                    Text("This Debug build talks to the isolated N1 Greenfield fixture, not production. Use the N1 fixture account.")
+                }
+            }
+
             Section {
                 TextField("Email", text: $email)
                     .textContentType(.username)
@@ -44,6 +63,21 @@ struct SignInView: View {
                 }
                 .disabled(!canSubmit)
                 .accessibilityIdentifier("auth.sign-in")
+
+                #if DEBUG
+                if GreenfieldEnvironmentLabel.isIsolatedFixture(host: apiHost) {
+                    Button("Sign in with N1 fixture") {
+                        Task { await submitFixture() }
+                    }
+                    .disabled(app.auth.busy)
+                    .accessibilityIdentifier("auth.sign-in-fixture")
+                    if fixtureUnavailable {
+                        Text("Could not read .env.n1.local. Run scripts/n1/fixture.mjs first.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                #endif
 
                 Button("Forgot Password") {
                     app.navigation.open(.auth(.forgotPassword))
@@ -102,6 +136,25 @@ struct SignInView: View {
             HapticEngine.shared.play(.failure)
         }
     }
+
+    #if DEBUG
+    private func submitFixture() async {
+        guard let fixture = N1FixtureCredentials.load() else {
+            fixtureUnavailable = true
+            return
+        }
+        fixtureUnavailable = false
+        email = fixture.email
+        password = ""
+        let ok = await app.auth.signIn(email: fixture.email, password: fixture.password)
+        if ok {
+            HapticEngine.shared.play(.success)
+            app.navigation.completeAuthenticationReturn()
+        } else {
+            HapticEngine.shared.play(.failure)
+        }
+    }
+    #endif
 }
 
 struct RegisterPlaceholderView: View {

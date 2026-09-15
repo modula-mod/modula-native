@@ -223,4 +223,18 @@ final class GreenfieldAuthContractTests: XCTestCase {
             XCTAssertEqual(error, .unauthenticated)
         }
     }
+
+    func testFixtureLoginAgainstNativeN1Succeeds() async throws {
+        let secretPath = ProcessInfo.processInfo.environment["N1_SECRET_FILE"]
+            ?? "/Users/msjoy/Developer/modula-native/.env.n1.local"
+        let data = try Data(contentsOf: URL(fileURLWithPath: secretPath))
+        struct Fixture: Decodable { let email: String; let password: String }
+        let fixture = try JSONDecoder().decode(Fixture.self, from: data)
+        // Debug app points at the Cloudflare N1 edge, not localhost tunnel.
+        let client = GreenfieldClient(baseURL: URL(string: "https://native-n1.modula.digital"))
+        let account = try await client.signIn(email: fixture.email, password: fixture.password)
+        XCTAssertEqual(account.status, "active")
+        XCTAssertFalse(account.accountId.isEmpty)
+        try await client.signOut()
+    }
 }
