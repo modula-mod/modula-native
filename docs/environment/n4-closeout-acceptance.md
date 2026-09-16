@@ -8,6 +8,7 @@ Updated: 2026-09-16 during Integration & Closeout (N4G tip replay).
 CLOSEOUT BRANCH:          phase-n4-integration-closeout
 N4G BASE TIP:             ccda4f0fabb0d3d949a2a62e306b8b4e12aefc8f
 REPLAYED PRODUCT FIX:     7ae8a0a0b911fad875d636fbb02ac238b785591d → 77e378b66c451b27215610a1552f06897749960a
+CLOSEOUT TIP:             branch HEAD = product replay + this acceptance doc (verify: git rev-parse phase-n4-integration-closeout)
 PRE-REPLAY BACKUP:        backup/phase-n4-integration-closeout-pre-n4g-replay @ 3bed336
 RECOVERY (immutable):     2402a200985f643f123a35a6c771caaecb4dcc2f
 ```
