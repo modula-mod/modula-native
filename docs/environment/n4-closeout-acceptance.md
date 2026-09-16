@@ -33,7 +33,7 @@ Closeout is **N4G reconstructed tip + replayed closeout product/docs fixes**. Ph
 | Debug build (this tip) | **PASS** | Workspace Debug on sim `1F8BD84E-2432-45A0-B93A-36D7D745860D`; derivedData `/tmp/n4-closeout-on-n4g-derived`; `BUILD SUCCEEDED` |
 | Unit tests (this tip) | **PASS** | ModulaTests 182 executed, 0 failures (incl. NativeFoundation / auth / N4C–N4F); bridge integration passed via N1 edge preference |
 | Physical iPhone | **BLOCKED** | `modula.digital` offline in xctrace |
-| UITests | **PARTIAL** | Fail under App Gate signed-out (expected until fixture login harness) |
+| UITests | **PARTIAL** | AppGate fixture harness landed. Focused Debug subset on sim `1F8BD84E-2432-45A0-B93A-36D7D745860D`, derivedData `/tmp/n4-closeout-uitests-derived`, log `/tmp/n4-closeout-uitests-final.log`: **12 PASS**, **1 SKIP**, **0 FAIL**. PASS: N2Shell, N2Polish (3), NativeLaunch (2), N3A, N3B, N3C (2), N3D (2). SKIP: ModuleRuntime (Runtime Diagnostic absent from N1 catalogue). Not run here: VaultRuntime / ReleaseVault / VaultNetworkFailure / PhysicalN1. Harness: `launchThroughAppGate` → onboarding skip → N1 fixture sign-in (`--uitest-n1-api` + `--uitest-skip-first-run`, DEBUG-only) → shell. XCTSkip if `.env.n1.local` missing. |
 | App Lock / Face ID / visual / Instruments | **PENDING** | Needs online physical device |
 
 ## Recovery / backend references
@@ -53,5 +53,5 @@ Messaging, In-Mail, Stories, Reels playback, Saved-list, photo publishing, multi
 ## Next required actions
 
 1. Bring physical iPhone online for App Lock / Face ID / Edge Loop / Release install
-2. UITests fixture harness (App Gate signed-out failures expected until then)
+2. Optional: re-run VaultRuntime / ReleaseVault UITests with AppGate harness; restore Runtime Diagnostic in N1 catalogue if ModuleRuntime should unskip
 3. Complete acceptance matrix → final report + `native-n4` tag **only on PASS**

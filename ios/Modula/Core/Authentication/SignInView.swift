@@ -12,10 +12,7 @@ struct SignInView: View {
     private enum Field { case email, password }
 
     private var apiHost: String? {
-        Bundle.main.object(forInfoDictionaryKey: "ModulaAPIURL")
-            .flatMap { $0 as? String }
-            .flatMap(URL.init(string:))?
-            .host
+        app.client.apiOriginHost
     }
 
     var body: some View {

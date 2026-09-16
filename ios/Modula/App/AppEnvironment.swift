@@ -48,7 +48,7 @@ final class AppEnvironment {
         if launchArguments.contains("--ui-higher-contrast") { appearance.contrastTransparency = .higherContrast }
         if launchArguments.contains("--ui-reduce-transparency") { appearance.contrastTransparency = .reduceTransparency }
         #endif
-        let url = (Bundle.main.object(forInfoDictionaryKey: "ModulaAPIURL") as? String).flatMap(URL.init(string:))
+        let url = Self.resolveAPIBaseURL(launchArguments: launchArguments)
         client = GreenfieldClient(baseURL: url)
         catalogue = ProductHubStore(client: client)
         auth = AuthenticationStore(client: client)
@@ -126,6 +126,14 @@ final class AppEnvironment {
         gate.beginBoot()
         await auth.restore()
         drafts.setAccountID(auth.account?.accountId)
+        #if DEBUG
+        // UITest-only: mark first-run complete after a real session restore/sign-in.
+        // Does not skip AppGate, auth, or App Lock, and is stripped from Release.
+        if ProcessInfo.processInfo.arguments.contains("--uitest-skip-first-run"),
+           let accountID = auth.account?.accountId {
+            gate.completeFirstRun(accountID: accountID)
+        }
+        #endif
         if auth.isSignedIn {
             appLock.refreshColdLaunchLock()
             await catalogue.load()
@@ -135,6 +143,12 @@ final class AppEnvironment {
     }
 
     func refreshLaunchState() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--uitest-skip-first-run"),
+           let accountID = auth.account?.accountId {
+            gate.completeFirstRun(accountID: accountID)
+        }
+        #endif
         gate.apply(
             signedIn: auth.isSignedIn,
             accountID: auth.account?.accountId,
@@ -197,4 +211,46 @@ final class AppEnvironment {
         refreshLaunchState()
         refreshQuickActions()
     }
+
+    /// Bundle ModulaAPIURL, with a DEBUG UITest-only N1 override that never ships in Release.
+    private static func resolveAPIBaseURL(launchArguments: [String]) -> URL? {
+        #if DEBUG
+        if launchArguments.contains("--uitest-n1-api") {
+            let edge = URL(string: "https://native-n1.modula.digital")!
+            if let fixtureURL = loadFixtureAPIURL(), fixtureURL.scheme == "https" {
+                let host = fixtureURL.host ?? ""
+                // Simulator cannot reach the developer's local TLS tunnel; prefer the N1 edge.
+                if host == "localhost" || host.hasPrefix("127.") {
+                    return edge
+                }
+                return fixtureURL
+            }
+            return edge
+        }
+        #endif
+        return (Bundle.main.object(forInfoDictionaryKey: "ModulaAPIURL") as? String).flatMap(URL.init(string:))
+    }
+
+    #if DEBUG
+    private static func loadFixtureAPIURL() -> URL? {
+        var candidates: [URL] = []
+        if let envPath = ProcessInfo.processInfo.environment["N1_SECRET_FILE"], !envPath.isEmpty {
+            candidates.append(URL(fileURLWithPath: envPath))
+        }
+        candidates.append(URL(fileURLWithPath: "/Users/msjoy/Developer/modula-native/.env.n1.local"))
+        for url in candidates {
+            guard let data = try? Data(contentsOf: url),
+                  let payload = try? JSONDecoder().decode(N1FixtureAPIURL.self, from: data),
+                  let apiURL = payload.apiURL.flatMap(URL.init(string:)) else { continue }
+            return apiURL
+        }
+        return nil
+    }
+    #endif
 }
+
+#if DEBUG
+private struct N1FixtureAPIURL: Decodable {
+    let apiURL: String?
+}
+#endif
