@@ -116,7 +116,12 @@ struct DiscoverScreen: View {
                     onSeePeople: { app.navigation.replaceContext(with: .discover(.people)) },
                     onPost: openPost,
                     onModule: openModule,
-                    onSeeModules: { app.navigation.replaceContext(with: .discover(.modules)) }
+                    onSeeModules: { app.navigation.replaceContext(with: .discover(.modules)) },
+                    onReel: { reel in
+                        app.reels.ingest(seed: dashboard.reels)
+                        app.navigation.push(.reels(.reel(reel.id)))
+                        HapticEngine.shared.play(.navigation)
+                    }
                 )
             }
         }

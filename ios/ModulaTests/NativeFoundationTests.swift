@@ -63,6 +63,11 @@ final class NativeFoundationTests: XCTestCase {
         XCTAssertEqual(RouteSerializer.serialize(try XCTUnwrap(RouteParser.parse("/activity"))), "/activity/all")
         XCTAssertEqual(RouteSerializer.serialize(try XCTUnwrap(RouteParser.parse("/profile/user-1"))), "/profile/user-1/overview")
         XCTAssertEqual(RouteSerializer.serialize(try XCTUnwrap(RouteParser.parse("/product-hub"))), "/product-hub/featured")
+        XCTAssertEqual(RouteSerializer.serialize(try XCTUnwrap(RouteParser.parse("/messages"))), "/messages/inbox")
+        XCTAssertEqual(RouteParser.parse("/messages/inbox"), .messages(.inbox))
+        XCTAssertEqual(RouteParser.parse("/stories/create"), .stories(.create))
+        XCTAssertEqual(RouteParser.parse("/reels"), .reels(.feed))
+        XCTAssertEqual(RouteParser.parse("/messages/in-mail/"), .messages(.inMail(.inbox)))
     }
 
     func testDeepLinksAndModuleLocalPaths() {
@@ -112,6 +117,11 @@ final class NativeFoundationTests: XCTestCase {
         XCTAssertTrue(ShellChromePolicy.policy(for: .activity(.all)).shellAccessoryVisible)
         XCTAssertFalse(ShellChromePolicy.policy(for: .discover(.trending)).contextRailVisible)
         XCTAssertFalse(ShellChromePolicy.policy(for: .search(.root(nil))).shellAccessoryVisible)
+        XCTAssertFalse(ShellChromePolicy.policy(for: .messages(.inbox)).bottomBarVisible)
+        XCTAssertFalse(ShellChromePolicy.policy(for: .messages(.inbox)).contextRailVisible)
+        XCTAssertFalse(ShellChromePolicy.policy(for: .messages(.inbox)).shellAccessoryVisible)
+        XCTAssertTrue(ShellChromePolicy.policy(for: .stories(.story("s1"))).immersive)
+        XCTAssertFalse(ShellChromePolicy.policy(for: .reels(.feed)).shellAccessoryVisible)
     }
 
     func testContextRailLoopShapeStaysEdgeDockedAcrossMorph() {

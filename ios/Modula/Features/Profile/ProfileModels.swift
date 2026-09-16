@@ -106,9 +106,13 @@ struct ModulaProfile: Identifiable, Hashable, Sendable {
     let coverURL: URL?
     let coverColour: String?
     let bio: String
+    let headline: String?
     let pronouns: String?
     let location: ProfileLocation?
     let website: ProfileLink?
+    let languages: [String]
+    let presentation: ProfilePresentation
+    let coverFocalPoint: CoverFocalPoint?
     let followerCount: Int
     let followingCount: Int
     let moduleCount: Int
@@ -122,6 +126,66 @@ struct ModulaProfile: Identifiable, Hashable, Sendable {
     var followsViewer: Bool
     let version: Int?
     let visibility: ProfileVisibility?
+
+    init(
+        id: ProfileID,
+        handle: ProfileHandle,
+        displayName: String,
+        kind: String,
+        avatarURL: URL?,
+        coverURL: URL?,
+        coverColour: String?,
+        bio: String,
+        headline: String? = nil,
+        pronouns: String?,
+        location: ProfileLocation?,
+        website: ProfileLink?,
+        languages: [String] = [],
+        presentation: ProfilePresentation = .unspecified,
+        coverFocalPoint: CoverFocalPoint? = nil,
+        followerCount: Int,
+        followingCount: Int,
+        moduleCount: Int,
+        postCount: Int,
+        joinedAt: Date?,
+        focusStatus: ProfileFocusStatus?,
+        identityClaims: [ProfileIdentityClaim],
+        links: [ProfileLink],
+        featuredModuleIds: [String],
+        isFollowing: Bool,
+        followsViewer: Bool,
+        version: Int?,
+        visibility: ProfileVisibility?
+    ) {
+        self.id = id
+        self.handle = handle
+        self.displayName = displayName
+        self.kind = kind
+        self.avatarURL = avatarURL
+        self.coverURL = coverURL
+        self.coverColour = coverColour
+        self.bio = bio
+        self.headline = headline
+        self.pronouns = pronouns
+        self.location = location
+        self.website = website
+        self.languages = languages
+        self.presentation = presentation
+        self.coverFocalPoint = coverFocalPoint
+        self.followerCount = followerCount
+        self.followingCount = followingCount
+        self.moduleCount = moduleCount
+        self.postCount = postCount
+        self.joinedAt = joinedAt
+        self.focusStatus = focusStatus
+        self.identityClaims = identityClaims
+        self.links = links
+        self.featuredModuleIds = featuredModuleIds
+        self.isFollowing = isFollowing
+        self.followsViewer = followsViewer
+        self.version = version
+        self.visibility = visibility
+    }
 
     var initials: String {
         let parts = displayName.split(separator: " ")
@@ -139,11 +203,45 @@ struct ModulaProfile: Identifiable, Hashable, Sendable {
     }
 
     var publicLinks: [ProfileLink] {
-        var items = links
-        if let website, !items.contains(where: { $0.id == website.id }) {
+        var items = links.filter { ProfileFieldPrivacy.isPublic($0.visibility) }
+        if let website, ProfileFieldPrivacy.isPublic(website.visibility), !items.contains(where: { $0.id == website.id }) {
             items.insert(website, at: 0)
         }
         return items
+    }
+
+    /// Local visitor presentation. Not a security authority — Greenfield remains truth.
+    var visitorVisible: ModulaProfile {
+        ModulaProfile(
+            id: id,
+            handle: handle,
+            displayName: displayName,
+            kind: kind,
+            avatarURL: avatarURL,
+            coverURL: coverURL,
+            coverColour: coverColour,
+            bio: bio,
+            headline: headline,
+            pronouns: pronouns,
+            location: ProfileFieldPrivacy.isPublic(location?.visibility) ? location : nil,
+            website: website.flatMap { ProfileFieldPrivacy.isPublic($0.visibility) ? $0 : nil },
+            languages: languages,
+            presentation: presentation,
+            coverFocalPoint: coverFocalPoint,
+            followerCount: followerCount,
+            followingCount: followingCount,
+            moduleCount: moduleCount,
+            postCount: postCount,
+            joinedAt: joinedAt,
+            focusStatus: focusStatus,
+            identityClaims: identityClaims,
+            links: publicLinks,
+            featuredModuleIds: featuredModuleIds,
+            isFollowing: isFollowing,
+            followsViewer: followsViewer,
+            version: version,
+            visibility: visibility
+        )
     }
 }
 
@@ -168,15 +266,23 @@ struct ProfileModulePage: Sendable, Equatable {
 struct ProfileEditDraft: Equatable, Sendable {
     var displayName: String
     var bio: String
+    var headline: String
     var visibility: ProfileVisibility
     var expectedVersion: Int?
+    var accent: ProfileAccent?
+    var featuredModuleIDs: [String]
+    var links: [ProfileLink]
 
     static func from(_ profile: ModulaProfile) -> Self {
         Self(
             displayName: profile.displayName,
             bio: profile.bio,
+            headline: profile.headline ?? "",
             visibility: profile.visibility ?? .public,
-            expectedVersion: profile.version
+            expectedVersion: profile.version,
+            accent: profile.presentation.accent,
+            featuredModuleIDs: profile.featuredModuleIds,
+            links: profile.links
         )
     }
 }
@@ -246,9 +352,17 @@ enum ProfilePayloadDecoder {
             coverURL: url(payload["coverUri"]?.string ?? payload["coverUrl"]?.string ?? payload["cover"]?.string),
             coverColour: emptyToNil(payload["coverColour"]?.string ?? payload["cover_colour"]?.string),
             bio: payload["bio"]?.string ?? "",
+            headline: emptyToNil(payload["headline"]?.string ?? payload["tagline"]?.string),
             pronouns: emptyToNil(payload["pronouns"]?.string),
             location: location,
             website: website,
+            languages: (payload["languages"]?.array ?? []).compactMap(\.string).filter { !$0.isEmpty },
+            presentation: ProfilePresentation.decode(from: payload["presentation"] ?? payload["profilePresentation"]),
+            coverFocalPoint: {
+                let point = payload["coverFocalPoint"] ?? payload["cover_focal_point"]
+                guard let x = point?["x"]?.number, let y = point?["y"]?.number else { return nil }
+                return CoverFocalPoint(x: x, y: y)
+            }(),
             followerCount: payload["followerCount"]?.int ?? payload["follower_count"]?.int ?? 0,
             followingCount: payload["followingCount"]?.int ?? payload["following_count"]?.int ?? 0,
             moduleCount: payload["moduleCount"]?.int ?? payload["module_count"]?.int ?? 0,

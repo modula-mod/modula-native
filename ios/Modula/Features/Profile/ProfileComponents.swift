@@ -165,6 +165,8 @@ private struct ProfileAvatarCarve: Shape {
 struct ProfileAvatarPocket: View {
     let profile: ModulaProfile
     var onTap: (() -> Void)? = nil
+    var onStoryTap: (() -> Void)? = nil
+    var storyRing: StoryRingState? = nil
     var contextActions: [ModulaContextAction] = []
     var onContextAction: ((ModulaContextAction) -> Void)? = nil
 
@@ -205,14 +207,23 @@ struct ProfileAvatarPocket: View {
     private var avatarBadge: some View {
         ZStack(alignment: .bottomTrailing) {
             Button {
-                onTap?()
+                if storyRing != nil, let onStoryTap {
+                    onStoryTap()
+                } else {
+                    onTap?()
+                }
                 HapticEngine.shared.play(.lightImpact)
             } label: {
-                ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: avatarSize)
-                    .overlay(
-                        Circle()
-                            .strokeBorder(canvas, lineWidth: ring)
-                    )
+                ZStack {
+                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: avatarSize)
+                        .overlay(
+                            Circle()
+                                .strokeBorder(canvas, lineWidth: ring)
+                        )
+                    if let storyRing {
+                        StoryRing(state: storyRing, size: avatarSize, accent: app.appearance.accent.color)
+                    }
+                }
             }
             .buttonStyle(.plain)
             .contextMenu {
@@ -232,8 +243,9 @@ struct ProfileAvatarPocket: View {
                 }
             }
             .accessibilityLabel("\(profile.displayName)'s profile photo")
-            .accessibilityHint("Open profile photo")
+            .accessibilityHint(storyRing == nil ? "Open profile photo" : "Opens story. Use Open profile photo or long press for the image.")
             .accessibilityAction(named: "Open profile photo") { onTap?() }
+            .accessibilityAction(named: "Open story") { onStoryTap?() }
             .accessibilityIdentifier("profile.avatar")
 
             if profile.isVerified {
@@ -271,6 +283,14 @@ struct ProfileIdentityBlock: View {
                         .foregroundStyle(app.appearance.accent.color)
                         .accessibilityLabel("Verified account")
                 }
+            }
+
+            if let headline = profile.headline, !headline.isEmpty {
+                Text(headline)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("profile.headline")
             }
 
             HStack(spacing: 6) {
@@ -442,8 +462,10 @@ struct ProfileToolActions: View {
     let followTitle: String
     let isFollowing: Bool
     var followBusy: Bool = false
+    var messageTitle: String? = nil
     var onPrimary: () -> Void
     var onShare: () -> Void
+    var onMessage: (() -> Void)? = nil
     var moreActions: [ModulaContextAction]
     var onMore: (ModulaContextAction) -> Void
     @Environment(AppEnvironment.self) private var app
@@ -473,6 +495,20 @@ struct ProfileToolActions: View {
             .disabled(followBusy)
             .accessibilityLabel(isOwn ? "Edit Profile" : followTitle)
             .accessibilityIdentifier(isOwn ? "profile.edit.cta" : "profile.follow.cta")
+
+            if let messageTitle, let onMessage, !isOwn {
+                Button(action: onMessage) {
+                    Text(messageTitle)
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 44)
+                        .foregroundStyle(.primary)
+                        .background(Color.primary.opacity(0.08), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(messageTitle)
+                .accessibilityIdentifier("profile.message.cta")
+            }
 
             Button(action: onShare) {
                 Image(systemName: ModulaIconRegistry.symbol(.share, style: app.appearance.iconStyle))
@@ -531,6 +567,9 @@ struct ProfileAboutGrid: View {
         if let website = profile.website, let url = website.url {
             let label = website.domain ?? website.label
             items.append(("Website", label, { Self.openSafely(url, openURL: openURL) }))
+        }
+        if !profile.languages.isEmpty {
+            items.append(("Languages", profile.languages.joined(separator: ", "), nil))
         }
         if let visibility = profile.visibility {
             items.append(("Visibility", visibility.displayTitle, nil))

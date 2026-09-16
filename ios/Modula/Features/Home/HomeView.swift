@@ -15,6 +15,15 @@ struct HomeView: View {
                     ModulaScrollProgressReader()
                     LazyVStack(alignment: .leading, spacing: 18) {
                         hero
+                        if !app.stories.trayGroups.isEmpty || app.stories.capabilities.create {
+                            StoryTray(groups: app.stories.trayGroups) { group in
+                                if let id = group.representative?.id {
+                                    app.navigation.push(.stories(.story(id)))
+                                }
+                            } onCreate: {
+                                app.navigation.push(.stories(.create))
+                            }
+                        }
                         quickAccessShelf
                         if app.home.isOfflineHint && !state.items.isEmpty {
                             offlineBanner
@@ -42,17 +51,38 @@ struct HomeView: View {
                 compactTitle: "Modula",
                 progress: headerProgress
             ) {
-                Button {
-                    app.navigation.open(.settings(.root))
-                    HapticEngine.shared.play(.navigation)
-                } label: {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
+                HStack(spacing: 2) {
+                    Button {
+                        app.navigation.push(.messages(.inbox))
+                        HapticEngine.shared.play(.navigation)
+                    } label: {
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "message")
+                                .font(.system(size: 16, weight: .semibold))
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                            if let count = app.messaging.accountUnreadCount, count > 0 {
+                                UnreadBadge(count: count)
+                                    .scaleEffect(0.85)
+                                    .offset(x: -6, y: 6)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(messagesAccessibilityLabel)
+
+                    Button {
+                        app.navigation.open(.settings(.root))
+                        HapticEngine.shared.play(.navigation)
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 16, weight: .semibold))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Settings")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Settings")
             }
 
             if state.newerAvailable {
@@ -66,6 +96,7 @@ struct HomeView: View {
         .toolbar(.hidden, for: .navigationBar)
         .task(id: mode) {
             await app.home.loadIfNeeded(mode, signedIn: app.auth.isSignedIn)
+            await app.stories.loadIfNeeded()
         }
         .onChange(of: app.auth.account?.accountId) { _, _ in
             Task { await app.home.refresh(mode, signedIn: app.auth.isSignedIn) }
@@ -85,6 +116,13 @@ struct HomeView: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("native.home")
         .accessibilityValue(RouteSerializer.serialize(.home(mode)))
+    }
+
+    private var messagesAccessibilityLabel: String {
+        if let count = app.messaging.accountUnreadCount, count > 0 {
+            return "Messages, \(count) unread"
+        }
+        return "Messages"
     }
 
     private var hero: some View {

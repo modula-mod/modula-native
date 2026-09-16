@@ -133,6 +133,7 @@ struct DiscoverDashboard: Hashable, Sendable {
     var posts: [DiscoverPost]
     var featuredModules: [DiscoverFeaturedModule]
     var media: [DiscoverPostMedia]
+    var reels: [Reel]
 }
 
 struct DiscoverPage<Item: Hashable & Sendable>: Hashable, Sendable {
@@ -236,7 +237,8 @@ enum DiscoverPayloadDecoder {
         let topics = (value["trendingTopics"]?.array ?? []).compactMap(topic)
         let featured = (value["featuredModules"]?.array ?? []).compactMap(featuredModule)
         let media = (value["media"]?.array ?? []).compactMap(mediaItem)
-        return DiscoverDashboard(people: people, topics: topics, posts: [], featuredModules: featured, media: media)
+        let reels = (value["reels"]?.array ?? []).compactMap(ReelPayloadDecoder.reel)
+        return DiscoverDashboard(people: people, topics: topics, posts: [], featuredModules: featured, media: media, reels: reels)
     }
 
     static func searchPage(from value: JSONValue) -> SearchPage {

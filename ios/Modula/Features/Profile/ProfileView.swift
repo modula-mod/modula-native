@@ -28,7 +28,13 @@ struct ProfileView: View {
         app.profile.session(for: identity, handleHint: accountHandle)
     }
 
-    private var profile: ModulaProfile? { session.profile }
+    private var profile: ModulaProfile? {
+        let raw = session.profile
+        if app.profile.visitorPreviewActive, isOwnProfile {
+            return raw?.visitorVisible
+        }
+        return raw
+    }
 
     private var isOwnProfile: Bool {
         if identity == .me { return true }
@@ -46,6 +52,7 @@ struct ProfileView: View {
         }
         .task(id: taskKey) {
             await bootstrap()
+            await app.stories.loadIfNeeded()
         }
         .onChange(of: app.auth.account?.accountId) { _, _ in
             Task { await bootstrap() }
@@ -308,6 +315,11 @@ struct ProfileView: View {
             hero(profile)
 
             VStack(alignment: .leading, spacing: 22) {
+                if app.profile.visitorPreviewActive, isOwnProfile {
+                    ProfileVisitorPreviewBanner {
+                        app.profile.setVisitorPreview(false)
+                    }
+                }
                 primaryActions(profile)
                 metrics(profile)
 
@@ -344,6 +356,8 @@ struct ProfileView: View {
             ProfileAvatarPocket(
                 profile: profile,
                 onTap: { openAvatarViewer(profile) },
+                onStoryTap: { openProfileStory(profile) },
+                storyRing: storyRing(for: profile),
                 contextActions: ProfileContextActions.avatarMenu(
                     isOwn: isOwnProfile,
                     hasPhoto: profile.avatarURL != nil
@@ -365,6 +379,7 @@ struct ProfileView: View {
             followTitle: profile.followState.title,
             isFollowing: profile.isFollowing,
             followBusy: followBusy,
+            messageTitle: isOwnProfile ? nil : messageActionTitle,
             onPrimary: {
                 if isOwnProfile {
                     openSection(.edit)
@@ -373,6 +388,7 @@ struct ProfileView: View {
                 }
             },
             onShare: { presentShare(profile) },
+            onMessage: isOwnProfile ? nil : { openMessaging(for: profile) },
             moreActions: ProfileContextActions.moreMenu(isOwn: isOwnProfile),
             onMore: { handleContextAction($0, profile: profile) }
         )
@@ -617,6 +633,8 @@ struct ProfileView: View {
             ProfileAvatarPocket(
                 profile: profile,
                 onTap: { openAvatarViewer(profile) },
+                onStoryTap: { openProfileStory(profile) },
+                storyRing: storyRing(for: profile),
                 contextActions: ProfileContextActions.avatarMenu(
                     isOwn: isOwnProfile,
                     hasPhoto: profile.avatarURL != nil
@@ -932,6 +950,39 @@ struct ProfileView: View {
         }
     }
 
+
+    private var messageActionTitle: String? {
+        if app.messaging.capabilities.send { return "Message" }
+        if app.inMail.capabilities.send { return "Send In-Mail" }
+        return nil
+    }
+
+    private func openMessaging(for profile: ModulaProfile) {
+        if app.messaging.capabilities.send {
+            app.navigation.push(.messages(.new))
+            HapticEngine.shared.play(.navigation)
+            return
+        }
+        if app.inMail.capabilities.send {
+            app.navigation.push(.messages(.inMail(.compose)))
+            HapticEngine.shared.play(.navigation)
+        }
+    }
+
+    private func storyRing(for profile: ModulaProfile) -> StoryRingState? {
+        app.stories.groups.first { $0.author.id == profile.id || $0.author.handle == profile.handle }?.ring
+    }
+
+    private func openProfileStory(_ profile: ModulaProfile) {
+        guard let group = app.stories.groups.first(where: { $0.author.id == profile.id || $0.author.handle == profile.handle }),
+              let id = group.representative?.id else {
+            openAvatarViewer(profile)
+            return
+        }
+        app.navigation.push(.stories(.story(id)))
+        HapticEngine.shared.play(.navigation)
+    }
+
     private func handleContextAction(_ action: ModulaContextAction, profile: ModulaProfile) {
         switch action.id {
         case "share":
@@ -941,7 +992,7 @@ struct ProfileView: View {
         case "modula-code":
             showsModulaCode = true
         case "preview-visitor":
-            app.navigation.push(.profile(profile.routeID, .overview))
+            app.profile.setVisitorPreview(true)
             HapticEngine.shared.play(.navigation)
         case "settings":
             app.navigation.open(.settings(.account(.root)))

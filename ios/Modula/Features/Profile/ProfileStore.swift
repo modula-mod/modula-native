@@ -8,6 +8,8 @@ final class ProfileStore {
     private(set) var sessions: [String: ProfileSessionState] = [:]
     private(set) var actionError: String?
     private(set) var editing = ProfileEditingState()
+    private(set) var visitorPreviewActive = false
+    let customization = ProfileCustomizationCapabilities.production
 
     init(client: GreenfieldClient, posts: PostStateStore? = nil) {
         self.repository = GreenfieldProfileRepository(client: client)
@@ -386,6 +388,10 @@ final class ProfileStore {
 
     func clearActionError() { actionError = nil }
 
+    func setVisitorPreview(_ active: Bool) {
+        visitorPreviewActive = active
+    }
+
     // MARK: - Private
 
     private func refreshPeople(
@@ -492,9 +498,13 @@ private extension ModulaProfile {
             coverURL: coverURL,
             coverColour: coverColour,
             bio: bio,
+            headline: headline,
             pronouns: pronouns,
             location: location,
             website: website,
+            languages: languages,
+            presentation: presentation,
+            coverFocalPoint: coverFocalPoint,
             followerCount: count,
             followingCount: followingCount,
             moduleCount: moduleCount,

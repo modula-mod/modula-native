@@ -97,6 +97,24 @@
 		F280213B620AE297E6EC4D78 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE413545A422ACB4BACBB3DF /* RootView.swift */; };
 		F43AEB1A67070000A929D731 /* N1FixtureCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = C086A4FED95A41F19B257A39 /* N1FixtureCredentials.swift */; };
 		FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */; };
+		N50100000000000000000001 /* MediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000001 /* MediaModels.swift */; };
+		N50100000000000000000002 /* ModulaVideoPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000002 /* ModulaVideoPlayer.swift */; };
+		N50100000000000000000003 /* MessageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000003 /* MessageModels.swift */; };
+		N50100000000000000000004 /* MessagingRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000004 /* MessagingRepository.swift */; };
+		N50100000000000000000005 /* MessagingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000005 /* MessagingStore.swift */; };
+		N50100000000000000000006 /* MessageContextActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000006 /* MessageContextActions.swift */; };
+		N50100000000000000000007 /* MessagesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000007 /* MessagesViews.swift */; };
+		N50100000000000000000008 /* InMailModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000008 /* InMailModels.swift */; };
+		N50100000000000000000009 /* InMailRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000009 /* InMailRepository.swift */; };
+		N5010000000000000000000A /* InMailStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000A /* InMailStore.swift */; };
+		N5010000000000000000000B /* InMailViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000B /* InMailViews.swift */; };
+		N5010000000000000000000C /* StoryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000C /* StoryModels.swift */; };
+		N5010000000000000000000D /* StoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000D /* StoryViews.swift */; };
+		N5010000000000000000000E /* ReelModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000E /* ReelModels.swift */; };
+		N5010000000000000000000F /* ReelViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000F /* ReelViewer.swift */; };
+		N50100000000000000000010 /* ProfilePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000010 /* ProfilePresentation.swift */; };
+		N50100000000000000000011 /* ProfileCustomizationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000011 /* ProfileCustomizationViews.swift */; };
+		N50100000000000000000012 /* N4CTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000012 /* N4CTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -216,6 +234,24 @@
 		E490C161A4B61D0F2ED2F9CE /* Pods-ModulaTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ModulaTests.debug.xcconfig"; path = "Target Support Files/Pods-ModulaTests/Pods-ModulaTests.debug.xcconfig"; sourceTree = "<group>"; };
 		E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleHost.swift; path = ModuleRuntime/ModuleHost.swift; sourceTree = "<group>"; };
 		EECC47A5007CE1E5BB063A97 /* ShellAccessory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShellAccessory.swift; path = DesignSystem/ShellAccessory.swift; sourceTree = "<group>"; };
+		N40100000000000000000001 /* MediaModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MediaModels.swift; path = Features/Media/MediaModels.swift; sourceTree = "<group>"; };
+		N40100000000000000000002 /* ModulaVideoPlayer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaVideoPlayer.swift; path = Features/Media/ModulaVideoPlayer.swift; sourceTree = "<group>"; };
+		N40100000000000000000003 /* MessageModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessageModels.swift; path = Features/Messages/MessageModels.swift; sourceTree = "<group>"; };
+		N40100000000000000000004 /* MessagingRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagingRepository.swift; path = Features/Messages/MessagingRepository.swift; sourceTree = "<group>"; };
+		N40100000000000000000005 /* MessagingStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagingStore.swift; path = Features/Messages/MessagingStore.swift; sourceTree = "<group>"; };
+		N40100000000000000000006 /* MessageContextActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessageContextActions.swift; path = Features/Messages/MessageContextActions.swift; sourceTree = "<group>"; };
+		N40100000000000000000007 /* MessagesViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagesViews.swift; path = Features/Messages/MessagesViews.swift; sourceTree = "<group>"; };
+		N40100000000000000000008 /* InMailModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailModels.swift; path = Features/InMail/InMailModels.swift; sourceTree = "<group>"; };
+		N40100000000000000000009 /* InMailRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailRepository.swift; path = Features/InMail/InMailRepository.swift; sourceTree = "<group>"; };
+		N4010000000000000000000A /* InMailStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailStore.swift; path = Features/InMail/InMailStore.swift; sourceTree = "<group>"; };
+		N4010000000000000000000B /* InMailViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailViews.swift; path = Features/InMail/InMailViews.swift; sourceTree = "<group>"; };
+		N4010000000000000000000C /* StoryModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryModels.swift; path = Features/Stories/StoryModels.swift; sourceTree = "<group>"; };
+		N4010000000000000000000D /* StoryViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryViews.swift; path = Features/Stories/StoryViews.swift; sourceTree = "<group>"; };
+		N4010000000000000000000E /* ReelModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelModels.swift; path = Features/Reels/ReelModels.swift; sourceTree = "<group>"; };
+		N4010000000000000000000F /* ReelViewer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelViewer.swift; path = Features/Reels/ReelViewer.swift; sourceTree = "<group>"; };
+		N40100000000000000000010 /* ProfilePresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfilePresentation.swift; path = Features/Profile/Customization/ProfilePresentation.swift; sourceTree = "<group>"; };
+		N40100000000000000000011 /* ProfileCustomizationViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileCustomizationViews.swift; path = Features/Profile/Customization/ProfileCustomizationViews.swift; sourceTree = "<group>"; };
+		N40100000000000000000012 /* N4CTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4CTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -266,6 +302,7 @@
 			isa = PBXGroup;
 			children = (
 				E30100000000000000000019 /* PostSystemTests.swift */,
+				N40100000000000000000012 /* N4CTests.swift */,
 				E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */,
 				61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */,
 				E1010000000000000000000A /* DiscoverTests.swift */,
@@ -336,6 +373,23 @@
 				E30100000000000000000017 /* PostActionRail.swift */,
 				E30100000000000000000018 /* PostCommentsView.swift */,
 				E3010000000000000000001A /* SharePayload.swift */,
+				N40100000000000000000001 /* MediaModels.swift */,
+				N40100000000000000000002 /* ModulaVideoPlayer.swift */,
+				N40100000000000000000003 /* MessageModels.swift */,
+				N40100000000000000000004 /* MessagingRepository.swift */,
+				N40100000000000000000005 /* MessagingStore.swift */,
+				N40100000000000000000006 /* MessageContextActions.swift */,
+				N40100000000000000000007 /* MessagesViews.swift */,
+				N40100000000000000000008 /* InMailModels.swift */,
+				N40100000000000000000009 /* InMailRepository.swift */,
+				N4010000000000000000000A /* InMailStore.swift */,
+				N4010000000000000000000B /* InMailViews.swift */,
+				N4010000000000000000000C /* StoryModels.swift */,
+				N4010000000000000000000D /* StoryViews.swift */,
+				N4010000000000000000000E /* ReelModels.swift */,
+				N4010000000000000000000F /* ReelViewer.swift */,
+				N40100000000000000000010 /* ProfilePresentation.swift */,
+				N40100000000000000000011 /* ProfileCustomizationViews.swift */,
 				A40100000000000000000011 /* ReactionKind.swift */,
 				A40100000000000000000012 /* ReactionPeopleView.swift */,
 				DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */,
@@ -668,6 +722,7 @@
 				E2010000000000000000000A /* DiscoverTests.swift in Sources */,
 				E40100000000000000000009 /* HomeFeedTests.swift in Sources */,
 				E40100000000000000000019 /* PostSystemTests.swift in Sources */,
+				N50100000000000000000012 /* N4CTests.swift in Sources */,
 				F10100000000000000000006 /* ProfileTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -699,6 +754,23 @@
 				E40100000000000000000017 /* PostActionRail.swift in Sources */,
 				E40100000000000000000018 /* PostCommentsView.swift in Sources */,
 				E4010000000000000000001A /* SharePayload.swift in Sources */,
+				N50100000000000000000001 /* MediaModels.swift in Sources */,
+				N50100000000000000000002 /* ModulaVideoPlayer.swift in Sources */,
+				N50100000000000000000003 /* MessageModels.swift in Sources */,
+				N50100000000000000000004 /* MessagingRepository.swift in Sources */,
+				N50100000000000000000005 /* MessagingStore.swift in Sources */,
+				N50100000000000000000006 /* MessageContextActions.swift in Sources */,
+				N50100000000000000000007 /* MessagesViews.swift in Sources */,
+				N50100000000000000000008 /* InMailModels.swift in Sources */,
+				N50100000000000000000009 /* InMailRepository.swift in Sources */,
+				N5010000000000000000000A /* InMailStore.swift in Sources */,
+				N5010000000000000000000B /* InMailViews.swift in Sources */,
+				N5010000000000000000000C /* StoryModels.swift in Sources */,
+				N5010000000000000000000D /* StoryViews.swift in Sources */,
+				N5010000000000000000000E /* ReelModels.swift in Sources */,
+				N5010000000000000000000F /* ReelViewer.swift in Sources */,
+				N50100000000000000000010 /* ProfilePresentation.swift in Sources */,
+				N50100000000000000000011 /* ProfileCustomizationViews.swift in Sources */,
 				A50100000000000000000011 /* ReactionKind.swift in Sources */,
 				A50100000000000000000012 /* ReactionPeopleView.swift in Sources */,
 				E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */,

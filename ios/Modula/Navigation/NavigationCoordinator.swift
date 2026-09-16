@@ -233,6 +233,39 @@ struct ShellChromePolicy: Equatable {
                 immersive: false,
                 hidesForKeyboard: true
             )
+        case .messages:
+            Self(
+                bottomBarVisible: false,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .standard,
+                showsBack: true,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: true
+            )
+        case .stories:
+            Self(
+                bottomBarVisible: false,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .hidden,
+                showsBack: false,
+                showsClose: true,
+                immersive: true,
+                hidesForKeyboard: true
+            )
+        case .reels:
+            Self(
+                bottomBarVisible: false,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .hidden,
+                showsBack: true,
+                showsClose: false,
+                immersive: true,
+                hidesForKeyboard: true
+            )
         default:
             Self(
                 bottomBarVisible: true,

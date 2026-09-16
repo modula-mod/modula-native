@@ -105,7 +105,9 @@ private struct RouteView: View {
         case .productHub(let route): ProductHubView(route: route)
         case .module(let id, let localPath): ModuleHost(moduleID: id, initialLocalPath: localPath)
         case .settings(let route): SettingsRouteView(route: route)
-        case .messages: DevelopmentRouteView(title: "Messages", symbol: "message")
+        case .messages(let route): MessagesRootView(route: route)
+        case .stories(let route): StoriesRouteView(route: route)
+        case .reels(let route): ReelsRouteView(route: route)
         case .teams: DevelopmentRouteView(title: "Teams", symbol: "person.3")
         case .developer(.components):
             #if DEBUG
@@ -163,6 +165,12 @@ private struct PresentationView: View {
             return URL(string: "https://modula.digital/me")!
         case .post(let id, _):
             return URL(string: "https://modula.digital/post/\(id)")!
+        case .stories(.story(let id)):
+            return URL(string: "https://modula.digital/stories/\(id)")!
+        case .reels(.reel(let id)):
+            return URL(string: "https://modula.digital/reels/\(id)")!
+        case .messages(.conversation(let id)):
+            return URL(string: "https://modula.digital/messages/\(id)")!
         default:
             return URL(string: "https://modula.digital")!
         }

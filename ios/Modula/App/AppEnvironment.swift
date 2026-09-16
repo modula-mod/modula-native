@@ -16,6 +16,10 @@ final class AppEnvironment {
     let postActions: PostActionController
     let home: HomeStore
     let profile: ProfileStore
+    let messaging: MessagingStore
+    let inMail: InMailStore
+    let stories: StoryStore
+    let reels: ReelStore
     init() {
         let launchArguments = ProcessInfo.processInfo.arguments
         if launchArguments.contains("--reset-appearance") { appearance.reset() }
@@ -41,6 +45,10 @@ final class AppEnvironment {
         postActions = PostActionController(client: client, state: posts)
         home = HomeStore(client: client, posts: posts, postActions: postActions)
         profile = ProfileStore(client: client, posts: posts)
+        messaging = MessagingStore(client: client)
+        inMail = InMailStore(client: client)
+        stories = StoryStore(client: client)
+        reels = ReelStore(client: client)
         let catalogueStore = catalogue
         auth.onAccountChange = { [weak runtime, weak catalogueStore] account in
             runtime?.setAccount(account?.accountId)

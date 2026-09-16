@@ -575,6 +575,18 @@ struct ComponentCatalogView: View {
                     }
                 }
                 catalog("Looping context rail") { HStack { Spacer(); ModulaContextRail(route: .home(.following)) } }
+                catalog("Messages, stories, profile accent") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        MessageBubble(message: MessagingFixtures.thread()[1]) { _ in }
+                        MessageBubble(message: MessagingFixtures.thread()[0]) { _ in }
+                        HStack(spacing: 16) {
+                            StoryRing(state: .unseen, accent: app.appearance.accent.color)
+                            StoryRing(state: .seen, accent: app.appearance.accent.color)
+                            StoryRing(state: .own, accent: app.appearance.accent.color)
+                        }
+                        StoryProgressBar(count: 4, index: 1, progress: 0.4)
+                    }
+                }
             }
             .padding(18)
         }
