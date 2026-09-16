@@ -20,7 +20,9 @@ struct RootView: View {
         )
         .overlay(alignment: .trailing) {
             if policy.contextRailVisible {
-                ModulaContextRail(route: navigation.currentRoute)
+                ShellEdgeLoop(route: navigation.currentRoute)
+                    .ignoresSafeArea(edges: .trailing)
+                    .padding(.bottom, 80)
             }
         }
         .sheet(item: $navigation.presented) { presentation in

@@ -116,7 +116,7 @@ struct OnboardingView: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
-                .modulaChrome(in: RoundedRectangle(cornerRadius: 18, style: .continuous), opaque: false)
+                .modulaMaterial(.control, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
         }
         .accessibilityElement(children: .contain)

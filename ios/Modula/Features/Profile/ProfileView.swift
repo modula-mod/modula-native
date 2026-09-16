@@ -6,6 +6,7 @@ struct ProfileView: View {
     let section: ProfileSection
     @Environment(AppEnvironment.self) private var app
     @Environment(\.openURL) private var openURL
+    @Environment(\.trailingInteractionInset) private var trailingInteractionInset
     @State private var headerProgress: CGFloat = 0
     @State private var confirmsBlock = false
     @State private var confirmsReport = false
@@ -358,6 +359,8 @@ struct ProfileView: View {
                 coverURL: profile.coverURL,
                 coverColour: profile.coverColour,
                 scrollProgress: headerProgress,
+                pocketCenterX: ModulaLayout.contentInset + ProfileIdentityMetrics.avatarSize(sizeClass: nil) / 2,
+                pocketRadius: ProfileIdentityMetrics.carveRadius(avatarSize: ProfileIdentityMetrics.avatarSize(sizeClass: nil)),
                 onTap: { openCoverViewer(profile) },
                 contextActions: ProfileContextActions.coverMenu(isOwn: isOwnProfile, hasCover: profile.coverURL != nil),
                 onContextAction: { handleContextAction($0, profile: profile) }
@@ -508,6 +511,7 @@ struct ProfileView: View {
                 }
             }
             .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.trailing, trailingInteractionInset)
             .padding(.top, embedded ? 0 : 8)
         }
     }
@@ -635,6 +639,8 @@ struct ProfileView: View {
                 coverURL: profile.coverURL,
                 coverColour: profile.coverColour,
                 scrollProgress: headerProgress,
+                pocketCenterX: ModulaLayout.contentInset + ProfileIdentityMetrics.avatarSize(sizeClass: nil) / 2,
+                pocketRadius: ProfileIdentityMetrics.carveRadius(avatarSize: ProfileIdentityMetrics.avatarSize(sizeClass: nil)),
                 onTap: { openCoverViewer(profile) },
                 contextActions: ProfileContextActions.coverMenu(isOwn: isOwnProfile, hasCover: profile.coverURL != nil),
                 onContextAction: { handleContextAction($0, profile: profile) }

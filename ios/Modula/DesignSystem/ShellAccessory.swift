@@ -138,9 +138,9 @@ struct ShellAccessoryHost: View {
                 moreMenu
             }
         }
-        .padding(.leading, nativeHosted ? 2 : 7)
-        .padding(.trailing, nativeHosted ? 2 : 4)
-        .frame(maxWidth: nativeHosted ? .infinity : 310, minHeight: 44)
+        .padding(.leading, nativeHosted ? 2 : 8)
+        .padding(.trailing, nativeHosted ? 2 : 6)
+        .frame(maxWidth: nativeHosted ? .infinity : 310, minHeight: 36)
         .modulaAccessorySurface(
             nativeHosted: nativeHosted,
             opaque: reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
@@ -273,21 +273,35 @@ struct ShellAccessoryHost: View {
 struct ModulaBottomChrome: View {
     let route: AppRoute
     var showsAccessory = true
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 0) {
             if showsAccessory {
-                ShellAccessoryHost(route: route)
+                ShellAccessoryHost(route: route, nativeHosted: true)
+                    .padding(.horizontal, 8)
+                    .padding(.top, 4)
+                    .padding(.bottom, 2)
             }
-            ModulaTabBar()
+            ModulaTabBar(embedded: true)
         }
-        .padding(.horizontal, 10)
-        .padding(.top, 5)
-        .padding(.bottom, 5)
+        .padding(.horizontal, 8)
+        .padding(.bottom, 4)
+        .padding(.top, 2)
+        .modulaMaterial(
+            .control,
+            in: RoundedRectangle(cornerRadius: app.appearance.interfaceShape.radius(for: .control) + 10, style: .continuous),
+            depth: .floating
+        )
+        .padding(.horizontal, 8)
+        .padding(.top, 4)
+        .padding(.bottom, 4)
     }
 }
 
 struct ModulaTabBar: View {
+    var embedded = false
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
@@ -300,9 +314,9 @@ struct ModulaTabBar: View {
                     navigation.select(tab)
                     HapticEngine.shared.play(.navigation)
                 } label: {
-                    VStack(spacing: 3) {
+                    VStack(spacing: 2) {
                         Image(systemName: selected ? tab.selectedIcon : tab.icon)
-                            .font(.system(size: 17, weight: selected ? .semibold : .medium))
+                            .font(.system(size: 16, weight: selected ? .semibold : .medium))
                             .symbolEffect(.bounce, value: selected)
                         Text(tab.title)
                             .font(.caption2.weight(selected ? .semibold : .medium))
@@ -314,12 +328,9 @@ struct ModulaTabBar: View {
                     .background {
                         if selected {
                             Capsule()
-                                .fill(Color.primary.opacity(0.08))
-                                .overlay(
-                                    Capsule().stroke(app.appearance.accent.color.opacity(0.35), lineWidth: 1)
-                                )
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 1)
+                                .fill(app.appearance.accent.color.opacity(0.14))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 3)
                         }
                     }
                     .contentShape(Rectangle())
@@ -330,14 +341,28 @@ struct ModulaTabBar: View {
                 .accessibilityIdentifier("tab.\(tab.rawValue)")
             }
         }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 3)
+        .padding(.horizontal, embedded ? 2 : 4)
+        .padding(.vertical, embedded ? 2 : 3)
         .frame(maxWidth: 560)
-        .modulaChrome(in: Capsule(), opaque: reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency)
-        .shadow(color: .black.opacity(0.11), radius: 16, y: 8)
+        .modifier(TabBarChrome(embedded: embedded, opaque: reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency))
         .dynamicTypeSize(...DynamicTypeSize.large)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Global navigation")
+    }
+}
+
+private struct TabBarChrome: ViewModifier {
+    var embedded: Bool
+    var opaque: Bool
+
+    func body(content: Content) -> some View {
+        if embedded {
+            content
+        } else {
+            content
+                .modulaChrome(in: Capsule(), opaque: opaque)
+                .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
+        }
     }
 }
 

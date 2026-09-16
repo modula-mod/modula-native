@@ -91,6 +91,12 @@
 		A50100000000000000000016 /* PublisherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000016 /* PublisherView.swift */; };
 		A50100000000000000000017 /* N4ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000017 /* N4ETests.swift */; };
 		F50100000000000000000001 /* ModulaImmersiveSurfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */; };
+		G50100000000000000000001 /* ModulaSurfaceSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000001 /* ModulaSurfaceSystem.swift */; };
+		G50100000000000000000002 /* EdgeLoopEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000002 /* EdgeLoopEngine.swift */; };
+		G50100000000000000000003 /* EdgeLoopShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000003 /* EdgeLoopShape.swift */; };
+		G50100000000000000000004 /* ModulaEdgeLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000004 /* ModulaEdgeLoop.swift */; };
+		G50100000000000000000006 /* TypographyPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000006 /* TypographyPreview.swift */; };
+		G50100000000000000000007 /* N4GTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000007 /* N4GTests.swift */; };
 		C50100000000000000000001 /* CreationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000001 /* CreationModels.swift */; };
 		C50100000000000000000002 /* CreationCapabilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000002 /* CreationCapabilities.swift */; };
 		C50100000000000000000003 /* CreationStudioStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000003 /* CreationStudioStore.swift */; };
@@ -302,6 +308,12 @@
 		A40100000000000000000016 /* PublisherView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PublisherView.swift; path = Features/ProductHub/Publisher/PublisherView.swift; sourceTree = "<group>"; };
 		A40100000000000000000017 /* N4ETests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4ETests.swift; sourceTree = "<group>"; };
 		F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaImmersiveSurfaces.swift; path = DesignSystem/Immersive/ModulaImmersiveSurfaces.swift; sourceTree = "<group>"; };
+		G40100000000000000000001 /* ModulaSurfaceSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaSurfaceSystem.swift; path = DesignSystem/Surface/ModulaSurfaceSystem.swift; sourceTree = "<group>"; };
+		G40100000000000000000002 /* EdgeLoopEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopEngine.swift; path = DesignSystem/EdgeLoop/EdgeLoopEngine.swift; sourceTree = "<group>"; };
+		G40100000000000000000003 /* EdgeLoopShape.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopShape.swift; path = DesignSystem/EdgeLoop/EdgeLoopShape.swift; sourceTree = "<group>"; };
+		G40100000000000000000004 /* ModulaEdgeLoop.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaEdgeLoop.swift; path = DesignSystem/EdgeLoop/ModulaEdgeLoop.swift; sourceTree = "<group>"; };
+		G40100000000000000000006 /* TypographyPreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TypographyPreview.swift; path = Features/Settings/TypographyPreview.swift; sourceTree = "<group>"; };
+		G40100000000000000000007 /* N4GTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4GTests.swift; sourceTree = "<group>"; };
 		C40100000000000000000001 /* CreationModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreationModels.swift; path = Features/Creation/CreationModels.swift; sourceTree = "<group>"; };
 		C40100000000000000000002 /* CreationCapabilities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreationCapabilities.swift; path = Features/Creation/CreationCapabilities.swift; sourceTree = "<group>"; };
 		C40100000000000000000003 /* CreationStudioStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreationStudioStore.swift; path = Features/Creation/Composer/CreationStudioStore.swift; sourceTree = "<group>"; };
@@ -420,6 +432,7 @@
 				D40100000000000000000018 /* N4DTests.swift */,
 				A40100000000000000000017 /* N4ETests.swift */,
 				C4010000000000000000000C /* N4FTests.swift */,
+				G40100000000000000000007 /* N4GTests.swift */,
 				E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */,
 				61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */,
 				E1010000000000000000000A /* DiscoverTests.swift */,
@@ -563,6 +576,11 @@
 				A40100000000000000000015 /* ModuleDetailV2View.swift */,
 				A40100000000000000000016 /* PublisherView.swift */,
 				F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */,
+				G40100000000000000000001 /* ModulaSurfaceSystem.swift */,
+				G40100000000000000000002 /* EdgeLoopEngine.swift */,
+				G40100000000000000000003 /* EdgeLoopShape.swift */,
+				G40100000000000000000004 /* ModulaEdgeLoop.swift */,
+				G40100000000000000000006 /* TypographyPreview.swift */,
 				DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */,
 				F00100000000000000000001 /* ProfileModels.swift */,
 				F00100000000000000000002 /* ProfileRepository.swift */,
@@ -898,6 +916,7 @@
 				D50100000000000000000018 /* N4DTests.swift in Sources */,
 				A50100000000000000000017 /* N4ETests.swift in Sources */,
 				C5010000000000000000000C /* N4FTests.swift in Sources */,
+				G50100000000000000000007 /* N4GTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -967,6 +986,11 @@
 				A50100000000000000000015 /* ModuleDetailV2View.swift in Sources */,
 				A50100000000000000000016 /* PublisherView.swift in Sources */,
 				F50100000000000000000001 /* ModulaImmersiveSurfaces.swift in Sources */,
+				G50100000000000000000001 /* ModulaSurfaceSystem.swift in Sources */,
+				G50100000000000000000002 /* EdgeLoopEngine.swift in Sources */,
+				G50100000000000000000003 /* EdgeLoopShape.swift in Sources */,
+				G50100000000000000000004 /* ModulaEdgeLoop.swift in Sources */,
+				G50100000000000000000006 /* TypographyPreview.swift in Sources */,
 				E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */,
 				DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */,
 				F10100000000000000000001 /* ProfileModels.swift in Sources */,

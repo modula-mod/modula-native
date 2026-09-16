@@ -309,12 +309,7 @@ struct AppearanceSettingsView: View {
                         Divider().padding(.leading, 43)
                         AppearanceMenuRow(title: "Text Size", symbol: "textformat.size", selection: $store.textSize, options: AppearanceStore.TextSize.allCases, label: display)
                         Divider().padding(.vertical, 12)
-                        VStack(alignment: .leading, spacing: 4) {
-                            ModulaText(text: "Modula", role: .title)
-                            ModulaText(text: "Clear type, deliberate rhythm, comfortable reading.", role: .body)
-                            ModulaText(text: "0123456789 · Aa", role: .caption)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        TypographyPreviewCard(family: store.fontFamily)
                     }
                 }
                 SettingsGroup(title: "Interface") {
@@ -414,7 +409,7 @@ struct AppearancePreviewScreen: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                ModulaSection(title: "Rail") { HStack { Spacer(); ModulaContextRail(route: .home(.following)) } }
+                ModulaSection(title: "Edge Loop") { HStack { Spacer(); ShellEdgeLoop(route: .home(.following)) } }
                 ModulaSection(title: "Module sample") {
                     ModulaCard {
                         VStack(alignment: .leading, spacing: 10) {
@@ -511,6 +506,7 @@ struct ComponentCatalogView: View {
                         ModulaText(text: "Section title", role: .title)
                         ModulaText(text: "Body copy follows Dynamic Type.", role: .body)
                         ModulaText(text: "0123456789 · Supporting caption", role: .caption)
+                        TypographyPreviewCard(family: appearance.fontFamily)
                     }
                 }
                 catalog("Identity & status") {
@@ -545,9 +541,9 @@ struct ComponentCatalogView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                catalog("Looping context rail") { HStack { Spacer(); ModulaContextRail(route: .home(.following)) } }
+                catalog("Edge Loop") { HStack { Spacer(); ShellEdgeLoop(route: .home(.following)) } }
                 catalog("Messages, stories, profile accent") {
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 16) {
                         MessageBubble(message: MessagingFixtures.thread()[1]) { _ in }
                         MessageBubble(message: MessagingFixtures.thread()[0]) { _ in }
                         HStack(spacing: 16) {
@@ -556,6 +552,7 @@ struct ComponentCatalogView: View {
                             StoryRing(state: .own, accent: app.appearance.accent.color)
                         }
                         StoryProgressBar(count: 4, index: 1, progress: 0.4)
+                        ProfileAccentPicker(selection: .constant(.violet), writable: true)
                     }
                 }
                 catalog("Creation Studio") {

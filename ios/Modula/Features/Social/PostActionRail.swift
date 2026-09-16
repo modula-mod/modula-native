@@ -74,8 +74,7 @@ struct PostActionRail: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 4)
-        .background(.ultraThinMaterial, in: Capsule())
-        .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
+        .modulaMaterial(.control, in: Capsule(), depth: .raised)
         .offset(y: morphProgress * 0.15)
         .gesture(railMorphGesture)
         .accessibilityElement(children: .contain)

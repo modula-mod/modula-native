@@ -1,7 +1,6 @@
 import SwiftUI
 
 /// Full-bleed identity surface: media starts at the physical top edge, chrome floats over it.
-/// Minimal N4E subset — AvatarPocket / OnboardingHeroScene polish deferred to N4G.
 struct FullBleedHero<Media: View, Overlay: View>: View {
     var height: CGFloat
     var scrollProgress: CGFloat = 0
@@ -53,6 +52,8 @@ struct FullBleedHero<Media: View, Overlay: View>: View {
 struct FloatingHeroControls<Leading: View, Trailing: View>: View {
     @ViewBuilder var leading: () -> Leading
     @ViewBuilder var trailing: () -> Trailing
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         HStack(spacing: 8) {
@@ -70,6 +71,7 @@ struct FloatingHeroButton: View {
     let title: String
     let symbol: String
     var action: () -> Void
+    @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
@@ -80,12 +82,68 @@ struct FloatingHeroButton: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .modulaChrome(in: Circle(), opaque: reduceTransparency)
+        .modulaMaterial(
+            .floating,
+            in: Circle(),
+            depth: .raised
+        )
         .accessibilityLabel(title)
     }
 }
 
-/// Module artwork sit-in for full-bleed heroes (AvatarPocket carve deferred to N4G).
+/// Cover bottom carved around an identity pocket (avatar or module artwork).
+struct AvatarPocketShape: Shape {
+    var centerX: CGFloat
+    var radius: CGFloat
+
+    nonisolated func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        let fillet = min(18, radius * 0.28)
+        let pocketLeft = centerX - radius
+        let pocketRight = centerX + radius
+        path.addLine(to: CGPoint(x: pocketRight + fillet, y: rect.maxY))
+        path.addQuadCurve(
+            to: CGPoint(x: pocketRight, y: rect.maxY - fillet),
+            control: CGPoint(x: pocketRight, y: rect.maxY)
+        )
+        path.addArc(
+            center: CGPoint(x: centerX, y: rect.maxY),
+            radius: radius,
+            startAngle: .degrees(0),
+            endAngle: .degrees(180),
+            clockwise: false
+        )
+        path.addQuadCurve(
+            to: CGPoint(x: pocketLeft - fillet, y: rect.maxY),
+            control: CGPoint(x: pocketLeft, y: rect.maxY)
+        )
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
+}
+
+/// Even-odd canvas mask: a circular bite at the cover/content seam.
+struct AvatarPocketCarve: Shape {
+    var avatarCenterX: CGFloat
+    var avatarRadius: CGFloat
+
+    nonisolated func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.addRect(rect)
+        path.addEllipse(in: CGRect(
+            x: avatarCenterX - avatarRadius,
+            y: rect.maxY - avatarRadius,
+            width: avatarRadius * 2,
+            height: avatarRadius * 2
+        ))
+        return path
+    }
+}
+
 struct ArtworkPocket<Artwork: View>: View {
     var size: CGFloat
     var leadingInset: CGFloat = ModulaLayout.contentInset
@@ -101,7 +159,7 @@ struct ArtworkPocket<Artwork: View>: View {
     }
 }
 
-/// Lightweight onboarding atmosphere (full N4G hero polish deferred).
+/// Brand-owned onboarding atmosphere. No scenic photography.
 struct OnboardingHeroScene: View {
     var floatPhase: Bool
     @Environment(AppEnvironment.self) private var app

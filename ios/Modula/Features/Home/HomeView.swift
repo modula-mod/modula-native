@@ -4,6 +4,7 @@ import UIKit
 struct HomeView: View {
     let mode: HomeMode
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.trailingInteractionInset) private var trailingInteractionInset
     @State private var headerProgress: CGFloat = 0
 
     var body: some View {
@@ -13,10 +14,10 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     // Keep the progress probe outside LazyVStack so recycling cannot drop it.
                     ModulaScrollProgressReader()
-                    LazyVStack(alignment: .leading, spacing: 18) {
-                        hero
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        modeCaption
                         if !app.stories.trayGroups.isEmpty || app.stories.capabilities.create {
-                            StoryTray(groups: app.stories.trayGroups) { group in
+                            StoryTray(groups: app.stories.trayGroups, compact: true) { group in
                                 if let id = group.representative?.id {
                                     app.navigation.push(.stories(.story(id)))
                                 }
@@ -24,13 +25,13 @@ struct HomeView: View {
                                 app.navigation.push(.stories(.create))
                             }
                         }
-                        quickAccessShelf
                         if app.home.isOfflineHint && !state.items.isEmpty {
                             offlineBanner
                         }
                         feedContent(state)
                     }
-                    .padding(.horizontal, ModulaLayout.contentInset)
+                    .padding(.leading, ModulaLayout.contentInset)
+                    .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
                     .padding(.top, 4)
                     .padding(.bottom, 120)
                 }
@@ -53,6 +54,19 @@ struct HomeView: View {
             ) {
                 HStack(spacing: 2) {
                     Button {
+                        app.navigation.open(.compose(.post))
+                        HapticEngine.shared.play(.navigation)
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 17, weight: .semibold))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Create")
+                    .accessibilityIdentifier("home.create")
+
+                    Button {
                         app.navigation.push(.messages(.inbox))
                         HapticEngine.shared.play(.navigation)
                     } label: {
@@ -70,18 +84,6 @@ struct HomeView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(messagesAccessibilityLabel)
-
-                    Button {
-                        app.navigation.open(.settings(.root))
-                        HapticEngine.shared.play(.navigation)
-                    } label: {
-                        Image(systemName: "gearshape")
-                            .font(.system(size: 16, weight: .semibold))
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Settings")
                 }
             }
 
@@ -125,53 +127,15 @@ struct HomeView: View {
         return "Messages"
     }
 
-    private var hero: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(mode.heroSubtitle.uppercased())
-                .font(.caption.weight(.bold))
-                .tracking(1.2)
-                .foregroundStyle(.secondary)
-            Text(mode.heroTitle)
-                .font(.title2.weight(.bold))
-                .foregroundStyle(.primary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(minHeight: 72, maxHeight: 120)
-        .padding(.top, 96)
-        .padding(.bottom, 4)
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("home.hero")
-    }
-
-    private var quickAccessShelf: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                shelfChip(title: "Product Hub", symbol: "shippingbox") {
-                    app.navigation.open(.productHub(.featured))
-                }
-                shelfChip(title: "Compose", symbol: "square.and.pencil") {
-                    app.navigation.open(.compose(.post))
-                }
-            }
-        }
-        .accessibilityIdentifier("home.shelf")
-    }
-
-    private func shelfChip(title: String, symbol: String, action: @escaping () -> Void) -> some View {
-        Button {
-            action()
-            HapticEngine.shared.play(.navigation)
-        } label: {
-            Label(title, systemImage: symbol)
-                .font(.caption.weight(.semibold))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(app.appearance.accent.color.opacity(0.12), in: Capsule())
-                .foregroundStyle(app.appearance.accent.color)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title)
+    private var modeCaption: some View {
+        Text(mode.heroSubtitle)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 92)
+            .padding(.bottom, 2)
+            .accessibilityIdentifier("home.hero")
+            .accessibilityLabel(mode.heroTitle)
     }
 
     private var offlineBanner: some View {

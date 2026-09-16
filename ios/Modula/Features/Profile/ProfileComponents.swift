@@ -6,6 +6,8 @@ struct ProfileCover: View {
     let coverURL: URL?
     let coverColour: String?
     var scrollProgress: CGFloat = 0
+    var pocketCenterX: CGFloat? = nil
+    var pocketRadius: CGFloat? = nil
     var onTap: (() -> Void)? = nil
     var contextActions: [ModulaContextAction] = []
     var onContextAction: ((ModulaContextAction) -> Void)? = nil
@@ -71,6 +73,13 @@ struct ProfileCover: View {
             .frame(width: width, height: coverHeight + stretch)
             .offset(y: reduceMotion ? 0 : -CGFloat(dissolve) * 18)
             .opacity(1 - (0.35 * Double(dissolve)))
+            .mask {
+                if let pocketCenterX, let pocketRadius {
+                    AvatarPocketShape(centerX: pocketCenterX, radius: pocketRadius)
+                } else {
+                    Rectangle()
+                }
+            }
             .clipped()
         }
         .frame(height: coverHeight)
@@ -145,25 +154,17 @@ struct ProfileCover: View {
 
 // MARK: - Avatar pocket
 
-/// Circular carve under the cover so the avatar sits in a canvas-coloured pocket (Light + OLED).
-private struct ProfileAvatarCarve: Shape {
-    var avatarCenterX: CGFloat
-    var avatarRadius: CGFloat
+enum ProfileIdentityMetrics {
+    static func avatarSize(sizeClass: UserInterfaceSizeClass?) -> CGFloat {
+        sizeClass == .regular ? 112 : 104
+    }
 
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.addRect(rect)
-        let center = CGPoint(x: avatarCenterX, y: rect.maxY)
-        path.addEllipse(in: CGRect(
-            x: center.x - avatarRadius,
-            y: center.y - avatarRadius,
-            width: avatarRadius * 2,
-            height: avatarRadius * 2
-        ))
-        return path
+    static func carveRadius(avatarSize: CGFloat) -> CGFloat {
+        (avatarSize / 2) + 8
     }
 }
 
+/// Circular carve under the cover so the avatar sits in a canvas-coloured pocket (Light + OLED).
 struct ProfileAvatarPocket: View {
     let profile: ModulaProfile
     var onTap: (() -> Void)? = nil
@@ -177,11 +178,11 @@ struct ProfileAvatarPocket: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
 
     private var avatarSize: CGFloat {
-        sizeClass == .regular ? 112 : 104
+        ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass)
     }
 
     private var ring: CGFloat { 5 }
-    private var carveRadius: CGFloat { (avatarSize / 2) + ring + 2 }
+    private var carveRadius: CGFloat { ProfileIdentityMetrics.carveRadius(avatarSize: avatarSize) }
     /// How much of the avatar sits above the content surface (intersection geometry).
     private var intersection: CGFloat { avatarSize * 0.42 }
 
@@ -191,7 +192,7 @@ struct ProfileAvatarPocket: View {
             canvas
                 .frame(height: intersection)
                 .mask(
-                    ProfileAvatarCarve(avatarCenterX: inset + avatarSize / 2, avatarRadius: carveRadius)
+                    AvatarPocketCarve(avatarCenterX: inset + avatarSize / 2, avatarRadius: carveRadius)
                         .fill(style: FillStyle(eoFill: true))
                 )
 

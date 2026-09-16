@@ -301,7 +301,7 @@ struct ModuleDetailV2View: View {
                         .font(.system(size: 16, weight: .semibold))
                         .frame(width: 36, height: 36)
                 }
-                .modulaChrome(in: Circle(), opaque: false)
+                .modulaMaterial(.floating, in: Circle(), depth: .raised)
                 .accessibilityLabel("Share")
                 Menu {
                     Button("Share", systemImage: "square.and.arrow.up") {
@@ -323,7 +323,7 @@ struct ModuleDetailV2View: View {
                         .font(.system(size: 16, weight: .semibold))
                         .frame(width: 36, height: 36)
                 }
-                .modulaChrome(in: Circle(), opaque: false)
+                .modulaMaterial(.floating, in: Circle(), depth: .raised)
                 .accessibilityLabel("More")
             }
         }
