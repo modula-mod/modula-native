@@ -27,12 +27,40 @@ struct RootView: View {
             if let banner = navigation.banner { Label(banner.message, systemImage: banner.symbol).padding(12).background(.regularMaterial, in: Capsule()).padding(.top, 8) }
         }
         .background(palette.canvas.ignoresSafeArea())
+        .modulaCommandKeyboard(
+            onCommandK: {
+                app.navigation.presented = .commandCenter
+                HapticEngine.shared.play(.contextOpen)
+            },
+            onCommandN: {
+                app.navigation.presented = .createPicker
+            },
+            onCommandF: {
+                app.navigation.open(.search(.root(nil)))
+            }
+        )
         .onOpenURL { _ = navigation.open(path: $0.absoluteString) }
-        .onAppear { app.runtime.markNativeUsable() }
-        .task { await app.auth.restore(); await app.catalogue.load() }
+        .onAppear {
+            app.runtime.markNativeUsable()
+            app.refreshQuickActions()
+        }
+        .task {
+            await app.auth.restore()
+            app.drafts.setAccountID(app.auth.account?.accountId)
+            await app.catalogue.load()
+            app.refreshQuickActions()
+        }
         .onChange(of: scenePhase) { previous, phase in
-            if phase == .active { if previous == .background { app.runtime.lifecycle("foregrounded") }; app.runtime.lifecycle("active") }
-            else { app.runtime.lifecycle(phase == .background ? "backgrounded" : "inactive") }
+            if phase == .active {
+                if previous == .background { app.runtime.lifecycle("foregrounded") }
+                app.runtime.lifecycle("active")
+                app.refreshQuickActions()
+            } else if phase == .background {
+                app.drafts.flush()
+                app.runtime.lifecycle("backgrounded")
+            } else {
+                app.runtime.lifecycle("inactive")
+            }
         }
         .onChange(of: appearance.contrastTransparency) { _, value in
             if value == .reduceTransparency || systemReduceTransparency { navigation.banner = nil }
@@ -116,12 +144,31 @@ private struct RouteView: View {
             DevelopmentRouteView(title: "Components", symbol: "square.grid.3x3")
             #endif
         case .developer(let route): DevelopmentRouteView(title: route.rawValue.capitalized, symbol: "hammer")
+        case .command:
+            CommandCenterView(context: .global)
+        case .saved(let section):
+            SavedView(section: {
+                switch section {
+                case .root: .root
+                case .posts: .posts
+                case .modules: .modules
+                case .links: .links
+                }
+            }())
+        case .collections(.root):
+            CollectionsView()
+        case .collections(.collection(let id)):
+            CollectionDetailView(collectionID: id)
+        case .drafts:
+            DraftsView()
         }
     }
 }
 
 private struct PresentationView: View {
     let presentation: AppPresentation
+    @Environment(AppEnvironment.self) private var app
+
     var body: some View {
         switch presentation {
         case .composer(let route): ComposerFoundationView(route: route)
@@ -140,20 +187,29 @@ private struct PresentationView: View {
         case .discoverFilter: DiscoverFilterSheet()
         case .homeSummary: HomeSummarySheet()
         case .homeFeedTools: HomeFeedToolsSheet()
-        case .universalShare(let payload):
-            ShareLink(item: payload.canonicalURL) {
-                Label("Share", systemImage: "square.and.arrow.up")
+        case .commandCenter: CommandCenterView(context: commandContext)
+        case .createPicker: CreateActionPicker()
+        case .universalShare(let payload): ModulaShareSheet(payload: payload)
+        case .collectionPicker(let postID): CollectionPicker(postID: postID)
+        case .draftRestore: DraftRestorePrompt(
+            onContinue: {},
+            onStartNew: {
+                app.drafts.discardPost()
             }
-            .padding()
-            .accessibilityIdentifier("share.universal")
-        case .collectionPicker:
-            ContentUnavailableView(
-                "Collections",
-                systemImage: "folder",
-                description: Text("Local collections arrive in a later phase.")
-            )
-            .padding()
-            .accessibilityIdentifier("collections.picker.stub")
+        )
+        }
+    }
+
+    private var commandContext: CommandContext {
+        switch app.navigation.currentRoute {
+        case .home: .home
+        case .discover, .search: .discover
+        case .productHub, .module: .modules
+        case .activity: .activity
+        case .profile, .me, .saved, .collections, .drafts: .profile
+        case .settings: .settings
+        case .messages: .messages
+        default: .global
         }
     }
 

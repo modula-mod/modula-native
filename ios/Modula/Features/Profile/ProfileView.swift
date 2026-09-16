@@ -989,6 +989,12 @@ struct ProfileView: View {
             presentShare(profile)
         case "copy-link":
             copyProfileLink(profile)
+        case "saved":
+            app.navigation.open(.saved(.root))
+            HapticEngine.shared.play(.navigation)
+        case "drafts":
+            app.navigation.open(.drafts(.root))
+            HapticEngine.shared.play(.navigation)
         case "modula-code":
             showsModulaCode = true
         case "preview-visitor":

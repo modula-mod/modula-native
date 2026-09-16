@@ -1,5 +1,6 @@
 import Observation
 import Foundation
+import UIKit
 
 @MainActor @Observable
 final class AppEnvironment {
@@ -20,6 +21,11 @@ final class AppEnvironment {
     let inMail: InMailStore
     let stories: StoryStore
     let reels: ReelStore
+    let commandRecents: CommandRecentsStore
+    let saved: SavedStore
+    let collections: CollectionStore
+    let drafts: DraftStore
+
     init() {
         let launchArguments = ProcessInfo.processInfo.arguments
         if launchArguments.contains("--reset-appearance") { appearance.reset() }
@@ -49,9 +55,15 @@ final class AppEnvironment {
         inMail = InMailStore(client: client)
         stories = StoryStore(client: client)
         reels = ReelStore(client: client)
+        commandRecents = CommandRecentsStore()
+        saved = SavedStore(client: client)
+        collections = CollectionStore()
+        drafts = DraftStore()
         let catalogueStore = catalogue
+        let draftsStore = drafts
         auth.onAccountChange = { [weak runtime, weak catalogueStore] account in
             runtime?.setAccount(account?.accountId)
+            draftsStore.setAccountID(account?.accountId)
             Task { await catalogueStore?.load() }
         }
         ModulaBridge.shared.client = client
@@ -63,5 +75,34 @@ final class AppEnvironment {
         ModulaBridge.shared.navigation = navigation
         let appearanceStore = appearance
         HapticEngine.shared.intensityProvider = { [weak appearanceStore] in appearanceStore?.haptics ?? .standard }
+    }
+
+    func commandCapabilities() -> CommandCapabilitySnapshot {
+        CommandCapabilitySnapshot(
+            signedIn: auth.isSignedIn,
+            developerMode: {
+                #if DEBUG
+                true
+                #else
+                false
+                #endif
+            }(),
+            postCompose: true,
+            photoCompose: false,
+            pollCompose: false,
+            storyCreate: stories.capabilities.create,
+            messagingSend: messaging.capabilities.send,
+            messagingInbox: true,
+            inMailCompose: inMail.capabilities.send,
+            inMailInbox: true,
+            savedList: saved.capabilities.listSavedPosts,
+            collectionsLocal: collections.capabilities.localCollections,
+            drafts: true,
+            installedModuleIDs: catalogue.installedIDs
+        )
+    }
+
+    func refreshQuickActions() {
+        UIApplication.shared.shortcutItems = QuickActionMapper.shortcutItems(capabilities: commandCapabilities())
     }
 }

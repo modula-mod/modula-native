@@ -38,10 +38,19 @@ N2 authority: `AppRoute` is the in-process route model. `RouteParser` converts p
 /settings/developer/{runtime,modules,network,feature-flags,environment,components,diagnostics}
 /settings/about/{version,licenses,privacy,terms}
 /messages/{new,:conversationId}
+/messages/{inbox,requests,in-mail}
+/stories[/{create,:storyId}]
+/reels[/:reelId]
+/command
+/saved[/{posts,modules,links}]
+/collections[/:collectionId]
+/drafts[/{posts,in-mail,stories}]
 /teams/{create,:teamId}
 /teams/:teamId/{overview,members,roles,modules,settings}
 /developer/{components,appearance,modules,runtime,bridge,diagnostics}
 ```
+
+`/command` is a transient Command Center surface (sheet/overlay). It is **not** a sixth global tab. `/saved` is bookmarked content (not Product Hub installed). `/collections` groups saved content; storage may be local (“On This Device”) or Greenfield when verified. `/drafts` lists unfinished user-created content (not failed deliveries).
 
 Defaults serialize as `/home/following`, `/discover/trending`, `/activity/all`, `/profile/:userId/overview`, and `/product-hub/featured`. `/me` is a semantic current-account route and does not manufacture an account identifier.
 

@@ -162,6 +162,10 @@ struct ShellAccessoryHost: View {
                 }
             }
             Section("Quick Access") {
+                Button("Command Center", systemImage: "command") {
+                    PresentationCoordinator.present(.commandCenter, in: app.navigation)
+                    HapticEngine.shared.play(.contextOpen)
+                }
                 Button("Settings", systemImage: "gearshape") { app.navigation.open(.settings(.root)) }
                 Button("Appearance", systemImage: "paintpalette") { app.navigation.open(.settings(.appearance(.root))) }
                 Button("Account", systemImage: "person.crop.circle") {
@@ -171,6 +175,8 @@ struct ShellAccessoryHost: View {
                         app.navigation.open(.settings(.account(.root)))
                     }
                 }
+                Button("Saved", systemImage: "bookmark") { app.navigation.open(.saved(.root)) }
+                Button("Drafts", systemImage: "doc.text") { app.navigation.open(.drafts(.root)) }
             }
             Section("Modules") {
                 Button("Product Hub", systemImage: "shippingbox") { app.navigation.open(.productHub(.featured)) }

@@ -32,6 +32,8 @@ enum ProfileContextActions {
             if capabilities.canCopyLink {
                 items.append(.init(id: "copy-link", title: "Copy Profile Link", systemImage: "link"))
             }
+            items.append(.init(id: "saved", title: "Saved", systemImage: "bookmark"))
+            items.append(.init(id: "drafts", title: "Drafts", systemImage: "doc.text"))
             if capabilities.canShowModulaCode {
                 items.append(.init(id: "modula-code", title: "My Modula Code", systemImage: "qrcode"))
             }
@@ -126,23 +128,7 @@ enum ProfileContextActions {
         return items
     }
 
-    static func postMenu(isOwn: Bool) -> [ModulaContextAction] {
-        if isOwn {
-            return [
-                .init(id: "edit-post", title: "Edit Post", systemImage: "pencil", role: .disabled),
-                .init(id: "save", title: "Save", systemImage: "bookmark"),
-                .init(id: "copy-link", title: "Copy Link", systemImage: "link"),
-                .init(id: "share", title: "Share", systemImage: "square.and.arrow.up"),
-                .init(id: "delete", title: "Delete", systemImage: "trash", role: .disabled)
-            ]
-        }
-        return [
-            .init(id: "save", title: "Save", systemImage: "bookmark"),
-            .init(id: "copy-link", title: "Copy Link", systemImage: "link"),
-            .init(id: "share", title: "Share", systemImage: "square.and.arrow.up"),
-            .init(id: "not-interested", title: "Not Interested", systemImage: "eye.slash", role: .disabled),
-            .init(id: "mute-author", title: "Mute Author", systemImage: "speaker.slash"),
-            .init(id: "report", title: "Report", systemImage: "exclamationmark.bubble", role: .destructive)
-        ]
+    static func postMenu(isOwn: Bool, saved: Bool = false) -> [ModulaContextAction] {
+        PostContextActions.menu(isOwn: isOwn, saved: saved, capabilities: .production)
     }
 }

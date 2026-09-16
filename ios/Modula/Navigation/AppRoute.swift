@@ -106,6 +106,9 @@ enum TeamsRoute: Hashable { case root, create, team(String, TeamSection) }
 enum TeamSection: String, CaseIterable, Codable, Hashable { case overview, members, roles, modules, settings }
 enum DeveloperRoute: String, CaseIterable, Codable, Hashable { case components, appearance, modules, runtime, bridge, diagnostics }
 enum SearchRoute: Hashable { case root(String?), section(SearchSection, String?) }
+enum SavedRoute: Hashable { case root, posts, modules, links }
+enum CollectionsRoute: Hashable { case root, collection(String) }
+enum DraftsRoute: Hashable { case root, posts, inMail, stories }
 
 enum AppRoute: Hashable {
     case boot
@@ -127,6 +130,11 @@ enum AppRoute: Hashable {
     case reels(ReelsRoute)
     case teams(TeamsRoute)
     case developer(DeveloperRoute)
+    /// Transient Command Center surface — not a sixth root tab.
+    case command
+    case saved(SavedRoute)
+    case collections(CollectionsRoute)
+    case drafts(DraftsRoute)
 
     var tab: AppTab? {
         switch self {
@@ -134,7 +142,7 @@ enum AppRoute: Hashable {
         case .discover, .search: .discover
         case .productHub, .module: .modules
         case .activity, .notification: .activity
-        case .profile, .me: .profile
+        case .profile, .me, .saved, .collections, .drafts: .profile
         default: nil
         }
     }
@@ -219,6 +227,31 @@ enum RouteParser {
         case "developer":
             guard p.count == 2, let route = DeveloperRoute(rawValue: p[1]) else { return nil }
             return .developer(route)
+        case "command":
+            guard p.count == 1 else { return nil }
+            return .command
+        case "saved":
+            guard p.count <= 2 else { return nil }
+            if p.count == 1 { return .saved(.root) }
+            switch p[1] {
+            case "posts": return .saved(.posts)
+            case "modules": return .saved(.modules)
+            case "links": return .saved(.links)
+            default: return nil
+            }
+        case "collections":
+            guard p.count <= 2 else { return nil }
+            if p.count == 1 { return .collections(.root) }
+            return validID(p[1]) ? .collections(.collection(p[1])) : nil
+        case "drafts":
+            guard p.count <= 2 else { return nil }
+            if p.count == 1 { return .drafts(.root) }
+            switch p[1] {
+            case "posts": return .drafts(.posts)
+            case "in-mail": return .drafts(.inMail)
+            case "stories": return .drafts(.stories)
+            default: return nil
+            }
         default: return nil
         }
     }
@@ -378,6 +411,26 @@ enum RouteSerializer {
         case .teams(let route):
             switch route { case .root: "/teams"; case .create: "/teams/create"; case .team(let id, let section): path("teams", id, section.rawValue) }
         case .developer(let route): path("developer", route.rawValue)
+        case .command: "/command"
+        case .saved(let route):
+            switch route {
+            case .root: "/saved"
+            case .posts: "/saved/posts"
+            case .modules: "/saved/modules"
+            case .links: "/saved/links"
+            }
+        case .collections(let route):
+            switch route {
+            case .root: "/collections"
+            case .collection(let id): "/collections/\(id)"
+            }
+        case .drafts(let route):
+            switch route {
+            case .root: "/drafts"
+            case .posts: "/drafts/posts"
+            case .inMail: "/drafts/in-mail"
+            case .stories: "/drafts/stories"
+            }
         }
     }
     private static func productHub(_ route: ProductHubRoute) -> String {

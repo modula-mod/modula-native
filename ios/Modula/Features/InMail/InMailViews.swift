@@ -257,7 +257,28 @@ struct InMailComposer: View {
         }
         .navigationTitle("New In-Mail")
         .accessibilityIdentifier("inmail.compose")
-
+        .onChange(of: mail.draft) { _, draft in
+            app.drafts.upsertInMail(draft)
+        }
+        .overlay(alignment: .top) {
+            if app.drafts.showSavedIndicator {
+                Text("Draft saved")
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.regularMaterial, in: Capsule())
+                    .padding(.top, 8)
+                    .accessibilityLabel("Draft saved")
+            }
+        }
+        .onAppear {
+            if let persisted = app.drafts.inMailDraft(),
+               mail.draft.toHandle.isEmpty,
+               mail.draft.subject.isEmpty,
+               mail.draft.body.isEmpty {
+                mail.draft = persisted.asComposerDraft()
+            }
+        }
         .accessibilityValue(RouteSerializer.serialize(.messages(.inMail(.compose))))
     }
 

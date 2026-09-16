@@ -587,6 +587,38 @@ struct ComponentCatalogView: View {
                         StoryProgressBar(count: 4, index: 1, progress: 0.4)
                     }
                 }
+                catalog("Command platform") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        CommandRow(
+                            command: ModulaCommand(
+                                id: "create.post",
+                                title: "Create Post",
+                                icon: .init("square.and.pencil"),
+                                category: .create,
+                                action: .composeStart(.post)
+                            ),
+                            selected: false,
+                            action: {}
+                        )
+                        DraftRow(
+                            kind: .post,
+                            preview: "Profile should become the social OS home",
+                            lastEdited: Date(),
+                            onContinue: {},
+                            onDelete: {}
+                        )
+                        SharePreview(payload: .module(id: "digital.modula.vault-notes", name: "Vault Notes", publisher: "Modula"))
+                        CollectionCard(collection: ModulaCollection(
+                            id: "sample",
+                            name: "Design inspiration",
+                            storage: .local,
+                            itemIDs: ["a", "b"],
+                            createdAt: Date(),
+                            updatedAt: Date(),
+                            isDefault: false
+                        ))
+                    }
+                }
             }
             .padding(18)
         }
