@@ -99,7 +99,7 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(minHeight: 72, maxHeight: 120)
-        .padding(.top, 72)
+        .padding(.top, 96)
         .padding(.bottom, 4)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("home.hero")

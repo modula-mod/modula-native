@@ -54,6 +54,7 @@ struct ModulaProgressiveHeader<Trailing: View>: View {
                     .offset(y: reduceMotion ? 0 : CGFloat(1 - clamped) * 8)
                     .frame(maxWidth: .infinity)
                     .allowsHitTesting(false)
+                    .accessibilityHidden(clamped < 0.15)
 
                 HStack(alignment: .center, spacing: 12) {
                     if reduceMotion {
