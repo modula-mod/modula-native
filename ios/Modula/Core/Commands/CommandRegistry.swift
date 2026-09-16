@@ -353,7 +353,7 @@ enum CommandRegistry {
                 icon: .init("rectangle.stack"),
                 category: .open,
                 availability: capabilities.collectionsLocal ? .available : .unavailable,
-                action: .collectionOpen(nil),
+                action: .collectionOpen(collectionID: nil),
                 aliases: ["folders", "albums"],
                 accessibilityHint: "Opens Collections"
             ),

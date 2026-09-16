@@ -26,7 +26,41 @@ struct SavedView: View {
                 ScrollView {
                     LazyVStack(spacing: app.appearance.density == .compact ? 10 : 14) {
                         ForEach(app.saved.posts) { post in
-                            PostCard(post: post)
+                            let resolved = app.posts.resolved(post)
+                            PostCard(
+                                post: resolved,
+                                showsActionRail: resolved.hasMedia,
+                                isOwnPost: resolved.author?.id == app.auth.account?.accountId,
+                                onOpenPost: {
+                                    app.postActions.ingest(resolved)
+                                    app.navigation.open(.post(resolved.id, .root))
+                                    HapticEngine.shared.play(.navigation)
+                                },
+                                onOpenAuthor: {
+                                    guard let author = resolved.author else { return }
+                                    app.navigation.push(.profile(author.routeID, .overview))
+                                    HapticEngine.shared.play(.navigation)
+                                },
+                                onLike: {
+                                    Task {
+                                        app.postActions.ingest(resolved)
+                                        await app.postActions.toggleLike(resolved)
+                                    }
+                                },
+                                onComment: {
+                                    app.navigation.open(.post(resolved.id, .comments))
+                                    HapticEngine.shared.play(.navigation)
+                                },
+                                onRepost: {
+                                    Task {
+                                        app.postActions.ingest(resolved)
+                                        await app.postActions.toggleRepost(resolved)
+                                    }
+                                },
+                                onSave: {
+                                    Task { await app.saved.unsave(postID: resolved.id, postActions: app.postActions) }
+                                }
+                            )
                                 .contextMenu {
                                     Button("Unsave", systemImage: "bookmark.slash", role: .destructive) {
                                         Task { await app.saved.unsave(postID: post.id, postActions: app.postActions) }

@@ -577,6 +577,7 @@ struct PostMetadata: View {
 }
 
 enum PostRendererRegistry {
+    @MainActor
     @ViewBuilder
     static func content(
         for post: SocialPost,

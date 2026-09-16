@@ -141,8 +141,9 @@ struct FirstRunView: View {
 
     private func refreshNotificationStatus() {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
+            let status = settings.authorizationStatus
             Task { @MainActor in
-                notificationStatus = settings.authorizationStatus
+                notificationStatus = status
             }
         }
     }

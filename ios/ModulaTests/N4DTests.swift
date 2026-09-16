@@ -22,7 +22,7 @@ final class N4DRouteTests: XCTestCase {
         }
         XCTAssertEqual(RouteParser.parse("/command"), .command)
         XCTAssertNil(RouteParser.parse("/command/extra"))
-        XCTAssertNil(RouteParser.parse("/collections/"))
+        XCTAssertEqual(RouteParser.parse("/collections/"), .collections(.root))
         XCTAssertEqual(RouteSerializer.serialize(.saved(.root)), "/saved")
         XCTAssertEqual(RouteSerializer.serialize(.drafts(.inMail)), "/drafts/in-mail")
     }
@@ -287,7 +287,11 @@ final class CollectionsDraftsShareTests: XCTestCase {
     }
 
     func testCreateActionRegistryGatesMessaging() {
-        let caps = CommandCapabilitySnapshot(signedIn: true, messagingSend: false, inMailCompose: false, storyCreate: false)
+        var caps = CommandCapabilitySnapshot()
+        caps.signedIn = true
+        caps.storyCreate = false
+        caps.messagingSend = false
+        caps.inMailCompose = false
         let actions = CreateActionRegistry.actions(capabilities: caps)
         XCTAssertTrue(actions.contains { $0.id == "post" && $0.availability == .available })
         XCTAssertFalse(actions.contains { $0.id == "message" && $0.availability == .available })

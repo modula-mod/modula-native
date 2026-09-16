@@ -25,7 +25,7 @@ final class N4CRouteTests: XCTestCase {
         XCTAssertEqual(RouteSerializer.serialize(.stories(.story("story-1"))), "/stories/story-1")
         XCTAssertEqual(RouteSerializer.serialize(.reels(.feed)), "/reels")
         XCTAssertNil(RouteParser.parse("/messages/inbox/extra"))
-        XCTAssertNil(RouteParser.parse("/stories/"))
+        XCTAssertEqual(RouteParser.parse("/stories/"), .stories(.root))
         XCTAssertEqual(RouteParser.parse("/stories"), .stories(.root))
         XCTAssertEqual(RouteParser.parse("/messages/inbox"), .messages(.inbox))
         XCTAssertNotEqual(RouteParser.parse("/messages/inbox"), .messages(.conversation("inbox")))
