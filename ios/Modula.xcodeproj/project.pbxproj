@@ -91,6 +91,18 @@
 		A50100000000000000000016 /* PublisherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000016 /* PublisherView.swift */; };
 		A50100000000000000000017 /* N4ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000017 /* N4ETests.swift */; };
 		F50100000000000000000001 /* ModulaImmersiveSurfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */; };
+		C50100000000000000000001 /* CreationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000001 /* CreationModels.swift */; };
+		C50100000000000000000002 /* CreationCapabilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000002 /* CreationCapabilities.swift */; };
+		C50100000000000000000003 /* CreationStudioStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000003 /* CreationStudioStore.swift */; };
+		C50100000000000000000004 /* CreationStudioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000004 /* CreationStudioView.swift */; };
+		C50100000000000000000005 /* CreationComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000005 /* CreationComponents.swift */; };
+		C50100000000000000000006 /* AudiencePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000006 /* AudiencePicker.swift */; };
+		C50100000000000000000007 /* PollEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000007 /* PollEditor.swift */; };
+		C50100000000000000000008 /* DraftMediaStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000008 /* DraftMediaStore.swift */; };
+		C50100000000000000000009 /* MediaPreparation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000009 /* MediaPreparation.swift */; };
+		C5010000000000000000000A /* PublishingRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4010000000000000000000A /* PublishingRepository.swift */; };
+		C5010000000000000000000B /* MediaUploading.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4010000000000000000000B /* MediaUploading.swift */; };
+		C5010000000000000000000C /* N4FTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4010000000000000000000C /* N4FTests.swift */; };
 		E40100000000000000000010 /* PostGestureThresholds.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000010 /* PostGestureThresholds.swift */; };
 		E40100000000000000000011 /* PostBackendCapabilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000011 /* PostBackendCapabilities.swift */; };
 		E40100000000000000000012 /* PostStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000012 /* PostStateStore.swift */; };
@@ -290,6 +302,18 @@
 		A40100000000000000000016 /* PublisherView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PublisherView.swift; path = Features/ProductHub/Publisher/PublisherView.swift; sourceTree = "<group>"; };
 		A40100000000000000000017 /* N4ETests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4ETests.swift; sourceTree = "<group>"; };
 		F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaImmersiveSurfaces.swift; path = DesignSystem/Immersive/ModulaImmersiveSurfaces.swift; sourceTree = "<group>"; };
+		C40100000000000000000001 /* CreationModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreationModels.swift; path = Features/Creation/CreationModels.swift; sourceTree = "<group>"; };
+		C40100000000000000000002 /* CreationCapabilities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreationCapabilities.swift; path = Features/Creation/CreationCapabilities.swift; sourceTree = "<group>"; };
+		C40100000000000000000003 /* CreationStudioStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreationStudioStore.swift; path = Features/Creation/Composer/CreationStudioStore.swift; sourceTree = "<group>"; };
+		C40100000000000000000004 /* CreationStudioView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreationStudioView.swift; path = Features/Creation/Composer/CreationStudioView.swift; sourceTree = "<group>"; };
+		C40100000000000000000005 /* CreationComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreationComponents.swift; path = Features/Creation/Composer/CreationComponents.swift; sourceTree = "<group>"; };
+		C40100000000000000000006 /* AudiencePicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AudiencePicker.swift; path = Features/Creation/Audience/AudiencePicker.swift; sourceTree = "<group>"; };
+		C40100000000000000000007 /* PollEditor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PollEditor.swift; path = Features/Creation/Poll/PollEditor.swift; sourceTree = "<group>"; };
+		C40100000000000000000008 /* DraftMediaStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DraftMediaStore.swift; path = Features/Creation/Media/DraftMediaStore.swift; sourceTree = "<group>"; };
+		C40100000000000000000009 /* MediaPreparation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MediaPreparation.swift; path = Features/Creation/Media/MediaPreparation.swift; sourceTree = "<group>"; };
+		C4010000000000000000000A /* PublishingRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PublishingRepository.swift; path = Features/Creation/Publishing/PublishingRepository.swift; sourceTree = "<group>"; };
+		C4010000000000000000000B /* MediaUploading.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MediaUploading.swift; path = Core/MediaUpload/MediaUploading.swift; sourceTree = "<group>"; };
+		C4010000000000000000000C /* N4FTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4FTests.swift; sourceTree = "<group>"; };
 		E30100000000000000000004 /* HomeModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeModels.swift; path = Features/Home/HomeModels.swift; sourceTree = "<group>"; };
 		E30100000000000000000005 /* HomeRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeRepository.swift; path = Features/Home/HomeRepository.swift; sourceTree = "<group>"; };
 		E30100000000000000000006 /* HomeStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeStore.swift; path = Features/Home/HomeStore.swift; sourceTree = "<group>"; };
@@ -395,6 +419,7 @@
 				N40100000000000000000012 /* N4CTests.swift */,
 				D40100000000000000000018 /* N4DTests.swift */,
 				A40100000000000000000017 /* N4ETests.swift */,
+				C4010000000000000000000C /* N4FTests.swift */,
 				E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */,
 				61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */,
 				E1010000000000000000000A /* DiscoverTests.swift */,
@@ -499,6 +524,17 @@
 				D40100000000000000000010 /* DraftModels.swift */,
 				D40100000000000000000011 /* DraftStore.swift */,
 				D40100000000000000000012 /* DraftsView.swift */,
+				C40100000000000000000001 /* CreationModels.swift */,
+				C40100000000000000000002 /* CreationCapabilities.swift */,
+				C40100000000000000000003 /* CreationStudioStore.swift */,
+				C40100000000000000000004 /* CreationStudioView.swift */,
+				C40100000000000000000005 /* CreationComponents.swift */,
+				C40100000000000000000006 /* AudiencePicker.swift */,
+				C40100000000000000000007 /* PollEditor.swift */,
+				C40100000000000000000008 /* DraftMediaStore.swift */,
+				C40100000000000000000009 /* MediaPreparation.swift */,
+				C4010000000000000000000A /* PublishingRepository.swift */,
+				C4010000000000000000000B /* MediaUploading.swift */,
 				D40100000000000000000013 /* ModulaShareSheet.swift */,
 				D40100000000000000000014 /* QuickActions.swift */,
 				D40100000000000000000015 /* AppIntentsFoundation.swift */,
@@ -861,6 +897,7 @@
 				F10100000000000000000006 /* ProfileTests.swift in Sources */,
 				D50100000000000000000018 /* N4DTests.swift in Sources */,
 				A50100000000000000000017 /* N4ETests.swift in Sources */,
+				C5010000000000000000000C /* N4FTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -999,6 +1036,17 @@
 				D50100000000000000000010 /* DraftModels.swift in Sources */,
 				D50100000000000000000011 /* DraftStore.swift in Sources */,
 				D50100000000000000000012 /* DraftsView.swift in Sources */,
+				C50100000000000000000001 /* CreationModels.swift in Sources */,
+				C50100000000000000000002 /* CreationCapabilities.swift in Sources */,
+				C50100000000000000000003 /* CreationStudioStore.swift in Sources */,
+				C50100000000000000000004 /* CreationStudioView.swift in Sources */,
+				C50100000000000000000005 /* CreationComponents.swift in Sources */,
+				C50100000000000000000006 /* AudiencePicker.swift in Sources */,
+				C50100000000000000000007 /* PollEditor.swift in Sources */,
+				C50100000000000000000008 /* DraftMediaStore.swift in Sources */,
+				C50100000000000000000009 /* MediaPreparation.swift in Sources */,
+				C5010000000000000000000A /* PublishingRepository.swift in Sources */,
+				C5010000000000000000000B /* MediaUploading.swift in Sources */,
 				D50100000000000000000013 /* ModulaShareSheet.swift in Sources */,
 				D50100000000000000000014 /* QuickActions.swift in Sources */,
 				D50100000000000000000015 /* AppIntentsFoundation.swift in Sources */,

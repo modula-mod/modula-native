@@ -26,6 +26,10 @@ final class AppEnvironment {
     let saved: SavedStore
     let collections: CollectionStore
     let drafts: DraftStore
+    let draftMedia: DraftMediaStore
+    let publishing: GreenfieldPublishingRepository
+    let mediaUploader: any MediaUploading
+    var creationCapabilities: CreationCapabilities { .production }
     let gate = AppGate()
     let appLock = AppLockStore()
 
@@ -61,7 +65,10 @@ final class AppEnvironment {
         commandRecents = CommandRecentsStore()
         saved = SavedStore(client: client)
         collections = CollectionStore()
-        drafts = DraftStore()
+        draftMedia = DraftMediaStore()
+        drafts = DraftStore(mediaStore: draftMedia)
+        publishing = GreenfieldPublishingRepository(client: client, capabilities: .production)
+        mediaUploader = DisabledMediaUploader()
         let catalogueStore = catalogue
         let draftsStore = drafts
         auth.onAccountChange = { [weak self, weak runtime, weak catalogueStore] account in
@@ -96,9 +103,9 @@ final class AppEnvironment {
                 false
                 #endif
             }(),
-            postCompose: true,
-            photoCompose: false,
-            pollCompose: false,
+            postCompose: CreationCapabilities.production.textPost,
+            photoCompose: CreationCapabilities.production.photoPost,
+            pollCompose: CreationCapabilities.production.pollPost,
             storyCreate: stories.capabilities.create,
             messagingSend: messaging.capabilities.send,
             messagingInbox: true,

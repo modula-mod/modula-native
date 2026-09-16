@@ -132,7 +132,7 @@ private struct RouteView: View {
         case .discover: DiscoverScreen()
         case .search(let route): SearchScreen(route: route)
         case .post(let id, let section): PostDetailView(postID: id, section: section)
-        case .compose(let route): ComposerFoundationView(route: route)
+        case .compose(let route): CreationStudioView(route: route)
         case .activity(let mode): ActivityScreen(mode: mode)
         case .notification: DevelopmentRouteView(title: "Notification", symbol: "bell")
         case .profile(let id, let section): ProfileView(userID: id, section: section)
@@ -180,7 +180,7 @@ private struct PresentationView: View {
 
     var body: some View {
         switch presentation {
-        case .composer(let route): ComposerFoundationView(route: route)
+        case .composer(let route): CreationStudioView(route: route)
         case .share(let route):
             let url = shareURL(for: route)
             ShareLink(item: url) {
@@ -248,5 +248,5 @@ struct DevelopmentRouteView: View {
 }
 struct ComposerFoundationView: View {
     let route: ComposeRoute
-    var body: some View { DevelopmentRouteView(title: "Compose \(route.rawValue.capitalized)", symbol: "square.and.pencil") }
+    var body: some View { CreationStudioView(route: route) }
 }

@@ -5,6 +5,8 @@ import Observation
 @MainActor @Observable
 final class DraftStore {
     private let fileStore: PrivateFileStore
+    private let mediaStore: DraftMediaStore
+    private let defaults: UserDefaults
     private var autosaveTasks: [String: Task<Void, Never>] = [:]
     private var pendingPosts: [String: PostDraft] = [:]
     private let autosaveNanoseconds: UInt64
@@ -16,15 +18,19 @@ final class DraftStore {
     private(set) var lastSavedAt: Date?
     /// Subtle composer indicator — not a giant banner.
     private(set) var showSavedIndicator = false
-    /// Set by Drafts library before opening the composer foundation.
+    /// Set by Drafts library before opening Creation Studio.
     var pendingResumeID: String?
 
     init(
         fileStore: PrivateFileStore = PrivateFileStore(domain: .drafts),
-        autosaveMilliseconds: UInt64 = 600
+        mediaStore: DraftMediaStore = DraftMediaStore(),
+        autosaveMilliseconds: UInt64 = 600,
+        defaults: UserDefaults = .standard
     ) {
         self.fileStore = fileStore
+        self.mediaStore = mediaStore
         self.autosaveNanoseconds = autosaveMilliseconds * 1_000_000
+        self.defaults = defaults
         load()
     }
 
@@ -40,6 +46,10 @@ final class DraftStore {
         [.post: posts.count, .inMail: inMails.count, .story: stories.count]
     }
 
+    var draftMediaBytes: Int64 {
+        mediaStore.byteCount(accountID: accountID)
+    }
+
     func setAccountID(_ id: String?) {
         let normalized = id?.trimmingCharacters(in: .whitespacesAndNewlines)
         let next = (normalized?.isEmpty == false) ? normalized : nil
@@ -49,7 +59,19 @@ final class DraftStore {
         load()
     }
 
-    // MARK: - Post
+    func lastAudience() -> AudienceSelection {
+        guard let accountID, let raw = defaults.string(forKey: Self.audienceKey(accountID)) else {
+            return .everyone
+        }
+        return AudienceSelection(greenfield: raw)
+    }
+
+    func rememberAudience(_ audience: AudienceSelection) {
+        guard let accountID else { return }
+        defaults.set(audience.greenfieldValue, forKey: Self.audienceKey(accountID))
+    }
+
+    // MARK: - Post / Creation
 
     func upsertPost(_ draft: PostDraft, debounce: Bool = true) {
         var scoped = draft
@@ -62,6 +84,10 @@ final class DraftStore {
         }
     }
 
+    func upsertCreation(_ draft: CreationDraft, debounce: Bool = true) {
+        upsertPost(PostDraft(draft), debounce: debounce)
+    }
+
     func postDraft(id: String = "post-primary") -> PostDraft? {
         pendingPosts[id] ?? posts.first { $0.id == id }
     }
@@ -71,10 +97,19 @@ final class DraftStore {
         return posts.max(by: { $0.lastEdited < $1.lastEdited })
     }
 
+    func creationDraft(id: String) -> CreationDraft? {
+        postDraft(id: id)?.asCreationDraft(fallbackAccount: accountID ?? "")
+    }
+
     func discardPost(id: String = "post-primary") {
+        let existing = posts.first { $0.id == id } ?? pendingPosts[id]
         posts.removeAll { $0.id == id }
         pendingPosts[id] = nil
         persist()
+        if let existing {
+            mediaStore.remove(ids: existing.media.map(\.id) + existing.mediaReferences, from: existing.media)
+        }
+        cleanupMedia()
         ModulaLog.app.info("draft.discard kind=post count=\(self.posts.count, privacy: .public)")
     }
 
@@ -238,10 +273,20 @@ final class DraftStore {
         try? fileStore.saveData(data, filename: filename)
     }
 
+    private func cleanupMedia() {
+        guard let accountID else { return }
+        let referenced = Set(posts.flatMap { $0.media.map(\.id) + $0.mediaReferences })
+        mediaStore.cleanupOrphans(referenced: referenced, accountID: accountID)
+    }
+
     private func sanitize(_ value: String) -> String {
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
         let filtered = value.unicodeScalars.map { allowed.contains($0) ? Character($0) : "-" }
         let result = String(filtered)
         return result.isEmpty ? "_unknown" : result
+    }
+
+    private static func audienceKey(_ accountID: String) -> String {
+        "modula.creation.lastAudience.\(accountID)"
     }
 }

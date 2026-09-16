@@ -202,7 +202,7 @@ struct ShellChromePolicy: Equatable {
                 immersive: false,
                 hidesForKeyboard: true
             )
-        case .auth, .settings(.account), .compose:
+        case .auth, .settings(.account):
             Self(
                 bottomBarVisible: false,
                 contextRailVisible: false,
@@ -212,6 +212,17 @@ struct ShellChromePolicy: Equatable {
                 showsClose: false,
                 immersive: false,
                 hidesForKeyboard: true
+            )
+        case .compose:
+            Self(
+                bottomBarVisible: false,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .hidden,
+                showsBack: false,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: false
             )
         case .settings:
             Self(

@@ -515,7 +515,7 @@ struct StorageUsageSnapshot {
             caches: size(of: .cachesDirectory),
             temporary: byteCount(folderSize(URL(fileURLWithPath: NSTemporaryDirectory()))),
             applicationSupport: size(of: .applicationSupportDirectory),
-            draftMedia: "—" // DraftMediaStore arrives with Creation Studio (N4F)
+            draftMedia: byteCount(DraftMediaStore().byteCount())
         )
     }
 

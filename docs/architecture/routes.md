@@ -56,6 +56,8 @@ Defaults serialize as `/home/following`, `/discover/trending`, `/activity/all`, 
 
 `/` is boot, not Home. `AppGateHost` resolves session, onboarding, first-run, and App Lock before the root shell is mounted. A signed-out user never sees `/home/following`. Deep links to `/post/:id`, `/profile/:id`, and `/product-hub/module/:id` are held until the gate is ready.
 
+`/compose/*` is native Creation Studio. Shell chrome (tab bar, accessory, context rail) is hidden. Production publishing is capability-gated; video, poll, audio, movie, carousel, story, and reel publish stay off until Greenfield confirms. `/stories/create` uses the same creation domain.
+
 `/product-hub/module/:moduleId` is native product information. `/module/:moduleId` creates the native `ModuleHost`. Anything after the module ID is opaque module-local state; for example `/module/digital.modula.vault-notes/note/123` passes `/note/123` into Vault. Swift never interprets it as an app route.
 
 The parser accepts path strings, `modula://…`, and `https://modula.digital/…`. Other origins, traversal, encoded separators, control characters, unknown routes, and oversized input fail closed. Universal-link entitlements remain infrastructure work.

@@ -558,6 +558,19 @@ struct ComponentCatalogView: View {
                         StoryProgressBar(count: 4, index: 1, progress: 0.4)
                     }
                 }
+                catalog("Creation Studio") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        AudiencePicker(selection: .constant(.everyone))
+                        DraftStatusView(saved: true, publishing: false)
+                        CreationToolDock(
+                            kind: .post,
+                            capabilities: .production,
+                            developerMode: true,
+                            photoPicker: { EmptyView() },
+                            onTool: { _ in }
+                        )
+                    }
+                }
                 catalog("Command platform") {
                     VStack(alignment: .leading, spacing: 12) {
                         CommandRow(

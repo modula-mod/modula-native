@@ -323,6 +323,14 @@ enum CommandRegistry {
             category: .manage,
             action: .settingsOpen(.notifications(.root))
         ))
+        items.append(.init(
+            id: "settings.privacy",
+            title: "Privacy & Security",
+            icon: .init("lock.shield"),
+            category: .manage,
+            action: .settingsOpen(.privacy(.root)),
+            aliases: ["security", "privacy", "face id", "app lock"]
+        ))
         return items
     }
 

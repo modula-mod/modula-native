@@ -378,14 +378,15 @@ struct StoryCreateView: View {
 
     var body: some View {
         Group {
-            // Creation Studio arrives in N4F; keep create capability-honest here.
-            ModulaEmptyState(
-                title: "Create story",
-                message: app.stories.capabilities.create
-                    ? "Story publishing opens from Creation Studio in a later phase."
-                    : "Publishing stories isn’t available yet.",
-                symbol: "plus.circle"
-            )
+            if app.stories.capabilities.create {
+                CreationStudioView(kind: .story)
+            } else {
+                ModulaEmptyState(
+                    title: "Create story",
+                    message: "Publishing stories isn’t available yet.",
+                    symbol: "plus.circle"
+                )
+            }
         }
         .modulaCanvas()
         .navigationTitle("Create story")
