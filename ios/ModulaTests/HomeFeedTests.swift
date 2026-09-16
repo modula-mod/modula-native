@@ -128,16 +128,23 @@ final class HomeFeedTests: XCTestCase {
         let posts = [
             SocialPost(
                 id: "1", author: SocialAuthor(id: "a", handle: "a", displayName: "Ada", avatarURL: nil),
-                createdAt: Date(), feed: "forYou", text: "Hi", kind: .text, audience: nil, media: [],
-                link: nil, module: nil, glowColour: nil, liked: false, saved: false, reposted: false,
-                viewerReaction: nil, likeCount: 2, replyCount: 1, repostCount: 0, quoteCount: 0, reactionCount: 0
+                createdAt: Date(), editedAt: nil, feed: "forYou", text: "Hi", kind: .text,
+                visibility: .public, audience: nil, media: [], link: nil, module: nil, glowColour: nil,
+                engagement: PostEngagement(
+                    liked: false, saved: false, reposted: false, viewerReaction: nil,
+                    likeCount: 2, replyCount: 1, repostCount: 0, quoteCount: 0, reactionCount: 0
+                )
             ),
             SocialPost(
                 id: "2", author: SocialAuthor(id: "b", handle: "b", displayName: "Ben", avatarURL: nil),
-                createdAt: Date(), feed: "forYou", text: "Yo", kind: .media, audience: nil,
-                media: [SocialPostMedia(id: "m", url: nil, altText: "x", kind: "image")],
-                link: nil, module: nil, glowColour: nil, liked: false, saved: false, reposted: false,
-                viewerReaction: nil, likeCount: 3, replyCount: 0, repostCount: 0, quoteCount: 0, reactionCount: 0
+                createdAt: Date(), editedAt: nil, feed: "forYou", text: "Yo", kind: .media,
+                visibility: .public, audience: nil,
+                media: [SocialPostMedia(id: "m", url: nil, altText: "x", kind: "image", aspectRatio: nil)],
+                link: nil, module: nil, glowColour: nil,
+                engagement: PostEngagement(
+                    liked: false, saved: false, reposted: false, viewerReaction: nil,
+                    likeCount: 3, replyCount: 0, repostCount: 0, quoteCount: 0, reactionCount: 0
+                )
             )
         ]
         let summary = FeedSummary.aggregate(from: posts, rankingVersion: "ranking-v1")

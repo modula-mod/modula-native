@@ -14,6 +14,7 @@ struct RootView: View {
         let policy = ShellChromePolicy.policy(for: navigation.currentRoute, isTabRoot: navigation.isAtTabRoot)
         shell(navigation: navigation, policy: policy)
         .fontDesign(appearance.fontDesign)
+        .environment(\.trailingInteractionInset, 0)
         .overlay(alignment: .trailing) {
             if policy.contextRailVisible {
                 ModulaContextRail(route: navigation.currentRoute)
@@ -137,6 +138,20 @@ private struct PresentationView: View {
         case .discoverFilter: DiscoverFilterSheet()
         case .homeSummary: HomeSummarySheet()
         case .homeFeedTools: HomeFeedToolsSheet()
+        case .universalShare(let payload):
+            ShareLink(item: payload.canonicalURL) {
+                Label("Share", systemImage: "square.and.arrow.up")
+            }
+            .padding()
+            .accessibilityIdentifier("share.universal")
+        case .collectionPicker:
+            ContentUnavailableView(
+                "Collections",
+                systemImage: "folder",
+                description: Text("Local collections arrive in a later phase.")
+            )
+            .padding()
+            .accessibilityIdentifier("collections.picker.stub")
         }
     }
 

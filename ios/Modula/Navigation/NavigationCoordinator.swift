@@ -108,6 +108,8 @@ enum AppPresentation: Identifiable, Hashable {
     case composer(ComposeRoute), share(AppRoute), filters, modulePermissions(String), appearancePicker(AppearanceSettingsRoute)
     case activitySummary, activityFilter, discoverFilter
     case homeSummary, homeFeedTools
+    case universalShare(SharePayload)
+    case collectionPicker(postID: String)
     var id: String { String(describing: self) }
 }
 struct ModulaBanner: Identifiable, Hashable { let id = UUID(); var message: String; var symbol: String }
@@ -209,6 +211,18 @@ struct ShellChromePolicy: Equatable {
                 hidesForKeyboard: true
             )
         case .settings:
+            Self(
+                bottomBarVisible: true,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .standard,
+                showsBack: true,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: true
+            )
+        case .post:
+            // Pushed post detail keeps stack semantics — not a sixth root destination.
             Self(
                 bottomBarVisible: true,
                 contextRailVisible: false,

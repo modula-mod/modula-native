@@ -12,6 +12,8 @@ final class AppEnvironment {
     let auth: AuthenticationStore
     let activity: ActivityStore
     let discover: DiscoverStore
+    let posts: PostStateStore
+    let postActions: PostActionController
     let home: HomeStore
     let profile: ProfileStore
     init() {
@@ -35,8 +37,10 @@ final class AppEnvironment {
         auth = AuthenticationStore(client: client)
         activity = ActivityStore(client: client)
         discover = DiscoverStore(client: client)
-        home = HomeStore(client: client)
-        profile = ProfileStore(client: client)
+        posts = PostStateStore()
+        postActions = PostActionController(client: client, state: posts)
+        home = HomeStore(client: client, posts: posts, postActions: postActions)
+        profile = ProfileStore(client: client, posts: posts)
         let catalogueStore = catalogue
         auth.onAccountChange = { [weak runtime, weak catalogueStore] account in
             runtime?.setAccount(account?.accountId)

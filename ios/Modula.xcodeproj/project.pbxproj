@@ -67,6 +67,19 @@
 		E40100000000000000000001 /* PostModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000001 /* PostModels.swift */; };
 		E40100000000000000000002 /* PostComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000002 /* PostComponents.swift */; };
 		E40100000000000000000003 /* PostDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000003 /* PostDetailView.swift */; };
+		A50100000000000000000011 /* ReactionKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000011 /* ReactionKind.swift */; };
+		A50100000000000000000012 /* ReactionPeopleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000012 /* ReactionPeopleView.swift */; };
+		E40100000000000000000010 /* PostGestureThresholds.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000010 /* PostGestureThresholds.swift */; };
+		E40100000000000000000011 /* PostBackendCapabilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000011 /* PostBackendCapabilities.swift */; };
+		E40100000000000000000012 /* PostStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000012 /* PostStateStore.swift */; };
+		E40100000000000000000013 /* PostRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000013 /* PostRepository.swift */; };
+		E40100000000000000000014 /* PostActionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000014 /* PostActionController.swift */; };
+		E40100000000000000000015 /* PostContextActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000015 /* PostContextActions.swift */; };
+		E40100000000000000000016 /* PostReactionPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000016 /* PostReactionPicker.swift */; };
+		E40100000000000000000017 /* PostActionRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000017 /* PostActionRail.swift */; };
+		E40100000000000000000018 /* PostCommentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000018 /* PostCommentsView.swift */; };
+		E40100000000000000000019 /* PostSystemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000019 /* PostSystemTests.swift */; };
+		E4010000000000000000001A /* SharePayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3010000000000000000001A /* SharePayload.swift */; };
 		E40100000000000000000004 /* HomeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000004 /* HomeModels.swift */; };
 		E40100000000000000000005 /* HomeRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000005 /* HomeRepository.swift */; };
 		E40100000000000000000006 /* HomeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000006 /* HomeStore.swift */; };
@@ -180,6 +193,19 @@
 		E30100000000000000000001 /* PostModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostModels.swift; path = Features/Social/PostModels.swift; sourceTree = "<group>"; };
 		E30100000000000000000002 /* PostComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostComponents.swift; path = Features/Social/PostComponents.swift; sourceTree = "<group>"; };
 		E30100000000000000000003 /* PostDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostDetailView.swift; path = Features/Social/PostDetailView.swift; sourceTree = "<group>"; };
+		E30100000000000000000010 /* PostGestureThresholds.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostGestureThresholds.swift; path = Features/Social/PostGestureThresholds.swift; sourceTree = "<group>"; };
+		E30100000000000000000011 /* PostBackendCapabilities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostBackendCapabilities.swift; path = Features/Social/PostBackendCapabilities.swift; sourceTree = "<group>"; };
+		E30100000000000000000012 /* PostStateStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostStateStore.swift; path = Features/Social/PostStateStore.swift; sourceTree = "<group>"; };
+		E30100000000000000000013 /* PostRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostRepository.swift; path = Features/Social/PostRepository.swift; sourceTree = "<group>"; };
+		E30100000000000000000014 /* PostActionController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostActionController.swift; path = Features/Social/PostActionController.swift; sourceTree = "<group>"; };
+		E30100000000000000000015 /* PostContextActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostContextActions.swift; path = Features/Social/PostContextActions.swift; sourceTree = "<group>"; };
+		E30100000000000000000016 /* PostReactionPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostReactionPicker.swift; path = Features/Social/PostReactionPicker.swift; sourceTree = "<group>"; };
+		E30100000000000000000017 /* PostActionRail.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostActionRail.swift; path = Features/Social/PostActionRail.swift; sourceTree = "<group>"; };
+		E30100000000000000000018 /* PostCommentsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostCommentsView.swift; path = Features/Social/PostCommentsView.swift; sourceTree = "<group>"; };
+		E30100000000000000000019 /* PostSystemTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostSystemTests.swift; sourceTree = "<group>"; };
+		E3010000000000000000001A /* SharePayload.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SharePayload.swift; path = Features/Social/SharePayload.swift; sourceTree = "<group>"; };
+		A40100000000000000000011 /* ReactionKind.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactionKind.swift; path = Features/Social/Reactions/ReactionKind.swift; sourceTree = "<group>"; };
+		A40100000000000000000012 /* ReactionPeopleView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactionPeopleView.swift; path = Features/Social/Reactions/ReactionPeopleView.swift; sourceTree = "<group>"; };
 		E30100000000000000000004 /* HomeModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeModels.swift; path = Features/Home/HomeModels.swift; sourceTree = "<group>"; };
 		E30100000000000000000005 /* HomeRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeRepository.swift; path = Features/Home/HomeRepository.swift; sourceTree = "<group>"; };
 		E30100000000000000000006 /* HomeStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeStore.swift; path = Features/Home/HomeStore.swift; sourceTree = "<group>"; };
@@ -239,6 +265,7 @@
 		2ADAF6A38EF8AFA036ABB851 /* ModulaTests */ = {
 			isa = PBXGroup;
 			children = (
+				E30100000000000000000019 /* PostSystemTests.swift */,
 				E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */,
 				61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */,
 				E1010000000000000000000A /* DiscoverTests.swift */,
@@ -299,6 +326,18 @@
 				E30100000000000000000001 /* PostModels.swift */,
 				E30100000000000000000002 /* PostComponents.swift */,
 				E30100000000000000000003 /* PostDetailView.swift */,
+				E30100000000000000000010 /* PostGestureThresholds.swift */,
+				E30100000000000000000011 /* PostBackendCapabilities.swift */,
+				E30100000000000000000012 /* PostStateStore.swift */,
+				E30100000000000000000013 /* PostRepository.swift */,
+				E30100000000000000000014 /* PostActionController.swift */,
+				E30100000000000000000015 /* PostContextActions.swift */,
+				E30100000000000000000016 /* PostReactionPicker.swift */,
+				E30100000000000000000017 /* PostActionRail.swift */,
+				E30100000000000000000018 /* PostCommentsView.swift */,
+				E3010000000000000000001A /* SharePayload.swift */,
+				A40100000000000000000011 /* ReactionKind.swift */,
+				A40100000000000000000012 /* ReactionPeopleView.swift */,
 				DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */,
 				F00100000000000000000001 /* ProfileModels.swift */,
 				F00100000000000000000002 /* ProfileRepository.swift */,
@@ -628,6 +667,7 @@
 				FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */,
 				E2010000000000000000000A /* DiscoverTests.swift in Sources */,
 				E40100000000000000000009 /* HomeFeedTests.swift in Sources */,
+				E40100000000000000000019 /* PostSystemTests.swift in Sources */,
 				F10100000000000000000006 /* ProfileTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -649,6 +689,18 @@
 				E40100000000000000000001 /* PostModels.swift in Sources */,
 				E40100000000000000000002 /* PostComponents.swift in Sources */,
 				E40100000000000000000003 /* PostDetailView.swift in Sources */,
+				E40100000000000000000010 /* PostGestureThresholds.swift in Sources */,
+				E40100000000000000000011 /* PostBackendCapabilities.swift in Sources */,
+				E40100000000000000000012 /* PostStateStore.swift in Sources */,
+				E40100000000000000000013 /* PostRepository.swift in Sources */,
+				E40100000000000000000014 /* PostActionController.swift in Sources */,
+				E40100000000000000000015 /* PostContextActions.swift in Sources */,
+				E40100000000000000000016 /* PostReactionPicker.swift in Sources */,
+				E40100000000000000000017 /* PostActionRail.swift in Sources */,
+				E40100000000000000000018 /* PostCommentsView.swift in Sources */,
+				E4010000000000000000001A /* SharePayload.swift in Sources */,
+				A50100000000000000000011 /* ReactionKind.swift in Sources */,
+				A50100000000000000000012 /* ReactionPeopleView.swift in Sources */,
 				E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */,
 				DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */,
 				F10100000000000000000001 /* ProfileModels.swift in Sources */,

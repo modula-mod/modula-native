@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct HomeView: View {
     let mode: HomeMode
@@ -177,23 +178,44 @@ struct HomeView: View {
                 emptyState
                     .padding(.top, 20)
             default:
-                ForEach(state.items) { post in
+                ForEach(state.items.filter { !app.posts.isHidden($0.id) }) { post in
+                    let resolved = app.posts.resolved(post)
                     PostCard(
-                        post: post,
-                        onOpenPost: { openPost(post) },
-                        onOpenAuthor: { openAuthor(post) },
+                        post: resolved,
+                        showsActionRail: resolved.hasMedia,
+                        isOwnPost: resolved.author?.id == app.auth.account?.accountId,
+                        onOpenPost: { openPost(resolved) },
+                        onOpenAuthor: { openAuthor(resolved) },
                         onLike: {
-                            Task { await app.home.toggleLike(post, mode: mode) }
+                            Task { await app.home.toggleLike(resolved, mode: mode) }
                         },
                         onComment: {
-                            app.navigation.open(.post(post.id, .comments))
+                            app.navigation.open(.post(resolved.id, .comments))
                             HapticEngine.shared.play(.navigation)
                         },
                         onRepost: {
-                            Task { await app.home.toggleRepost(post, mode: mode) }
+                            Task { await app.home.toggleRepost(resolved, mode: mode) }
                         },
                         onSave: {
-                            Task { await app.home.toggleSave(post, mode: mode) }
+                            Task { await app.home.toggleSave(resolved, mode: mode) }
+                        },
+                        onShare: {
+                            UIPasteboard.general.string = resolved.shareURL.absoluteString
+                            Task { await app.postActions.recordShare(resolved) }
+                            HapticEngine.shared.play(.lightImpact)
+                        },
+                        onMore: {
+                            HapticEngine.shared.play(.contextOpen)
+                        },
+                        onContextAction: { action in
+                            handlePostContext(action, post: resolved)
+                        },
+                        onOpenMedia: { _ in
+                            app.navigation.open(.post(resolved.id, .root))
+                        },
+                        onOpenModule: { module in
+                            app.navigation.push(.productHub(.module(module.id, .overview)))
+                            HapticEngine.shared.play(.navigation)
                         }
                     )
                     .onAppear {
@@ -201,7 +223,7 @@ struct HomeView: View {
                             Task { await app.home.loadMore(mode) }
                         }
                     }
-                    Divider().opacity(0.35)
+                    Divider().opacity(0.25)
                 }
                 if state.loadState == .loadingMore {
                     ProgressView()
@@ -303,6 +325,7 @@ struct HomeView: View {
     }
 
     private func openPost(_ post: SocialPost) {
+        app.postActions.ingest(post)
         app.navigation.open(.post(post.id, .root))
         HapticEngine.shared.play(.navigation)
     }
@@ -312,5 +335,39 @@ struct HomeView: View {
         // Push onto the current Home stack — never hijack the Profile tab root.
         app.navigation.push(.profile(author.routeID, .overview))
         HapticEngine.shared.play(.navigation)
+    }
+
+    private func handlePostContext(_ action: ModulaContextAction, post: SocialPost) {
+        switch action.id {
+        case "save":
+            Task { await app.home.toggleSave(post, mode: mode) }
+        case "save-collection":
+            app.navigation.presented = .collectionPicker(postID: post.id)
+            HapticEngine.shared.play(.contextOpen)
+        case "copy-link":
+            UIPasteboard.general.string = post.shareURL.absoluteString
+            HapticEngine.shared.play(.lightImpact)
+        case "share":
+            app.navigation.presented = .universalShare(.post(
+                id: post.id,
+                authorName: post.author?.displayName,
+                excerpt: post.text,
+                hasMedia: !post.media.isEmpty
+            ))
+            Task { await app.postActions.recordShare(post) }
+            HapticEngine.shared.play(.lightImpact)
+        case "hide":
+            app.postActions.hideLocally(post)
+            app.home.syncVisibleEngagement()
+        case "edit-post":
+            app.navigation.open(.post(post.id, .edit))
+        case "delete":
+            Task {
+                _ = await app.postActions.deletePost(post)
+                app.home.syncVisibleEngagement()
+            }
+        default:
+            break
+        }
     }
 }
