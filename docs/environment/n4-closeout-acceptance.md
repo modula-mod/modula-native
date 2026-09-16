@@ -18,7 +18,7 @@ Updated: 2026-09-16 during Integration & Closeout.
 | Metro :8081 | **PASS** | Absent during closeout Release attempt |
 | Bundle credential scan | **PASS** | No fixture emails; `accessToken`/`refreshToken`/`Bearer` are Codable/header symbols only; no localhost/:8081 in Release app |
 | Physical iPhone | **BLOCKED** | `modula.digital` offline in xctrace |
-| Phase reconstruction N4B→N4G | **IN PROGRESS** | N4B `cursor/phase-n4b-ios-post-system-ac57` @ `febdec6` build+tests PASS, [PR #3](https://github.com/modula-mod/modula-native/pull/3); N4C agent running |
+| Phase reconstruction N4B→N4G | **IN PROGRESS** | N4B [PR #3](https://github.com/modula-mod/modula-native/pull/3) `febdec6`; N4C [PR #4](https://github.com/modula-mod/modula-native/pull/4) `8715de4` build+tests PASS; N4D next |
 | Release build | **PASS** | Simulator Release `BUILD SUCCEEDED`; `main.jsbundle` + hermes present; Metro :8081 absent |
 | UITests | **PARTIAL** | Fail under App Gate signed-out (expected until fixture login harness) |
 | App Lock / Face ID / visual / Instruments | **PENDING** | Needs online physical device |
