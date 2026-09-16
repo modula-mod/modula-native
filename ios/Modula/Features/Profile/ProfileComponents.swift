@@ -5,19 +5,37 @@ import SwiftUI
 struct ProfileCover: View {
     let coverURL: URL?
     let coverColour: String?
+    var scrollProgress: CGFloat = 0
+    var onTap: (() -> Void)? = nil
+    var contextActions: [ModulaContextAction] = []
+    var onContextAction: ((ModulaContextAction) -> Void)? = nil
+
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var coverHeight: CGFloat {
-        sizeClass == .regular ? 300 : 240
+        let base: CGFloat = sizeClass == .regular ? 280 : 250
+        if dynamicTypeSize.isAccessibilitySize { return max(220, base - 20) }
+        return base
+    }
+
+    private var dissolve: CGFloat {
+        ModulaScrollProgress.clamp(scrollProgress)
     }
 
     var body: some View {
         GeometryReader { proxy in
             let width = proxy.size.width
+            let stretch: CGFloat = {
+                guard !reduceMotion, proxy.frame(in: .global).minY > 0 else { return 0 }
+                return min(proxy.frame(in: .global).minY * 0.18, 28)
+            }()
             ZStack {
-                placeholder
+                fallbackComposition
+                    .opacity(coverURL == nil ? 1 : 0.001)
                 if let coverURL {
                     AsyncImage(url: coverURL) { phase in
                         switch phase {
@@ -25,42 +43,89 @@ struct ProfileCover: View {
                             image
                                 .resizable()
                                 .scaledToFill()
-                                .frame(width: width, height: coverHeight)
+                                .frame(width: width, height: coverHeight + stretch)
                                 .clipped()
                         case .failure:
-                            placeholder
+                            fallbackComposition
                         case .empty:
-                            placeholder
+                            fallbackComposition
                                 .overlay(ProgressView().tint(.white.opacity(0.7)))
                         @unknown default:
-                            placeholder
+                            fallbackComposition
                         }
                     }
                 }
                 LinearGradient(
-                    colors: [.clear, canvas.opacity(0.55)],
+                    colors: [
+                        .clear,
+                        canvas.opacity(0.25 + (0.55 * Double(dissolve))),
+                        canvas.opacity(0.75 + (0.2 * Double(dissolve)))
+                    ],
                     startPoint: .center,
                     endPoint: .bottom
                 )
+                .opacity(0.85 + (0.15 * Double(dissolve)))
             }
-            .frame(width: width, height: coverHeight)
+            .frame(width: width, height: coverHeight + stretch)
+            .offset(y: reduceMotion ? 0 : -CGFloat(dissolve) * 18)
+            .opacity(1 - (0.35 * Double(dissolve)))
             .clipped()
         }
         .frame(height: coverHeight)
-        .accessibilityHidden(true)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onTap?()
+            HapticEngine.shared.play(.lightImpact)
+        }
+        .contextMenu {
+            ForEach(contextActions) { action in
+                Button(role: action.role == .destructive ? .destructive : nil) {
+                    HapticEngine.shared.play(.contextOpen)
+                    onContextAction?(action)
+                } label: {
+                    if let systemImage = action.systemImage {
+                        Label(action.title, systemImage: systemImage)
+                    } else {
+                        Text(action.title)
+                    }
+                }
+                .disabled(action.role == .disabled)
+                .accessibilityLabel(action.resolvedAccessibilityLabel)
+            }
+        }
+        .accessibilityHidden(coverURL == nil)
+        .accessibilityElement(children: coverURL == nil ? .ignore : .contain)
+        .accessibilityLabel("Profile cover photo")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint("Opens cover photo")
+        .accessibilityIdentifier("profile.cover")
     }
 
-    private var placeholder: some View {
+    private var fallbackComposition: some View {
         ZStack {
-            fillColor
+            LinearGradient(
+                colors: [
+                    fillColor.opacity(scheme == .dark ? 0.9 : 1),
+                    app.appearance.accent.color.opacity(scheme == .dark ? 0.22 : 0.16),
+                    canvas
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            // Soft Modula geometry — intentional, not empty lavender disks.
+            RoundedRectangle(cornerRadius: 48, style: .continuous)
+                .fill(app.appearance.accent.color.opacity(0.12))
+                .frame(width: 220, height: 120)
+                .rotationEffect(.degrees(-18))
+                .offset(x: 70, y: -28)
             Circle()
-                .fill(app.appearance.accent.color.opacity(0.18))
-                .frame(width: 220)
-                .offset(x: 90, y: -40)
-            Circle()
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                .frame(width: 150)
-                .offset(x: 90, y: -40)
+                .strokeBorder(Color.white.opacity(scheme == .dark ? 0.08 : 0.18), lineWidth: 1)
+                .frame(width: 160, height: 160)
+                .offset(x: -90, y: 36)
+            Capsule()
+                .fill(Color.white.opacity(scheme == .dark ? 0.05 : 0.2))
+                .frame(width: 90, height: 10)
+                .offset(x: -40, y: -50)
         }
     }
 
@@ -68,7 +133,7 @@ struct ProfileCover: View {
         if let coverColour, !coverColour.isEmpty {
             return Color(hex: coverColour)
         }
-        return canvas
+        return ModulaPalette.resolve(app.appearance, scheme: scheme).surface
     }
 
     private var canvas: Color {
@@ -99,53 +164,87 @@ private struct ProfileAvatarCarve: Shape {
 
 struct ProfileAvatarPocket: View {
     let profile: ModulaProfile
+    var onTap: (() -> Void)? = nil
+    var contextActions: [ModulaContextAction] = []
+    var onContextAction: ((ModulaContextAction) -> Void)? = nil
+
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
     @Environment(\.horizontalSizeClass) private var sizeClass
 
     private var avatarSize: CGFloat {
-        sizeClass == .regular ? 120 : 96
+        sizeClass == .regular ? 112 : 104
     }
 
     private var ring: CGFloat { 5 }
     private var carveRadius: CGFloat { (avatarSize / 2) + ring + 2 }
+    /// How much of the avatar sits above the content surface (intersection geometry).
+    private var intersection: CGFloat { avatarSize * 0.42 }
 
     var body: some View {
         let inset = ModulaLayout.contentInset
         ZStack(alignment: .bottomLeading) {
             canvas
-                .frame(height: avatarSize * 0.42)
+                .frame(height: intersection)
                 .mask(
                     ProfileAvatarCarve(avatarCenterX: inset + avatarSize / 2, avatarRadius: carveRadius)
                         .fill(style: FillStyle(eoFill: true))
                 )
 
-            HStack(alignment: .bottom, spacing: 12) {
-                ZStack(alignment: .bottomTrailing) {
-                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: avatarSize)
-                        .overlay(
-                            Circle()
-                                .strokeBorder(canvas, lineWidth: ring)
-                        )
-                        .accessibilityLabel("\(profile.displayName) avatar")
-
-                    if profile.isVerified {
-                        Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: avatarSize * 0.22, weight: .semibold))
-                            .foregroundStyle(app.appearance.accent.color)
-                            .background(Circle().fill(canvas).padding(-3))
-                            .offset(x: 2, y: 2)
-                            .accessibilityLabel("Verified")
-                    }
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, inset)
-            .offset(y: avatarSize * 0.38)
+            avatarBadge
+                .padding(.leading, inset)
+                // Align avatar center with carve center on the content edge.
+                .alignmentGuide(.bottom) { dims in dims.height - intersection }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.bottom, avatarSize * 0.38)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: avatarSize - intersection + intersection)
+        .padding(.bottom, avatarSize - intersection)
         .accessibilityElement(children: .contain)
+    }
+
+    private var avatarBadge: some View {
+        ZStack(alignment: .bottomTrailing) {
+            Button {
+                onTap?()
+                HapticEngine.shared.play(.lightImpact)
+            } label: {
+                ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: avatarSize)
+                    .overlay(
+                        Circle()
+                            .strokeBorder(canvas, lineWidth: ring)
+                    )
+            }
+            .buttonStyle(.plain)
+            .contextMenu {
+                ForEach(contextActions) { action in
+                    Button(role: action.role == .destructive ? .destructive : nil) {
+                        HapticEngine.shared.play(.contextOpen)
+                        onContextAction?(action)
+                    } label: {
+                        if let systemImage = action.systemImage {
+                            Label(action.title, systemImage: systemImage)
+                        } else {
+                            Text(action.title)
+                        }
+                    }
+                    .disabled(action.role == .disabled)
+                    .accessibilityLabel(action.resolvedAccessibilityLabel)
+                }
+            }
+            .accessibilityLabel("\(profile.displayName)'s profile photo")
+            .accessibilityHint("Open profile photo")
+            .accessibilityAction(named: "Open profile photo") { onTap?() }
+            .accessibilityIdentifier("profile.avatar")
+
+            if profile.isVerified {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: avatarSize * 0.2, weight: .semibold))
+                    .foregroundStyle(app.appearance.accent.color)
+                    .background(Circle().fill(canvas).padding(-3))
+                    .offset(x: 2, y: 2)
+                    .accessibilityLabel("Verified account")
+            }
+        }
     }
 
     private var canvas: Color {
@@ -170,7 +269,7 @@ struct ProfileIdentityBlock: View {
                 if profile.isVerified {
                     Image(systemName: "checkmark.seal.fill")
                         .foregroundStyle(app.appearance.accent.color)
-                        .accessibilityLabel("Verified")
+                        .accessibilityLabel("Verified account")
                 }
             }
 
@@ -223,8 +322,33 @@ struct ProfileActionsRow: View {
     var onFollowing: () -> Void
     var onModules: (() -> Void)? = nil
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(spacing: 6) {
+                    metricRow
+                }
+            } else {
+                metricRow
+            }
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.primary.opacity(0.04))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.primary.opacity(app.appearance.contrastTransparency == .higherContrast ? 0.16 : 0.06), lineWidth: 1)
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("profile.metrics")
+    }
+
+    private var metricRow: some View {
         HStack(spacing: 0) {
             metric(
                 value: profile.postCount,
@@ -233,6 +357,7 @@ struct ProfileActionsRow: View {
                 accessibilityNoun: "posts",
                 action: onPosts
             )
+            separator
             metric(
                 value: profile.followerCount,
                 label: "Followers",
@@ -240,6 +365,7 @@ struct ProfileActionsRow: View {
                 accessibilityNoun: "followers",
                 action: onFollowers
             )
+            separator
             metric(
                 value: profile.followingCount,
                 label: "Following",
@@ -248,18 +374,24 @@ struct ProfileActionsRow: View {
                 action: onFollowing
             )
             if showsModules, let onModules {
+                separator
                 metric(
                     value: profile.moduleCount,
                     label: "Modules",
                     selected: selected == .modules,
-                    accessibilityNoun: "modules",
+                    accessibilityNoun: "featured modules",
                     action: onModules
                 )
             }
         }
         .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("profile.actions")
+    }
+
+    private var separator: some View {
+        Rectangle()
+            .fill(Color.primary.opacity(0.08))
+            .frame(width: 1, height: 28)
+            .accessibilityHidden(true)
     }
 
     private func metric(
@@ -269,22 +401,114 @@ struct ProfileActionsRow: View {
         accessibilityNoun: String,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
+        Button {
+            HapticEngine.shared.play(.selection)
+            action()
+        } label: {
             VStack(spacing: 2) {
                 Text(ProfileCountFormatter.compact(value))
                     .font(.headline.weight(.bold))
                     .monospacedDigit()
                     .foregroundStyle(selected ? app.appearance.accent.color : .primary)
+                    .contentTransition(.numericText())
                 Text(label)
-                    .font(.caption)
+                    .font(.caption2.weight(selected ? .semibold : .medium))
                     .foregroundStyle(selected ? app.appearance.accent.color : .secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
             .frame(maxWidth: .infinity)
             .frame(minHeight: 44)
             .contentShape(Rectangle())
+            .overlay(alignment: .bottom) {
+                if selected {
+                    Capsule()
+                        .fill(app.appearance.accent.color)
+                        .frame(width: 18, height: 3)
+                        .offset(y: 2)
+                }
+            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(ProfileCountFormatter.accessibility(value, noun: accessibilityNoun))
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+// MARK: - Tool actions (Edit / Follow + Share + More)
+
+struct ProfileToolActions: View {
+    let isOwn: Bool
+    let followTitle: String
+    let isFollowing: Bool
+    var followBusy: Bool = false
+    var onPrimary: () -> Void
+    var onShare: () -> Void
+    var moreActions: [ModulaContextAction]
+    var onMore: (ModulaContextAction) -> Void
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Button(action: onPrimary) {
+                HStack(spacing: 8) {
+                    if followBusy {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                    Text(isOwn ? "Edit Profile" : followTitle)
+                        .font(.subheadline.weight(.semibold))
+                        .contentTransition(reduceMotion ? .opacity : .interpolate)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 44)
+                .foregroundStyle(primaryForeground)
+                .background(primaryBackground, in: Capsule())
+                .overlay(
+                    Capsule().stroke(primaryStroke, lineWidth: isOwn || isFollowing ? 1 : 0)
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(followBusy)
+            .accessibilityLabel(isOwn ? "Edit Profile" : followTitle)
+            .accessibilityIdentifier(isOwn ? "profile.edit.cta" : "profile.follow.cta")
+
+            Button(action: onShare) {
+                Image(systemName: ModulaIconRegistry.symbol(.share, style: app.appearance.iconStyle))
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 44, height: 44)
+                    .background(Color.primary.opacity(0.08), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Share Profile")
+            .accessibilityIdentifier("profile.share.cta")
+
+            ModulaContextMenu(actions: moreActions, onSelect: onMore) {
+                Image(systemName: ModulaIconRegistry.symbol(.more, style: app.appearance.iconStyle))
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 44, height: 44)
+                    .background(Color.primary.opacity(0.08), in: Circle())
+            }
+            .accessibilityLabel("More")
+            .accessibilityIdentifier("profile.more.cta")
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("profile.tools")
+    }
+
+    private var primaryForeground: Color {
+        if isOwn { return .primary }
+        return isFollowing ? .primary : .white
+    }
+
+    private var primaryBackground: some ShapeStyle {
+        if isOwn { return AnyShapeStyle(Color.primary.opacity(0.08)) }
+        return AnyShapeStyle(isFollowing ? Color.primary.opacity(0.08) : app.appearance.accent.color)
+    }
+
+    private var primaryStroke: Color {
+        Color.primary.opacity(0.12)
     }
 }
 
@@ -294,6 +518,7 @@ struct ProfileAboutGrid: View {
     let profile: ModulaProfile
     @Environment(\.openURL) private var openURL
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var rows: [(String, String, (() -> Void)?)] {
         var items: [(String, String, (() -> Void)?)] = []
@@ -313,9 +538,16 @@ struct ProfileAboutGrid: View {
         return items
     }
 
+    private var columns: [GridItem] {
+        if dynamicTypeSize.isAccessibilitySize {
+            return [GridItem(.flexible())]
+        }
+        return [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+    }
+
     var body: some View {
         if !rows.isEmpty {
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 14) {
+            LazyVGrid(columns: columns, spacing: 14) {
                 ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                     VStack(alignment: .leading, spacing: 3) {
                         Text(row.0)
@@ -568,21 +800,29 @@ struct ProfileGlassIconMenu<Content: View>: View {
 struct ProfilePrimaryCTA: View {
     let title: String
     var prominent: Bool
+    var busy: Bool = false
     var action: () -> Void
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: 44)
-                .foregroundStyle(prominent ? Color.white : Color.primary)
-                .background(
-                    Capsule().fill(prominent ? app.appearance.accent.color : Color.primary.opacity(0.08))
-                )
+            HStack(spacing: 8) {
+                if busy { ProgressView().controlSize(.small) }
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+            }
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: 44)
+            .foregroundStyle(prominent ? Color.white : Color.primary)
+            .background(
+                Capsule().fill(prominent ? app.appearance.accent.color : Color.primary.opacity(0.08))
+            )
+            .overlay(
+                Capsule().stroke(Color.primary.opacity(prominent ? 0 : 0.12), lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
+        .disabled(busy)
         .accessibilityLabel(title)
     }
 }

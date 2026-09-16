@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E4010000000000000000000A /* ModulaContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3010000000000000000000A /* ModulaContextMenu.swift */; };
+		E4010000000000000000000B /* ModulaMediaViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3010000000000000000000B /* ModulaMediaViewer.swift */; };
+		F10100000000000000000007 /* ProfileContextActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000007 /* ProfileContextActions.swift */; };
+		F10100000000000000000008 /* ProfileShareViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000008 /* ProfileShareViews.swift */; };
 		001526FE43E0E8C9671B4E84 /* ModuleHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */; };
 		0139D48F433333A6C105C394 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E9539623085AAA12077638F /* SettingsView.swift */; };
 		02ED22D448BC35987DA41C41 /* RuntimeDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */; };
@@ -100,6 +104,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		E3010000000000000000000A /* ModulaContextMenu.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaContextMenu.swift; path = DesignSystem/ModulaContextMenu.swift; sourceTree = "<group>"; };
+		E3010000000000000000000B /* ModulaMediaViewer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaMediaViewer.swift; path = DesignSystem/ModulaMediaViewer.swift; sourceTree = "<group>"; };
+		F00100000000000000000007 /* ProfileContextActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileContextActions.swift; path = Features/Profile/ProfileContextActions.swift; sourceTree = "<group>"; };
+		F00100000000000000000008 /* ProfileShareViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileShareViews.swift; path = Features/Profile/ProfileShareViews.swift; sourceTree = "<group>"; };
 		003916B967E1900F61DFB206 /* SettingsStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsStore.swift; path = Features/Settings/SettingsStore.swift; sourceTree = "<group>"; };
 		007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RuntimeDiagnosticsView.swift; path = ModuleRuntime/RuntimeDiagnosticsView.swift; sourceTree = "<group>"; };
 		084039C8EE9493F07C7F4946 /* AppEnvironment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppEnvironment.swift; path = App/AppEnvironment.swift; sourceTree = "<group>"; };
@@ -298,6 +306,8 @@
 				F00100000000000000000004 /* ProfileComponents.swift */,
 				C8ECAD5355D79305D770912A /* ProfileView.swift */,
 				F00100000000000000000005 /* ProfileEditView.swift */,
+				F00100000000000000000007 /* ProfileContextActions.swift */,
+				F00100000000000000000008 /* ProfileShareViews.swift */,
 				003916B967E1900F61DFB206 /* SettingsStore.swift */,
 				8E9539623085AAA12077638F /* SettingsView.swift */,
 				B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */,
@@ -321,6 +331,8 @@
 				97029B142178008022F2424B /* ModuleBackendRequest.swift */,
 				ADB419E3CAE3BA05CB1C1E59 /* ModulaDesignSystem.swift */,
 				E30100000000000000000008 /* ModulaProgressiveHeader.swift */,
+				E3010000000000000000000A /* ModulaContextMenu.swift */,
+				E3010000000000000000000B /* ModulaMediaViewer.swift */,
 				6C4472E61C35766446322975 /* ShellComponents.swift */,
 				69B093117E45986E847387DC /* GeneratedDesignContract.swift */,
 				15D7EBEF5CC806F4A3DB8FD2 /* AccountSettingsView.swift */,
@@ -645,6 +657,10 @@
 				F10100000000000000000004 /* ProfileComponents.swift in Sources */,
 				B9825B0168E160AB5B8411B9 /* ProfileView.swift in Sources */,
 				F10100000000000000000005 /* ProfileEditView.swift in Sources */,
+				F10100000000000000000007 /* ProfileContextActions.swift in Sources */,
+				F10100000000000000000008 /* ProfileShareViews.swift in Sources */,
+				E4010000000000000000000A /* ModulaContextMenu.swift in Sources */,
+				E4010000000000000000000B /* ModulaMediaViewer.swift in Sources */,
 				21638B169590129BA65823F1 /* SettingsStore.swift in Sources */,
 				0139D48F433333A6C105C394 /* SettingsView.swift in Sources */,
 				90EC78DC1C87A9562EC08717 /* AppRoute.swift in Sources */,

@@ -34,6 +34,10 @@ struct ModulaProgressiveHeader<Trailing: View>: View {
     let largeTitle: String
     let compactTitle: String
     var progress: CGFloat
+    /// Optional compact identity (avatar + name cluster). When set, replaces the centered title.
+    var compactInitials: String? = nil
+    var compactAvatarURL: URL? = nil
+    var compactSubtitle: String? = nil
     @ViewBuilder var trailing: () -> Trailing
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -42,19 +46,29 @@ struct ModulaProgressiveHeader<Trailing: View>: View {
     @Environment(AppEnvironment.self) private var app
 
     private var clamped: CGFloat { ModulaScrollProgress.clamp(progress) }
+    private var showsCompactIdentity: Bool { compactInitials != nil }
 
     var body: some View {
         ZStack(alignment: .bottom) {
             fadeBackdrop
             ZStack {
-                // Compact centered title — full-bleed center like system large→inline.
-                Text(compactTitle)
-                    .font(.headline.weight(.semibold))
-                    .opacity(reduceMotion ? (clamped > 0.5 ? 1 : 0) : Double(clamped))
-                    .offset(y: reduceMotion ? 0 : CGFloat(1 - clamped) * 8)
-                    .frame(maxWidth: .infinity)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(clamped < 0.15)
+                if showsCompactIdentity {
+                    compactIdentity
+                        .opacity(reduceMotion ? (clamped > 0.5 ? 1 : 0) : Double(clamped))
+                        .offset(y: reduceMotion ? 0 : CGFloat(1 - clamped) * 8)
+                        .frame(maxWidth: .infinity)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(clamped < 0.15)
+                } else {
+                    // Compact centered title — full-bleed center like system large→inline.
+                    Text(compactTitle)
+                        .font(.headline.weight(.semibold))
+                        .opacity(reduceMotion ? (clamped > 0.5 ? 1 : 0) : Double(clamped))
+                        .offset(y: reduceMotion ? 0 : CGFloat(1 - clamped) * 8)
+                        .frame(maxWidth: .infinity)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(clamped < 0.15)
+                }
 
                 HStack(alignment: .center, spacing: 12) {
                     if reduceMotion {
@@ -82,6 +96,29 @@ struct ModulaProgressiveHeader<Trailing: View>: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.progressiveHeader")
         .accessibilityValue(ModulaScrollProgress.softEdgePathLabel)
+    }
+
+    private var compactIdentity: some View {
+        HStack(spacing: 10) {
+            if let compactInitials {
+                ModulaAvatar(initials: compactInitials, url: compactAvatarURL, size: 28)
+            }
+            VStack(alignment: .leading, spacing: 0) {
+                Text(compactTitle)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                if let compactSubtitle, !compactSubtitle.isEmpty {
+                    Text(compactSubtitle)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.trailing, 88)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel([compactTitle, compactSubtitle].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", "))
     }
 
     @ViewBuilder

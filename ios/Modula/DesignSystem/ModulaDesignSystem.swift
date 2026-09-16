@@ -3,7 +3,12 @@ import UIKit
 
 enum ModulaSpacing { static let xxs = 4.0; static let xs = 8.0; static let sm = 12.0; static let md = 16.0; static let lg = 24.0; static let xl = 32.0 }
 enum ModulaRadius { static let small = 10.0; static let medium = 16.0; static let large = 24.0 }
-enum ModulaLayout { static let minimumTouch = 44.0; static let contentInset = 18.0; static let railRestingWidth = 52.0; static let railRevealedWidth = 106.0 }
+enum ModulaLayout {
+    static let minimumTouch = 44.0
+    static let contentInset = 18.0
+    static let railRestingWidth = 46.0
+    static let railRevealedWidth = 96.0
+}
 enum ModulaMotion {
     enum Role { case selection, navigation, morph, reveal, dismiss, railExpand, railCollapse, sheetPresent }
     static func animation(_ role: Role, personality: AppearanceStore.MotionPersonality, reduceMotion: Bool) -> Animation? {
@@ -16,19 +21,47 @@ enum ModulaMotion {
     }
 }
 
-enum HapticSemantic { case selection, navigation, confirmation, warning, success, failure, impact }
+enum HapticSemantic: String, CaseIterable, Sendable {
+    case selection
+    case navigation
+    case lightImpact
+    case mediumImpact
+    case confirmation
+    case success
+    case warning
+    case failure
+    case contextOpen
+    case reactionSelect
+    case dragThreshold
+    case drop
+    case followComplete
+    case saveComplete
+    /// Legacy alias used by shell/chrome; maps to medium impact.
+    case impact
+}
+
 @MainActor final class HapticEngine {
     static let shared = HapticEngine()
     var intensityProvider: () -> AppearanceStore.HapticIntensity = { .standard }
+
     func play(_ semantic: HapticSemantic) {
         let intensity = intensityProvider()
         guard intensity != .off else { return }
         switch semantic {
-        case .selection: UISelectionFeedbackGenerator().selectionChanged()
-        case .navigation, .impact: UIImpactFeedbackGenerator(style: intensity == .strong ? .heavy : intensity == .light ? .light : .medium).impactOccurred()
-        case .confirmation, .success: UINotificationFeedbackGenerator().notificationOccurred(.success)
-        case .warning: UINotificationFeedbackGenerator().notificationOccurred(.warning)
-        case .failure: UINotificationFeedbackGenerator().notificationOccurred(.error)
+        case .selection, .reactionSelect:
+            UISelectionFeedbackGenerator().selectionChanged()
+        case .navigation, .contextOpen, .lightImpact:
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        case .mediumImpact, .impact, .dragThreshold:
+            UIImpactFeedbackGenerator(style: intensity == .strong ? .heavy : intensity == .light ? .light : .medium).impactOccurred()
+        case .drop:
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        case .confirmation, .success, .followComplete, .saveComplete:
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        case .warning:
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        case .failure:
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
         }
     }
 }

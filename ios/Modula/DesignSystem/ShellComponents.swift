@@ -109,23 +109,25 @@ struct ModulaContextRail: View {
         return [items[(selectedIndex - 1 + count) % count], items[selectedIndex], items[(selectedIndex + 1) % count]]
     }
     private var isRevealed: Bool { revealedID == selectedID }
-    private var selectedHeight: CGFloat { isRevealed ? 72 : 38 }
-    private var railHeight: CGFloat { (38 * 2) + selectedHeight + (8 * 2) + 14 }
+    private var selectedHeight: CGFloat { isRevealed ? 64 : 34 }
+    private var railHeight: CGFloat { (34 * 2) + selectedHeight + (8 * 2) + 12 }
 
     var body: some View {
         let shape = ModulaRailShape(revealProgress: isRevealed ? 1 : 0)
+        let increasedContrast = app.appearance.contrastTransparency == .higherContrast
         VStack(spacing: 8) {
             ForEach(Array(orderedItems.enumerated()), id: \.element.id) { index, item in
                 railButton(item, selected: index == 1)
             }
         }
-        .padding(.vertical, 7)
-        .padding(.horizontal, 2)
-        .frame(width: 44, height: railHeight)
-        .offset(x: 0)
+        .padding(.vertical, 6)
+        .padding(.horizontal, 1)
+        .frame(width: 40, height: railHeight)
+        .offset(x: 4)
         .offset(y: dragOffset * 0.28)
-        .background(Color.black.opacity(0.93), in: shape)
-        .contentShape(Rectangle().inset(by: -12))
+        .background(Color.black.opacity(increasedContrast ? 0.86 : 0.72), in: shape)
+        .overlay(shape.stroke(Color.white.opacity(increasedContrast ? 0.22 : 0.08), lineWidth: increasedContrast ? 1 : 0.5))
+        .contentShape(Rectangle().inset(by: -14))
         .gesture(reelGesture)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Context selector")
@@ -161,12 +163,14 @@ struct ModulaContextRail: View {
                         .symbolVariant(selected ? .fill : .none)
                 }
             }
-            .foregroundStyle(selected ? Color.white : Color.primary.opacity(0.68))
-            .frame(width: 38, height: selected ? selectedHeight : 38)
+            .foregroundStyle(selected ? Color.white : Color.primary.opacity(0.62))
+            .frame(width: 34, height: selected ? selectedHeight : 34)
             .background {
                 if selected {
                     Capsule()
-                        .fill(app.appearance.accent.color.opacity(isRevealed ? 1 : 0.92))
+                        // Shape + fill (not colour alone) mark selection for Differentiate Without Colour.
+                        .fill(app.appearance.accent.color.opacity(isRevealed ? 1 : 0.88))
+                        .overlay(Capsule().stroke(Color.white.opacity(0.35), lineWidth: 1))
                         .matchedGeometryEffect(id: "rail.selection", in: selectionMorph)
                 }
             }
@@ -174,8 +178,8 @@ struct ModulaContextRail: View {
         }
         .buttonStyle(.plain)
         .frame(minWidth: 44, minHeight: 44)
-        .opacity(selected ? 1 : 0.72)
-        .scaleEffect(selected ? 1 : 0.88)
+        .opacity(selected ? 1 : 0.7)
+        .scaleEffect(selected ? 1 : 0.9)
         .accessibilityLabel(item.title)
         .accessibilityValue(selected ? "Selected" : "")
         .accessibilityAddTraits(selected ? .isSelected : [])
