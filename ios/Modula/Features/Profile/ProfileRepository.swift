@@ -12,6 +12,7 @@ protocol ProfileRepository: Sendable {
     func unblock(profileID: ProfileID) async throws
     func mute(profileID: ProfileID) async throws
     func unmute(profileID: ProfileID) async throws
+    func report(profileID: ProfileID, category: String, details: String?) async throws
     func updateMe(_ draft: ProfileEditDraft) async throws -> ModulaProfile
 }
 
@@ -163,6 +164,22 @@ actor GreenfieldProfileRepository: ProfileRepository {
             "DELETE",
             path: "/v1/profiles/\(Self.pathEscaped(profileID))/mute",
             body: nil
+        )
+    }
+
+    func report(profileID: ProfileID, category: String, details: String?) async throws {
+        var body: [String: JSONValue] = [
+            "targetType": .string("profile"),
+            "targetId": .string(profileID),
+            "category": .string(category)
+        ]
+        if let details, !details.isEmpty {
+            body["details"] = .string(details)
+        }
+        let _: JSONValue = try await client.authenticatedJSON(
+            "POST",
+            path: "/v1/reports",
+            body: .object(body)
         )
     }
 

@@ -209,7 +209,7 @@ final class ProfileStore {
         state.profile = profile
         sessions[key] = state
         patchPeople(matching: previous.id, handle: previous.handle) { $0.isFollowing = true }
-        HapticEngine.shared.play(.selection)
+        HapticEngine.shared.play(.lightImpact)
         do {
             let updated = try await repository.follow(profileID: previous.id, handle: previous.handle)
             state.profile = updated
@@ -218,11 +218,13 @@ final class ProfileStore {
                 $0.isFollowing = updated.isFollowing
                 $0 = updated
             }
+            HapticEngine.shared.play(.followComplete)
         } catch {
             state.profile = previous
             sessions[key] = state
             patchPeople(matching: previous.id, handle: previous.handle) { $0.isFollowing = previous.isFollowing }
             actionError = "Could not follow."
+            HapticEngine.shared.play(.failure)
         }
     }
 
@@ -235,7 +237,7 @@ final class ProfileStore {
         state.profile = profile
         sessions[key] = state
         patchPeople(matching: previous.id, handle: previous.handle) { $0.isFollowing = false }
-        HapticEngine.shared.play(.selection)
+        HapticEngine.shared.play(.lightImpact)
         do {
             let updated = try await repository.unfollow(profileID: previous.id, handle: previous.handle)
             state.profile = updated
@@ -244,11 +246,13 @@ final class ProfileStore {
                 $0.isFollowing = updated.isFollowing
                 $0 = updated
             }
+            HapticEngine.shared.play(.selection)
         } catch {
             state.profile = previous
             sessions[key] = state
             patchPeople(matching: previous.id, handle: previous.handle) { $0.isFollowing = previous.isFollowing }
             actionError = "Could not unfollow."
+            HapticEngine.shared.play(.failure)
         }
     }
 
@@ -283,9 +287,10 @@ final class ProfileStore {
             state.loadState = .unavailable
             state.profile = nil
             sessions[key] = state
-            HapticEngine.shared.play(.impact)
+            HapticEngine.shared.play(.mediumImpact)
         } catch {
             actionError = "Could not block this profile."
+            HapticEngine.shared.play(.failure)
         }
     }
 
@@ -294,9 +299,23 @@ final class ProfileStore {
         guard let profile = sessions[key]?.profile else { return }
         do {
             try await repository.mute(profileID: profile.id)
-            HapticEngine.shared.play(.impact)
+            HapticEngine.shared.play(.mediumImpact)
         } catch {
             actionError = "Could not mute this profile."
+            HapticEngine.shared.play(.failure)
+        }
+    }
+
+    func report(identity: ProfileIdentity, handleHint: String?, category: String, details: String? = nil) async {
+        let key = sessionKey(identity, handleHint: handleHint)
+        guard let profile = sessions[key]?.profile else { return }
+        do {
+            try await repository.report(profileID: profile.id, category: category, details: details)
+            HapticEngine.shared.play(.confirmation)
+            actionError = "Report submitted."
+        } catch {
+            actionError = "Could not submit report."
+            HapticEngine.shared.play(.failure)
         }
     }
 
@@ -339,15 +358,17 @@ final class ProfileStore {
             state.loadState = .loaded
             sessions[key] = state
             sessions["me"] = state
-            HapticEngine.shared.play(.success)
+            HapticEngine.shared.play(.saveComplete)
             return true
         } catch let api as APIError {
             editing.status = .failed
             editing.error = api.userFacingMessage
+            HapticEngine.shared.play(.failure)
             return false
         } catch {
             editing.status = .failed
             editing.error = "Could not save profile."
+            HapticEngine.shared.play(.failure)
             return false
         }
     }

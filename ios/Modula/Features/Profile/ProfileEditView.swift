@@ -6,53 +6,22 @@ struct ProfileEditView: View {
 
     private var editing: ProfileEditingState { app.profile.editing }
     private var draft: ProfileEditDraft? { editing.draft }
+    private var liveProfile: ModulaProfile? {
+        app.profile.session(for: .me, handleHint: app.auth.account?.primaryHandle).profile
+    }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Avatar and cover uploads aren’t available yet.")
+            VStack(alignment: .leading, spacing: 22) {
+                previewHeader
+
+                identitySection
+                aboutSection
+
+                Text("Avatar, cover, pronouns, location, website and links are readable on Profile but not writable yet on Greenfield.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Display name")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    TextField("Display name", text: displayNameBinding)
-                        .textInputAutocapitalization(.words)
-                        .autocorrectionDisabled()
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 44)
-                        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .accessibilityIdentifier("profile.edit.displayName")
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Bio")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    TextField("Bio", text: bioBinding, axis: .vertical)
-                        .lineLimit(4...10)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .frame(minHeight: 96, alignment: .topLeading)
-                        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .accessibilityIdentifier("profile.edit.bio")
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Visibility")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    Picker("Visibility", selection: visibilityBinding) {
-                        ForEach([ProfileVisibility.public, .followers, .teams, .private], id: \.self) { value in
-                            Text(value.displayTitle).tag(value)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier("profile.edit.visibility")
-                }
+                    .fixedSize(horizontal: false, vertical: true)
 
                 statusRow
 
@@ -64,7 +33,7 @@ struct ProfileEditView: View {
                         }
                     }
                 } label: {
-                    Text(editing.status == .saving ? "Saving…" : "Save")
+                    Text(editing.status == .saving ? "Saving…" : editing.status == .saved ? "Saved" : "Save")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 44)
@@ -73,6 +42,7 @@ struct ProfileEditView: View {
                 .tint(app.appearance.accent.color)
                 .disabled(editing.status == .saving || draft?.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true)
                 .accessibilityIdentifier("profile.edit.save")
+                .accessibilityLabel(editing.status == .saving ? "Saving" : "Save")
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.top, 12)
@@ -87,14 +57,112 @@ struct ProfileEditView: View {
                     .accessibilityIdentifier("profile.edit.cancel")
             }
         }
-        .confirmationDialog("Discard changes?", isPresented: $confirmsDiscard, titleVisibility: .visible) {
-            Button("Discard Changes", role: .destructive) {
+        .confirmationDialog("Unsaved changes", isPresented: $confirmsDiscard, titleVisibility: .visible) {
+            Button("Save Changes") {
+                Task {
+                    if await app.profile.saveEdits() {
+                        app.navigation.close()
+                    }
+                }
+            }
+            Button("Discard", role: .destructive) {
                 app.profile.discardEditing()
                 app.navigation.close()
             }
-            Button("Keep Editing", role: .cancel) {}
+            Button("Cancel", role: .cancel) {}
         }
         .accessibilityIdentifier("profile.edit")
+    }
+
+    private var previewHeader: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ProfileCover(
+                coverURL: liveProfile?.coverURL,
+                coverColour: liveProfile?.coverColour
+            )
+            if let liveProfile {
+                ProfileAvatarPocket(profile: liveProfile.withPreviewIdentity(
+                    displayName: draft?.displayName ?? liveProfile.displayName,
+                    bio: draft?.bio ?? liveProfile.bio
+                ))
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(draft?.displayName.isEmpty == false ? (draft?.displayName ?? "") : "Display name")
+                    .font(.title2.weight(.bold))
+                if let handle = liveProfile?.handle {
+                    Text("@\(handle)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Text(draft?.bio ?? "")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+            }
+            .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.top, 8)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Live preview")
+    }
+
+    private var identitySection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Identity")
+                .font(.headline)
+            field(title: "Display Name") {
+                TextField("Display name", text: displayNameBinding)
+                    .textInputAutocapitalization(.words)
+                    .autocorrectionDisabled()
+                    .accessibilityIdentifier("profile.edit.displayName")
+            }
+            if let handle = liveProfile?.handle {
+                field(title: "Handle") {
+                    Text("@\(handle)")
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityLabel("Handle @\(handle). Change handle in Account settings.")
+                }
+            }
+        }
+    }
+
+    private var aboutSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("About")
+                .font(.headline)
+            field(title: "Bio") {
+                TextField("Bio", text: bioBinding, axis: .vertical)
+                    .lineLimit(4...10)
+                    .frame(minHeight: 96, alignment: .topLeading)
+                    .accessibilityIdentifier("profile.edit.bio")
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Visibility")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Picker("Visibility", selection: visibilityBinding) {
+                    ForEach([ProfileVisibility.public, .followers, .teams, .private], id: \.self) { value in
+                        Text(value.displayTitle).tag(value)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("profile.edit.visibility")
+            }
+        }
+    }
+
+    private func field<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            content()
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .frame(minHeight: 44, alignment: .leading)
+                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
     }
 
     @ViewBuilder
@@ -149,5 +217,36 @@ struct ProfileEditView: View {
             app.profile.discardEditing()
             app.navigation.close()
         }
+    }
+}
+
+private extension ModulaProfile {
+    func withPreviewIdentity(displayName: String, bio: String) -> ModulaProfile {
+        ModulaProfile(
+            id: id,
+            handle: handle,
+            displayName: displayName,
+            kind: kind,
+            avatarURL: avatarURL,
+            coverURL: coverURL,
+            coverColour: coverColour,
+            bio: bio,
+            pronouns: pronouns,
+            location: location,
+            website: website,
+            followerCount: followerCount,
+            followingCount: followingCount,
+            moduleCount: moduleCount,
+            postCount: postCount,
+            joinedAt: joinedAt,
+            focusStatus: focusStatus,
+            identityClaims: identityClaims,
+            links: links,
+            featuredModuleIds: featuredModuleIds,
+            isFollowing: isFollowing,
+            followsViewer: followsViewer,
+            version: version,
+            visibility: visibility
+        )
     }
 }

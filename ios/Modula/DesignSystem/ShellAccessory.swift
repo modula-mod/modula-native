@@ -65,14 +65,15 @@ struct ShellAccessoryConfiguration: Equatable {
             return Self(title: "Modules", symbol: "shippingbox", actions: [], showsSearch: true, showsMore: true)
         case .profile, .me:
             return Self(
-                title: "Profile",
+                title: "Tools",
                 symbol: "person.crop.circle",
                 actions: [
-                    ShellAccessoryAction(id: "edit", title: "Edit Profile", symbol: "pencil", enabled: true, accessibilityIdentifier: "accessory.edit"),
-                    ShellAccessoryAction(id: "share", title: "Share", symbol: "square.and.arrow.up", enabled: true, accessibilityIdentifier: "accessory.share")
+                    ShellAccessoryAction(id: "edit", title: "Edit", symbol: "pencil", enabled: true, accessibilityIdentifier: "accessory.edit"),
+                    ShellAccessoryAction(id: "share", title: "Share", symbol: "square.and.arrow.up", enabled: true, accessibilityIdentifier: "accessory.share"),
+                    ShellAccessoryAction(id: "more-profile", title: "More", symbol: "ellipsis", enabled: true, accessibilityIdentifier: "accessory.profile-more")
                 ],
                 showsSearch: false,
-                showsMore: true
+                showsMore: false
             )
         default:
             return Self(title: "Modula", symbol: "m.circle", actions: [], showsSearch: true, showsMore: true)
@@ -252,7 +253,10 @@ struct ShellAccessoryHost: View {
             HapticEngine.shared.play(.navigation)
         case "share":
             PresentationCoordinator.present(.share(route), in: app.navigation)
-            HapticEngine.shared.play(.confirmation)
+            HapticEngine.shared.play(.lightImpact)
+        case "more-profile":
+            PresentationCoordinator.present(.share(route), in: app.navigation)
+            HapticEngine.shared.play(.contextOpen)
         default:
             break
         }
@@ -300,13 +304,16 @@ struct ModulaTabBar: View {
                             .minimumScaleFactor(0.78)
                     }
                     .foregroundStyle(selected ? app.appearance.accent.color : .secondary)
-                    .frame(maxWidth: .infinity, minHeight: 46)
+                    .frame(maxWidth: .infinity, minHeight: 44)
                     .background {
                         if selected {
                             Capsule()
-                                .fill(app.appearance.accent.color.opacity(0.11))
-                                .padding(.horizontal, 3)
-                                .padding(.vertical, 2)
+                                .fill(Color.primary.opacity(0.08))
+                                .overlay(
+                                    Capsule().stroke(app.appearance.accent.color.opacity(0.35), lineWidth: 1)
+                                )
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
                         }
                     }
                     .contentShape(Rectangle())
@@ -317,8 +324,8 @@ struct ModulaTabBar: View {
                 .accessibilityIdentifier("tab.\(tab.rawValue)")
             }
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 4)
+        .padding(.vertical, 3)
         .frame(maxWidth: 560)
         .modulaChrome(in: Capsule(), opaque: reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency)
         .shadow(color: .black.opacity(0.11), radius: 16, y: 8)

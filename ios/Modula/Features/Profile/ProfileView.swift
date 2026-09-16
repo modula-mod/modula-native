@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ProfileView: View {
     let userID: String?
@@ -7,6 +8,13 @@ struct ProfileView: View {
     @Environment(\.openURL) private var openURL
     @State private var headerProgress: CGFloat = 0
     @State private var confirmsBlock = false
+    @State private var confirmsReport = false
+    @State private var mediaViewer: ModulaMediaViewerItem?
+    @State private var showsShareSheet = false
+    @State private var showsModulaCode = false
+    @State private var followBusy = false
+    @State private var copiedBanner = false
+    @State private var activityShare: ActivityShareItem?
 
     private var identity: ProfileIdentity {
         .resolving(routeUserID: userID)
@@ -61,6 +69,68 @@ struct ProfileView: View {
                 }
             }
             Button("Cancel", role: .cancel) {}
+        }
+        .confirmationDialog("Report this profile?", isPresented: $confirmsReport, titleVisibility: .visible) {
+            Button("Report spam", role: .destructive) {
+                Task { await reportProfile(category: "spam") }
+            }
+            Button("Report harassment", role: .destructive) {
+                Task { await reportProfile(category: "harassment") }
+            }
+            Button("Report other", role: .destructive) {
+                Task { await reportProfile(category: "other") }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .fullScreenCover(item: $mediaViewer) { item in
+            ModulaMediaViewer(
+                title: item.title,
+                url: item.url,
+                accessibilityDescription: item.accessibilityDescription,
+                allowsShare: item.allowsShare
+            ) {
+                mediaViewer = nil
+            }
+        }
+        .sheet(isPresented: $showsShareSheet) {
+            if let profile {
+                ProfileShareSheet(
+                    profile: profile,
+                    onCopy: { copyProfileLink(profile) },
+                    onShare: {
+                        showsShareSheet = false
+                        activityShare = ActivityShareItem(url: profile.shareURL)
+                    },
+                    onShowCode: {
+                        showsShareSheet = false
+                        showsModulaCode = true
+                    },
+                    onDismiss: { showsShareSheet = false }
+                )
+            }
+        }
+        .sheet(isPresented: $showsModulaCode) {
+            if let profile {
+                ModulaProfileCodeView(profile: profile) {
+                    showsModulaCode = false
+                }
+            }
+        }
+        .sheet(item: $activityShare) { item in
+            ProfileActivityShareView(url: item.url) {
+                activityShare = nil
+            }
+        }
+        .overlay(alignment: .top) {
+            if copiedBanner {
+                Text("Link copied")
+                    .font(.footnote.weight(.semibold))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(.regularMaterial, in: Capsule())
+                    .padding(.top, 56)
+                    .transition(.opacity)
+            }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("profile.\(section.rawValue)")
@@ -123,7 +193,10 @@ struct ProfileView: View {
             ModulaProgressiveHeader(
                 largeTitle: largeTitle,
                 compactTitle: compactTitle,
-                progress: headerProgress
+                progress: headerProgress,
+                compactInitials: profile?.initials,
+                compactAvatarURL: profile?.avatarURL,
+                compactSubtitle: profile.map { "@\($0.handle)" }
             ) {
                 trailingChrome
             }
@@ -146,34 +219,24 @@ struct ProfileView: View {
     private var trailingChrome: some View {
         HStack(spacing: 8) {
             if let profile {
-                ShareLink(item: profile.shareURL) {
-                    Image(systemName: ModulaIconRegistry.symbol(.share, style: app.appearance.iconStyle))
+                ProfileGlassIconButton(
+                    title: "Share Profile",
+                    symbol: ModulaIconRegistry.symbol(.share, style: app.appearance.iconStyle)
+                ) {
+                    presentShare(profile)
+                }
+
+                ModulaContextMenu(
+                    actions: ProfileContextActions.moreMenu(isOwn: isOwnProfile),
+                    onSelect: { handleContextAction($0, profile: profile) }
+                ) {
+                    Image(systemName: ModulaIconRegistry.symbol(.more, style: app.appearance.iconStyle))
                         .font(.system(size: 15, weight: .semibold))
                         .frame(width: 36, height: 36)
                         .contentShape(Circle())
                 }
                 .modulaChrome(in: Circle(), opaque: reduceTransparency)
-                .accessibilityLabel("Share profile")
-
-                if isOwnProfile {
-                    ProfileGlassIconMenu(title: "More", symbol: ModulaIconRegistry.symbol(.more, style: app.appearance.iconStyle)) {
-                        Button("Edit Profile") { openSection(.edit) }
-                    }
-                } else {
-                    ProfileGlassIconMenu(title: "More", symbol: ModulaIconRegistry.symbol(.more, style: app.appearance.iconStyle)) {
-                        Button("Mute") {
-                            Task {
-                                await app.profile.mute(
-                                    identity: identity,
-                                    handleHint: profile.handle
-                                )
-                            }
-                        }
-                        Button("Block", role: .destructive) {
-                            confirmsBlock = true
-                        }
-                    }
-                }
+                .accessibilityLabel("More")
             }
         }
     }
@@ -270,41 +333,50 @@ struct ProfileView: View {
 
     private func hero(_ profile: ModulaProfile) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            ProfileCover(coverURL: profile.coverURL, coverColour: profile.coverColour)
-            ProfileAvatarPocket(profile: profile)
+            ProfileCover(
+                coverURL: profile.coverURL,
+                coverColour: profile.coverColour,
+                scrollProgress: headerProgress,
+                onTap: { openCoverViewer(profile) },
+                contextActions: ProfileContextActions.coverMenu(isOwn: isOwnProfile, hasCover: profile.coverURL != nil),
+                onContextAction: { handleContextAction($0, profile: profile) }
+            )
+            ProfileAvatarPocket(
+                profile: profile,
+                onTap: { openAvatarViewer(profile) },
+                contextActions: ProfileContextActions.avatarMenu(
+                    isOwn: isOwnProfile,
+                    hasPhoto: profile.avatarURL != nil
+                ),
+                onContextAction: { handleContextAction($0, profile: profile) }
+            )
             ProfileIdentityBlock(profile: profile)
                 .padding(.horizontal, ModulaLayout.contentInset)
                 .padding(.top, 4)
         }
         .padding(.top, 0)
+        .accessibilitySortPriority(100)
     }
 
     @ViewBuilder
     private func primaryActions(_ profile: ModulaProfile) -> some View {
-        if isOwnProfile {
-            ProfilePrimaryCTA(title: "Edit Profile", prominent: false) {
-                openSection(.edit)
-            }
-            .accessibilityIdentifier("profile.edit.cta")
-        } else {
-            ProfilePrimaryCTA(
-                title: profile.followState.title,
-                prominent: !profile.isFollowing
-            ) {
-                Task {
-                    if profile.isFollowing {
-                        await app.profile.unfollow(identity: identity, handleHint: profile.handle)
-                    } else {
-                        await app.profile.follow(
-                            identity: identity,
-                            handleHint: profile.handle,
-                            signedIn: app.auth.isSignedIn
-                        )
-                    }
+        ProfileToolActions(
+            isOwn: isOwnProfile,
+            followTitle: profile.followState.title,
+            isFollowing: profile.isFollowing,
+            followBusy: followBusy,
+            onPrimary: {
+                if isOwnProfile {
+                    openSection(.edit)
+                } else {
+                    Task { await toggleFollowPrimary(profile) }
                 }
-            }
-            .accessibilityIdentifier("profile.follow.cta")
-        }
+            },
+            onShare: { presentShare(profile) },
+            moreActions: ProfileContextActions.moreMenu(isOwn: isOwnProfile),
+            onMore: { handleContextAction($0, profile: profile) }
+        )
+        .accessibilitySortPriority(90)
     }
 
     private func metrics(_ profile: ModulaProfile) -> some View {
@@ -491,12 +563,21 @@ struct ProfileView: View {
             sectionHero(profile)
             let links = profile.publicLinks
             if links.isEmpty {
-                ModulaEmptyState(
-                    title: "No links",
-                    message: "This profile hasn’t shared any public links.",
-                    symbol: "link"
-                )
-                .padding(.horizontal, ModulaLayout.contentInset)
+                if isOwnProfile {
+                    ContentUnavailableView {
+                        Label("Add links to the places that matter.", systemImage: "link")
+                    } description: {
+                        Text("Links will appear on your public profile when the backend write path lands.")
+                    }
+                    .padding(.horizontal, ModulaLayout.contentInset)
+                } else {
+                    ModulaEmptyState(
+                        title: "No public links.",
+                        message: "This profile hasn’t shared any links.",
+                        symbol: "link"
+                    )
+                    .padding(.horizontal, ModulaLayout.contentInset)
+                }
             } else {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(links) { link in
@@ -515,7 +596,7 @@ struct ProfileView: View {
             }
             ModulaEmptyState(
                 title: "Connections unavailable",
-                message: "Social connections aren’t available on profiles yet. This isn’t the OAuth connectors list.",
+                message: "People connections aren’t available on profiles yet.",
                 symbol: "person.2.slash"
             )
             .padding(.horizontal, ModulaLayout.contentInset)
@@ -525,10 +606,26 @@ struct ProfileView: View {
 
     private func sectionHero(_ profile: ModulaProfile) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            ProfileCover(coverURL: profile.coverURL, coverColour: profile.coverColour)
-            ProfileAvatarPocket(profile: profile)
+            ProfileCover(
+                coverURL: profile.coverURL,
+                coverColour: profile.coverColour,
+                scrollProgress: headerProgress,
+                onTap: { openCoverViewer(profile) },
+                contextActions: ProfileContextActions.coverMenu(isOwn: isOwnProfile, hasCover: profile.coverURL != nil),
+                onContextAction: { handleContextAction($0, profile: profile) }
+            )
+            ProfileAvatarPocket(
+                profile: profile,
+                onTap: { openAvatarViewer(profile) },
+                contextActions: ProfileContextActions.avatarMenu(
+                    isOwn: isOwnProfile,
+                    hasPhoto: profile.avatarURL != nil
+                ),
+                onContextAction: { handleContextAction($0, profile: profile) }
+            )
             VStack(alignment: .leading, spacing: 16) {
                 ProfileIdentityBlock(profile: profile)
+                primaryActions(profile)
                 ProfileActionsRow(
                     profile: profile,
                     selected: section,
@@ -538,7 +635,6 @@ struct ProfileView: View {
                     onFollowing: { openSection(.following) },
                     onModules: { openSection(.modules) }
                 )
-                primaryActions(profile)
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.top, 4)
@@ -573,6 +669,20 @@ struct ProfileView: View {
                 Task { await app.home.toggleSave(post, mode: .forYou) }
             }
         )
+        .contextMenu {
+            ForEach(ProfileContextActions.postMenu(isOwn: isOwnProfile)) { action in
+                Button(role: action.role == .destructive ? .destructive : nil) {
+                    handlePostContextAction(action, post: post)
+                } label: {
+                    if let systemImage = action.systemImage {
+                        Label(action.title, systemImage: systemImage)
+                    } else {
+                        Text(action.title)
+                    }
+                }
+                .disabled(action.role == .disabled)
+            }
+        }
         .accessibilityIdentifier("profile.post.\(post.id)")
     }
 
@@ -616,11 +726,11 @@ struct ProfileView: View {
     private func emptyPosts(isOwn: Bool, compact: Bool) -> some View {
         if isOwn {
             ContentUnavailableView {
-                Label("No posts yet", systemImage: "text.bubble")
+                Label("Your story starts here.", systemImage: "text.bubble")
             } description: {
-                Text("Share something with your profile.")
+                Text("Share your first post.")
             } actions: {
-                Button("Compose") {
+                Button("Create Post") {
                     app.navigation.open(.compose(.post))
                     HapticEngine.shared.play(.navigation)
                 }
@@ -632,8 +742,8 @@ struct ProfileView: View {
             .padding(.vertical, compact ? 8 : 20)
         } else {
             ModulaEmptyState(
-                title: "No posts to show",
-                message: "This profile hasn’t posted anything public yet.",
+                title: "No posts yet.",
+                message: "This profile hasn’t shared anything public.",
                 symbol: "text.bubble"
             )
             .padding(.vertical, compact ? 4 : 12)
@@ -641,12 +751,32 @@ struct ProfileView: View {
     }
 
     private func emptyModules(compact: Bool) -> some View {
-        ModulaEmptyState(
-            title: "No featured modules",
-            message: "Featured modules couldn’t be resolved from the catalogue, or none are featured yet.",
-            symbol: "shippingbox"
-        )
-        .padding(.vertical, compact ? 4 : 12)
+        Group {
+            if isOwnProfile {
+                ContentUnavailableView {
+                    Label("Make your profile modular.", systemImage: "shippingbox")
+                } description: {
+                    Text("Feature the modules that represent what you use, build or share.")
+                } actions: {
+                    Button("Choose Modules") {
+                        app.navigation.open(.productHub(.featured))
+                        HapticEngine.shared.play(.navigation)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(app.appearance.accent.color)
+                    .accessibilityIdentifier("profile.empty.modules.choose")
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, compact ? 4 : 12)
+            } else {
+                ModulaEmptyState(
+                    title: "No public modules yet.",
+                    message: "This profile hasn’t featured any modules.",
+                    symbol: "shippingbox"
+                )
+                .padding(.vertical, compact ? 4 : 12)
+            }
+        }
     }
 
     // MARK: - Actions
@@ -752,4 +882,137 @@ struct ProfileView: View {
             )
         }
     }
+
+    private func toggleFollowPrimary(_ profile: ModulaProfile) async {
+        followBusy = true
+        HapticEngine.shared.play(.lightImpact)
+        defer { followBusy = false }
+        if profile.isFollowing {
+            await app.profile.unfollow(identity: identity, handleHint: profile.handle)
+        } else {
+            await app.profile.follow(
+                identity: identity,
+                handleHint: profile.handle,
+                signedIn: app.auth.isSignedIn
+            )
+        }
+    }
+
+    private func openAvatarViewer(_ profile: ModulaProfile) {
+        mediaViewer = ModulaMediaViewerItem(
+            title: "Profile photo",
+            url: profile.avatarURL,
+            accessibilityDescription: "\(profile.displayName)'s profile photo"
+        )
+    }
+
+    private func openCoverViewer(_ profile: ModulaProfile) {
+        guard profile.coverURL != nil else { return }
+        mediaViewer = ModulaMediaViewerItem(
+            title: "Cover photo",
+            url: profile.coverURL,
+            accessibilityDescription: "\(profile.displayName)'s cover photo"
+        )
+    }
+
+    private func presentShare(_ profile: ModulaProfile) {
+        showsShareSheet = true
+        HapticEngine.shared.play(.lightImpact)
+    }
+
+    private func copyProfileLink(_ profile: ModulaProfile) {
+        UIPasteboard.general.string = profile.shareURL.absoluteString
+        withAnimation { copiedBanner = true }
+        HapticEngine.shared.play(.confirmation)
+        Task {
+            try? await Task.sleep(for: .seconds(1.4))
+            await MainActor.run {
+                withAnimation { copiedBanner = false }
+            }
+        }
+    }
+
+    private func handleContextAction(_ action: ModulaContextAction, profile: ModulaProfile) {
+        switch action.id {
+        case "share":
+            presentShare(profile)
+        case "copy-link":
+            copyProfileLink(profile)
+        case "modula-code":
+            showsModulaCode = true
+        case "preview-visitor":
+            app.navigation.push(.profile(profile.routeID, .overview))
+            HapticEngine.shared.play(.navigation)
+        case "settings":
+            app.navigation.open(.settings(.account(.root)))
+            HapticEngine.shared.play(.navigation)
+        case "edit":
+            openSection(.edit)
+        case "mute":
+            Task {
+                await app.profile.mute(identity: identity, handleHint: profile.handle)
+            }
+        case "block":
+            confirmsBlock = true
+        case "report":
+            confirmsReport = true
+        case "view-photo":
+            openAvatarViewer(profile)
+        case "view-cover":
+            openCoverViewer(profile)
+        default:
+            break
+        }
+    }
+
+    private func handlePostContextAction(_ action: ModulaContextAction, post: SocialPost) {
+        HapticEngine.shared.play(.contextOpen)
+        switch action.id {
+        case "save":
+            Task { await app.home.toggleSave(post, mode: .forYou) }
+            HapticEngine.shared.play(.saveComplete)
+        case "copy-link":
+            UIPasteboard.general.string = "https://modula.digital/post/\(post.id)"
+            HapticEngine.shared.play(.confirmation)
+        case "share":
+            activityShare = ActivityShareItem(url: URL(string: "https://modula.digital/post/\(post.id)")!)
+        case "mute-author":
+            Task {
+                await app.profile.mute(identity: identity, handleHint: profile?.handle)
+            }
+        case "report":
+            confirmsReport = true
+        default:
+            break
+        }
+    }
+
+    private func reportProfile(category: String) async {
+        guard let profile else { return }
+        await app.profile.report(
+            identity: identity,
+            handleHint: profile.handle,
+            category: category
+        )
+    }
+}
+
+private struct ActivityShareItem: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
+private struct ProfileActivityShareView: UIViewControllerRepresentable {
+    let url: URL
+    var onDismiss: () -> Void
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        controller.completionWithItemsHandler = { _, _, _, _ in
+            onDismiss()
+        }
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
