@@ -69,6 +69,28 @@
 		E40100000000000000000003 /* PostDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000003 /* PostDetailView.swift */; };
 		A50100000000000000000011 /* ReactionKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000011 /* ReactionKind.swift */; };
 		A50100000000000000000012 /* ReactionPeopleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000012 /* ReactionPeopleView.swift */; };
+		A50100000000000000000001 /* AppLaunchState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000001 /* AppLaunchState.swift */; };
+		A50100000000000000000002 /* AppGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000002 /* AppGate.swift */; };
+		A50100000000000000000003 /* AppGateHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000003 /* AppGateHost.swift */; };
+		A50100000000000000000004 /* OnboardingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000004 /* OnboardingModels.swift */; };
+		A50100000000000000000005 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000005 /* OnboardingView.swift */; };
+		A50100000000000000000006 /* FirstRunModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000006 /* FirstRunModels.swift */; };
+		A50100000000000000000007 /* FirstRunView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000007 /* FirstRunView.swift */; };
+		A50100000000000000000008 /* AppLockModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000008 /* AppLockModels.swift */; };
+		A50100000000000000000009 /* AppLockCredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000009 /* AppLockCredentialStore.swift */; };
+		A5010000000000000000000A /* BiometricAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4010000000000000000000A /* BiometricAuthService.swift */; };
+		A5010000000000000000000B /* AppLockStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4010000000000000000000B /* AppLockStore.swift */; };
+		A5010000000000000000000C /* AppLockViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4010000000000000000000C /* AppLockViews.swift */; };
+		A5010000000000000000000D /* SettingsRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4010000000000000000000D /* SettingsRegistry.swift */; };
+		A5010000000000000000000E /* SettingsCategoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4010000000000000000000E /* SettingsCategoryViews.swift */; };
+		A5010000000000000000000F /* GreenfieldAccountClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4010000000000000000000F /* GreenfieldAccountClient.swift */; };
+		A50100000000000000000010 /* AuthProductViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000010 /* AuthProductViews.swift */; };
+		A50100000000000000000013 /* ProfileFullBleedChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000013 /* ProfileFullBleedChrome.swift */; };
+		A50100000000000000000014 /* ModuleDetailModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000014 /* ModuleDetailModels.swift */; };
+		A50100000000000000000015 /* ModuleDetailV2View.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000015 /* ModuleDetailV2View.swift */; };
+		A50100000000000000000016 /* PublisherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000016 /* PublisherView.swift */; };
+		A50100000000000000000017 /* N4ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000017 /* N4ETests.swift */; };
+		F50100000000000000000001 /* ModulaImmersiveSurfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */; };
 		E40100000000000000000010 /* PostGestureThresholds.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000010 /* PostGestureThresholds.swift */; };
 		E40100000000000000000011 /* PostBackendCapabilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000011 /* PostBackendCapabilities.swift */; };
 		E40100000000000000000012 /* PostStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000012 /* PostStateStore.swift */; };
@@ -246,6 +268,28 @@
 		E30100000000000000000019 /* PostSystemTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostSystemTests.swift; sourceTree = "<group>"; };
 		A40100000000000000000011 /* ReactionKind.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactionKind.swift; path = Features/Social/Reactions/ReactionKind.swift; sourceTree = "<group>"; };
 		A40100000000000000000012 /* ReactionPeopleView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactionPeopleView.swift; path = Features/Social/Reactions/ReactionPeopleView.swift; sourceTree = "<group>"; };
+		A40100000000000000000001 /* AppLaunchState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppLaunchState.swift; path = Core/AppGate/AppLaunchState.swift; sourceTree = "<group>"; };
+		A40100000000000000000002 /* AppGate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppGate.swift; path = Core/AppGate/AppGate.swift; sourceTree = "<group>"; };
+		A40100000000000000000003 /* AppGateHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppGateHost.swift; path = Core/AppGate/AppGateHost.swift; sourceTree = "<group>"; };
+		A40100000000000000000004 /* OnboardingModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingModels.swift; path = Features/Onboarding/OnboardingModels.swift; sourceTree = "<group>"; };
+		A40100000000000000000005 /* OnboardingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingView.swift; path = Features/Onboarding/OnboardingView.swift; sourceTree = "<group>"; };
+		A40100000000000000000006 /* FirstRunModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FirstRunModels.swift; path = Features/FirstRun/FirstRunModels.swift; sourceTree = "<group>"; };
+		A40100000000000000000007 /* FirstRunView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FirstRunView.swift; path = Features/FirstRun/FirstRunView.swift; sourceTree = "<group>"; };
+		A40100000000000000000008 /* AppLockModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppLockModels.swift; path = Core/Security/AppLockModels.swift; sourceTree = "<group>"; };
+		A40100000000000000000009 /* AppLockCredentialStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppLockCredentialStore.swift; path = Core/Security/AppLockCredentialStore.swift; sourceTree = "<group>"; };
+		A4010000000000000000000A /* BiometricAuthService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BiometricAuthService.swift; path = Core/Security/BiometricAuthService.swift; sourceTree = "<group>"; };
+		A4010000000000000000000B /* AppLockStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppLockStore.swift; path = Core/Security/AppLockStore.swift; sourceTree = "<group>"; };
+		A4010000000000000000000C /* AppLockViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppLockViews.swift; path = Features/AppLock/AppLockViews.swift; sourceTree = "<group>"; };
+		A4010000000000000000000D /* SettingsRegistry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsRegistry.swift; path = Core/Settings/SettingsRegistry.swift; sourceTree = "<group>"; };
+		A4010000000000000000000E /* SettingsCategoryViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsCategoryViews.swift; path = Features/Settings/SettingsCategoryViews.swift; sourceTree = "<group>"; };
+		A4010000000000000000000F /* GreenfieldAccountClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GreenfieldAccountClient.swift; path = Core/Networking/GreenfieldAccountClient.swift; sourceTree = "<group>"; };
+		A40100000000000000000010 /* AuthProductViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthProductViews.swift; path = Core/Authentication/AuthProductViews.swift; sourceTree = "<group>"; };
+		A40100000000000000000013 /* ProfileFullBleedChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileFullBleedChrome.swift; path = Features/Profile/FullBleed/ProfileFullBleedChrome.swift; sourceTree = "<group>"; };
+		A40100000000000000000014 /* ModuleDetailModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleDetailModels.swift; path = Features/ProductHub/ModuleDetail/ModuleDetailModels.swift; sourceTree = "<group>"; };
+		A40100000000000000000015 /* ModuleDetailV2View.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleDetailV2View.swift; path = Features/ProductHub/ModuleDetail/ModuleDetailV2View.swift; sourceTree = "<group>"; };
+		A40100000000000000000016 /* PublisherView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PublisherView.swift; path = Features/ProductHub/Publisher/PublisherView.swift; sourceTree = "<group>"; };
+		A40100000000000000000017 /* N4ETests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4ETests.swift; sourceTree = "<group>"; };
+		F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaImmersiveSurfaces.swift; path = DesignSystem/Immersive/ModulaImmersiveSurfaces.swift; sourceTree = "<group>"; };
 		E30100000000000000000004 /* HomeModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeModels.swift; path = Features/Home/HomeModels.swift; sourceTree = "<group>"; };
 		E30100000000000000000005 /* HomeRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeRepository.swift; path = Features/Home/HomeRepository.swift; sourceTree = "<group>"; };
 		E30100000000000000000006 /* HomeStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeStore.swift; path = Features/Home/HomeStore.swift; sourceTree = "<group>"; };
@@ -350,6 +394,7 @@
 				E30100000000000000000019 /* PostSystemTests.swift */,
 				N40100000000000000000012 /* N4CTests.swift */,
 				D40100000000000000000018 /* N4DTests.swift */,
+				A40100000000000000000017 /* N4ETests.swift */,
 				E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */,
 				61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */,
 				E1010000000000000000000A /* DiscoverTests.swift */,
@@ -461,6 +506,27 @@
 				D40100000000000000000017 /* KeyboardCommands.swift */,
 				A40100000000000000000011 /* ReactionKind.swift */,
 				A40100000000000000000012 /* ReactionPeopleView.swift */,
+				A40100000000000000000001 /* AppLaunchState.swift */,
+				A40100000000000000000002 /* AppGate.swift */,
+				A40100000000000000000003 /* AppGateHost.swift */,
+				A40100000000000000000004 /* OnboardingModels.swift */,
+				A40100000000000000000005 /* OnboardingView.swift */,
+				A40100000000000000000006 /* FirstRunModels.swift */,
+				A40100000000000000000007 /* FirstRunView.swift */,
+				A40100000000000000000008 /* AppLockModels.swift */,
+				A40100000000000000000009 /* AppLockCredentialStore.swift */,
+				A4010000000000000000000A /* BiometricAuthService.swift */,
+				A4010000000000000000000B /* AppLockStore.swift */,
+				A4010000000000000000000C /* AppLockViews.swift */,
+				A4010000000000000000000D /* SettingsRegistry.swift */,
+				A4010000000000000000000E /* SettingsCategoryViews.swift */,
+				A4010000000000000000000F /* GreenfieldAccountClient.swift */,
+				A40100000000000000000010 /* AuthProductViews.swift */,
+				A40100000000000000000013 /* ProfileFullBleedChrome.swift */,
+				A40100000000000000000014 /* ModuleDetailModels.swift */,
+				A40100000000000000000015 /* ModuleDetailV2View.swift */,
+				A40100000000000000000016 /* PublisherView.swift */,
+				F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */,
 				DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */,
 				F00100000000000000000001 /* ProfileModels.swift */,
 				F00100000000000000000002 /* ProfileRepository.swift */,
@@ -794,6 +860,7 @@
 				N50100000000000000000012 /* N4CTests.swift in Sources */,
 				F10100000000000000000006 /* ProfileTests.swift in Sources */,
 				D50100000000000000000018 /* N4DTests.swift in Sources */,
+				A50100000000000000000017 /* N4ETests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -842,6 +909,27 @@
 				N50100000000000000000011 /* ProfileCustomizationViews.swift in Sources */,
 				A50100000000000000000011 /* ReactionKind.swift in Sources */,
 				A50100000000000000000012 /* ReactionPeopleView.swift in Sources */,
+				A50100000000000000000001 /* AppLaunchState.swift in Sources */,
+				A50100000000000000000002 /* AppGate.swift in Sources */,
+				A50100000000000000000003 /* AppGateHost.swift in Sources */,
+				A50100000000000000000004 /* OnboardingModels.swift in Sources */,
+				A50100000000000000000005 /* OnboardingView.swift in Sources */,
+				A50100000000000000000006 /* FirstRunModels.swift in Sources */,
+				A50100000000000000000007 /* FirstRunView.swift in Sources */,
+				A50100000000000000000008 /* AppLockModels.swift in Sources */,
+				A50100000000000000000009 /* AppLockCredentialStore.swift in Sources */,
+				A5010000000000000000000A /* BiometricAuthService.swift in Sources */,
+				A5010000000000000000000B /* AppLockStore.swift in Sources */,
+				A5010000000000000000000C /* AppLockViews.swift in Sources */,
+				A5010000000000000000000D /* SettingsRegistry.swift in Sources */,
+				A5010000000000000000000E /* SettingsCategoryViews.swift in Sources */,
+				A5010000000000000000000F /* GreenfieldAccountClient.swift in Sources */,
+				A50100000000000000000010 /* AuthProductViews.swift in Sources */,
+				A50100000000000000000013 /* ProfileFullBleedChrome.swift in Sources */,
+				A50100000000000000000014 /* ModuleDetailModels.swift in Sources */,
+				A50100000000000000000015 /* ModuleDetailV2View.swift in Sources */,
+				A50100000000000000000016 /* PublisherView.swift in Sources */,
+				F50100000000000000000001 /* ModulaImmersiveSurfaces.swift in Sources */,
 				E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */,
 				DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */,
 				F10100000000000000000001 /* ProfileModels.swift in Sources */,

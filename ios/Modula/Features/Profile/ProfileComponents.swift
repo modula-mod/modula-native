@@ -17,9 +17,11 @@ struct ProfileCover: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var coverHeight: CGFloat {
-        let base: CGFloat = sizeClass == .regular ? 280 : 250
-        if dynamicTypeSize.isAccessibilitySize { return max(220, base - 20) }
-        return base
+        ProfileFullBleedMetrics.coverHeight(
+            sizeClass: sizeClass,
+            safeAreaTop: 0,
+            accessibility: dynamicTypeSize.isAccessibilitySize
+        )
     }
 
     private var dissolve: CGFloat {

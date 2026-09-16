@@ -19,18 +19,9 @@ struct SignInView: View {
     }
 
     var body: some View {
-        Form {
-            Section {
-                LabeledContent("Environment", value: GreenfieldEnvironmentLabel.describe(host: apiHost))
-                    .accessibilityIdentifier("auth.environment")
-            } footer: {
-                if GreenfieldEnvironmentLabel.isIsolatedFixture(host: apiHost) {
-                    Text("This Debug build talks to the isolated N1 Greenfield fixture, not production. Use the N1 fixture account.")
-                }
-            }
-
-            Section {
-                TextField("Email", text: $email)
+        AuthChrome(title: "Sign In", subtitle: "Your digital world, your way.") {
+            VStack(alignment: .leading, spacing: 14) {
+                TextField("Email or username", text: $email)
                     .textContentType(.username)
                     .keyboardType(.emailAddress)
                     .textInputAutocapitalization(.never)
@@ -38,20 +29,17 @@ struct SignInView: View {
                     .focused($focused, equals: .email)
                     .submitLabel(.next)
                     .onSubmit { focused = .password }
+                    .padding(14)
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .accessibilityIdentifier("auth.email")
                 SecureField("Password", text: $password)
                     .textContentType(.password)
                     .focused($focused, equals: .password)
                     .submitLabel(.go)
                     .onSubmit { Task { await submit() } }
+                    .padding(14)
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .accessibilityIdentifier("auth.password")
-            } header: {
-                Text("Sign in")
-            } footer: {
-                Text("Your session is stored securely on this device. Modules never receive your account credentials.")
-            }
-
-            Section {
                 Button {
                     Task { await submit() }
                 } label: {
@@ -60,24 +48,11 @@ struct SignInView: View {
                         if app.auth.busy { ProgressView() } else { Text("Sign In") }
                         Spacer()
                     }
+                    .frame(minHeight: 48)
                 }
+                .buttonStyle(.borderedProminent)
                 .disabled(!canSubmit)
                 .accessibilityIdentifier("auth.sign-in")
-
-                #if DEBUG
-                if GreenfieldEnvironmentLabel.isIsolatedFixture(host: apiHost) {
-                    Button("Sign in with N1 fixture") {
-                        Task { await submitFixture() }
-                    }
-                    .disabled(app.auth.busy)
-                    .accessibilityIdentifier("auth.sign-in-fixture")
-                    if fixtureUnavailable {
-                        Text("Could not read .env.n1.local. Run scripts/n1/fixture.mjs first.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                #endif
 
                 Button("Forgot Password") {
                     app.navigation.open(.auth(.forgotPassword))
@@ -92,10 +67,27 @@ struct SignInView: View {
                 }
                 .disabled(app.auth.busy)
                 .accessibilityIdentifier("auth.create-account")
-            }
 
-            if let error = app.auth.error {
-                Section {
+                #if DEBUG
+                if GreenfieldEnvironmentLabel.isIsolatedFixture(host: apiHost) {
+                    Button("Sign in with N1 fixture") {
+                        Task { await submitFixture() }
+                    }
+                    .disabled(app.auth.busy)
+                    .accessibilityIdentifier("auth.sign-in-fixture")
+                    if fixtureUnavailable {
+                        Text("Could not read .env.n1.local. Run scripts/n1/fixture.mjs first.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(GreenfieldEnvironmentLabel.describe(host: apiHost))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("auth.environment")
+                }
+                #endif
+
+                if let error = app.auth.error {
                     Text(error)
                         .foregroundStyle(.red)
                         .accessibilityLabel(error)
@@ -111,8 +103,6 @@ struct SignInView: View {
                 }
             }
         }
-        .navigationTitle("Sign In")
-        .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("auth.login")
         .disabled(app.auth.busy)
     }
@@ -131,7 +121,7 @@ struct SignInView: View {
         let ok = await app.auth.signIn(email: trimmed, password: credential)
         if ok {
             HapticEngine.shared.play(.success)
-            app.navigation.completeAuthenticationReturn()
+            app.refreshLaunchState()
         } else {
             HapticEngine.shared.play(.failure)
         }
@@ -149,7 +139,7 @@ struct SignInView: View {
         let ok = await app.auth.signIn(email: fixture.email, password: fixture.password)
         if ok {
             HapticEngine.shared.play(.success)
-            app.navigation.completeAuthenticationReturn()
+            app.refreshLaunchState()
         } else {
             HapticEngine.shared.play(.failure)
         }
@@ -241,12 +231,18 @@ struct AuthRouteView: View {
 
     var body: some View {
         switch route {
-        case .login, .root, .welcome:
+        case .welcome:
+            OnboardingView()
+        case .login, .root:
             SignInView()
-        case .register, .verify:
-            RegisterPlaceholderView()
-        case .forgotPassword, .resetPassword:
+        case .register:
+            RegisterView()
+        case .verify:
+            VerifyEmailView()
+        case .forgotPassword:
             ForgotPasswordView()
+        case .resetPassword:
+            ResetPasswordView()
         }
     }
 }

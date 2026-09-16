@@ -14,7 +14,7 @@ enum APIError: Error, LocalizedError, Equatable {
         case .secureStorage: "Secure session storage is unavailable."
         case .invalidResponse: "Greenfield returned an unsupported response."
         case .accountChanged: "The account changed. Open the module again."
-        case .rejected(_, "INVALID_CREDENTIALS"): "Incorrect email or password."
+        case .rejected(_, "INVALID_CREDENTIALS"): "Email or password is incorrect."
         case .rejected(_, "UNAUTHENTICATED"): "Sign in to Modula to continue."
         case .rejected(_, "ACCOUNT_INACTIVE"), .rejected(_, "ACCOUNT_DISABLED"):
             "This account is not active. Verify your email or contact support."

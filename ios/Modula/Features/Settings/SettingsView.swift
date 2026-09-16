@@ -82,30 +82,7 @@ struct SettingsRouteView: View {
     let route: SettingsRoute
 
     var body: some View {
-        switch route {
-        case .root: SettingsView()
-        case .account(let accountRoute): AccountSettingsView(route: accountRoute)
-        case .appearance(.appIcon): AppIconPickerView()
-        case .appearance(.preview): AppearancePreviewScreen()
-        case .appearance(let focus): AppearanceSettingsView(focus: focus)
-        case .developer(.components):
-            #if DEBUG
-            ComponentCatalogView()
-            #else
-            DevelopmentRouteView(title: "Components", symbol: "square.grid.3x3")
-            #endif
-        case .developer(.runtime), .developer(.diagnostics):
-            #if DEBUG
-            RuntimeDiagnosticsView()
-            #else
-            DevelopmentRouteView(title: "Diagnostics", symbol: "stethoscope")
-            #endif
-        default: DevelopmentRouteView(title: title, symbol: "gearshape")
-        }
-    }
-
-    private var title: String {
-        RouteSerializer.serialize(.settings(route)).split(separator: "/").last.map(String.init)?.replacingOccurrences(of: "-", with: " ").capitalized ?? "Settings"
+        SettingsDestinationHost(route: route)
     }
 }
 
@@ -231,25 +208,19 @@ struct SettingsView: View {
     }
 
     private var searchItems: [SettingsSearchItem] {
-        [
-            .init("Account", "Sign-in and personal information", "person.crop.circle", .account(.root)),
-            .init("Appearance", "Theme, type, motion, haptics and app icon", "paintpalette", .appearance(.root)),
-            .init("Notifications", "Push, activity and quiet hours", "bell", .notifications(.root)),
-            .init("Privacy & Security", "Security, app lock and blocked accounts", "lock.shield", .privacy(.root)),
-            .init("Modules", moduleSummary, "shippingbox", .modules(.root)),
-            .init("Data & Storage", "Downloads, cache, backup and export", "internaldrive", .dataStorage(.root)),
-            .init("Accessibility", "Text, contrast and motion", "accessibility", .accessibility(.root)),
-            .init("Features", "Enabled and experimental capabilities", "switch.2", .features(.root)),
-            .init("Updates", "Version and update preferences", "arrow.triangle.2.circlepath", .updates(.root)),
-            .init("About", versionSummary, "info.circle", .about(.root))
-        ]
-    }
-
-    private var filteredSearchItems: [SettingsSearchItem] {
-        searchItems.filter { item in
-            item.title.localizedCaseInsensitiveContains(query) || item.subtitle.localizedCaseInsensitiveContains(query)
+        SettingsRegistry.search(query: query, includeDeveloper: {
+            #if DEBUG
+            true
+            #else
+            false
+            #endif
+        }()).map {
+            SettingsSearchItem($0.title, $0.subtitle, $0.symbol, $0.route)
         }
     }
+
+    private var filteredSearchItems: [SettingsSearchItem] { searchItems }
+
 
     private func category(_ title: String, _ subtitle: String, _ symbol: String, _ route: SettingsRoute) -> some View {
         SettingsNavigationRow(title: title, subtitle: subtitle, symbol: symbol) { app.navigation.open(.settings(route)) }
@@ -264,7 +235,7 @@ private struct SettingsSearchItem: Identifiable {
     let route: SettingsRoute
 
     init(_ title: String, _ subtitle: String, _ symbol: String, _ route: SettingsRoute) {
-        id = title
+        id = RouteSerializer.serialize(.settings(route))
         self.title = title
         self.subtitle = subtitle
         self.symbol = symbol

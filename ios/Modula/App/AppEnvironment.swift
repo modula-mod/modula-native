@@ -1,5 +1,6 @@
 import Observation
 import Foundation
+import SwiftUI
 import UIKit
 
 @MainActor @Observable
@@ -25,6 +26,8 @@ final class AppEnvironment {
     let saved: SavedStore
     let collections: CollectionStore
     let drafts: DraftStore
+    let gate = AppGate()
+    let appLock = AppLockStore()
 
     init() {
         let launchArguments = ProcessInfo.processInfo.arguments
@@ -61,15 +64,21 @@ final class AppEnvironment {
         drafts = DraftStore()
         let catalogueStore = catalogue
         let draftsStore = drafts
-        auth.onAccountChange = { [weak runtime, weak catalogueStore] account in
+        auth.onAccountChange = { [weak self, weak runtime, weak catalogueStore] account in
             runtime?.setAccount(account?.accountId)
             draftsStore.setAccountID(account?.accountId)
-            Task { await catalogueStore?.load() }
+            Task {
+                await catalogueStore?.load()
+                await MainActor.run { self?.refreshLaunchState() }
+            }
         }
         ModulaBridge.shared.client = client
-        ModulaBridge.shared.authenticationInvalidated = { [weak auth, weak runtime] in
+        ModulaBridge.shared.authenticationInvalidated = { [weak self, weak auth, weak runtime] in
             runtime?.setAccount(nil)
-            Task { await auth?.signOut() }
+            Task {
+                await auth?.signOut()
+                await MainActor.run { self?.refreshLaunchState() }
+            }
         }
         ModulaBridge.shared.runtime = runtime
         ModulaBridge.shared.navigation = navigation
@@ -104,5 +113,81 @@ final class AppEnvironment {
 
     func refreshQuickActions() {
         UIApplication.shared.shortcutItems = QuickActionMapper.shortcutItems(capabilities: commandCapabilities())
+    }
+
+    func bootstrapLaunch() async {
+        gate.beginBoot()
+        await auth.restore()
+        drafts.setAccountID(auth.account?.accountId)
+        if auth.isSignedIn {
+            appLock.refreshColdLaunchLock()
+            await catalogue.load()
+        }
+        refreshLaunchState()
+        refreshQuickActions()
+    }
+
+    func refreshLaunchState() {
+        gate.apply(
+            signedIn: auth.isSignedIn,
+            accountID: auth.account?.accountId,
+            appLockEnabled: appLock.enabled,
+            appLockRequiresUnlock: appLock.requiresUnlock
+        )
+        if gate.state == .ready, let pending = gate.takePendingDestination() {
+            navigation.open(pending == .boot ? .home(.following) : pending)
+        }
+        refreshQuickActions()
+    }
+
+    func handleIncomingURL(_ url: URL) {
+        guard let route = RouteParser.parse(url.absoluteString) else { return }
+        openRouted(route)
+    }
+
+    func openRouted(_ route: AppRoute) {
+        let resolved = route == .boot ? AppRoute.home(.following) : route
+        if gate.state != .ready {
+            if resolved.isPreAuthSurface {
+                navigation.open(resolved)
+                return
+            }
+            gate.enqueue(resolved)
+            return
+        }
+        if appLock.requiresUnlock {
+            gate.enqueue(resolved)
+            return
+        }
+        navigation.open(resolved)
+    }
+
+    func handleScenePhase(_ phase: ScenePhase) {
+        switch phase {
+        case .background:
+            drafts.flush()
+            appLock.recordBackground()
+            refreshLaunchState()
+        case .inactive:
+            break
+        case .active:
+            appLock.evaluateForeground()
+            refreshLaunchState()
+        @unknown default:
+            break
+        }
+    }
+
+    func performSignOut(resetAppLock: Bool = true) async {
+        drafts.flush()
+        runtime.revokeAll()
+        await auth.signOut()
+        drafts.setAccountID(nil)
+        if resetAppLock {
+            appLock.resetAfterSignOut()
+        }
+        navigation.home()
+        refreshLaunchState()
+        refreshQuickActions()
     }
 }

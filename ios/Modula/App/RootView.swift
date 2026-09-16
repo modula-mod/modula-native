@@ -14,7 +14,10 @@ struct RootView: View {
         let policy = ShellChromePolicy.policy(for: navigation.currentRoute, isTabRoot: navigation.isAtTabRoot)
         shell(navigation: navigation, policy: policy)
         .fontDesign(appearance.fontDesign)
-        .environment(\.trailingInteractionInset, 0)
+        .environment(
+            \.trailingInteractionInset,
+            policy.contextRailVisible ? TrailingInteractionSafeArea.contentClearance : 0
+        )
         .overlay(alignment: .trailing) {
             if policy.contextRailVisible {
                 ModulaContextRail(route: navigation.currentRoute)
@@ -27,6 +30,23 @@ struct RootView: View {
             if let banner = navigation.banner { Label(banner.message, systemImage: banner.symbol).padding(12).background(.regularMaterial, in: Capsule()).padding(.top, 8) }
         }
         .background(palette.canvas.ignoresSafeArea())
+        .onAppear {
+            app.runtime.markNativeUsable()
+            if let delegate = UIApplication.shared.delegate as? ModulaAppDelegate {
+                delegate.environment = app
+                delegate.consumePendingShortcutIfNeeded()
+            }
+            app.refreshQuickActions()
+        }
+        .task {
+            await app.catalogue.load()
+            app.refreshQuickActions()
+            let installed = app.catalogue.installedIDs.compactMap { id -> (id: String, name: String)? in
+                guard let product = app.catalogue.product(id) else { return (id, id) }
+                return (id, product.name)
+            }
+            SpotlightIndexPreparation.refresh(installedModules: installed)
+        }
         .modulaCommandKeyboard(
             onCommandK: {
                 app.navigation.presented = .commandCenter
@@ -39,24 +59,12 @@ struct RootView: View {
                 app.navigation.open(.search(.root(nil)))
             }
         )
-        .onOpenURL { _ = navigation.open(path: $0.absoluteString) }
-        .onAppear {
-            app.runtime.markNativeUsable()
-            app.refreshQuickActions()
-        }
-        .task {
-            await app.auth.restore()
-            app.drafts.setAccountID(app.auth.account?.accountId)
-            await app.catalogue.load()
-            app.refreshQuickActions()
-        }
         .onChange(of: scenePhase) { previous, phase in
             if phase == .active {
                 if previous == .background { app.runtime.lifecycle("foregrounded") }
                 app.runtime.lifecycle("active")
                 app.refreshQuickActions()
             } else if phase == .background {
-                app.drafts.flush()
                 app.runtime.lifecycle("backgrounded")
             } else {
                 app.runtime.lifecycle("inactive")
@@ -118,7 +126,7 @@ private struct RouteView: View {
     let route: AppRoute
     var body: some View {
         switch route {
-        case .boot: HomeView(mode: .following)
+        case .boot: BootSplashView()
         case .auth(let route): AuthRouteView(route: route)
         case .home(let mode): HomeView(mode: mode)
         case .discover: DiscoverScreen()
@@ -129,10 +137,11 @@ private struct RouteView: View {
         case .notification: DevelopmentRouteView(title: "Notification", symbol: "bell")
         case .profile(let id, let section): ProfileView(userID: id, section: section)
         case .me(let section): ProfileView(userID: nil, section: section)
-        case .productHub(.module(let id, let section)): ModuleDetailView(moduleID: id, section: section)
+        case .productHub(.module(let id, let section)): ModuleDetailV2View(moduleID: id, section: section)
+        case .productHub(.publisher(let id)): PublisherView(publisherID: id)
         case .productHub(let route): ProductHubView(route: route)
         case .module(let id, let localPath): ModuleHost(moduleID: id, initialLocalPath: localPath)
-        case .settings(let route): SettingsRouteView(route: route)
+        case .settings(let route): SettingsDestinationHost(route: route)
         case .messages(let route): MessagesRootView(route: route)
         case .stories(let route): StoriesRouteView(route: route)
         case .reels(let route): ReelsRouteView(route: route)

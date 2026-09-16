@@ -306,112 +306,23 @@ enum CommandRegistry {
     }
 
     private static func settingsCommands(capabilities: CommandCapabilitySnapshot) -> [ModulaCommand] {
-        // Temporary hardcoded settings commands until N4E lands SettingsRegistry.
-        var items: [ModulaCommand] = [
-            .init(
-                id: "settings.root",
-                title: "Settings",
-                subtitle: "Account, appearance, security and more",
-                icon: .init("gearshape"),
-                category: .manage,
-                action: .settingsOpen(.root),
-                aliases: ["settings", "prefs"],
-                accessibilityHint: "Opens Settings"
-            ),
-            .init(
-                id: "settings.account",
-                title: "Account",
-                subtitle: "Personal information, sessions and sign out",
-                icon: .init("person.crop.circle"),
-                category: .manage,
-                availability: capabilities.signedIn ? .available : .requiresSignIn,
-                action: .settingsOpen(.account(.root)),
-                aliases: ["account", "login"],
-                accessibilityHint: "Opens Account settings"
-            ),
-            .init(
-                id: "settings.appearance",
-                title: "Appearance",
-                subtitle: "Theme, type, motion and branding",
-                icon: .init("paintpalette"),
-                category: .manage,
-                action: .settingsOpen(.appearance(.root)),
-                aliases: ["theme", "oled", "dim", "font", "accent", "dark", "light"],
-                accessibilityHint: "Opens Appearance"
-            ),
-            .init(
-                id: "settings.appearance.theme",
-                title: "Theme",
-                subtitle: "Light, dark or system",
-                icon: .init("circle.lefthalf.filled"),
-                category: .manage,
-                action: .settingsOpen(.appearance(.theme)),
-                aliases: ["light", "dark", "system theme"],
-                accessibilityHint: "Opens Theme"
-            ),
-            .init(
-                id: "settings.appearance.dark-style",
-                title: "Dark Style",
-                subtitle: "Standard, Dim or OLED",
-                icon: .init("moon"),
-                category: .manage,
-                action: .settingsOpen(.appearance(.darkStyle)),
-                aliases: ["oled", "dim", "dark"],
-                accessibilityHint: "Opens Dark Style"
-            ),
-            .init(
-                id: "settings.notifications",
-                title: "Notifications",
-                icon: .init("bell"),
-                category: .manage,
-                action: .settingsOpen(.notifications(.root)),
-                aliases: ["notifications", "alerts"]
-            ),
-            .init(
-                id: "open.notifications.settings",
-                title: "Notification Settings",
-                icon: .init("bell.badge"),
-                category: .manage,
-                action: .settingsOpen(.notifications(.root))
-            ),
-            .init(
-                id: "settings.privacy",
-                title: "Privacy & Security",
-                icon: .init("lock.shield"),
-                category: .manage,
-                action: .settingsOpen(.privacy(.root)),
-                aliases: ["security", "privacy", "face id", "app lock"]
-            ),
-            .init(
-                id: "settings.accessibility",
-                title: "Accessibility",
-                icon: .init("accessibility"),
-                category: .manage,
-                action: .settingsOpen(.accessibility(.root)),
-                aliases: ["accessibility", "contrast", "motion"]
-            ),
-            .init(
-                id: "settings.developer",
-                title: "Developer",
-                icon: .init("hammer"),
-                category: .developer,
-                availability: capabilities.developerMode ? .developerOnly : .unavailable,
-                action: .settingsOpen(.developer(.root)),
-                aliases: ["debug", "diagnostics"]
-            ),
-            .init(
-                id: "manage.edit-profile",
-                title: "Edit Profile",
-                icon: .init("pencil"),
-                category: .manage,
-                availability: capabilities.signedIn ? .available : .requiresSignIn,
-                action: .routeOpen(.me(.edit)),
-                accessibilityHint: "Opens profile editing"
-            )
-        ]
-        if !capabilities.developerMode {
-            items.removeAll { $0.availability == .developerOnly || $0.id.rawValue == "settings.developer" }
-        }
+        var items = SettingsRegistry.commands(signedIn: capabilities.signedIn, developerMode: capabilities.developerMode)
+        items.append(.init(
+            id: "manage.edit-profile",
+            title: "Edit Profile",
+            icon: .init("pencil"),
+            category: .manage,
+            availability: capabilities.signedIn ? .available : .requiresSignIn,
+            action: .routeOpen(.me(.edit)),
+            accessibilityHint: "Opens profile editing"
+        ))
+        items.append(.init(
+            id: "open.notifications.settings",
+            title: "Notification Settings",
+            icon: .init("bell.badge"),
+            category: .manage,
+            action: .settingsOpen(.notifications(.root))
+        ))
         return items
     }
 

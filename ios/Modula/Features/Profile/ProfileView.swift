@@ -207,7 +207,16 @@ struct ProfileView: View {
             ) {
                 trailingChrome
             }
+            if !app.navigation.isAtTabRoot {
+                ProfileFloatingChrome(
+                    showsBack: true,
+                    onBack: { app.navigation.close() },
+                    onShare: {},
+                    moreMenu: { AnyView(EmptyView()) }
+                )
+            }
         }
+        .ignoresSafeArea(edges: .top)
         .modulaCanvas()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)

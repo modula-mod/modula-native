@@ -9,8 +9,7 @@ struct ModulaApp: App {
 
     var body: some Scene {
         WindowGroup {
-            // N4D: shortcuts/⌘K land before AppGate (N4E). Still roots RootView.
-            RootView()
+            AppGateHost()
                 .environment(environment)
                 .tint(environment.appearance.accent.color)
                 .preferredColorScheme(environment.appearance.colorScheme)
@@ -26,32 +25,36 @@ struct ModulaApp: App {
         .commands {
             ModulaKeyboardCommands(
                 openCommandCenter: {
+                    guard environment.gate.state == .ready else { return }
                     environment.navigation.presented = .commandCenter
                     HapticEngine.shared.play(.contextOpen)
                 },
                 openCreate: {
+                    guard environment.gate.state == .ready else { return }
                     environment.navigation.presented = .createPicker
                 },
                 openSearch: {
-                    environment.navigation.open(.search(.root(nil)))
+                    guard environment.gate.state == .ready else { return }
+                    environment.openRouted(.search(.root(nil)))
                 }
             )
         }
     }
 
     private func handleSpotlight(_ identifier: String) {
+        guard environment.gate.state == .ready else { return }
         if identifier.hasPrefix("module:") {
             let moduleID = String(identifier.dropFirst("module:".count))
             guard environment.catalogue.installedIDs.contains(moduleID) else { return }
-            environment.navigation.open(.module(moduleID, localPath: nil))
+            environment.openRouted(.module(moduleID, localPath: nil))
         } else if identifier.hasPrefix("settings:") {
             let key = String(identifier.dropFirst("settings:".count))
             switch key {
-            case "appearance": environment.navigation.open(.settings(.appearance(.root)))
-            case "notifications": environment.navigation.open(.settings(.notifications(.root)))
-            case "privacy": environment.navigation.open(.settings(.privacy(.root)))
-            case "accessibility": environment.navigation.open(.settings(.accessibility(.root)))
-            default: environment.navigation.open(.settings(.root))
+            case "appearance": environment.openRouted(.settings(.appearance(.root)))
+            case "notifications": environment.openRouted(.settings(.notifications(.root)))
+            case "privacy": environment.openRouted(.settings(.privacy(.root)))
+            case "accessibility": environment.openRouted(.settings(.accessibility(.root)))
+            default: environment.openRouted(.settings(.root))
             }
         }
     }
@@ -88,6 +91,7 @@ final class ModulaAppDelegate: NSObject, UIApplicationDelegate {
 
     private func handle(_ shortcut: UIApplicationShortcutItem) -> Bool {
         guard let environment else { return false }
+        guard environment.gate.state == .ready else { return false }
         return QuickActionRouter.handle(
             shortcut,
             navigation: environment.navigation,
