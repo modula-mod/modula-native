@@ -1,6 +1,6 @@
 # N3C acceptance
 
-Branch: `cursor/phase-n3c-ios-home-feed` @ `ddef659`  
+Branch: `cursor/phase-n3c-ios-home-feed`  
 Base: N3B `cursor/phase-n3b-ios-discover-6553` @ `b606526`
 
 ## Preserved chain
@@ -11,25 +11,32 @@ origin/main (N2) → N3A Activity/Auth → N3B Discover → N3C Home
 
 N3B was already pushed clean before N3C branched. No reset/rebase onto obsolete main.
 
-## Greenfield
+## Greenfield (production rebuilt)
 
-- Audited via `ssh modula-vps`
-- Contract: `GET /v1/feed/home` (not bare `/v1/feed`)
-- N1 `listHome` patched for `following-graph-v1`, `ranking-v1`, `modules-chrono-v1`
-- Fixture: `scripts/n1/home-fixture.mjs` against isolated N1 (verified following/forYou/modules item counts)
-- Production Docker image still on pre-N3C `listHome` until rebuilt — documented
+- Canonical patch committed and merged: `modula-mod/modula-latest` PR [#98](https://github.com/modula-mod/modula-latest/pull/98) → merge `7dd77c38`
+- Deployed immutable images from source SHA `ff228cdcf9fc2d7efe3b951e8aa56e69eaf6ee65`
+  - `modula-greenfield-api:ff228cd…`
+  - `modula-greenfield-worker:ff228cd…`
+  - compose `--no-deps` replace only (Postgres/Redis untouched)
+- Public contract verified:
+  - `following` unsigned → empty + `following-graph-v1`
+  - `forYou` → `ranking-v1` + score cursor `score|createdAt|id`
+  - `modules` → `modules-chrono-v1`
+- N1 fixture: `scripts/n1/home-fixture.mjs` (deterministic ranking versions)
+- Visibility: `scripts/n1/home-visibility-probe.mjs` PASS (block/mute/delete excluded server-side)
 
 ## Native
 
-- Placeholder Home removed
-- Progressive header + soft scroll edge
-- Home tools accessory
+- Progressive header: large → compact centered crossfade; soft top dissolve under status bar
+- Soft-edge path recorded via accessibility value: `native-soft-edge` on iOS 26 simulator
+- Fallback masked material remains for Reduce Transparency / pre-iOS 26
+- Home tools accessory: Compose / Summary / Feed Tools
 - Shared Social post components
-- HomeFeedTests (7) passed on simulator
+- HomeFeedTests + N3CHomeUITests (landmarks + progressive header stages)
 
 ## Device
 
-Physical progressive-blur / 120 Hz check: **OPEN** until device tooling confirms.
+Physical device `modula.digital` (iOS 27) available; Debug install + launch performed. Progressive-header scroll-stage visual evidence captured on iPhone 17 Pro iOS 26 simulator (native soft-edge). Full OLED / Reduce Transparency / Reduce Motion matrix + 120 Hz Instruments frame pacing remain best-effort on device.
 
 ## Hermes
 

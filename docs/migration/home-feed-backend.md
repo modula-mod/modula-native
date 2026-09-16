@@ -1,6 +1,6 @@
 # Home feed backend audit (N3C)
 
-Audit date: 2026-09-16. VPS source: `ssh modula-vps` → `/root/modula-latest/services/greenfield-api` (N1 WorkingDirectory). Production container image still reflects the pre-N3C `listHome` until that image is rebuilt; N1 runs `tsx src/main.ts` and picks up the N3C `listHome` patch after service restart.
+Audit date: 2026-09-16. VPS source: `ssh modula-vps` → `/root/modula-latest/services/greenfield-api`. Production API/worker images rebuilt from committed N3C SHA `ff228cdcf9fc2d7efe3b951e8aa56e69eaf6ee65` (merged via `modula-mod/modula-latest` PR #98). N1 continues to run `tsx src/main.ts` against the same source tree.
 
 Success envelope: `{ok:true,data,meta:{requestId,serverTime}}`. Native client sends bearer access only inside `GreenfieldClient`. No credentials in logs.
 
@@ -113,7 +113,6 @@ Truthful Modules stream = posts tagged `feed=modules` (often `kind=module` with 
 - Dedicated reaction HTTP beyond like
 - Video media kind in DTO
 - Server feed summary aggregate endpoint (native Summary uses the loaded window + `FeedSummarySource.aggregate`)
-- Production image rebuild of the N3C `listHome` patch (N1 already sources `src/`)
 - Followers-only / private posts inside Home (policy exists; Home list still filters public)
 
 ## Fixture

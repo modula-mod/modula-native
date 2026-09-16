@@ -120,6 +120,8 @@ final class HomeFeedTests: XCTestCase {
         XCTAssertEqual(ModulaScrollProgress.progress(offsetY: 0), 0)
         XCTAssertEqual(ModulaScrollProgress.progress(offsetY: 28, collapseDistance: 56), 0.5)
         XCTAssertEqual(ModulaScrollProgress.progress(offsetY: 120, collapseDistance: 56), 1)
+        let path = ModulaScrollProgress.softEdgePathLabel
+        XCTAssertTrue(path == "native-soft-edge" || path == "fallback-masked-material")
     }
 
     func testFeedSummaryAggregate() {

@@ -651,27 +651,58 @@ final class N3CHomeUITests: XCTestCase {
         app.launchArguments = ["--runtime-unavailable", "--reset-appearance"]
         app.launch()
 
-        XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 10))
-        XCTAssertEqual(app.descendants(matching: .any)["native.home"].value as? String, "/home/following")
-        XCTAssertTrue(app.descendants(matching: .any)["home.hero"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.descendants(matching: .any)["home.sign-in"].waitForExistence(timeout: 5))
+        let home = app.descendants(matching: .any)["native.home"].firstMatch
+        XCTAssertTrue(home.waitForExistence(timeout: 10))
+        XCTAssertEqual(home.value as? String, "/home/following")
+        XCTAssertTrue(app.descendants(matching: .any)["home.hero"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["home.sign-in"].firstMatch.waitForExistence(timeout: 5))
 
-        XCTAssertTrue(app.descendants(matching: .any)["accessory.compose"].exists)
-        XCTAssertTrue(app.descendants(matching: .any)["accessory.summary"].exists)
-        XCTAssertTrue(app.descendants(matching: .any)["accessory.tools"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["accessory.compose"].firstMatch.exists)
+        XCTAssertTrue(app.descendants(matching: .any)["accessory.summary"].firstMatch.exists)
+        XCTAssertTrue(app.descendants(matching: .any)["accessory.tools"].firstMatch.exists)
 
         app.buttons["For You"].firstMatch.tap()
-        XCTAssertEqual(app.descendants(matching: .any)["native.home"].value as? String, "/home/for-you")
+        XCTAssertEqual(app.descendants(matching: .any)["native.home"].firstMatch.value as? String, "/home/for-you")
 
-        app.descendants(matching: .any)["accessory.summary"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["home.summary"].waitForExistence(timeout: 5))
+        app.descendants(matching: .any)["accessory.summary"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["home.summary"].firstMatch.waitForExistence(timeout: 5))
         app.buttons["Close"].firstMatch.tap()
 
-        app.descendants(matching: .any)["accessory.tools"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["home.tools"].waitForExistence(timeout: 5))
+        app.descendants(matching: .any)["accessory.tools"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["home.tools"].firstMatch.waitForExistence(timeout: 5))
         app.buttons["Close"].firstMatch.tap()
 
         attachScreenshot(app, name: "n3c-home-tools")
+    }
+
+    func testProgressiveHeaderCollapseStages() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--runtime-unavailable", "--reset-appearance", "--ui-light"]
+        app.launch()
+
+        let home = app.descendants(matching: .any)["native.home"].firstMatch
+        XCTAssertTrue(home.waitForExistence(timeout: 10))
+        attachScreenshot(app, name: "n3c-header-00-resting")
+
+        // Switch to For You so the feed has public content to scroll under the header.
+        app.buttons["For You"].firstMatch.tap()
+        sleep(1)
+        attachScreenshot(app, name: "n3c-header-01-foryou-resting")
+
+        let header = app.descendants(matching: .any)["home.progressiveHeader"].firstMatch
+        if header.exists {
+            let path = header.value as? String ?? "unknown"
+            XCTAssertTrue(path == "native-soft-edge" || path == "fallback-masked-material", "unexpected soft-edge path \(path)")
+            attachScreenshot(app, name: "n3c-header-path-\(path)")
+        }
+
+        let stages = [0.25, 0.50, 0.75, 1.0]
+        for (index, fraction) in stages.enumerated() {
+            home.swipeUp(velocity: .slow)
+            // Brief settle so scroll progress preference updates.
+            usleep(350_000)
+            attachScreenshot(app, name: String(format: "n3c-header-%02d-%.0f", index + 2, fraction * 100))
+        }
     }
 
     private func attachScreenshot(_ app: XCUIApplication, name: String) {

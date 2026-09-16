@@ -9,21 +9,29 @@ struct HomeView: View {
         let state = app.home.state(for: mode)
         ZStack(alignment: .top) {
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 0) {
+                    // Keep the progress probe outside LazyVStack so recycling cannot drop it.
                     ModulaScrollProgressReader()
-                    hero
-                    quickAccessShelf
-                    if app.home.isOfflineHint && !state.items.isEmpty {
-                        offlineBanner
+                    LazyVStack(alignment: .leading, spacing: 18) {
+                        hero
+                        quickAccessShelf
+                        if app.home.isOfflineHint && !state.items.isEmpty {
+                            offlineBanner
+                        }
+                        feedContent(state)
                     }
-                    feedContent(state)
+                    .padding(.horizontal, ModulaLayout.contentInset)
+                    .padding(.top, 4)
+                    .padding(.bottom, 120)
                 }
-                .padding(.horizontal, ModulaLayout.contentInset)
-                .padding(.top, 4)
-                .padding(.bottom, 120)
             }
             .modulaScrollProgressTracking(progress: $headerProgress)
             .modulaSoftScrollEdge()
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y
+            } action: { _, newOffset in
+                headerProgress = ModulaScrollProgress.progress(offsetY: max(0, newOffset), collapseDistance: 72)
+            }
             .refreshable {
                 await app.home.refresh(mode, signedIn: app.auth.isSignedIn)
             }
@@ -73,6 +81,7 @@ struct HomeView: View {
                     .accessibilityIdentifier("home.banner")
             }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("native.home")
         .accessibilityValue(RouteSerializer.serialize(.home(mode)))
     }
