@@ -16,9 +16,10 @@ Updated: 2026-09-16 during Integration & Closeout.
 | Greenfield media 500 | **PASS** | Sample JPG/PNG now 200 |
 | Backend PR | **PASS** | [modula-latest#99](https://github.com/modula-mod/modula-latest/pull/99) merged `0c83b6f` |
 | Metro :8081 | **PASS** | Absent during closeout Release attempt |
+| Bundle credential scan | **PASS** | No fixture emails; `accessToken`/`refreshToken`/`Bearer` are Codable/header symbols only; no localhost/:8081 in Release app |
 | Physical iPhone | **BLOCKED** | `modula.digital` offline in xctrace |
 | Phase reconstruction N4B→N4G | **IN PROGRESS** | Plan agent running; recovery remains immutable |
-| Release build | **IN PROGRESS** | |
+| Release build | **PASS** | Simulator Release `BUILD SUCCEEDED`; `main.jsbundle` + hermes present; Metro :8081 absent |
 | UITests | **PARTIAL** | Fail under App Gate signed-out (expected until fixture login harness) |
 | App Lock / Face ID / visual / Instruments | **PENDING** | Needs online physical device |
 
