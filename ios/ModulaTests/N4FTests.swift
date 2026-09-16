@@ -203,12 +203,23 @@ final class CreationMediaTests: XCTestCase {
             altText: "A photo"
         )
         final class ProgressBox: @unchecked Sendable {
-            var fractions: [Double] = []
+            private let lock = NSLock()
+            private var values: [Double] = []
+            func append(_ value: Double) {
+                lock.lock()
+                values.append(value)
+                lock.unlock()
+            }
+            var isEmpty: Bool {
+                lock.lock()
+                defer { lock.unlock() }
+                return values.isEmpty
+            }
         }
-        let box = ProgressBox()
-        let success = try await MockMediaUploader(behavior: .success).upload(prepared) { box.fractions.append($0) }
+        let fractions = ProgressBox()
+        let success = try await MockMediaUploader(behavior: .success).upload(prepared) { fractions.append($0) }
         XCTAssertEqual(success.remoteID, "remote-m1")
-        XCTAssertFalse(box.fractions.isEmpty)
+        XCTAssertFalse(fractions.isEmpty)
         do {
             _ = try await MockMediaUploader(behavior: .failure).upload(prepared) { _ in }
             XCTFail("expected failure")

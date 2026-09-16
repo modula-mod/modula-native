@@ -4,7 +4,7 @@ import XCTest
 final class AuthErrorMappingTests: XCTestCase {
     func testInvalidCredentialsMapsToFriendlyCopy() {
         let error = APIError.rejected(401, "INVALID_CREDENTIALS")
-        XCTAssertEqual(error.userFacingMessage, "Incorrect email or password.")
+        XCTAssertEqual(error.userFacingMessage, "Email or password is incorrect.")
         XCTAssertTrue(error.diagnosticDescription.contains("INVALID_CREDENTIALS"))
         XCTAssertNotEqual(error.userFacingMessage, error.diagnosticDescription)
     }
@@ -210,7 +210,7 @@ final class GreenfieldAuthContractTests: XCTestCase {
             XCTFail("Expected rejection")
         } catch let error as APIError {
             XCTAssertEqual(error, .rejected(401, "INVALID_CREDENTIALS"))
-            XCTAssertEqual(error.userFacingMessage, "Incorrect email or password.")
+            XCTAssertEqual(error.userFacingMessage, "Email or password is incorrect.")
         }
     }
 

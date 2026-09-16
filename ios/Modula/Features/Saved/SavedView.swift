@@ -26,30 +26,39 @@ struct SavedView: View {
                 ScrollView {
                     LazyVStack(spacing: app.appearance.density == .compact ? 10 : 14) {
                         ForEach(app.saved.posts) { post in
+                            let resolved = app.posts.resolved(post)
                             PostCard(
-                                post: post,
+                                post: resolved,
+                                showsActionRail: resolved.hasMedia,
+                                isOwnPost: resolved.author?.id == app.auth.account?.accountId,
                                 onOpenPost: {
-                                    app.navigation.open(.post(post.id, .root))
+                                    app.postActions.ingest(resolved)
+                                    app.navigation.open(.post(resolved.id, .root))
                                     HapticEngine.shared.play(.navigation)
                                 },
                                 onOpenAuthor: {
-                                    if let authorID = post.author?.id {
-                                        app.navigation.open(.profile(authorID, .overview))
-                                        HapticEngine.shared.play(.navigation)
-                                    }
+                                    guard let author = resolved.author else { return }
+                                    app.navigation.push(.profile(author.routeID, .overview))
+                                    HapticEngine.shared.play(.navigation)
                                 },
                                 onLike: {
-                                    Task { await app.postActions.toggleLike(post) }
+                                    Task {
+                                        app.postActions.ingest(resolved)
+                                        await app.postActions.toggleLike(resolved)
+                                    }
                                 },
                                 onComment: {
-                                    app.navigation.open(.post(post.id, .comments))
+                                    app.navigation.open(.post(resolved.id, .comments))
                                     HapticEngine.shared.play(.navigation)
                                 },
                                 onRepost: {
-                                    Task { await app.postActions.toggleRepost(post) }
+                                    Task {
+                                        app.postActions.ingest(resolved)
+                                        await app.postActions.toggleRepost(resolved)
+                                    }
                                 },
                                 onSave: {
-                                    Task { await app.saved.unsave(postID: post.id, postActions: app.postActions) }
+                                    Task { await app.saved.unsave(postID: resolved.id, postActions: app.postActions) }
                                 }
                             )
                                 .contextMenu {
