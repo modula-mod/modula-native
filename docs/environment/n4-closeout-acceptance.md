@@ -18,7 +18,7 @@ Updated: 2026-09-16 during Integration & Closeout.
 | Metro :8081 | **PASS** | Absent during closeout Release attempt |
 | Bundle credential scan | **PASS** | No fixture emails; `accessToken`/`refreshToken`/`Bearer` are Codable/header symbols only; no localhost/:8081 in Release app |
 | Physical iPhone | **BLOCKED** | `modula.digital` offline in xctrace |
-| Phase reconstruction N4B→N4G | **IN PROGRESS** | N4B [PR #3](https://github.com/modula-mod/modula-native/pull/3) `febdec6`; N4C [PR #4](https://github.com/modula-mod/modula-native/pull/4) `8715de4`; N4D [PR #5](https://github.com/modula-mod/modula-native/pull/5) `3085d64`; N4E [PR #6](https://github.com/modula-mod/modula-native/pull/6) `eb09214` build+tests PASS; N4F next |
+| Phase reconstruction N4B→N4G | **IN PROGRESS** | N4B [PR #3](https://github.com/modula-mod/modula-native/pull/3) `febdec6`; N4C [PR #4](https://github.com/modula-mod/modula-native/pull/4) `8715de4`; N4D [PR #5](https://github.com/modula-mod/modula-native/pull/5) `3085d64`; N4E [PR #6](https://github.com/modula-mod/modula-native/pull/6) `eb09214`; N4F [PR #7](https://github.com/modula-mod/modula-native/pull/7) `d19234d` build+tests PASS; N4G next |
 | Release build | **PASS** | Simulator Release `BUILD SUCCEEDED`; `main.jsbundle` + hermes present; Metro :8081 absent |
 | UITests | **PARTIAL** | Fail under App Gate signed-out (expected until fixture login harness) |
 | App Lock / Face ID / visual / Instruments | **PENDING** | Needs online physical device |
