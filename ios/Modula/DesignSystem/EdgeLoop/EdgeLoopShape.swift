@@ -2,68 +2,38 @@ import SwiftUI
 
 /// Cut-in silhouette for `ModulaEdgeLoop`.
 ///
-/// The notch height is stable. Items move through a centred aperture; the outer
-/// rail does not grow and shrink with every selection.
+/// Camera-Control style bump: the notch is one fixed size — a flat waist deep
+/// enough for the fully grown word pill, blended into the physical edge with
+/// tangent-smooth shoulders. It never grows or shrinks with selection; the reel
+/// scrolls through it.
 struct EdgeLoopShape: Shape {
-    /// Visible depth from the physical trailing edge, in points.
+    /// Visible depth from the physical edge to the waist, in points.
     var restingDepth: CGFloat = EdgeLoopEngine.restingWidth
     var position: EdgeLoopPosition = .trailing
 
     nonisolated func path(in rect: CGRect) -> Path {
-        position == .leading ? leadingPath(in: rect) : trailingPath(in: rect)
-    }
+        let depth = min(max(restingDepth + 6, 30), rect.width)
+        // Flat waist tall enough for the 96pt pill plus one neighbour gap.
+        let waistHalf = min(EdgeLoopEngine.revealedWidth / 2 + 14, rect.height * 0.38)
+        let shoulder = max((rect.height / 2) - waistHalf, 24)
+        let edgeX = position == .trailing ? rect.maxX : rect.minX
+        let waistX = position == .trailing ? rect.maxX - depth : rect.minX + depth
 
-    nonisolated private func trailingPath(in rect: CGRect) -> Path {
-        let depth = min(max(restingDepth, 28), rect.width)
-        let left = rect.maxX - depth
-        let aperture: CGFloat = 38
-        let shoulder: CGFloat = 26
-        let waistPull: CGFloat = 5
         var path = Path()
-        path.move(to: CGPoint(x: rect.maxX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.move(to: CGPoint(x: edgeX, y: rect.minY))
+        path.addLine(to: CGPoint(x: edgeX, y: rect.maxY))
+        // Bottom shoulder: leave the edge vertically, arrive at the waist vertically.
         path.addCurve(
-            to: CGPoint(x: left + waistPull, y: rect.midY + aperture + shoulder),
-            control1: CGPoint(x: rect.maxX, y: rect.maxY - shoulder),
-            control2: CGPoint(x: left + waistPull, y: rect.maxY - 10)
+            to: CGPoint(x: waistX, y: rect.midY + waistHalf),
+            control1: CGPoint(x: edgeX, y: rect.maxY - shoulder * 0.62),
+            control2: CGPoint(x: waistX, y: rect.midY + waistHalf + shoulder * 0.62)
         )
+        path.addLine(to: CGPoint(x: waistX, y: rect.midY - waistHalf))
+        // Top shoulder, mirrored.
         path.addCurve(
-            to: CGPoint(x: left + waistPull, y: rect.midY - aperture - shoulder),
-            control1: CGPoint(x: left - 4, y: rect.midY + aperture),
-            control2: CGPoint(x: left - 4, y: rect.midY - aperture)
-        )
-        path.addCurve(
-            to: CGPoint(x: rect.maxX, y: rect.minY),
-            control1: CGPoint(x: left + waistPull, y: rect.minY + 10),
-            control2: CGPoint(x: rect.maxX, y: rect.minY + shoulder)
-        )
-        path.closeSubpath()
-        return path
-    }
-
-    nonisolated private func leadingPath(in rect: CGRect) -> Path {
-        let depth = min(max(restingDepth, 28), rect.width)
-        let right = rect.minX + depth
-        let aperture: CGFloat = 38
-        let shoulder: CGFloat = 26
-        let waistPull: CGFloat = 5
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-        path.addCurve(
-            to: CGPoint(x: right - waistPull, y: rect.midY + aperture + shoulder),
-            control1: CGPoint(x: rect.minX, y: rect.maxY - shoulder),
-            control2: CGPoint(x: right - waistPull, y: rect.maxY - 10)
-        )
-        path.addCurve(
-            to: CGPoint(x: right - waistPull, y: rect.midY - aperture - shoulder),
-            control1: CGPoint(x: right + 4, y: rect.midY + aperture),
-            control2: CGPoint(x: right + 4, y: rect.midY - aperture)
-        )
-        path.addCurve(
-            to: CGPoint(x: rect.minX, y: rect.minY),
-            control1: CGPoint(x: right - waistPull, y: rect.minY + 10),
-            control2: CGPoint(x: rect.minX, y: rect.minY + shoulder)
+            to: CGPoint(x: edgeX, y: rect.minY),
+            control1: CGPoint(x: waistX, y: rect.midY - waistHalf - shoulder * 0.62),
+            control2: CGPoint(x: edgeX, y: rect.minY + shoulder * 0.62)
         )
         path.closeSubpath()
         return path

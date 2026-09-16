@@ -1,5 +1,16 @@
 import SwiftUI
 
+/// Edge-docked reel selector.
+///
+/// Mechanics (deliberately matching the reference loop):
+/// - The notch is one fixed size; the list scrolls through it. The selected item
+///   is whatever settles in the middle.
+/// - The selected pill grows along the rail to fit its word (46pt circle at rest,
+///   up to 96pt revealed). Long words run vertically, bottom-to-top.
+/// - Neighbour icons move with the pill so the gap stays 12pt whether the pill
+///   is 46 or 96. Icons are 20pt.
+/// - Looping reels wrap both ways; bounded reels rubber-band. Flicks coast with
+///   momentum, capped so the reel never runs away.
 struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
     let items: [Item]
     @Binding var selection: Item.ID
@@ -40,6 +51,39 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         engine.phase == .labelExpanded || engine.phase == .snapping
     }
 
+    private var isDragging: Bool {
+        engine.phase == .dragging
+    }
+
+    // MARK: - Pill sizing
+
+    /// Measured pill length for a label plus whether it runs vertically.
+    /// Short words ("All", "12") stay horizontal inside the resting circle;
+    /// anything longer grows the pill along the rail with rotated text.
+    private static func pillMetrics(for label: String) -> (length: CGFloat, vertical: Bool) {
+        let pointSize = UIFont.preferredFont(forTextStyle: .caption1).pointSize
+        let font = UIFont.systemFont(ofSize: pointSize, weight: .bold)
+        let width = ceil((label as NSString).size(withAttributes: [.font: font]).width)
+        if width <= 24 {
+            return (EdgeLoopEngine.restingWidth, false)
+        }
+        return (min(max(width + 28, EdgeLoopEngine.restingWidth), EdgeLoopEngine.revealedWidth), true)
+    }
+
+    private var selectedMetrics: (length: CGFloat, vertical: Bool) {
+        guard items.indices.contains(engine.selectedIndex) else {
+            return (EdgeLoopEngine.restingWidth, false)
+        }
+        return Self.pillMetrics(for: items[engine.selectedIndex].label)
+    }
+
+    /// Current pill length: circle while resting or scrubbing, word-sized when revealed.
+    private var pillLength: CGFloat {
+        labelExpanded ? selectedMetrics.length : EdgeLoopEngine.restingWidth
+    }
+
+    // MARK: - Body
+
     var body: some View {
         let shape = placement == .contained
             ? AnyShape(ContainedLoopShape())
@@ -53,6 +97,7 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
             width: placement == .contained ? 52 : EdgeLoopEngine.restingWidth + 8,
             height: EdgeLoopEngine.railHeight
         )
+        .mask(fadeMask)
         .contentShape(Rectangle().inset(by: placement == .contained ? 0 : -8))
         .gesture(reelGesture)
         .opacity(disabled ? 0.4 : 1)
@@ -73,7 +118,7 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         .onAppear(perform: syncEngineFromSelection)
         .onChange(of: selection) { _, _ in
             if engine.phase != .dragging {
-                syncEngineFromSelection()
+                withAnimation(settleAnimation) { syncEngineFromSelection() }
             }
         }
         .onChange(of: items.count) { _, _ in
@@ -82,13 +127,26 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         .onDisappear { collapseTask?.cancel() }
     }
 
+    private var fadeMask: some View {
+        LinearGradient(
+            stops: [
+                .init(color: .clear, location: 0),
+                .init(color: .black, location: 0.16),
+                .init(color: .black, location: 0.84),
+                .init(color: .clear, location: 1)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
     @ViewBuilder
     private func loopBackdrop(shape: AnyShape, opaque: Bool) -> some View {
         if placement == .contained {
             Capsule()
                 .fill(opaque ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(.ultraThinMaterial))
                 .overlay(Capsule().stroke(Color.primary.opacity(opaque ? 0.18 : 0.08), lineWidth: 0.6))
-                .frame(width: 46)
+                .frame(width: EdgeLoopEngine.restingWidth)
                 .frame(maxWidth: .infinity, alignment: position == .trailing ? .trailing : .leading)
         } else {
             shape
@@ -98,17 +156,22 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         }
     }
 
+    // MARK: - Reel
+
     private var reel: some View {
         GeometryReader { proxy in
+            let centerX = railCenterX(in: proxy.size.width)
             let centerY = proxy.size.height / 2
+            let metrics = selectedMetrics
             ZStack {
-                ForEach(engine.visibleSlots(), id: \.slot) { slot in
-                    if items.indices.contains(slot.index) {
-                        cell(items[slot.index], selected: slot.index == engine.proposedIndex)
-                            .position(
-                                x: cellX(in: proxy.size.width),
-                                y: centerY + engine.visualOffset(forSlot: slot.slot)
-                            )
+                // The pill lives in the notch centre. It is a fixed circle while
+                // scrubbing — items scroll through it — and grows to the word on settle.
+                pill(metrics: metrics)
+                    .position(x: centerX, y: centerY)
+                ForEach(engine.reelSlots(), id: \.slot) { entry in
+                    if items.indices.contains(entry.index) {
+                        cell(items[entry.index], slot: entry.slot, offset: entry.offset)
+                            .position(x: centerX, y: centerY + cellY(slot: entry.slot, offset: entry.offset))
                     }
                 }
             }
@@ -116,71 +179,87 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         }
     }
 
-    private func cellX(in width: CGFloat) -> CGFloat {
-        if position == .leading {
-            return labelExpanded ? min(width * 0.52, EdgeLoopEngine.revealedWidth / 2) : EdgeLoopEngine.restingWidth / 2
-        }
-        let resting = width - (EdgeLoopEngine.restingWidth / 2)
-        if labelExpanded {
-            return width - (min(estimatedSelectedWidth, EdgeLoopEngine.revealedWidth) / 2)
-        }
-        return resting
+    private func railCenterX(in width: CGFloat) -> CGFloat {
+        position == .leading
+            ? EdgeLoopEngine.restingWidth / 2
+            : width - EdgeLoopEngine.restingWidth / 2
     }
 
-    private var estimatedSelectedWidth: CGFloat {
-        labelExpanded ? EdgeLoopEngine.revealedWidth - 4 : EdgeLoopEngine.restingWidth
+    /// Vertical position for a reel slot. While dragging the reel is a uniform
+    /// 32pt-stride list scrolling through the notch. At rest the neighbours are
+    /// pushed out by the pill so the visible gap stays 12pt at any pill length.
+    private func cellY(slot: Int, offset: CGFloat) -> CGFloat {
+        if isDragging { return offset }
+        let delta = slot - Int(engine.anchor.rounded())
+        if delta == 0 { return offset }
+        let firstNeighbour = pillLength / 2 + EdgeLoopEngine.itemGap + EdgeLoopEngine.iconSize / 2
+        return CGFloat(delta.signum()) * (firstNeighbour + CGFloat(abs(delta) - 1) * EdgeLoopEngine.itemStride)
     }
 
     @ViewBuilder
-    private func cell(_ item: Item, selected: Bool) -> some View {
-        let expanded = selected && labelExpanded
+    private func pill(metrics: (length: CGFloat, vertical: Bool)) -> some View {
+        let expanded = labelExpanded
+        let length = pillLength
+        Capsule()
+            .fill(app.appearance.accent.color)
+            .overlay(Capsule().stroke(Color.white.opacity(0.32), lineWidth: 1))
+            .frame(width: EdgeLoopEngine.pillWidth, height: length)
+            .overlay {
+                if expanded, items.indices.contains(engine.selectedIndex) {
+                    pillLabel(items[engine.selectedIndex].label, metrics: metrics)
+                        .transition(.opacity)
+                }
+            }
+            .animation(expansionAnimation, value: length)
+            .animation(expansionAnimation, value: expanded)
+            .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private func pillLabel(_ label: String, metrics: (length: CGFloat, vertical: Bool)) -> some View {
+        let text = Text(label)
+            .font(.caption.weight(.bold))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+        if metrics.vertical {
+            text
+                .frame(width: max(metrics.length - 22, 10))
+                .rotationEffect(.degrees(-90))
+        } else {
+            text
+        }
+    }
+
+    @ViewBuilder
+    private func cell(_ item: Item, slot: Int, offset: CGFloat) -> some View {
+        let y = cellY(slot: slot, offset: offset)
+        let insidePill = abs(y) < pillLength / 2 + 2
+        let isSelectedSlot = slot == Int(engine.anchor.rounded()) && !isDragging
+        let distance = abs(y)
         Button {
             commit(item)
         } label: {
-            HStack(spacing: 6) {
-                Image(systemName: item.icon)
-                    .font(.system(size: selected ? 17 : 15, weight: selected ? .semibold : .medium))
-                    .symbolVariant(selected ? .fill : .none)
-                if expanded {
-                    Text(item.label)
-                        .font(.caption.weight(.bold))
-                        .lineLimit(1)
-                        .fixedSize()
-                }
-            }
-            .foregroundStyle(selected ? Color.white : Color.primary.opacity(placement == .contained ? 0.7 : 0.62))
-            .padding(.horizontal, expanded ? 12 : 0)
-            .frame(minWidth: 34, minHeight: 34)
-            .frame(width: expanded ? nil : 34, height: selected ? EdgeLoopEngine.apertureHeight : 34)
-            .background {
-                if selected {
-                    Capsule()
-                        .fill(app.appearance.accent.color)
-                        .overlay(Capsule().stroke(Color.white.opacity(0.32), lineWidth: 1))
-                }
-            }
-            .contentShape(Rectangle())
+            Image(systemName: item.icon)
+                .font(.system(size: 15, weight: insidePill ? .semibold : .medium))
+                .symbolVariant(insidePill ? .fill : .none)
+                .frame(width: EdgeLoopEngine.iconSize, height: EdgeLoopEngine.iconSize)
+                .foregroundStyle(insidePill ? Color.white : Color.primary.opacity(placement == .contained ? 0.7 : 0.62))
+                .contentShape(Rectangle().inset(by: -12))
         }
         .buttonStyle(.plain)
-        .frame(minWidth: EdgeLoopEngine.hitSlop, minHeight: EdgeLoopEngine.hitSlop)
-        .scaleEffect(selected ? 1 : 0.88)
-        .opacity(selected ? 1 : 0.72)
-        .animation(
-            reduceMotion
-                ? .easeOut(duration: 0.12)
-                : ModulaMotion.animation(.selection, personality: app.appearance.motion, reduceMotion: reduceMotion),
-            value: selected
-        )
-        .animation(
-            reduceMotion
-                ? .easeOut(duration: 0.12)
-                : ModulaMotion.animation(.railExpand, personality: app.appearance.motion, reduceMotion: reduceMotion),
-            value: expanded
-        )
+        // The selected icon hands the pill over to the word while revealed.
+        .opacity(isSelectedSlot && labelExpanded ? 0 : cellOpacity(distance: distance))
+        .scaleEffect(insidePill ? 1 : max(0.82, 1 - distance / 480))
+        .animation(expansionAnimation, value: labelExpanded)
         .accessibilityLabel(item.accessibilityLabel)
-        .accessibilityValue(selected ? "Selected, \(positionLabel(for: item))" : positionLabel(for: item))
-        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityValue(isSelectedSlot ? "Selected, \(positionLabel(for: item))" : positionLabel(for: item))
+        .accessibilityAddTraits(isSelectedSlot ? .isSelected : [])
         .accessibilityIdentifier("rail.\(String(describing: item.id))")
+    }
+
+    private func cellOpacity(distance: CGFloat) -> CGFloat {
+        distance < pillLength / 2 + 2 ? 1 : max(0.35, 0.8 - distance / 260)
     }
 
     private func positionLabel(for item: Item) -> String {
@@ -188,30 +267,58 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         return "\(index + 1) of \(items.count)"
     }
 
+    // MARK: - Gesture
+
     private var reelGesture: some Gesture {
-        DragGesture(minimumDistance: 8, coordinateSpace: .local)
+        DragGesture(minimumDistance: 4, coordinateSpace: .local)
             .onChanged { value in
                 if engine.phase != .dragging {
-                    engine.beginDrag()
+                    withAnimation(scrubAnimation) { engine.beginDrag() }
                 }
                 let crossed = engine.updateDrag(translation: value.translation.height)
                 if crossed {
                     HapticEngine.shared.play(.selection)
                 }
             }
-            .onEnded { _ in
-                let index = engine.endDrag()
+            .onEnded { value in
+                let index: Int
+                if reduceMotion {
+                    index = withAnimation(settleAnimation) { engine.endDrag() }
+                } else {
+                    index = withAnimation(settleAnimation) {
+                        engine.endDrag(projectedTranslation: value.predictedEndTranslation.height)
+                    }
+                }
+                HapticEngine.shared.play(.lightImpact)
                 commitIndex(index)
             }
     }
 
+    // MARK: - Animation tokens
+
+    private var settleAnimation: Animation {
+        reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.34, dampingFraction: 0.82)
+    }
+
+    private var scrubAnimation: Animation {
+        reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.24, dampingFraction: 0.86)
+    }
+
+    private var expansionAnimation: Animation? {
+        reduceMotion
+            ? .easeOut(duration: 0.12)
+            : ModulaMotion.animation(.railExpand, personality: app.appearance.motion, reduceMotion: reduceMotion)
+    }
+
+    // MARK: - Commit
+
     private func commit(_ item: Item) {
         guard let index = items.firstIndex(of: item) else { return }
-        commitIndex(index)
+        withAnimation(settleAnimation) { commitIndex(index) }
     }
 
     private func commitRelative(_ delta: Int) {
-        commitIndex(engine.index(offsetBy: delta))
+        withAnimation(settleAnimation) { commitIndex(engine.index(offsetBy: delta)) }
     }
 
     private func commitIndex(_ index: Int) {
@@ -221,12 +328,9 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         engine.setSelectedIndex(index, expandingLabel: true)
         if !alreadySelected {
             selection = item.id
+            HapticEngine.shared.play(.selection)
         }
-        HapticEngine.shared.play(.selection)
         scheduleCollapse()
-        if engine.phase == .snapping {
-            engine.completeSnap(expandingLabel: true)
-        }
     }
 
     private func syncEngineFromSelection() {
@@ -265,7 +369,7 @@ struct ContainedLoopPicker<Item: EdgeLoopItem>: View {
             position: .trailing,
             placement: .contained
         )
-        .frame(width: 52, height: min(EdgeLoopEngine.railHeight, CGFloat(max(items.count, 3)) * EdgeLoopEngine.itemStride + 24))
+        .frame(width: 52, height: min(EdgeLoopEngine.railHeight, CGFloat(max(items.count, 3)) * 40 + 32))
         .accessibilityIdentifier("edge-loop.contained")
     }
 }
