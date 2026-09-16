@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PostCard: View {
     let post: SocialPost
+    var showsCompactAuthor: Bool = false
     var onOpenPost: () -> Void
     var onOpenAuthor: () -> Void
     var onLike: () -> Void
@@ -12,7 +13,7 @@ struct PostCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            PostHeader(post: post, onOpenAuthor: onOpenAuthor)
+            PostHeader(post: post, showsCompactAuthor: showsCompactAuthor, onOpenAuthor: onOpenAuthor)
             Button(action: onOpenPost) {
                 VStack(alignment: .leading, spacing: 10) {
                     PostBody(post: post)
@@ -47,36 +48,47 @@ struct PostCard: View {
 
 struct PostHeader: View {
     let post: SocialPost
+    var showsCompactAuthor: Bool = false
     var onOpenAuthor: () -> Void
 
     var body: some View {
-        Button(action: onOpenAuthor) {
-            HStack(spacing: 10) {
-                if let author = post.author {
-                    ModulaAvatar(initials: author.initials, url: author.avatarURL, size: 36)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(author.displayName)
-                            .font(.subheadline.weight(.semibold))
-                            .lineLimit(1)
-                        Text("@\(author.handle)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                } else {
-                    Text("Modula")
-                        .font(.subheadline.weight(.semibold))
-                }
-                Spacer(minLength: 8)
+        if showsCompactAuthor {
+            HStack {
+                Spacer(minLength: 0)
                 Text(ActivityRelativeTime.string(from: post.createdAt))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
+            .accessibilityHidden(true)
+        } else {
+            Button(action: onOpenAuthor) {
+                HStack(spacing: 10) {
+                    if let author = post.author {
+                        ModulaAvatar(initials: author.initials, url: author.avatarURL, size: 36)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(author.displayName)
+                                .font(.subheadline.weight(.semibold))
+                                .lineLimit(1)
+                            Text("@\(author.handle)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    } else {
+                        Text("Modula")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    Spacer(minLength: 8)
+                    Text(ActivityRelativeTime.string(from: post.createdAt))
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(post.author.map { "\($0.displayName), @\($0.handle)" } ?? "Author")
+            .accessibilityHint("Opens profile")
+            .accessibilityIdentifier(post.author.map { "home.author.\($0.id)" } ?? "home.author.unknown")
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(post.author.map { "\($0.displayName), @\($0.handle)" } ?? "Author")
-        .accessibilityHint("Opens profile")
-        .accessibilityIdentifier(post.author.map { "home.author.\($0.id)" } ?? "home.author.unknown")
     }
 }
 

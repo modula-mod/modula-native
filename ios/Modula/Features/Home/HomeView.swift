@@ -309,7 +309,8 @@ struct HomeView: View {
 
     private func openAuthor(_ post: SocialPost) {
         guard let author = post.author else { return }
-        app.navigation.open(.profile(author.routeID, .overview))
+        // Push onto the current Home stack — never hijack the Profile tab root.
+        app.navigation.push(.profile(author.routeID, .overview))
         HapticEngine.shared.play(.navigation)
     }
 }

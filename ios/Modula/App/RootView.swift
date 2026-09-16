@@ -11,7 +11,7 @@ struct RootView: View {
         @Bindable var appearance = app.appearance
         let palette = ModulaPalette.resolve(appearance, scheme: scheme,
             increasedContrast: systemContrast == .increased || appearance.contrastTransparency == .higherContrast)
-        let policy = ShellChromePolicy.policy(for: navigation.currentRoute)
+        let policy = ShellChromePolicy.policy(for: navigation.currentRoute, isTabRoot: navigation.isAtTabRoot)
         shell(navigation: navigation, policy: policy)
         .fontDesign(appearance.fontDesign)
         .overlay(alignment: .trailing) {
@@ -122,7 +122,13 @@ private struct PresentationView: View {
     var body: some View {
         switch presentation {
         case .composer(let route): ComposerFoundationView(route: route)
-        case .share: ShareLink(item: URL(string: "https://modula.digital")!) { Label("Share Modula", systemImage: "square.and.arrow.up") }.padding()
+        case .share(let route):
+            let url = shareURL(for: route)
+            ShareLink(item: url) {
+                Label("Share", systemImage: "square.and.arrow.up")
+            }
+            .padding()
+            .accessibilityIdentifier("share.sheet")
         case .filters: DevelopmentRouteView(title: "Filters", symbol: "line.3.horizontal.decrease.circle")
         case .modulePermissions: DevelopmentRouteView(title: "Module Permissions", symbol: "hand.raised")
         case .appearancePicker(let route): AppearanceSettingsView(focus: route)
@@ -131,6 +137,19 @@ private struct PresentationView: View {
         case .discoverFilter: DiscoverFilterSheet()
         case .homeSummary: HomeSummarySheet()
         case .homeFeedTools: HomeFeedToolsSheet()
+        }
+    }
+
+    private func shareURL(for route: AppRoute) -> URL {
+        switch route {
+        case .profile(let id, _):
+            return URL(string: "https://modula.digital/profile/\(id)")!
+        case .me:
+            return URL(string: "https://modula.digital/me")!
+        case .post(let id, _):
+            return URL(string: "https://modula.digital/post/\(id)")!
+        default:
+            return URL(string: "https://modula.digital")!
         }
     }
 }

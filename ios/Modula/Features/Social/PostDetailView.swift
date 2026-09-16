@@ -24,7 +24,7 @@ struct PostDetailView: View {
                         onOpenPost: {},
                         onOpenAuthor: {
                             if let author = post.author {
-                                app.navigation.open(.profile(author.routeID, .overview))
+                                app.navigation.push(.profile(author.routeID, .overview))
                                 HapticEngine.shared.play(.navigation)
                             }
                         },

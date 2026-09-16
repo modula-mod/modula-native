@@ -202,7 +202,7 @@ struct ModulaContextRail: View {
     private func select(_ item: Item) {
         collapseTask?.cancel()
         revealedID = item.id
-        app.navigation.replaceContext(with: item.route)
+        app.navigation.replaceContextOrTop(with: item.route)
         HapticEngine.shared.play(.selection)
         collapseTask = Task {
             try? await Task.sleep(for: .seconds(2))

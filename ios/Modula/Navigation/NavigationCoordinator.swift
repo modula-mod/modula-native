@@ -35,6 +35,28 @@ final class NavigationCoordinator {
         selectedTab = tab
         roots[tab] = route
     }
+    /// Context-rail selection: swap the tab root when at a context root; otherwise replace the pushed top so Profile/Home mode changes do not hijack another tab.
+    func replaceContextOrTop(with route: AppRoute) {
+        if var path = paths[selectedTab], !path.isEmpty, let current = path.last, Self.sameContextFamily(current, route) {
+            path[path.count - 1] = route
+            paths[selectedTab] = path
+            return
+        }
+        if let current = roots[selectedTab], paths[selectedTab]?.isEmpty != false, Self.sameContextFamily(current, route) {
+            roots[selectedTab] = route
+            return
+        }
+        replaceContext(with: route)
+    }
+    private static func sameContextFamily(_ a: AppRoute, _ b: AppRoute) -> Bool {
+        switch (a, b) {
+        case (.home, .home), (.activity, .activity), (.me, .me): true
+        case (.profile(let lhs, _), .profile(let rhs, _)): lhs == rhs
+        default: false
+        }
+    }
+    /// True when the selected tab has no pushed destinations (root context only).
+    var isAtTabRoot: Bool { paths[selectedTab]?.isEmpty != false }
     /// Replace the top of the current stack (used by Search scope/query updates) without pushing.
     func replaceTop(with route: AppRoute) {
         if let tab = route.tab { selectedTab = tab }
@@ -105,7 +127,7 @@ struct ShellChromePolicy: Equatable {
     var immersive: Bool
     var hidesForKeyboard: Bool
 
-    static func policy(for route: AppRoute) -> Self {
+    static func policy(for route: AppRoute, isTabRoot: Bool = true) -> Self {
         switch route {
         case .module:
             Self(
@@ -129,13 +151,26 @@ struct ShellChromePolicy: Equatable {
                 immersive: false,
                 hidesForKeyboard: true
             )
-        case .home, .activity, .profile, .me:
+        case .home, .activity:
             Self(
                 bottomBarVisible: true,
                 contextRailVisible: true,
                 shellAccessoryVisible: true,
                 topBarStyle: .standard,
                 showsBack: false,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: true
+            )
+        case .profile, .me:
+            // Pushed profiles keep the originating tab selected in the bottom bar and hide
+            // root-only accessories so chrome does not imply a global Profile switch.
+            Self(
+                bottomBarVisible: true,
+                contextRailVisible: true,
+                shellAccessoryVisible: isTabRoot,
+                topBarStyle: .standard,
+                showsBack: !isTabRoot,
                 showsClose: false,
                 immersive: false,
                 hidesForKeyboard: true

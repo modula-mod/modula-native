@@ -13,6 +13,7 @@ final class AppEnvironment {
     let activity: ActivityStore
     let discover: DiscoverStore
     let home: HomeStore
+    let profile: ProfileStore
     init() {
         let launchArguments = ProcessInfo.processInfo.arguments
         if launchArguments.contains("--reset-appearance") { appearance.reset() }
@@ -35,6 +36,7 @@ final class AppEnvironment {
         activity = ActivityStore(client: client)
         discover = DiscoverStore(client: client)
         home = HomeStore(client: client)
+        profile = ProfileStore(client: client)
         let catalogueStore = catalogue
         auth.onAccountChange = { [weak runtime, weak catalogueStore] account in
             runtime?.setAccount(account?.accountId)

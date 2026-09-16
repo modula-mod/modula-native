@@ -203,7 +203,7 @@ struct ActivityTimeline: View {
                         }
                         if let actor = event.primaryActors.first {
                             Button("Open Profile", systemImage: "person.crop.circle") {
-                                app.navigation.open(.profile(actor.id, .overview))
+                                app.navigation.push(.profile(actor.id, .overview))
                             }
                         }
                         Button("Notification Settings", systemImage: "bell.badge") {

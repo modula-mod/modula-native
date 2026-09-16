@@ -64,7 +64,16 @@ struct ShellAccessoryConfiguration: Equatable {
         case .productHub:
             return Self(title: "Modules", symbol: "shippingbox", actions: [], showsSearch: true, showsMore: true)
         case .profile, .me:
-            return Self(title: "Profile", symbol: "person.crop.circle", actions: [], showsSearch: true, showsMore: true)
+            return Self(
+                title: "Profile",
+                symbol: "person.crop.circle",
+                actions: [
+                    ShellAccessoryAction(id: "edit", title: "Edit Profile", symbol: "pencil", enabled: true, accessibilityIdentifier: "accessory.edit"),
+                    ShellAccessoryAction(id: "share", title: "Share", symbol: "square.and.arrow.up", enabled: true, accessibilityIdentifier: "accessory.share")
+                ],
+                showsSearch: false,
+                showsMore: true
+            )
         default:
             return Self(title: "Modula", symbol: "m.circle", actions: [], showsSearch: true, showsMore: true)
         }
@@ -231,6 +240,19 @@ struct ShellAccessoryHost: View {
                     HapticEngine.shared.play(.confirmation)
                 }
             }
+        case "edit":
+            switch route {
+            case .me:
+                app.navigation.replaceContextOrTop(with: .me(.edit))
+            case .profile(let id, _):
+                app.navigation.replaceContextOrTop(with: .profile(id, .edit))
+            default:
+                app.navigation.open(.me(.edit))
+            }
+            HapticEngine.shared.play(.navigation)
+        case "share":
+            PresentationCoordinator.present(.share(route), in: app.navigation)
+            HapticEngine.shared.play(.confirmation)
         default:
             break
         }

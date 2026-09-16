@@ -712,3 +712,68 @@ final class N3CHomeUITests: XCTestCase {
         add(attachment)
     }
 }
+
+@MainActor
+final class N3DProfileUITests: XCTestCase {
+    func testOwnProfileRailAndEditEntry() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--runtime-unavailable", "--reset-appearance"]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 10))
+        app.buttons["Profile"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["profile.overview"].waitForExistence(timeout: 10))
+
+        if app.descendants(matching: .any)["rail.posts"].waitForExistence(timeout: 4) {
+            app.descendants(matching: .any)["rail.posts"].tap()
+            XCTAssertTrue(app.descendants(matching: .any)["profile.posts"].waitForExistence(timeout: 6))
+            app.descendants(matching: .any)["rail.modules"].tap()
+            XCTAssertTrue(app.descendants(matching: .any)["profile.modules"].waitForExistence(timeout: 6))
+            app.descendants(matching: .any)["rail.overview"].tap()
+            XCTAssertTrue(app.descendants(matching: .any)["profile.overview"].waitForExistence(timeout: 6))
+        }
+
+        if app.descendants(matching: .any)["profile.edit.cta"].waitForExistence(timeout: 4) {
+            app.descendants(matching: .any)["profile.edit.cta"].tap()
+            XCTAssertTrue(app.descendants(matching: .any)["profile.edit"].waitForExistence(timeout: 6))
+        }
+
+        attachScreenshot(app, name: "n3d-profile-me-overview")
+    }
+
+    func testDiscoverAuthorProfileBackPreservesStack() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--runtime-unavailable", "--reset-appearance"]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 10))
+        app.buttons["Discover"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["discover.trending"].waitForExistence(timeout: 8))
+        app.descendants(matching: .any)["discover.scope.people"].tap()
+
+        let person = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "discover.person")).firstMatch
+        guard person.waitForExistence(timeout: 8) else {
+            attachScreenshot(app, name: "n3d-profile-other-skipped-no-people")
+            return
+        }
+        person.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["profile.overview"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.tabBars.firstMatch.buttons["Discover"].exists)
+
+        if app.descendants(matching: .any)["rail.posts"].waitForExistence(timeout: 3) {
+            app.descendants(matching: .any)["rail.posts"].tap()
+            XCTAssertTrue(app.descendants(matching: .any)["profile.posts"].waitForExistence(timeout: 6))
+        }
+
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.descendants(matching: .any)["discover.people"].waitForExistence(timeout: 6))
+        attachScreenshot(app, name: "n3d-profile-other-back")
+    }
+
+    private func attachScreenshot(_ app: XCUIApplication, name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}

@@ -239,7 +239,7 @@ enum SocialPayloadDecoder {
             id: id,
             handle: handle,
             displayName: display,
-            avatarURL: (value["avatarUrl"]?.string ?? value["avatar"]?.string).flatMap(URL.init(string:))
+            avatarURL: (value["avatarUri"]?.string ?? value["avatarUrl"]?.string ?? value["avatar"]?.string).flatMap(URL.init(string:))
         )
     }
 

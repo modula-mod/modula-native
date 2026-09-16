@@ -69,6 +69,12 @@
 		E40100000000000000000007 /* HomeTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000007 /* HomeTools.swift */; };
 		E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000008 /* ModulaProgressiveHeader.swift */; };
 		E40100000000000000000009 /* HomeFeedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000009 /* HomeFeedTests.swift */; };
+		F10100000000000000000001 /* ProfileModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000001 /* ProfileModels.swift */; };
+		F10100000000000000000002 /* ProfileRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000002 /* ProfileRepository.swift */; };
+		F10100000000000000000003 /* ProfileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000003 /* ProfileStore.swift */; };
+		F10100000000000000000004 /* ProfileComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000004 /* ProfileComponents.swift */; };
+		F10100000000000000000005 /* ProfileEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000005 /* ProfileEditView.swift */; };
+		F10100000000000000000006 /* ProfileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000006 /* ProfileTests.swift */; };
 		E706DA503AC96378DE9BE822 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65C4B3534ABCFCD2C0AE4AB5 /* KeychainStore.swift */; };
 		EC29FF07954140DE802361CB /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 093D191569CDD66161FC3552 /* JSONValue.swift */; };
 		F280213B620AE297E6EC4D78 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE413545A422ACB4BACBB3DF /* RootView.swift */; };
@@ -143,6 +149,12 @@
 		C8ECAD5355D79305D770912A /* ProfileView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileView.swift; path = Features/Profile/ProfileView.swift; sourceTree = "<group>"; };
 		CE413545A422ACB4BACBB3DF /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RootView.swift; path = App/RootView.swift; sourceTree = "<group>"; };
 		D902DDFA87CA1FD5224F1994 /* libPods-Modula.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Modula.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F00100000000000000000001 /* ProfileModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileModels.swift; path = Features/Profile/ProfileModels.swift; sourceTree = "<group>"; };
+		F00100000000000000000002 /* ProfileRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileRepository.swift; path = Features/Profile/ProfileRepository.swift; sourceTree = "<group>"; };
+		F00100000000000000000003 /* ProfileStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileStore.swift; path = Features/Profile/ProfileStore.swift; sourceTree = "<group>"; };
+		F00100000000000000000004 /* ProfileComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileComponents.swift; path = Features/Profile/ProfileComponents.swift; sourceTree = "<group>"; };
+		F00100000000000000000005 /* ProfileEditView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileEditView.swift; path = Features/Profile/ProfileEditView.swift; sourceTree = "<group>"; };
+		F00100000000000000000006 /* ProfileTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileTests.swift; sourceTree = "<group>"; };
 		DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductHubView.swift; path = Features/ProductHub/ProductHubView.swift; sourceTree = "<group>"; };
 		DC4EF43E9E96C1202C4F7E36 /* Debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		DE7A82A7615F703ED7EFABC2 /* libPods-ModulaTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ModulaTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -223,6 +235,7 @@
 				61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */,
 				E1010000000000000000000A /* DiscoverTests.swift */,
 				E30100000000000000000009 /* HomeFeedTests.swift */,
+				F00100000000000000000006 /* ProfileTests.swift */,
 			);
 			path = ModulaTests;
 			sourceTree = "<group>";
@@ -279,7 +292,12 @@
 				E30100000000000000000002 /* PostComponents.swift */,
 				E30100000000000000000003 /* PostDetailView.swift */,
 				DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */,
+				F00100000000000000000001 /* ProfileModels.swift */,
+				F00100000000000000000002 /* ProfileRepository.swift */,
+				F00100000000000000000003 /* ProfileStore.swift */,
+				F00100000000000000000004 /* ProfileComponents.swift */,
 				C8ECAD5355D79305D770912A /* ProfileView.swift */,
+				F00100000000000000000005 /* ProfileEditView.swift */,
 				003916B967E1900F61DFB206 /* SettingsStore.swift */,
 				8E9539623085AAA12077638F /* SettingsView.swift */,
 				B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */,
@@ -598,6 +616,7 @@
 				FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */,
 				E2010000000000000000000A /* DiscoverTests.swift in Sources */,
 				E40100000000000000000009 /* HomeFeedTests.swift in Sources */,
+				F10100000000000000000006 /* ProfileTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -620,7 +639,12 @@
 				E40100000000000000000003 /* PostDetailView.swift in Sources */,
 				E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */,
 				DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */,
+				F10100000000000000000001 /* ProfileModels.swift in Sources */,
+				F10100000000000000000002 /* ProfileRepository.swift in Sources */,
+				F10100000000000000000003 /* ProfileStore.swift in Sources */,
+				F10100000000000000000004 /* ProfileComponents.swift in Sources */,
 				B9825B0168E160AB5B8411B9 /* ProfileView.swift in Sources */,
+				F10100000000000000000005 /* ProfileEditView.swift in Sources */,
 				21638B169590129BA65823F1 /* SettingsStore.swift in Sources */,
 				0139D48F433333A6C105C394 /* SettingsView.swift in Sources */,
 				90EC78DC1C87A9562EC08717 /* AppRoute.swift in Sources */,
