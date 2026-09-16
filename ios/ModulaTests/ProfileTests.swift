@@ -215,4 +215,89 @@ final class ProfileTests: XCTestCase {
         XCTAssertEqual(draft.expectedVersion, 3)
         XCTAssertEqual(draft.visibility, .public)
     }
+
+    func testContextActionsOwnVersusOther() {
+        let own = ProfileContextActions.moreMenu(isOwn: true)
+        XCTAssertTrue(own.contains { $0.id == "edit" })
+        XCTAssertTrue(own.contains { $0.id == "modula-code" })
+        XCTAssertTrue(own.contains { $0.id == "preview-visitor" })
+        XCTAssertFalse(own.contains { $0.id == "mute" })
+        XCTAssertFalse(own.contains { $0.id == "block" })
+        XCTAssertFalse(own.contains { $0.id == "report" })
+
+        let other = ProfileContextActions.moreMenu(isOwn: false)
+        XCTAssertTrue(other.contains { $0.id == "mute" })
+        XCTAssertTrue(other.contains { $0.id == "block" })
+        XCTAssertTrue(other.contains { $0.id == "report" })
+        XCTAssertFalse(other.contains { $0.id == "edit" })
+        XCTAssertFalse(other.contains { $0.id == "preview-visitor" })
+    }
+
+    func testMediaMenusOmitUnsupportedUploads() {
+        let avatarOwn = ProfileContextActions.avatarMenu(isOwn: true, hasPhoto: true)
+        XCTAssertTrue(avatarOwn.contains { $0.id == "view-photo" })
+        XCTAssertFalse(avatarOwn.contains { $0.id == "change-photo" })
+        XCTAssertFalse(avatarOwn.contains { $0.id == "remove-photo" })
+
+        let coverOther = ProfileContextActions.coverMenu(isOwn: false, hasCover: true)
+        XCTAssertTrue(coverOther.contains { $0.id == "view-cover" })
+        XCTAssertTrue(coverOther.contains { $0.id == "share" })
+        XCTAssertFalse(coverOther.contains { $0.id == "reposition-cover" })
+    }
+
+    func testModulaCodePayloadIsCanonicalAndSecretFree() {
+        let profile = ModulaProfile(
+            id: "p1",
+            handle: "andrei.modula",
+            displayName: "Andrei",
+            kind: "person",
+            avatarURL: nil,
+            coverURL: nil,
+            coverColour: nil,
+            bio: "",
+            pronouns: nil,
+            location: nil,
+            website: nil,
+            followerCount: 0,
+            followingCount: 0,
+            moduleCount: 0,
+            postCount: 0,
+            joinedAt: nil,
+            focusStatus: nil,
+            identityClaims: [],
+            links: [],
+            featuredModuleIds: [],
+            isFollowing: false,
+            followsViewer: false,
+            version: 1,
+            visibility: .public
+        )
+        let payload = ModulaProfileCodeView.qrPayload(for: profile)
+        XCTAssertEqual(payload, "https://modula.digital/profile/andrei.modula")
+        XCTAssertFalse(payload.lowercased().contains("token"))
+        XCTAssertFalse(payload.lowercased().contains("authorization"))
+        XCTAssertFalse(payload.lowercased().contains("password"))
+        XCTAssertNotNil(ModulaProfileCodeView.qrImage(for: payload))
+    }
+
+    func testHapticSemanticsCoverProfileMap() {
+        let required: [HapticSemantic] = [
+            .selection, .navigation, .lightImpact, .mediumImpact, .confirmation,
+            .success, .warning, .failure, .contextOpen, .reactionSelect,
+            .dragThreshold, .drop, .followComplete, .saveComplete, .impact
+        ]
+        XCTAssertEqual(Set(HapticSemantic.allCases), Set(required))
+    }
+
+    @MainActor
+    func testProfileAccessoryIsToolFocused() {
+        let config = ShellAccessoryConfiguration.configuration(
+            for: .me(.overview),
+            activity: nil,
+            signedIn: true
+        )
+        XCTAssertEqual(config.title, "Tools")
+        XCTAssertEqual(Set(config.actions.map(\.id)), Set(["edit", "share", "more-profile"]))
+        XCTAssertFalse(config.showsMore)
+    }
 }
