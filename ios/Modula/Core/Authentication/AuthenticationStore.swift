@@ -62,8 +62,8 @@ final class AuthenticationStore {
     }
 
     private static func userFacing(_ api: APIError, host: String?) -> String {
-        if case .rejected(_, "INVALID_CREDENTIALS") = api, GreenfieldEnvironmentLabel.isIsolatedFixture(host: host) {
-            return "Incorrect email or password for this environment (\(host ?? "fixture")). Production accounts do not exist here — use the N1 fixture in Debug."
+        if case .rejected(_, "INVALID_CREDENTIALS") = api {
+            return "Email or password is incorrect."
         }
         return api.userFacingMessage
     }

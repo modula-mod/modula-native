@@ -85,7 +85,7 @@ struct ProductArtwork: View {
     }
 }
 
-private struct ProductBackdrop: View {
+struct ProductBackdrop: View {
     let product: CatalogueProduct
     @Environment(AppEnvironment.self) private var app
 

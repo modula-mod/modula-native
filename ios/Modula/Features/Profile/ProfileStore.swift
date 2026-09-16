@@ -4,12 +4,16 @@ import Observation
 @MainActor @Observable
 final class ProfileStore {
     private let repository: GreenfieldProfileRepository
+    private let posts: PostStateStore?
     private(set) var sessions: [String: ProfileSessionState] = [:]
     private(set) var actionError: String?
     private(set) var editing = ProfileEditingState()
+    private(set) var visitorPreviewActive = false
+    let customization = ProfileCustomizationCapabilities.production
 
-    init(client: GreenfieldClient) {
+    init(client: GreenfieldClient, posts: PostStateStore? = nil) {
         self.repository = GreenfieldProfileRepository(client: client)
+        self.posts = posts
     }
 
     func session(for identity: ProfileIdentity, handleHint: String? = nil) -> ProfileSessionState {
@@ -135,7 +139,8 @@ final class ProfileStore {
         sessions[key] = state
         do {
             let page = try await repository.posts(identity, handle: handle, cursor: nil)
-            state.posts.items = page.items
+            posts?.upsert(contentsOf: page.items)
+            state.posts.items = page.items.map { posts?.resolved($0) ?? $0 }
             state.posts.nextCursor = page.nextCursor
             state.posts.hasMore = page.hasMore
             state.posts.loadState = .loaded
@@ -155,8 +160,9 @@ final class ProfileStore {
         guard state.posts.hasMore, let cursor = state.posts.nextCursor else { return }
         do {
             let page = try await repository.posts(identity, handle: handle, cursor: cursor)
+            posts?.upsert(contentsOf: page.items)
             let seen = Set(state.posts.items.map(\.id))
-            state.posts.items.append(contentsOf: page.items.filter { !seen.contains($0.id) })
+            state.posts.items.append(contentsOf: page.items.filter { !seen.contains($0.id) }.map { posts?.resolved($0) ?? $0 })
             state.posts.nextCursor = page.nextCursor
             state.posts.hasMore = page.hasMore
             sessions[key] = state
@@ -382,6 +388,10 @@ final class ProfileStore {
 
     func clearActionError() { actionError = nil }
 
+    func setVisitorPreview(_ active: Bool) {
+        visitorPreviewActive = active
+    }
+
     // MARK: - Private
 
     private func refreshPeople(
@@ -442,6 +452,25 @@ final class ProfileStore {
             if changed { sessions[key] = state }
         }
     }
+
+    func ingestPublished(_ post: SocialPost) {
+        posts?.upsert(post)
+        for (key, var state) in sessions {
+            let matchesAuthor = state.profile?.id == post.author?.id
+                || state.profile?.handle.lowercased() == post.author?.handle.lowercased()
+            guard key == "me" || matchesAuthor else { continue }
+            if !state.posts.items.contains(where: { $0.id == post.id }) {
+                state.posts.items.insert(post, at: 0)
+            }
+            if !state.overviewPreviewPosts.contains(where: { $0.id == post.id }) {
+                state.overviewPreviewPosts.insert(post, at: 0)
+                if state.overviewPreviewPosts.count > 3 {
+                    state.overviewPreviewPosts = Array(state.overviewPreviewPosts.prefix(3))
+                }
+            }
+            sessions[key] = state
+        }
+    }
 }
 
 struct ProfileEditingState: Equatable {
@@ -469,9 +498,13 @@ private extension ModulaProfile {
             coverURL: coverURL,
             coverColour: coverColour,
             bio: bio,
+            headline: headline,
             pronouns: pronouns,
             location: location,
             website: website,
+            languages: languages,
+            presentation: presentation,
+            coverFocalPoint: coverFocalPoint,
             followerCount: count,
             followingCount: followingCount,
             moduleCount: moduleCount,

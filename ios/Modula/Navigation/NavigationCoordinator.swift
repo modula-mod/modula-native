@@ -108,6 +108,11 @@ enum AppPresentation: Identifiable, Hashable {
     case composer(ComposeRoute), share(AppRoute), filters, modulePermissions(String), appearancePicker(AppearanceSettingsRoute)
     case activitySummary, activityFilter, discoverFilter
     case homeSummary, homeFeedTools
+    case commandCenter
+    case createPicker
+    case universalShare(SharePayload)
+    case collectionPicker(postID: String)
+    case draftRestore
     var id: String { String(describing: self) }
 }
 struct ModulaBanner: Identifiable, Hashable { let id = UUID(); var message: String; var symbol: String }
@@ -197,7 +202,7 @@ struct ShellChromePolicy: Equatable {
                 immersive: false,
                 hidesForKeyboard: true
             )
-        case .auth, .settings(.account), .compose:
+        case .auth, .settings(.account):
             Self(
                 bottomBarVisible: false,
                 contextRailVisible: false,
@@ -208,7 +213,86 @@ struct ShellChromePolicy: Equatable {
                 immersive: false,
                 hidesForKeyboard: true
             )
+        case .compose:
+            Self(
+                bottomBarVisible: false,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .hidden,
+                showsBack: false,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: false
+            )
+        case .post:
+            // Pushed post detail keeps stack semantics — not a sixth root destination.
+            Self(
+                bottomBarVisible: true,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .standard,
+                showsBack: true,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: true
+            )
+        case .messages:
+            Self(
+                bottomBarVisible: false,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .standard,
+                showsBack: true,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: true
+            )
+        case .stories:
+            Self(
+                bottomBarVisible: false,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .hidden,
+                showsBack: false,
+                showsClose: true,
+                immersive: true,
+                hidesForKeyboard: true
+            )
+        case .reels:
+            Self(
+                bottomBarVisible: false,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .hidden,
+                showsBack: true,
+                showsClose: false,
+                immersive: true,
+                hidesForKeyboard: true
+            )
         case .settings:
+            Self(
+                bottomBarVisible: true,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .standard,
+                showsBack: true,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: true
+            )
+        case .command:
+            // Transient overlay; sheet chrome handles presentation. If pushed, hide root chrome.
+            Self(
+                bottomBarVisible: false,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .standard,
+                showsBack: false,
+                showsClose: true,
+                immersive: false,
+                hidesForKeyboard: false
+            )
+        case .saved, .collections, .drafts:
             Self(
                 bottomBarVisible: true,
                 contextRailVisible: false,

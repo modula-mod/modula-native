@@ -1,9 +1,13 @@
+import CoreGraphics
 import Foundation
 
 typealias SocialPostID = String
+typealias SocialCommentID = String
 
 enum SocialPostKind: String, Hashable, Sendable {
-    case text, media, link, module, unknown
+    case text, media, link, module
+    case video, carousel, poll, audio, movie
+    case unknown
 
     init(parsing raw: String?) {
         switch (raw ?? "").lowercased() {
@@ -11,7 +15,20 @@ enum SocialPostKind: String, Hashable, Sendable {
         case "media", "image", "photo": self = .media
         case "link": self = .link
         case "module": self = .module
+        case "video": self = .video
+        case "carousel": self = .carousel
+        case "poll": self = .poll
+        case "audio", "music": self = .audio
+        case "movie": self = .movie
         default: self = .unknown
+        }
+    }
+
+    /// Kinds Greenfield currently emits with truthful payloads.
+    var isFullyRenderable: Bool {
+        switch self {
+        case .text, .media, .link, .module, .carousel: true
+        case .video, .poll, .audio, .movie, .unknown: false
         }
     }
 }
@@ -22,6 +39,48 @@ enum SocialReaction: String, Hashable, Sendable, CaseIterable {
     init(parsing raw: String?) {
         let key = (raw ?? "").lowercased()
         self = Self(rawValue: key) ?? .like
+    }
+
+    var accessibilityName: String {
+        switch self {
+        case .like: "Like"
+        case .love: "Love"
+        case .laugh: "Laugh"
+        case .fire: "Fire"
+        case .celebrate: "Celebrate"
+        case .insightful: "Insightful"
+        case .support: "Support"
+        case .curious: "Curious"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .like: "heart.fill"
+        case .love: "heart.circle.fill"
+        case .laugh: "face.smiling.fill"
+        case .fire: "flame.fill"
+        case .celebrate: "party.popper.fill"
+        case .insightful: "lightbulb.fill"
+        case .support: "hand.raised.fill"
+        case .curious: "questionmark.circle.fill"
+        }
+    }
+
+    /// Reactions the current like-toggle HTTP surface can commit.
+    static var networkSupported: [SocialReaction] { [.like] }
+}
+
+enum PostVisibility: String, Hashable, Sendable {
+    case `public`, followers, `private`, unknown
+
+    init(parsing raw: String?) {
+        switch (raw ?? "").lowercased() {
+        case "public": self = .public
+        case "followers": self = .followers
+        case "private": self = .private
+        default: self = .unknown
+        }
     }
 }
 
@@ -47,8 +106,10 @@ struct SocialPostMedia: Hashable, Sendable, Identifiable {
     let url: URL?
     let altText: String?
     let kind: String
+    let aspectRatio: CGFloat?
 
     var isImage: Bool { kind == "image" || kind.isEmpty }
+    var isVideo: Bool { kind == "video" }
 }
 
 struct SocialPostLink: Hashable, Sendable {
@@ -56,26 +117,17 @@ struct SocialPostLink: Hashable, Sendable {
     let title: String?
     let description: String?
     let domain: String?
+    let imageURL: URL?
 }
 
 struct SocialPostModule: Hashable, Sendable {
     let id: String
     let name: String?
     let status: String?
+    let publisher: String?
 }
 
-struct SocialPost: Identifiable, Hashable, Sendable {
-    let id: SocialPostID
-    let author: SocialAuthor?
-    let createdAt: Date
-    let feed: String?
-    let text: String?
-    let kind: SocialPostKind
-    let audience: String?
-    let media: [SocialPostMedia]
-    let link: SocialPostLink?
-    let module: SocialPostModule?
-    let glowColour: String?
+struct PostEngagement: Hashable, Sendable {
     var liked: Bool
     var saved: Bool
     var reposted: Bool
@@ -85,16 +137,143 @@ struct SocialPost: Identifiable, Hashable, Sendable {
     var repostCount: Int
     var quoteCount: Int
     var reactionCount: Int
+    var reactionSummary: ReactionSummary? = nil
+}
+
+struct SocialPost: Identifiable, Hashable, Sendable {
+    let id: SocialPostID
+    let author: SocialAuthor?
+    let createdAt: Date
+    let editedAt: Date?
+    let feed: String?
+    let text: String?
+    let kind: SocialPostKind
+    let visibility: PostVisibility
+    let audience: String?
+    let media: [SocialPostMedia]
+    let link: SocialPostLink?
+    let module: SocialPostModule?
+    let glowColour: String?
+    var engagement: PostEngagement
+
+    var liked: Bool {
+        get { engagement.liked }
+        set { engagement.liked = newValue }
+    }
+    var saved: Bool {
+        get { engagement.saved }
+        set { engagement.saved = newValue }
+    }
+    var reposted: Bool {
+        get { engagement.reposted }
+        set { engagement.reposted = newValue }
+    }
+    var viewerReaction: SocialReaction? {
+        get { engagement.viewerReaction }
+        set { engagement.viewerReaction = newValue }
+    }
+    var likeCount: Int {
+        get { engagement.likeCount }
+        set { engagement.likeCount = newValue }
+    }
+    var replyCount: Int {
+        get { engagement.replyCount }
+        set { engagement.replyCount = newValue }
+    }
+    var repostCount: Int {
+        get { engagement.repostCount }
+        set { engagement.repostCount = newValue }
+    }
+    var quoteCount: Int {
+        get { engagement.quoteCount }
+        set { engagement.quoteCount = newValue }
+    }
+    var reactionCount: Int {
+        get { engagement.reactionCount }
+        set { engagement.reactionCount = newValue }
+    }
 
     var hasMedia: Bool { !media.isEmpty }
     var primaryMedia: SocialPostMedia? { media.first }
+    var isEdited: Bool {
+        guard let editedAt else { return false }
+        return abs(editedAt.timeIntervalSince(createdAt)) > 1
+    }
+
+    var shareURL: URL {
+        URL(string: "https://modula.digital/post/\(id)")!
+    }
 
     var voiceOverSummary: String {
         let who = author?.displayName ?? "Someone"
+        let when = ActivityRelativeTime.string(from: createdAt)
         let body = text?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let content = (body?.isEmpty == false) ? body! : kind.rawValue + " post"
-        return "\(who). \(content)."
+        let content = (body?.isEmpty == false) ? "“\(body!)”" : "\(kind.rawValue) post"
+        var parts = ["\(who), \(when).", content]
+        if hasMedia {
+            if let alt = primaryMedia?.altText, !alt.isEmpty {
+                parts.append(alt)
+            } else if let name = author?.displayName {
+                parts.append("Photo attached to \(name)'s post")
+            } else {
+                parts.append("Photo attached")
+            }
+        }
+        var engagementBits: [String] = []
+        if reactionCount > 0 || likeCount > 0 {
+            engagementBits.append("\(max(reactionCount, likeCount)) reactions")
+        }
+        if replyCount > 0 { engagementBits.append("\(replyCount) comments") }
+        if repostCount > 0 { engagementBits.append("\(repostCount) reposts") }
+        if !engagementBits.isEmpty {
+            parts.append(engagementBits.joined(separator: ", "))
+        }
+        return parts.joined(separator: " ")
     }
+
+    mutating func apply(_ other: PostEngagement) {
+        engagement = other
+    }
+
+    func mergingEngagement(from other: SocialPost) -> SocialPost {
+        var copy = self
+        copy.engagement = other.engagement
+        return copy
+    }
+}
+
+struct SocialComment: Identifiable, Hashable, Sendable {
+    let id: SocialCommentID
+    let postID: SocialPostID
+    let author: SocialAuthor?
+    let createdAt: Date
+    let editedAt: Date?
+    let text: String
+    let parentID: SocialCommentID?
+    let replyCount: Int
+    var liked: Bool
+    var likeCount: Int
+    var isPending: Bool
+
+    var isReply: Bool { parentID != nil }
+    var isEdited: Bool {
+        guard let editedAt else { return false }
+        return abs(editedAt.timeIntervalSince(createdAt)) > 1
+    }
+
+    var voiceOverSummary: String {
+        let who = author?.displayName ?? "Someone"
+        let when = ActivityRelativeTime.string(from: createdAt)
+        var parts = [who, when, "“\(text)”"]
+        if likeCount > 0 { parts.append("\(likeCount) likes") }
+        return parts.joined(separator: ". ")
+    }
+}
+
+struct CommentPage: Sendable, Equatable {
+    var items: [SocialComment]
+    var nextCursor: String?
+    var hasMore: Bool
 }
 
 struct HomePage: Sendable, Equatable {
@@ -175,6 +354,28 @@ enum SocialPayloadDecoder {
         )
     }
 
+    static func commentPage(from value: JSONValue, postID: SocialPostID) -> CommentPage {
+        let payload = value["data"] ?? value
+        let items: [JSONValue]
+        if let array = payload.array {
+            items = array
+        } else {
+            items = payload["items"]?.array ?? payload["comments"]?.array ?? []
+        }
+        let nextCursor = payload["nextCursor"]?.string ?? payload["next_cursor"]?.string
+            ?? value["nextCursor"]?.string ?? value["next_cursor"]?.string
+        let hasMore = payload["hasMore"]?.bool
+            ?? payload["has_more"]?.bool
+            ?? value["hasMore"]?.bool
+            ?? value["has_more"]?.bool
+            ?? (nextCursor != nil)
+        return CommentPage(
+            items: items.compactMap { comment($0, fallbackPostID: postID) },
+            nextCursor: nextCursor,
+            hasMore: hasMore
+        )
+    }
+
     static func post(_ value: JSONValue) -> SocialPost? {
         let id = value["id"]?.string ?? value["postId"]?.string
         guard let id else { return nil }
@@ -187,7 +388,9 @@ enum SocialPayloadDecoder {
                 url: $0["url"]?.string.flatMap(URL.init(string:)),
                 title: emptyToNil($0["title"]?.string),
                 description: emptyToNil($0["description"]?.string ?? $0["summary"]?.string),
-                domain: emptyToNil($0["domain"]?.string ?? $0["host"]?.string)
+                domain: emptyToNil($0["domain"]?.string ?? $0["host"]?.string),
+                imageURL: ($0["imageUrl"]?.string ?? $0["image"]?.string ?? $0["thumbnail"]?.string)
+                    .flatMap(URL.init(string:))
             )
         }
         let moduleValue = value["module"]
@@ -202,32 +405,82 @@ enum SocialPayloadDecoder {
             return SocialPostModule(
                 id: moduleID,
                 name: name,
-                status: moduleValue["status"]?.string
+                status: moduleValue["status"]?.string,
+                publisher: moduleValue["publisher"]?.string ?? moduleValue["publisherName"]?.string
             )
         }()
         let reactionRaw = value["viewerReaction"]?.string ?? value["viewer_reaction"]?.string
+        let createdAt = decodeDate(value["createdAt"]?.string ?? value["created_at"]?.string) ?? Date()
+        let editedAt = decodeDate(value["editedAt"]?.string ?? value["edited_at"]?.string ?? value["updatedAt"]?.string)
+        let audience = value["audience"]?.string
+        let kind = SocialPostKind(parsing: value["kind"]?.string ?? value["type"]?.string)
+        let resolvedKind: SocialPostKind = {
+            if kind == .media, media.count > 1 { return .carousel }
+            return kind
+        }()
         return SocialPost(
             id: id,
             author: author,
-            createdAt: decodeDate(value["createdAt"]?.string ?? value["created_at"]?.string) ?? Date(),
+            createdAt: createdAt,
+            editedAt: editedAt,
             feed: value["feed"]?.string,
             text: emptyToNil(value["text"]?.string ?? value["caption"]?.string),
-            kind: SocialPostKind(parsing: value["kind"]?.string ?? value["type"]?.string),
-            audience: value["audience"]?.string,
+            kind: resolvedKind,
+            visibility: PostVisibility(parsing: audience),
+            audience: audience,
             media: media,
             link: link,
             module: module,
             glowColour: value["glowColour"]?.string ?? value["glow_colour"]?.string,
-            liked: value["liked"]?.bool ?? false,
-            saved: value["saved"]?.bool ?? false,
-            reposted: value["reposted"]?.bool ?? false,
-            viewerReaction: reactionRaw.map { SocialReaction(parsing: $0) },
-            likeCount: value["likeCount"]?.int ?? value["like_count"]?.int ?? 0,
-            replyCount: value["replyCount"]?.int ?? value["reply_count"]?.int ?? 0,
-            repostCount: value["repostCount"]?.int ?? value["repost_count"]?.int ?? 0,
-            quoteCount: value["quoteCount"]?.int ?? value["quote_count"]?.int ?? 0,
-            reactionCount: value["reactionCount"]?.int ?? value["reaction_count"]?.int ?? 0
+            engagement: PostEngagement(
+                liked: value["liked"]?.bool ?? false,
+                saved: value["saved"]?.bool ?? false,
+                reposted: value["reposted"]?.bool ?? false,
+                viewerReaction: reactionRaw.map { SocialReaction(parsing: $0) },
+                likeCount: value["likeCount"]?.int ?? value["like_count"]?.int ?? 0,
+                replyCount: value["replyCount"]?.int ?? value["reply_count"]?.int ?? 0,
+                repostCount: value["repostCount"]?.int ?? value["repost_count"]?.int ?? 0,
+                quoteCount: value["quoteCount"]?.int ?? value["quote_count"]?.int ?? 0,
+                reactionCount: value["reactionCount"]?.int ?? value["reaction_count"]?.int ?? 0,
+                reactionSummary: ReactionSummary.decode(from: value["reactionSummary"] ?? value["reactions"] ?? value["reactionBreakdown"] ?? value["byType"])
+            )
         )
+    }
+
+    static func comment(_ value: JSONValue, fallbackPostID: SocialPostID) -> SocialComment? {
+        let id = value["id"]?.string
+            ?? value["commentId"]?.string
+            ?? value["comment_id"]?.string
+        guard let id else { return nil }
+        let deleted = value["deleted"]?.bool == true
+            || value["deleted_at"]?.string != nil
+            || value["deletedAt"]?.string != nil
+        let text = emptyToNil(value["text"]?.string ?? value["body"]?.string) ?? ""
+        guard !text.isEmpty || deleted else { return nil }
+        return SocialComment(
+            id: id,
+            postID: value["postId"]?.string ?? value["post_id"]?.string ?? fallbackPostID,
+            author: value["author"].flatMap(author) ?? authorFromActorID(
+                value["author_actor_id"]?.string ?? value["authorActorId"]?.string
+            ),
+            createdAt: decodeDate(value["createdAt"]?.string ?? value["created_at"]?.string) ?? Date(),
+            editedAt: decodeDate(value["editedAt"]?.string ?? value["edited_at"]?.string ?? value["updated_at"]?.string),
+            text: text,
+            parentID: value["parentId"]?.string
+                ?? value["parent_id"]?.string
+                ?? value["parent_comment_id"]?.string
+                ?? value["parentCommentId"]?.string,
+            replyCount: value["replyCount"]?.int ?? value["reply_count"]?.int ?? 0,
+            liked: value["liked"]?.bool ?? false,
+            likeCount: value["likeCount"]?.int ?? value["like_count"]?.int ?? 0,
+            isPending: false
+        )
+    }
+
+    /// Live Greenfield comments currently emit `author_actor_id` without a nested profile object.
+    private static func authorFromActorID(_ raw: String?) -> SocialAuthor? {
+        guard let raw, !raw.isEmpty else { return nil }
+        return SocialAuthor(id: raw, handle: raw, displayName: raw, avatarURL: nil)
     }
 
     static func author(_ value: JSONValue) -> SocialAuthor? {
@@ -248,11 +501,20 @@ enum SocialPayloadDecoder {
         let alt = emptyToNil(value["altText"]?.string ?? value["alt_text"]?.string)
         let kind = value["kind"]?.string ?? value["type"]?.string ?? "image"
         if url == nil && alt == nil { return nil }
+        let ratio: CGFloat?
+        if let w = value["width"]?.number, let h = value["height"]?.number, h != 0 {
+            ratio = CGFloat(w / h)
+        } else if let aspect = value["aspectRatio"]?.number ?? value["aspect_ratio"]?.number {
+            ratio = CGFloat(aspect)
+        } else {
+            ratio = nil
+        }
         return SocialPostMedia(
             id: value["id"]?.string ?? fallbackID,
             url: url,
             altText: alt,
-            kind: kind
+            kind: kind,
+            aspectRatio: ratio
         )
     }
 

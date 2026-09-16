@@ -13,6 +13,7 @@ struct DiscoverDashboardView: View {
     var onPost: (DiscoverPost) -> Void
     var onModule: (CatalogueProduct) -> Void
     var onSeeModules: () -> Void
+    var onReel: ((Reel) -> Void)? = nil
 
     private var shelfPeople: [DiscoverPerson] {
         Array(dashboard.people.sorted { $0.usefulness > $1.usefulness }.prefix(8))
@@ -36,6 +37,9 @@ struct DiscoverDashboardView: View {
                 DiscoverPostShelf(posts: Array(previewPosts.prefix(2)), onOpen: onPost)
             } else if !dashboard.media.isEmpty {
                 mediaStrip
+            }
+            if !dashboard.reels.isEmpty, let onReel {
+                DiscoverReelsShelf(reels: dashboard.reels, onOpen: onReel)
             }
             if !featuredProducts.isEmpty {
                 DiscoverModuleShelf(

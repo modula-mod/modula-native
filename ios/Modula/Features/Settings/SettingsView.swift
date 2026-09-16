@@ -82,30 +82,7 @@ struct SettingsRouteView: View {
     let route: SettingsRoute
 
     var body: some View {
-        switch route {
-        case .root: SettingsView()
-        case .account(let accountRoute): AccountSettingsView(route: accountRoute)
-        case .appearance(.appIcon): AppIconPickerView()
-        case .appearance(.preview): AppearancePreviewScreen()
-        case .appearance(let focus): AppearanceSettingsView(focus: focus)
-        case .developer(.components):
-            #if DEBUG
-            ComponentCatalogView()
-            #else
-            DevelopmentRouteView(title: "Components", symbol: "square.grid.3x3")
-            #endif
-        case .developer(.runtime), .developer(.diagnostics):
-            #if DEBUG
-            RuntimeDiagnosticsView()
-            #else
-            DevelopmentRouteView(title: "Diagnostics", symbol: "stethoscope")
-            #endif
-        default: DevelopmentRouteView(title: title, symbol: "gearshape")
-        }
-    }
-
-    private var title: String {
-        RouteSerializer.serialize(.settings(route)).split(separator: "/").last.map(String.init)?.replacingOccurrences(of: "-", with: " ").capitalized ?? "Settings"
+        SettingsDestinationHost(route: route)
     }
 }
 
@@ -231,25 +208,18 @@ struct SettingsView: View {
     }
 
     private var searchItems: [SettingsSearchItem] {
-        [
-            .init("Account", "Sign-in and personal information", "person.crop.circle", .account(.root)),
-            .init("Appearance", "Theme, type, motion, haptics and app icon", "paintpalette", .appearance(.root)),
-            .init("Notifications", "Push, activity and quiet hours", "bell", .notifications(.root)),
-            .init("Privacy & Security", "Security, app lock and blocked accounts", "lock.shield", .privacy(.root)),
-            .init("Modules", moduleSummary, "shippingbox", .modules(.root)),
-            .init("Data & Storage", "Downloads, cache, backup and export", "internaldrive", .dataStorage(.root)),
-            .init("Accessibility", "Text, contrast and motion", "accessibility", .accessibility(.root)),
-            .init("Features", "Enabled and experimental capabilities", "switch.2", .features(.root)),
-            .init("Updates", "Version and update preferences", "arrow.triangle.2.circlepath", .updates(.root)),
-            .init("About", versionSummary, "info.circle", .about(.root))
-        ]
-    }
-
-    private var filteredSearchItems: [SettingsSearchItem] {
-        searchItems.filter { item in
-            item.title.localizedCaseInsensitiveContains(query) || item.subtitle.localizedCaseInsensitiveContains(query)
+        SettingsRegistry.search(query: query, includeDeveloper: {
+            #if DEBUG
+            true
+            #else
+            false
+            #endif
+        }()).map {
+            SettingsSearchItem($0.title, $0.subtitle, $0.symbol, $0.route)
         }
     }
+
+    private var filteredSearchItems: [SettingsSearchItem] { searchItems }
 
     private func category(_ title: String, _ subtitle: String, _ symbol: String, _ route: SettingsRoute) -> some View {
         SettingsNavigationRow(title: title, subtitle: subtitle, symbol: symbol) { app.navigation.open(.settings(route)) }
@@ -264,7 +234,7 @@ private struct SettingsSearchItem: Identifiable {
     let route: SettingsRoute
 
     init(_ title: String, _ subtitle: String, _ symbol: String, _ route: SettingsRoute) {
-        id = title
+        id = RouteSerializer.serialize(.settings(route))
         self.title = title
         self.subtitle = subtitle
         self.symbol = symbol
@@ -338,12 +308,7 @@ struct AppearanceSettingsView: View {
                         Divider().padding(.leading, 43)
                         AppearanceMenuRow(title: "Text Size", symbol: "textformat.size", selection: $store.textSize, options: AppearanceStore.TextSize.allCases, label: display)
                         Divider().padding(.vertical, 12)
-                        VStack(alignment: .leading, spacing: 4) {
-                            ModulaText(text: "Modula", role: .title)
-                            ModulaText(text: "Clear type, deliberate rhythm, comfortable reading.", role: .body)
-                            ModulaText(text: "0123456789 · Aa", role: .caption)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        TypographyPreviewCard(family: store.fontFamily)
                     }
                 }
                 SettingsGroup(title: "Interface") {
@@ -443,7 +408,7 @@ struct AppearancePreviewScreen: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                ModulaSection(title: "Rail") { HStack { Spacer(); ModulaContextRail(route: .home(.following)) } }
+                ModulaSection(title: "Edge Loop") { HStack { Spacer(); ShellEdgeLoop(route: .home(.following)) } }
                 ModulaSection(title: "Module sample") {
                     ModulaCard {
                         VStack(alignment: .leading, spacing: 10) {
@@ -540,6 +505,7 @@ struct ComponentCatalogView: View {
                         ModulaText(text: "Section title", role: .title)
                         ModulaText(text: "Body copy follows Dynamic Type.", role: .body)
                         ModulaText(text: "0123456789 · Supporting caption", role: .caption)
+                        TypographyPreviewCard(family: appearance.fontFamily)
                     }
                 }
                 catalog("Identity & status") {
@@ -574,7 +540,64 @@ struct ComponentCatalogView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                catalog("Looping context rail") { HStack { Spacer(); ModulaContextRail(route: .home(.following)) } }
+                catalog("Edge Loop") { HStack { Spacer(); ShellEdgeLoop(route: .home(.following)) } }
+                catalog("Messages, stories, profile accent") {
+                    VStack(alignment: .leading, spacing: 16) {
+                        MessageBubble(message: MessagingFixtures.thread()[1]) { _ in }
+                        MessageBubble(message: MessagingFixtures.thread()[0]) { _ in }
+                        HStack(spacing: 16) {
+                            StoryRing(state: .unseen, accent: app.appearance.accent.color)
+                            StoryRing(state: .seen, accent: app.appearance.accent.color)
+                            StoryRing(state: .own, accent: app.appearance.accent.color)
+                        }
+                        StoryProgressBar(count: 4, index: 1, progress: 0.4)
+                        ProfileAccentPicker(selection: .constant(.violet), writable: true)
+                    }
+                }
+                catalog("Creation Studio") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        AudiencePicker(selection: .constant(.everyone))
+                        DraftStatusView(saved: true, publishing: false)
+                        CreationToolDock(
+                            kind: .post,
+                            capabilities: .production,
+                            developerMode: true,
+                            photoPicker: { EmptyView() },
+                            onTool: { _ in }
+                        )
+                    }
+                }
+                catalog("Command platform") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        CommandRow(
+                            command: ModulaCommand(
+                                id: "demo.create.post",
+                                title: "Create Post",
+                                subtitle: "Opens post composer",
+                                icon: .init("square.and.pencil"),
+                                category: .create,
+                                action: .composeStart(.post)
+                            )
+                        ) {}
+                        DraftRow(
+                            kind: .post,
+                            preview: "Profile should become the…",
+                            lastEdited: Date().addingTimeInterval(-120),
+                            onContinue: {},
+                            onDelete: {}
+                        )
+                        SharePreview(payload: .module(id: "digital.modula.vault-notes", name: "Vault Notes", publisher: "Modula"))
+                        CollectionCard(collection: ModulaCollection(
+                            id: "demo",
+                            name: "Design inspiration",
+                            storage: .local,
+                            itemIDs: Array(repeating: "p", count: 12),
+                            createdAt: Date(),
+                            updatedAt: Date(),
+                            isDefault: false
+                        ))
+                    }
+                }
             }
             .padding(18)
         }

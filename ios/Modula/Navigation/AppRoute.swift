@@ -92,11 +92,23 @@ enum SettingsRoute: Hashable {
     case developer(DeveloperSettingsRoute)
     case about(AboutSettingsRoute)
 }
-enum MessagesRoute: Hashable { case root, new, conversation(String) }
+enum MessagesRoute: Hashable {
+    case inbox
+    case requests
+    case inMail(InMailRoute)
+    case new
+    case conversation(String)
+}
+enum InMailRoute: Hashable { case inbox, compose, thread(String) }
+enum StoriesRoute: Hashable { case root, create, story(String) }
+enum ReelsRoute: Hashable { case feed, reel(String) }
 enum TeamsRoute: Hashable { case root, create, team(String, TeamSection) }
 enum TeamSection: String, CaseIterable, Codable, Hashable { case overview, members, roles, modules, settings }
 enum DeveloperRoute: String, CaseIterable, Codable, Hashable { case components, appearance, modules, runtime, bridge, diagnostics }
 enum SearchRoute: Hashable { case root(String?), section(SearchSection, String?) }
+enum SavedRoute: Hashable { case root, posts, modules, links }
+enum CollectionsRoute: Hashable { case root, collection(String) }
+enum DraftsRoute: Hashable { case root, posts, inMail, stories }
 
 enum AppRoute: Hashable {
     case boot
@@ -114,8 +126,15 @@ enum AppRoute: Hashable {
     case module(String, localPath: String?)
     case settings(SettingsRoute)
     case messages(MessagesRoute)
+    case stories(StoriesRoute)
+    case reels(ReelsRoute)
     case teams(TeamsRoute)
     case developer(DeveloperRoute)
+    /// Transient Command Center surface — not a sixth root tab.
+    case command
+    case saved(SavedRoute)
+    case collections(CollectionsRoute)
+    case drafts(DraftsRoute)
 
     var tab: AppTab? {
         switch self {
@@ -123,7 +142,7 @@ enum AppRoute: Hashable {
         case .discover, .search: .discover
         case .productHub, .module: .modules
         case .activity, .notification: .activity
-        case .profile, .me: .profile
+        case .profile, .me, .saved, .collections, .drafts: .profile
         default: nil
         }
     }
@@ -188,11 +207,16 @@ enum RouteParser {
             let local = p.count > 2 ? "/" + p.dropFirst(2).joined(separator: "/") : nil
             return .module(p[1], localPath: local)
         case "settings": return parseSettings(p)
-        case "messages":
+        case "messages": return parseMessages(p)
+        case "stories":
             guard p.count <= 2 else { return nil }
-            if p.count == 1 { return .messages(.root) }
-            if p[1] == "new" { return .messages(.new) }
-            return validID(p[1]) ? .messages(.conversation(p[1])) : nil
+            if p.count == 1 { return .stories(.root) }
+            if p[1] == "create" { return .stories(.create) }
+            return validID(p[1]) ? .stories(.story(p[1])) : nil
+        case "reels":
+            guard p.count <= 2 else { return nil }
+            if p.count == 1 { return .reels(.feed) }
+            return validID(p[1]) ? .reels(.reel(p[1])) : nil
         case "teams":
             guard p.count <= 3 else { return nil }
             if p.count == 1 { return .teams(.root) }
@@ -203,7 +227,55 @@ enum RouteParser {
         case "developer":
             guard p.count == 2, let route = DeveloperRoute(rawValue: p[1]) else { return nil }
             return .developer(route)
+        case "command":
+            guard p.count == 1 else { return nil }
+            return .command
+        case "saved":
+            guard p.count <= 2 else { return nil }
+            if p.count == 1 { return .saved(.root) }
+            switch p[1] {
+            case "posts": return .saved(.posts)
+            case "modules": return .saved(.modules)
+            case "links": return .saved(.links)
+            default: return nil
+            }
+        case "collections":
+            guard p.count <= 2 else { return nil }
+            if p.count == 1 { return .collections(.root) }
+            return validID(p[1]) ? .collections(.collection(p[1])) : nil
+        case "drafts":
+            guard p.count <= 2 else { return nil }
+            if p.count == 1 { return .drafts(.root) }
+            switch p[1] {
+            case "posts": return .drafts(.posts)
+            case "in-mail": return .drafts(.inMail)
+            case "stories": return .drafts(.stories)
+            default: return nil
+            }
         default: return nil
+        }
+    }
+
+    private static func parseMessages(_ p: [String]) -> AppRoute? {
+        if p.count == 1 { return .messages(.inbox) }
+        switch p[1] {
+        case "inbox":
+            guard p.count == 2 else { return nil }
+            return .messages(.inbox)
+        case "requests":
+            guard p.count == 2 else { return nil }
+            return .messages(.requests)
+        case "new":
+            guard p.count == 2 else { return nil }
+            return .messages(.new)
+        case "in-mail":
+            if p.count == 2 { return .messages(.inMail(.inbox)) }
+            guard p.count == 3 else { return nil }
+            if p[2] == "new" { return .messages(.inMail(.compose)) }
+            return validID(p[2]) ? .messages(.inMail(.thread(p[2]))) : nil
+        default:
+            guard p.count == 2, validID(p[1]) else { return nil }
+            return .messages(.conversation(p[1]))
         }
     }
 
@@ -313,10 +385,52 @@ enum RouteSerializer {
         case .module(let id, let local): "/module/\(id)\(local ?? "")"
         case .settings(let route): settings(route)
         case .messages(let route):
-            switch route { case .root: "/messages"; case .new: "/messages/new"; case .conversation(let id): "/messages/\(id)" }
+            switch route {
+            case .inbox: "/messages/inbox"
+            case .requests: "/messages/requests"
+            case .new: "/messages/new"
+            case .conversation(let id): "/messages/\(id)"
+            case .inMail(let mail):
+                switch mail {
+                case .inbox: "/messages/in-mail"
+                case .compose: "/messages/in-mail/new"
+                case .thread(let id): "/messages/in-mail/\(id)"
+                }
+            }
+        case .stories(let route):
+            switch route {
+            case .root: "/stories"
+            case .create: "/stories/create"
+            case .story(let id): "/stories/\(id)"
+            }
+        case .reels(let route):
+            switch route {
+            case .feed: "/reels"
+            case .reel(let id): "/reels/\(id)"
+            }
         case .teams(let route):
             switch route { case .root: "/teams"; case .create: "/teams/create"; case .team(let id, let section): path("teams", id, section.rawValue) }
         case .developer(let route): path("developer", route.rawValue)
+        case .command: "/command"
+        case .saved(let route):
+            switch route {
+            case .root: "/saved"
+            case .posts: "/saved/posts"
+            case .modules: "/saved/modules"
+            case .links: "/saved/links"
+            }
+        case .collections(let route):
+            switch route {
+            case .root: "/collections"
+            case .collection(let id): "/collections/\(id)"
+            }
+        case .drafts(let route):
+            switch route {
+            case .root: "/drafts"
+            case .posts: "/drafts/posts"
+            case .inMail: "/drafts/in-mail"
+            case .stories: "/drafts/stories"
+            }
         }
     }
     private static func productHub(_ route: ProductHubRoute) -> String {
@@ -363,4 +477,23 @@ enum RouteSerializer {
         return components.string ?? path
     }
     private static func path(_ values: String?...) -> String { "/" + values.compactMap { $0 }.joined(separator: "/") }
+}
+
+/// Future push payloads resolve here. N4C does not implement APNs.
+enum NotificationRouteResolver {
+    static func route(kind: String, identifier: String) -> AppRoute? {
+        guard RouteParser.validID(identifier) else { return nil }
+        switch kind.lowercased() {
+        case "conversation", "message", "chat":
+            return .messages(.conversation(identifier))
+        case "in-mail", "inmail", "in_mail":
+            return .messages(.inMail(.thread(identifier)))
+        case "story":
+            return .stories(.story(identifier))
+        case "reel":
+            return .reels(.reel(identifier))
+        default:
+            return nil
+        }
+    }
 }

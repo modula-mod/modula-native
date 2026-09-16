@@ -1,8 +1,10 @@
 import SwiftUI
+import UIKit
 
 struct HomeView: View {
     let mode: HomeMode
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.trailingInteractionInset) private var trailingInteractionInset
     @State private var headerProgress: CGFloat = 0
 
     var body: some View {
@@ -12,15 +14,24 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     // Keep the progress probe outside LazyVStack so recycling cannot drop it.
                     ModulaScrollProgressReader()
-                    LazyVStack(alignment: .leading, spacing: 18) {
-                        hero
-                        quickAccessShelf
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        modeCaption
+                        if !app.stories.trayGroups.isEmpty || app.stories.capabilities.create {
+                            StoryTray(groups: app.stories.trayGroups, compact: true) { group in
+                                if let id = group.representative?.id {
+                                    app.navigation.push(.stories(.story(id)))
+                                }
+                            } onCreate: {
+                                app.navigation.push(.stories(.create))
+                            }
+                        }
                         if app.home.isOfflineHint && !state.items.isEmpty {
                             offlineBanner
                         }
                         feedContent(state)
                     }
-                    .padding(.horizontal, ModulaLayout.contentInset)
+                    .padding(.leading, ModulaLayout.contentInset)
+                    .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
                     .padding(.top, 4)
                     .padding(.bottom, 120)
                 }
@@ -41,17 +52,39 @@ struct HomeView: View {
                 compactTitle: "Modula",
                 progress: headerProgress
             ) {
-                Button {
-                    app.navigation.open(.settings(.root))
-                    HapticEngine.shared.play(.navigation)
-                } label: {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
+                HStack(spacing: 2) {
+                    Button {
+                        app.navigation.open(.compose(.post))
+                        HapticEngine.shared.play(.navigation)
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 17, weight: .semibold))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Create")
+                    .accessibilityIdentifier("home.create")
+
+                    Button {
+                        app.navigation.push(.messages(.inbox))
+                        HapticEngine.shared.play(.navigation)
+                    } label: {
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "message")
+                                .font(.system(size: 16, weight: .semibold))
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                            if let count = app.messaging.accountUnreadCount, count > 0 {
+                                UnreadBadge(count: count)
+                                    .scaleEffect(0.85)
+                                    .offset(x: -6, y: 6)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(messagesAccessibilityLabel)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Settings")
             }
 
             if state.newerAvailable {
@@ -65,6 +98,7 @@ struct HomeView: View {
         .toolbar(.hidden, for: .navigationBar)
         .task(id: mode) {
             await app.home.loadIfNeeded(mode, signedIn: app.auth.isSignedIn)
+            await app.stories.loadIfNeeded()
         }
         .onChange(of: app.auth.account?.accountId) { _, _ in
             Task { await app.home.refresh(mode, signedIn: app.auth.isSignedIn) }
@@ -86,53 +120,22 @@ struct HomeView: View {
         .accessibilityValue(RouteSerializer.serialize(.home(mode)))
     }
 
-    private var hero: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(mode.heroSubtitle.uppercased())
-                .font(.caption.weight(.bold))
-                .tracking(1.2)
-                .foregroundStyle(.secondary)
-            Text(mode.heroTitle)
-                .font(.title2.weight(.bold))
-                .foregroundStyle(.primary)
-                .fixedSize(horizontal: false, vertical: true)
+    private var messagesAccessibilityLabel: String {
+        if let count = app.messaging.accountUnreadCount, count > 0 {
+            return "Messages, \(count) unread"
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(minHeight: 72, maxHeight: 120)
-        .padding(.top, 96)
-        .padding(.bottom, 4)
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("home.hero")
+        return "Messages"
     }
 
-    private var quickAccessShelf: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                shelfChip(title: "Product Hub", symbol: "shippingbox") {
-                    app.navigation.open(.productHub(.featured))
-                }
-                shelfChip(title: "Compose", symbol: "square.and.pencil") {
-                    app.navigation.open(.compose(.post))
-                }
-            }
-        }
-        .accessibilityIdentifier("home.shelf")
-    }
-
-    private func shelfChip(title: String, symbol: String, action: @escaping () -> Void) -> some View {
-        Button {
-            action()
-            HapticEngine.shared.play(.navigation)
-        } label: {
-            Label(title, systemImage: symbol)
-                .font(.caption.weight(.semibold))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(app.appearance.accent.color.opacity(0.12), in: Capsule())
-                .foregroundStyle(app.appearance.accent.color)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title)
+    private var modeCaption: some View {
+        Text(mode.heroSubtitle)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 92)
+            .padding(.bottom, 2)
+            .accessibilityIdentifier("home.hero")
+            .accessibilityLabel(mode.heroTitle)
     }
 
     private var offlineBanner: some View {
@@ -177,23 +180,44 @@ struct HomeView: View {
                 emptyState
                     .padding(.top, 20)
             default:
-                ForEach(state.items) { post in
+                ForEach(state.items.filter { !app.posts.isHidden($0.id) }) { post in
+                    let resolved = app.posts.resolved(post)
                     PostCard(
-                        post: post,
-                        onOpenPost: { openPost(post) },
-                        onOpenAuthor: { openAuthor(post) },
+                        post: resolved,
+                        showsActionRail: resolved.hasMedia,
+                        isOwnPost: resolved.author?.id == app.auth.account?.accountId,
+                        onOpenPost: { openPost(resolved) },
+                        onOpenAuthor: { openAuthor(resolved) },
                         onLike: {
-                            Task { await app.home.toggleLike(post, mode: mode) }
+                            Task { await app.home.toggleLike(resolved, mode: mode) }
                         },
                         onComment: {
-                            app.navigation.open(.post(post.id, .comments))
+                            app.navigation.open(.post(resolved.id, .comments))
                             HapticEngine.shared.play(.navigation)
                         },
                         onRepost: {
-                            Task { await app.home.toggleRepost(post, mode: mode) }
+                            Task { await app.home.toggleRepost(resolved, mode: mode) }
                         },
                         onSave: {
-                            Task { await app.home.toggleSave(post, mode: mode) }
+                            Task { await app.home.toggleSave(resolved, mode: mode) }
+                        },
+                        onShare: {
+                            UIPasteboard.general.string = resolved.shareURL.absoluteString
+                            Task { await app.postActions.recordShare(resolved) }
+                            HapticEngine.shared.play(.lightImpact)
+                        },
+                        onMore: {
+                            HapticEngine.shared.play(.contextOpen)
+                        },
+                        onContextAction: { action in
+                            handlePostContext(action, post: resolved)
+                        },
+                        onOpenMedia: { _ in
+                            app.navigation.open(.post(resolved.id, .root))
+                        },
+                        onOpenModule: { module in
+                            app.navigation.push(.productHub(.module(module.id, .overview)))
+                            HapticEngine.shared.play(.navigation)
                         }
                     )
                     .onAppear {
@@ -201,7 +225,7 @@ struct HomeView: View {
                             Task { await app.home.loadMore(mode) }
                         }
                     }
-                    Divider().opacity(0.35)
+                    Divider().opacity(0.25)
                 }
                 if state.loadState == .loadingMore {
                     ProgressView()
@@ -303,6 +327,7 @@ struct HomeView: View {
     }
 
     private func openPost(_ post: SocialPost) {
+        app.postActions.ingest(post)
         app.navigation.open(.post(post.id, .root))
         HapticEngine.shared.play(.navigation)
     }
@@ -312,5 +337,39 @@ struct HomeView: View {
         // Push onto the current Home stack — never hijack the Profile tab root.
         app.navigation.push(.profile(author.routeID, .overview))
         HapticEngine.shared.play(.navigation)
+    }
+
+    private func handlePostContext(_ action: ModulaContextAction, post: SocialPost) {
+        switch action.id {
+        case "save":
+            Task { await app.home.toggleSave(post, mode: mode) }
+        case "save-collection":
+            app.navigation.presented = .collectionPicker(postID: post.id)
+            HapticEngine.shared.play(.contextOpen)
+        case "copy-link":
+            UIPasteboard.general.string = post.shareURL.absoluteString
+            HapticEngine.shared.play(.lightImpact)
+        case "share":
+            app.navigation.presented = .universalShare(.post(
+                id: post.id,
+                authorName: post.author?.displayName,
+                excerpt: post.text,
+                hasMedia: !post.media.isEmpty
+            ))
+            Task { await app.postActions.recordShare(post) }
+            HapticEngine.shared.play(.lightImpact)
+        case "hide":
+            app.postActions.hideLocally(post)
+            app.home.syncVisibleEngagement()
+        case "edit-post":
+            app.navigation.open(.post(post.id, .edit))
+        case "delete":
+            Task {
+                _ = await app.postActions.deletePost(post)
+                app.home.syncVisibleEngagement()
+            }
+        default:
+            break
+        }
     }
 }

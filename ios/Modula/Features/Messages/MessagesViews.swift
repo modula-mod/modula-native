@@ -1,0 +1,596 @@
+import SwiftUI
+import UIKit
+
+struct MessagesRootView: View {
+    let route: MessagesRoute
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        Group {
+            switch route {
+            case .inbox:
+                ConversationListView()
+            case .requests:
+                MessageRequestsView()
+            case .inMail(let mail):
+                InMailRouteView(route: mail)
+            case .new:
+                NewConversationView()
+            case .conversation(let id):
+                ConversationView(conversationID: id)
+            }
+        }
+        .modulaCanvas()
+        .navigationBarBackButtonHidden(false)
+        .toolbar(.hidden, for: .tabBar)
+    }
+}
+
+struct ConversationListView: View {
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        VStack(spacing: 0) {
+            MessagesScopePicker(selection: .inbox)
+            searchField
+            content
+        }
+        .navigationTitle("Messages")
+        .navigationBarTitleDisplayMode(.large)
+        .task { await app.messaging.loadInboxIfNeeded() }
+        .refreshable { await app.messaging.refreshInbox() }
+        .overlay(alignment: .bottom) { errorBanner }
+        .accessibilityIdentifier("messages.inbox")
+        .accessibilityValue(RouteSerializer.serialize(.messages(.inbox)))
+    }
+
+    private var searchField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ModulaSearchField(text: Bindable(app.messaging).conversationQuery, prompt: "Search conversations")
+            if !app.messaging.conversationQuery.isEmpty {
+                Text("Searches loaded conversations only.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, ModulaLayout.contentInset)
+        .padding(.vertical, 8)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        let items = app.messaging.visibleConversations
+        switch app.messaging.conversationState {
+        case .loading where items.isEmpty:
+            conversationSkeleton
+        case .failed(let message) where items.isEmpty:
+            ModulaErrorState(message: message) {
+                Task { await app.messaging.refreshInbox() }
+            }
+        case _ where !app.messaging.capabilities.listConversations && items.isEmpty:
+            ModulaEmptyState(
+                title: "Messages",
+                message: "Conversations will appear here when messaging is available.",
+                symbol: "message"
+            )
+        case _ where items.isEmpty:
+            ModulaEmptyState(
+                title: "No conversations yet",
+                message: "When someone messages you, it will show up here.",
+                symbol: "message"
+            )
+        default:
+            List {
+                ForEach(items) { conversation in
+                    Button {
+                        app.navigation.push(.messages(.conversation(conversation.id)))
+                        HapticEngine.shared.play(.navigation)
+                    } label: {
+                        ConversationRow(conversation: conversation)
+                    }
+                    .buttonStyle(.plain)
+                    .listRowInsets(EdgeInsets(top: 8, leading: ModulaLayout.contentInset, bottom: 8, trailing: ModulaLayout.contentInset))
+                    .onAppear {
+                        if conversation.id == items.last?.id {
+                            Task { await app.messaging.loadMoreConversations() }
+                        }
+                    }
+                }
+            }
+            .listStyle(.plain)
+        }
+    }
+
+    private var conversationSkeleton: some View {
+        VStack(spacing: 14) {
+            ForEach(0..<4, id: \.self) { _ in
+                HStack(spacing: 12) {
+                    Circle().fill(Color.primary.opacity(0.08)).frame(width: 48, height: 48)
+                    VStack(alignment: .leading, spacing: 8) {
+                        RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.08)).frame(width: 140, height: 12)
+                        RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.06)).frame(height: 10)
+                    }
+                }
+                .padding(.horizontal, ModulaLayout.contentInset)
+            }
+            Spacer()
+        }
+        .padding(.top, 16)
+        .accessibilityLabel("Loading conversations")
+    }
+
+    @ViewBuilder
+    private var errorBanner: some View {
+        if let message = app.messaging.actionError {
+            Label(message, systemImage: "exclamationmark.triangle")
+                .font(.footnote.weight(.semibold))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(.regularMaterial, in: Capsule())
+                .padding(.bottom, 12)
+                .onTapGesture { app.messaging.clearActionError() }
+        }
+    }
+}
+
+enum MessagesScope: Hashable {
+    case inbox, inMail, requests
+}
+
+struct MessagesScopePicker: View {
+    let selection: MessagesScope
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        HStack(spacing: 6) {
+            chip("Chats", selected: selection == .inbox) {
+                app.navigation.replaceTop(with: .messages(.inbox))
+            }
+            chip("In-Mail", selected: selection == .inMail) {
+                app.navigation.replaceTop(with: .messages(.inMail(.inbox)))
+            }
+            chip("Requests", selected: selection == .requests) {
+                app.navigation.replaceTop(with: .messages(.requests))
+            }
+        }
+        .padding(.horizontal, ModulaLayout.contentInset)
+        .padding(.vertical, 8)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("messages.scope")
+    }
+
+    private func chip(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            HapticEngine.shared.play(.selection)
+        } label: {
+            Text(title)
+                .font(.subheadline.weight(selected ? .semibold : .medium))
+                .padding(.horizontal, 14)
+                .frame(minHeight: 36)
+                .background(selected ? app.appearance.accent.color.opacity(0.16) : Color.primary.opacity(0.06), in: Capsule())
+                .foregroundStyle(selected ? app.appearance.accent.color : .primary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
+    }
+}
+
+struct ConversationRow: View {
+    let conversation: Conversation
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            ConversationAvatar(participant: conversation.participants.first, unread: conversation.isUnread)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(conversation.title)
+                        .font(.body.weight(conversation.isUnread ? .semibold : .regular))
+                        .lineLimit(1)
+                    Spacer()
+                    Text(Self.relative(conversation.updatedAt))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                HStack(alignment: .firstTextBaseline) {
+                    Text(conversation.lastMessage?.body ?? "")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                    Spacer(minLength: 8)
+                    if conversation.isUnread {
+                        UnreadBadge(count: conversation.unreadCount)
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityIdentifier("messages.row.\(conversation.id)")
+    }
+
+    private var accessibilityLabel: String {
+        var parts = [conversation.title]
+        if let preview = conversation.lastMessage?.body { parts.append(preview) }
+        parts.append(Self.relative(conversation.updatedAt))
+        if conversation.isUnread {
+            parts.append("\(conversation.unreadCount) unread")
+        } else {
+            parts.append("Read")
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    static func relative(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+}
+
+struct ConversationAvatar: View {
+    let participant: ConversationParticipant?
+    var unread = false
+
+    var body: some View {
+        ModulaAvatar(initials: participant?.initials ?? "?", url: participant?.avatarURL, size: 48)
+            .overlay(alignment: .bottomTrailing) {
+                if unread {
+                    Circle()
+                        .fill(Color.primary)
+                        .frame(width: 10, height: 10)
+                        .overlay(Circle().stroke(Color(.systemBackground), lineWidth: 2))
+                        .accessibilityHidden(true)
+                }
+            }
+    }
+}
+
+struct UnreadBadge: View {
+    let count: Int
+
+    var body: some View {
+        Text(count > 9 ? "9+" : "\(max(count, 1))")
+            .font(.caption2.weight(.bold))
+            .padding(.horizontal, 6)
+            .frame(minWidth: 18, minHeight: 18)
+            .background(Color.primary, in: Capsule())
+            .foregroundStyle(Color(.systemBackground))
+            .overlay(
+                Capsule().stroke(Color.primary.opacity(0.2), lineWidth: 0)
+            )
+            .accessibilityHidden(true)
+    }
+}
+
+struct ConversationView: View {
+    let conversationID: ConversationID
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+            Divider().opacity(0.4)
+            thread
+            composer
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("")
+        .task { await app.messaging.loadThreadIfNeeded(conversationID) }
+        .refreshable { await app.messaging.refreshThread(conversationID) }
+        .accessibilityIdentifier("messages.conversation.\(conversationID)")
+        .accessibilityValue(RouteSerializer.serialize(.messages(.conversation(conversationID))))
+    }
+
+    private var conversation: Conversation? { app.messaging.conversation(id: conversationID) }
+
+    private var header: some View {
+        HStack(spacing: 10) {
+            ConversationAvatar(participant: conversation?.participants.first)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(conversation?.title ?? "Conversation")
+                    .font(.headline)
+                if let handle = conversation?.handleLabel {
+                    Text(handle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+        }
+        .padding(.horizontal, ModulaLayout.contentInset)
+        .padding(.vertical, 8)
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private var thread: some View {
+        let items = app.messaging.messages(for: conversationID)
+        switch app.messaging.threadState[conversationID] ?? .idle {
+        case .loading where items.isEmpty:
+            ModulaLoadingState(title: "Loading messages")
+        case .failed(let message) where items.isEmpty:
+            ModulaErrorState(message: message) {
+                Task { await app.messaging.refreshThread(conversationID) }
+            }
+        case _ where items.isEmpty:
+            ModulaEmptyState(
+                title: "No messages yet",
+                message: app.messaging.capabilities.send ? "Write the first message." : "This conversation isn’t available yet.",
+                symbol: "text.bubble"
+            )
+        default:
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 10) {
+                    ForEach(items) { message in
+                        MessageBubble(message: message) { action in
+                            handle(action, message: message)
+                        }
+                    }
+                }
+                .padding(.horizontal, ModulaLayout.contentInset)
+                .padding(.vertical, 12)
+            }
+        }
+    }
+
+    private var composer: some View {
+        MessageComposer(
+            text: Binding(
+                get: { app.messaging.drafts[conversationID] ?? "" },
+                set: { app.messaging.drafts[conversationID] = $0 }
+            ),
+            canSend: app.messaging.capabilities.send,
+            showsAttachments: app.messaging.capabilities.attachments,
+            largeText: dynamicTypeSize.isAccessibilitySize
+        ) {
+            Task {
+                await app.messaging.send(
+                    conversation: conversationID,
+                    viewer: viewer
+                )
+            }
+        }
+    }
+
+    private var viewer: ConversationParticipant {
+        ConversationParticipant(
+            id: app.auth.account?.accountId ?? "me",
+            handle: app.auth.account?.primaryHandle ?? "",
+            displayName: app.auth.account?.displayName ?? "You",
+            avatarURL: nil
+        )
+    }
+
+    private func handle(_ action: ModulaContextAction, message: Message) {
+        switch action.id {
+        case "copy":
+            UIPasteboard.general.string = message.body.text
+            HapticEngine.shared.play(.confirmation)
+        case "retry":
+            Task { await app.messaging.retry(message: message, viewer: viewer) }
+        default:
+            break
+        }
+    }
+}
+
+struct MessageBubble: View {
+    let message: Message
+    var onAction: (ModulaContextAction) -> Void
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        HStack {
+            if message.isOwn { Spacer(minLength: 48) }
+            VStack(alignment: message.isOwn ? .trailing : .leading, spacing: 6) {
+                Text(message.body.text)
+                    .font(.body)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(bubbleFill, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .foregroundStyle(message.isOwn ? Color.white : Color.primary)
+                HStack(spacing: 8) {
+                    if message.delivery == .failed {
+                        Button("Retry") { onAction(.init(id: "retry", title: "Retry")) }
+                            .font(.caption.weight(.semibold))
+                    } else if app.messaging.capabilities.readReceipts, message.isOwn, message.delivery == .read {
+                        Text("Read")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            if !message.isOwn { Spacer(minLength: 48) }
+        }
+        .contextMenu {
+            ForEach(actions) { action in
+                Button(role: action.role == .destructive ? .destructive : nil) {
+                    onAction(action)
+                } label: {
+                    Label(action.title, systemImage: action.systemImage ?? "ellipsis")
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityIdentifier("messages.bubble.\(message.id)")
+    }
+
+    private var bubbleFill: Color {
+        if message.isOwn {
+            return app.appearance.accent.color
+        }
+        let oled = scheme == .dark && app.appearance.darkStyle == .oled
+        return oled ? Color.white.opacity(0.08) : Color.primary.opacity(0.08)
+    }
+
+    private var actions: [ModulaContextAction] {
+        message.isOwn
+            ? MessageContextActions.own(capabilities: app.messaging.capabilities, delivery: message.delivery)
+            : MessageContextActions.other(capabilities: app.messaging.capabilities)
+    }
+
+    private var accessibilityLabel: String {
+        let who = message.isOwn ? "You" : message.sender.displayName
+        let time = ConversationRow.relative(message.sentAt)
+        var parts = [who, time, message.body.text]
+        if message.delivery == .failed { parts.append("Failed to send") }
+        if message.delivery == .sending { parts.append("Sending") }
+        if app.messaging.capabilities.readReceipts, message.delivery == .read { parts.append("Read") }
+        return parts.joined(separator: ", ")
+    }
+}
+
+struct MessageComposer: View {
+    @Binding var text: String
+    var canSend: Bool
+    var showsAttachments: Bool
+    var largeText: Bool
+    var onSend: () -> Void
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 10) {
+            TextField("Add a message...", text: $text, axis: .vertical)
+                .lineLimit(1...6)
+                .textFieldStyle(.plain)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .frame(minHeight: largeText ? 56 : 44)
+                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .disabled(!canSend)
+                .accessibilityLabel("Message")
+            Button(action: onSend) {
+                Text("Send")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(minHeight: 44)
+                    .padding(.horizontal, 14)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(!canSend || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .accessibilityLabel("Send")
+        }
+        .padding(.horizontal, ModulaLayout.contentInset)
+        .padding(.vertical, 8)
+        .accessibilityIdentifier("messages.composer")
+        .overlay {
+            if showsAttachments { EmptyView() }
+        }
+    }
+}
+
+struct MessageRequestsView: View {
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        VStack(spacing: 0) {
+            MessagesScopePicker(selection: .requests)
+            content
+        }
+        .navigationTitle("Requests")
+        .task { await app.messaging.loadRequestsIfNeeded() }
+        .refreshable { await app.messaging.refreshRequests() }
+        .accessibilityIdentifier("messages.requests")
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch app.messaging.requestState {
+        case .loading where app.messaging.requests.isEmpty:
+            ModulaLoadingState(title: "Loading requests")
+        case .failed(let message) where app.messaging.requests.isEmpty:
+            ModulaErrorState(message: message) {
+                Task { await app.messaging.refreshRequests() }
+            }
+        case _ where !app.messaging.capabilities.messageRequests && app.messaging.requests.isEmpty:
+            ModulaEmptyState(
+                title: "No message requests",
+                message: "People who aren’t connected yet will appear here when requests are available.",
+                symbol: "person.crop.circle.badge.questionmark"
+            )
+        case _ where app.messaging.requests.isEmpty:
+            ModulaEmptyState(
+                title: "No message requests",
+                message: "When someone wants to message you, it will show up here.",
+                symbol: "person.crop.circle.badge.questionmark"
+            )
+        default:
+            List(app.messaging.requests) { request in
+                MessageRequestRow(
+                    request: request,
+                    busy: app.messaging.requestBusyIDs.contains(request.id),
+                    canAct: app.messaging.capabilities.acceptRequest
+                ) {
+                    Task {
+                        if let conversation = await app.messaging.acceptRequest(request) {
+                            app.navigation.replaceTop(with: .messages(.conversation(conversation.id)))
+                        }
+                    }
+                } onDecline: {
+                    Task { await app.messaging.declineRequest(request) }
+                }
+            }
+            .listStyle(.plain)
+        }
+    }
+}
+
+struct MessageRequestRow: View {
+    let request: MessageRequest
+    var busy: Bool
+    var canAct: Bool
+    var onAccept: () -> Void
+    var onDecline: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                ConversationAvatar(participant: request.sender)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(request.sender.displayName)
+                        .font(.body.weight(.semibold))
+                    Text(request.preview)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            if canAct {
+                HStack {
+                    Button("Accept", action: onAccept)
+                        .buttonStyle(.borderedProminent)
+                        .disabled(busy)
+                    Button("Decline", role: .destructive, action: onDecline)
+                        .disabled(busy)
+                }
+            }
+        }
+        .padding(.vertical, 6)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(request.sender.displayName). \(request.preview)")
+    }
+}
+
+struct NewConversationView: View {
+    var body: some View {
+        ModulaEmptyState(
+            title: "New message",
+            message: "Starting a conversation isn’t available yet.",
+            symbol: "square.and.pencil"
+        )
+        .navigationTitle("New")
+        .accessibilityIdentifier("messages.new")
+    }
+}
+
+#if DEBUG
+#Preview("Inbox unread") {
+    ConversationRow(conversation: MessagingFixtures.unreadConversation)
+}
+#Preview("Bubble long") {
+    MessageBubble(message: MessagingFixtures.thread()[3]) { _ in }
+}
+#endif

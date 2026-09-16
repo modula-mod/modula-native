@@ -9,7 +9,7 @@ Home is the first real native social surface. Routes:
 /home/modules
 ```
 
-Modes live only on `ModulaContextRail`. The Home shell accessory is Compose / Summary / Tools — never Search and never a second Following|For You|Modules tab strip.
+Modes live only on `ShellEdgeLoop` / `ModulaEdgeLoop`. The Home shell accessory is Compose / Summary / Tools — never Search and never a second Following|For You|Modules tab strip. Home chrome is Modula + Create + Messages. Stories sit in a compact tray so feed content appears immediately.
 
 ## Ownership
 

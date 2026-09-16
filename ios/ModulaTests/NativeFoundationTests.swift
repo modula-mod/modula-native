@@ -63,6 +63,11 @@ final class NativeFoundationTests: XCTestCase {
         XCTAssertEqual(RouteSerializer.serialize(try XCTUnwrap(RouteParser.parse("/activity"))), "/activity/all")
         XCTAssertEqual(RouteSerializer.serialize(try XCTUnwrap(RouteParser.parse("/profile/user-1"))), "/profile/user-1/overview")
         XCTAssertEqual(RouteSerializer.serialize(try XCTUnwrap(RouteParser.parse("/product-hub"))), "/product-hub/featured")
+        XCTAssertEqual(RouteSerializer.serialize(try XCTUnwrap(RouteParser.parse("/messages"))), "/messages/inbox")
+        XCTAssertEqual(RouteParser.parse("/messages/inbox"), .messages(.inbox))
+        XCTAssertEqual(RouteParser.parse("/stories/create"), .stories(.create))
+        XCTAssertEqual(RouteParser.parse("/reels"), .reels(.feed))
+        XCTAssertNil(RouteParser.parse("/messages/in-mail/"))
     }
 
     func testDeepLinksAndModuleLocalPaths() {
@@ -84,8 +89,14 @@ final class NativeFoundationTests: XCTestCase {
             .settings(.privacy(.biometrics)), .settings(.modules(.module("digital.modula.vault-notes", .diagnostics))),
             .settings(.dataStorage(.export)), .settings(.accessibility(.motion)), .settings(.features(.experimental)),
             .settings(.updates(.unstable)), .settings(.developer(.featureFlags)), .settings(.about(.licenses)),
-            .messages(.new), .messages(.conversation("conversation-1")), .teams(.create), .teams(.team("team-1", .members)),
-            .developer(.bridge)
+            .messages(.new), .messages(.conversation("conversation-1")), .messages(.inbox), .messages(.requests),
+            .messages(.inMail(.inbox)), .messages(.inMail(.compose)), .messages(.inMail(.thread("thread-1"))),
+            .stories(.root), .stories(.create), .stories(.story("story-1")),
+            .reels(.feed), .reels(.reel("reel-1")),
+            .teams(.create), .teams(.team("team-1", .members)),
+            .developer(.bridge),
+            .command, .saved(.root), .saved(.posts), .collections(.root), .collections(.collection("design-1")),
+            .drafts(.root), .drafts(.inMail)
         ]
         for route in routes {
             let path = RouteSerializer.serialize(route)
@@ -112,6 +123,15 @@ final class NativeFoundationTests: XCTestCase {
         XCTAssertTrue(ShellChromePolicy.policy(for: .activity(.all)).shellAccessoryVisible)
         XCTAssertFalse(ShellChromePolicy.policy(for: .discover(.trending)).contextRailVisible)
         XCTAssertFalse(ShellChromePolicy.policy(for: .search(.root(nil))).shellAccessoryVisible)
+        XCTAssertFalse(ShellChromePolicy.policy(for: .messages(.inbox)).bottomBarVisible)
+        XCTAssertFalse(ShellChromePolicy.policy(for: .messages(.inbox)).contextRailVisible)
+        XCTAssertFalse(ShellChromePolicy.policy(for: .messages(.inbox)).shellAccessoryVisible)
+        XCTAssertTrue(ShellChromePolicy.policy(for: .stories(.story("s1"))).immersive)
+        XCTAssertFalse(ShellChromePolicy.policy(for: .reels(.feed)).shellAccessoryVisible)
+        XCTAssertFalse(ShellChromePolicy.policy(for: .command).bottomBarVisible)
+        XCTAssertTrue(ShellChromePolicy.policy(for: .command).showsClose)
+        XCTAssertTrue(ShellChromePolicy.policy(for: .saved(.root)).showsBack)
+        XCTAssertFalse(ShellChromePolicy.policy(for: .drafts(.root)).shellAccessoryVisible)
     }
 
     func testContextRailLoopShapeStaysEdgeDockedAcrossMorph() {

@@ -4,6 +4,8 @@ import Observation
 @MainActor @Observable
 final class HomeStore {
     private let repository: GreenfieldHomeRepository
+    private let posts: PostStateStore
+    private let postActions: PostActionController
     private(set) var modes: [HomeMode: HomeModeState] = [
         .following: HomeModeState(),
         .forYou: HomeModeState(),
@@ -12,8 +14,10 @@ final class HomeStore {
     private(set) var actionError: String?
     var isOfflineHint = false
 
-    init(client: GreenfieldClient) {
+    init(client: GreenfieldClient, posts: PostStateStore, postActions: PostActionController) {
         self.repository = GreenfieldHomeRepository(client: client)
+        self.posts = posts
+        self.postActions = postActions
     }
 
     func state(for mode: HomeMode) -> HomeModeState {
@@ -22,7 +26,7 @@ final class HomeStore {
 
     func summary(for mode: HomeMode) -> FeedSummary {
         let state = modes[mode] ?? HomeModeState()
-        return .aggregate(from: state.items, rankingVersion: state.rankingVersion)
+        return .aggregate(from: visibleItems(state.items), rankingVersion: state.rankingVersion)
     }
 
     func loadIfNeeded(_ mode: HomeMode, signedIn: Bool) async {
@@ -50,10 +54,11 @@ final class HomeStore {
         modes[mode] = state
         do {
             let page = try await repository.refresh(mode: mode)
+            postActions.ingest(page.items)
             if hasContent, let previousFirstID, let freshFirst = page.items.first?.id, freshFirst != previousFirstID {
                 state.newerAvailable = true
             }
-            state.items = page.items
+            state.items = page.items.map(posts.resolved)
             state.nextCursor = page.nextCursor
             state.hasMore = page.hasMore
             state.rankingVersion = page.rankingVersion
@@ -71,7 +76,8 @@ final class HomeStore {
                 actionError = api.userFacingMessage
                 isOfflineHint = api != .unauthenticated
             } else if let cached = await repository.cachedPage(mode: mode), !cached.items.isEmpty {
-                state.items = cached.items
+                postActions.ingest(cached.items)
+                state.items = cached.items.map(posts.resolved)
                 state.nextCursor = cached.nextCursor
                 state.hasMore = cached.hasMore
                 state.rankingVersion = cached.rankingVersion
@@ -94,7 +100,8 @@ final class HomeStore {
                 actionError = message
                 isOfflineHint = true
             } else if let cached = await repository.cachedPage(mode: mode), !cached.items.isEmpty {
-                state.items = cached.items
+                postActions.ingest(cached.items)
+                state.items = cached.items.map(posts.resolved)
                 state.nextCursor = cached.nextCursor
                 state.hasMore = cached.hasMore
                 state.rankingVersion = cached.rankingVersion
@@ -117,8 +124,9 @@ final class HomeStore {
         modes[mode] = state
         do {
             let page = try await repository.page(mode: mode, cursor: cursor)
+            postActions.ingest(page.items)
             let existing = Set(state.items.map(\.id))
-            state.items.append(contentsOf: page.items.filter { !existing.contains($0.id) })
+            state.items.append(contentsOf: page.items.filter { !existing.contains($0.id) }.map(posts.resolved))
             state.nextCursor = page.nextCursor
             state.hasMore = page.hasMore
             if let ranking = page.rankingVersion { state.rankingVersion = ranking }
@@ -131,90 +139,77 @@ final class HomeStore {
         }
     }
 
+    func ingestPublished(_ post: SocialPost) {
+        posts.upsert(post)
+        let isPublic = post.visibility == .public || post.audience == "public" || post.audience == nil
+        guard isPublic else { return }
+        var state = self.state(for: .following)
+        if let index = state.items.firstIndex(where: { $0.id == post.id }) {
+            state.items[index] = post
+        } else {
+            state.items.insert(post, at: 0)
+        }
+        modes[.following] = state
+    }
+
     func acknowledgeNewer(_ mode: HomeMode) {
         modes[mode]?.newerAvailable = false
     }
 
     func toggleLike(_ post: SocialPost, mode: HomeMode) async {
-        let nextLiked = !post.liked
-        applyEngagement(postID: post.id, mode: mode) { item in
-            item.liked = nextLiked
-            item.likeCount = max(0, item.likeCount + (nextLiked ? 1 : -1))
-            if nextLiked { item.viewerReaction = .like }
-            else if item.viewerReaction == .like { item.viewerReaction = nil }
-        }
-        do {
-            if nextLiked {
-                try await repository.like(postID: post.id)
-            } else {
-                try await repository.unlike(postID: post.id)
-            }
-            HapticEngine.shared.play(.selection)
-        } catch {
-            applyEngagement(postID: post.id, mode: mode) { item in
-                item.liked = post.liked
-                item.likeCount = post.likeCount
-                item.viewerReaction = post.viewerReaction
-            }
-            actionError = (error as? APIError)?.userFacingMessage ?? "Could not update like."
-            HapticEngine.shared.play(.failure)
-        }
+        postActions.ingest(post)
+        await postActions.toggleLike(post)
+        sync(postID: post.id, mode: mode)
+        actionError = postActions.lastError
     }
 
     func toggleSave(_ post: SocialPost, mode: HomeMode) async {
-        let nextSaved = !post.saved
-        applyEngagement(postID: post.id, mode: mode) { item in
-            item.saved = nextSaved
-        }
-        do {
-            if nextSaved {
-                try await repository.save(postID: post.id)
-            } else {
-                try await repository.unsave(postID: post.id)
-            }
-            HapticEngine.shared.play(.selection)
-        } catch {
-            applyEngagement(postID: post.id, mode: mode) { item in
-                item.saved = post.saved
-            }
-            actionError = (error as? APIError)?.userFacingMessage ?? "Could not update save."
-            HapticEngine.shared.play(.failure)
-        }
+        postActions.ingest(post)
+        await postActions.toggleSave(post)
+        sync(postID: post.id, mode: mode)
+        actionError = postActions.lastError
     }
 
     func toggleRepost(_ post: SocialPost, mode: HomeMode) async {
-        let nextReposted = !post.reposted
-        applyEngagement(postID: post.id, mode: mode) { item in
-            item.reposted = nextReposted
-            item.repostCount = max(0, item.repostCount + (nextReposted ? 1 : -1))
-        }
-        do {
-            if nextReposted {
-                try await repository.repost(postID: post.id)
-            } else {
-                try await repository.unrepost(postID: post.id)
-            }
-            HapticEngine.shared.play(.confirmation)
-        } catch {
-            applyEngagement(postID: post.id, mode: mode) { item in
-                item.reposted = post.reposted
-                item.repostCount = post.repostCount
-            }
-            actionError = (error as? APIError)?.userFacingMessage ?? "Could not update repost."
-            HapticEngine.shared.play(.failure)
+        postActions.ingest(post)
+        await postActions.toggleRepost(post)
+        sync(postID: post.id, mode: mode)
+        actionError = postActions.lastError
+    }
+
+    func clearActionError() {
+        actionError = nil
+        postActions.clearError()
+    }
+
+    /// Re-resolve feed rows from the shared post store (after engagement elsewhere).
+    func syncVisibleEngagement() {
+        for mode in HomeMode.allCases {
+            guard var state = modes[mode] else { continue }
+            state.items = visibleItems(state.items.map(posts.resolved))
+            modes[mode] = state
         }
     }
 
-    func clearActionError() { actionError = nil }
-
-    private func applyEngagement(postID: SocialPostID, mode: HomeMode, mutate: (inout SocialPost) -> Void) {
+    private func sync(postID: SocialPostID, mode: HomeMode) {
         guard var state = modes[mode] else { return }
         state.items = state.items.map { item in
             guard item.id == postID else { return item }
-            var copy = item
-            mutate(&copy)
-            return copy
+            return posts.resolved(item)
         }
+        // Also sync other modes that show the same post.
         modes[mode] = state
+        for other in HomeMode.allCases where other != mode {
+            guard var otherState = modes[other] else { continue }
+            otherState.items = otherState.items.map { item in
+                guard item.id == postID else { return item }
+                return posts.resolved(item)
+            }
+            modes[other] = otherState
+        }
+    }
+
+    private func visibleItems(_ items: [SocialPost]) -> [SocialPost] {
+        items.filter { !posts.isHidden($0.id) }.map(posts.resolved)
     }
 }

@@ -14,9 +14,15 @@ struct RootView: View {
         let policy = ShellChromePolicy.policy(for: navigation.currentRoute, isTabRoot: navigation.isAtTabRoot)
         shell(navigation: navigation, policy: policy)
         .fontDesign(appearance.fontDesign)
+        .environment(
+            \.trailingInteractionInset,
+            policy.contextRailVisible ? TrailingInteractionSafeArea.contentClearance : 0
+        )
         .overlay(alignment: .trailing) {
             if policy.contextRailVisible {
-                ModulaContextRail(route: navigation.currentRoute)
+                ShellEdgeLoop(route: navigation.currentRoute)
+                    .ignoresSafeArea(edges: .trailing)
+                    .padding(.bottom, 80)
             }
         }
         .sheet(item: $navigation.presented) { presentation in
@@ -26,9 +32,35 @@ struct RootView: View {
             if let banner = navigation.banner { Label(banner.message, systemImage: banner.symbol).padding(12).background(.regularMaterial, in: Capsule()).padding(.top, 8) }
         }
         .background(palette.canvas.ignoresSafeArea())
-        .onOpenURL { _ = navigation.open(path: $0.absoluteString) }
-        .onAppear { app.runtime.markNativeUsable() }
-        .task { await app.auth.restore(); await app.catalogue.load() }
+        .onAppear {
+            app.runtime.markNativeUsable()
+            if let delegate = UIApplication.shared.delegate as? ModulaAppDelegate {
+                delegate.environment = app
+                delegate.consumePendingShortcutIfNeeded()
+            }
+            app.refreshQuickActions()
+        }
+        .task {
+            await app.catalogue.load()
+            app.refreshQuickActions()
+            let installed = app.catalogue.installedIDs.compactMap { id -> (id: String, name: String)? in
+                guard let product = app.catalogue.product(id) else { return (id, id) }
+                return (id, product.name)
+            }
+            SpotlightIndexPreparation.refresh(installedModules: installed)
+        }
+        .modulaCommandKeyboard(
+            onCommandK: {
+                app.navigation.presented = .commandCenter
+                HapticEngine.shared.play(.contextOpen)
+            },
+            onCommandN: {
+                app.navigation.presented = .createPicker
+            },
+            onCommandF: {
+                app.navigation.open(.search(.root(nil)))
+            }
+        )
         .onChange(of: scenePhase) { previous, phase in
             if phase == .active { if previous == .background { app.runtime.lifecycle("foregrounded") }; app.runtime.lifecycle("active") }
             else { app.runtime.lifecycle(phase == .background ? "backgrounded" : "inactive") }
@@ -89,22 +121,25 @@ private struct RouteView: View {
     let route: AppRoute
     var body: some View {
         switch route {
-        case .boot: HomeView(mode: .following)
+        case .boot: BootSplashView()
         case .auth(let route): AuthRouteView(route: route)
         case .home(let mode): HomeView(mode: mode)
         case .discover: DiscoverScreen()
         case .search(let route): SearchScreen(route: route)
         case .post(let id, let section): PostDetailView(postID: id, section: section)
-        case .compose(let route): ComposerFoundationView(route: route)
+        case .compose(let route): CreationStudioView(route: route)
         case .activity(let mode): ActivityScreen(mode: mode)
         case .notification: DevelopmentRouteView(title: "Notification", symbol: "bell")
         case .profile(let id, let section): ProfileView(userID: id, section: section)
         case .me(let section): ProfileView(userID: nil, section: section)
-        case .productHub(.module(let id, let section)): ModuleDetailView(moduleID: id, section: section)
+        case .productHub(.module(let id, let section)): ModuleDetailV2View(moduleID: id, section: section)
+        case .productHub(.publisher(let id)): PublisherView(publisherID: id)
         case .productHub(let route): ProductHubView(route: route)
         case .module(let id, let localPath): ModuleHost(moduleID: id, initialLocalPath: localPath)
-        case .settings(let route): SettingsRouteView(route: route)
-        case .messages: DevelopmentRouteView(title: "Messages", symbol: "message")
+        case .settings(let route): SettingsDestinationHost(route: route)
+        case .messages(let route): MessagesRootView(route: route)
+        case .stories(let route): StoriesRouteView(route: route)
+        case .reels(let route): ReelsRouteView(route: route)
         case .teams: DevelopmentRouteView(title: "Teams", symbol: "person.3")
         case .developer(.components):
             #if DEBUG
@@ -113,15 +148,34 @@ private struct RouteView: View {
             DevelopmentRouteView(title: "Components", symbol: "square.grid.3x3")
             #endif
         case .developer(let route): DevelopmentRouteView(title: route.rawValue.capitalized, symbol: "hammer")
+        case .command:
+            CommandCenterView(context: .global)
+        case .saved(let section):
+            SavedView(section: {
+                switch section {
+                case .root: .root
+                case .posts: .posts
+                case .modules: .modules
+                case .links: .links
+                }
+            }())
+        case .collections(.root):
+            CollectionsView()
+        case .collections(.collection(let id)):
+            CollectionDetailView(collectionID: id)
+        case .drafts:
+            DraftsView()
         }
     }
 }
 
 private struct PresentationView: View {
     let presentation: AppPresentation
+    @Environment(AppEnvironment.self) private var app
+
     var body: some View {
         switch presentation {
-        case .composer(let route): ComposerFoundationView(route: route)
+        case .composer(let route): CreationStudioView(route: route)
         case .share(let route):
             let url = shareURL(for: route)
             ShareLink(item: url) {
@@ -137,6 +191,29 @@ private struct PresentationView: View {
         case .discoverFilter: DiscoverFilterSheet()
         case .homeSummary: HomeSummarySheet()
         case .homeFeedTools: HomeFeedToolsSheet()
+        case .commandCenter: CommandCenterView(context: commandContext)
+        case .createPicker: CreateActionPicker()
+        case .universalShare(let payload): ModulaShareSheet(payload: payload)
+        case .collectionPicker(let postID): CollectionPicker(postID: postID)
+        case .draftRestore: DraftRestorePrompt(
+            onContinue: {},
+            onStartNew: {
+                app.drafts.discardPost()
+            }
+        )
+        }
+    }
+
+    private var commandContext: CommandContext {
+        switch app.navigation.currentRoute {
+        case .home: .home
+        case .discover, .search: .discover
+        case .productHub, .module: .modules
+        case .activity: .activity
+        case .profile, .me: .profile
+        case .settings: .settings
+        case .messages: .messages
+        default: .global
         }
     }
 
@@ -148,6 +225,12 @@ private struct PresentationView: View {
             return URL(string: "https://modula.digital/me")!
         case .post(let id, _):
             return URL(string: "https://modula.digital/post/\(id)")!
+        case .stories(.story(let id)):
+            return URL(string: "https://modula.digital/stories/\(id)")!
+        case .reels(.reel(let id)):
+            return URL(string: "https://modula.digital/reels/\(id)")!
+        case .messages(.conversation(let id)):
+            return URL(string: "https://modula.digital/messages/\(id)")!
         default:
             return URL(string: "https://modula.digital")!
         }
@@ -156,9 +239,9 @@ private struct PresentationView: View {
 
 struct DevelopmentRouteView: View {
     var title: String; var symbol: String
-    var body: some View { ModulaEmptyState(title: title, message: "This route is ready for a later product phase.", symbol: symbol).navigationTitle(title) }
+    var body: some View { ModulaEmptyState(title: title, message: "This destination isn’t part of the current product surface.", symbol: symbol).navigationTitle(title) }
 }
 struct ComposerFoundationView: View {
     let route: ComposeRoute
-    var body: some View { DevelopmentRouteView(title: "Compose \(route.rawValue.capitalized)", symbol: "square.and.pencil") }
+    var body: some View { CreationStudioView(route: route) }
 }

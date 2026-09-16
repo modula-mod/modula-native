@@ -16,9 +16,13 @@ struct ProfileEditView: View {
                 previewHeader
 
                 identitySection
+                mediaSection
                 aboutSection
+                linksSection
+                modulesSection
+                presentationSection
 
-                Text("Avatar, cover, pronouns, location, website and links are readable on Profile but not writable yet on Greenfield.")
+                Text("Avatar, cover, pronouns, location, website, links, headline, and profile accent are readable when Greenfield sends them. Writes stay capability-gated.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -124,7 +128,47 @@ struct ProfileEditView: View {
                         .accessibilityLabel("Handle @\(handle). Change handle in Account settings.")
                 }
             }
+            field(title: "Headline") {
+                TextField("Headline", text: headlineBinding)
+                    .disabled(!app.profile.customization.headlineWritable)
+                    .accessibilityIdentifier("profile.edit.headline")
+            }
+            if !app.profile.customization.headlineWritable {
+                Text("Headline is stored when Greenfield provides it. Editing waits on a write contract.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
         }
+    }
+
+    private var mediaSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Media")
+                .font(.headline)
+            Text("Profile Photo and Cover Photo reuse the existing Profile media viewer. Uploading and cover focal point wait on Greenfield write contracts.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var linksSection: some View {
+        ProfileLinksEditor(links: liveProfile?.links ?? [], writable: app.profile.customization.linksWritable)
+    }
+
+    private var modulesSection: some View {
+        FeaturedModulesEditor(
+            featuredIDs: draft?.featuredModuleIDs ?? liveProfile?.featuredModuleIds ?? [],
+            available: app.catalogue.products,
+            writable: app.profile.customization.featuredModulesWritable
+        )
+    }
+
+    private var presentationSection: some View {
+        ProfileAccentPicker(
+            selection: accentBinding,
+            writable: app.profile.customization.accentWritable
+        )
     }
 
     private var aboutSection: some View {
@@ -210,6 +254,20 @@ struct ProfileEditView: View {
         )
     }
 
+    private var headlineBinding: Binding<String> {
+        Binding(
+            get: { draft?.headline ?? "" },
+            set: { value in app.profile.updateEditingDraft { $0.headline = value } }
+        )
+    }
+
+    private var accentBinding: Binding<ProfileAccent?> {
+        Binding(
+            get: { draft?.accent },
+            set: { value in app.profile.updateEditingDraft { $0.accent = value } }
+        )
+    }
+
     private func attemptDismiss() {
         if editing.isDirty {
             confirmsDiscard = true
@@ -231,9 +289,13 @@ private extension ModulaProfile {
             coverURL: coverURL,
             coverColour: coverColour,
             bio: bio,
+            headline: headline,
             pronouns: pronouns,
             location: location,
             website: website,
+            languages: languages,
+            presentation: presentation,
+            coverFocalPoint: coverFocalPoint,
             followerCount: followerCount,
             followingCount: followingCount,
             moduleCount: moduleCount,

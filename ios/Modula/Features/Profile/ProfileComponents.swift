@@ -6,6 +6,8 @@ struct ProfileCover: View {
     let coverURL: URL?
     let coverColour: String?
     var scrollProgress: CGFloat = 0
+    var pocketCenterX: CGFloat? = nil
+    var pocketRadius: CGFloat? = nil
     var onTap: (() -> Void)? = nil
     var contextActions: [ModulaContextAction] = []
     var onContextAction: ((ModulaContextAction) -> Void)? = nil
@@ -17,8 +19,8 @@ struct ProfileCover: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var coverHeight: CGFloat {
-        let base: CGFloat = sizeClass == .regular ? 280 : 250
-        if dynamicTypeSize.isAccessibilitySize { return max(220, base - 20) }
+        let base: CGFloat = sizeClass == .regular ? 320 : 300
+        if dynamicTypeSize.isAccessibilitySize { return max(240, base - 24) }
         return base
     }
 
@@ -69,6 +71,13 @@ struct ProfileCover: View {
             .frame(width: width, height: coverHeight + stretch)
             .offset(y: reduceMotion ? 0 : -CGFloat(dissolve) * 18)
             .opacity(1 - (0.35 * Double(dissolve)))
+            .mask {
+                if let pocketCenterX, let pocketRadius {
+                    AvatarPocketShape(centerX: pocketCenterX, radius: pocketRadius)
+                } else {
+                    Rectangle()
+                }
+            }
             .clipped()
         }
         .frame(height: coverHeight)
@@ -143,28 +152,23 @@ struct ProfileCover: View {
 
 // MARK: - Avatar pocket
 
-/// Circular carve under the cover so the avatar sits in a canvas-coloured pocket (Light + OLED).
-private struct ProfileAvatarCarve: Shape {
-    var avatarCenterX: CGFloat
-    var avatarRadius: CGFloat
+enum ProfileIdentityMetrics {
+    static func avatarSize(sizeClass: UserInterfaceSizeClass?) -> CGFloat {
+        sizeClass == .regular ? 112 : 104
+    }
 
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.addRect(rect)
-        let center = CGPoint(x: avatarCenterX, y: rect.maxY)
-        path.addEllipse(in: CGRect(
-            x: center.x - avatarRadius,
-            y: center.y - avatarRadius,
-            width: avatarRadius * 2,
-            height: avatarRadius * 2
-        ))
-        return path
+    static func carveRadius(avatarSize: CGFloat) -> CGFloat {
+        (avatarSize / 2) + 8
     }
 }
+
+/// Circular carve under the cover so the avatar sits in a canvas-coloured pocket (Light + OLED).
 
 struct ProfileAvatarPocket: View {
     let profile: ModulaProfile
     var onTap: (() -> Void)? = nil
+    var onStoryTap: (() -> Void)? = nil
+    var storyRing: StoryRingState? = nil
     var contextActions: [ModulaContextAction] = []
     var onContextAction: ((ModulaContextAction) -> Void)? = nil
 
@@ -173,11 +177,11 @@ struct ProfileAvatarPocket: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
 
     private var avatarSize: CGFloat {
-        sizeClass == .regular ? 112 : 104
+        ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass)
     }
 
     private var ring: CGFloat { 5 }
-    private var carveRadius: CGFloat { (avatarSize / 2) + ring + 2 }
+    private var carveRadius: CGFloat { ProfileIdentityMetrics.carveRadius(avatarSize: avatarSize) }
     /// How much of the avatar sits above the content surface (intersection geometry).
     private var intersection: CGFloat { avatarSize * 0.42 }
 
@@ -187,7 +191,7 @@ struct ProfileAvatarPocket: View {
             canvas
                 .frame(height: intersection)
                 .mask(
-                    ProfileAvatarCarve(avatarCenterX: inset + avatarSize / 2, avatarRadius: carveRadius)
+                    AvatarPocketCarve(avatarCenterX: inset + avatarSize / 2, avatarRadius: carveRadius)
                         .fill(style: FillStyle(eoFill: true))
                 )
 
@@ -205,14 +209,23 @@ struct ProfileAvatarPocket: View {
     private var avatarBadge: some View {
         ZStack(alignment: .bottomTrailing) {
             Button {
-                onTap?()
+                if storyRing != nil, let onStoryTap {
+                    onStoryTap()
+                } else {
+                    onTap?()
+                }
                 HapticEngine.shared.play(.lightImpact)
             } label: {
-                ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: avatarSize)
-                    .overlay(
-                        Circle()
-                            .strokeBorder(canvas, lineWidth: ring)
-                    )
+                ZStack {
+                    if let storyRing {
+                        StoryRing(state: storyRing, size: avatarSize, accent: app.appearance.accent.color)
+                    }
+                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: avatarSize)
+                        .overlay(
+                            Circle()
+                                .strokeBorder(canvas, lineWidth: ring)
+                        )
+                }
             }
             .buttonStyle(.plain)
             .contextMenu {
@@ -232,8 +245,9 @@ struct ProfileAvatarPocket: View {
                 }
             }
             .accessibilityLabel("\(profile.displayName)'s profile photo")
-            .accessibilityHint("Open profile photo")
+            .accessibilityHint(storyRing == nil ? "Open profile photo" : "Opens story. Use Open profile photo or long press for the image.")
             .accessibilityAction(named: "Open profile photo") { onTap?() }
+            .accessibilityAction(named: "Open story") { onStoryTap?() }
             .accessibilityIdentifier("profile.avatar")
 
             if profile.isVerified {
@@ -257,6 +271,7 @@ struct ProfileAvatarPocket: View {
 struct ProfileIdentityBlock: View {
     let profile: ModulaProfile
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.profileAccentColor) private var profileAccent
     @State private var bioExpanded = false
 
     private var bioIsLong: Bool { profile.bio.count > 160 || profile.bio.contains("\n") }
@@ -268,9 +283,17 @@ struct ProfileIdentityBlock: View {
                     .lineLimit(2)
                 if profile.isVerified {
                     Image(systemName: "checkmark.seal.fill")
-                        .foregroundStyle(app.appearance.accent.color)
+                        .foregroundStyle(profileAccent ?? app.appearance.accent.color)
                         .accessibilityLabel("Verified account")
                 }
+            }
+
+            if let headline = profile.headline, !headline.isEmpty {
+                Text(headline)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(profileAccent ?? app.appearance.accent.color)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("profile.headline")
             }
 
             HStack(spacing: 6) {
@@ -442,7 +465,9 @@ struct ProfileToolActions: View {
     let followTitle: String
     let isFollowing: Bool
     var followBusy: Bool = false
+    var messageTitle: String? = nil
     var onPrimary: () -> Void
+    var onMessage: (() -> Void)? = nil
     var onShare: () -> Void
     var moreActions: [ModulaContextAction]
     var onMore: (ModulaContextAction) -> Void
@@ -473,6 +498,21 @@ struct ProfileToolActions: View {
             .disabled(followBusy)
             .accessibilityLabel(isOwn ? "Edit Profile" : followTitle)
             .accessibilityIdentifier(isOwn ? "profile.edit.cta" : "profile.follow.cta")
+
+            if let messageTitle, let onMessage, !isOwn {
+                Button(action: onMessage) {
+                    Text(messageTitle)
+                        .font(.subheadline.weight(.semibold))
+                        .frame(minWidth: 88)
+                        .frame(minHeight: 44)
+                        .padding(.horizontal, 12)
+                        .foregroundStyle(.primary)
+                        .background(Color.primary.opacity(0.08), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(messageTitle)
+                .accessibilityIdentifier("profile.message.cta")
+            }
 
             Button(action: onShare) {
                 Image(systemName: ModulaIconRegistry.symbol(.share, style: app.appearance.iconStyle))
@@ -525,12 +565,15 @@ struct ProfileAboutGrid: View {
         if let joined = profile.joinedAt {
             items.append(("Joined", Self.joinedFormatter.string(from: joined), nil))
         }
-        if let location = profile.location?.label, !location.isEmpty {
+        if let location = profile.location?.label, !location.isEmpty, ProfileFieldPrivacy.isPublic(profile.location?.visibility) {
             items.append(("Location", location, nil))
         }
-        if let website = profile.website, let url = website.url {
+        if let website = profile.website, let url = website.url, ProfileFieldPrivacy.isPublic(website.visibility) {
             let label = website.domain ?? website.label
             items.append(("Website", label, { Self.openSafely(url, openURL: openURL) }))
+        }
+        if !profile.languages.isEmpty {
+            items.append(("Languages", profile.languages.joined(separator: " · "), nil))
         }
         if let visibility = profile.visibility {
             items.append(("Visibility", visibility.displayTitle, nil))

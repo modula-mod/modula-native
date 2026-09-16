@@ -7,8 +7,102 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D50100000000000000000001 /* PrivateFileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000001 /* PrivateFileStore.swift */; };
+		D50100000000000000000002 /* CommandModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000002 /* CommandModels.swift */; };
+		D50100000000000000000003 /* CommandMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000003 /* CommandMatcher.swift */; };
+		D50100000000000000000004 /* CommandRecentsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000004 /* CommandRecentsStore.swift */; };
+		D50100000000000000000005 /* CommandRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000005 /* CommandRegistry.swift */; };
+		D50100000000000000000006 /* CreateActionRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000006 /* CreateActionRegistry.swift */; };
+		D50100000000000000000007 /* CommandExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000007 /* CommandExecutor.swift */; };
+		D50100000000000000000008 /* ShareModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000008 /* ShareModels.swift */; };
+		D50100000000000000000009 /* CommandCenterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000009 /* CommandCenterView.swift */; };
+		D5010000000000000000000A /* SavedModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4010000000000000000000A /* SavedModels.swift */; };
+		D5010000000000000000000B /* SavedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4010000000000000000000B /* SavedStore.swift */; };
+		D5010000000000000000000C /* SavedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4010000000000000000000C /* SavedView.swift */; };
+		D5010000000000000000000D /* CollectionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4010000000000000000000D /* CollectionModels.swift */; };
+		D5010000000000000000000E /* CollectionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4010000000000000000000E /* CollectionStore.swift */; };
+		D5010000000000000000000F /* CollectionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4010000000000000000000F /* CollectionViews.swift */; };
+		D50100000000000000000010 /* DraftModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000010 /* DraftModels.swift */; };
+		D50100000000000000000011 /* DraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000011 /* DraftStore.swift */; };
+		D50100000000000000000012 /* DraftsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000012 /* DraftsView.swift */; };
+		D50100000000000000000013 /* ModulaShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000013 /* ModulaShareSheet.swift */; };
+		D50100000000000000000014 /* QuickActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000014 /* QuickActions.swift */; };
+		D50100000000000000000015 /* AppIntentsFoundation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000015 /* AppIntentsFoundation.swift */; };
+		D50100000000000000000016 /* SpotlightIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000016 /* SpotlightIndex.swift */; };
+		D50100000000000000000017 /* KeyboardCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000017 /* KeyboardCommands.swift */; };
+		D50100000000000000000018 /* N4DTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000018 /* N4DTests.swift */; };
+		C50100000000000000000001 /* CreationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000001 /* CreationModels.swift */; };
+		C50100000000000000000002 /* CreationCapabilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000002 /* CreationCapabilities.swift */; };
+		C50100000000000000000003 /* CreationStudioStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000003 /* CreationStudioStore.swift */; };
+		C50100000000000000000004 /* CreationStudioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000004 /* CreationStudioView.swift */; };
+		C50100000000000000000005 /* CreationComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000005 /* CreationComponents.swift */; };
+		C50100000000000000000006 /* AudiencePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000006 /* AudiencePicker.swift */; };
+		C50100000000000000000007 /* PollEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000007 /* PollEditor.swift */; };
+		C50100000000000000000008 /* DraftMediaStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000008 /* DraftMediaStore.swift */; };
+		C50100000000000000000009 /* MediaPreparation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000009 /* MediaPreparation.swift */; };
+		C5010000000000000000000A /* PublishingRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4010000000000000000000A /* PublishingRepository.swift */; };
+		C5010000000000000000000B /* MediaUploading.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4010000000000000000000B /* MediaUploading.swift */; };
+		C5010000000000000000000C /* N4FTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4010000000000000000000C /* N4FTests.swift */; };
+		G50100000000000000000001 /* ModulaSurfaceSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000001 /* ModulaSurfaceSystem.swift */; };
+		G50100000000000000000002 /* EdgeLoopEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000002 /* EdgeLoopEngine.swift */; };
+		G50100000000000000000003 /* EdgeLoopShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000003 /* EdgeLoopShape.swift */; };
+		G50100000000000000000004 /* ModulaEdgeLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000004 /* ModulaEdgeLoop.swift */; };
+		G50100000000000000000005 /* ModulaImmersiveSurfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000005 /* ModulaImmersiveSurfaces.swift */; };
+		G50100000000000000000006 /* TypographyPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000006 /* TypographyPreview.swift */; };
+		G50100000000000000000007 /* N4GTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000007 /* N4GTests.swift */; };
+		A50100000000000000000001 /* AppLaunchState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000001 /* AppLaunchState.swift */; };
+		A50100000000000000000002 /* AppGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000002 /* AppGate.swift */; };
+		A50100000000000000000003 /* AppGateHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000003 /* AppGateHost.swift */; };
+		A50100000000000000000004 /* OnboardingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000004 /* OnboardingModels.swift */; };
+		A50100000000000000000005 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000005 /* OnboardingView.swift */; };
+		A50100000000000000000006 /* FirstRunModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000006 /* FirstRunModels.swift */; };
+		A50100000000000000000007 /* FirstRunView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000007 /* FirstRunView.swift */; };
+		A50100000000000000000008 /* AppLockModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000008 /* AppLockModels.swift */; };
+		A50100000000000000000009 /* AppLockCredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000009 /* AppLockCredentialStore.swift */; };
+		A5010000000000000000000A /* BiometricAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4010000000000000000000A /* BiometricAuthService.swift */; };
+		A5010000000000000000000B /* AppLockStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4010000000000000000000B /* AppLockStore.swift */; };
+		A5010000000000000000000C /* AppLockViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4010000000000000000000C /* AppLockViews.swift */; };
+		A5010000000000000000000D /* SettingsRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4010000000000000000000D /* SettingsRegistry.swift */; };
+		A5010000000000000000000E /* SettingsCategoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4010000000000000000000E /* SettingsCategoryViews.swift */; };
+		A5010000000000000000000F /* GreenfieldAccountClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4010000000000000000000F /* GreenfieldAccountClient.swift */; };
+		A50100000000000000000010 /* AuthProductViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000010 /* AuthProductViews.swift */; };
+		A50100000000000000000011 /* ReactionKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000011 /* ReactionKind.swift */; };
+		A50100000000000000000012 /* ReactionPeopleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000012 /* ReactionPeopleView.swift */; };
+		A50100000000000000000013 /* ProfileFullBleedChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000013 /* ProfileFullBleedChrome.swift */; };
+		A50100000000000000000014 /* ModuleDetailModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000014 /* ModuleDetailModels.swift */; };
+		A50100000000000000000015 /* ModuleDetailV2View.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000015 /* ModuleDetailV2View.swift */; };
+		A50100000000000000000016 /* PublisherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000016 /* PublisherView.swift */; };
+		A50100000000000000000017 /* N4ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000017 /* N4ETests.swift */; };
+		N50100000000000000000001 /* MediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000001 /* MediaModels.swift */; };
+		N50100000000000000000002 /* ModulaVideoPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000002 /* ModulaVideoPlayer.swift */; };
+		N50100000000000000000003 /* MessageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000003 /* MessageModels.swift */; };
+		N50100000000000000000004 /* MessagingRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000004 /* MessagingRepository.swift */; };
+		N50100000000000000000005 /* MessagingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000005 /* MessagingStore.swift */; };
+		N50100000000000000000006 /* MessageContextActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000006 /* MessageContextActions.swift */; };
+		N50100000000000000000007 /* MessagesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000007 /* MessagesViews.swift */; };
+		N50100000000000000000008 /* InMailModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000008 /* InMailModels.swift */; };
+		N50100000000000000000009 /* InMailRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000009 /* InMailRepository.swift */; };
+		N5010000000000000000000A /* InMailStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000A /* InMailStore.swift */; };
+		N5010000000000000000000B /* InMailViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000B /* InMailViews.swift */; };
+		N5010000000000000000000C /* StoryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000C /* StoryModels.swift */; };
+		N5010000000000000000000D /* StoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000D /* StoryViews.swift */; };
+		N5010000000000000000000E /* ReelModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000E /* ReelModels.swift */; };
+		N5010000000000000000000F /* ReelViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000F /* ReelViewer.swift */; };
+		N50100000000000000000010 /* ProfilePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000010 /* ProfilePresentation.swift */; };
+		N50100000000000000000011 /* ProfileCustomizationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000011 /* ProfileCustomizationViews.swift */; };
+		N50100000000000000000012 /* N4CTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000012 /* N4CTests.swift */; };
 		E4010000000000000000000A /* ModulaContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3010000000000000000000A /* ModulaContextMenu.swift */; };
 		E4010000000000000000000B /* ModulaMediaViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3010000000000000000000B /* ModulaMediaViewer.swift */; };
+		E40100000000000000000010 /* PostGestureThresholds.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000010 /* PostGestureThresholds.swift */; };
+		E40100000000000000000011 /* PostBackendCapabilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000011 /* PostBackendCapabilities.swift */; };
+		E40100000000000000000012 /* PostStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000012 /* PostStateStore.swift */; };
+		E40100000000000000000013 /* PostRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000013 /* PostRepository.swift */; };
+		E40100000000000000000014 /* PostActionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000014 /* PostActionController.swift */; };
+		E40100000000000000000015 /* PostContextActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000015 /* PostContextActions.swift */; };
+		E40100000000000000000016 /* PostReactionPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000016 /* PostReactionPicker.swift */; };
+		E40100000000000000000017 /* PostActionRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000017 /* PostActionRail.swift */; };
+		E40100000000000000000018 /* PostCommentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000018 /* PostCommentsView.swift */; };
+		E40100000000000000000019 /* PostSystemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000019 /* PostSystemTests.swift */; };
 		F10100000000000000000007 /* ProfileContextActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000007 /* ProfileContextActions.swift */; };
 		F10100000000000000000008 /* ProfileShareViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000008 /* ProfileShareViews.swift */; };
 		001526FE43E0E8C9671B4E84 /* ModuleHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */; };
@@ -104,8 +198,102 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		D40100000000000000000001 /* PrivateFileStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PrivateFileStore.swift; path = Core/Persistence/PrivateFileStore.swift; sourceTree = "<group>"; };
+		D40100000000000000000002 /* CommandModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommandModels.swift; path = Core/Commands/CommandModels.swift; sourceTree = "<group>"; };
+		D40100000000000000000003 /* CommandMatcher.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommandMatcher.swift; path = Core/Commands/CommandMatcher.swift; sourceTree = "<group>"; };
+		D40100000000000000000004 /* CommandRecentsStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommandRecentsStore.swift; path = Core/Commands/CommandRecentsStore.swift; sourceTree = "<group>"; };
+		D40100000000000000000005 /* CommandRegistry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommandRegistry.swift; path = Core/Commands/CommandRegistry.swift; sourceTree = "<group>"; };
+		D40100000000000000000006 /* CreateActionRegistry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreateActionRegistry.swift; path = Core/Commands/CreateActionRegistry.swift; sourceTree = "<group>"; };
+		D40100000000000000000007 /* CommandExecutor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommandExecutor.swift; path = Core/Commands/CommandExecutor.swift; sourceTree = "<group>"; };
+		D40100000000000000000008 /* ShareModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShareModels.swift; path = Core/Sharing/ShareModels.swift; sourceTree = "<group>"; };
+		D40100000000000000000009 /* CommandCenterView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommandCenterView.swift; path = Features/CommandCenter/CommandCenterView.swift; sourceTree = "<group>"; };
+		D4010000000000000000000A /* SavedModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SavedModels.swift; path = Features/Saved/SavedModels.swift; sourceTree = "<group>"; };
+		D4010000000000000000000B /* SavedStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SavedStore.swift; path = Features/Saved/SavedStore.swift; sourceTree = "<group>"; };
+		D4010000000000000000000C /* SavedView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SavedView.swift; path = Features/Saved/SavedView.swift; sourceTree = "<group>"; };
+		D4010000000000000000000D /* CollectionModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CollectionModels.swift; path = Features/Collections/CollectionModels.swift; sourceTree = "<group>"; };
+		D4010000000000000000000E /* CollectionStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CollectionStore.swift; path = Features/Collections/CollectionStore.swift; sourceTree = "<group>"; };
+		D4010000000000000000000F /* CollectionViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CollectionViews.swift; path = Features/Collections/CollectionViews.swift; sourceTree = "<group>"; };
+		D40100000000000000000010 /* DraftModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DraftModels.swift; path = Features/Drafts/DraftModels.swift; sourceTree = "<group>"; };
+		D40100000000000000000011 /* DraftStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DraftStore.swift; path = Features/Drafts/DraftStore.swift; sourceTree = "<group>"; };
+		D40100000000000000000012 /* DraftsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DraftsView.swift; path = Features/Drafts/DraftsView.swift; sourceTree = "<group>"; };
+		D40100000000000000000013 /* ModulaShareSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaShareSheet.swift; path = Features/UniversalShare/ModulaShareSheet.swift; sourceTree = "<group>"; };
+		D40100000000000000000014 /* QuickActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = QuickActions.swift; path = Features/SystemIntegration/QuickActions.swift; sourceTree = "<group>"; };
+		D40100000000000000000015 /* AppIntentsFoundation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppIntentsFoundation.swift; path = Features/SystemIntegration/AppIntentsFoundation.swift; sourceTree = "<group>"; };
+		D40100000000000000000016 /* SpotlightIndex.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SpotlightIndex.swift; path = Features/SystemIntegration/SpotlightIndex.swift; sourceTree = "<group>"; };
+		D40100000000000000000017 /* KeyboardCommands.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = KeyboardCommands.swift; path = Features/SystemIntegration/KeyboardCommands.swift; sourceTree = "<group>"; };
+		D40100000000000000000018 /* N4DTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4DTests.swift; sourceTree = "<group>"; };
+		C40100000000000000000001 /* CreationModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreationModels.swift; path = Features/Creation/CreationModels.swift; sourceTree = "<group>"; };
+		C40100000000000000000002 /* CreationCapabilities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreationCapabilities.swift; path = Features/Creation/CreationCapabilities.swift; sourceTree = "<group>"; };
+		C40100000000000000000003 /* CreationStudioStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreationStudioStore.swift; path = Features/Creation/Composer/CreationStudioStore.swift; sourceTree = "<group>"; };
+		C40100000000000000000004 /* CreationStudioView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreationStudioView.swift; path = Features/Creation/Composer/CreationStudioView.swift; sourceTree = "<group>"; };
+		C40100000000000000000005 /* CreationComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreationComponents.swift; path = Features/Creation/Composer/CreationComponents.swift; sourceTree = "<group>"; };
+		C40100000000000000000006 /* AudiencePicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AudiencePicker.swift; path = Features/Creation/Audience/AudiencePicker.swift; sourceTree = "<group>"; };
+		C40100000000000000000007 /* PollEditor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PollEditor.swift; path = Features/Creation/Poll/PollEditor.swift; sourceTree = "<group>"; };
+		C40100000000000000000008 /* DraftMediaStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DraftMediaStore.swift; path = Features/Creation/Media/DraftMediaStore.swift; sourceTree = "<group>"; };
+		C40100000000000000000009 /* MediaPreparation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MediaPreparation.swift; path = Features/Creation/Media/MediaPreparation.swift; sourceTree = "<group>"; };
+		C4010000000000000000000A /* PublishingRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PublishingRepository.swift; path = Features/Creation/Publishing/PublishingRepository.swift; sourceTree = "<group>"; };
+		C4010000000000000000000B /* MediaUploading.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MediaUploading.swift; path = Core/MediaUpload/MediaUploading.swift; sourceTree = "<group>"; };
+		C4010000000000000000000C /* N4FTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4FTests.swift; sourceTree = "<group>"; };
+		G40100000000000000000001 /* ModulaSurfaceSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaSurfaceSystem.swift; path = DesignSystem/Surface/ModulaSurfaceSystem.swift; sourceTree = "<group>"; };
+		G40100000000000000000002 /* EdgeLoopEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopEngine.swift; path = DesignSystem/EdgeLoop/EdgeLoopEngine.swift; sourceTree = "<group>"; };
+		G40100000000000000000003 /* EdgeLoopShape.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopShape.swift; path = DesignSystem/EdgeLoop/EdgeLoopShape.swift; sourceTree = "<group>"; };
+		G40100000000000000000004 /* ModulaEdgeLoop.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaEdgeLoop.swift; path = DesignSystem/EdgeLoop/ModulaEdgeLoop.swift; sourceTree = "<group>"; };
+		G40100000000000000000005 /* ModulaImmersiveSurfaces.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaImmersiveSurfaces.swift; path = DesignSystem/Immersive/ModulaImmersiveSurfaces.swift; sourceTree = "<group>"; };
+		G40100000000000000000006 /* TypographyPreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TypographyPreview.swift; path = Features/Settings/TypographyPreview.swift; sourceTree = "<group>"; };
+		G40100000000000000000007 /* N4GTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4GTests.swift; sourceTree = "<group>"; };
+		A40100000000000000000001 /* AppLaunchState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppLaunchState.swift; path = Core/AppGate/AppLaunchState.swift; sourceTree = "<group>"; };
+		A40100000000000000000002 /* AppGate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppGate.swift; path = Core/AppGate/AppGate.swift; sourceTree = "<group>"; };
+		A40100000000000000000003 /* AppGateHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppGateHost.swift; path = Core/AppGate/AppGateHost.swift; sourceTree = "<group>"; };
+		A40100000000000000000004 /* OnboardingModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingModels.swift; path = Features/Onboarding/OnboardingModels.swift; sourceTree = "<group>"; };
+		A40100000000000000000005 /* OnboardingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingView.swift; path = Features/Onboarding/OnboardingView.swift; sourceTree = "<group>"; };
+		A40100000000000000000006 /* FirstRunModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FirstRunModels.swift; path = Features/FirstRun/FirstRunModels.swift; sourceTree = "<group>"; };
+		A40100000000000000000007 /* FirstRunView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FirstRunView.swift; path = Features/FirstRun/FirstRunView.swift; sourceTree = "<group>"; };
+		A40100000000000000000008 /* AppLockModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppLockModels.swift; path = Core/Security/AppLockModels.swift; sourceTree = "<group>"; };
+		A40100000000000000000009 /* AppLockCredentialStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppLockCredentialStore.swift; path = Core/Security/AppLockCredentialStore.swift; sourceTree = "<group>"; };
+		A4010000000000000000000A /* BiometricAuthService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BiometricAuthService.swift; path = Core/Security/BiometricAuthService.swift; sourceTree = "<group>"; };
+		A4010000000000000000000B /* AppLockStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppLockStore.swift; path = Core/Security/AppLockStore.swift; sourceTree = "<group>"; };
+		A4010000000000000000000C /* AppLockViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppLockViews.swift; path = Features/AppLock/AppLockViews.swift; sourceTree = "<group>"; };
+		A4010000000000000000000D /* SettingsRegistry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsRegistry.swift; path = Core/Settings/SettingsRegistry.swift; sourceTree = "<group>"; };
+		A4010000000000000000000E /* SettingsCategoryViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsCategoryViews.swift; path = Features/Settings/SettingsCategoryViews.swift; sourceTree = "<group>"; };
+		A4010000000000000000000F /* GreenfieldAccountClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GreenfieldAccountClient.swift; path = Core/Networking/GreenfieldAccountClient.swift; sourceTree = "<group>"; };
+		A40100000000000000000010 /* AuthProductViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthProductViews.swift; path = Core/Authentication/AuthProductViews.swift; sourceTree = "<group>"; };
+		A40100000000000000000011 /* ReactionKind.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactionKind.swift; path = Features/Social/Reactions/ReactionKind.swift; sourceTree = "<group>"; };
+		A40100000000000000000012 /* ReactionPeopleView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactionPeopleView.swift; path = Features/Social/Reactions/ReactionPeopleView.swift; sourceTree = "<group>"; };
+		A40100000000000000000013 /* ProfileFullBleedChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileFullBleedChrome.swift; path = Features/Profile/FullBleed/ProfileFullBleedChrome.swift; sourceTree = "<group>"; };
+		A40100000000000000000014 /* ModuleDetailModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleDetailModels.swift; path = Features/ProductHub/ModuleDetail/ModuleDetailModels.swift; sourceTree = "<group>"; };
+		A40100000000000000000015 /* ModuleDetailV2View.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleDetailV2View.swift; path = Features/ProductHub/ModuleDetail/ModuleDetailV2View.swift; sourceTree = "<group>"; };
+		A40100000000000000000016 /* PublisherView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PublisherView.swift; path = Features/ProductHub/Publisher/PublisherView.swift; sourceTree = "<group>"; };
+		A40100000000000000000017 /* N4ETests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4ETests.swift; sourceTree = "<group>"; };
+		N40100000000000000000001 /* MediaModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MediaModels.swift; path = Features/Media/MediaModels.swift; sourceTree = "<group>"; };
+		N40100000000000000000002 /* ModulaVideoPlayer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaVideoPlayer.swift; path = Features/Media/ModulaVideoPlayer.swift; sourceTree = "<group>"; };
+		N40100000000000000000003 /* MessageModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessageModels.swift; path = Features/Messages/MessageModels.swift; sourceTree = "<group>"; };
+		N40100000000000000000004 /* MessagingRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagingRepository.swift; path = Features/Messages/MessagingRepository.swift; sourceTree = "<group>"; };
+		N40100000000000000000005 /* MessagingStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagingStore.swift; path = Features/Messages/MessagingStore.swift; sourceTree = "<group>"; };
+		N40100000000000000000006 /* MessageContextActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessageContextActions.swift; path = Features/Messages/MessageContextActions.swift; sourceTree = "<group>"; };
+		N40100000000000000000007 /* MessagesViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagesViews.swift; path = Features/Messages/MessagesViews.swift; sourceTree = "<group>"; };
+		N40100000000000000000008 /* InMailModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailModels.swift; path = Features/InMail/InMailModels.swift; sourceTree = "<group>"; };
+		N40100000000000000000009 /* InMailRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailRepository.swift; path = Features/InMail/InMailRepository.swift; sourceTree = "<group>"; };
+		N4010000000000000000000A /* InMailStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailStore.swift; path = Features/InMail/InMailStore.swift; sourceTree = "<group>"; };
+		N4010000000000000000000B /* InMailViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailViews.swift; path = Features/InMail/InMailViews.swift; sourceTree = "<group>"; };
+		N4010000000000000000000C /* StoryModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryModels.swift; path = Features/Stories/StoryModels.swift; sourceTree = "<group>"; };
+		N4010000000000000000000D /* StoryViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryViews.swift; path = Features/Stories/StoryViews.swift; sourceTree = "<group>"; };
+		N4010000000000000000000E /* ReelModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelModels.swift; path = Features/Reels/ReelModels.swift; sourceTree = "<group>"; };
+		N4010000000000000000000F /* ReelViewer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelViewer.swift; path = Features/Reels/ReelViewer.swift; sourceTree = "<group>"; };
+		N40100000000000000000010 /* ProfilePresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfilePresentation.swift; path = Features/Profile/Customization/ProfilePresentation.swift; sourceTree = "<group>"; };
+		N40100000000000000000011 /* ProfileCustomizationViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileCustomizationViews.swift; path = Features/Profile/Customization/ProfileCustomizationViews.swift; sourceTree = "<group>"; };
+		N40100000000000000000012 /* N4CTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4CTests.swift; sourceTree = "<group>"; };
 		E3010000000000000000000A /* ModulaContextMenu.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaContextMenu.swift; path = DesignSystem/ModulaContextMenu.swift; sourceTree = "<group>"; };
 		E3010000000000000000000B /* ModulaMediaViewer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaMediaViewer.swift; path = DesignSystem/ModulaMediaViewer.swift; sourceTree = "<group>"; };
+		E30100000000000000000010 /* PostGestureThresholds.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostGestureThresholds.swift; path = Features/Social/PostGestureThresholds.swift; sourceTree = "<group>"; };
+		E30100000000000000000011 /* PostBackendCapabilities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostBackendCapabilities.swift; path = Features/Social/PostBackendCapabilities.swift; sourceTree = "<group>"; };
+		E30100000000000000000012 /* PostStateStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostStateStore.swift; path = Features/Social/PostStateStore.swift; sourceTree = "<group>"; };
+		E30100000000000000000013 /* PostRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostRepository.swift; path = Features/Social/PostRepository.swift; sourceTree = "<group>"; };
+		E30100000000000000000014 /* PostActionController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostActionController.swift; path = Features/Social/PostActionController.swift; sourceTree = "<group>"; };
+		E30100000000000000000015 /* PostContextActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostContextActions.swift; path = Features/Social/PostContextActions.swift; sourceTree = "<group>"; };
+		E30100000000000000000016 /* PostReactionPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostReactionPicker.swift; path = Features/Social/PostReactionPicker.swift; sourceTree = "<group>"; };
+		E30100000000000000000017 /* PostActionRail.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostActionRail.swift; path = Features/Social/PostActionRail.swift; sourceTree = "<group>"; };
+		E30100000000000000000018 /* PostCommentsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostCommentsView.swift; path = Features/Social/PostCommentsView.swift; sourceTree = "<group>"; };
+		E30100000000000000000019 /* PostSystemTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostSystemTests.swift; sourceTree = "<group>"; };
 		F00100000000000000000007 /* ProfileContextActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileContextActions.swift; path = Features/Profile/ProfileContextActions.swift; sourceTree = "<group>"; };
 		F00100000000000000000008 /* ProfileShareViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileShareViews.swift; path = Features/Profile/ProfileShareViews.swift; sourceTree = "<group>"; };
 		003916B967E1900F61DFB206 /* SettingsStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsStore.swift; path = Features/Settings/SettingsStore.swift; sourceTree = "<group>"; };
@@ -243,7 +431,13 @@
 				61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */,
 				E1010000000000000000000A /* DiscoverTests.swift */,
 				E30100000000000000000009 /* HomeFeedTests.swift */,
+				E30100000000000000000019 /* PostSystemTests.swift */,
 				F00100000000000000000006 /* ProfileTests.swift */,
+				N40100000000000000000012 /* N4CTests.swift */,
+				D40100000000000000000018 /* N4DTests.swift */,
+				A40100000000000000000017 /* N4ETests.swift */,
+				C4010000000000000000000C /* N4FTests.swift */,
+				G40100000000000000000007 /* N4GTests.swift */,
 			);
 			path = ModulaTests;
 			sourceTree = "<group>";
@@ -286,6 +480,28 @@
 		9BD2EB7E520E442D8B488FEA /* Modula */ = {
 			isa = PBXGroup;
 			children = (
+				A40100000000000000000001 /* AppLaunchState.swift */,
+				A40100000000000000000002 /* AppGate.swift */,
+				A40100000000000000000003 /* AppGateHost.swift */,
+				A40100000000000000000004 /* OnboardingModels.swift */,
+				A40100000000000000000005 /* OnboardingView.swift */,
+				A40100000000000000000006 /* FirstRunModels.swift */,
+				A40100000000000000000007 /* FirstRunView.swift */,
+				A40100000000000000000008 /* AppLockModels.swift */,
+				A40100000000000000000009 /* AppLockCredentialStore.swift */,
+				A4010000000000000000000A /* BiometricAuthService.swift */,
+				A4010000000000000000000B /* AppLockStore.swift */,
+				A4010000000000000000000C /* AppLockViews.swift */,
+				A4010000000000000000000D /* SettingsRegistry.swift */,
+				A4010000000000000000000E /* SettingsCategoryViews.swift */,
+				A4010000000000000000000F /* GreenfieldAccountClient.swift */,
+				A40100000000000000000010 /* AuthProductViews.swift */,
+				A40100000000000000000011 /* ReactionKind.swift */,
+				A40100000000000000000012 /* ReactionPeopleView.swift */,
+				A40100000000000000000013 /* ProfileFullBleedChrome.swift */,
+				A40100000000000000000014 /* ModuleDetailModels.swift */,
+				A40100000000000000000015 /* ModuleDetailV2View.swift */,
+				A40100000000000000000016 /* PublisherView.swift */,
 				084039C8EE9493F07C7F4946 /* AppEnvironment.swift */,
 				B8D0072715530545613031A3 /* ModulaApp.swift */,
 				CE413545A422ACB4BACBB3DF /* RootView.swift */,
@@ -299,6 +515,66 @@
 				E30100000000000000000001 /* PostModels.swift */,
 				E30100000000000000000002 /* PostComponents.swift */,
 				E30100000000000000000003 /* PostDetailView.swift */,
+				E30100000000000000000010 /* PostGestureThresholds.swift */,
+				E30100000000000000000011 /* PostBackendCapabilities.swift */,
+				E30100000000000000000012 /* PostStateStore.swift */,
+				E30100000000000000000013 /* PostRepository.swift */,
+				E30100000000000000000014 /* PostActionController.swift */,
+				E30100000000000000000015 /* PostContextActions.swift */,
+				E30100000000000000000016 /* PostReactionPicker.swift */,
+				E30100000000000000000017 /* PostActionRail.swift */,
+				E30100000000000000000018 /* PostCommentsView.swift */,
+				N40100000000000000000001 /* MediaModels.swift */,
+				N40100000000000000000002 /* ModulaVideoPlayer.swift */,
+				N40100000000000000000003 /* MessageModels.swift */,
+				N40100000000000000000004 /* MessagingRepository.swift */,
+				N40100000000000000000005 /* MessagingStore.swift */,
+				N40100000000000000000006 /* MessageContextActions.swift */,
+				N40100000000000000000007 /* MessagesViews.swift */,
+				N40100000000000000000008 /* InMailModels.swift */,
+				N40100000000000000000009 /* InMailRepository.swift */,
+				N4010000000000000000000A /* InMailStore.swift */,
+				N4010000000000000000000B /* InMailViews.swift */,
+				N4010000000000000000000C /* StoryModels.swift */,
+				N4010000000000000000000D /* StoryViews.swift */,
+				N4010000000000000000000E /* ReelModels.swift */,
+				N4010000000000000000000F /* ReelViewer.swift */,
+				N40100000000000000000010 /* ProfilePresentation.swift */,
+				N40100000000000000000011 /* ProfileCustomizationViews.swift */,
+				D40100000000000000000001 /* PrivateFileStore.swift */,
+				D40100000000000000000002 /* CommandModels.swift */,
+				D40100000000000000000003 /* CommandMatcher.swift */,
+				D40100000000000000000004 /* CommandRecentsStore.swift */,
+				D40100000000000000000005 /* CommandRegistry.swift */,
+				D40100000000000000000006 /* CreateActionRegistry.swift */,
+				D40100000000000000000007 /* CommandExecutor.swift */,
+				D40100000000000000000008 /* ShareModels.swift */,
+				D40100000000000000000009 /* CommandCenterView.swift */,
+				D4010000000000000000000A /* SavedModels.swift */,
+				D4010000000000000000000B /* SavedStore.swift */,
+				D4010000000000000000000C /* SavedView.swift */,
+				D4010000000000000000000D /* CollectionModels.swift */,
+				D4010000000000000000000E /* CollectionStore.swift */,
+				D4010000000000000000000F /* CollectionViews.swift */,
+				D40100000000000000000010 /* DraftModels.swift */,
+				D40100000000000000000011 /* DraftStore.swift */,
+				D40100000000000000000012 /* DraftsView.swift */,
+				D40100000000000000000013 /* ModulaShareSheet.swift */,
+				D40100000000000000000014 /* QuickActions.swift */,
+				D40100000000000000000015 /* AppIntentsFoundation.swift */,
+				D40100000000000000000016 /* SpotlightIndex.swift */,
+				D40100000000000000000017 /* KeyboardCommands.swift */,
+				C40100000000000000000001 /* CreationModels.swift */,
+				C40100000000000000000002 /* CreationCapabilities.swift */,
+				C40100000000000000000003 /* CreationStudioStore.swift */,
+				C40100000000000000000004 /* CreationStudioView.swift */,
+				C40100000000000000000005 /* CreationComponents.swift */,
+				C40100000000000000000006 /* AudiencePicker.swift */,
+				C40100000000000000000007 /* PollEditor.swift */,
+				C40100000000000000000008 /* DraftMediaStore.swift */,
+				C40100000000000000000009 /* MediaPreparation.swift */,
+				C4010000000000000000000A /* PublishingRepository.swift */,
+				C4010000000000000000000B /* MediaUploading.swift */,
 				DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */,
 				F00100000000000000000001 /* ProfileModels.swift */,
 				F00100000000000000000002 /* ProfileRepository.swift */,
@@ -330,6 +606,12 @@
 				65C4B3534ABCFCD2C0AE4AB5 /* KeychainStore.swift */,
 				97029B142178008022F2424B /* ModuleBackendRequest.swift */,
 				ADB419E3CAE3BA05CB1C1E59 /* ModulaDesignSystem.swift */,
+				G40100000000000000000001 /* ModulaSurfaceSystem.swift */,
+				G40100000000000000000002 /* EdgeLoopEngine.swift */,
+				G40100000000000000000003 /* EdgeLoopShape.swift */,
+				G40100000000000000000004 /* ModulaEdgeLoop.swift */,
+				G40100000000000000000005 /* ModulaImmersiveSurfaces.swift */,
+				G40100000000000000000006 /* TypographyPreview.swift */,
 				E30100000000000000000008 /* ModulaProgressiveHeader.swift */,
 				E3010000000000000000000A /* ModulaContextMenu.swift */,
 				E3010000000000000000000B /* ModulaMediaViewer.swift */,
@@ -628,7 +910,13 @@
 				FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */,
 				E2010000000000000000000A /* DiscoverTests.swift in Sources */,
 				E40100000000000000000009 /* HomeFeedTests.swift in Sources */,
+				E40100000000000000000019 /* PostSystemTests.swift in Sources */,
 				F10100000000000000000006 /* ProfileTests.swift in Sources */,
+				N50100000000000000000012 /* N4CTests.swift in Sources */,
+				D50100000000000000000018 /* N4DTests.swift in Sources */,
+				A50100000000000000000017 /* N4ETests.swift in Sources */,
+				C5010000000000000000000C /* N4FTests.swift in Sources */,
+				G50100000000000000000007 /* N4GTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -637,6 +925,28 @@
 			buildActionMask = 2147483647;
 			files = (
 				C5321327FFFE3ADE609BB112 /* AppEnvironment.swift in Sources */,
+				A50100000000000000000001 /* AppLaunchState.swift in Sources */,
+				A50100000000000000000002 /* AppGate.swift in Sources */,
+				A50100000000000000000003 /* AppGateHost.swift in Sources */,
+				A50100000000000000000004 /* OnboardingModels.swift in Sources */,
+				A50100000000000000000005 /* OnboardingView.swift in Sources */,
+				A50100000000000000000006 /* FirstRunModels.swift in Sources */,
+				A50100000000000000000007 /* FirstRunView.swift in Sources */,
+				A50100000000000000000008 /* AppLockModels.swift in Sources */,
+				A50100000000000000000009 /* AppLockCredentialStore.swift in Sources */,
+				A5010000000000000000000A /* BiometricAuthService.swift in Sources */,
+				A5010000000000000000000B /* AppLockStore.swift in Sources */,
+				A5010000000000000000000C /* AppLockViews.swift in Sources */,
+				A5010000000000000000000D /* SettingsRegistry.swift in Sources */,
+				A5010000000000000000000E /* SettingsCategoryViews.swift in Sources */,
+				A5010000000000000000000F /* GreenfieldAccountClient.swift in Sources */,
+				A50100000000000000000010 /* AuthProductViews.swift in Sources */,
+				A50100000000000000000011 /* ReactionKind.swift in Sources */,
+				A50100000000000000000012 /* ReactionPeopleView.swift in Sources */,
+				A50100000000000000000013 /* ProfileFullBleedChrome.swift in Sources */,
+				A50100000000000000000014 /* ModuleDetailModels.swift in Sources */,
+				A50100000000000000000015 /* ModuleDetailV2View.swift in Sources */,
+				A50100000000000000000016 /* PublisherView.swift in Sources */,
 				470E5C0C13B495ADACC3BDC8 /* ModulaApp.swift in Sources */,
 				F280213B620AE297E6EC4D78 /* RootView.swift in Sources */,
 				63CC3E79BDCFF0F138189C2B /* ModulaLog.swift in Sources */,
@@ -649,6 +959,66 @@
 				E40100000000000000000001 /* PostModels.swift in Sources */,
 				E40100000000000000000002 /* PostComponents.swift in Sources */,
 				E40100000000000000000003 /* PostDetailView.swift in Sources */,
+				E40100000000000000000010 /* PostGestureThresholds.swift in Sources */,
+				E40100000000000000000011 /* PostBackendCapabilities.swift in Sources */,
+				E40100000000000000000012 /* PostStateStore.swift in Sources */,
+				E40100000000000000000013 /* PostRepository.swift in Sources */,
+				E40100000000000000000014 /* PostActionController.swift in Sources */,
+				E40100000000000000000015 /* PostContextActions.swift in Sources */,
+				E40100000000000000000016 /* PostReactionPicker.swift in Sources */,
+				E40100000000000000000017 /* PostActionRail.swift in Sources */,
+				E40100000000000000000018 /* PostCommentsView.swift in Sources */,
+				N50100000000000000000001 /* MediaModels.swift in Sources */,
+				N50100000000000000000002 /* ModulaVideoPlayer.swift in Sources */,
+				N50100000000000000000003 /* MessageModels.swift in Sources */,
+				N50100000000000000000004 /* MessagingRepository.swift in Sources */,
+				N50100000000000000000005 /* MessagingStore.swift in Sources */,
+				N50100000000000000000006 /* MessageContextActions.swift in Sources */,
+				N50100000000000000000007 /* MessagesViews.swift in Sources */,
+				N50100000000000000000008 /* InMailModels.swift in Sources */,
+				N50100000000000000000009 /* InMailRepository.swift in Sources */,
+				N5010000000000000000000A /* InMailStore.swift in Sources */,
+				N5010000000000000000000B /* InMailViews.swift in Sources */,
+				N5010000000000000000000C /* StoryModels.swift in Sources */,
+				N5010000000000000000000D /* StoryViews.swift in Sources */,
+				N5010000000000000000000E /* ReelModels.swift in Sources */,
+				N5010000000000000000000F /* ReelViewer.swift in Sources */,
+				N50100000000000000000010 /* ProfilePresentation.swift in Sources */,
+				N50100000000000000000011 /* ProfileCustomizationViews.swift in Sources */,
+				D50100000000000000000001 /* PrivateFileStore.swift in Sources */,
+				D50100000000000000000002 /* CommandModels.swift in Sources */,
+				D50100000000000000000003 /* CommandMatcher.swift in Sources */,
+				D50100000000000000000004 /* CommandRecentsStore.swift in Sources */,
+				D50100000000000000000005 /* CommandRegistry.swift in Sources */,
+				D50100000000000000000006 /* CreateActionRegistry.swift in Sources */,
+				D50100000000000000000007 /* CommandExecutor.swift in Sources */,
+				D50100000000000000000008 /* ShareModels.swift in Sources */,
+				D50100000000000000000009 /* CommandCenterView.swift in Sources */,
+				D5010000000000000000000A /* SavedModels.swift in Sources */,
+				D5010000000000000000000B /* SavedStore.swift in Sources */,
+				D5010000000000000000000C /* SavedView.swift in Sources */,
+				D5010000000000000000000D /* CollectionModels.swift in Sources */,
+				D5010000000000000000000E /* CollectionStore.swift in Sources */,
+				D5010000000000000000000F /* CollectionViews.swift in Sources */,
+				D50100000000000000000010 /* DraftModels.swift in Sources */,
+				D50100000000000000000011 /* DraftStore.swift in Sources */,
+				D50100000000000000000012 /* DraftsView.swift in Sources */,
+				D50100000000000000000013 /* ModulaShareSheet.swift in Sources */,
+				D50100000000000000000014 /* QuickActions.swift in Sources */,
+				D50100000000000000000015 /* AppIntentsFoundation.swift in Sources */,
+				D50100000000000000000016 /* SpotlightIndex.swift in Sources */,
+				D50100000000000000000017 /* KeyboardCommands.swift in Sources */,
+				C50100000000000000000001 /* CreationModels.swift in Sources */,
+				C50100000000000000000002 /* CreationCapabilities.swift in Sources */,
+				C50100000000000000000003 /* CreationStudioStore.swift in Sources */,
+				C50100000000000000000004 /* CreationStudioView.swift in Sources */,
+				C50100000000000000000005 /* CreationComponents.swift in Sources */,
+				C50100000000000000000006 /* AudiencePicker.swift in Sources */,
+				C50100000000000000000007 /* PollEditor.swift in Sources */,
+				C50100000000000000000008 /* DraftMediaStore.swift in Sources */,
+				C50100000000000000000009 /* MediaPreparation.swift in Sources */,
+				C5010000000000000000000A /* PublishingRepository.swift in Sources */,
+				C5010000000000000000000B /* MediaUploading.swift in Sources */,
 				E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */,
 				DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */,
 				F10100000000000000000001 /* ProfileModels.swift in Sources */,
@@ -682,6 +1052,12 @@
 				E706DA503AC96378DE9BE822 /* KeychainStore.swift in Sources */,
 				48EF6D3FADBF1FED0E9DC0F6 /* ModuleBackendRequest.swift in Sources */,
 				20DD2162957F75B8920F2E80 /* ModulaDesignSystem.swift in Sources */,
+				G50100000000000000000001 /* ModulaSurfaceSystem.swift in Sources */,
+				G50100000000000000000002 /* EdgeLoopEngine.swift in Sources */,
+				G50100000000000000000003 /* EdgeLoopShape.swift in Sources */,
+				G50100000000000000000004 /* ModulaEdgeLoop.swift in Sources */,
+				G50100000000000000000005 /* ModulaImmersiveSurfaces.swift in Sources */,
+				G50100000000000000000006 /* TypographyPreview.swift in Sources */,
 				4D06B1162F85CC39C781DF95 /* ShellComponents.swift in Sources */,
 				9B142191BFBCE380907C8378 /* GeneratedDesignContract.swift in Sources */,
 				C89812CA3410607F237A67DC /* AccountSettingsView.swift in Sources */,

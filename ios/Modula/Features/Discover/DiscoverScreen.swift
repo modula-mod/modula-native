@@ -116,7 +116,12 @@ struct DiscoverScreen: View {
                     onSeePeople: { app.navigation.replaceContext(with: .discover(.people)) },
                     onPost: openPost,
                     onModule: openModule,
-                    onSeeModules: { app.navigation.replaceContext(with: .discover(.modules)) }
+                    onSeeModules: { app.navigation.replaceContext(with: .discover(.modules)) },
+                    onReel: { reel in
+                        app.reels.ingest(seed: dashboard.reels)
+                        app.navigation.push(.reels(.reel(reel.id)))
+                        HapticEngine.shared.play(.navigation)
+                    }
                 )
             }
         }
@@ -270,6 +275,10 @@ struct DiscoverScreen: View {
     }
 
     private func openPost(_ post: DiscoverPost) {
+        let social = post.asSocialPost()
+        // Discover keeps a compact preview; full interaction lives on canonical Post Detail.
+        // Ingesting into PostStateStore keeps engagement consistent when returning.
+        app.postActions.ingest(social)
         app.navigation.push(.post(post.id, .root))
         HapticEngine.shared.play(.navigation)
     }

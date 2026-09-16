@@ -133,6 +133,7 @@ struct DiscoverDashboard: Hashable, Sendable {
     var posts: [DiscoverPost]
     var featuredModules: [DiscoverFeaturedModule]
     var media: [DiscoverPostMedia]
+    var reels: [Reel]
 }
 
 struct DiscoverPage<Item: Hashable & Sendable>: Hashable, Sendable {
@@ -236,7 +237,8 @@ enum DiscoverPayloadDecoder {
         let topics = (value["trendingTopics"]?.array ?? []).compactMap(topic)
         let featured = (value["featuredModules"]?.array ?? []).compactMap(featuredModule)
         let media = (value["media"]?.array ?? []).compactMap(mediaItem)
-        return DiscoverDashboard(people: people, topics: topics, posts: [], featuredModules: featured, media: media)
+        let reels = (value["reels"]?.array ?? []).compactMap(ReelPayloadDecoder.reel)
+        return DiscoverDashboard(people: people, topics: topics, posts: [], featuredModules: featured, media: media, reels: reels)
     }
 
     static func searchPage(from value: JSONValue) -> SearchPage {
@@ -434,5 +436,61 @@ enum DiscoverPayloadDecoder {
         guard let value else { return nil }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
+extension DiscoverPost {
+    /// Bridges Discover preview cards into the canonical SocialPost engagement store.
+    func asSocialPost() -> SocialPost {
+        let author = author.map {
+            SocialAuthor(id: $0.id, handle: $0.handle, displayName: $0.displayName, avatarURL: $0.avatarURL)
+        }
+        let media: [SocialPostMedia] = {
+            guard let media else { return [] }
+            return [
+                SocialPostMedia(
+                    id: "\(id)-media",
+                    url: media.url,
+                    altText: media.altText,
+                    kind: "image",
+                    aspectRatio: nil
+                )
+            ]
+        }()
+        let kind: SocialPostKind = {
+            switch self.kind {
+            case .text: return .text
+            case .media, .image: return media.isEmpty ? .text : .media
+            case .video: return .video
+            case .link: return .link
+            case .unknown: return .unknown
+            }
+        }()
+        return SocialPost(
+            id: id,
+            author: author,
+            createdAt: createdAt ?? Date(),
+            editedAt: nil,
+            feed: "discover",
+            text: text,
+            kind: kind,
+            visibility: PostVisibility(parsing: audience),
+            audience: audience,
+            media: media,
+            link: nil,
+            module: nil,
+            glowColour: nil,
+            engagement: PostEngagement(
+                liked: false,
+                saved: false,
+                reposted: false,
+                viewerReaction: nil,
+                likeCount: likeCount ?? 0,
+                replyCount: replyCount ?? 0,
+                repostCount: 0,
+                quoteCount: 0,
+                reactionCount: likeCount ?? 0
+            )
+        )
     }
 }
