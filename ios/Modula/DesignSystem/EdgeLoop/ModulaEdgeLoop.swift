@@ -1,4 +1,15 @@
+import AudioToolbox
 import SwiftUI
+
+/// Picker-style tick for reel crossings. Follows the haptic intensity setting:
+/// if the user silenced haptics, the reel goes quiet too.
+@MainActor
+enum EdgeLoopSound {
+    static func tick() {
+        guard HapticEngine.shared.intensityProvider() != .off else { return }
+        AudioServicesPlaySystemSound(1104)
+    }
+}
 
 /// Edge-docked reel selector.
 ///
@@ -97,7 +108,6 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
             width: placement == .contained ? 52 : EdgeLoopEngine.restingWidth + 8,
             height: EdgeLoopEngine.railHeight
         )
-        .mask(fadeMask)
         .contentShape(Rectangle().inset(by: placement == .contained ? 0 : -8))
         .gesture(reelGesture)
         .opacity(disabled ? 0.4 : 1)
@@ -125,19 +135,6 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
             engine = EdgeLoopEngine(itemCount: items.count, behavior: behavior, selectedIndex: selectedIndex)
         }
         .onDisappear { collapseTask?.cancel() }
-    }
-
-    private var fadeMask: some View {
-        LinearGradient(
-            stops: [
-                .init(color: .clear, location: 0),
-                .init(color: .black, location: 0.16),
-                .init(color: .black, location: 0.84),
-                .init(color: .clear, location: 1)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
     }
 
     @ViewBuilder
@@ -258,8 +255,14 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         .accessibilityIdentifier("rail.\(String(describing: item.id))")
     }
 
+    /// No mask over the rail — each icon fades itself out by distance so items
+    /// glide in and out near the shoulders instead of being sliced by a gradient.
     private func cellOpacity(distance: CGFloat) -> CGFloat {
-        distance < pillLength / 2 + 2 ? 1 : max(0.35, 0.8 - distance / 260)
+        if distance < pillLength / 2 + 2 { return 1 }
+        let fadeStart: CGFloat = 72
+        let fadeEnd: CGFloat = 94
+        if distance <= fadeStart { return 0.85 }
+        return max(0, 0.85 * (1 - (distance - fadeStart) / (fadeEnd - fadeStart)))
     }
 
     private func positionLabel(for item: Item) -> String {
@@ -278,6 +281,7 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
                 let crossed = engine.updateDrag(translation: value.translation.height)
                 if crossed {
                     HapticEngine.shared.play(.selection)
+                    EdgeLoopSound.tick()
                 }
             }
             .onEnded { value in
@@ -285,13 +289,38 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
                 if reduceMotion {
                     index = withAnimation(settleAnimation) { engine.endDrag() }
                 } else {
-                    index = withAnimation(settleAnimation) {
-                        engine.endDrag(projectedTranslation: value.predictedEndTranslation.height)
+                    let projected = value.predictedEndTranslation.height
+                    let startSlot = engine.anchor.rounded()
+                    let targetSlot = engine.previewSettleAnchor(projectedTranslation: projected)
+                    // Carry the finger's velocity into the settle so release feels continuous.
+                    let distance = abs(targetSlot - engine.anchor) * EdgeLoopEngine.itemStride
+                    let velocity = abs(value.velocity.height)
+                    let settle: Animation = .interpolatingSpring(
+                        stiffness: 260,
+                        damping: 28,
+                        initialVelocity: distance > 1 ? min(velocity / distance, 24) : 0
+                    )
+                    index = withAnimation(settle) {
+                        engine.endDrag(projectedTranslation: projected)
                     }
+                    playCoastTicks(Int(abs(targetSlot - startSlot)))
                 }
                 HapticEngine.shared.play(.lightImpact)
                 commitIndex(index)
             }
+    }
+
+    /// Flick momentum crosses items after the finger lifts — tick each one,
+    /// spaced out as the reel decelerates.
+    private func playCoastTicks(_ count: Int) {
+        guard count > 0 else { return }
+        Task {
+            for step in 0..<count {
+                EdgeLoopSound.tick()
+                HapticEngine.shared.play(.selection)
+                try? await Task.sleep(for: .milliseconds(50 + step * 22))
+            }
+        }
     }
 
     // MARK: - Animation tokens

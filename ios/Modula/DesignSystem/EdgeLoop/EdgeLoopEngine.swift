@@ -136,12 +136,30 @@ struct EdgeLoopEngine: Equatable, Sendable {
                 raw = hi + (raw - hi) * 0.28
             }
         }
+        // Soft detent gravity: items lean into place without fighting the finger.
+        let nearest = raw.rounded()
+        if behavior == .looping || (nearest >= 0 && nearest <= CGFloat(itemCount - 1)) {
+            raw += (nearest - raw) * 0.22
+        }
         anchor = raw
         dragOffset = -(anchor - dragBase) * Self.itemStride
         let next = resolvedIndex(forSlot: Int(anchor.rounded()))
         let crossed = next != proposedIndex
         proposedIndex = next
         return crossed
+    }
+
+    /// Where a momentum release would settle, without mutating. Lets the view
+    /// tune the settle spring and pre-count coast crossings for ticks.
+    func previewSettleAnchor(projectedTranslation: CGFloat) -> CGFloat {
+        guard itemCount > 0 else { return 0 }
+        var target = dragBase - projectedTranslation / Self.itemStride
+        target = min(max(target, anchor - Self.maxFlingItems), anchor + Self.maxFlingItems)
+        var slot = target.rounded()
+        if behavior == .bounded {
+            slot = min(max(slot, 0), CGFloat(max(itemCount - 1, 0)))
+        }
+        return slot
     }
 
     @discardableResult
