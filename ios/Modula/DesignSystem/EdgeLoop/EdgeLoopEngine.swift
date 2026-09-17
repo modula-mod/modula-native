@@ -77,7 +77,7 @@ struct EdgeLoopEngine: Equatable, Sendable {
     static let revealedWidth: CGFloat = 96
     static let pillWidth: CGFloat = 44
     static let apertureHeight: CGFloat = 44
-    static let railHeight: CGFloat = 188
+    static let railHeight: CGFloat = 244
     static let hitSlop: CGFloat = 44
     static let labelHoldDuration: TimeInterval = 1.75
     static let snapThreshold: CGFloat = 18

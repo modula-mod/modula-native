@@ -102,7 +102,9 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         let opaque = reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
         ZStack {
             loopBackdrop(shape: shape, opaque: opaque)
-            reel
+            // The reel lives strictly inside the silhouette — items slide under
+            // the shoulders instead of spilling onto the content behind.
+            reel.mask { reelClip }
         }
         .frame(
             width: placement == .contained ? 52 : EdgeLoopEngine.restingWidth + 8,
@@ -135,6 +137,17 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
             engine = EdgeLoopEngine(itemCount: items.count, behavior: behavior, selectedIndex: selectedIndex)
         }
         .onDisappear { collapseTask?.cancel() }
+    }
+
+    @ViewBuilder
+    private var reelClip: some View {
+        if placement == .contained {
+            Capsule()
+                .frame(width: EdgeLoopEngine.restingWidth)
+                .frame(maxWidth: .infinity, alignment: position == .trailing ? .trailing : .leading)
+        } else {
+            EdgeLoopShape(restingDepth: EdgeLoopEngine.restingWidth, position: position)
+        }
     }
 
     @ViewBuilder
@@ -255,12 +268,12 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         .accessibilityIdentifier("rail.\(String(describing: item.id))")
     }
 
-    /// No mask over the rail — each icon fades itself out by distance so items
-    /// glide in and out near the shoulders instead of being sliced by a gradient.
+    /// Icons fade by distance as they approach the shoulders; the silhouette
+    /// mask guarantees nothing ever draws outside the notch.
     private func cellOpacity(distance: CGFloat) -> CGFloat {
         if distance < pillLength / 2 + 2 { return 1 }
-        let fadeStart: CGFloat = 72
-        let fadeEnd: CGFloat = 94
+        let fadeStart: CGFloat = 84
+        let fadeEnd: CGFloat = 112
         if distance <= fadeStart { return 0.85 }
         return max(0, 0.85 * (1 - (distance - fadeStart) / (fadeEnd - fadeStart)))
     }

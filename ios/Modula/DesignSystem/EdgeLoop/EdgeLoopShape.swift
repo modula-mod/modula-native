@@ -13,8 +13,12 @@ struct EdgeLoopShape: Shape {
 
     nonisolated func path(in rect: CGRect) -> Path {
         let depth = min(max(restingDepth + 6, 30), rect.width)
-        // Flat waist tall enough for the 96pt pill plus one neighbour gap.
-        let waistHalf = min(EdgeLoopEngine.revealedWidth / 2 + 14, rect.height * 0.38)
+        // Flat waist tall enough for the fully grown pill plus a neighbour icon
+        // and its gaps on each side — first neighbours always sit inside the notch.
+        let waistHalf = min(
+            EdgeLoopEngine.revealedWidth / 2 + EdgeLoopEngine.itemGap + EdgeLoopEngine.iconSize + 6,
+            rect.height * 0.4
+        )
         let shoulder = max((rect.height / 2) - waistHalf, 24)
         let edgeX = position == .trailing ? rect.maxX : rect.minX
         let waistX = position == .trailing ? rect.maxX - depth : rect.minX + depth
