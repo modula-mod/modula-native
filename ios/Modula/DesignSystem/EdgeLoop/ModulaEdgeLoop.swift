@@ -259,7 +259,7 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         }
         .buttonStyle(.plain)
         // The selected icon hands the pill over to the word while revealed.
-        .opacity(isSelectedSlot && labelExpanded ? 0 : cellOpacity(distance: distance))
+        .opacity(isSelectedSlot && labelExpanded ? 0 : cellOpacity(slot: slot, distance: distance))
         .scaleEffect(insidePill ? 1 : max(0.82, 1 - distance / 480))
         .animation(expansionAnimation, value: labelExpanded)
         .accessibilityLabel(item.accessibilityLabel)
@@ -268,14 +268,20 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         .accessibilityIdentifier("rail.\(String(describing: item.id))")
     }
 
-    /// Icons fade by distance as they approach the shoulders; the silhouette
-    /// mask guarantees nothing ever draws outside the notch.
-    private func cellOpacity(distance: CGFloat) -> CGFloat {
-        if distance < pillLength / 2 + 2 { return 1 }
-        let fadeStart: CGFloat = 84
-        let fadeEnd: CGFloat = 112
-        if distance <= fadeStart { return 0.85 }
-        return max(0, 0.85 * (1 - (distance - fadeStart) / (fadeEnd - fadeStart)))
+    /// Maximum three visible: the selected pill and one neighbour each side.
+    /// While dragging the window follows the scroll so items hand off smoothly
+    /// as they cross; at rest anything beyond the first neighbours is hidden.
+    private func cellOpacity(slot: Int, distance: CGFloat) -> CGFloat {
+        if isDragging {
+            if distance < pillLength / 2 + 2 { return 1 }
+            let fadeStart = EdgeLoopEngine.itemStride * 0.8
+            let fadeEnd = EdgeLoopEngine.itemStride * 1.7
+            if distance <= fadeStart { return 1 }
+            return max(0, 1 - (distance - fadeStart) / (fadeEnd - fadeStart))
+        }
+        let delta = abs(slot - Int(engine.anchor.rounded()))
+        if delta == 0 { return 1 }
+        return delta == 1 ? 0.85 : 0
     }
 
     private func positionLabel(for item: Item) -> String {
