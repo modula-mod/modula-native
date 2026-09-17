@@ -12,7 +12,8 @@ struct EdgeLoopShape: Shape {
     var position: EdgeLoopPosition = .trailing
 
     nonisolated func path(in rect: CGRect) -> Path {
-        let depth = min(max(restingDepth + 6, 30), rect.width)
+        // Snug bump: the waist sits just past the pill so the loop hugs the edge.
+        let depth = min(max(restingDepth, 30), rect.width)
         // Flat waist tall enough for the fully grown pill plus a neighbour icon
         // and its gaps on each side — first neighbours always sit inside the notch.
         let waistHalf = min(

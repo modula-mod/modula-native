@@ -33,6 +33,7 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var colorScheme
     @State private var engine: EdgeLoopEngine
     @State private var collapseTask: Task<Void, Never>?
 
@@ -130,7 +131,9 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         .onAppear(perform: syncEngineFromSelection)
         .onChange(of: selection) { _, _ in
             if engine.phase != .dragging {
-                withAnimation(settleAnimation) { syncEngineFromSelection() }
+                // Instant re-anchor: only finger-driven scrolls animate positions.
+                // Keeps frames stable for taps that follow a selection change.
+                syncEngineFromSelection()
             }
         }
         .onChange(of: items.count) { _, _ in
@@ -161,6 +164,9 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         } else {
             shape
                 .fill(opaque ? AnyShapeStyle(Color.black.opacity(0.86)) : AnyShapeStyle(.ultraThinMaterial))
+                // Reference bump reads near-black in dark themes; sink the
+                // material toward the backdrop instead of floating grey.
+                .overlay(shape.fill(Color.black.opacity(!opaque && colorScheme == .dark ? 0.32 : 0)))
                 .overlay(shape.stroke(Color.white.opacity(opaque ? 0.22 : 0.1), lineWidth: opaque ? 1 : 0.6))
                 .shadow(color: .black.opacity(0.18), radius: 10, x: position == .trailing ? 4 : -4, y: 0)
         }
@@ -196,13 +202,14 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
     }
 
     /// Vertical position for a reel slot. While dragging the reel is a uniform
-    /// 32pt-stride list scrolling through the notch. At rest the neighbours are
-    /// pushed out by the pill so the visible gap stays 12pt at any pill length.
+    /// 32pt-stride list scrolling through the notch. At rest the neighbours sit
+    /// at the fully-grown pill's clearance — fixed frames, so only the pill
+    /// itself animates and taps never race moving targets.
     private func cellY(slot: Int, offset: CGFloat) -> CGFloat {
         if isDragging { return offset }
         let delta = slot - Int(engine.anchor.rounded())
         if delta == 0 { return offset }
-        let firstNeighbour = pillLength / 2 + EdgeLoopEngine.itemGap + EdgeLoopEngine.iconSize / 2
+        let firstNeighbour = EdgeLoopEngine.revealedWidth / 2 + EdgeLoopEngine.itemGap + EdgeLoopEngine.iconSize / 2
         return CGFloat(delta.signum()) * (firstNeighbour + CGFloat(abs(delta) - 1) * EdgeLoopEngine.itemStride)
     }
 
@@ -247,41 +254,56 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         let insidePill = abs(y) < pillLength / 2 + 2
         let isSelectedSlot = slot == Int(engine.anchor.rounded()) && !isDragging
         let distance = abs(y)
-        Button {
-            commit(item)
-        } label: {
-            Image(systemName: item.icon)
-                .font(.system(size: 15, weight: insidePill ? .semibold : .medium))
-                .symbolVariant(insidePill ? .fill : .none)
-                .frame(width: EdgeLoopEngine.iconSize, height: EdgeLoopEngine.iconSize)
-                .foregroundStyle(insidePill ? Color.white : Color.primary.opacity(placement == .contained ? 0.7 : 0.62))
-                .contentShape(Rectangle().inset(by: -12))
+        let visibility = cellOpacity(slot: slot, distance: distance)
+        let interactive = isSelectedSlot || visibility >= 0.5
+        let icon = Image(systemName: item.icon)
+            .font(.system(size: 15, weight: insidePill ? .semibold : .medium))
+            .symbolVariant(insidePill ? .fill : .none)
+            .frame(width: EdgeLoopEngine.iconSize, height: EdgeLoopEngine.iconSize)
+            .foregroundStyle(insidePill ? Color.white : Color.primary.opacity(placement == .contained ? 0.7 : 0.62))
+        if interactive {
+            Button {
+                commit(item)
+            } label: {
+                icon.contentShape(Rectangle().inset(by: -12))
+            }
+            .buttonStyle(.plain)
+            // The selected icon hands the pill over to the word while revealed.
+            .opacity(isSelectedSlot && labelExpanded ? 0 : visibility)
+            .scaleEffect(insidePill ? 1 : max(0.82, 1 - distance / 480))
+            .animation(expansionAnimation, value: labelExpanded)
+            .accessibilityLabel(item.accessibilityLabel)
+            .accessibilityValue(isSelectedSlot ? "Selected, \(positionLabel(for: item))" : positionLabel(for: item))
+            .accessibilityAddTraits(isSelectedSlot ? .isSelected : [])
+            .accessibilityIdentifier("rail.\(String(describing: item.id))")
+        } else {
+            // Faint wrapped duplicates are decorative hints, never targets: no
+            // button, no accessibility — queries can only resolve the crisp one.
+            icon
+                .opacity(visibility)
+                .scaleEffect(max(0.82, 1 - distance / 480))
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
         }
-        .buttonStyle(.plain)
-        // The selected icon hands the pill over to the word while revealed.
-        .opacity(isSelectedSlot && labelExpanded ? 0 : cellOpacity(slot: slot, distance: distance))
-        .scaleEffect(insidePill ? 1 : max(0.82, 1 - distance / 480))
-        .animation(expansionAnimation, value: labelExpanded)
-        .accessibilityLabel(item.accessibilityLabel)
-        .accessibilityValue(isSelectedSlot ? "Selected, \(positionLabel(for: item))" : positionLabel(for: item))
-        .accessibilityAddTraits(isSelectedSlot ? .isSelected : [])
-        .accessibilityIdentifier("rail.\(String(describing: item.id))")
     }
 
-    /// Maximum three visible: the selected pill and one neighbour each side.
-    /// While dragging the window follows the scroll so items hand off smoothly
-    /// as they cross; at rest anything beyond the first neighbours is hidden.
+    /// Reference falloff: the pill, crisp first neighbours, and a faint hint of
+    /// the second pair dissolving into the shoulders — nothing beyond that.
+    /// While dragging the window follows the scroll so items hand off smoothly.
     private func cellOpacity(slot: Int, distance: CGFloat) -> CGFloat {
         if isDragging {
             if distance < pillLength / 2 + 2 { return 1 }
             let fadeStart = EdgeLoopEngine.itemStride * 0.8
-            let fadeEnd = EdgeLoopEngine.itemStride * 1.7
+            let fadeEnd = EdgeLoopEngine.itemStride * 2.6
             if distance <= fadeStart { return 1 }
             return max(0, 1 - (distance - fadeStart) / (fadeEnd - fadeStart))
         }
-        let delta = abs(slot - Int(engine.anchor.rounded()))
-        if delta == 0 { return 1 }
-        return delta == 1 ? 0.85 : 0
+        switch abs(slot - Int(engine.anchor.rounded())) {
+        case 0: return 1
+        case 1: return 0.85
+        case 2: return 0.28
+        default: return 0
+        }
     }
 
     private func positionLabel(for item: Item) -> String {
@@ -292,7 +314,7 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
     // MARK: - Gesture
 
     private var reelGesture: some Gesture {
-        DragGesture(minimumDistance: 4, coordinateSpace: .local)
+        DragGesture(minimumDistance: 10, coordinateSpace: .local)
             .onChanged { value in
                 if engine.phase != .dragging {
                     withAnimation(scrubAnimation) { engine.beginDrag() }
@@ -304,8 +326,11 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
                 }
             }
             .onEnded { value in
+                let actual = value.translation.height
                 let index: Int
-                if reduceMotion {
+                // Momentum only for a real scroll: tap jitter or a sub-stride
+                // nudge must never be projected into a flick past the finger.
+                if reduceMotion || abs(actual) < EdgeLoopEngine.itemStride / 2 {
                     index = withAnimation(settleAnimation) { engine.endDrag() }
                 } else {
                     let projected = value.predictedEndTranslation.height
@@ -360,13 +385,16 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
 
     // MARK: - Commit
 
+    /// Tap commits re-anchor instantly — the pill still grows via its own
+    /// animation, but item positions land immediately so a follow-up tap can
+    /// never race a sliding reel. Drags and flicks keep the animated settle.
     private func commit(_ item: Item) {
         guard let index = items.firstIndex(of: item) else { return }
-        withAnimation(settleAnimation) { commitIndex(index) }
+        commitIndex(index)
     }
 
     private func commitRelative(_ delta: Int) {
-        withAnimation(settleAnimation) { commitIndex(engine.index(offsetBy: delta)) }
+        commitIndex(engine.index(offsetBy: delta))
     }
 
     private func commitIndex(_ index: Int) {
