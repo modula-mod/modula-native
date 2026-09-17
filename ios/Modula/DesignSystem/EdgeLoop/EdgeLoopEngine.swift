@@ -139,10 +139,10 @@ struct EdgeLoopEngine: Equatable, Sendable {
                 raw = hi + (raw - hi) * 0.28
             }
         }
-        // Soft detent gravity: items lean into place without fighting the finger.
+        // Soft detent gravity: lean toward the nearest item without fighting a quick flick.
         let nearest = raw.rounded()
         if behavior == .looping || (nearest >= 0 && nearest <= CGFloat(itemCount - 1)) {
-            raw += (nearest - raw) * 0.22
+            raw += (nearest - raw) * 0.12
         }
         anchor = raw
         dragOffset = -(anchor - dragBase) * stride

@@ -65,12 +65,16 @@ struct EdgeLoopMetrics: Equatable, Sendable {
         )
     }
 
-    /// Measured horizontal reveal width for a label, clamped to semantic min/max.
-    func revealWidth(for label: String) -> CGFloat {
+    /// Measured vertical pill length for a label (rotated text along the rail).
+    func revealLength(for label: String) -> CGFloat {
         let pointSize = UIFont.preferredFont(forTextStyle: .caption1).pointSize
         let font = UIFont.systemFont(ofSize: pointSize, weight: .semibold)
         let text = ceil((label as NSString).size(withAttributes: [.font: font]).width)
-        let content = text + iconSize + 28
-        return min(max(content, revealMinWidth), revealMaxWidth)
+        // Short labels stay near the resting circle; longer ones grow the pill along the rail.
+        if text <= 22 { return apertureHeight }
+        return min(max(text + 28, revealMinWidth), revealMaxWidth)
     }
+
+    /// Drag gain — finger travel is amplified so a short flick crosses an item.
+    static let dragSensitivity: CGFloat = 1.55
 }

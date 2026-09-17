@@ -75,7 +75,7 @@ Examples:
 ## Geometry
 
 One continuous `EdgeLoopShape` path. Left mirrors the path; it is never a 180°
-rotation. Label reveal expands inward (right → leftward, left → rightward).
+rotation. Label reveal grows the selection pill along the rail with rotated text.
 Size resolves through `EdgeLoopMetrics` (depth, aperture, spacing, reveal
 widths, hit slop ≥ 44pt).
 
