@@ -9,6 +9,12 @@ enum ModulaMaterial: String, CaseIterable, Sendable {
     case floating
     case control
     case immersiveOverlay
+    /// Quiet Liquid Glass body for the Edge Picker silhouette.
+    case edgeLoopBody
+    /// Stronger glass for the fixed selection aperture.
+    case edgeLoopSelection
+    /// Strongest controlled glass for the inward label reveal.
+    case edgeLoopReveal
 
     @MainActor
     func style(opaque: Bool, scheme: ColorScheme) -> AnyShapeStyle {
@@ -18,7 +24,7 @@ enum ModulaMaterial: String, CaseIterable, Sendable {
                 return AnyShapeStyle(Color.clear)
             case .content:
                 return AnyShapeStyle(Color(uiColor: scheme == .dark ? .secondarySystemBackground : .systemBackground))
-            case .floating, .control:
+            case .floating, .control, .edgeLoopBody, .edgeLoopSelection, .edgeLoopReveal:
                 return AnyShapeStyle(Color(uiColor: .secondarySystemBackground))
             case .immersiveOverlay:
                 return AnyShapeStyle(Color.black.opacity(0.42))
@@ -31,10 +37,38 @@ enum ModulaMaterial: String, CaseIterable, Sendable {
             return AnyShapeStyle(.thinMaterial)
         case .floating:
             return AnyShapeStyle(.regularMaterial)
-        case .control:
+        case .control, .edgeLoopBody:
             return AnyShapeStyle(.ultraThinMaterial)
+        case .edgeLoopSelection:
+            return AnyShapeStyle(.thinMaterial)
+        case .edgeLoopReveal:
+            return AnyShapeStyle(.regularMaterial)
         case .immersiveOverlay:
             return AnyShapeStyle(.ultraThinMaterial)
+        }
+    }
+
+    /// Semantic Edge Picker material recipe for a glass intensity + dark canvas.
+    @MainActor
+    static func edgeLoopBody(
+        intensity: EdgePickerGlassIntensity,
+        opaque: Bool,
+        scheme: ColorScheme,
+        oled: Bool
+    ) -> AnyShapeStyle {
+        if opaque {
+            if oled || scheme == .dark {
+                return AnyShapeStyle(Color.black.opacity(intensity == .strong ? 0.92 : 0.86))
+            }
+            return AnyShapeStyle(Color(uiColor: .secondarySystemBackground))
+        }
+        switch intensity {
+        case .subtle:
+            return AnyShapeStyle(.ultraThinMaterial)
+        case .standard:
+            return AnyShapeStyle(.thinMaterial)
+        case .strong:
+            return AnyShapeStyle(.regularMaterial)
         }
     }
 }
@@ -106,7 +140,7 @@ enum ModulaDepth: String, CaseIterable, Sendable {
 
 // MARK: - Trailing interaction safe area
 
-/// Shared layout inset so the shell Edge Loop and in-content PostActionRail do not collide.
+/// Shared layout inset so the shell Edge Picker and in-content PostActionRail do not collide.
 enum TrailingInteractionSafeArea {
     /// Visible resting depth of the shell Edge Loop, including a small optical gap.
     static let edgeLoop: CGFloat = 52
@@ -116,14 +150,46 @@ enum TrailingInteractionSafeArea {
     static let contentClearance: CGFloat = 36
 }
 
+/// Side-aware content clearance for the shell Edge Picker.
+enum EdgeInteractionSafeArea {
+    static let contentClearance: CGFloat = TrailingInteractionSafeArea.contentClearance
+    static let postActionRail: CGFloat = TrailingInteractionSafeArea.postActionRail
+
+    static func contentClearance(side: EdgePickerSide, pickerVisible: Bool) -> (leading: CGFloat, trailing: CGFloat) {
+        guard pickerVisible else { return (0, 0) }
+        switch side {
+        case .right: return (0, contentClearance)
+        case .left: return (contentClearance, 0)
+        }
+    }
+}
+
 private struct TrailingInteractionInsetKey: EnvironmentKey {
     static let defaultValue: CGFloat = 0
+}
+
+private struct LeadingInteractionInsetKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 0
+}
+
+private struct EdgePickerSideKey: EnvironmentKey {
+    static let defaultValue: EdgePickerSide = .right
 }
 
 extension EnvironmentValues {
     var trailingInteractionInset: CGFloat {
         get { self[TrailingInteractionInsetKey.self] }
         set { self[TrailingInteractionInsetKey.self] = newValue }
+    }
+
+    var leadingInteractionInset: CGFloat {
+        get { self[LeadingInteractionInsetKey.self] }
+        set { self[LeadingInteractionInsetKey.self] = newValue }
+    }
+
+    var edgePickerSide: EdgePickerSide {
+        get { self[EdgePickerSideKey.self] }
+        set { self[EdgePickerSideKey.self] = newValue }
     }
 }
 

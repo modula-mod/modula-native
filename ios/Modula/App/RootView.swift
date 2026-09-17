@@ -12,17 +12,22 @@ struct RootView: View {
         let palette = ModulaPalette.resolve(appearance, scheme: scheme,
             increasedContrast: systemContrast == .increased || appearance.contrastTransparency == .higherContrast)
         let policy = ShellChromePolicy.policy(for: navigation.currentRoute, isTabRoot: navigation.isAtTabRoot)
+        let edgeSide = appearance.edgePicker.side
+        let clearance = EdgeInteractionSafeArea.contentClearance(
+            side: edgeSide,
+            pickerVisible: policy.contextRailVisible
+        )
         shell(navigation: navigation, policy: policy)
         .fontDesign(appearance.fontDesign)
-        .environment(
-            \.trailingInteractionInset,
-            policy.contextRailVisible ? TrailingInteractionSafeArea.contentClearance : 0
-        )
-        .overlay(alignment: .trailing) {
+        .environment(\.trailingInteractionInset, clearance.trailing)
+        .environment(\.leadingInteractionInset, clearance.leading)
+        .environment(\.edgePickerSide, edgeSide)
+        .overlay(alignment: edgeSide == .right ? .trailing : .leading) {
             if policy.contextRailVisible {
                 ShellEdgeLoop(route: navigation.currentRoute)
-                    .ignoresSafeArea(edges: .trailing)
+                    .ignoresSafeArea(edges: edgeSide == .right ? .trailing : .leading)
                     .padding(.bottom, 80)
+                    .padding(.top, 48)
             }
         }
         .sheet(item: $navigation.presented) { presentation in

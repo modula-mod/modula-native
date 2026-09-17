@@ -8,25 +8,29 @@ Keep: full-bleed imagery, edge-docked loop, cover/avatar geometry, media-forward
 
 Do not copy from mockups: duplicate Home tabs + rail, Profile five-tab strip, center + destination, fake ratings/downloads, fake module features, fake video, hardcoded scenic photography.
 
-## A — Edge Loop
+## A — Edge Loop / Edge Picker
 
 ```text
 EdgeLoopEngine
 ├── ModulaEdgeLoop          shell-edge or contained
-├── ShellEdgeLoop           Home / Activity / Profile adapter
+├── ShellEdgeLoop           Home / Activity / Profile + Appearance prefs
 └── ContainedLoopPicker     Typography sample reel
 ```
 
 Contract:
 
-- `items`, `selection: Binding<Item.ID>`, `behavior: looping | bounded`, `position: trailing`
+- `items`, `selection: Binding<Item.ID>`, `behavior: looping | bounded`, `position: leading | trailing`
 - Caller owns navigation meaning
 - Drag state is local; only committed selection updates screen context
-- Notch height is stable; items move through a centred aperture
-- Selected cell expands (~46 → ~96pt) then retracts after 1.75s
-- VoiceOver: adjustable increment/decrement, N of M, drag not required
-- Reduce Motion: short fade instead of kinetic reel
-- Haptic: one `.selection` per item boundary, not per pixel
+- Notch aperture is spatially stable; items reel through it
+- Horizontal inward label reveal (On Change / Always / Icons Only)
+- Liquid Glass body via `edgeLoopBody` / `edgeLoopSelection` / `edgeLoopReveal`
+- VoiceOver: single adjustable control, N of M, drag not required; loop clones hidden
+- Reduce Motion / Reduce Transparency win over Edge Picker overrides
+- Haptic: one `.selection` per item boundary (+ optional tick), not per pixel
+- Preferences: Appearance → Edge Picker (`/settings/appearance/edge-picker`)
+
+See `docs/design/edge-picker.md`.
 
 Used on: Home (Following / For You / Modules), Activity (All / Mentions / Requests), Profile (Overview / Posts / Modules). Not used for Settings lists, Product Hub, search, or conversations.
 
@@ -40,10 +44,10 @@ Cover starts at the physical top edge. Identity (avatar / artwork) is carved int
 
 Semantic tokens, not scattered `cornerRadius(28)` / `.ultraThinMaterial`:
 
-- `ModulaMaterial`: none, content, floating, control, immersiveOverlay
+- `ModulaMaterial`: none, content, floating, control, immersiveOverlay, edgeLoopBody, edgeLoopSelection, edgeLoopReveal
 - `ModulaShapeRole`: canvas, contentCard, control, capsule, floatingControl, media, edgeLoop, avatarPocket
 - `ModulaDepth`
-- `TrailingInteractionSafeArea` so Edge Loop and `PostActionRail` do not collide
+- `TrailingInteractionSafeArea` / `EdgeInteractionSafeArea` so Edge Picker and `PostActionRail` do not collide (side-aware)
 
 Liquid Glass belongs on floating Back/Share/More, Edge Loop selected state, post action rail, bottom shell, selected onboarding rows. Not on every card.
 

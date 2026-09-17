@@ -59,14 +59,72 @@ final class EdgeLoopEngineTests: XCTestCase {
     func testLabelHoldDurationIsTransient() {
         XCTAssertEqual(EdgeLoopEngine.labelHoldDuration, 1.75, accuracy: 0.01)
         XCTAssertEqual(EdgeLoopEngine.restingWidth, 46, accuracy: 0.1)
-        XCTAssertEqual(EdgeLoopEngine.revealedWidth, 96, accuracy: 0.1)
+        XCTAssertEqual(EdgeLoopEngine.revealedWidth, 126, accuracy: 0.1)
         XCTAssertGreaterThanOrEqual(EdgeLoopEngine.hitSlop, 44)
+    }
+}
+
+final class EdgePickerPreferencesTests: XCTestCase {
+    func testDefaultsAreCanonical() {
+        let prefs = EdgePickerPreferences.default
+        XCTAssertEqual(prefs.position, .middle)
+        XCTAssertEqual(prefs.size, .standard)
+        XCTAssertEqual(prefs.side, .right)
+        XCTAssertEqual(prefs.labelBehavior, .onChange)
+        XCTAssertEqual(prefs.glassIntensity, .standard)
+        XCTAssertEqual(prefs.visibility, .always)
+        XCTAssertEqual(prefs.motion, .followAppearance)
+        XCTAssertEqual(prefs.haptics, .followAppearance)
+    }
+
+    @MainActor
+    func testResetEdgePickerDoesNotResetTheme() {
+        let defaults = UserDefaults(suiteName: "modula.edge-picker.test.\(UUID().uuidString)")!
+        let store = AppearanceStore(defaults: defaults)
+        store.theme = .dark
+        store.accent = .ocean
+        store.edgePicker.size = .large
+        store.edgePicker.side = .left
+        store.resetEdgePicker()
+        XCTAssertEqual(store.theme, .dark)
+        XCTAssertEqual(store.accent, .ocean)
+        XCTAssertEqual(store.edgePicker, .default)
+    }
+
+    @MainActor
+    func testLegacySnapshotMigratesMissingEdgePicker() throws {
+        let defaults = UserDefaults(suiteName: "modula.edge-picker.migrate.\(UUID().uuidString)")!
+        // Encode a v2-shaped blob without edgePicker via a minimal JSON object.
+        let legacy = """
+        {"theme":"light","darkStyle":"standard","accent":"modulaTeal","fontFamily":"system","textSize":"standard","appIcon":"default","density":"standard","motion":"standard","haptics":"standard","contrastTransparency":"standard","iconStyle":"balanced","interfaceShape":"balanced","moduleBranding":"blend"}
+        """.data(using: .utf8)!
+        defaults.set(legacy, forKey: "modula.native.appearance.v2")
+        let store = AppearanceStore(defaults: defaults)
+        XCTAssertEqual(store.theme, .light)
+        XCTAssertEqual(store.edgePicker, .default)
+    }
+
+    func testMetricsScaleCoherentlyAndKeepHitTarget() {
+        let compact = EdgeLoopMetrics.resolve(size: .compact)
+        let standard = EdgeLoopMetrics.resolve(size: .standard)
+        let large = EdgeLoopMetrics.resolve(size: .large)
+        XCTAssertLessThan(compact.restingDepth, standard.restingDepth)
+        XCTAssertLessThan(standard.restingDepth, large.restingDepth)
+        XCTAssertGreaterThanOrEqual(compact.hitSlop, 44)
+        XCTAssertGreaterThanOrEqual(standard.hitSlop, 44)
+        XCTAssertGreaterThanOrEqual(large.hitSlop, 44)
+        XCTAssertEqual(standard.restingDepth, 46, accuracy: 0.1)
+    }
+
+    func testSideMapsToLoopPosition() {
+        XCTAssertEqual(EdgePickerSide.right.loopPosition, .trailing)
+        XCTAssertEqual(EdgePickerSide.left.loopPosition, .leading)
     }
 }
 
 final class ModulaSurfaceSystemTests: XCTestCase {
     func testMaterialAndShapeTokensExist() {
-        XCTAssertEqual(ModulaMaterial.allCases.count, 5)
+        XCTAssertEqual(ModulaMaterial.allCases.count, 8)
         XCTAssertEqual(ModulaShapeRole.allCases.count, 8)
         XCTAssertGreaterThan(ModulaShapeRole.contentCard.radius(for: .soft), ModulaShapeRole.contentCard.radius(for: .precise))
         XCTAssertEqual(ModulaShapeRole.capsule.radius(for: .balanced), 999)

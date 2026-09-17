@@ -38,6 +38,8 @@ final class AppearanceStore {
     var iconStyle: IconStyle { didSet { save() } }
     var interfaceShape: InterfaceShape { didSet { save() } }
     var moduleBranding: ModuleBranding { didSet { save() } }
+    /// Edge Picker personalization. Nested under Appearance; reset separately via `resetEdgePicker()`.
+    var edgePicker: EdgePickerPreferences { didSet { save() } }
 
     var colorScheme: ColorScheme? { switch theme { case .system: nil; case .light: .light; case .dark: .dark } }
     var fontDesign: Font.Design { switch fontFamily { case .rounded, .geometric: .rounded; case .editorial: .serif; case .mono: .monospaced; default: .default } }
@@ -70,24 +72,55 @@ final class AppearanceStore {
         iconStyle = saved?.iconStyle ?? .balanced
         interfaceShape = saved?.interfaceShape ?? .balanced
         moduleBranding = saved?.moduleBranding ?? .blend
+        edgePicker = saved?.edgePicker ?? .default
         if saved == nil, let legacy = LegacyAppearance(rawValue: defaults.string(forKey: "modula.native.appearance.v1") ?? "") { appearance = legacy }
     }
+
+    /// Full Appearance reset — includes Edge Picker defaults.
     func reset() {
         theme = .system; darkStyle = .standard; accent = .modulaTeal; fontFamily = .system; textSize = .standard
         appIcon = .default; density = .standard; motion = .standard; haptics = .standard
         contrastTransparency = .standard; iconStyle = .balanced; interfaceShape = .balanced; moduleBranding = .blend
+        edgePicker = .default
     }
+
+    /// Resets only Edge Picker preferences to canonical defaults.
+    func resetEdgePicker() {
+        edgePicker = .default
+    }
+
     private func save() {
-        let value = Snapshot(theme: theme, darkStyle: darkStyle, accent: accent, fontFamily: fontFamily, textSize: textSize,
-                             appIcon: appIcon, density: density, motion: motion, haptics: haptics,
-                             contrastTransparency: contrastTransparency, iconStyle: iconStyle,
-                             interfaceShape: interfaceShape, moduleBranding: moduleBranding)
+        let value = Snapshot(
+            theme: theme, darkStyle: darkStyle, accent: accent, fontFamily: fontFamily, textSize: textSize,
+            appIcon: appIcon, density: density, motion: motion, haptics: haptics,
+            contrastTransparency: contrastTransparency, iconStyle: iconStyle,
+            interfaceShape: interfaceShape, moduleBranding: moduleBranding,
+            edgePicker: edgePicker
+        )
         defaults.set(try? JSONEncoder().encode(value), forKey: key)
     }
+
     private struct Snapshot: Codable {
         var theme: Theme; var darkStyle: DarkStyle; var accent: Accent; var fontFamily: FontFamily; var textSize: TextSize
         var appIcon: AppIcon; var density: Density; var motion: MotionPersonality; var haptics: HapticIntensity
-        var contrastTransparency: ContrastTransparency; var iconStyle: IconStyle; var interfaceShape: InterfaceShape; var moduleBranding: ModuleBranding
+        var contrastTransparency: ContrastTransparency; var iconStyle: IconStyle; var interfaceShape: InterfaceShape
+        var moduleBranding: ModuleBranding
+        /// Optional so existing v2 blobs without this field decode to defaults.
+        var edgePicker: EdgePickerPreferences?
+
+        init(
+            theme: Theme, darkStyle: DarkStyle, accent: Accent, fontFamily: FontFamily, textSize: TextSize,
+            appIcon: AppIcon, density: Density, motion: MotionPersonality, haptics: HapticIntensity,
+            contrastTransparency: ContrastTransparency, iconStyle: IconStyle, interfaceShape: InterfaceShape,
+            moduleBranding: ModuleBranding, edgePicker: EdgePickerPreferences
+        ) {
+            self.theme = theme; self.darkStyle = darkStyle; self.accent = accent
+            self.fontFamily = fontFamily; self.textSize = textSize; self.appIcon = appIcon
+            self.density = density; self.motion = motion; self.haptics = haptics
+            self.contrastTransparency = contrastTransparency; self.iconStyle = iconStyle
+            self.interfaceShape = interfaceShape; self.moduleBranding = moduleBranding
+            self.edgePicker = edgePicker
+        }
     }
 }
 

@@ -159,6 +159,7 @@ enum SettingsRegistry {
             item(.appearance(.iconStyle), "Icon Style", "Outline, balanced or filled", "circle.grid.cross", .implemented, terms: ["icons"]),
             item(.appearance(.interfaceShape), "Interface Shape", "Soft, balanced or precise", "rectangle.roundedtop", .implemented, terms: ["shape"]),
             item(.appearance(.moduleBranding), "Module Branding", "How modules use their colour", "paintbrush", .implemented, terms: ["branding"]),
+            item(.appearance(.edgePicker), "Edge Picker", "Position, size, side, labels, glass", "rectangle.trailinghalf.inset.filled", .implemented, terms: ["edge picker", "position", "size", "side", "labels", "glass", "visibility", "haptics", "rail"]),
             item(.appearance(.preview), "Appearance Preview", "Live contract preview", "rectangle.inset.filled", .implemented, terms: ["preview"]),
             item(.notifications(.root), "Notifications", "Push, social and modules", "bell", .implemented, terms: ["notifications"]),
             item(.notifications(.push), "Push", "iOS authorization state", "iphone.radiowaves.left.and.right", .implemented, terms: ["push", "alerts"]),

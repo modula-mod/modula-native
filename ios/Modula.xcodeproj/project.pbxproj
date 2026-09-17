@@ -95,6 +95,9 @@
 		G50100000000000000000002 /* EdgeLoopEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000002 /* EdgeLoopEngine.swift */; };
 		G50100000000000000000003 /* EdgeLoopShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000003 /* EdgeLoopShape.swift */; };
 		G50100000000000000000004 /* ModulaEdgeLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000004 /* ModulaEdgeLoop.swift */; };
+		G50100000000000000000008 /* EdgePickerPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000008 /* EdgePickerPreferences.swift */; };
+		G50100000000000000000009 /* EdgeLoopMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000009 /* EdgeLoopMetrics.swift */; };
+		G5010000000000000000000A /* EdgePickerSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = G4010000000000000000000A /* EdgePickerSettingsView.swift */; };
 		G50100000000000000000006 /* TypographyPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000006 /* TypographyPreview.swift */; };
 		G50100000000000000000007 /* N4GTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000007 /* N4GTests.swift */; };
 		C50100000000000000000001 /* CreationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000001 /* CreationModels.swift */; };
@@ -312,6 +315,9 @@
 		G40100000000000000000002 /* EdgeLoopEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopEngine.swift; path = DesignSystem/EdgeLoop/EdgeLoopEngine.swift; sourceTree = "<group>"; };
 		G40100000000000000000003 /* EdgeLoopShape.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopShape.swift; path = DesignSystem/EdgeLoop/EdgeLoopShape.swift; sourceTree = "<group>"; };
 		G40100000000000000000004 /* ModulaEdgeLoop.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaEdgeLoop.swift; path = DesignSystem/EdgeLoop/ModulaEdgeLoop.swift; sourceTree = "<group>"; };
+		G40100000000000000000008 /* EdgePickerPreferences.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgePickerPreferences.swift; path = DesignSystem/EdgeLoop/EdgePickerPreferences.swift; sourceTree = "<group>"; };
+		G40100000000000000000009 /* EdgeLoopMetrics.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopMetrics.swift; path = DesignSystem/EdgeLoop/EdgeLoopMetrics.swift; sourceTree = "<group>"; };
+		G4010000000000000000000A /* EdgePickerSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgePickerSettingsView.swift; path = Features/Settings/EdgePickerSettingsView.swift; sourceTree = "<group>"; };
 		G40100000000000000000006 /* TypographyPreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TypographyPreview.swift; path = Features/Settings/TypographyPreview.swift; sourceTree = "<group>"; };
 		G40100000000000000000007 /* N4GTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4GTests.swift; sourceTree = "<group>"; };
 		C40100000000000000000001 /* CreationModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreationModels.swift; path = Features/Creation/CreationModels.swift; sourceTree = "<group>"; };
@@ -580,6 +586,9 @@
 				G40100000000000000000002 /* EdgeLoopEngine.swift */,
 				G40100000000000000000003 /* EdgeLoopShape.swift */,
 				G40100000000000000000004 /* ModulaEdgeLoop.swift */,
+				G40100000000000000000008 /* EdgePickerPreferences.swift */,
+				G40100000000000000000009 /* EdgeLoopMetrics.swift */,
+				G4010000000000000000000A /* EdgePickerSettingsView.swift */,
 				G40100000000000000000006 /* TypographyPreview.swift */,
 				DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */,
 				F00100000000000000000001 /* ProfileModels.swift */,
@@ -990,6 +999,9 @@
 				G50100000000000000000002 /* EdgeLoopEngine.swift in Sources */,
 				G50100000000000000000003 /* EdgeLoopShape.swift in Sources */,
 				G50100000000000000000004 /* ModulaEdgeLoop.swift in Sources */,
+				G50100000000000000000008 /* EdgePickerPreferences.swift in Sources */,
+				G50100000000000000000009 /* EdgeLoopMetrics.swift in Sources */,
+				G5010000000000000000000A /* EdgePickerSettingsView.swift in Sources */,
 				G50100000000000000000006 /* TypographyPreview.swift in Sources */,
 				E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */,
 				DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */,

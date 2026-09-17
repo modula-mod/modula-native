@@ -35,6 +35,8 @@ struct SettingsDestinationHost: View {
             AppIconPickerView()
         case .appearance(.preview):
             AppearancePreviewScreen()
+        case .appearance(.edgePicker):
+            EdgePickerSettingsView()
         case .appearance(let focus):
             AppearanceSettingsView(focus: focus)
         case .notifications(let nested):

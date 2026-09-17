@@ -1,6 +1,6 @@
 import SwiftUI
 
-private struct SettingsGroup<Content: View>: View {
+struct SettingsGroup<Content: View>: View {
     let title: String
     var subtitle: String? = nil
     @ViewBuilder var content: Content
@@ -16,7 +16,7 @@ private struct SettingsGroup<Content: View>: View {
     }
 }
 
-private struct SettingsDivider: View {
+struct SettingsDivider: View {
     var body: some View { Divider().padding(.leading, 43) }
 }
 
@@ -329,6 +329,10 @@ struct AppearanceSettingsView: View {
                         AppearanceMenuRow(title: "Interface Shape", symbol: "rectangle.roundedtop", selection: $store.interfaceShape, options: AppearanceStore.InterfaceShape.allCases, label: display)
                         SettingsDivider()
                         AppearanceMenuRow(title: "Module Branding", symbol: "paintbrush", selection: $store.moduleBranding, options: AppearanceStore.ModuleBranding.allCases, label: display)
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Edge Picker", subtitle: "Position, size, side, glass", symbol: "rectangle.trailinghalf.inset.filled") {
+                            app.navigation.open(.settings(.appearance(.edgePicker)))
+                        }
                     }
                 }
                 SettingsGroup(title: "Preview & Defaults") {
@@ -409,7 +413,7 @@ struct AppearancePreviewScreen: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                ModulaSection(title: "Edge Loop") { HStack { Spacer(); ShellEdgeLoop(route: .home(.following)) } }
+                ModulaSection(title: "Edge Picker") { HStack { Spacer(); ShellEdgeLoop(route: .home(.following)) } }
                 ModulaSection(title: "Module sample") {
                     ModulaCard {
                         VStack(alignment: .leading, spacing: 10) {
@@ -541,7 +545,7 @@ struct ComponentCatalogView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                catalog("Edge Loop") { HStack { Spacer(); ShellEdgeLoop(route: .home(.following)) } }
+                catalog("Edge Picker") { HStack { Spacer(); ShellEdgeLoop(route: .home(.following)) } }
                 catalog("Messages, stories, profile accent") {
                     VStack(alignment: .leading, spacing: 16) {
                         MessageBubble(message: MessagingFixtures.thread()[1]) { _ in }

@@ -67,14 +67,16 @@ struct EdgeLoopEngine: Equatable, Sendable {
     private(set) var anchor: CGFloat
     private var dragBase: CGFloat = 0
 
+    /// Centre-to-centre distance between plain reel icons. Overridden from metrics.
+    var stride: CGFloat = EdgeLoopEngine.itemStride
     /// Centre-to-centre distance between plain reel icons: 20pt icon + 12pt gap.
     static let itemStride: CGFloat = 32
     static let iconSize: CGFloat = 20
     static let itemGap: CGFloat = 12
     /// Selected pill at rest (circle) and the notch depth from the physical edge.
     static let restingWidth: CGFloat = 46
-    /// Maximum pill length when grown to fit the selected word.
-    static let revealedWidth: CGFloat = 96
+    /// Maximum horizontal reveal width for the selected word (Standard).
+    static let revealedWidth: CGFloat = 126
     static let pillWidth: CGFloat = 44
     static let apertureHeight: CGFloat = 44
     static let railHeight: CGFloat = 244
@@ -85,10 +87,11 @@ struct EdgeLoopEngine: Equatable, Sendable {
     /// A flick may carry at most this many items past the finger.
     static let maxFlingItems: CGFloat = 3
 
-    init(itemCount: Int, behavior: EdgeLoopBehavior, selectedIndex: Int = 0) {
+    init(itemCount: Int, behavior: EdgeLoopBehavior, selectedIndex: Int = 0, stride: CGFloat = EdgeLoopEngine.itemStride) {
         let count = max(0, itemCount)
         self.itemCount = count
         self.behavior = behavior
+        self.stride = stride
         let clamped = Self.offsetIndex(0, by: selectedIndex, count: count, behavior: .bounded)
         self.selectedIndex = count == 0 ? 0 : clamped
         self.proposedIndex = self.selectedIndex
@@ -126,7 +129,7 @@ struct EdgeLoopEngine: Equatable, Sendable {
     /// Returns `true` when a new item has crossed the selection centre — play one selection haptic.
     mutating func updateDrag(translation: CGFloat) -> Bool {
         guard phase == .dragging, itemCount > 0 else { return false }
-        var raw = dragBase - translation / Self.itemStride
+        var raw = dragBase - translation / stride
         if behavior == .bounded {
             let lo: CGFloat = 0
             let hi = CGFloat(itemCount - 1)
@@ -142,7 +145,7 @@ struct EdgeLoopEngine: Equatable, Sendable {
             raw += (nearest - raw) * 0.22
         }
         anchor = raw
-        dragOffset = -(anchor - dragBase) * Self.itemStride
+        dragOffset = -(anchor - dragBase) * stride
         let next = resolvedIndex(forSlot: Int(anchor.rounded()))
         let crossed = next != proposedIndex
         proposedIndex = next
@@ -153,7 +156,7 @@ struct EdgeLoopEngine: Equatable, Sendable {
     /// tune the settle spring and pre-count coast crossings for ticks.
     func previewSettleAnchor(projectedTranslation: CGFloat) -> CGFloat {
         guard itemCount > 0 else { return 0 }
-        var target = dragBase - projectedTranslation / Self.itemStride
+        var target = dragBase - projectedTranslation / stride
         target = min(max(target, anchor - Self.maxFlingItems), anchor + Self.maxFlingItems)
         var slot = target.rounded()
         if behavior == .bounded {
@@ -173,7 +176,7 @@ struct EdgeLoopEngine: Equatable, Sendable {
     @discardableResult
     mutating func endDrag(projectedTranslation: CGFloat) -> Int {
         guard itemCount > 0 else { return 0 }
-        var target = dragBase - projectedTranslation / Self.itemStride
+        var target = dragBase - projectedTranslation / stride
         target = min(max(target, anchor - Self.maxFlingItems), anchor + Self.maxFlingItems)
         return settle(on: target.rounded())
     }
@@ -216,7 +219,7 @@ struct EdgeLoopEngine: Equatable, Sendable {
 
     func indexForDragOffset(_ offset: CGFloat) -> Int {
         guard itemCount > 0 else { return 0 }
-        let delta = Int((-offset / Self.itemStride).rounded())
+        let delta = Int((-offset / stride).rounded())
         return Self.offsetIndex(selectedIndex, by: delta, count: itemCount, behavior: behavior)
     }
 
@@ -226,7 +229,7 @@ struct EdgeLoopEngine: Equatable, Sendable {
     }
 
     func visualOffset(forSlot slot: Int) -> CGFloat {
-        CGFloat(slot) * Self.itemStride + dragOffset
+        CGFloat(slot) * stride + dragOffset
     }
 
     func visibleSlots(radius: Int = EdgeLoopEngine.visibleRadius) -> [(slot: Int, index: Int)] {
@@ -252,7 +255,7 @@ struct EdgeLoopEngine: Equatable, Sendable {
         var slots: [(slot: Int, index: Int, offset: CGFloat)] = []
         for slot in (center - radius)...(center + radius) {
             if behavior == .bounded, slot < 0 || slot >= itemCount { continue }
-            slots.append((slot, resolvedIndex(forSlot: slot), (CGFloat(slot) - anchor) * Self.itemStride))
+            slots.append((slot, resolvedIndex(forSlot: slot), (CGFloat(slot) - anchor) * stride))
         }
         return slots
     }

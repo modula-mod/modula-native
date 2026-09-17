@@ -63,7 +63,8 @@ enum AccountSettingsRoute: String, CaseIterable, Codable, Hashable {
 enum AppearanceSettingsRoute: String, CaseIterable, Codable, Hashable {
     case root, theme, darkStyle = "dark-style", accent, typography, fontFamily = "font-family", textSize = "text-size"
     case appIcon = "app-icon", density, motion, haptics, contrastTransparency = "contrast-transparency"
-    case iconStyle = "icon-style", interfaceShape = "interface-shape", moduleBranding = "module-branding", preview
+    case iconStyle = "icon-style", interfaceShape = "interface-shape", moduleBranding = "module-branding"
+    case edgePicker = "edge-picker", preview
 }
 enum NotificationSettingsRoute: String, CaseIterable, Codable, Hashable { case root, push, social, modules, quietHours = "quiet-hours" }
 enum PrivacySettingsRoute: String, CaseIterable, Codable, Hashable { case root, privacy, security, glassPrivacy = "glass-privacy", blocked, appLock = "app-lock", biometrics }
