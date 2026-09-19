@@ -24,15 +24,22 @@ actor ModulaIntelligence: ModulaIntelligenceService {
         tools: IntelligenceToolRegistry = IntelligenceToolRegistry(),
         diagnostics: IntelligenceDiagnostics = IntelligenceDiagnostics(),
         remoteIntelligencePermitted: Bool = false,
+        registerAppleSystemProvider: Bool = false,
         registerDeterministicLocalProvider: Bool = true
     ) {
         if let providers {
             self.providers = providers
-        } else if registerDeterministicLocalProvider {
-            // Registry actor init populates isolation synchronously — safe for AppEnvironment.
-            self.providers = try! IntelligenceProviderRegistry(providers: [DeterministicLocalProvider()])
         } else {
-            self.providers = try! IntelligenceProviderRegistry(providers: [])
+            var defaultProviders: [any IntelligenceProvider] = []
+            if registerAppleSystemProvider {
+                // This is a cheap adapter. It does not create a model session at launch.
+                defaultProviders.append(AppleSystemIntelligenceProvider())
+            }
+            if registerDeterministicLocalProvider {
+                defaultProviders.append(DeterministicLocalProvider())
+            }
+            // Registry actor init populates isolation synchronously — safe for AppEnvironment.
+            self.providers = try! IntelligenceProviderRegistry(providers: defaultProviders)
         }
         self.tools = tools
         self.diagnostics = diagnostics
@@ -204,26 +211,107 @@ actor ModulaIntelligence: ModulaIntelligenceService {
         return (false, "No available local provider")
     }
 
+    /// Developer diagnostics only: targets a named provider so the deterministic
+    /// fixture can never masquerade as an Apple model response.
+    func executeDiagnostic(
+        _ request: IntelligenceRequest,
+        usingProviderID providerID: String
+    ) async throws -> IntelligenceResponse {
+        try Task.checkCancellation()
+        guard let provider = await providers.provider(id: providerID) else {
+            throw IntelligenceError.providerNotFound(providerID: providerID)
+        }
+        guard provider.capabilities.contains(request.capability) else {
+            throw IntelligenceError.capabilityUnsupported
+        }
+        guard await provider.availability() == .available else {
+            throw IntelligenceError.providerUnavailable(providerID: providerID)
+        }
+        if request.privacy == .localOnly, provider.executionKind == .remote {
+            throw IntelligenceError.remoteExecutionForbidden
+        }
+
+        let context = IntelligenceExecutionContext(
+            source: request.source,
+            authorizedToolIDs: request.allowedToolIDs,
+            remoteIntelligencePermitted: remoteIntelligencePermitted,
+            diagnostics: IntelligenceDiagnosticsBox(diagnostics: diagnostics)
+        )
+        do {
+            let response = try await provider.execute(request, context: context)
+            diagnostics.record(
+                IntelligenceDiagnosticEvent(
+                    requestID: request.id,
+                    capability: request.capability,
+                    providerID: response.providerID,
+                    executionKind: response.executionKind,
+                    duration: response.duration,
+                    status: .success,
+                    errorCode: nil
+                )
+            )
+            return response
+        } catch is CancellationError {
+            diagnostics.record(
+                IntelligenceDiagnosticEvent(
+                    requestID: request.id,
+                    capability: request.capability,
+                    providerID: provider.id,
+                    executionKind: provider.executionKind,
+                    duration: nil,
+                    status: .cancelled,
+                    errorCode: IntelligenceError.requestCancelled.code
+                )
+            )
+            throw IntelligenceError.requestCancelled
+        } catch let error as IntelligenceError {
+            diagnostics.record(
+                IntelligenceDiagnosticEvent(
+                    requestID: request.id,
+                    capability: request.capability,
+                    providerID: provider.id,
+                    executionKind: provider.executionKind,
+                    duration: nil,
+                    status: error == .requestCancelled ? .cancelled : .failure,
+                    errorCode: error.code
+                )
+            )
+            throw error
+        }
+    }
+
     func diagnosticsSnapshot() async -> IntelligenceServiceSnapshot {
         let all = await providers.allProviders()
         var localCount = 0
         var remoteCount = 0
+        var appleAvailability: IntelligenceAvailability?
+        var deterministicAvailability: IntelligenceAvailability?
         for provider in all {
             switch provider.executionKind {
             case .local: localCount += 1
             case .remote: remoteCount += 1
             }
+            if provider.id == AppleSystemIntelligenceProvider.providerID {
+                appleAvailability = await provider.availability()
+            } else if provider.id == DeterministicLocalProvider.providerID {
+                deterministicAvailability = await provider.availability()
+            }
         }
         let probe = await privacyProbe()
+        let lastEvent = await diagnostics.snapshot()
+        let appleExecutionSucceeded = lastEvent?.providerID == AppleSystemIntelligenceProvider.providerID
+            && lastEvent?.status == .success
         return IntelligenceServiceSnapshot(
             coreReady: true,
             providerCount: all.count,
             localProviderCount: localCount,
             remoteProviderCount: remoteCount,
-            realModelConnected: false,
+            appleProviderAvailability: appleAvailability,
+            deterministicProviderAvailability: deterministicAvailability,
+            realModelConnected: appleAvailability == .available && appleExecutionSucceeded,
             privacyEnforcementPass: probe.pass,
             networkRequired: false,
-            lastEvent: await diagnostics.snapshot()
+            lastEvent: lastEvent
         )
     }
 }
@@ -233,6 +321,8 @@ struct IntelligenceServiceSnapshot: Sendable, Equatable {
     let providerCount: Int
     let localProviderCount: Int
     let remoteProviderCount: Int
+    let appleProviderAvailability: IntelligenceAvailability?
+    let deterministicProviderAvailability: IntelligenceAvailability?
     let realModelConnected: Bool
     let privacyEnforcementPass: Bool
     let networkRequired: Bool

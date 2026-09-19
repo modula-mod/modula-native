@@ -48,6 +48,8 @@
 		98B1FF0A78D3F224FB40C690 /* IntelligenceToolValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4CC36E2CB4875EBEDB19A1A /* IntelligenceToolValidation.swift */; };
 		9B142191BFBCE380907C8378 /* GeneratedDesignContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69B093117E45986E847387DC /* GeneratedDesignContract.swift */; };
 		9EC0F892BB40CDA543E31677 /* AuthenticationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6336CC5D11266D84679C3C6A /* AuthenticationStore.swift */; };
+		A30300000000000000000001 /* AppleSystemIntelligenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40300000000000000000001 /* AppleSystemIntelligenceProvider.swift */; };
+		A30300000000000000000002 /* LI03AppleProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40300000000000000000002 /* LI03AppleProviderTests.swift */; };
 		A3FDEFCF2FC7C6C44C4CD7F9 /* DeterministicLocalProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1B51F430EC86144078FF8A /* DeterministicLocalProvider.swift */; };
 		A50100000000000000000001 /* AppLaunchState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000001 /* AppLaunchState.swift */; };
 		A50100000000000000000002 /* AppGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000002 /* AppGate.swift */; };
@@ -288,6 +290,8 @@
 		A40100000000000000000015 /* ModuleDetailV2View.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleDetailV2View.swift; path = Features/ProductHub/ModuleDetail/ModuleDetailV2View.swift; sourceTree = "<group>"; };
 		A40100000000000000000016 /* PublisherView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PublisherView.swift; path = Features/ProductHub/Publisher/PublisherView.swift; sourceTree = "<group>"; };
 		A40100000000000000000017 /* N4ETests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4ETests.swift; sourceTree = "<group>"; };
+		A40300000000000000000001 /* AppleSystemIntelligenceProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppleSystemIntelligenceProvider.swift; path = Core/Intelligence/Providers/AppleSystemIntelligenceProvider.swift; sourceTree = "<group>"; };
+		A40300000000000000000002 /* LI03AppleProviderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LI03AppleProviderTests.swift; sourceTree = "<group>"; };
 		A4CC36E2CB4875EBEDB19A1A /* IntelligenceToolValidation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceToolValidation.swift; path = Core/Intelligence/Tools/IntelligenceToolValidation.swift; sourceTree = "<group>"; };
 		A5E0D5A04B04831431C46FFA /* ActivityScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityScreen.swift; path = Features/Activity/ActivityScreen.swift; sourceTree = "<group>"; };
 		A632D57B46DA145ADCE10292 /* ReactNativeContainer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactNativeContainer.swift; path = ModuleRuntime/ReactNativeContainer.swift; sourceTree = "<group>"; };
@@ -483,6 +487,7 @@
 				E30100000000000000000009 /* HomeFeedTests.swift */,
 				F00100000000000000000006 /* ProfileTests.swift */,
 				834A240ED776595650758ACA /* LI02IntelligenceTests.swift */,
+				A40300000000000000000002 /* LI03AppleProviderTests.swift */,
 			);
 			path = ModulaTests;
 			sourceTree = "<group>";
@@ -692,6 +697,7 @@
 				481FF6EED52E2B1FCE86E53D /* IntelligenceDiagnostics.swift */,
 				F97B62939727826A0A7B6B6A /* ModulaIntelligenceService.swift */,
 				7B1B51F430EC86144078FF8A /* DeterministicLocalProvider.swift */,
+				A40300000000000000000001 /* AppleSystemIntelligenceProvider.swift */,
 				53E8222C6157A7DA2FB3345B /* IntelligenceProviderRegistry.swift */,
 				370553C58FD3D96B35F6C6AF /* IntelligenceRouter.swift */,
 				3C65E626DB4E0A902B687238 /* IntelligenceTool.swift */,
@@ -984,6 +990,7 @@
 				C5010000000000000000000C /* N4FTests.swift in Sources */,
 				G50100000000000000000007 /* N4GTests.swift in Sources */,
 				2EEAA0F73DFB8DA7C4592A74 /* LI02IntelligenceTests.swift in Sources */,
+				A30300000000000000000002 /* LI03AppleProviderTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1157,6 +1164,7 @@
 				621AE10B4F19084EEA69EC8C /* IntelligenceDiagnostics.swift in Sources */,
 				DB3BEA70380AF2D78B2306D5 /* ModulaIntelligenceService.swift in Sources */,
 				A3FDEFCF2FC7C6C44C4CD7F9 /* DeterministicLocalProvider.swift in Sources */,
+				A30300000000000000000001 /* AppleSystemIntelligenceProvider.swift in Sources */,
 				4EC787BD49EB76EFD20BBBDC /* IntelligenceProviderRegistry.swift in Sources */,
 				B2C7278B19CE66F5FB564E3F /* IntelligenceRouter.swift in Sources */,
 				B1619C7D6C8850CDEBCE8567 /* IntelligenceTool.swift in Sources */,

@@ -15,6 +15,9 @@ enum IntelligenceError: Error, Sendable, Equatable {
     case toolNotAuthorizedForRequest(toolID: String)
     case duplicateTool(toolID: String)
     case invalidRequest(detail: String)
+    case contextLimitExceeded
+    case unsupportedLanguage
+    case safetyRefusal
     case requestCancelled
     case providerFailure(providerID: String, detail: String)
 
@@ -33,6 +36,9 @@ enum IntelligenceError: Error, Sendable, Equatable {
         case .toolNotAuthorizedForRequest: "TOOL_NOT_AUTHORIZED"
         case .duplicateTool: "DUPLICATE_TOOL"
         case .invalidRequest: "INVALID_REQUEST"
+        case .contextLimitExceeded: "CONTEXT_LIMIT_EXCEEDED"
+        case .unsupportedLanguage: "UNSUPPORTED_LANGUAGE"
+        case .safetyRefusal: "SAFETY_REFUSAL"
         case .requestCancelled: "REQUEST_CANCELLED"
         case .providerFailure: "PROVIDER_FAILURE"
         }
