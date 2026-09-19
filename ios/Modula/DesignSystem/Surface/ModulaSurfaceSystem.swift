@@ -49,6 +49,7 @@ enum ModulaMaterial: String, CaseIterable, Sendable {
     }
 
     /// Semantic Edge Picker material recipe for a glass intensity + dark canvas.
+    /// OLED stays near-black refractive glass; Light keeps readable contrast without opaque grey.
     @MainActor
     static func edgeLoopBody(
         intensity: EdgePickerGlassIntensity,
@@ -57,19 +58,42 @@ enum ModulaMaterial: String, CaseIterable, Sendable {
         oled: Bool
     ) -> AnyShapeStyle {
         if opaque {
-            if oled || scheme == .dark {
-                return AnyShapeStyle(Color.black.opacity(intensity == .strong ? 0.92 : 0.86))
+            if oled {
+                return AnyShapeStyle(Color.black.opacity(intensity == .strong ? 0.96 : 0.92))
             }
-            return AnyShapeStyle(Color(uiColor: .secondarySystemBackground))
+            if scheme == .dark {
+                return AnyShapeStyle(Color.black.opacity(intensity == .strong ? 0.9 : 0.84))
+            }
+            // Light + Reduce Transparency: readable semantic surface, not flat grey slab.
+            return AnyShapeStyle(Color(uiColor: .secondarySystemBackground).opacity(0.94))
         }
         switch intensity {
         case .subtle:
             return AnyShapeStyle(.ultraThinMaterial)
         case .standard:
+            if scheme == .light {
+                return AnyShapeStyle(.regularMaterial)
+            }
             return AnyShapeStyle(.thinMaterial)
         case .strong:
             return AnyShapeStyle(.regularMaterial)
         }
+    }
+
+    /// Selection aperture recipe — stronger glass than the body, still material-led.
+    @MainActor
+    static func edgeLoopSelection(
+        opaque: Bool,
+        scheme: ColorScheme,
+        oled: Bool
+    ) -> AnyShapeStyle {
+        if opaque {
+            if oled || scheme == .dark {
+                return AnyShapeStyle(Color.black.opacity(0.88))
+            }
+            return AnyShapeStyle(Color(uiColor: .secondarySystemBackground))
+        }
+        return AnyShapeStyle(.thinMaterial)
     }
 }
 

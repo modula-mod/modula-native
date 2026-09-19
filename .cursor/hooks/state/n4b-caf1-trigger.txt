@@ -1,0 +1,4 @@
+# N4B caf1 hook trigger — reload hooks
+kick: 4
+# n4 closeout recover trigger
+# n4 closeout inspect trigger 2026-09-16

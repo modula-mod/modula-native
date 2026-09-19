@@ -79,8 +79,8 @@ struct EdgeLoopConfiguration: Equatable, Sendable {
 /// Edge-docked reel selector — Modula Edge Picker.
 ///
 /// Fixed selection aperture; items reel through it. Labels reveal vertically
-/// along the rail (rotated readable text). Liquid Glass body. Preferences
-/// arrive via `EdgeLoopConfiguration`.
+/// along the rail (whole-phrase rotation). Liquid Glass body on one continuous
+/// carved silhouette. Outer cutout stays stable when the label expands.
 struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
     let items: [Item]
     @Binding var selection: Item.ID
@@ -91,6 +91,8 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
     var disabled: Bool = false
     /// Semantic vertical anchor (shell only). Contained ignores this.
     var verticalAnchor: EdgePickerPosition = .middle
+    /// Developer-only geometry diagnostics (never in production UI).
+    var showsShapeDiagnostics: Bool = false
 
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
@@ -101,6 +103,7 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
     @State private var collapseTask: Task<Void, Never>?
     @State private var autoHideTask: Task<Void, Never>?
     @State private var quiet: Bool = false
+    @State private var awake: Bool = false
     @State private var generation: UInt64 = 0
 
     init(
@@ -111,7 +114,8 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         placement: EdgeLoopPlacement = .shellEdge,
         configuration: EdgeLoopConfiguration,
         disabled: Bool = false,
-        verticalAnchor: EdgePickerPosition = .middle
+        verticalAnchor: EdgePickerPosition = .middle,
+        showsShapeDiagnostics: Bool = false
     ) {
         self.items = items
         self._selection = selection
@@ -121,6 +125,7 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         self.configuration = configuration
         self.disabled = disabled
         self.verticalAnchor = verticalAnchor
+        self.showsShapeDiagnostics = showsShapeDiagnostics
         let index = items.firstIndex { $0.id == selection.wrappedValue } ?? 0
         _engine = State(initialValue: EdgeLoopEngine(
             itemCount: items.count,
@@ -158,49 +163,57 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
     }
 
+    private var higherContrast: Bool {
+        app.appearance.contrastTransparency == .higherContrast
+    }
+
     private var selectedLabel: String {
         guard items.indices.contains(engine.selectedIndex) else { return "" }
         return items[engine.selectedIndex].label
     }
 
-    private var pillLength: CGFloat {
-        showLabel ? metrics.revealLength(for: selectedLabel) : metrics.apertureHeight
+    /// Selection aperture height only — never feeds the outer carved silhouette.
+    private var apertureHeight: CGFloat {
+        showLabel ? metrics.revealLength(for: selectedLabel) : metrics.selectionCollapsedHeight
     }
 
     private var bodyDepth: CGFloat {
         if quiet && configuration.visibility == .autoHide && !voiceOverEnabled {
-            return max(metrics.restingDepth * 0.55, 22)
+            return max(metrics.channelDepth * 0.62, 24)
         }
-        return metrics.restingDepth
+        return metrics.channelDepth
+    }
+
+    /// Hit testing may extend inward past the visual channel for one-handed Compact use.
+    private var hitDepth: CGFloat {
+        max(bodyDepth + 12, min(metrics.hitSlop, bodyDepth + 20))
+    }
+
+    private var labelRotation: Angle {
+        // Trailing: bottom-to-top along the edge. Leading: readable from the interior.
+        // Never negative-scale text — glyphs must not become backwards.
+        .degrees(position == .trailing ? -90 : 90)
     }
 
     var body: some View {
-        let shape = placement == .contained
-            ? AnyShape(ContainedLoopShape())
-            : AnyShape(EdgeLoopShape(
-                depth: bodyDepth,
-                position: position,
-                waistHalf: max(pillLength / 2 + metrics.waistExtra, metrics.apertureHeight / 2 + metrics.waistExtra)
-            ))
-        ZStack(alignment: position == .trailing ? .trailing : .leading) {
-            loopBackdrop(shape: shape)
-            reel.mask { reelClip }
+        // Spacers position the rail; they must not accept gestures.
+        VStack(spacing: 0) {
+            if verticalAnchor != .up {
+                Spacer(minLength: 0).allowsHitTesting(false)
+            }
+            railControl
+            if verticalAnchor != .down {
+                Spacer(minLength: 0).allowsHitTesting(false)
+            }
         }
-        .frame(
-            width: placement == .contained ? metrics.restingDepth + 8 : bodyDepth + 14,
-            height: metrics.railHeight
-        )
-        .frame(maxHeight: .infinity, alignment: verticalAlignment)
-        .contentShape(Rectangle().inset(by: placement == .contained ? 0 : -18))
-        .highPriorityGesture(reelGesture)
-        .opacity(disabled ? 0.4 : (quiet ? 0.72 : 1))
-        .allowsHitTesting(!disabled)
+        .frame(maxHeight: .infinity)
+        .opacity(disabled ? 0.4 : (quiet ? 0.7 : 1))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(selectedAccessibilityLabel)
         .accessibilityValue(accessibilityValueText)
         .accessibilityHint(behavior == .looping
-            ? "Swipe up or down to move through modes. The list loops."
-            : "Swipe up or down to move through options.")
+            ? "Swipe up or down to move through modes. The list loops. Drag required; tapping does not change selection."
+            : "Swipe up or down to move through options. Drag required; tapping does not change selection.")
         .accessibilityAddTraits(.isButton)
         .accessibilityAdjustableAction { direction in
             touchActivity()
@@ -240,15 +253,36 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
                 engine.collapseLabel()
             }
             quiet = false
+            awake = false
         }
     }
 
-    private var verticalAlignment: Alignment {
-        switch verticalAnchor {
-        case .up: .top
-        case .middle: .center
-        case .down: .bottom
+    /// Visible silhouette only — gestures and hit testing stay on this control.
+    private var railControl: some View {
+        let visualShape = EdgeLoopShape(depth: bodyDepth, position: position, metrics: metrics)
+        let hitShape = EdgeLoopShape(depth: hitDepth, position: position, metrics: metrics)
+        return ZStack(alignment: position == .trailing ? .trailing : .leading) {
+            loopBackdrop(shellShape: visualShape)
+            reel.mask {
+                if placement == .contained {
+                    Capsule().frame(width: metrics.channelDepth)
+                } else {
+                    visualShape
+                }
+            }
+            #if DEBUG
+            if showsShapeDiagnostics {
+                shapeDiagnosticsOverlay
+            }
+            #endif
         }
+        .frame(
+            width: placement == .contained ? metrics.channelDepth + 8 : hitDepth + 6,
+            height: metrics.railHeight
+        )
+        .contentShape(placement == .contained ? AnyShape(Capsule()) : AnyShape(hitShape))
+        .highPriorityGesture(reelGesture)
+        .allowsHitTesting(!disabled)
     }
 
     private var selectedAccessibilityLabel: String {
@@ -264,79 +298,130 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
     // MARK: - Backdrop
 
     @ViewBuilder
-    private func loopBackdrop(shape: AnyShape) -> some View {
+    private func loopBackdrop(shellShape: EdgeLoopShape) -> some View {
         if placement == .contained {
             Capsule()
-                .fill(ModulaMaterial.edgeLoopBody.style(opaque: opaque, scheme: colorScheme))
+                .fill(Color.clear)
+                .frame(width: metrics.channelDepth)
+                .modulaChrome(in: Capsule(), opaque: opaque)
                 .overlay(Capsule().stroke(Color.primary.opacity(opaque ? 0.18 : 0.08), lineWidth: 0.6))
-                .frame(width: metrics.restingDepth)
-        } else {
+        } else if opaque {
             let bodyFill = ModulaMaterial.edgeLoopBody(
                 intensity: configuration.glassIntensity,
-                opaque: opaque,
+                opaque: true,
                 scheme: colorScheme,
                 oled: configuration.oled
             )
-            shape
+            shellShape
                 .fill(bodyFill)
+                .overlay(shellShape.fill(app.appearance.accent.color.opacity(0.18)))
                 .overlay(
-                    shape.fill(Color.black.opacity(!opaque && colorScheme == .dark ? (configuration.oled ? 0.22 : 0.12) : 0))
+                    shellShape.stroke(
+                        Color.primary.opacity(higherContrast ? 0.28 : 0.12),
+                        lineWidth: higherContrast ? 1.2 : 1.0
+                    )
                 )
+                .animation(expansionAnimation, value: bodyDepth)
+        } else {
+            // Carved channel = Liquid Glass + quiet accent tint (not a flat black rail).
+            let sink = bodySinkOpacity
+            let edgeBoost = awake ? 1.15 : (quiet ? 0.75 : 1.0)
+            let bodyAccent = quiet ? 0.06 : (awake ? 0.14 : 0.1)
+            shellShape
+                .fill(Color.clear)
+                .modulaChrome(in: shellShape, opaque: false)
+                .overlay(shellShape.fill(Color.black.opacity(sink)))
+                .overlay(shellShape.fill(app.appearance.accent.color.opacity(bodyAccent)))
                 .overlay(
-                    // Restrained inward edge highlight — glass edge catchlight.
-                    shape.stroke(
+                    shellShape.stroke(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(opaque ? 0.18 : (colorScheme == .dark ? 0.14 : 0.22)),
+                                Color.white.opacity((colorScheme == .dark ? 0.16 : 0.24) * edgeBoost),
+                                app.appearance.accent.color.opacity(0.12 * edgeBoost),
                                 Color.white.opacity(0.02)
                             ],
                             startPoint: position == .trailing ? .leading : .trailing,
                             endPoint: position == .trailing ? .trailing : .leading
                         ),
-                        lineWidth: opaque || app.appearance.contrastTransparency == .higherContrast ? 1.1 : 0.7
+                        lineWidth: higherContrast ? 1.15 : 0.7
                     )
                 )
-                .shadow(color: .black.opacity(0.06), radius: 4, x: position == .trailing ? 2 : -2, y: 0)
+                .shadow(color: .black.opacity(quiet ? 0.03 : 0.06), radius: 4, x: position == .trailing ? 2 : -2, y: 0)
                 .animation(expansionAnimation, value: bodyDepth)
+                .animation(expansionAnimation, value: awake)
         }
     }
 
-    @ViewBuilder
-    private var reelClip: some View {
-        if placement == .contained {
-            Capsule().frame(width: metrics.restingDepth)
-        } else {
-            EdgeLoopShape(
-                depth: bodyDepth,
-                position: position,
-                waistHalf: max(pillLength / 2 + metrics.waistExtra, metrics.apertureHeight / 2 + metrics.waistExtra)
-            )
+    private var bodySinkOpacity: Double {
+        let base: Double = switch configuration.glassIntensity {
+        case .subtle: colorScheme == .dark ? (configuration.oled ? 0.14 : 0.04) : 0.02
+        case .standard: colorScheme == .dark ? (configuration.oled ? 0.22 : 0.08) : 0.0
+        case .strong: colorScheme == .dark ? (configuration.oled ? 0.3 : 0.14) : 0.04
         }
+        if awake { return min(base + 0.04, 0.36) }
+        if quiet { return base * 0.7 }
+        return base
     }
 
-    // MARK: - Vertical reveal (label along the rail)
+    // MARK: - Selection aperture (inside channel)
 
-    private var selectionPill: some View {
-        let length = pillLength
+    /// Vertical liquid-glass pill with accent tint — matches the orange reference.
+    /// Collapsed is taller than wide (never a circle); expands for vertical labels.
+    private var selectionAperture: some View {
+        let height = max(apertureHeight, metrics.selectionWidth * 1.4)
+        let width = metrics.selectionWidth
+        let accent = app.appearance.accent.color
+        // Accent-led glass pill (reference reads as tinted liquid glass, not a grey circle).
+        let accentFill = opaque ? 0.55 : (awake ? 0.48 : 0.42)
         return Capsule()
-            .fill(ModulaMaterial.edgeLoopReveal.style(opaque: opaque, scheme: colorScheme))
-            .overlay(Capsule().fill(app.appearance.accent.color.opacity(opaque ? 0.28 : 0.2)))
-            .overlay(Capsule().stroke(app.appearance.accent.color.opacity(0.5), lineWidth: 1))
-            .frame(width: metrics.pillWidth, height: length)
+            .fill(Color.clear)
+            .frame(width: width, height: height)
+            .modulaChrome(in: Capsule(), opaque: opaque)
+            .overlay(
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                accent.opacity(min(accentFill + 0.1, 0.72)),
+                                accent.opacity(accentFill),
+                                accent.opacity(max(accentFill - 0.08, 0.28))
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+            )
+            .overlay(
+                Capsule()
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(opaque ? 0.22 : 0.35),
+                                accent.opacity(higherContrast ? 0.85 : 0.55),
+                                accent.opacity(0.25)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: higherContrast ? 1.35 : 1.05
+                    )
+            )
             .overlay {
-                if showLabel {
-                    Text(selectedLabel)
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .frame(width: max(length - 20, 10))
-                        .rotationEffect(.degrees(-90))
-                        .transition(.opacity)
+                ZStack {
+                    if showLabel {
+                        Text(selectedLabel)
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                            .fixedSize()
+                            .rotationEffect(labelRotation)
+                            .transition(.opacity)
+                    }
                 }
             }
-            .shadow(color: app.appearance.accent.color.opacity(0.2), radius: 6, y: 0)
-            .animation(expansionAnimation, value: length)
+            .shadow(color: accent.opacity(showLabel ? 0.35 : 0.28), radius: showLabel ? 10 : 7, y: 1)
+            .animation(expansionAnimation, value: height)
             .animation(expansionAnimation, value: showLabel)
             .accessibilityHidden(true)
             .allowsHitTesting(false)
@@ -349,9 +434,9 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
             let centerX = railCenterX(in: proxy.size.width)
             let centerY = proxy.size.height / 2
             ZStack {
-                selectionPill
+                selectionAperture
                     .position(x: centerX, y: centerY)
-                ForEach(engine.reelSlots(radius: 2), id: \.slot) { entry in
+                ForEach(engine.reelSlots(radius: EdgeLoopEngine.visibleRadius), id: \.slot) { entry in
                     if items.indices.contains(entry.index) {
                         cell(items[entry.index], slot: entry.slot, offset: entry.offset)
                             .position(x: centerX, y: centerY + cellY(slot: entry.slot, offset: entry.offset))
@@ -364,82 +449,72 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
 
     private func railCenterX(in width: CGFloat) -> CGFloat {
         position == .leading
-            ? metrics.restingDepth / 2
-            : width - metrics.restingDepth / 2
+            ? bodyDepth / 2
+            : width - bodyDepth / 2
     }
 
     private func cellY(slot: Int, offset: CGFloat) -> CGFloat {
         if isDragging { return offset }
         let delta = slot - Int(engine.anchor.rounded())
         if delta == 0 { return offset }
-        let first = pillLength / 2 + metrics.itemSpacing + metrics.iconSize / 2
+        // Neighbours sit outside the (possibly expanded) aperture, inside the stable channel.
+        let first = apertureHeight / 2 + metrics.itemSpacing + metrics.iconSize / 2
         return CGFloat(delta.signum()) * (first + CGFloat(abs(delta) - 1) * metrics.itemStride)
     }
 
     @ViewBuilder
     private func cell(_ item: Item, slot: Int, offset: CGFloat) -> some View {
         let y = cellY(slot: slot, offset: offset)
-        let insidePill = abs(y) < pillLength / 2 + 2
+        let insideAperture = abs(y) < apertureHeight / 2 + 2
         let isSelectedSlot = slot == Int(engine.anchor.rounded()) && !isDragging
         let distance = abs(y)
         let visibility = cellOpacity(slot: slot, distance: distance)
-        let interactive = isSelectedSlot || visibility >= 0.5
         let scale: CGFloat = {
             if isSelectedSlot { return metrics.selectedIconScale }
             let delta = abs(slot - Int(engine.anchor.rounded()))
             return delta <= 1 ? metrics.neighbourScale : metrics.farScale
         }()
-        let icon = Image(systemName: item.icon)
-            .font(.system(size: metrics.iconSize * 0.75, weight: (isSelectedSlot || insidePill) ? .semibold : .medium))
-            .symbolVariant((isSelectedSlot || insidePill) ? .fill : .none)
-            .frame(width: metrics.iconSize, height: metrics.iconSize)
-            .foregroundStyle((isSelectedSlot || insidePill)
-                ? AnyShapeStyle(Color.white)
-                : AnyShapeStyle(Color.primary.opacity(placement == .contained ? 0.7 : 0.62)))
+        let iconWeight: Font.Weight = (isSelectedSlot || insideAperture) ? .semibold : .medium
+        let iconOpacity: Double = {
+            if isSelectedSlot && showLabel { return 0 }
+            let boosted = awake ? min(visibility + 0.08, 1) : visibility
+            return quiet ? boosted * 0.85 : boosted
+        }()
 
-        if interactive {
-            Button {
-                touchActivity()
-                commit(item)
-            } label: {
-                icon.contentShape(Rectangle().inset(by: -12))
-            }
-            .buttonStyle(.plain)
-            .opacity(isSelectedSlot && showLabel ? 0 : visibility)
+        // Icons are visual only — selection is scrub/drag (or VoiceOver adjust).
+        Image(systemName: item.icon)
+            .font(.system(size: metrics.iconSize * 0.75, weight: iconWeight))
+            .symbolVariant((isSelectedSlot || insideAperture) ? .fill : .none)
+            .frame(width: metrics.iconSize, height: metrics.iconSize)
+            .foregroundStyle((isSelectedSlot || insideAperture)
+                ? AnyShapeStyle(Color.white)
+                : AnyShapeStyle(Color.primary.opacity(placement == .contained ? 0.7 : (higherContrast ? 0.78 : 0.58))))
+            .opacity(iconOpacity)
             .scaleEffect(scale)
-            .frame(minWidth: metrics.hitSlop, minHeight: metrics.hitSlop)
+            .allowsHitTesting(false)
             .accessibilityHidden(true)
-        } else {
-            icon
-                .opacity(visibility)
-                .scaleEffect(scale)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-        }
     }
 
     private func cellOpacity(slot: Int, distance: CGFloat) -> CGFloat {
         if isDragging {
-            if distance < pillLength / 2 + 2 { return 1 }
-            let fadeStart = metrics.itemStride * 0.7
-            let fadeEnd = metrics.itemStride * 2.2
+            if distance < apertureHeight / 2 + 2 { return 1 }
+            // Fade into the carved upper/lower transitions.
+            let fadeStart = metrics.itemStride * 0.45
+            let fadeEnd = metrics.itemStride * 1.25
             if distance <= fadeStart { return 1 }
             return max(0, 1 - (distance - fadeStart) / (fadeEnd - fadeStart))
         }
         switch abs(slot - Int(engine.anchor.rounded())) {
         case 0: return 1
         case 1: return metrics.neighbourOpacity
-        case 2: return metrics.farOpacity
-        default: return 0
+        default: return metrics.farOpacity
         }
     }
 
     // MARK: - Gesture
 
     private var reelGesture: some Gesture {
-        // Low activation + amplified travel so a short edge flick crosses an item
-        // on the first try (ScrollView no longer steals via highPriorityGesture).
-        DragGesture(minimumDistance: 2, coordinateSpace: .local)
+        DragGesture(minimumDistance: 12, coordinateSpace: .local)
             .onChanged { value in
                 touchActivity()
                 if engine.phase != .dragging {
@@ -462,18 +537,20 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
                 let actual = value.translation.height * EdgeLoopMetrics.dragSensitivity
                 let projected = value.predictedEndTranslation.height * EdgeLoopMetrics.dragSensitivity
                 let index: Int
-                // Even a short nudge should settle to the nearest crossed candidate.
-                if reduceMotion || abs(actual) < metrics.itemStride * 0.28 {
+                // Short press / tiny scrub must not change the selection.
+                if abs(actual) < metrics.itemStride * EdgeLoopMetrics.commitThreshold {
+                    index = withAnimation(settleAnimation) { engine.cancelDrag() }
+                } else if reduceMotion {
                     index = withAnimation(settleAnimation) { engine.endDrag() }
                 } else {
-                    let startSlot = engine.anchor.rounded()
+                    let startSlot = engine.dragBaseSlot
                     let targetSlot = engine.previewSettleAnchor(projectedTranslation: projected)
                     let distance = abs(targetSlot - engine.anchor) * metrics.itemStride
                     let velocity = abs(value.velocity.height) * EdgeLoopMetrics.dragSensitivity
                     let settle: Animation = .interpolatingSpring(
                         stiffness: 280,
-                        damping: 26,
-                        initialVelocity: distance > 1 ? min(velocity / distance, 28) : 0
+                        damping: 30,
+                        initialVelocity: distance > 1 ? min(velocity / distance, 16) : 0
                     )
                     index = withAnimation(settle) {
                         engine.endDrag(projectedTranslation: projected)
@@ -498,18 +575,18 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
     // MARK: - Animation
 
     private var settleAnimation: Animation {
-        reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.34, dampingFraction: 0.82)
+        reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.28, dampingFraction: 0.88)
     }
 
     private var scrubAnimation: Animation {
-        reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.24, dampingFraction: 0.86)
+        reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.22, dampingFraction: 0.9)
     }
 
     private var expansionAnimation: Animation? {
         if reduceMotion { return .easeOut(duration: 0.12) }
         switch configuration.motion {
         case .fluid:
-            return .spring(response: 0.38, dampingFraction: 0.78)
+            return .spring(response: 0.36, dampingFraction: 0.82)
         case .reduced:
             return .easeOut(duration: 0.12)
         case .followAppearance:
@@ -518,11 +595,6 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
     }
 
     // MARK: - Commit
-
-    private func commit(_ item: Item) {
-        guard let index = items.firstIndex(of: item) else { return }
-        commitIndex(index, fromDrag: false)
-    }
 
     private func commitRelative(_ delta: Int) {
         commitIndex(engine.index(offsetBy: delta), fromDrag: false)
@@ -590,6 +662,7 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
             await MainActor.run {
                 withAnimation(expansionAnimation) {
                     quiet = true
+                    awake = false
                     if configuration.labelBehavior == .onChange {
                         engine.collapseLabel()
                     }
@@ -599,11 +672,51 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
     }
 
     private func touchActivity() {
-        if quiet {
-            withAnimation(expansionAnimation) { quiet = false }
+        if quiet || !awake {
+            withAnimation(expansionAnimation) {
+                quiet = false
+                awake = true
+            }
         }
         scheduleAutoHide()
     }
+
+    #if DEBUG
+    private var shapeDiagnosticsOverlay: some View {
+        GeometryReader { proxy in
+            let marks = EdgeLoopShape.landmarks(
+                in: proxy.frame(in: .local),
+                curveStartFraction: metrics.curveStartFraction,
+                channelStartFraction: metrics.channelStartFraction,
+                channelEndFraction: metrics.channelEndFraction,
+                curveEndFraction: metrics.curveEndFraction
+            )
+            let x = position == .trailing ? proxy.size.width - 2 : 2
+            ZStack(alignment: .leading) {
+                diagnosticRule(y: marks.curveStart, color: .orange, in: proxy.size, x: x)
+                diagnosticRule(y: marks.channelTop, color: .yellow, in: proxy.size, x: x)
+                diagnosticRule(y: marks.selectionCentre, color: .green, in: proxy.size, x: x)
+                diagnosticRule(y: marks.channelBottom, color: .yellow, in: proxy.size, x: x)
+                diagnosticRule(y: marks.curveEnd, color: .orange, in: proxy.size, x: x)
+            }
+            .allowsHitTesting(false)
+        }
+    }
+
+    private func diagnosticRule(y: CGFloat, color: Color, in size: CGSize, x: CGFloat) -> some View {
+        Path { path in
+            path.move(to: CGPoint(x: 0, y: y))
+            path.addLine(to: CGPoint(x: size.width, y: y))
+        }
+        .stroke(color.opacity(0.55), style: StrokeStyle(lineWidth: 0.5, dash: [3, 2]))
+        .overlay(alignment: .leading) {
+            Circle()
+                .fill(color)
+                .frame(width: 4, height: 4)
+                .position(x: x, y: y)
+        }
+    }
+    #endif
 }
 
 private extension Array {
@@ -613,6 +726,7 @@ private extension Array {
 }
 
 /// Contained reel used inside Typography preview. Same engine; shell prefs for Position/Side/Auto-hide do not apply.
+/// Does not use the shell carved-edge silhouette.
 struct ContainedLoopPicker<Item: EdgeLoopItem>: View {
     let items: [Item]
     @Binding var selection: Item.ID
@@ -629,7 +743,7 @@ struct ContainedLoopPicker<Item: EdgeLoopItem>: View {
             placement: .contained,
             configuration: config
         )
-        .frame(width: config.metrics.restingDepth + 8, height: min(config.metrics.railHeight, CGFloat(max(items.count, 3)) * 40 + 32))
+        .frame(width: config.metrics.channelDepth + 8, height: min(config.metrics.railHeight, CGFloat(max(items.count, 3)) * 40 + 32))
         .accessibilityIdentifier("edge-loop.contained")
     }
 }

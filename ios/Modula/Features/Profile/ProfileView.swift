@@ -206,14 +206,19 @@ struct ProfileView: View {
                 compactAvatarURL: profile?.avatarURL,
                 compactSubtitle: profile.map { "@\($0.handle)" }
             ) {
-                trailingChrome
+                // Share/More lives only in ProfileFloatingChrome — never a second capsule on scroll.
+                EmptyView()
             }
-            if !app.navigation.isAtTabRoot {
+
+            // Single Share/More capsule — stays put; does not hand off to progressive trailing.
+            if let profile {
                 ProfileFloatingChrome(
-                    showsBack: true,
+                    showsBack: !app.navigation.isAtTabRoot,
+                    scrollProgress: headerProgress,
                     onBack: { app.navigation.close() },
-                    onShare: {},
-                    moreMenu: { AnyView(EmptyView()) }
+                    onShare: { presentShare(profile) },
+                    moreActions: ProfileContextActions.moreMenu(isOwn: isOwnProfile),
+                    onMore: { handleContextAction($0, profile: profile) }
                 )
             }
         }
@@ -230,36 +235,6 @@ struct ProfileView: View {
 
     private var compactTitle: String {
         profile?.displayName ?? (isOwnProfile ? "Profile" : "Profile")
-    }
-
-    @ViewBuilder
-    private var trailingChrome: some View {
-        HStack(spacing: 8) {
-            if let profile {
-                ProfileGlassIconButton(
-                    title: "Share Profile",
-                    symbol: ModulaIconRegistry.symbol(.share, style: app.appearance.iconStyle)
-                ) {
-                    presentShare(profile)
-                }
-
-                ModulaContextMenu(
-                    actions: ProfileContextActions.moreMenu(isOwn: isOwnProfile),
-                    onSelect: { handleContextAction($0, profile: profile) }
-                ) {
-                    Image(systemName: ModulaIconRegistry.symbol(.more, style: app.appearance.iconStyle))
-                        .font(.system(size: 15, weight: .semibold))
-                        .frame(width: 36, height: 36)
-                        .contentShape(Circle())
-                }
-                .modulaChrome(in: Circle(), opaque: reduceTransparency)
-                .accessibilityLabel("More")
-            }
-        }
-    }
-
-    private var reduceTransparency: Bool {
-        app.appearance.contrastTransparency == .reduceTransparency
     }
 
     // MARK: - Content
@@ -399,10 +374,7 @@ struct ProfileView: View {
                     Task { await toggleFollowPrimary(profile) }
                 }
             },
-            onShare: { presentShare(profile) },
-            onMessage: isOwnProfile ? nil : { openMessaging(for: profile) },
-            moreActions: ProfileContextActions.moreMenu(isOwn: isOwnProfile),
-            onMore: { handleContextAction($0, profile: profile) }
+            onMessage: isOwnProfile ? nil : { openMessaging(for: profile) }
         )
         .accessibilitySortPriority(90)
     }
@@ -681,6 +653,7 @@ struct ProfileView: View {
         PostCard(
             post: post,
             showsCompactAuthor: compactAuthor,
+            showsActionRail: post.hasMedia,
             onOpenPost: {
                 app.navigation.open(.post(post.id, .root))
                 HapticEngine.shared.play(.navigation)

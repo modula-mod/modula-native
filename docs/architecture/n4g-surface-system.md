@@ -22,9 +22,10 @@ Contract:
 - `items`, `selection: Binding<Item.ID>`, `behavior: looping | bounded`, `position: leading | trailing`
 - Caller owns navigation meaning
 - Drag state is local; only committed selection updates screen context
-- Notch aperture is spatially stable; items reel through it
-- Vertical label reveal along the rail (On Change / Always / Icons Only)
-- Liquid Glass body via `edgeLoopBody` / `edgeLoopSelection` / `edgeLoopReveal`
+- Canonical geometry: narrow edge-carved channel with long S-shaped cubic entry/exit curves and a nearly straight central wall (`EdgeLoopShape` / `EdgePickerCarvedShape`)
+- Notch aperture is spatially fixed; items reel through it; outer silhouette does not expand with labels
+- Vertical label reveal via whole-phrase rotation (On Change / Always / Icons Only) — never stacked characters
+- Liquid Glass body via `edgeLoopBody` / `edgeLoopSelection` / `edgeLoopReveal` on the carved shape itself
 - VoiceOver: single adjustable control, N of M, drag not required; loop clones hidden
 - Reduce Motion / Reduce Transparency win over Edge Picker overrides
 - Haptic: one `.selection` per item boundary (+ optional tick), not per pixel

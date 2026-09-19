@@ -90,7 +90,7 @@ struct EdgePickerSettingsView: View {
                             Text("Live Preview")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
-                            Text("Drag or tap the Edge Picker. Changes apply immediately.")
+                            Text("Scrub the Edge Picker to change modes. Outer carve stays fixed; the selection aperture expands for vertical labels.")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                             Spacer()

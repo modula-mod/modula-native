@@ -67,25 +67,30 @@ struct EdgeLoopEngine: Equatable, Sendable {
     private(set) var anchor: CGFloat
     private var dragBase: CGFloat = 0
 
+    /// Slot the current scrub started from (for coast tick counting / cancel).
+    var dragBaseSlot: CGFloat { dragBase }
+
     /// Centre-to-centre distance between plain reel icons. Overridden from metrics.
     var stride: CGFloat = EdgeLoopEngine.itemStride
     /// Centre-to-centre distance between plain reel icons: 20pt icon + 12pt gap.
     static let itemStride: CGFloat = 32
     static let iconSize: CGFloat = 20
     static let itemGap: CGFloat = 12
-    /// Selected pill at rest (circle) and the notch depth from the physical edge.
+    /// Channel depth from the physical edge (Standard).
     static let restingWidth: CGFloat = 46
-    /// Maximum horizontal reveal width for the selected word (Standard).
-    static let revealedWidth: CGFloat = 126
-    static let pillWidth: CGFloat = 44
-    static let apertureHeight: CGFloat = 44
-    static let railHeight: CGFloat = 244
+    /// Maximum vertical reveal height for the selected word (Standard).
+    static let revealedWidth: CGFloat = 120
+    static let pillWidth: CGFloat = 38
+    static let apertureHeight: CGFloat = 58
+    static let railHeight: CGFloat = 260
     static let hitSlop: CGFloat = 44
     static let labelHoldDuration: TimeInterval = 1.75
     static let snapThreshold: CGFloat = 18
-    static let visibleRadius = 2
+    /// Neighbours each side of the aperture. Radius 1 → three visible slots.
+    /// Larger radii re-show the same icon twice on Home/Activity/Profile (3 items).
+    static let visibleRadius = 1
     /// A flick may carry at most this many items past the finger.
-    static let maxFlingItems: CGFloat = 3
+    static let maxFlingItems: CGFloat = 1.5
 
     init(itemCount: Int, behavior: EdgeLoopBehavior, selectedIndex: Int = 0, stride: CGFloat = EdgeLoopEngine.itemStride) {
         let count = max(0, itemCount)
@@ -139,10 +144,10 @@ struct EdgeLoopEngine: Equatable, Sendable {
                 raw = hi + (raw - hi) * 0.28
             }
         }
-        // Soft detent gravity: lean toward the nearest item without fighting a quick flick.
+        // Soft detent gravity: light pull toward nearest item (less grabby while scrubbing).
         let nearest = raw.rounded()
         if behavior == .looping || (nearest >= 0 && nearest <= CGFloat(itemCount - 1)) {
-            raw += (nearest - raw) * 0.12
+            raw += (nearest - raw) * 0.06
         }
         anchor = raw
         dragOffset = -(anchor - dragBase) * stride
@@ -169,6 +174,13 @@ struct EdgeLoopEngine: Equatable, Sendable {
     mutating func endDrag() -> Int {
         guard itemCount > 0 else { return 0 }
         return settle(on: anchor.rounded())
+    }
+
+    /// Abort a scrub that never traveled far enough — restore the drag start slot.
+    @discardableResult
+    mutating func cancelDrag() -> Int {
+        guard itemCount > 0 else { return 0 }
+        return settle(on: dragBase)
     }
 
     /// Momentum-aware release. `projectedTranslation` is the gesture's predicted
@@ -249,7 +261,7 @@ struct EdgeLoopEngine: Equatable, Sendable {
 
     /// Continuous reel window for the view. Slots are unbounded integers (stable
     /// identity while scrolling); `offset` is points from the aperture centre.
-    func reelSlots(radius: Int = 3) -> [(slot: Int, index: Int, offset: CGFloat)] {
+    func reelSlots(radius: Int = EdgeLoopEngine.visibleRadius) -> [(slot: Int, index: Int, offset: CGFloat)] {
         guard itemCount > 0 else { return [] }
         let center = Int(anchor.rounded())
         var slots: [(slot: Int, index: Int, offset: CGFloat)] = []

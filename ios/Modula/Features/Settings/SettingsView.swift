@@ -545,7 +545,21 @@ struct ComponentCatalogView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                catalog("Edge Picker") { HStack { Spacer(); ShellEdgeLoop(route: .home(.following)) } }
+                catalog("Edge Picker") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Canonical carved-edge channel — orange-reference geometry. Outer silhouette stays fixed; the selection aperture expands vertically with whole-phrase rotated labels.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        HStack {
+                            Spacer(minLength: 0)
+                            ShellEdgeLoop(route: .home(.following))
+                                .frame(height: 280)
+                        }
+                        Text("Tune Position / Size / Side / Labels / Glass under Appearance → Edge Picker. ContainedLoopPicker (Typography) does not use the shell carve.")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
                 catalog("Messages, stories, profile accent") {
                     VStack(alignment: .leading, spacing: 16) {
                         MessageBubble(message: MessagingFixtures.thread()[1]) { _ in }

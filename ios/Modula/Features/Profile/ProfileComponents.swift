@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Cover
 
@@ -6,6 +7,7 @@ struct ProfileCover: View {
     let coverURL: URL?
     let coverColour: String?
     var scrollProgress: CGFloat = 0
+    var safeAreaTop: CGFloat = ProfileFullBleedMetrics.windowSafeAreaTop
     var pocketCenterX: CGFloat? = nil
     var pocketRadius: CGFloat? = nil
     var onTap: (() -> Void)? = nil
@@ -21,7 +23,7 @@ struct ProfileCover: View {
     private var coverHeight: CGFloat {
         ProfileFullBleedMetrics.coverHeight(
             sizeClass: sizeClass,
-            safeAreaTop: 0,
+            safeAreaTop: safeAreaTop,
             accessibility: dynamicTypeSize.isAccessibilitySize
         )
     }
@@ -35,9 +37,9 @@ struct ProfileCover: View {
             let width = proxy.size.width
             let stretch: CGFloat = {
                 guard !reduceMotion, proxy.frame(in: .global).minY > 0 else { return 0 }
-                return min(proxy.frame(in: .global).minY * 0.18, 28)
+                return min(proxy.frame(in: .global).minY * 0.22, 36)
             }()
-            ZStack {
+            ZStack(alignment: .bottom) {
                 fallbackComposition
                     .opacity(coverURL == nil ? 1 : 0.001)
                 if let coverURL {
@@ -59,20 +61,16 @@ struct ProfileCover: View {
                         }
                     }
                 }
-                LinearGradient(
-                    colors: [
-                        .clear,
-                        canvas.opacity(0.25 + (0.55 * Double(dissolve))),
-                        canvas.opacity(0.75 + (0.2 * Double(dissolve)))
-                    ],
-                    startPoint: .center,
-                    endPoint: .bottom
-                )
-                .opacity(0.85 + (0.15 * Double(dissolve)))
+
+                // Liquid bottom fade — soft multi-stop dissolve into canvas (mockup cloud seam).
+                liquidBottomFade
+                    .frame(height: coverHeight * 0.58)
+                    .opacity(0.92 + (0.08 * Double(dissolve)))
+                    .allowsHitTesting(false)
             }
-            .frame(width: width, height: coverHeight + stretch)
-            .offset(y: reduceMotion ? 0 : -CGFloat(dissolve) * 18)
-            .opacity(1 - (0.35 * Double(dissolve)))
+            .frame(width: width, height: coverHeight + stretch, alignment: .top)
+            .offset(y: reduceMotion ? 0 : -CGFloat(dissolve) * 22)
+            .opacity(1 - (0.32 * Double(dissolve)))
             .mask {
                 if let pocketCenterX, let pocketRadius {
                     AvatarPocketShape(centerX: pocketCenterX, radius: pocketRadius)
@@ -112,12 +110,49 @@ struct ProfileCover: View {
         .accessibilityIdentifier("profile.cover")
     }
 
+    /// Soft, liquid-feeling seam from photography into the content canvas.
+    private var liquidBottomFade: some View {
+        ZStack(alignment: .bottom) {
+            LinearGradient(
+                stops: [
+                    .init(color: .clear, location: 0),
+                    .init(color: canvas.opacity(0.08 + 0.2 * Double(dissolve)), location: 0.28),
+                    .init(color: canvas.opacity(0.35 + 0.25 * Double(dissolve)), location: 0.52),
+                    .init(color: canvas.opacity(0.72 + 0.18 * Double(dissolve)), location: 0.78),
+                    .init(color: canvas.opacity(0.96), location: 0.92),
+                    .init(color: canvas, location: 1)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            // Secondary soft bloom — reads more “liquid” than a single hard gradient.
+            LinearGradient(
+                colors: [
+                    .clear,
+                    canvas.opacity(scheme == .dark ? 0.18 : 0.28),
+                    canvas.opacity(scheme == .dark ? 0.45 : 0.55)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .blur(radius: reduceMotion ? 0 : 18)
+            .opacity(0.65)
+            .mask(
+                LinearGradient(
+                    colors: [.clear, .white, .white],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+        }
+    }
+
     private var fallbackComposition: some View {
         ZStack {
             LinearGradient(
                 colors: [
                     fillColor.opacity(scheme == .dark ? 0.9 : 1),
-                    app.appearance.accent.color.opacity(scheme == .dark ? 0.22 : 0.16),
+                    app.appearance.accent.color.opacity(scheme == .dark ? 0.28 : 0.2),
                     canvas
                 ],
                 startPoint: .topLeading,
@@ -125,7 +160,7 @@ struct ProfileCover: View {
             )
             // Soft Modula geometry — intentional, not empty lavender disks.
             RoundedRectangle(cornerRadius: 48, style: .continuous)
-                .fill(app.appearance.accent.color.opacity(0.12))
+                .fill(app.appearance.accent.color.opacity(0.14))
                 .frame(width: 220, height: 120)
                 .rotationEffect(.degrees(-18))
                 .offset(x: 70, y: -28)
@@ -218,11 +253,36 @@ struct ProfileAvatarPocket: View {
                 HapticEngine.shared.play(.lightImpact)
             } label: {
                 ZStack {
+                    // Soft accent glow behind the pocket (mockup neon ring).
+                    Circle()
+                        .fill(app.appearance.accent.color.opacity(scheme == .dark ? 0.35 : 0.28))
+                        .frame(width: avatarSize + 18, height: avatarSize + 18)
+                        .blur(radius: 10)
+                        .opacity(storyRing == nil ? 1 : 0.55)
+
                     ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: avatarSize)
                         .overlay(
                             Circle()
                                 .strokeBorder(canvas, lineWidth: ring)
                         )
+                        .overlay(
+                            Circle()
+                                .strokeBorder(
+                                    AngularGradient(
+                                        colors: [
+                                            app.appearance.accent.color.opacity(0.95),
+                                            app.appearance.accent.color.opacity(0.45),
+                                            Color.white.opacity(0.55),
+                                            app.appearance.accent.color.opacity(0.9)
+                                        ],
+                                        center: .center
+                                    ),
+                                    lineWidth: storyRing == nil ? 3 : 1.5
+                                )
+                                .padding(-1.5)
+                        )
+                        .shadow(color: app.appearance.accent.color.opacity(0.35), radius: 12, y: 2)
+
                     if let storyRing {
                         StoryRing(state: storyRing, size: avatarSize, accent: app.appearance.accent.color)
                     }
@@ -360,11 +420,15 @@ struct ProfileActionsRow: View {
         .padding(.vertical, 8)
         .padding(.horizontal, 4)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.primary.opacity(0.04))
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.clear)
+                .modulaChrome(
+                    in: RoundedRectangle(cornerRadius: 18, style: .continuous),
+                    opaque: app.appearance.contrastTransparency == .reduceTransparency
+                )
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(Color.primary.opacity(app.appearance.contrastTransparency == .higherContrast ? 0.16 : 0.06), lineWidth: 1)
         )
         .accessibilityElement(children: .contain)
@@ -458,7 +522,7 @@ struct ProfileActionsRow: View {
     }
 }
 
-// MARK: - Tool actions (Edit / Follow + Share + More)
+// MARK: - Tool actions (Edit / Follow — Share/More live in the top chrome capsule)
 
 struct ProfileToolActions: View {
     let isOwn: Bool
@@ -467,12 +531,14 @@ struct ProfileToolActions: View {
     var followBusy: Bool = false
     var messageTitle: String? = nil
     var onPrimary: () -> Void
-    var onShare: () -> Void
     var onMessage: (() -> Void)? = nil
-    var moreActions: [ModulaContextAction]
-    var onMore: (ModulaContextAction) -> Void
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    private var opaque: Bool {
+        reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
+    }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -506,31 +572,13 @@ struct ProfileToolActions: View {
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 44)
                         .foregroundStyle(.primary)
-                        .background(Color.primary.opacity(0.08), in: Capsule())
+                        .background(Color.clear)
+                        .modulaChrome(in: Capsule(), opaque: opaque)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(messageTitle)
                 .accessibilityIdentifier("profile.message.cta")
             }
-
-            Button(action: onShare) {
-                Image(systemName: ModulaIconRegistry.symbol(.share, style: app.appearance.iconStyle))
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(width: 44, height: 44)
-                    .background(Color.primary.opacity(0.08), in: Circle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Share Profile")
-            .accessibilityIdentifier("profile.share.cta")
-
-            ModulaContextMenu(actions: moreActions, onSelect: onMore) {
-                Image(systemName: ModulaIconRegistry.symbol(.more, style: app.appearance.iconStyle))
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(width: 44, height: 44)
-                    .background(Color.primary.opacity(0.08), in: Circle())
-            }
-            .accessibilityLabel("More")
-            .accessibilityIdentifier("profile.more.cta")
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("profile.tools")
@@ -790,6 +838,46 @@ struct ProfileModuleGrid: View {
 
 // MARK: - Floating glass icon button
 
+/// Settings-style Share + More cluster — one Liquid Glass capsule, 44pt targets.
+struct ProfileShareMoreCapsule: View {
+    var onShare: () -> Void
+    var moreActions: [ModulaContextAction]
+    var onMore: (ModulaContextAction) -> Void
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    private var opaque: Bool {
+        reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Button(action: onShare) {
+                Image(systemName: ModulaIconRegistry.symbol(.share, style: app.appearance.iconStyle))
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Share Profile")
+            .accessibilityIdentifier("profile.share")
+
+            ModulaContextMenu(actions: moreActions, onSelect: onMore) {
+                Image(systemName: ModulaIconRegistry.symbol(.more, style: app.appearance.iconStyle))
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("More")
+            .accessibilityIdentifier("profile.more")
+        }
+        .padding(.horizontal, 4)
+        .modulaChrome(in: Capsule(), opaque: opaque)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("profile.share-more.capsule")
+    }
+}
+
 struct ProfileGlassIconButton: View {
     let title: String
     let symbol: String
@@ -804,7 +892,7 @@ struct ProfileGlassIconButton: View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: 15, weight: .semibold))
-                .frame(width: 36, height: 36)
+                .frame(width: 44, height: 44)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
@@ -829,7 +917,7 @@ struct ProfileGlassIconMenu<Content: View>: View {
         } label: {
             Image(systemName: symbol)
                 .font(.system(size: 15, weight: .semibold))
-                .frame(width: 36, height: 36)
+                .frame(width: 44, height: 44)
                 .contentShape(Circle())
         }
         .modulaChrome(in: Circle(), opaque: opaque)
