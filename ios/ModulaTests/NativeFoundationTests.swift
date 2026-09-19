@@ -89,8 +89,14 @@ final class NativeFoundationTests: XCTestCase {
             .settings(.privacy(.biometrics)), .settings(.modules(.module("digital.modula.vault-notes", .diagnostics))),
             .settings(.dataStorage(.export)), .settings(.accessibility(.motion)), .settings(.features(.experimental)),
             .settings(.updates(.unstable)), .settings(.developer(.featureFlags)), .settings(.about(.licenses)),
-            .messages(.new), .messages(.conversation("conversation-1")), .teams(.create), .teams(.team("team-1", .members)),
-            .developer(.bridge)
+            .messages(.new), .messages(.conversation("conversation-1")), .messages(.inbox), .messages(.requests),
+            .messages(.inMail(.inbox)), .messages(.inMail(.compose)), .messages(.inMail(.thread("thread-1"))),
+            .stories(.root), .stories(.create), .stories(.story("story-1")),
+            .reels(.feed), .reels(.reel("reel-1")),
+            .teams(.create), .teams(.team("team-1", .members)),
+            .developer(.bridge),
+            .command, .saved(.root), .saved(.posts), .collections(.root), .collections(.collection("design-1")),
+            .drafts(.root), .drafts(.inMail)
         ]
         for route in routes {
             let path = RouteSerializer.serialize(route)

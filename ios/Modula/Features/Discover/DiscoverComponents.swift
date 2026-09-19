@@ -255,7 +255,10 @@ struct DiscoverPostCard: View {
     let post: DiscoverPost
     var action: () -> Void
     @Environment(AppEnvironment.self) private var app
-    @Environment(\.colorScheme) private var scheme
+
+    private var resolvedEngagement: PostEngagement? {
+        app.posts.post(id: post.id)?.engagement
+    }
 
     var body: some View {
         Button(action: action) {
@@ -286,19 +289,20 @@ struct DiscoverPostCard: View {
                     DiscoverMediaPreview(media: media)
                 }
                 HStack(spacing: 16) {
-                    if let likes = post.likeCount {
-                        Label("\(likes)", systemImage: "heart")
+                    let likes = resolvedEngagement?.likeCount ?? post.likeCount
+                    let replies = resolvedEngagement?.replyCount ?? post.replyCount
+                    if let likes {
+                        Label("\(likes)", systemImage: resolvedEngagement?.liked == true ? "heart.fill" : "heart")
                     }
-                    if let replies = post.replyCount {
+                    if let replies {
                         Label("\(replies)", systemImage: "bubble.right")
                     }
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
-            .padding(16 * app.appearance.density.spacingScale)
-            .background(ModulaPalette.resolve(app.appearance, scheme: scheme).surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(.primary.opacity(0.06)))
+            .padding(.vertical, 12 * app.appearance.density.spacingScale)
+            // Lighter Discover geometry — avoid grey rounded cards for every row.
         }
         .buttonStyle(.plain)
         .accessibilityLabel(post.text ?? "Post")

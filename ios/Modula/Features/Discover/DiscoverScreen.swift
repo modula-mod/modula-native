@@ -275,6 +275,10 @@ struct DiscoverScreen: View {
     }
 
     private func openPost(_ post: DiscoverPost) {
+        let social = post.asSocialPost()
+        // Discover keeps a compact preview; full interaction lives on canonical Post Detail.
+        // Ingesting into PostStateStore keeps engagement consistent when returning.
+        app.postActions.ingest(social)
         app.navigation.push(.post(post.id, .root))
         HapticEngine.shared.play(.navigation)
     }

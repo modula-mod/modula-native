@@ -332,6 +332,7 @@ struct ProfileAvatarPocket: View {
 struct ProfileIdentityBlock: View {
     let profile: ModulaProfile
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.profileAccentColor) private var profileAccent
     @State private var bioExpanded = false
 
     private var bioIsLong: Bool { profile.bio.count > 160 || profile.bio.contains("\n") }
@@ -343,7 +344,7 @@ struct ProfileIdentityBlock: View {
                     .lineLimit(2)
                 if profile.isVerified {
                     Image(systemName: "checkmark.seal.fill")
-                        .foregroundStyle(app.appearance.accent.color)
+                        .foregroundStyle(profileAccent ?? app.appearance.accent.color)
                         .accessibilityLabel("Verified account")
                 }
             }
@@ -612,10 +613,10 @@ struct ProfileAboutGrid: View {
         if let joined = profile.joinedAt {
             items.append(("Joined", Self.joinedFormatter.string(from: joined), nil))
         }
-        if let location = profile.location?.label, !location.isEmpty {
+        if let location = profile.location?.label, !location.isEmpty, ProfileFieldPrivacy.isPublic(profile.location?.visibility) {
             items.append(("Location", location, nil))
         }
-        if let website = profile.website, let url = website.url {
+        if let website = profile.website, let url = website.url, ProfileFieldPrivacy.isPublic(website.visibility) {
             let label = website.domain ?? website.label
             items.append(("Website", label, { Self.openSafely(url, openURL: openURL) }))
         }

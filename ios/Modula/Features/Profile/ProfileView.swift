@@ -221,9 +221,27 @@ struct ProfileView: View {
                     onMore: { handleContextAction($0, profile: profile) }
                 )
             }
+            if !app.navigation.isAtTabRoot {
+                HStack {
+                    Button {
+                        app.navigation.close()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .semibold))
+                            .frame(width: 36, height: 36)
+                    }
+                    .modulaChrome(in: Circle(), opaque: reduceTransparency)
+                    .accessibilityLabel("Back")
+                    .accessibilityIdentifier("profile.back")
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+            }
         }
         .ignoresSafeArea(edges: .top)
         .modulaCanvas()
+        .environment(\.profileAccentColor, profile?.presentation.accent?.color)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
     }
@@ -650,46 +668,59 @@ struct ProfileView: View {
     // MARK: - Rows / cards
 
     private func postCard(_ post: SocialPost, compactAuthor: Bool) -> some View {
-        PostCard(
-            post: post,
+        let resolved = app.posts.resolved(post)
+        return PostCard(
+            post: resolved,
             showsCompactAuthor: compactAuthor,
             showsActionRail: post.hasMedia,
             onOpenPost: {
-                app.navigation.open(.post(post.id, .root))
+                app.navigation.open(.post(resolved.id, .root))
                 HapticEngine.shared.play(.navigation)
             },
             onOpenAuthor: {
                 // Same-person on profile; still no-op safely if tapped.
             },
             onLike: {
-                Task { await app.home.toggleLike(post, mode: .forYou) }
+                Task {
+                    app.postActions.ingest(resolved)
+                    await app.postActions.toggleLike(resolved)
+                    app.home.syncVisibleEngagement()
+                }
             },
             onComment: {
-                app.navigation.open(.post(post.id, .comments))
+                app.navigation.open(.post(resolved.id, .comments))
                 HapticEngine.shared.play(.navigation)
             },
             onRepost: {
-                Task { await app.home.toggleRepost(post, mode: .forYou) }
+                Task {
+                    app.postActions.ingest(resolved)
+                    await app.postActions.toggleRepost(resolved)
+                    app.home.syncVisibleEngagement()
+                }
             },
             onSave: {
-                Task { await app.home.toggleSave(post, mode: .forYou) }
+                Task {
+                    app.postActions.ingest(resolved)
+                    await app.postActions.toggleSave(resolved)
+                    app.home.syncVisibleEngagement()
+                }
+            },
+            onShare: {
+                activityShare = ActivityShareItem(url: resolved.shareURL)
+            },
+            onMore: {
+                HapticEngine.shared.play(.contextOpen)
+            },
+            onContextAction: { handlePostContextAction($0, post: resolved) },
+            onOpenMedia: { _ in
+                app.navigation.open(.post(resolved.id, .root))
+            },
+            onOpenModule: { module in
+                app.navigation.push(.productHub(.module(module.id, .overview)))
+                HapticEngine.shared.play(.navigation)
             }
         )
-        .contextMenu {
-            ForEach(ProfileContextActions.postMenu(isOwn: isOwnProfile)) { action in
-                Button(role: action.role == .destructive ? .destructive : nil) {
-                    handlePostContextAction(action, post: post)
-                } label: {
-                    if let systemImage = action.systemImage {
-                        Label(action.title, systemImage: systemImage)
-                    } else {
-                        Text(action.title)
-                    }
-                }
-                .disabled(action.role == .disabled)
-            }
-        }
-        .accessibilityIdentifier("profile.post.\(post.id)")
+        .accessibilityIdentifier("profile.post.\(resolved.id)")
     }
 
     private func linkRow(_ link: ProfileLink) -> some View {
@@ -1014,22 +1045,72 @@ struct ProfileView: View {
         HapticEngine.shared.play(.contextOpen)
         switch action.id {
         case "save":
-            Task { await app.home.toggleSave(post, mode: .forYou) }
-            HapticEngine.shared.play(.saveComplete)
+            Task {
+                app.postActions.ingest(post)
+                await app.postActions.toggleSave(post)
+                app.home.syncVisibleEngagement()
+            }
+        case "save-collection":
+            app.navigation.presented = .collectionPicker(postID: post.id)
         case "copy-link":
-            UIPasteboard.general.string = "https://modula.digital/post/\(post.id)"
+            UIPasteboard.general.string = post.shareURL.absoluteString
             HapticEngine.shared.play(.confirmation)
         case "share":
-            activityShare = ActivityShareItem(url: URL(string: "https://modula.digital/post/\(post.id)")!)
+            app.navigation.presented = .universalShare(.post(
+                id: post.id,
+                authorName: post.author?.displayName,
+                excerpt: post.text,
+                hasMedia: !post.media.isEmpty
+            ))
+        case "hide":
+            app.postActions.hideLocally(post)
         case "mute-author":
             Task {
                 await app.profile.mute(identity: identity, handleHint: profile?.handle)
             }
         case "report":
             confirmsReport = true
+        case "edit-post":
+            app.navigation.open(.post(post.id, .edit))
+        case "delete":
+            Task {
+                _ = await app.postActions.deletePost(post)
+            }
         default:
             break
         }
+    }
+
+    private var messageActionTitle: String? {
+        if app.messaging.capabilities.send { return "Message" }
+        if app.inMail.capabilities.send { return "Send In-Mail" }
+        return nil
+    }
+
+    private func openMessaging(for profile: ModulaProfile) {
+        if app.messaging.capabilities.send {
+            app.navigation.push(.messages(.new))
+            HapticEngine.shared.play(.navigation)
+            return
+        }
+        if app.inMail.capabilities.send {
+            app.navigation.push(.messages(.inMail(.compose)))
+            HapticEngine.shared.play(.navigation)
+        }
+    }
+
+    private func storyRing(for profile: ModulaProfile) -> StoryRingState? {
+        app.stories.groups.first { $0.author.id == profile.id || $0.author.handle == profile.handle }?.ring
+    }
+
+    private func openProfileStory(_ profile: ModulaProfile) {
+        guard let group = app.stories.groups.first(where: { $0.author.id == profile.id || $0.author.handle == profile.handle }),
+              let id = group.representative?.id else {
+            openAvatarViewer(profile)
+            return
+        }
+        app.navigation.push(.stories(.story(id)))
+        HapticEngine.shared.play(.navigation)
     }
 
     private func reportProfile(category: String) async {

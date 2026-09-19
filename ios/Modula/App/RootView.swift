@@ -251,7 +251,7 @@ private struct PresentationView: View {
 
 struct DevelopmentRouteView: View {
     var title: String; var symbol: String
-    var body: some View { ModulaEmptyState(title: title, message: "This route is ready for a later product phase.", symbol: symbol).navigationTitle(title) }
+    var body: some View { ModulaEmptyState(title: title, message: "This destination isn’t part of the current product surface.", symbol: symbol).navigationTitle(title) }
 }
 struct ComposerFoundationView: View {
     let route: ComposeRoute

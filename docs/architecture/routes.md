@@ -48,6 +48,10 @@ N2 authority: `AppRoute` is the in-process route model. `RouteParser` converts p
 /teams/{create,:teamId}
 /teams/:teamId/{overview,members,roles,modules,settings}
 /developer/{components,appearance,modules,runtime,bridge,diagnostics}
+/command
+/saved[/{posts,modules,links}]
+/collections[/:collectionId]
+/drafts[/{posts,in-mail,stories}]
 ```
 
 `/command` is a transient Command Center surface (sheet/overlay). It is **not** a sixth global tab. `/saved` is bookmarked content (not Product Hub installed). `/collections` groups saved content; storage may be local (“On This Device”) or Greenfield when verified. `/drafts` lists unfinished user-created content (not failed deliveries).
