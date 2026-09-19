@@ -7,10 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		E4010000000000000000000A /* ModulaContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3010000000000000000000A /* ModulaContextMenu.swift */; };
-		E4010000000000000000000B /* ModulaMediaViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3010000000000000000000B /* ModulaMediaViewer.swift */; };
-		F10100000000000000000007 /* ProfileContextActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000007 /* ProfileContextActions.swift */; };
-		F10100000000000000000008 /* ProfileShareViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000008 /* ProfileShareViews.swift */; };
 		001526FE43E0E8C9671B4E84 /* ModuleHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */; };
 		0139D48F433333A6C105C394 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E9539623085AAA12077638F /* SettingsView.swift */; };
 		02ED22D448BC35987DA41C41 /* RuntimeDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */; };
@@ -25,6 +21,7 @@
 		21638B169590129BA65823F1 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 003916B967E1900F61DFB206 /* SettingsStore.swift */; };
 		22CC6AB6F1DCAECE01085714 /* ActivityScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E0D5A04B04831431C46FFA /* ActivityScreen.swift */; };
 		2EB8E6563046CB7FD4D651AD /* ModulaHostBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = 11C7225BC261899B6AA2414A /* ModulaHostBridge.mm */; };
+		2EEAA0F73DFB8DA7C4592A74 /* LI02IntelligenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 834A240ED776595650758ACA /* LI02IntelligenceTests.swift */; };
 		36217ECF8FA82AEF220905B2 /* ModuleSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90EAE77878B8E7792468645E /* ModuleSession.swift */; };
 		3AD8D6231F5274974F54F780 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37BECD2968D22B6943830857 /* SignInView.swift */; };
 		3DFCE2030F6AC41D3386B2F5 /* NativeLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AA9CD0861813EF42C424B9A /* NativeLaunchTests.swift */; };
@@ -36,39 +33,24 @@
 		48EF6D3FADBF1FED0E9DC0F6 /* ModuleBackendRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97029B142178008022F2424B /* ModuleBackendRequest.swift */; };
 		490B3AA11BC41A7FD192FAA4 /* ModulaBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35DD2D0F98FBF95AC2D68618 /* ModulaBridge.swift */; };
 		4D06B1162F85CC39C781DF95 /* ShellComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C4472E61C35766446322975 /* ShellComponents.swift */; };
+		4EC787BD49EB76EFD20BBBDC /* IntelligenceProviderRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53E8222C6157A7DA2FB3345B /* IntelligenceProviderRegistry.swift */; };
 		5AF827934E990FCCD5C8DF02 /* ActivityModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D8009D43EDDFCEAF03135C2 /* ActivityModels.swift */; };
+		621AE10B4F19084EEA69EC8C /* IntelligenceDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 481FF6EED52E2B1FCE86E53D /* IntelligenceDiagnostics.swift */; };
 		63CC3E79BDCFF0F138189C2B /* ModulaLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4000338D069CCD91CB36D32 /* ModulaLog.swift */; };
+		67A5698FD3DAF53049D07C73 /* IntelligenceExecutionKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9835AA81D7D5E62C87948FE5 /* IntelligenceExecutionKind.swift */; };
 		72C4D78F9C1D0E3C2FD3BB95 /* ActivityComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDA1C8662B298F425D5FC310 /* ActivityComponents.swift */; };
 		7D7AABC4EB1C0A2313444D79 /* ModuleEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435419F8D75EB3FA37353703 /* ModuleEnvironment.swift */; };
+		7F0E4764560ACE3663B3525E /* IntelligenceCapability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64E0C1CE1DD2D90E75B3DF62 /* IntelligenceCapability.swift */; };
 		8792C88AC2427176A7389799 /* ActivityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BB4C8A7DBAF1068946F2678 /* ActivityStore.swift */; };
 		90EC78DC1C87A9562EC08717 /* AppRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */; };
 		9314852BE26D5B1EB2360CE8 /* ModuleRuntimeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */; };
 		93AFDE81000E32DA131CDFB4 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46F14EB7791E789BBE2A473A /* HomeView.swift */; };
+		98B1FF0A78D3F224FB40C690 /* IntelligenceToolValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4CC36E2CB4875EBEDB19A1A /* IntelligenceToolValidation.swift */; };
 		9B142191BFBCE380907C8378 /* GeneratedDesignContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69B093117E45986E847387DC /* GeneratedDesignContract.swift */; };
 		9EC0F892BB40CDA543E31677 /* AuthenticationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6336CC5D11266D84679C3C6A /* AuthenticationStore.swift */; };
-		A7847EFDADE6BEEF365C2F21 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BEF0F5DFEB2FC30D2769C391 /* Foundation.framework */; };
-		A7C9B3B1BD7B84C45951A4CE /* manifests.json in Resources */ = {isa = PBXBuildFile; fileRef = 9BDB10B4EB59E29CECC0719A /* manifests.json */; };
-		B7E661790BD11DE3A721C204 /* ShellAccessory.swift in Sources */ = {isa = PBXBuildFile; fileRef = EECC47A5007CE1E5BB063A97 /* ShellAccessory.swift */; };
-		B9825B0168E160AB5B8411B9 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ECAD5355D79305D770912A /* ProfileView.swift */; };
-		C5321327FFFE3ADE609BB112 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 084039C8EE9493F07C7F4946 /* AppEnvironment.swift */; };
-		C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */; };
-		C89812CA3410607F237A67DC /* AccountSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15D7EBEF5CC806F4A3DB8FD2 /* AccountSettingsView.swift */; };
-		DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */; };
-		E20100000000000000000001 /* DiscoverModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000001 /* DiscoverModels.swift */; };
-		E20100000000000000000002 /* DiscoverRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000002 /* DiscoverRepository.swift */; };
-		E20100000000000000000003 /* DiscoverStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000003 /* DiscoverStore.swift */; };
-		E20100000000000000000004 /* DiscoverScopePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000004 /* DiscoverScopePicker.swift */; };
-		E20100000000000000000005 /* DiscoverComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000005 /* DiscoverComponents.swift */; };
-		E20100000000000000000006 /* DiscoverDashboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000006 /* DiscoverDashboard.swift */; };
-		E20100000000000000000007 /* DiscoverFilterSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000007 /* DiscoverFilterSheet.swift */; };
-		E20100000000000000000008 /* DiscoverScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000008 /* DiscoverScreen.swift */; };
-		E20100000000000000000009 /* SearchScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000009 /* SearchScreen.swift */; };
-		E2010000000000000000000A /* DiscoverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1010000000000000000000A /* DiscoverTests.swift */; };
-		E40100000000000000000001 /* PostModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000001 /* PostModels.swift */; };
-		E40100000000000000000002 /* PostComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000002 /* PostComponents.swift */; };
-		E40100000000000000000003 /* PostDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000003 /* PostDetailView.swift */; };
-		A50100000000000000000011 /* ReactionKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000011 /* ReactionKind.swift */; };
-		A50100000000000000000012 /* ReactionPeopleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000012 /* ReactionPeopleView.swift */; };
+		A30300000000000000000001 /* AppleSystemIntelligenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40300000000000000000001 /* AppleSystemIntelligenceProvider.swift */; };
+		A30300000000000000000002 /* LI03AppleProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40300000000000000000002 /* LI03AppleProviderTests.swift */; };
+		A3FDEFCF2FC7C6C44C4CD7F9 /* DeterministicLocalProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1B51F430EC86144078FF8A /* DeterministicLocalProvider.swift */; };
 		A50100000000000000000001 /* AppLaunchState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000001 /* AppLaunchState.swift */; };
 		A50100000000000000000002 /* AppGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000002 /* AppGate.swift */; };
 		A50100000000000000000003 /* AppGateHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000003 /* AppGateHost.swift */; };
@@ -85,21 +67,22 @@
 		A5010000000000000000000E /* SettingsCategoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4010000000000000000000E /* SettingsCategoryViews.swift */; };
 		A5010000000000000000000F /* GreenfieldAccountClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4010000000000000000000F /* GreenfieldAccountClient.swift */; };
 		A50100000000000000000010 /* AuthProductViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000010 /* AuthProductViews.swift */; };
+		A50100000000000000000011 /* ReactionKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000011 /* ReactionKind.swift */; };
+		A50100000000000000000012 /* ReactionPeopleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000012 /* ReactionPeopleView.swift */; };
 		A50100000000000000000013 /* ProfileFullBleedChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000013 /* ProfileFullBleedChrome.swift */; };
 		A50100000000000000000014 /* ModuleDetailModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000014 /* ModuleDetailModels.swift */; };
 		A50100000000000000000015 /* ModuleDetailV2View.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000015 /* ModuleDetailV2View.swift */; };
 		A50100000000000000000016 /* PublisherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000016 /* PublisherView.swift */; };
 		A50100000000000000000017 /* N4ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000017 /* N4ETests.swift */; };
-		F50100000000000000000001 /* ModulaImmersiveSurfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */; };
-		G50100000000000000000001 /* ModulaSurfaceSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000001 /* ModulaSurfaceSystem.swift */; };
-		G50100000000000000000002 /* EdgeLoopEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000002 /* EdgeLoopEngine.swift */; };
-		G50100000000000000000003 /* EdgeLoopShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000003 /* EdgeLoopShape.swift */; };
-		G50100000000000000000004 /* ModulaEdgeLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000004 /* ModulaEdgeLoop.swift */; };
-		G50100000000000000000008 /* EdgePickerPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000008 /* EdgePickerPreferences.swift */; };
-		G50100000000000000000009 /* EdgeLoopMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000009 /* EdgeLoopMetrics.swift */; };
-		G5010000000000000000000A /* EdgePickerSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = G4010000000000000000000A /* EdgePickerSettingsView.swift */; };
-		G50100000000000000000006 /* TypographyPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000006 /* TypographyPreview.swift */; };
-		G50100000000000000000007 /* N4GTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000007 /* N4GTests.swift */; };
+		A7847EFDADE6BEEF365C2F21 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BEF0F5DFEB2FC30D2769C391 /* Foundation.framework */; };
+		A7C9B3B1BD7B84C45951A4CE /* manifests.json in Resources */ = {isa = PBXBuildFile; fileRef = 9BDB10B4EB59E29CECC0719A /* manifests.json */; };
+		A9518E57DAAF8DED3BEACDEF /* IntelligenceError.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD892F52CC60A67EF80BCB01 /* IntelligenceError.swift */; };
+		B1619C7D6C8850CDEBCE8567 /* IntelligenceTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C65E626DB4E0A902B687238 /* IntelligenceTool.swift */; };
+		B2C7278B19CE66F5FB564E3F /* IntelligenceRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 370553C58FD3D96B35F6C6AF /* IntelligenceRouter.swift */; };
+		B7E661790BD11DE3A721C204 /* ShellAccessory.swift in Sources */ = {isa = PBXBuildFile; fileRef = EECC47A5007CE1E5BB063A97 /* ShellAccessory.swift */; };
+		B9825B0168E160AB5B8411B9 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ECAD5355D79305D770912A /* ProfileView.swift */; };
+		BB47BD84CB36684F9FB5C6D5 /* IntelligenceAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3907C2A83DF1A9C8AE1CAC40 /* IntelligenceAvailability.swift */; };
+		BEEBE251735247E8828B2F26 /* IntelligenceValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ED61D09324116C37F15191A /* IntelligenceValue.swift */; };
 		C50100000000000000000001 /* CreationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000001 /* CreationModels.swift */; };
 		C50100000000000000000002 /* CreationCapabilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000002 /* CreationCapabilities.swift */; };
 		C50100000000000000000003 /* CreationStudioStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000003 /* CreationStudioStore.swift */; };
@@ -112,51 +95,11 @@
 		C5010000000000000000000A /* PublishingRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4010000000000000000000A /* PublishingRepository.swift */; };
 		C5010000000000000000000B /* MediaUploading.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4010000000000000000000B /* MediaUploading.swift */; };
 		C5010000000000000000000C /* N4FTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4010000000000000000000C /* N4FTests.swift */; };
-		E40100000000000000000010 /* PostGestureThresholds.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000010 /* PostGestureThresholds.swift */; };
-		E40100000000000000000011 /* PostBackendCapabilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000011 /* PostBackendCapabilities.swift */; };
-		E40100000000000000000012 /* PostStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000012 /* PostStateStore.swift */; };
-		E40100000000000000000013 /* PostRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000013 /* PostRepository.swift */; };
-		E40100000000000000000014 /* PostActionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000014 /* PostActionController.swift */; };
-		E40100000000000000000015 /* PostContextActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000015 /* PostContextActions.swift */; };
-		E40100000000000000000016 /* PostReactionPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000016 /* PostReactionPicker.swift */; };
-		E40100000000000000000017 /* PostActionRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000017 /* PostActionRail.swift */; };
-		E40100000000000000000018 /* PostCommentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000018 /* PostCommentsView.swift */; };
-		E40100000000000000000019 /* PostSystemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000019 /* PostSystemTests.swift */; };
-		E40100000000000000000004 /* HomeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000004 /* HomeModels.swift */; };
-		E40100000000000000000005 /* HomeRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000005 /* HomeRepository.swift */; };
-		E40100000000000000000006 /* HomeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000006 /* HomeStore.swift */; };
-		E40100000000000000000007 /* HomeTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000007 /* HomeTools.swift */; };
-		E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000008 /* ModulaProgressiveHeader.swift */; };
-		E40100000000000000000009 /* HomeFeedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000009 /* HomeFeedTests.swift */; };
-		F10100000000000000000001 /* ProfileModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000001 /* ProfileModels.swift */; };
-		F10100000000000000000002 /* ProfileRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000002 /* ProfileRepository.swift */; };
-		F10100000000000000000003 /* ProfileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000003 /* ProfileStore.swift */; };
-		F10100000000000000000004 /* ProfileComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000004 /* ProfileComponents.swift */; };
-		F10100000000000000000005 /* ProfileEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000005 /* ProfileEditView.swift */; };
-		F10100000000000000000006 /* ProfileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000006 /* ProfileTests.swift */; };
-		E706DA503AC96378DE9BE822 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65C4B3534ABCFCD2C0AE4AB5 /* KeychainStore.swift */; };
-		EC29FF07954140DE802361CB /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 093D191569CDD66161FC3552 /* JSONValue.swift */; };
-		F280213B620AE297E6EC4D78 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE413545A422ACB4BACBB3DF /* RootView.swift */; };
-		F43AEB1A67070000A929D731 /* N1FixtureCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = C086A4FED95A41F19B257A39 /* N1FixtureCredentials.swift */; };
-		FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */; };
-		N50100000000000000000001 /* MediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000001 /* MediaModels.swift */; };
-		N50100000000000000000002 /* ModulaVideoPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000002 /* ModulaVideoPlayer.swift */; };
-		N50100000000000000000003 /* MessageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000003 /* MessageModels.swift */; };
-		N50100000000000000000004 /* MessagingRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000004 /* MessagingRepository.swift */; };
-		N50100000000000000000005 /* MessagingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000005 /* MessagingStore.swift */; };
-		N50100000000000000000006 /* MessageContextActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000006 /* MessageContextActions.swift */; };
-		N50100000000000000000007 /* MessagesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000007 /* MessagesViews.swift */; };
-		N50100000000000000000008 /* InMailModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000008 /* InMailModels.swift */; };
-		N50100000000000000000009 /* InMailRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000009 /* InMailRepository.swift */; };
-		N5010000000000000000000A /* InMailStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000A /* InMailStore.swift */; };
-		N5010000000000000000000B /* InMailViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000B /* InMailViews.swift */; };
-		N5010000000000000000000C /* StoryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000C /* StoryModels.swift */; };
-		N5010000000000000000000D /* StoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000D /* StoryViews.swift */; };
-		N5010000000000000000000E /* ReelModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000E /* ReelModels.swift */; };
-		N5010000000000000000000F /* ReelViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000F /* ReelViewer.swift */; };
-		N50100000000000000000010 /* ProfilePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000010 /* ProfilePresentation.swift */; };
-		N50100000000000000000011 /* ProfileCustomizationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000011 /* ProfileCustomizationViews.swift */; };
-		N50100000000000000000012 /* N4CTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000012 /* N4CTests.swift */; };
+		C5321327FFFE3ADE609BB112 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 084039C8EE9493F07C7F4946 /* AppEnvironment.swift */; };
+		C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */; };
+		C89812CA3410607F237A67DC /* AccountSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15D7EBEF5CC806F4A3DB8FD2 /* AccountSettingsView.swift */; };
+		CB83EAE823CBFCC164212148 /* IntelligenceToolRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 451A1E26A996A06EF909DBE4 /* IntelligenceToolRegistry.swift */; };
+		D278576A2004E2A30C65EFF5 /* IntelligencePrivacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803B42B4BF6BF7A874EF51D3 /* IntelligencePrivacy.swift */; };
 		D50100000000000000000001 /* PrivateFileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000001 /* PrivateFileStore.swift */; };
 		D50100000000000000000002 /* CommandModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000002 /* CommandModels.swift */; };
 		D50100000000000000000003 /* CommandMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000003 /* CommandMatcher.swift */; };
@@ -181,6 +124,84 @@
 		D50100000000000000000016 /* SpotlightIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000016 /* SpotlightIndex.swift */; };
 		D50100000000000000000017 /* KeyboardCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000017 /* KeyboardCommands.swift */; };
 		D50100000000000000000018 /* N4DTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000018 /* N4DTests.swift */; };
+		DB3BEA70380AF2D78B2306D5 /* ModulaIntelligenceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97B62939727826A0A7B6B6A /* ModulaIntelligenceService.swift */; };
+		DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */; };
+		E20100000000000000000001 /* DiscoverModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000001 /* DiscoverModels.swift */; };
+		E20100000000000000000002 /* DiscoverRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000002 /* DiscoverRepository.swift */; };
+		E20100000000000000000003 /* DiscoverStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000003 /* DiscoverStore.swift */; };
+		E20100000000000000000004 /* DiscoverScopePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000004 /* DiscoverScopePicker.swift */; };
+		E20100000000000000000005 /* DiscoverComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000005 /* DiscoverComponents.swift */; };
+		E20100000000000000000006 /* DiscoverDashboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000006 /* DiscoverDashboard.swift */; };
+		E20100000000000000000007 /* DiscoverFilterSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000007 /* DiscoverFilterSheet.swift */; };
+		E20100000000000000000008 /* DiscoverScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000008 /* DiscoverScreen.swift */; };
+		E20100000000000000000009 /* SearchScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000009 /* SearchScreen.swift */; };
+		E2010000000000000000000A /* DiscoverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1010000000000000000000A /* DiscoverTests.swift */; };
+		E40100000000000000000001 /* PostModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000001 /* PostModels.swift */; };
+		E40100000000000000000002 /* PostComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000002 /* PostComponents.swift */; };
+		E40100000000000000000003 /* PostDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000003 /* PostDetailView.swift */; };
+		E40100000000000000000004 /* HomeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000004 /* HomeModels.swift */; };
+		E40100000000000000000005 /* HomeRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000005 /* HomeRepository.swift */; };
+		E40100000000000000000006 /* HomeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000006 /* HomeStore.swift */; };
+		E40100000000000000000007 /* HomeTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000007 /* HomeTools.swift */; };
+		E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000008 /* ModulaProgressiveHeader.swift */; };
+		E40100000000000000000009 /* HomeFeedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000009 /* HomeFeedTests.swift */; };
+		E4010000000000000000000A /* ModulaContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3010000000000000000000A /* ModulaContextMenu.swift */; };
+		E4010000000000000000000B /* ModulaMediaViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3010000000000000000000B /* ModulaMediaViewer.swift */; };
+		E40100000000000000000010 /* PostGestureThresholds.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000010 /* PostGestureThresholds.swift */; };
+		E40100000000000000000011 /* PostBackendCapabilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000011 /* PostBackendCapabilities.swift */; };
+		E40100000000000000000012 /* PostStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000012 /* PostStateStore.swift */; };
+		E40100000000000000000013 /* PostRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000013 /* PostRepository.swift */; };
+		E40100000000000000000014 /* PostActionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000014 /* PostActionController.swift */; };
+		E40100000000000000000015 /* PostContextActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000015 /* PostContextActions.swift */; };
+		E40100000000000000000016 /* PostReactionPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000016 /* PostReactionPicker.swift */; };
+		E40100000000000000000017 /* PostActionRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000017 /* PostActionRail.swift */; };
+		E40100000000000000000018 /* PostCommentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000018 /* PostCommentsView.swift */; };
+		E40100000000000000000019 /* PostSystemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000019 /* PostSystemTests.swift */; };
+		E706DA503AC96378DE9BE822 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65C4B3534ABCFCD2C0AE4AB5 /* KeychainStore.swift */; };
+		EC29FF07954140DE802361CB /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 093D191569CDD66161FC3552 /* JSONValue.swift */; };
+		EFC09C0DE4E7EC929F867E98 /* IntelligenceRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = F45DF2084F485AD64DD1A37F /* IntelligenceRequest.swift */; };
+		F10100000000000000000001 /* ProfileModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000001 /* ProfileModels.swift */; };
+		F10100000000000000000002 /* ProfileRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000002 /* ProfileRepository.swift */; };
+		F10100000000000000000003 /* ProfileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000003 /* ProfileStore.swift */; };
+		F10100000000000000000004 /* ProfileComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000004 /* ProfileComponents.swift */; };
+		F10100000000000000000005 /* ProfileEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000005 /* ProfileEditView.swift */; };
+		F10100000000000000000006 /* ProfileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000006 /* ProfileTests.swift */; };
+		F10100000000000000000007 /* ProfileContextActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000007 /* ProfileContextActions.swift */; };
+		F10100000000000000000008 /* ProfileShareViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000008 /* ProfileShareViews.swift */; };
+		F2381918FBC41E683AA717BB /* IntelligenceResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = C727EBE1A122E68AE7538DFC /* IntelligenceResponse.swift */; };
+		F280213B620AE297E6EC4D78 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE413545A422ACB4BACBB3DF /* RootView.swift */; };
+		F43AEB1A67070000A929D731 /* N1FixtureCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = C086A4FED95A41F19B257A39 /* N1FixtureCredentials.swift */; };
+		F50100000000000000000001 /* ModulaImmersiveSurfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */; };
+		F55C4DEFC5031B25247EC2F9 /* IntelligenceDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00C3046A71D34C45B14E30AE /* IntelligenceDiagnosticsView.swift */; };
+		FCF5472ED72B6CF79891F968 /* IntelligenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB03DB7121ABD1E492F3AC7E /* IntelligenceProvider.swift */; };
+		FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */; };
+		G50100000000000000000001 /* ModulaSurfaceSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000001 /* ModulaSurfaceSystem.swift */; };
+		G50100000000000000000002 /* EdgeLoopEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000002 /* EdgeLoopEngine.swift */; };
+		G50100000000000000000003 /* EdgeLoopShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000003 /* EdgeLoopShape.swift */; };
+		G50100000000000000000004 /* ModulaEdgeLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000004 /* ModulaEdgeLoop.swift */; };
+		G50100000000000000000006 /* TypographyPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000006 /* TypographyPreview.swift */; };
+		G50100000000000000000007 /* N4GTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000007 /* N4GTests.swift */; };
+		G50100000000000000000008 /* EdgePickerPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000008 /* EdgePickerPreferences.swift */; };
+		G50100000000000000000009 /* EdgeLoopMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000009 /* EdgeLoopMetrics.swift */; };
+		G5010000000000000000000A /* EdgePickerSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = G4010000000000000000000A /* EdgePickerSettingsView.swift */; };
+		N50100000000000000000001 /* MediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000001 /* MediaModels.swift */; };
+		N50100000000000000000002 /* ModulaVideoPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000002 /* ModulaVideoPlayer.swift */; };
+		N50100000000000000000003 /* MessageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000003 /* MessageModels.swift */; };
+		N50100000000000000000004 /* MessagingRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000004 /* MessagingRepository.swift */; };
+		N50100000000000000000005 /* MessagingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000005 /* MessagingStore.swift */; };
+		N50100000000000000000006 /* MessageContextActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000006 /* MessageContextActions.swift */; };
+		N50100000000000000000007 /* MessagesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000007 /* MessagesViews.swift */; };
+		N50100000000000000000008 /* InMailModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000008 /* InMailModels.swift */; };
+		N50100000000000000000009 /* InMailRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000009 /* InMailRepository.swift */; };
+		N5010000000000000000000A /* InMailStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000A /* InMailStore.swift */; };
+		N5010000000000000000000B /* InMailViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000B /* InMailViews.swift */; };
+		N5010000000000000000000C /* StoryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000C /* StoryModels.swift */; };
+		N5010000000000000000000D /* StoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000D /* StoryViews.swift */; };
+		N5010000000000000000000E /* ReelModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000E /* ReelModels.swift */; };
+		N5010000000000000000000F /* ReelViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000F /* ReelViewer.swift */; };
+		N50100000000000000000010 /* ProfilePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000010 /* ProfilePresentation.swift */; };
+		N50100000000000000000011 /* ProfileCustomizationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000011 /* ProfileCustomizationViews.swift */; };
+		N50100000000000000000012 /* N4CTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000012 /* N4CTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -201,12 +222,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		E3010000000000000000000A /* ModulaContextMenu.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaContextMenu.swift; path = DesignSystem/ModulaContextMenu.swift; sourceTree = "<group>"; };
-		E3010000000000000000000B /* ModulaMediaViewer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaMediaViewer.swift; path = DesignSystem/ModulaMediaViewer.swift; sourceTree = "<group>"; };
-		F00100000000000000000007 /* ProfileContextActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileContextActions.swift; path = Features/Profile/ProfileContextActions.swift; sourceTree = "<group>"; };
-		F00100000000000000000008 /* ProfileShareViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileShareViews.swift; path = Features/Profile/ProfileShareViews.swift; sourceTree = "<group>"; };
 		003916B967E1900F61DFB206 /* SettingsStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsStore.swift; path = Features/Settings/SettingsStore.swift; sourceTree = "<group>"; };
 		007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RuntimeDiagnosticsView.swift; path = ModuleRuntime/RuntimeDiagnosticsView.swift; sourceTree = "<group>"; };
+		00C3046A71D34C45B14E30AE /* IntelligenceDiagnosticsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceDiagnosticsView.swift; path = Features/Developer/IntelligenceDiagnosticsView.swift; sourceTree = "<group>"; };
 		084039C8EE9493F07C7F4946 /* AppEnvironment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppEnvironment.swift; path = App/AppEnvironment.swift; sourceTree = "<group>"; };
 		093D191569CDD66161FC3552 /* JSONValue.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = JSONValue.swift; path = Core/Networking/JSONValue.swift; sourceTree = "<group>"; };
 		1105A971BF52022B31F2CB36 /* ModulaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ModulaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -214,81 +232,41 @@
 		15D7EBEF5CC806F4A3DB8FD2 /* AccountSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AccountSettingsView.swift; path = Core/Authentication/AccountSettingsView.swift; sourceTree = "<group>"; };
 		2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NavigationCoordinator.swift; path = Navigation/NavigationCoordinator.swift; sourceTree = "<group>"; };
 		35DD2D0F98FBF95AC2D68618 /* ModulaBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaBridge.swift; path = ModuleRuntime/Bridge/ModulaBridge.swift; sourceTree = "<group>"; };
+		370553C58FD3D96B35F6C6AF /* IntelligenceRouter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceRouter.swift; path = Core/Intelligence/Routing/IntelligenceRouter.swift; sourceTree = "<group>"; };
 		37BECD2968D22B6943830857 /* SignInView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SignInView.swift; path = Core/Authentication/SignInView.swift; sourceTree = "<group>"; };
+		3907C2A83DF1A9C8AE1CAC40 /* IntelligenceAvailability.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceAvailability.swift; path = Core/Intelligence/Contracts/IntelligenceAvailability.swift; sourceTree = "<group>"; };
+		3C65E626DB4E0A902B687238 /* IntelligenceTool.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceTool.swift; path = Core/Intelligence/Tools/IntelligenceTool.swift; sourceTree = "<group>"; };
 		435419F8D75EB3FA37353703 /* ModuleEnvironment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleEnvironment.swift; path = ModuleRuntime/ModuleEnvironment.swift; sourceTree = "<group>"; };
+		451A1E26A996A06EF909DBE4 /* IntelligenceToolRegistry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceToolRegistry.swift; path = Core/Intelligence/Tools/IntelligenceToolRegistry.swift; sourceTree = "<group>"; };
 		46F14EB7791E789BBE2A473A /* HomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeView.swift; path = Features/Home/HomeView.swift; sourceTree = "<group>"; };
+		481FF6EED52E2B1FCE86E53D /* IntelligenceDiagnostics.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceDiagnostics.swift; path = Core/Intelligence/Diagnostics/IntelligenceDiagnostics.swift; sourceTree = "<group>"; };
+		4ED61D09324116C37F15191A /* IntelligenceValue.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceValue.swift; path = Core/Intelligence/Values/IntelligenceValue.swift; sourceTree = "<group>"; };
+		53E8222C6157A7DA2FB3345B /* IntelligenceProviderRegistry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceProviderRegistry.swift; path = Core/Intelligence/Providers/IntelligenceProviderRegistry.swift; sourceTree = "<group>"; };
 		586EC2A3D1894A46296513D8 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = ../PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActivityAuthTests.swift; sourceTree = "<group>"; };
 		6336CC5D11266D84679C3C6A /* AuthenticationStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthenticationStore.swift; path = Core/Authentication/AuthenticationStore.swift; sourceTree = "<group>"; };
+		64E0C1CE1DD2D90E75B3DF62 /* IntelligenceCapability.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceCapability.swift; path = Core/Intelligence/Contracts/IntelligenceCapability.swift; sourceTree = "<group>"; };
 		65C4B3534ABCFCD2C0AE4AB5 /* KeychainStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = KeychainStore.swift; path = Core/Persistence/KeychainStore.swift; sourceTree = "<group>"; };
 		6892B51E34CC27875E30261C /* Pods-ModulaTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ModulaTests.release.xcconfig"; path = "Target Support Files/Pods-ModulaTests/Pods-ModulaTests.release.xcconfig"; sourceTree = "<group>"; };
 		69B093117E45986E847387DC /* GeneratedDesignContract.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GeneratedDesignContract.swift; path = DesignSystem/Tokens/GeneratedDesignContract.swift; sourceTree = "<group>"; };
 		6C4472E61C35766446322975 /* ShellComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShellComponents.swift; path = DesignSystem/ShellComponents.swift; sourceTree = "<group>"; };
 		7658F204F337CC6A7FAA4441 /* Pods-Modula-ModulaTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modula-ModulaTests.release.xcconfig"; path = "Target Support Files/Pods-Modula-ModulaTests/Pods-Modula-ModulaTests.release.xcconfig"; sourceTree = "<group>"; };
 		790594A395FC6962F78767AC /* Modula.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Modula.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7B1B51F430EC86144078FF8A /* DeterministicLocalProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DeterministicLocalProvider.swift; path = Core/Intelligence/Providers/DeterministicLocalProvider.swift; sourceTree = "<group>"; };
 		7D0904A1437768EB6AFED58D /* ReactNativeViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactNativeViewController.swift; path = ModuleRuntime/ReactNativeViewController.swift; sourceTree = "<group>"; };
 		7D8009D43EDDFCEAF03135C2 /* ActivityModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityModels.swift; path = Features/Activity/ActivityModels.swift; sourceTree = "<group>"; };
+		803B42B4BF6BF7A874EF51D3 /* IntelligencePrivacy.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligencePrivacy.swift; path = Core/Intelligence/Contracts/IntelligencePrivacy.swift; sourceTree = "<group>"; };
+		834A240ED776595650758ACA /* LI02IntelligenceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LI02IntelligenceTests.swift; sourceTree = "<group>"; };
 		87FAF528B548627542BBEB0D /* Pods-Modula-ModulaTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modula-ModulaTests.debug.xcconfig"; path = "Target Support Files/Pods-Modula-ModulaTests/Pods-Modula-ModulaTests.debug.xcconfig"; sourceTree = "<group>"; };
 		8BB4C8A7DBAF1068946F2678 /* ActivityStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityStore.swift; path = Features/Activity/ActivityStore.swift; sourceTree = "<group>"; };
 		8E9539623085AAA12077638F /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsView.swift; path = Features/Settings/SettingsView.swift; sourceTree = "<group>"; };
 		9041733DFED31156EFEE81C2 /* ModulaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ModulaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		90EAE77878B8E7792468645E /* ModuleSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleSession.swift; path = ModuleRuntime/ModuleSession.swift; sourceTree = "<group>"; };
 		97029B142178008022F2424B /* ModuleBackendRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleBackendRequest.swift; path = ModuleRuntime/Bridge/ModuleBackendRequest.swift; sourceTree = "<group>"; };
+		9835AA81D7D5E62C87948FE5 /* IntelligenceExecutionKind.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceExecutionKind.swift; path = Core/Intelligence/Contracts/IntelligenceExecutionKind.swift; sourceTree = "<group>"; };
 		9AA9CD0861813EF42C424B9A /* NativeLaunchTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeLaunchTests.swift; sourceTree = "<group>"; };
 		9BDB10B4EB59E29CECC0719A /* manifests.json */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json; name = manifests.json; path = ../runtime/src/registry/manifests.json; sourceTree = "<group>"; };
 		9DD632C1523A313A40D2B0D3 /* GreenfieldClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GreenfieldClient.swift; path = Core/Networking/GreenfieldClient.swift; sourceTree = "<group>"; };
-		A5E0D5A04B04831431C46FFA /* ActivityScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityScreen.swift; path = Features/Activity/ActivityScreen.swift; sourceTree = "<group>"; };
-		A632D57B46DA145ADCE10292 /* ReactNativeContainer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactNativeContainer.swift; path = ModuleRuntime/ReactNativeContainer.swift; sourceTree = "<group>"; };
-		AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleRuntimeController.swift; path = ModuleRuntime/ModuleRuntimeController.swift; sourceTree = "<group>"; };
-		ADB419E3CAE3BA05CB1C1E59 /* ModulaDesignSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaDesignSystem.swift; path = DesignSystem/ModulaDesignSystem.swift; sourceTree = "<group>"; };
-		B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppRoute.swift; path = Navigation/AppRoute.swift; sourceTree = "<group>"; };
-		B305577CCD34598919E97E55 /* Release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
-		B8D0072715530545613031A3 /* ModulaApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaApp.swift; path = App/ModulaApp.swift; sourceTree = "<group>"; };
-		BB8E23944EDA4143B0141E3D /* Pods-Modula.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modula.debug.xcconfig"; path = "Target Support Files/Pods-Modula/Pods-Modula.debug.xcconfig"; sourceTree = "<group>"; };
-		BDA1C8662B298F425D5FC310 /* ActivityComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityComponents.swift; path = Features/Activity/ActivityComponents.swift; sourceTree = "<group>"; };
-		BEF0F5DFEB2FC30D2769C391 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
-		C086A4FED95A41F19B257A39 /* N1FixtureCredentials.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = N1FixtureCredentials.swift; path = Core/Authentication/N1FixtureCredentials.swift; sourceTree = "<group>"; };
-		C3C0363819593AB6B8477B79 /* Pods-Modula.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modula.release.xcconfig"; path = "Target Support Files/Pods-Modula/Pods-Modula.release.xcconfig"; sourceTree = "<group>"; };
-		C3DC1AD1EDCCBBF93362A45C /* ActivityRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityRepository.swift; path = Features/Activity/ActivityRepository.swift; sourceTree = "<group>"; };
-		C4000338D069CCD91CB36D32 /* ModulaLog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaLog.swift; path = Core/Logging/ModulaLog.swift; sourceTree = "<group>"; };
-		C8ECAD5355D79305D770912A /* ProfileView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileView.swift; path = Features/Profile/ProfileView.swift; sourceTree = "<group>"; };
-		CE413545A422ACB4BACBB3DF /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RootView.swift; path = App/RootView.swift; sourceTree = "<group>"; };
-		D902DDFA87CA1FD5224F1994 /* libPods-Modula.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Modula.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		F00100000000000000000001 /* ProfileModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileModels.swift; path = Features/Profile/ProfileModels.swift; sourceTree = "<group>"; };
-		F00100000000000000000002 /* ProfileRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileRepository.swift; path = Features/Profile/ProfileRepository.swift; sourceTree = "<group>"; };
-		F00100000000000000000003 /* ProfileStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileStore.swift; path = Features/Profile/ProfileStore.swift; sourceTree = "<group>"; };
-		F00100000000000000000004 /* ProfileComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileComponents.swift; path = Features/Profile/ProfileComponents.swift; sourceTree = "<group>"; };
-		F00100000000000000000005 /* ProfileEditView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileEditView.swift; path = Features/Profile/ProfileEditView.swift; sourceTree = "<group>"; };
-		F00100000000000000000006 /* ProfileTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileTests.swift; sourceTree = "<group>"; };
-		DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductHubView.swift; path = Features/ProductHub/ProductHubView.swift; sourceTree = "<group>"; };
-		DC4EF43E9E96C1202C4F7E36 /* Debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
-		DE7A82A7615F703ED7EFABC2 /* libPods-ModulaTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ModulaTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		E0953B7C9CBB401D9F7D74DE /* ModulaColor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaColor.swift; path = DesignSystem/Tokens/ModulaColor.swift; sourceTree = "<group>"; };
-		E10100000000000000000001 /* DiscoverModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverModels.swift; path = Features/Discover/DiscoverModels.swift; sourceTree = "<group>"; };
-		E10100000000000000000002 /* DiscoverRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverRepository.swift; path = Features/Discover/DiscoverRepository.swift; sourceTree = "<group>"; };
-		E10100000000000000000003 /* DiscoverStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverStore.swift; path = Features/Discover/DiscoverStore.swift; sourceTree = "<group>"; };
-		E10100000000000000000004 /* DiscoverScopePicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverScopePicker.swift; path = Features/Discover/DiscoverScopePicker.swift; sourceTree = "<group>"; };
-		E10100000000000000000005 /* DiscoverComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverComponents.swift; path = Features/Discover/DiscoverComponents.swift; sourceTree = "<group>"; };
-		E10100000000000000000006 /* DiscoverDashboard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverDashboard.swift; path = Features/Discover/DiscoverDashboard.swift; sourceTree = "<group>"; };
-		E10100000000000000000007 /* DiscoverFilterSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverFilterSheet.swift; path = Features/Discover/DiscoverFilterSheet.swift; sourceTree = "<group>"; };
-		E10100000000000000000008 /* DiscoverScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverScreen.swift; path = Features/Discover/DiscoverScreen.swift; sourceTree = "<group>"; };
-		E10100000000000000000009 /* SearchScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SearchScreen.swift; path = Features/Search/SearchScreen.swift; sourceTree = "<group>"; };
-		E1010000000000000000000A /* DiscoverTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DiscoverTests.swift; sourceTree = "<group>"; };
-		E30100000000000000000001 /* PostModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostModels.swift; path = Features/Social/PostModels.swift; sourceTree = "<group>"; };
-		E30100000000000000000002 /* PostComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostComponents.swift; path = Features/Social/PostComponents.swift; sourceTree = "<group>"; };
-		E30100000000000000000003 /* PostDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostDetailView.swift; path = Features/Social/PostDetailView.swift; sourceTree = "<group>"; };
-		E30100000000000000000010 /* PostGestureThresholds.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostGestureThresholds.swift; path = Features/Social/PostGestureThresholds.swift; sourceTree = "<group>"; };
-		E30100000000000000000011 /* PostBackendCapabilities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostBackendCapabilities.swift; path = Features/Social/PostBackendCapabilities.swift; sourceTree = "<group>"; };
-		E30100000000000000000012 /* PostStateStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostStateStore.swift; path = Features/Social/PostStateStore.swift; sourceTree = "<group>"; };
-		E30100000000000000000013 /* PostRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostRepository.swift; path = Features/Social/PostRepository.swift; sourceTree = "<group>"; };
-		E30100000000000000000014 /* PostActionController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostActionController.swift; path = Features/Social/PostActionController.swift; sourceTree = "<group>"; };
-		E30100000000000000000015 /* PostContextActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostContextActions.swift; path = Features/Social/PostContextActions.swift; sourceTree = "<group>"; };
-		E30100000000000000000016 /* PostReactionPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostReactionPicker.swift; path = Features/Social/PostReactionPicker.swift; sourceTree = "<group>"; };
-		E30100000000000000000017 /* PostActionRail.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostActionRail.swift; path = Features/Social/PostActionRail.swift; sourceTree = "<group>"; };
-		E30100000000000000000018 /* PostCommentsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostCommentsView.swift; path = Features/Social/PostCommentsView.swift; sourceTree = "<group>"; };
-		E30100000000000000000019 /* PostSystemTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostSystemTests.swift; sourceTree = "<group>"; };
-		A40100000000000000000011 /* ReactionKind.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactionKind.swift; path = Features/Social/Reactions/ReactionKind.swift; sourceTree = "<group>"; };
-		A40100000000000000000012 /* ReactionPeopleView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactionPeopleView.swift; path = Features/Social/Reactions/ReactionPeopleView.swift; sourceTree = "<group>"; };
 		A40100000000000000000001 /* AppLaunchState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppLaunchState.swift; path = Core/AppGate/AppLaunchState.swift; sourceTree = "<group>"; };
 		A40100000000000000000002 /* AppGate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppGate.swift; path = Core/AppGate/AppGate.swift; sourceTree = "<group>"; };
 		A40100000000000000000003 /* AppGateHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppGateHost.swift; path = Core/AppGate/AppGateHost.swift; sourceTree = "<group>"; };
@@ -305,21 +283,31 @@
 		A4010000000000000000000E /* SettingsCategoryViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsCategoryViews.swift; path = Features/Settings/SettingsCategoryViews.swift; sourceTree = "<group>"; };
 		A4010000000000000000000F /* GreenfieldAccountClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GreenfieldAccountClient.swift; path = Core/Networking/GreenfieldAccountClient.swift; sourceTree = "<group>"; };
 		A40100000000000000000010 /* AuthProductViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthProductViews.swift; path = Core/Authentication/AuthProductViews.swift; sourceTree = "<group>"; };
+		A40100000000000000000011 /* ReactionKind.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactionKind.swift; path = Features/Social/Reactions/ReactionKind.swift; sourceTree = "<group>"; };
+		A40100000000000000000012 /* ReactionPeopleView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactionPeopleView.swift; path = Features/Social/Reactions/ReactionPeopleView.swift; sourceTree = "<group>"; };
 		A40100000000000000000013 /* ProfileFullBleedChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileFullBleedChrome.swift; path = Features/Profile/FullBleed/ProfileFullBleedChrome.swift; sourceTree = "<group>"; };
 		A40100000000000000000014 /* ModuleDetailModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleDetailModels.swift; path = Features/ProductHub/ModuleDetail/ModuleDetailModels.swift; sourceTree = "<group>"; };
 		A40100000000000000000015 /* ModuleDetailV2View.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleDetailV2View.swift; path = Features/ProductHub/ModuleDetail/ModuleDetailV2View.swift; sourceTree = "<group>"; };
 		A40100000000000000000016 /* PublisherView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PublisherView.swift; path = Features/ProductHub/Publisher/PublisherView.swift; sourceTree = "<group>"; };
 		A40100000000000000000017 /* N4ETests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4ETests.swift; sourceTree = "<group>"; };
-		F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaImmersiveSurfaces.swift; path = DesignSystem/Immersive/ModulaImmersiveSurfaces.swift; sourceTree = "<group>"; };
-		G40100000000000000000001 /* ModulaSurfaceSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaSurfaceSystem.swift; path = DesignSystem/Surface/ModulaSurfaceSystem.swift; sourceTree = "<group>"; };
-		G40100000000000000000002 /* EdgeLoopEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopEngine.swift; path = DesignSystem/EdgeLoop/EdgeLoopEngine.swift; sourceTree = "<group>"; };
-		G40100000000000000000003 /* EdgeLoopShape.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopShape.swift; path = DesignSystem/EdgeLoop/EdgeLoopShape.swift; sourceTree = "<group>"; };
-		G40100000000000000000004 /* ModulaEdgeLoop.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaEdgeLoop.swift; path = DesignSystem/EdgeLoop/ModulaEdgeLoop.swift; sourceTree = "<group>"; };
-		G40100000000000000000008 /* EdgePickerPreferences.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgePickerPreferences.swift; path = DesignSystem/EdgeLoop/EdgePickerPreferences.swift; sourceTree = "<group>"; };
-		G40100000000000000000009 /* EdgeLoopMetrics.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopMetrics.swift; path = DesignSystem/EdgeLoop/EdgeLoopMetrics.swift; sourceTree = "<group>"; };
-		G4010000000000000000000A /* EdgePickerSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgePickerSettingsView.swift; path = Features/Settings/EdgePickerSettingsView.swift; sourceTree = "<group>"; };
-		G40100000000000000000006 /* TypographyPreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TypographyPreview.swift; path = Features/Settings/TypographyPreview.swift; sourceTree = "<group>"; };
-		G40100000000000000000007 /* N4GTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4GTests.swift; sourceTree = "<group>"; };
+		A40300000000000000000001 /* AppleSystemIntelligenceProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppleSystemIntelligenceProvider.swift; path = Core/Intelligence/Providers/AppleSystemIntelligenceProvider.swift; sourceTree = "<group>"; };
+		A40300000000000000000002 /* LI03AppleProviderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LI03AppleProviderTests.swift; sourceTree = "<group>"; };
+		A4CC36E2CB4875EBEDB19A1A /* IntelligenceToolValidation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceToolValidation.swift; path = Core/Intelligence/Tools/IntelligenceToolValidation.swift; sourceTree = "<group>"; };
+		A5E0D5A04B04831431C46FFA /* ActivityScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityScreen.swift; path = Features/Activity/ActivityScreen.swift; sourceTree = "<group>"; };
+		A632D57B46DA145ADCE10292 /* ReactNativeContainer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactNativeContainer.swift; path = ModuleRuntime/ReactNativeContainer.swift; sourceTree = "<group>"; };
+		AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleRuntimeController.swift; path = ModuleRuntime/ModuleRuntimeController.swift; sourceTree = "<group>"; };
+		AD892F52CC60A67EF80BCB01 /* IntelligenceError.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceError.swift; path = Core/Intelligence/Contracts/IntelligenceError.swift; sourceTree = "<group>"; };
+		ADB419E3CAE3BA05CB1C1E59 /* ModulaDesignSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaDesignSystem.swift; path = DesignSystem/ModulaDesignSystem.swift; sourceTree = "<group>"; };
+		B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppRoute.swift; path = Navigation/AppRoute.swift; sourceTree = "<group>"; };
+		B305577CCD34598919E97E55 /* Release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+		B8D0072715530545613031A3 /* ModulaApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaApp.swift; path = App/ModulaApp.swift; sourceTree = "<group>"; };
+		BB8E23944EDA4143B0141E3D /* Pods-Modula.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modula.debug.xcconfig"; path = "Target Support Files/Pods-Modula/Pods-Modula.debug.xcconfig"; sourceTree = "<group>"; };
+		BDA1C8662B298F425D5FC310 /* ActivityComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityComponents.swift; path = Features/Activity/ActivityComponents.swift; sourceTree = "<group>"; };
+		BEF0F5DFEB2FC30D2769C391 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		C086A4FED95A41F19B257A39 /* N1FixtureCredentials.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = N1FixtureCredentials.swift; path = Core/Authentication/N1FixtureCredentials.swift; sourceTree = "<group>"; };
+		C3C0363819593AB6B8477B79 /* Pods-Modula.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modula.release.xcconfig"; path = "Target Support Files/Pods-Modula/Pods-Modula.release.xcconfig"; sourceTree = "<group>"; };
+		C3DC1AD1EDCCBBF93362A45C /* ActivityRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityRepository.swift; path = Features/Activity/ActivityRepository.swift; sourceTree = "<group>"; };
+		C4000338D069CCD91CB36D32 /* ModulaLog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaLog.swift; path = Core/Logging/ModulaLog.swift; sourceTree = "<group>"; };
 		C40100000000000000000001 /* CreationModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreationModels.swift; path = Features/Creation/CreationModels.swift; sourceTree = "<group>"; };
 		C40100000000000000000002 /* CreationCapabilities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreationCapabilities.swift; path = Features/Creation/CreationCapabilities.swift; sourceTree = "<group>"; };
 		C40100000000000000000003 /* CreationStudioStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreationStudioStore.swift; path = Features/Creation/Composer/CreationStudioStore.swift; sourceTree = "<group>"; };
@@ -332,34 +320,9 @@
 		C4010000000000000000000A /* PublishingRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PublishingRepository.swift; path = Features/Creation/Publishing/PublishingRepository.swift; sourceTree = "<group>"; };
 		C4010000000000000000000B /* MediaUploading.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MediaUploading.swift; path = Core/MediaUpload/MediaUploading.swift; sourceTree = "<group>"; };
 		C4010000000000000000000C /* N4FTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4FTests.swift; sourceTree = "<group>"; };
-		E30100000000000000000004 /* HomeModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeModels.swift; path = Features/Home/HomeModels.swift; sourceTree = "<group>"; };
-		E30100000000000000000005 /* HomeRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeRepository.swift; path = Features/Home/HomeRepository.swift; sourceTree = "<group>"; };
-		E30100000000000000000006 /* HomeStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeStore.swift; path = Features/Home/HomeStore.swift; sourceTree = "<group>"; };
-		E30100000000000000000007 /* HomeTools.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeTools.swift; path = Features/Home/HomeTools.swift; sourceTree = "<group>"; };
-		E30100000000000000000008 /* ModulaProgressiveHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaProgressiveHeader.swift; path = DesignSystem/ModulaProgressiveHeader.swift; sourceTree = "<group>"; };
-		E30100000000000000000009 /* HomeFeedTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeFeedTests.swift; sourceTree = "<group>"; };
-		E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeFoundationTests.swift; sourceTree = "<group>"; };
-		E490C161A4B61D0F2ED2F9CE /* Pods-ModulaTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ModulaTests.debug.xcconfig"; path = "Target Support Files/Pods-ModulaTests/Pods-ModulaTests.debug.xcconfig"; sourceTree = "<group>"; };
-		E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleHost.swift; path = ModuleRuntime/ModuleHost.swift; sourceTree = "<group>"; };
-		EECC47A5007CE1E5BB063A97 /* ShellAccessory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShellAccessory.swift; path = DesignSystem/ShellAccessory.swift; sourceTree = "<group>"; };
-		N40100000000000000000001 /* MediaModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MediaModels.swift; path = Features/Media/MediaModels.swift; sourceTree = "<group>"; };
-		N40100000000000000000002 /* ModulaVideoPlayer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaVideoPlayer.swift; path = Features/Media/ModulaVideoPlayer.swift; sourceTree = "<group>"; };
-		N40100000000000000000003 /* MessageModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessageModels.swift; path = Features/Messages/MessageModels.swift; sourceTree = "<group>"; };
-		N40100000000000000000004 /* MessagingRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagingRepository.swift; path = Features/Messages/MessagingRepository.swift; sourceTree = "<group>"; };
-		N40100000000000000000005 /* MessagingStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagingStore.swift; path = Features/Messages/MessagingStore.swift; sourceTree = "<group>"; };
-		N40100000000000000000006 /* MessageContextActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessageContextActions.swift; path = Features/Messages/MessageContextActions.swift; sourceTree = "<group>"; };
-		N40100000000000000000007 /* MessagesViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagesViews.swift; path = Features/Messages/MessagesViews.swift; sourceTree = "<group>"; };
-		N40100000000000000000008 /* InMailModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailModels.swift; path = Features/InMail/InMailModels.swift; sourceTree = "<group>"; };
-		N40100000000000000000009 /* InMailRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailRepository.swift; path = Features/InMail/InMailRepository.swift; sourceTree = "<group>"; };
-		N4010000000000000000000A /* InMailStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailStore.swift; path = Features/InMail/InMailStore.swift; sourceTree = "<group>"; };
-		N4010000000000000000000B /* InMailViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailViews.swift; path = Features/InMail/InMailViews.swift; sourceTree = "<group>"; };
-		N4010000000000000000000C /* StoryModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryModels.swift; path = Features/Stories/StoryModels.swift; sourceTree = "<group>"; };
-		N4010000000000000000000D /* StoryViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryViews.swift; path = Features/Stories/StoryViews.swift; sourceTree = "<group>"; };
-		N4010000000000000000000E /* ReelModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelModels.swift; path = Features/Reels/ReelModels.swift; sourceTree = "<group>"; };
-		N4010000000000000000000F /* ReelViewer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelViewer.swift; path = Features/Reels/ReelViewer.swift; sourceTree = "<group>"; };
-		N40100000000000000000010 /* ProfilePresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfilePresentation.swift; path = Features/Profile/Customization/ProfilePresentation.swift; sourceTree = "<group>"; };
-		N40100000000000000000011 /* ProfileCustomizationViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileCustomizationViews.swift; path = Features/Profile/Customization/ProfileCustomizationViews.swift; sourceTree = "<group>"; };
-		N40100000000000000000012 /* N4CTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4CTests.swift; sourceTree = "<group>"; };
+		C727EBE1A122E68AE7538DFC /* IntelligenceResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceResponse.swift; path = Core/Intelligence/Contracts/IntelligenceResponse.swift; sourceTree = "<group>"; };
+		C8ECAD5355D79305D770912A /* ProfileView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileView.swift; path = Features/Profile/ProfileView.swift; sourceTree = "<group>"; };
+		CE413545A422ACB4BACBB3DF /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RootView.swift; path = App/RootView.swift; sourceTree = "<group>"; };
 		D40100000000000000000001 /* PrivateFileStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PrivateFileStore.swift; path = Core/Persistence/PrivateFileStore.swift; sourceTree = "<group>"; };
 		D40100000000000000000002 /* CommandModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommandModels.swift; path = Core/Commands/CommandModels.swift; sourceTree = "<group>"; };
 		D40100000000000000000003 /* CommandMatcher.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommandMatcher.swift; path = Core/Commands/CommandMatcher.swift; sourceTree = "<group>"; };
@@ -384,6 +347,85 @@
 		D40100000000000000000016 /* SpotlightIndex.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SpotlightIndex.swift; path = Features/SystemIntegration/SpotlightIndex.swift; sourceTree = "<group>"; };
 		D40100000000000000000017 /* KeyboardCommands.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = KeyboardCommands.swift; path = Features/SystemIntegration/KeyboardCommands.swift; sourceTree = "<group>"; };
 		D40100000000000000000018 /* N4DTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4DTests.swift; sourceTree = "<group>"; };
+		D902DDFA87CA1FD5224F1994 /* libPods-Modula.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Modula.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductHubView.swift; path = Features/ProductHub/ProductHubView.swift; sourceTree = "<group>"; };
+		DC4EF43E9E96C1202C4F7E36 /* Debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		DE7A82A7615F703ED7EFABC2 /* libPods-ModulaTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ModulaTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E0953B7C9CBB401D9F7D74DE /* ModulaColor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaColor.swift; path = DesignSystem/Tokens/ModulaColor.swift; sourceTree = "<group>"; };
+		E10100000000000000000001 /* DiscoverModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverModels.swift; path = Features/Discover/DiscoverModels.swift; sourceTree = "<group>"; };
+		E10100000000000000000002 /* DiscoverRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverRepository.swift; path = Features/Discover/DiscoverRepository.swift; sourceTree = "<group>"; };
+		E10100000000000000000003 /* DiscoverStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverStore.swift; path = Features/Discover/DiscoverStore.swift; sourceTree = "<group>"; };
+		E10100000000000000000004 /* DiscoverScopePicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverScopePicker.swift; path = Features/Discover/DiscoverScopePicker.swift; sourceTree = "<group>"; };
+		E10100000000000000000005 /* DiscoverComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverComponents.swift; path = Features/Discover/DiscoverComponents.swift; sourceTree = "<group>"; };
+		E10100000000000000000006 /* DiscoverDashboard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverDashboard.swift; path = Features/Discover/DiscoverDashboard.swift; sourceTree = "<group>"; };
+		E10100000000000000000007 /* DiscoverFilterSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverFilterSheet.swift; path = Features/Discover/DiscoverFilterSheet.swift; sourceTree = "<group>"; };
+		E10100000000000000000008 /* DiscoverScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverScreen.swift; path = Features/Discover/DiscoverScreen.swift; sourceTree = "<group>"; };
+		E10100000000000000000009 /* SearchScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SearchScreen.swift; path = Features/Search/SearchScreen.swift; sourceTree = "<group>"; };
+		E1010000000000000000000A /* DiscoverTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DiscoverTests.swift; sourceTree = "<group>"; };
+		E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeFoundationTests.swift; sourceTree = "<group>"; };
+		E30100000000000000000001 /* PostModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostModels.swift; path = Features/Social/PostModels.swift; sourceTree = "<group>"; };
+		E30100000000000000000002 /* PostComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostComponents.swift; path = Features/Social/PostComponents.swift; sourceTree = "<group>"; };
+		E30100000000000000000003 /* PostDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostDetailView.swift; path = Features/Social/PostDetailView.swift; sourceTree = "<group>"; };
+		E30100000000000000000004 /* HomeModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeModels.swift; path = Features/Home/HomeModels.swift; sourceTree = "<group>"; };
+		E30100000000000000000005 /* HomeRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeRepository.swift; path = Features/Home/HomeRepository.swift; sourceTree = "<group>"; };
+		E30100000000000000000006 /* HomeStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeStore.swift; path = Features/Home/HomeStore.swift; sourceTree = "<group>"; };
+		E30100000000000000000007 /* HomeTools.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeTools.swift; path = Features/Home/HomeTools.swift; sourceTree = "<group>"; };
+		E30100000000000000000008 /* ModulaProgressiveHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaProgressiveHeader.swift; path = DesignSystem/ModulaProgressiveHeader.swift; sourceTree = "<group>"; };
+		E30100000000000000000009 /* HomeFeedTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeFeedTests.swift; sourceTree = "<group>"; };
+		E3010000000000000000000A /* ModulaContextMenu.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaContextMenu.swift; path = DesignSystem/ModulaContextMenu.swift; sourceTree = "<group>"; };
+		E3010000000000000000000B /* ModulaMediaViewer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaMediaViewer.swift; path = DesignSystem/ModulaMediaViewer.swift; sourceTree = "<group>"; };
+		E30100000000000000000010 /* PostGestureThresholds.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostGestureThresholds.swift; path = Features/Social/PostGestureThresholds.swift; sourceTree = "<group>"; };
+		E30100000000000000000011 /* PostBackendCapabilities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostBackendCapabilities.swift; path = Features/Social/PostBackendCapabilities.swift; sourceTree = "<group>"; };
+		E30100000000000000000012 /* PostStateStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostStateStore.swift; path = Features/Social/PostStateStore.swift; sourceTree = "<group>"; };
+		E30100000000000000000013 /* PostRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostRepository.swift; path = Features/Social/PostRepository.swift; sourceTree = "<group>"; };
+		E30100000000000000000014 /* PostActionController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostActionController.swift; path = Features/Social/PostActionController.swift; sourceTree = "<group>"; };
+		E30100000000000000000015 /* PostContextActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostContextActions.swift; path = Features/Social/PostContextActions.swift; sourceTree = "<group>"; };
+		E30100000000000000000016 /* PostReactionPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostReactionPicker.swift; path = Features/Social/PostReactionPicker.swift; sourceTree = "<group>"; };
+		E30100000000000000000017 /* PostActionRail.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostActionRail.swift; path = Features/Social/PostActionRail.swift; sourceTree = "<group>"; };
+		E30100000000000000000018 /* PostCommentsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostCommentsView.swift; path = Features/Social/PostCommentsView.swift; sourceTree = "<group>"; };
+		E30100000000000000000019 /* PostSystemTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostSystemTests.swift; sourceTree = "<group>"; };
+		E490C161A4B61D0F2ED2F9CE /* Pods-ModulaTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ModulaTests.debug.xcconfig"; path = "Target Support Files/Pods-ModulaTests/Pods-ModulaTests.debug.xcconfig"; sourceTree = "<group>"; };
+		E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleHost.swift; path = ModuleRuntime/ModuleHost.swift; sourceTree = "<group>"; };
+		EB03DB7121ABD1E492F3AC7E /* IntelligenceProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceProvider.swift; path = Core/Intelligence/Contracts/IntelligenceProvider.swift; sourceTree = "<group>"; };
+		EECC47A5007CE1E5BB063A97 /* ShellAccessory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShellAccessory.swift; path = DesignSystem/ShellAccessory.swift; sourceTree = "<group>"; };
+		F00100000000000000000001 /* ProfileModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileModels.swift; path = Features/Profile/ProfileModels.swift; sourceTree = "<group>"; };
+		F00100000000000000000002 /* ProfileRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileRepository.swift; path = Features/Profile/ProfileRepository.swift; sourceTree = "<group>"; };
+		F00100000000000000000003 /* ProfileStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileStore.swift; path = Features/Profile/ProfileStore.swift; sourceTree = "<group>"; };
+		F00100000000000000000004 /* ProfileComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileComponents.swift; path = Features/Profile/ProfileComponents.swift; sourceTree = "<group>"; };
+		F00100000000000000000005 /* ProfileEditView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileEditView.swift; path = Features/Profile/ProfileEditView.swift; sourceTree = "<group>"; };
+		F00100000000000000000006 /* ProfileTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileTests.swift; sourceTree = "<group>"; };
+		F00100000000000000000007 /* ProfileContextActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileContextActions.swift; path = Features/Profile/ProfileContextActions.swift; sourceTree = "<group>"; };
+		F00100000000000000000008 /* ProfileShareViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileShareViews.swift; path = Features/Profile/ProfileShareViews.swift; sourceTree = "<group>"; };
+		F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaImmersiveSurfaces.swift; path = DesignSystem/Immersive/ModulaImmersiveSurfaces.swift; sourceTree = "<group>"; };
+		F45DF2084F485AD64DD1A37F /* IntelligenceRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceRequest.swift; path = Core/Intelligence/Contracts/IntelligenceRequest.swift; sourceTree = "<group>"; };
+		F97B62939727826A0A7B6B6A /* ModulaIntelligenceService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaIntelligenceService.swift; path = Core/Intelligence/ModulaIntelligenceService.swift; sourceTree = "<group>"; };
+		G40100000000000000000001 /* ModulaSurfaceSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaSurfaceSystem.swift; path = DesignSystem/Surface/ModulaSurfaceSystem.swift; sourceTree = "<group>"; };
+		G40100000000000000000002 /* EdgeLoopEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopEngine.swift; path = DesignSystem/EdgeLoop/EdgeLoopEngine.swift; sourceTree = "<group>"; };
+		G40100000000000000000003 /* EdgeLoopShape.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopShape.swift; path = DesignSystem/EdgeLoop/EdgeLoopShape.swift; sourceTree = "<group>"; };
+		G40100000000000000000004 /* ModulaEdgeLoop.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaEdgeLoop.swift; path = DesignSystem/EdgeLoop/ModulaEdgeLoop.swift; sourceTree = "<group>"; };
+		G40100000000000000000006 /* TypographyPreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TypographyPreview.swift; path = Features/Settings/TypographyPreview.swift; sourceTree = "<group>"; };
+		G40100000000000000000007 /* N4GTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4GTests.swift; sourceTree = "<group>"; };
+		G40100000000000000000008 /* EdgePickerPreferences.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgePickerPreferences.swift; path = DesignSystem/EdgeLoop/EdgePickerPreferences.swift; sourceTree = "<group>"; };
+		G40100000000000000000009 /* EdgeLoopMetrics.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopMetrics.swift; path = DesignSystem/EdgeLoop/EdgeLoopMetrics.swift; sourceTree = "<group>"; };
+		G4010000000000000000000A /* EdgePickerSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgePickerSettingsView.swift; path = Features/Settings/EdgePickerSettingsView.swift; sourceTree = "<group>"; };
+		N40100000000000000000001 /* MediaModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MediaModels.swift; path = Features/Media/MediaModels.swift; sourceTree = "<group>"; };
+		N40100000000000000000002 /* ModulaVideoPlayer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaVideoPlayer.swift; path = Features/Media/ModulaVideoPlayer.swift; sourceTree = "<group>"; };
+		N40100000000000000000003 /* MessageModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessageModels.swift; path = Features/Messages/MessageModels.swift; sourceTree = "<group>"; };
+		N40100000000000000000004 /* MessagingRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagingRepository.swift; path = Features/Messages/MessagingRepository.swift; sourceTree = "<group>"; };
+		N40100000000000000000005 /* MessagingStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagingStore.swift; path = Features/Messages/MessagingStore.swift; sourceTree = "<group>"; };
+		N40100000000000000000006 /* MessageContextActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessageContextActions.swift; path = Features/Messages/MessageContextActions.swift; sourceTree = "<group>"; };
+		N40100000000000000000007 /* MessagesViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagesViews.swift; path = Features/Messages/MessagesViews.swift; sourceTree = "<group>"; };
+		N40100000000000000000008 /* InMailModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailModels.swift; path = Features/InMail/InMailModels.swift; sourceTree = "<group>"; };
+		N40100000000000000000009 /* InMailRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailRepository.swift; path = Features/InMail/InMailRepository.swift; sourceTree = "<group>"; };
+		N4010000000000000000000A /* InMailStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailStore.swift; path = Features/InMail/InMailStore.swift; sourceTree = "<group>"; };
+		N4010000000000000000000B /* InMailViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailViews.swift; path = Features/InMail/InMailViews.swift; sourceTree = "<group>"; };
+		N4010000000000000000000C /* StoryModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryModels.swift; path = Features/Stories/StoryModels.swift; sourceTree = "<group>"; };
+		N4010000000000000000000D /* StoryViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryViews.swift; path = Features/Stories/StoryViews.swift; sourceTree = "<group>"; };
+		N4010000000000000000000E /* ReelModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelModels.swift; path = Features/Reels/ReelModels.swift; sourceTree = "<group>"; };
+		N4010000000000000000000F /* ReelViewer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelViewer.swift; path = Features/Reels/ReelViewer.swift; sourceTree = "<group>"; };
+		N40100000000000000000010 /* ProfilePresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfilePresentation.swift; path = Features/Profile/Customization/ProfilePresentation.swift; sourceTree = "<group>"; };
+		N40100000000000000000011 /* ProfileCustomizationViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileCustomizationViews.swift; path = Features/Profile/Customization/ProfileCustomizationViews.swift; sourceTree = "<group>"; };
+		N40100000000000000000012 /* N4CTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4CTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -444,6 +486,8 @@
 				E1010000000000000000000A /* DiscoverTests.swift */,
 				E30100000000000000000009 /* HomeFeedTests.swift */,
 				F00100000000000000000006 /* ProfileTests.swift */,
+				834A240ED776595650758ACA /* LI02IntelligenceTests.swift */,
+				A40300000000000000000002 /* LI03AppleProviderTests.swift */,
 			);
 			path = ModulaTests;
 			sourceTree = "<group>";
@@ -642,6 +686,25 @@
 				E10100000000000000000007 /* DiscoverFilterSheet.swift */,
 				E10100000000000000000008 /* DiscoverScreen.swift */,
 				E10100000000000000000009 /* SearchScreen.swift */,
+				3907C2A83DF1A9C8AE1CAC40 /* IntelligenceAvailability.swift */,
+				64E0C1CE1DD2D90E75B3DF62 /* IntelligenceCapability.swift */,
+				AD892F52CC60A67EF80BCB01 /* IntelligenceError.swift */,
+				9835AA81D7D5E62C87948FE5 /* IntelligenceExecutionKind.swift */,
+				803B42B4BF6BF7A874EF51D3 /* IntelligencePrivacy.swift */,
+				EB03DB7121ABD1E492F3AC7E /* IntelligenceProvider.swift */,
+				F45DF2084F485AD64DD1A37F /* IntelligenceRequest.swift */,
+				C727EBE1A122E68AE7538DFC /* IntelligenceResponse.swift */,
+				481FF6EED52E2B1FCE86E53D /* IntelligenceDiagnostics.swift */,
+				F97B62939727826A0A7B6B6A /* ModulaIntelligenceService.swift */,
+				7B1B51F430EC86144078FF8A /* DeterministicLocalProvider.swift */,
+				A40300000000000000000001 /* AppleSystemIntelligenceProvider.swift */,
+				53E8222C6157A7DA2FB3345B /* IntelligenceProviderRegistry.swift */,
+				370553C58FD3D96B35F6C6AF /* IntelligenceRouter.swift */,
+				3C65E626DB4E0A902B687238 /* IntelligenceTool.swift */,
+				451A1E26A996A06EF909DBE4 /* IntelligenceToolRegistry.swift */,
+				A4CC36E2CB4875EBEDB19A1A /* IntelligenceToolValidation.swift */,
+				4ED61D09324116C37F15191A /* IntelligenceValue.swift */,
+				00C3046A71D34C45B14E30AE /* IntelligenceDiagnosticsView.swift */,
 			);
 			path = Modula;
 			sourceTree = "<group>";
@@ -926,6 +989,8 @@
 				A50100000000000000000017 /* N4ETests.swift in Sources */,
 				C5010000000000000000000C /* N4FTests.swift in Sources */,
 				G50100000000000000000007 /* N4GTests.swift in Sources */,
+				2EEAA0F73DFB8DA7C4592A74 /* LI02IntelligenceTests.swift in Sources */,
+				A30300000000000000000002 /* LI03AppleProviderTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1088,6 +1153,25 @@
 				D50100000000000000000015 /* AppIntentsFoundation.swift in Sources */,
 				D50100000000000000000016 /* SpotlightIndex.swift in Sources */,
 				D50100000000000000000017 /* KeyboardCommands.swift in Sources */,
+				BB47BD84CB36684F9FB5C6D5 /* IntelligenceAvailability.swift in Sources */,
+				7F0E4764560ACE3663B3525E /* IntelligenceCapability.swift in Sources */,
+				A9518E57DAAF8DED3BEACDEF /* IntelligenceError.swift in Sources */,
+				67A5698FD3DAF53049D07C73 /* IntelligenceExecutionKind.swift in Sources */,
+				D278576A2004E2A30C65EFF5 /* IntelligencePrivacy.swift in Sources */,
+				FCF5472ED72B6CF79891F968 /* IntelligenceProvider.swift in Sources */,
+				EFC09C0DE4E7EC929F867E98 /* IntelligenceRequest.swift in Sources */,
+				F2381918FBC41E683AA717BB /* IntelligenceResponse.swift in Sources */,
+				621AE10B4F19084EEA69EC8C /* IntelligenceDiagnostics.swift in Sources */,
+				DB3BEA70380AF2D78B2306D5 /* ModulaIntelligenceService.swift in Sources */,
+				A3FDEFCF2FC7C6C44C4CD7F9 /* DeterministicLocalProvider.swift in Sources */,
+				A30300000000000000000001 /* AppleSystemIntelligenceProvider.swift in Sources */,
+				4EC787BD49EB76EFD20BBBDC /* IntelligenceProviderRegistry.swift in Sources */,
+				B2C7278B19CE66F5FB564E3F /* IntelligenceRouter.swift in Sources */,
+				B1619C7D6C8850CDEBCE8567 /* IntelligenceTool.swift in Sources */,
+				CB83EAE823CBFCC164212148 /* IntelligenceToolRegistry.swift in Sources */,
+				98B1FF0A78D3F224FB40C690 /* IntelligenceToolValidation.swift in Sources */,
+				BEEBE251735247E8828B2F26 /* IntelligenceValue.swift in Sources */,
+				F55C4DEFC5031B25247EC2F9 /* IntelligenceDiagnosticsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

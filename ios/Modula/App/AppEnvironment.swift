@@ -32,6 +32,9 @@ final class AppEnvironment {
     var creationCapabilities: CreationCapabilities { .production }
     let gate = AppGate()
     let appLock = AppLockStore()
+    /// Native intelligence façade. Apple is the production local provider;
+    /// the deterministic fixture is DEBUG-only.
+    let intelligence: ModulaIntelligence
 
     init() {
         let launchArguments = ProcessInfo.processInfo.arguments
@@ -69,6 +72,17 @@ final class AppEnvironment {
         drafts = DraftStore(mediaStore: draftMedia)
         publishing = GreenfieldPublishingRepository(client: client, capabilities: .production)
         mediaUploader = DisabledMediaUploader()
+        #if DEBUG
+        intelligence = ModulaIntelligence(
+            registerAppleSystemProvider: true,
+            registerDeterministicLocalProvider: true
+        )
+        #else
+        intelligence = ModulaIntelligence(
+            registerAppleSystemProvider: true,
+            registerDeterministicLocalProvider: false
+        )
+        #endif
         let catalogueStore = catalogue
         let draftsStore = drafts
         auth.onAccountChange = { [weak self, weak runtime, weak catalogueStore] account in

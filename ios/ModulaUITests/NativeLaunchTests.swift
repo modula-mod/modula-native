@@ -154,6 +154,48 @@ final class NativeLaunchTests: XCTestCase {
                 || app.descendants(matching: .any)["module-detail.digital.modula.vault-notes"].waitForExistence(timeout: 8)
         )
     }
+
+    @MainActor
+    func testLocalIntelligenceDeveloperDiagnostics() throws {
+        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable"])
+        openSettingsFromShell(app)
+
+        let developer = app.buttons["Developer"].firstMatch
+        XCTAssertTrue(developer.waitForExistence(timeout: 5))
+        developer.tap()
+
+        let localIntelligence = app.buttons["Local Intelligence"].firstMatch
+        XCTAssertTrue(localIntelligence.waitForExistence(timeout: 5))
+        localIntelligence.tap()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.developer.intelligence"]
+                .waitForExistence(timeout: 8)
+        )
+        XCTAssertTrue(app.staticTexts["Apple system provider"].exists)
+        XCTAssertTrue(app.staticTexts["Execution"].exists)
+        XCTAssertTrue(app.staticTexts["Network required"].exists)
+        let overviewAttachment = XCTAttachment(screenshot: app.screenshot())
+        overviewAttachment.name = "mission-03-local-intelligence-overview"
+        overviewAttachment.lifetime = .keepAlways
+        add(overviewAttachment)
+
+        app.swipeUp()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["intelligence.apple.summarize"]
+                .waitForExistence(timeout: 5)
+        )
+        app.swipeUp()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["intelligence.deterministic.summarize"]
+                .waitForExistence(timeout: 5)
+        )
+
+        let actionsAttachment = XCTAttachment(screenshot: app.screenshot())
+        actionsAttachment.name = "mission-03-local-intelligence-actions"
+        actionsAttachment.lifetime = .keepAlways
+        add(actionsAttachment)
+    }
 }
 
 @MainActor
