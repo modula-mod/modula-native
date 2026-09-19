@@ -2,21 +2,133 @@ import SwiftUI
 import Observation
 
 @MainActor @Observable
-final class SettingsStore {
-    enum Appearance: String, CaseIterable, Codable { case system, light, dark, oled }
-    private let defaults: UserDefaults
-    var appearance: Appearance {
-        didSet { defaults.set(appearance.rawValue, forKey: "modula.native.appearance.v1") }
+final class AppearanceStore {
+    enum Theme: String, CaseIterable, Codable, Identifiable { case system, light, dark; var id: Self { self } }
+    enum DarkStyle: String, CaseIterable, Codable, Identifiable { case standard, dim, oled; var id: Self { self } }
+    enum Accent: String, CaseIterable, Codable, Identifiable {
+        case modulaTeal, ocean, violet, coral, moss, graphite
+        var id: Self { self }
+        var title: String { switch self { case .modulaTeal: "Modula Teal"; default: rawValue.capitalized } }
+        var hex: String { switch self { case .modulaTeal: "#369CAA"; case .ocean: "#3478F6"; case .violet: "#7656D6"; case .coral: "#D66056"; case .moss: "#4E8B67"; case .graphite: "#667085" } }
+        var color: Color { Color(hex: hex) }
     }
-    var colorScheme: ColorScheme? {
-        switch appearance {
-        case .system: nil
-        case .light: .light
-        case .dark, .oled: .dark
+    enum FontFamily: String, CaseIterable, Codable, Identifiable { case system, rounded, humanist, geometric, editorial, mono; var id: Self { self } }
+    enum TextSize: String, CaseIterable, Codable, Identifiable { case compact, standard, large; var id: Self { self }; var scale: Double { switch self { case .compact: 0.94; case .standard: 1; case .large: 1.12 } } }
+    enum AppIcon: String, CaseIterable, Codable, Identifiable { case `default`; var id: Self { self } }
+    enum Density: String, CaseIterable, Codable, Identifiable { case compact, standard, comfortable; var id: Self { self }; var spacingScale: Double { switch self { case .compact: 0.84; case .standard: 1; case .comfortable: 1.18 } } }
+    enum MotionPersonality: String, CaseIterable, Codable, Identifiable { case calm, standard, expressive; var id: Self { self } }
+    enum HapticIntensity: String, CaseIterable, Codable, Identifiable { case off, light, standard, strong; var id: Self { self } }
+    enum ContrastTransparency: String, CaseIterable, Codable, Identifiable { case standard, higherContrast, reduceTransparency; var id: Self { self } }
+    enum IconStyle: String, CaseIterable, Codable, Identifiable { case outline, balanced, filled; var id: Self { self } }
+    enum InterfaceShape: String, CaseIterable, Codable, Identifiable { case soft, balanced, precise; var id: Self { self } }
+    enum ModuleBranding: String, CaseIterable, Codable, Identifiable { case moduleIdentity, blend, preferUserAccent; var id: Self { self } }
+
+    private let defaults: UserDefaults
+    private let key = "modula.native.appearance.v2"
+    var theme: Theme { didSet { save() } }
+    var darkStyle: DarkStyle { didSet { save() } }
+    var accent: Accent { didSet { save() } }
+    var fontFamily: FontFamily { didSet { save() } }
+    var textSize: TextSize { didSet { save() } }
+    var appIcon: AppIcon { didSet { save() } }
+    var density: Density { didSet { save() } }
+    var motion: MotionPersonality { didSet { save() } }
+    var haptics: HapticIntensity { didSet { save() } }
+    var contrastTransparency: ContrastTransparency { didSet { save() } }
+    var iconStyle: IconStyle { didSet { save() } }
+    var interfaceShape: InterfaceShape { didSet { save() } }
+    var moduleBranding: ModuleBranding { didSet { save() } }
+    /// Edge Picker personalization. Nested under Appearance; reset separately via `resetEdgePicker()`.
+    var edgePicker: EdgePickerPreferences { didSet { save() } }
+
+    var colorScheme: ColorScheme? { switch theme { case .system: nil; case .light: .light; case .dark: .dark } }
+    var fontDesign: Font.Design { switch fontFamily { case .rounded, .geometric: .rounded; case .editorial: .serif; case .mono: .monospaced; default: .default } }
+    var appearance: LegacyAppearance {
+        get { if theme == .system { .system } else if theme == .light { .light } else if darkStyle == .oled { .oled } else { .dark } }
+        set {
+            switch newValue {
+            case .system: theme = .system
+            case .light: theme = .light
+            case .dark: theme = .dark; darkStyle = .standard
+            case .oled: theme = .dark; darkStyle = .oled
+            }
         }
     }
+    enum LegacyAppearance: String, CaseIterable, Codable { case system, light, dark, oled }
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        appearance = Appearance(rawValue: defaults.string(forKey: "modula.native.appearance.v1") ?? "") ?? .system
+        let saved = defaults.data(forKey: key).flatMap { try? JSONDecoder().decode(Snapshot.self, from: $0) }
+        theme = saved?.theme ?? .system
+        darkStyle = saved?.darkStyle ?? .standard
+        accent = saved?.accent ?? .modulaTeal
+        fontFamily = saved?.fontFamily ?? .system
+        textSize = saved?.textSize ?? .standard
+        appIcon = saved?.appIcon ?? .default
+        density = saved?.density ?? .standard
+        motion = saved?.motion ?? .standard
+        haptics = saved?.haptics ?? .standard
+        contrastTransparency = saved?.contrastTransparency ?? .standard
+        iconStyle = saved?.iconStyle ?? .balanced
+        interfaceShape = saved?.interfaceShape ?? .balanced
+        moduleBranding = saved?.moduleBranding ?? .blend
+        edgePicker = saved?.edgePicker ?? .default
+        if saved == nil, let legacy = LegacyAppearance(rawValue: defaults.string(forKey: "modula.native.appearance.v1") ?? "") { appearance = legacy }
+    }
+
+    /// Full Appearance reset — includes Edge Picker defaults.
+    func reset() {
+        theme = .system; darkStyle = .standard; accent = .modulaTeal; fontFamily = .system; textSize = .standard
+        appIcon = .default; density = .standard; motion = .standard; haptics = .standard
+        contrastTransparency = .standard; iconStyle = .balanced; interfaceShape = .balanced; moduleBranding = .blend
+        edgePicker = .default
+    }
+
+    /// Resets only Edge Picker preferences to canonical defaults.
+    func resetEdgePicker() {
+        edgePicker = .default
+    }
+
+    private func save() {
+        let value = Snapshot(
+            theme: theme, darkStyle: darkStyle, accent: accent, fontFamily: fontFamily, textSize: textSize,
+            appIcon: appIcon, density: density, motion: motion, haptics: haptics,
+            contrastTransparency: contrastTransparency, iconStyle: iconStyle,
+            interfaceShape: interfaceShape, moduleBranding: moduleBranding,
+            edgePicker: edgePicker
+        )
+        defaults.set(try? JSONEncoder().encode(value), forKey: key)
+    }
+
+    private struct Snapshot: Codable {
+        var theme: Theme; var darkStyle: DarkStyle; var accent: Accent; var fontFamily: FontFamily; var textSize: TextSize
+        var appIcon: AppIcon; var density: Density; var motion: MotionPersonality; var haptics: HapticIntensity
+        var contrastTransparency: ContrastTransparency; var iconStyle: IconStyle; var interfaceShape: InterfaceShape
+        var moduleBranding: ModuleBranding
+        /// Optional so existing v2 blobs without this field decode to defaults.
+        var edgePicker: EdgePickerPreferences?
+
+        init(
+            theme: Theme, darkStyle: DarkStyle, accent: Accent, fontFamily: FontFamily, textSize: TextSize,
+            appIcon: AppIcon, density: Density, motion: MotionPersonality, haptics: HapticIntensity,
+            contrastTransparency: ContrastTransparency, iconStyle: IconStyle, interfaceShape: InterfaceShape,
+            moduleBranding: ModuleBranding, edgePicker: EdgePickerPreferences
+        ) {
+            self.theme = theme; self.darkStyle = darkStyle; self.accent = accent
+            self.fontFamily = fontFamily; self.textSize = textSize; self.appIcon = appIcon
+            self.density = density; self.motion = motion; self.haptics = haptics
+            self.contrastTransparency = contrastTransparency; self.iconStyle = iconStyle
+            self.interfaceShape = interfaceShape; self.moduleBranding = moduleBranding
+            self.edgePicker = edgePicker
+        }
+    }
+}
+
+typealias SettingsStore = AppearanceStore
+
+extension Color {
+    init(hex: String) {
+        let value = UInt64(hex.trimmingCharacters(in: CharacterSet(charactersIn: "#")), radix: 16) ?? 0
+        self.init(red: Double((value >> 16) & 255) / 255, green: Double((value >> 8) & 255) / 255, blue: Double(value & 255) / 255)
     }
 }

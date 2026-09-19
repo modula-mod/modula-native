@@ -1,0 +1,9 @@
+# Appearance
+
+`AppearanceStore` is the sole owner of device-local presentation preferences. It persists a versioned snapshot in `UserDefaults` and applies changes live. N2 does not claim Greenfield account synchronization.
+
+Supported axes are System/Light/Dark theme; Standard/Dim/OLED dark style; curated accent; curated semantic font family; Modula text-size intent; Default app icon; Compact/Standard/Comfortable density; Calm/Standard/Expressive motion; Off/Light/Standard/Strong haptics; Standard/Higher Contrast/Reduce Transparency; Outline/Balanced/Filled icons; Soft/Balanced/Precise interface shape; Module Identity/Blend/Prefer My Accent module branding; and nested `EdgePickerPreferences` (position, size, side, labels, glass, visibility, motion, haptics) under Appearance → Edge Picker (`/settings/appearance/edge-picker`). Old v2 snapshots without `edgePicker` decode to canonical Edge Picker defaults without wiping other axes. See `docs/design/edge-picker.md`.
+
+System Dynamic Type and accessibility settings remain authoritative. Reduce Motion constrains design-system animations and wins over Edge Picker Motion Fluid. Increase Contrast and Reduce Transparency combine with the Modula preference (and force Edge Picker solid surfaces). OLED uses black for the canvas and sparse elevation instead of placing every component on an opaque grey rectangle. Only the production Default icon is selectable until approved alternate icon assets exist.
+
+Reset Appearance restores these preferences including Edge Picker defaults. `resetEdgePicker()` restores only the Edge Picker nested prefs. The live preview and `/developer/components` are the acceptance surfaces. N4G Appearance → Typography shows a multi-sample preview (letters, numbers, body, symbols) controlled by a contained `ContainedLoopPicker` that does not cover the type.

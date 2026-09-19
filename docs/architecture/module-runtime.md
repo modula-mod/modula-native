@@ -11,3 +11,8 @@ Release bundles JS and assets at build time. The N1 Debug control build is also 
 Module registry accepts manifests with exact bundled module version, runtime, entry, permissions and minimum host/bridge versions. Backend installation/release/permission truth remains separate. Module-local navigation may be custom RN; application routes require host validation. @modula/product-ui remains an optional future adapter, not a universal UI restriction.
 
 N1 freezes one runtime factory for the application lifecycle and disposable surfaces for each open. Ten consecutive real Vault opens retained initialization count one. The measured second surface mount was 58.2 ms; closing invalidates its ModuleSession and listener delivery while retaining the runtime. Native diagnostics records factory setup, first ready/data times, surface durations, memory warnings, session state, last rejected action, and semantic environment without displaying credentials.
+# N2 design environment
+
+The N1 runtime lifecycle and security boundary remain unchanged. N2 extends the environment additively with `designContractVersion: 1`, semantic theme/dark style, accent, font family, text scale, density, motion, haptics, contrast/transparency, icon style, interface shape, and module branding. Old modules may ignore every new optional field.
+
+`initialPath` is optional module-local state. The host validates the global module route and passes the remaining relative path to the module; Vault interprets its own `/new` and `/note/:noteId[/edit]` paths. No environment field contains credentials, authentication headers, or account preferences unrelated to module presentation. Modules cannot mutate the shell's Appearance settings.

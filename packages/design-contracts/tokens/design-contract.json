@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "colors": {
+    "accent.default": "#369CAA",
+    "canvas.oled": "#000000"
+  },
+  "spacing": {
+    "xxs": 4,
+    "xs": 8,
+    "sm": 12,
+    "md": 16,
+    "lg": 24,
+    "xl": 32
+  },
+  "radius": {
+    "small": 10,
+    "medium": 16,
+    "large": 24
+  },
+  "density": {
+    "compact": 0.84,
+    "standard": 1,
+    "comfortable": 1.18,
+    "minimumTouchTarget": 44
+  },
+  "motion": {
+    "railLabelSeconds": 2,
+    "calmDuration": 0.16,
+    "standardDuration": 0.38,
+    "expressiveDuration": 0.5
+  },
+  "haptics": ["selection", "navigation", "confirmation", "warning", "success", "failure", "impact"],
+  "icons": ["home", "discover", "module", "activity", "profile", "search", "settings", "share", "like", "comment", "back", "more"],
+  "components": ["button", "card", "badge", "avatar", "list-row", "metric", "empty-state", "loading-state", "error-state", "hero", "metadata-rail", "context-rail", "tab-bar"]
+}

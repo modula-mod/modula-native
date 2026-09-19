@@ -26,10 +26,12 @@ final class ModuleSession: Identifiable {
     var dataReadyMilliseconds: Double?
     var isValid = true
     let accountID: String?
+    let initialLocalPath: String?
     var expiresAt = Date().addingTimeInterval(15 * 60)
-    init(manifest: ModuleManifest, environment: ModuleEnvironment, accountID: String? = nil) {
+    init(manifest: ModuleManifest, environment: ModuleEnvironment, accountID: String? = nil, initialLocalPath: String? = nil) {
         self.accountID = accountID
         self.manifest = manifest
         self.environment = environment
+        self.initialLocalPath = initialLocalPath
     }
 }

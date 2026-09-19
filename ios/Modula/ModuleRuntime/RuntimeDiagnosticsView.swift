@@ -21,6 +21,9 @@ struct RuntimeDiagnosticsView: View {
             metric("Memory with module", app.runtime.memoryWithModuleMB, unit: "MB", id: "metric.memoryWith")
             metric("Memory after close", app.runtime.memoryAfterCloseMB, unit: "MB", id: "metric.memoryAfter")
             if let rejected = app.runtime.lastRejectedAction { LabeledContent("Last rejection", value: rejected) }
+            Section("Activity") {
+                activityDiagnostics
+            }
             if let session = app.runtime.lastSession {
                 LabeledContent("Module", value: session.manifest.name)
                 LabeledContent("Version", value: session.manifest.version)
@@ -39,6 +42,23 @@ struct RuntimeDiagnosticsView: View {
         LabeledContent(label, value: value.map { String(format: "%.1f %@", $0, unit) } ?? "pending")
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier(id)
+    }
+
+    @ViewBuilder
+    private var activityDiagnostics: some View {
+        let mode: ActivityMode = {
+            if case .activity(let mode) = app.navigation.currentRoute { return mode }
+            return .all
+        }()
+        let state = app.activity.state(for: mode)
+        LabeledContent("Mode", value: mode.rawValue)
+        LabeledContent("Events", value: "\(state.events.count)")
+        LabeledContent("Next cursor", value: state.nextCursor ?? "none")
+        LabeledContent("Unread", value: state.unreadCount.map(String.init) ?? "—")
+        LabeledContent("Last refresh", value: state.lastRefresh.map { ActivityRelativeTime.string(from: $0) } ?? "never")
+        if let error = state.lastError { LabeledContent("Last error", value: error) }
+        LabeledContent("API host", value: Bundle.main.object(forInfoDictionaryKey: "ModulaAPIURL") as? String ?? "unset")
+        LabeledContent("Signed in", value: app.auth.isSignedIn ? "yes" : "no")
     }
 }
 #endif

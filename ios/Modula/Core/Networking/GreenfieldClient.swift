@@ -1,24 +1,93 @@
 import Foundation
 
-enum APIError: Error, LocalizedError {
+enum APIError: Error, LocalizedError, Equatable {
     case unconfigured, unauthenticated, secureStorage, invalidResponse, accountChanged
     case rejected(Int, String)
-    var errorDescription: String? {
+
+    var errorDescription: String? { userFacingMessage }
+
+    /// Safe copy for UI. Raw status/code stay available via `diagnosticDescription`.
+    var userFacingMessage: String {
         switch self {
         case .unconfigured: "Greenfield is not configured."
         case .unauthenticated: "Sign in to Modula to continue."
         case .secureStorage: "Secure session storage is unavailable."
         case .invalidResponse: "Greenfield returned an unsupported response."
         case .accountChanged: "The account changed. Open the module again."
-        case .rejected(let status, let code): "Greenfield request failed (\(status), \(code))."
+        case .rejected(_, "INVALID_CREDENTIALS"): "Email or password is incorrect."
+        case .rejected(_, "UNAUTHENTICATED"): "Sign in to Modula to continue."
+        case .rejected(_, "ACCOUNT_INACTIVE"), .rejected(_, "ACCOUNT_DISABLED"):
+            "This account is not active. Verify your email or contact support."
+        case .rejected(_, "EMAIL_NOT_VERIFIED"), .rejected(_, "VERIFICATION_REQUIRED"):
+            "Verify your email before signing in."
+        case .rejected(_, "RATE_LIMITED"), .rejected(_, "TOO_MANY_REQUESTS"):
+            "Too many attempts. Try again shortly."
+        case .rejected(_, "VALIDATION_FAILED"): "Check the details you entered and try again."
+        case .rejected: "Unable to complete the request. Try again."
         }
     }
+
+    var diagnosticDescription: String {
+        switch self {
+        case .rejected(let status, let code): "Greenfield request failed (\(status), \(code))."
+        default: userFacingMessage
+        }
+    }
+
+    var code: String? {
+        if case .rejected(_, let code) = self { return code }
+        return nil
+    }
 }
-struct GreenfieldAccount: Codable, Sendable {
+
+struct GreenfieldAccount: Codable, Sendable, Equatable {
     let accountId: String
     let primaryHandle: String
     let status: String
+    let email: String?
+    let displayName: String?
+
+    init(accountId: String, primaryHandle: String, status: String, email: String? = nil, displayName: String? = nil) {
+        self.accountId = accountId
+        self.primaryHandle = primaryHandle
+        self.status = status
+        self.email = email
+        self.displayName = displayName
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        accountId = try c.decode(String.self, forKey: .accountId)
+        primaryHandle = try c.decode(String.self, forKey: .primaryHandle)
+        status = try c.decode(String.self, forKey: .status)
+        email = try c.decodeIfPresent(String.self, forKey: .email)
+        displayName = try c.decodeIfPresent(String.self, forKey: .displayName)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case accountId, primaryHandle, status, email, displayName
+    }
 }
+
+struct CatalogueProduct: Codable, Sendable, Identifiable, Hashable {
+    var id: String { moduleId }
+    let moduleId: String
+    let productKind: String
+    let name: String
+    let description: String
+    let publisherId: String
+    let publisherName: String
+    let latestVersion: String?
+    let status: String
+    let installable: Bool
+    let platforms: [String]
+    let betaClassification: String?
+    let installability: Installability?
+    struct Installability: Codable, Sendable, Hashable { let status: String; let reasonCode: String?; let reason: String? }
+}
+
+private struct CataloguePage: Codable, Sendable { let items: [CatalogueProduct] }
+
 private struct SessionTokens: Codable, Sendable {
     let accessToken: String
     let refreshToken: String
@@ -32,11 +101,16 @@ private struct SessionTokens: Codable, Sendable {
         return (date?.timeIntervalSinceNow ?? 0) > 30
     }
 }
+
 private struct Envelope<T: Decodable>: Decodable {
     let ok: Bool
     let data: T?
     let error: Failure?
     struct Failure: Decodable { let code: String }
+}
+
+struct PasswordResetRequestResult: Codable, Sendable {
+    let requested: Bool
 }
 
 actor GreenfieldClient {
@@ -47,11 +121,16 @@ actor GreenfieldClient {
     private var refreshTask: Task<SessionTokens, Error>?
     private var epoch = 0
     private var accountID: String?
+
+    /// Non-secret origin label for diagnostics (fixture vs production host).
+    var apiOriginHost: String? { baseURL?.host }
+
     init(baseURL: URL?, transport: URLSession = .shared) {
         self.keychain = KeychainStore(namespace: baseURL?.absoluteString ?? "unconfigured")
         self.baseURL = baseURL
         self.transport = transport
     }
+
     func restore() async throws -> GreenfieldAccount? {
         guard let data = try keychain.load() else { return nil }
         tokens = try JSONDecoder().decode(SessionTokens.self, from: data)
@@ -61,17 +140,22 @@ actor GreenfieldClient {
         accountID = account.accountId
         return account
     }
+
     func signIn(email: String, password: String) async throws -> GreenfieldAccount {
         epoch += 1
         let generation = epoch
         refreshTask?.cancel(); refreshTask = nil
-        let issued: SessionTokens = try await send("POST", path: "/v1/sessions", body: .object(["email": .string(email), "password": .string(password)]))
+        let issued: SessionTokens = try await send("POST", path: "/v1/sessions", body: .object([
+            "email": .string(email),
+            "password": .string(password)
+        ]))
         let account: GreenfieldAccount = try await send("GET", path: "/v1/accounts/me", bearer: issued.accessToken)
         guard generation == epoch, account.status == "active" else { throw APIError.accountChanged }
         try keychain.save(JSONEncoder().encode(issued))
         tokens = issued; accountID = account.accountId
         return account
     }
+
     func signOut() async throws {
         let bearer = tokens?.accessToken
         epoch += 1; refreshTask?.cancel(); refreshTask = nil
@@ -79,6 +163,31 @@ actor GreenfieldClient {
         try keychain.clear()
         if let bearer { let _: JSONValue = try await send("DELETE", path: "/v1/sessions/current", bearer: bearer) }
     }
+
+    func requestPasswordReset(email: String) async throws -> PasswordResetRequestResult {
+        try await send("POST", path: "/v1/accounts/forgot-password", body: .object(["email": .string(email)]))
+    }
+
+    func catalogue() async throws -> [CatalogueProduct] {
+        let page: CataloguePage = try await send("GET", path: "/v1/registry/products")
+        return page.items
+    }
+
+    func installedModuleIDs() async throws -> Set<String> {
+        let value: JSONValue = try await authenticated("GET", path: "/v1/modules/installed")
+        return Self.installedIDs(from: value)
+    }
+
+    nonisolated static func installedIDs(from value: JSONValue) -> Set<String> {
+        let items: [JSONValue]
+        if case .array(let values) = value { items = values }
+        else if case .array(let values) = value["items"] { items = values }
+        else { return [] }
+        return Set(items.compactMap { item in
+            item["moduleId"]?.string ?? item["module_id"]?.string ?? item["productId"]?.string
+        })
+    }
+
     func moduleRequest(method: String, path: String, body: JSONValue?, expectedAccountID: String) async throws -> JSONValue {
         guard accountID == expectedAccountID else { throw APIError.accountChanged }
         let generation = epoch
@@ -86,6 +195,27 @@ actor GreenfieldClient {
         guard generation == epoch, accountID == expectedAccountID else { throw APIError.accountChanged }
         return result
     }
+
+    /// Authenticated JSON fetch used by Activity and other native features.
+    func authenticatedJSON(_ method: String, path: String, body: JSONValue? = nil) async throws -> JSONValue {
+        try await authenticated(method, path: path, body: body)
+    }
+
+    /// Public JSON fetch (no bearer). Used by Discover/Search when signed out.
+    func publicJSON(_ method: String, path: String, body: JSONValue? = nil) async throws -> JSONValue {
+        try await send(method, path: path, body: body)
+    }
+
+    /// Prefer a restored session so `isFollowing` and similar viewer fields populate; fall back to public.
+    func json(_ method: String, path: String, body: JSONValue? = nil) async throws -> JSONValue {
+        if tokens != nil {
+            return try await authenticated(method, path: path, body: body)
+        }
+        return try await send(method, path: path, body: body)
+    }
+
+    func hasSession() -> Bool { tokens != nil }
+
     private func authenticated<T: Decodable & Sendable>(_ method: String, path: String, body: JSONValue? = nil) async throws -> T {
         let generation = epoch
         let bearer = try await accessToken()
@@ -93,6 +223,7 @@ actor GreenfieldClient {
         guard generation == epoch else { throw APIError.accountChanged }
         return result
     }
+
     private func accessToken() async throws -> String {
         if let refreshTask { return try await refreshTask.value.accessToken }
         guard let current = tokens else { throw APIError.unauthenticated }
@@ -116,6 +247,7 @@ actor GreenfieldClient {
             throw error
         }
     }
+
     private func send<T: Decodable & Sendable>(_ method: String, path: String, body: JSONValue? = nil, bearer: String? = nil) async throws -> T {
         guard let baseURL, baseURL.scheme == "https", baseURL.user == nil, baseURL.password == nil,
               path.hasPrefix("/v1/"), !path.contains(".."), let url = URL(string: path, relativeTo: baseURL)?.absoluteURL,
