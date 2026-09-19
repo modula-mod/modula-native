@@ -32,6 +32,8 @@ final class AppEnvironment {
     var creationCapabilities: CreationCapabilities { .production }
     let gate = AppGate()
     let appLock = AppLockStore()
+    /// Native intelligence façade (deterministic local provider in Mission 02; no LLM).
+    let intelligence: ModulaIntelligence
 
     init() {
         let launchArguments = ProcessInfo.processInfo.arguments
@@ -69,6 +71,7 @@ final class AppEnvironment {
         drafts = DraftStore(mediaStore: draftMedia)
         publishing = GreenfieldPublishingRepository(client: client, capabilities: .production)
         mediaUploader = DisabledMediaUploader()
+        intelligence = ModulaIntelligence()
         let catalogueStore = catalogue
         let draftsStore = drafts
         auth.onAccountChange = { [weak self, weak runtime, weak catalogueStore] account in

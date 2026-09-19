@@ -658,10 +658,13 @@ struct DeveloperSettingsHost: View {
                 Button("Environment") { app.navigation.open(.settings(.developer(.environment))) }
                 Button("Components") { app.navigation.open(.settings(.developer(.components))) }
                 Button("Diagnostics") { app.navigation.open(.settings(.developer(.diagnostics))) }
+                Button("Local Intelligence") { app.navigation.open(.settings(.developer(.intelligence))) }
             }
             .navigationTitle("Developer")
         case .runtime, .diagnostics:
             RuntimeDiagnosticsView()
+        case .intelligence:
+            IntelligenceDiagnosticsView()
         case .modules:
             List(app.runtime.manifests, id: \.id) { manifest in
                 LabeledContent(manifest.name, value: manifest.version)
