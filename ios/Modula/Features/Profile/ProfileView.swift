@@ -221,23 +221,6 @@ struct ProfileView: View {
                     onMore: { handleContextAction($0, profile: profile) }
                 )
             }
-            if !app.navigation.isAtTabRoot {
-                HStack {
-                    Button {
-                        app.navigation.close()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
-                            .frame(width: 36, height: 36)
-                    }
-                    .modulaChrome(in: Circle(), opaque: reduceTransparency)
-                    .accessibilityLabel("Back")
-                    .accessibilityIdentifier("profile.back")
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-            }
         }
         .ignoresSafeArea(edges: .top)
         .modulaCanvas()
@@ -1079,38 +1062,6 @@ struct ProfileView: View {
         default:
             break
         }
-    }
-
-    private var messageActionTitle: String? {
-        if app.messaging.capabilities.send { return "Message" }
-        if app.inMail.capabilities.send { return "Send In-Mail" }
-        return nil
-    }
-
-    private func openMessaging(for profile: ModulaProfile) {
-        if app.messaging.capabilities.send {
-            app.navigation.push(.messages(.new))
-            HapticEngine.shared.play(.navigation)
-            return
-        }
-        if app.inMail.capabilities.send {
-            app.navigation.push(.messages(.inMail(.compose)))
-            HapticEngine.shared.play(.navigation)
-        }
-    }
-
-    private func storyRing(for profile: ModulaProfile) -> StoryRingState? {
-        app.stories.groups.first { $0.author.id == profile.id || $0.author.handle == profile.handle }?.ring
-    }
-
-    private func openProfileStory(_ profile: ModulaProfile) {
-        guard let group = app.stories.groups.first(where: { $0.author.id == profile.id || $0.author.handle == profile.handle }),
-              let id = group.representative?.id else {
-            openAvatarViewer(profile)
-            return
-        }
-        app.navigation.push(.stories(.story(id)))
-        HapticEngine.shared.play(.navigation)
     }
 
     private func reportProfile(category: String) async {
