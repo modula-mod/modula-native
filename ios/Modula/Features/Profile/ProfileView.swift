@@ -11,6 +11,7 @@ struct ProfileView: View {
     @State private var confirmsBlock = false
     @State private var confirmsReport = false
     @State private var mediaViewer: ModulaMediaViewerItem?
+    @State private var mediaAction: ProfileMediaWorkspaceAction?
     @State private var showsShareSheet = false
     @State private var showsModulaCode = false
     @State private var followBusy = false
@@ -89,6 +90,13 @@ struct ProfileView: View {
                 Task { await reportProfile(category: "other") }
             }
             Button("Cancel", role: .cancel) {}
+        }
+        .profileMediaWorkspace(profile: profile, action: $mediaAction) { kind in
+            guard let profile else { return }
+            switch kind {
+            case .avatar: openAvatarViewer(profile)
+            case .cover: openCoverViewer(profile)
+            }
         }
         .fullScreenCover(item: $mediaViewer) { item in
             ModulaMediaViewer(
@@ -200,33 +208,60 @@ struct ProfileView: View {
 
             ModulaProgressiveHeader(
                 largeTitle: largeTitle,
-                compactTitle: compactTitle,
+                compactTitle: "",
                 progress: headerProgress,
-                compactInitials: profile?.initials,
-                compactAvatarURL: profile?.avatarURL,
-                compactSubtitle: profile.map { "@\($0.handle)" }
+                topChromeInset: ProfileFullBleedMetrics.windowSafeAreaTop
             ) {
-                // Share/More lives only in ProfileFloatingChrome — never a second capsule on scroll.
                 EmptyView()
-            }
-
-            // Single Share/More capsule — stays put; does not hand off to progressive trailing.
-            if let profile {
-                ProfileFloatingChrome(
-                    showsBack: !app.navigation.isAtTabRoot,
-                    scrollProgress: headerProgress,
-                    onBack: { app.navigation.close() },
-                    onShare: { presentShare(profile) },
-                    moreActions: ProfileContextActions.moreMenu(isOwn: isOwnProfile),
-                    onMore: { handleContextAction($0, profile: profile) }
-                )
             }
         }
         .ignoresSafeArea(edges: .top)
         .modulaCanvas()
         .environment(\.profileAccentColor, profile?.presentation.accent?.color)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .navigationBar)
+        .modulaImmersiveSystemNavigation()
+        .toolbar {
+            if headerProgress > 0.35 {
+                ToolbarItem(placement: .principal) {
+                    HStack(spacing: 8) {
+                        if let profile {
+                            ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 28)
+                        }
+                        Text(compactTitle)
+                            .font(.headline.weight(.semibold))
+                            .lineLimit(1)
+                    }
+                    .accessibilityLabel(compactTitle)
+                }
+            }
+            if let profile {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Share Profile", systemImage: "square.and.arrow.up") {
+                        presentShare(profile)
+                    }
+                    .accessibilityIdentifier("profile.share")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        ForEach(ProfileContextActions.moreMenu(isOwn: isOwnProfile)) { action in
+                            Button(role: action.role == .destructive ? .destructive : nil) {
+                                handleContextAction(action, profile: profile)
+                            } label: {
+                                if let systemImage = action.systemImage {
+                                    Label(action.title, systemImage: systemImage)
+                                } else {
+                                    Text(action.title)
+                                }
+                            }
+                            .disabled(action.role == .disabled)
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                    }
+                    .accessibilityLabel("More")
+                    .accessibilityIdentifier("profile.more")
+                }
+            }
+        }
     }
 
     private var largeTitle: String {
@@ -1019,6 +1054,18 @@ struct ProfileView: View {
             openAvatarViewer(profile)
         case "view-cover":
             openCoverViewer(profile)
+        case "change-photo":
+            mediaAction = .pick(.avatar)
+        case "edit-photo":
+            mediaAction = .cropExisting(.avatar)
+        case "remove-photo":
+            mediaAction = .remove(.avatar)
+        case "change-cover":
+            mediaAction = .pick(.cover)
+        case "reposition-cover":
+            mediaAction = .cropExisting(.cover)
+        case "remove-cover":
+            mediaAction = .remove(.cover)
         default:
             break
         }

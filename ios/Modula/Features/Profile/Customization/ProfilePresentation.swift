@@ -68,9 +68,9 @@ struct ProfileCustomizationCapabilities: Sendable, Equatable {
     var featuredModulesWritable = false
     var presentationWritable = false
     var accentWritable = false
-    var coverFocalWritable = false
-    var avatarWritable = false
-    var coverWritable = false
+    var coverFocalWritable = true
+    var avatarWritable = true
+    var coverWritable = true
 
     static let production = ProfileCustomizationCapabilities()
 }

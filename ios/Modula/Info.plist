@@ -35,6 +35,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Modula uses the camera when you take a new profile or cover photo. Photos stay on this device until you choose to save them to your profile.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Modula uses Face ID to unlock the app after you enable App Lock. Face ID never replaces your Modula account sign-in, and biometric data never leaves this device.</string>
 	<key>ModulaAPIURL</key>

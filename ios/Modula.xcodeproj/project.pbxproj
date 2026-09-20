@@ -186,6 +186,7 @@
 		F10100000000000000000006 /* ProfileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000006 /* ProfileTests.swift */; };
 		F10100000000000000000007 /* ProfileContextActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000007 /* ProfileContextActions.swift */; };
 		F10100000000000000000008 /* ProfileShareViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000008 /* ProfileShareViews.swift */; };
+		F10100000000000000000009 /* ProfileMediaViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000009 /* ProfileMediaViews.swift */; };
 		F2381918FBC41E683AA717BB /* IntelligenceResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = C727EBE1A122E68AE7538DFC /* IntelligenceResponse.swift */; };
 		F280213B620AE297E6EC4D78 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE413545A422ACB4BACBB3DF /* RootView.swift */; };
 		F43AEB1A67070000A929D731 /* N1FixtureCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = C086A4FED95A41F19B257A39 /* N1FixtureCredentials.swift */; };
@@ -427,6 +428,7 @@
 		F00100000000000000000006 /* ProfileTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileTests.swift; sourceTree = "<group>"; };
 		F00100000000000000000007 /* ProfileContextActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileContextActions.swift; path = Features/Profile/ProfileContextActions.swift; sourceTree = "<group>"; };
 		F00100000000000000000008 /* ProfileShareViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileShareViews.swift; path = Features/Profile/ProfileShareViews.swift; sourceTree = "<group>"; };
+		F00100000000000000000009 /* ProfileMediaViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileMediaViews.swift; path = Features/Profile/ProfileMediaViews.swift; sourceTree = "<group>"; };
 		F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaImmersiveSurfaces.swift; path = DesignSystem/Immersive/ModulaImmersiveSurfaces.swift; sourceTree = "<group>"; };
 		F45DF2084F485AD64DD1A37F /* IntelligenceRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceRequest.swift; path = Core/Intelligence/Contracts/IntelligenceRequest.swift; sourceTree = "<group>"; };
 		F97B62939727826A0A7B6B6A /* ModulaIntelligenceService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaIntelligenceService.swift; path = Core/Intelligence/ModulaIntelligenceService.swift; sourceTree = "<group>"; };
@@ -675,6 +677,7 @@
 				F00100000000000000000005 /* ProfileEditView.swift */,
 				F00100000000000000000007 /* ProfileContextActions.swift */,
 				F00100000000000000000008 /* ProfileShareViews.swift */,
+				F00100000000000000000009 /* ProfileMediaViews.swift */,
 				003916B967E1900F61DFB206 /* SettingsStore.swift */,
 				8E9539623085AAA12077638F /* SettingsView.swift */,
 				B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */,
@@ -1140,6 +1143,7 @@
 				F10100000000000000000005 /* ProfileEditView.swift in Sources */,
 				F10100000000000000000007 /* ProfileContextActions.swift in Sources */,
 				F10100000000000000000008 /* ProfileShareViews.swift in Sources */,
+				F10100000000000000000009 /* ProfileMediaViews.swift in Sources */,
 				E4010000000000000000000A /* ModulaContextMenu.swift in Sources */,
 				E4010000000000000000000B /* ModulaMediaViewer.swift in Sources */,
 				21638B169590129BA65823F1 /* SettingsStore.swift in Sources */,

@@ -61,6 +61,56 @@ enum MediaPreparation {
         return PreparedImage(data: output as Data, width: targetWidth, height: targetHeight, mimeType: "image/jpeg")
     }
 
+    static func cropJPEG(
+        _ data: Data,
+        normalizedRect: CGRect,
+        maxPixel: CGFloat,
+        quality: CGFloat = 0.84
+    ) async throws -> PreparedImage {
+        try await Task.detached(priority: .userInitiated) {
+            guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+                  let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+                throw MediaPreparationError.unsupported
+            }
+            let imageRect = CGRect(x: 0, y: 0, width: image.width, height: image.height)
+            let crop = CGRect(
+                x: normalizedRect.origin.x * imageRect.width,
+                y: normalizedRect.origin.y * imageRect.height,
+                width: normalizedRect.width * imageRect.width,
+                height: normalizedRect.height * imageRect.height
+            ).integral.intersection(imageRect)
+            guard crop.width >= 8, crop.height >= 8, let cropped = image.cropping(to: crop) else {
+                throw MediaPreparationError.unsupported
+            }
+            let longest = max(CGFloat(cropped.width), CGFloat(cropped.height))
+            let scale = longest > maxPixel ? maxPixel / longest : 1
+            let targetWidth = max(1, Int((CGFloat(cropped.width) * scale).rounded()))
+            let targetHeight = max(1, Int((CGFloat(cropped.height) * scale).rounded()))
+            let colorSpace = CGColorSpaceCreateDeviceRGB()
+            guard let context = CGContext(
+                data: nil,
+                width: targetWidth,
+                height: targetHeight,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else {
+                throw MediaPreparationError.unsupported
+            }
+            context.interpolationQuality = .high
+            context.draw(cropped, in: CGRect(x: 0, y: 0, width: targetWidth, height: targetHeight))
+            guard let scaled = context.makeImage() else { throw MediaPreparationError.unsupported }
+            let output = NSMutableData()
+            guard let destination = CGImageDestinationCreateWithData(output, UTType.jpeg.identifier as CFString, 1, nil) else {
+                throw MediaPreparationError.unsupported
+            }
+            CGImageDestinationAddImage(destination, scaled, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
+            guard CGImageDestinationFinalize(destination) else { throw MediaPreparationError.unsupported }
+            return PreparedImage(data: output as Data, width: targetWidth, height: targetHeight, mimeType: "image/jpeg")
+        }.value
+    }
+
     static func rotatedJPEG(_ data: Data, quarterTurns: Int) async throws -> PreparedImage {
         try await Task.detached(priority: .userInitiated) {
             guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),

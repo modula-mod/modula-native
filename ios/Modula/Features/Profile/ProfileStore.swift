@@ -9,6 +9,7 @@ final class ProfileStore {
     private(set) var actionError: String?
     private(set) var editing = ProfileEditingState()
     private(set) var visitorPreviewActive = false
+    private(set) var mediaBusy = false
     let customization = ProfileCustomizationCapabilities.production
 
     init(client: GreenfieldClient, posts: PostStateStore? = nil) {
@@ -358,12 +359,7 @@ final class ProfileStore {
             let profile = try await repository.updateMe(draft)
             editing.status = .saved
             editing.draft = .from(profile)
-            let key = sessionKey(.me, handleHint: profile.handle)
-            var state = sessions[key] ?? ProfileSessionState()
-            state.profile = profile
-            state.loadState = .loaded
-            sessions[key] = state
-            sessions["me"] = state
+            applyOwn(profile)
             HapticEngine.shared.play(.saveComplete)
             return true
         } catch let api as APIError {
@@ -390,6 +386,62 @@ final class ProfileStore {
 
     func setVisitorPreview(_ active: Bool) {
         visitorPreviewActive = active
+    }
+
+    func setMediaError(_ message: String?) {
+        actionError = message
+        if message != nil {
+            HapticEngine.shared.play(.failure)
+        }
+    }
+
+    func uploadMedia(_ kind: ProfileMediaKind, image: PreparedImage) async -> Bool {
+        mediaBusy = true
+        defer { mediaBusy = false }
+        do {
+            let profile = try await repository.uploadOwnMedia(kind: kind, image: image)
+            applyOwn(profile)
+            actionError = nil
+            HapticEngine.shared.play(.saveComplete)
+            return true
+        } catch let api as APIError {
+            actionError = api.userFacingMessage
+            HapticEngine.shared.play(.failure)
+            return false
+        } catch {
+            actionError = "Could not update \(kind.title.lowercased())."
+            HapticEngine.shared.play(.failure)
+            return false
+        }
+    }
+
+    func removeMedia(_ kind: ProfileMediaKind) async -> Bool {
+        mediaBusy = true
+        defer { mediaBusy = false }
+        do {
+            let profile = try await repository.removeOwnMedia(kind: kind)
+            applyOwn(profile)
+            actionError = nil
+            HapticEngine.shared.play(.saveComplete)
+            return true
+        } catch let api as APIError {
+            actionError = api.userFacingMessage
+            HapticEngine.shared.play(.failure)
+            return false
+        } catch {
+            actionError = "Could not remove \(kind.title.lowercased())."
+            HapticEngine.shared.play(.failure)
+            return false
+        }
+    }
+
+    private func applyOwn(_ profile: ModulaProfile) {
+        let key = sessionKey(.me, handleHint: profile.handle)
+        var state = sessions[key] ?? ProfileSessionState()
+        state.profile = profile
+        state.loadState = .loaded
+        sessions[key] = state
+        sessions["me"] = state
     }
 
     // MARK: - Private

@@ -14,6 +14,8 @@ protocol ProfileRepository: Sendable {
     func unmute(profileID: ProfileID) async throws
     func report(profileID: ProfileID, category: String, details: String?) async throws
     func updateMe(_ draft: ProfileEditDraft) async throws -> ModulaProfile
+    func uploadOwnMedia(kind: ProfileMediaKind, image: PreparedImage) async throws -> ModulaProfile
+    func removeOwnMedia(kind: ProfileMediaKind) async throws -> ModulaProfile
 }
 
 actor GreenfieldProfileRepository: ProfileRepository {
@@ -197,6 +199,41 @@ actor GreenfieldProfileRepository: ProfileRepository {
             path: "/v1/profiles/me",
             body: .object(body)
         )
+        guard let profile = ProfilePayloadDecoder.profile(from: value) else {
+            throw APIError.invalidResponse
+        }
+        profileCache["me"] = profile
+        profileCache[profile.routeID] = profile
+        profileCache[profile.id] = profile
+        return profile
+    }
+
+    func uploadOwnMedia(kind: ProfileMediaKind, image: PreparedImage) async throws -> ModulaProfile {
+        let value: JSONValue = try await client.authenticatedJSON(
+            "POST",
+            path: "/v1/profiles/me/\(kind.rawValue)",
+            body: .object([
+                "kind": .string("image"),
+                "base64": .string(image.data.base64EncodedString()),
+                "mimeType": .string(image.mimeType),
+                "contentType": .string(image.mimeType),
+                "width": .number(Double(image.width)),
+                "height": .number(Double(image.height))
+            ])
+        )
+        return try decodedOwnProfile(value)
+    }
+
+    func removeOwnMedia(kind: ProfileMediaKind) async throws -> ModulaProfile {
+        let value: JSONValue = try await client.authenticatedJSON(
+            "DELETE",
+            path: "/v1/profiles/me/\(kind.rawValue)",
+            body: nil
+        )
+        return try decodedOwnProfile(value)
+    }
+
+    private func decodedOwnProfile(_ value: JSONValue) throws -> ModulaProfile {
         guard let profile = ProfilePayloadDecoder.profile(from: value) else {
             throw APIError.invalidResponse
         }
