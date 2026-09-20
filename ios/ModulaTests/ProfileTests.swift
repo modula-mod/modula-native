@@ -233,16 +233,27 @@ final class ProfileTests: XCTestCase {
         XCTAssertFalse(other.contains { $0.id == "preview-visitor" })
     }
 
-    func testMediaMenusOmitUnsupportedUploads() {
+    func testMediaMenusExposeOwnerEdits() {
         let avatarOwn = ProfileContextActions.avatarMenu(isOwn: true, hasPhoto: true)
         XCTAssertTrue(avatarOwn.contains { $0.id == "view-photo" })
-        XCTAssertFalse(avatarOwn.contains { $0.id == "change-photo" })
-        XCTAssertFalse(avatarOwn.contains { $0.id == "remove-photo" })
+        XCTAssertTrue(avatarOwn.contains { $0.id == "change-photo" })
+        XCTAssertTrue(avatarOwn.contains { $0.id == "edit-photo" })
+        XCTAssertTrue(avatarOwn.contains { $0.id == "remove-photo" })
+
+        let avatarEmpty = ProfileContextActions.avatarMenu(isOwn: true, hasPhoto: false)
+        XCTAssertTrue(avatarEmpty.contains { $0.id == "change-photo" })
+        XCTAssertFalse(avatarEmpty.contains { $0.id == "remove-photo" })
+
+        let coverOwn = ProfileContextActions.coverMenu(isOwn: true, hasCover: true)
+        XCTAssertTrue(coverOwn.contains { $0.id == "change-cover" })
+        XCTAssertTrue(coverOwn.contains { $0.id == "reposition-cover" })
+        XCTAssertTrue(coverOwn.contains { $0.id == "remove-cover" })
 
         let coverOther = ProfileContextActions.coverMenu(isOwn: false, hasCover: true)
         XCTAssertTrue(coverOther.contains { $0.id == "view-cover" })
         XCTAssertTrue(coverOther.contains { $0.id == "share" })
         XCTAssertFalse(coverOther.contains { $0.id == "reposition-cover" })
+        XCTAssertFalse(coverOther.contains { $0.id == "change-cover" })
     }
 
     func testModulaCodePayloadIsCanonicalAndSecretFree() {

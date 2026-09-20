@@ -12,10 +12,9 @@ enum ProfileContextActions {
         var canShowModulaCode = true
         var canPreviewAsVisitor = true
         var canOpenSettings = true
-        /// Avatar/cover change & remove require upload contracts that are not deployed.
-        var canChangeMedia = false
-        var canRemoveMedia = false
-        var canRepositionCover = false
+        var canChangeMedia = true
+        var canRemoveMedia = true
+        var canRepositionCover = true
     }
 
     static let production = Capabilities()
@@ -91,7 +90,10 @@ enum ProfileContextActions {
         }
         if isOwn {
             if capabilities.canChangeMedia {
-                items.append(.init(id: "change-photo", title: "Change Photo", systemImage: "camera"))
+                items.append(.init(id: "change-photo", title: hasPhoto ? "Change Photo" : "Add Photo", systemImage: "camera"))
+            }
+            if capabilities.canRepositionCover, hasPhoto {
+                items.append(.init(id: "edit-photo", title: "Edit Photo", systemImage: "crop"))
             }
             if capabilities.canRemoveMedia, hasPhoto {
                 items.append(.init(id: "remove-photo", title: "Remove Photo", systemImage: "trash", role: .destructive))
@@ -114,7 +116,7 @@ enum ProfileContextActions {
         }
         if isOwn {
             if capabilities.canChangeMedia {
-                items.append(.init(id: "change-cover", title: "Change Cover", systemImage: "camera"))
+                items.append(.init(id: "change-cover", title: hasCover ? "Change Cover" : "Add Cover", systemImage: "camera"))
             }
             if capabilities.canRepositionCover, hasCover {
                 items.append(.init(id: "reposition-cover", title: "Reposition Cover", systemImage: "arrow.up.and.down.and.arrow.left.and.right"))

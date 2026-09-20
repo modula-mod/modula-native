@@ -3,6 +3,8 @@ import SwiftUI
 struct ProfileEditView: View {
     @Environment(AppEnvironment.self) private var app
     @State private var confirmsDiscard = false
+    @State private var mediaAction: ProfileMediaWorkspaceAction?
+    @State private var mediaViewer: ModulaMediaViewerItem?
 
     private var editing: ProfileEditingState { app.profile.editing }
     private var draft: ProfileEditDraft? { editing.draft }
@@ -22,7 +24,7 @@ struct ProfileEditView: View {
                 modulesSection
                 presentationSection
 
-                Text("Avatar, cover, pronouns, location, website, links, headline, and profile accent are readable when Greenfield sends them. Writes stay capability-gated.")
+                Text("Pronouns, location, website, links, headline, and profile accent stay capability-gated when Greenfield does not persist them.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -52,6 +54,7 @@ struct ProfileEditView: View {
             .padding(.top, 12)
             .padding(.bottom, 40)
         }
+        .modulaSoftScrollEdge()
         .modulaCanvas()
         .navigationTitle("Edit Profile")
         .navigationBarTitleDisplayMode(.inline)
@@ -59,6 +62,19 @@ struct ProfileEditView: View {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel") { attemptDismiss() }
                     .accessibilityIdentifier("profile.edit.cancel")
+            }
+        }
+        .profileMediaWorkspace(profile: liveProfile, action: $mediaAction) { kind in
+            openViewer(kind)
+        }
+        .fullScreenCover(item: $mediaViewer) { item in
+            ModulaMediaViewer(
+                title: item.title,
+                url: item.url,
+                accessibilityDescription: item.accessibilityDescription,
+                allowsShare: item.allowsShare
+            ) {
+                mediaViewer = nil
             }
         }
         .confirmationDialog("Unsaved changes", isPresented: $confirmsDiscard, titleVisibility: .visible) {
@@ -145,10 +161,24 @@ struct ProfileEditView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Media")
                 .font(.headline)
-            Text("Profile Photo and Cover Photo reuse the existing Profile media viewer. Uploading and cover focal point wait on Greenfield write contracts.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            ProfileMediaEditorRow(
+                kind: .avatar,
+                url: liveProfile?.avatarURL,
+                initials: liveProfile?.initials ?? "?",
+                onView: { openViewer(.avatar) },
+                onChange: { mediaAction = .pick(.avatar) },
+                onEdit: { mediaAction = .cropExisting(.avatar) },
+                onRemove: { mediaAction = .remove(.avatar) }
+            )
+            ProfileMediaEditorRow(
+                kind: .cover,
+                url: liveProfile?.coverURL,
+                initials: liveProfile?.initials ?? "?",
+                onView: { openViewer(.cover) },
+                onChange: { mediaAction = .pick(.cover) },
+                onEdit: { mediaAction = .cropExisting(.cover) },
+                onRemove: { mediaAction = .remove(.cover) }
+            )
         }
     }
 
@@ -266,6 +296,25 @@ struct ProfileEditView: View {
             get: { draft?.accent },
             set: { value in app.profile.updateEditingDraft { $0.accent = value } }
         )
+    }
+
+    private func openViewer(_ kind: ProfileMediaKind) {
+        guard let liveProfile else { return }
+        switch kind {
+        case .avatar:
+            mediaViewer = ModulaMediaViewerItem(
+                title: "Profile photo",
+                url: liveProfile.avatarURL,
+                accessibilityDescription: "\(liveProfile.displayName)'s profile photo"
+            )
+        case .cover:
+            guard liveProfile.coverURL != nil else { return }
+            mediaViewer = ModulaMediaViewerItem(
+                title: "Cover photo",
+                url: liveProfile.coverURL,
+                accessibilityDescription: "\(liveProfile.displayName)'s cover photo"
+            )
+        }
     }
 
     private func attemptDismiss() {
