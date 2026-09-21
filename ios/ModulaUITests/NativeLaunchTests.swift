@@ -180,16 +180,12 @@ final class NativeLaunchTests: XCTestCase {
         overviewAttachment.lifetime = .keepAlways
         add(overviewAttachment)
 
-        app.swipeUp()
-        XCTAssertTrue(
-            app.descendants(matching: .any)["intelligence.apple.summarize"]
-                .waitForExistence(timeout: 5)
-        )
-        app.swipeUp()
-        XCTAssertTrue(
-            app.descendants(matching: .any)["intelligence.deterministic.summarize"]
-                .waitForExistence(timeout: 5)
-        )
+        let appleAction = app.descendants(matching: .any)["intelligence.apple.summarize"]
+        for _ in 0..<8 where !appleAction.exists { app.swipeUp() }
+        XCTAssertTrue(appleAction.waitForExistence(timeout: 5))
+        let deterministicAction = app.descendants(matching: .any)["intelligence.deterministic.summarize"]
+        for _ in 0..<8 where !deterministicAction.exists { app.swipeUp() }
+        XCTAssertTrue(deterministicAction.waitForExistence(timeout: 5))
 
         let actionsAttachment = XCTAttachment(screenshot: app.screenshot())
         actionsAttachment.name = "mission-03-local-intelligence-actions"
@@ -214,18 +210,24 @@ final class NativeLaunchTests: XCTestCase {
         XCTAssertTrue(generate.waitForExistence(timeout: 5))
         generate.tap()
 
+        let confidence = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS %@", "Confidence, Needs verification")
+        ).firstMatch
+        for _ in 0..<4 where !confidence.exists { app.swipeUp() }
+        XCTAssertTrue(confidence.waitForExistence(timeout: 5))
+        let freshness = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS %@", "Freshness, Current data needed")
+        ).firstMatch
+        for _ in 0..<3 where !freshness.exists { app.swipeUp() }
+        XCTAssertTrue(freshness.waitForExistence(timeout: 5))
+        let verification = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS %@", "Verification, Recommended")
+        ).firstMatch
+        for _ in 0..<3 where !verification.exists { app.swipeUp() }
+        XCTAssertTrue(verification.waitForExistence(timeout: 5))
         let verify = app.descendants(matching: .any)["intelligence.nodus.verify"]
         for _ in 0..<3 where !verify.exists { app.swipeUp() }
         XCTAssertTrue(verify.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts.matching(
-            NSPredicate(format: "label CONTAINS %@", "Confidence, Needs verification")
-        ).firstMatch.exists)
-        XCTAssertTrue(app.staticTexts.matching(
-            NSPredicate(format: "label CONTAINS %@", "Freshness, Current data needed")
-        ).firstMatch.exists)
-        XCTAssertTrue(app.staticTexts.matching(
-            NSPredicate(format: "label CONTAINS %@", "Verification, Recommended")
-        ).firstMatch.exists)
         verify.tap()
         let queued = app.staticTexts["Verification Mission queued locally"]
         for _ in 0..<4 where !queued.exists { app.swipeDown() }
