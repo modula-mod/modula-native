@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-09-20T00:00:00Z",
+  "models": [
+    {
+      "publisher": "Qwen",
+      "model": "Qwen/Qwen3-1.7B",
+      "revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+      "parameters": 2031739904,
+      "weightFiles": [
+        {
+          "path": "model-00001-of-00002.safetensors",
+          "bytes": 3441185608,
+          "sha256": "169ad53ec313c3a34b06c0809216e4fc072cce444a5d4ff2b59690d064130ed5"
+        },
+        {
+          "path": "model-00002-of-00002.safetensors",
+          "bytes": 622329984,
+          "sha256": "912becff8d60672aa8628ef08c05898d9adf17c2ad4ae3caf99b065622fdeff9"
+        }
+      ],
+      "license": "Apache-2.0",
+      "licenseFile": "Apache-2.0.txt",
+      "licenseFileSHA256": "832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e",
+      "licenseURL": "https://huggingface.co/Qwen/Qwen3-1.7B/blob/70d244cc86ccca08cf5af4e1e306ecf908b1ad5e/LICENSE",
+      "commercialUse": true,
+      "redistribution": "Include Apache-2.0 license and preserve notices; identify modifications.",
+      "derivatives": "Permitted under Apache-2.0; preserve license and NOTICE obligations.",
+      "attribution": "Retain Qwen upstream provenance in every Nodus manifest.",
+      "namingRestrictions": "None declared beyond trademark law; Nodus branding must not obscure provenance.",
+      "acceptableUseRestrictions": "No model-specific AUP found in the pinned repository; Modula policy still applies.",
+      "reviewStatus": "reviewed"
+    },
+    {
+      "publisher": "Hugging Face",
+      "model": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+      "revision": "31b70e2e869a7173562077fd711b654946d38674",
+      "parameters": 1711376384,
+      "weightFiles": [
+        {
+          "path": "model.safetensors",
+          "bytes": 3422777952,
+          "sha256": "f55217be716b6a997b97b9d8d7eb6fad02e00858f5010ec24f64603c3a98a0e8"
+        }
+      ],
+      "license": "Apache-2.0",
+      "licenseFile": "Apache-2.0.txt",
+      "licenseFileSHA256": "832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e",
+      "licenseURL": "https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct/tree/31b70e2e869a7173562077fd711b654946d38674",
+      "commercialUse": true,
+      "redistribution": "Include Apache-2.0 license and preserve notices; identify modifications.",
+      "derivatives": "Permitted under Apache-2.0; preserve license and NOTICE obligations.",
+      "attribution": "Retain Hugging Face and SmolLM2 upstream provenance in every Nodus manifest.",
+      "namingRestrictions": "None declared beyond trademark law; Nodus branding must not obscure provenance.",
+      "acceptableUseRestrictions": "No model-specific AUP found in the pinned repository; Modula policy still applies.",
+      "reviewStatus": "reviewed"
+    }
+  ]
+}

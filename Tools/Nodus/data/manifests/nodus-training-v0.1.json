@@ -1,0 +1,41 @@
+{
+  "approvalState": "approved-for-experiment",
+  "baseModel": "Qwen/Qwen3-1.7B",
+  "baseRevision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+  "categoryDistribution": {
+    "confidence": 4,
+    "freshness": 6,
+    "general": 76,
+    "modula": 36,
+    "privacy": 2,
+    "structured-action": 2
+  },
+  "createdAt": "2026-09-20T00:00:00Z",
+  "datasetRevision": "nodus-training-v0.1",
+  "exampleCount": 126,
+  "files": {
+    "test": "102b0200327b3168dc618da23ead7b1248b29d03ab6e00b2e428df7c3cced8a9",
+    "train": "22544e3d8a7fe1d59227bed7c6677e71ba6dc0b86003a32a0b6c43bca585e805",
+    "valid": "44d2bd9b1c24df23743b34a598f61848c0443c9ddccc8f0ef68ecc2e8926a498"
+  },
+  "learningCandidateCount": 0,
+  "licenses": [
+    "CC0-1.0",
+    "Modula-internal"
+  ],
+  "manifestHash": "sha256:c989ff11f300cc6040b4edf9df9290e2566a38759d72d6ccf071c46c1933c962",
+  "parentRevision": null,
+  "privateProductionDataCount": 0,
+  "schemaVersion": 1,
+  "sourceCatalogHash": "sha256:9155d93112931da0da6be2884475b81849b7c31d3494110a4cd004a366105ba7",
+  "sourceExamplesHash": "sha256:1866645c5f4f800bdfad6c9ef5465e296dbc6f01e322f409dc36389b0b660f04",
+  "sources": {
+    "modula-nodus01-spec": 50,
+    "nodus-authored-general-replay": 76
+  },
+  "splitCounts": {
+    "test": 19,
+    "train": 86,
+    "valid": 21
+  }
+}

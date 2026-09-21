@@ -196,6 +196,58 @@ final class NativeLaunchTests: XCTestCase {
         actionsAttachment.lifetime = .keepAlways
         add(actionsAttachment)
     }
+
+    @MainActor
+    func testNodusConfidenceVerificationQueueAndCancellationUI() throws {
+        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--uitest-nodus-fixture"])
+        openSettingsFromShell(app)
+        XCTAssertTrue(app.buttons["Developer"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Developer"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["Local Intelligence"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Local Intelligence"].firstMatch.tap()
+
+        let prompt = app.descendants(matching: .any)["intelligence.nodus.prompt"]
+        for _ in 0..<4 where !prompt.exists { app.swipeUp() }
+        XCTAssertTrue(prompt.waitForExistence(timeout: 8))
+        pasteText("What's today's weather?", into: prompt, app: app, replacing: true)
+        let generate = app.descendants(matching: .any)["intelligence.nodus.generate"]
+        XCTAssertTrue(generate.waitForExistence(timeout: 5))
+        generate.tap()
+
+        let verify = app.descendants(matching: .any)["intelligence.nodus.verify"]
+        for _ in 0..<3 where !verify.exists { app.swipeUp() }
+        XCTAssertTrue(verify.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS %@", "Confidence, Needs verification")
+        ).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS %@", "Freshness, Current data needed")
+        ).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS %@", "Verification, Recommended")
+        ).firstMatch.exists)
+        verify.tap()
+        let queued = app.staticTexts["Verification Mission queued locally"]
+        for _ in 0..<4 where !queued.exists { app.swipeDown() }
+        XCTAssertTrue(queued.waitForExistence(timeout: 5))
+
+        for _ in 0..<4 where !prompt.exists { app.swipeUp() }
+        pasteText("CANCEL_TEST", into: prompt, app: app, replacing: true)
+        generate.tap()
+        let cancel = app.descendants(matching: .any)["intelligence.nodus.cancel"]
+        XCTAssertTrue(cancel.waitForExistence(timeout: 3))
+        cancel.tap()
+        let cancelled = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS %@", "Status, Cancelled")
+        ).firstMatch
+        for _ in 0..<4 where !cancelled.exists { app.swipeUp() }
+        XCTAssertTrue(cancelled.waitForExistence(timeout: 8))
+
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "nodus-01-confidence-verification"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
 }
 
 @MainActor

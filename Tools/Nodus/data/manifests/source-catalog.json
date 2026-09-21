@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "id": "modula-nodus01-spec",
+      "title": "MODULA — NODUS-01 specification",
+      "revision": "2026-09-20",
+      "license": "Modula-internal",
+      "privacyClass": "internal-non-secret",
+      "trainingEligibility": "approved",
+      "contentHash": "sha256:generated-per-example"
+    },
+    {
+      "id": "modula-architecture-docs",
+      "title": "Modula repository architecture documentation",
+      "revision": "297b3034a2c32e370c7208dee38547201a7ffe01",
+      "license": "Modula-internal",
+      "privacyClass": "internal-non-secret",
+      "trainingEligibility": "approved",
+      "contentHash": "sha256:generated-per-example"
+    },
+    {
+      "id": "nodus-authored-general-replay",
+      "title": "Original general-assistant replay examples authored for NODUS-01",
+      "revision": "v0.1",
+      "license": "CC0-1.0",
+      "privacyClass": "public",
+      "trainingEligibility": "approved",
+      "contentHash": "sha256:generated-per-example"
+    }
+  ]
+}

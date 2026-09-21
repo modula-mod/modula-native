@@ -1,0 +1,5 @@
+{"id":"modula-gaia-aki-heldout","domain":"modula-architecture","prompt":"In one paragraph, contrast GAIA with AKI.","required":["gaia","aki","plan","verif"],"forbidden":["same system"],"freshness":"stable"}
+{"id":"modula-authorization-heldout","domain":"modula-governance","prompt":"If Nodus emits record.delete, what happens next?","required":["proposal","valid","authoriz"],"forbidden":["immediately deletes"],"freshness":"stable"}
+{"id":"modula-training-heldout","domain":"modula-learning","prompt":"May an unverified Nodus answer enter the approved training corpus?","required":["no","verif"],"forbidden":["automatically"],"freshness":"stable"}
+{"id":"modula-privacy-heldout","domain":"modula-privacy","prompt":"Does requesting answer verification consent to global training?","required":["no","consent"],"forbidden":[],"freshness":"stable"}
+{"id":"modula-nodus-heldout","domain":"modula-architecture","prompt":"Is Nodus the same thing as GAIA?","required":["no","language model","gaia"],"forbidden":[],"freshness":"stable"}
