@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from build_dataset import build
 from build_model_manifest import build_manifest
+from build_specialization_dataset import build as build_specialization
 from common import GovernanceError, sha256, validate_learning_candidate
 from evaluate import is_abstention, score_case
 from promotion_gate import evaluate_gates
@@ -116,19 +117,33 @@ class DatasetPipelineTests(unittest.TestCase):
         self.assertEqual(rebuilt, recorded)
 
     def test_recorded_specialization_manifest_matches_rebuild(self):
-        rebuilt = json.loads(
-            (ROOT / "data/generated/nodus-specialization-v0.1/training-manifest.json").read_text()
-        )
+        with tempfile.TemporaryDirectory() as temporary:
+            generated = Path(temporary)
+            parent = generated / "nodus-training-v0.1"
+            specialization = generated / "nodus-specialization-v0.1"
+            build(
+                ROOT / "data/source/examples.jsonl",
+                parent,
+                "nodus-training-v0.1",
+                base_model=SELECTED_BASE,
+                base_revision=SELECTED_REVISION,
+            )
+            rebuilt = build_specialization(
+                parent,
+                specialization,
+                "nodus-specialization-v0.1",
+            )
+            rebuilt_files = {
+                split: sha256(specialization / f"{split}.jsonl")
+                for split in ("train", "valid", "test")
+            }
         recorded = json.loads(
             (ROOT / "data/manifests/nodus-specialization-v0.1.json").read_text()
         )
         self.assertEqual(rebuilt, recorded)
         self.assertEqual(recorded["privateProductionDataCount"], 0)
         for split, expected in recorded["files"].items():
-            self.assertEqual(
-                sha256(ROOT / f"data/generated/nodus-specialization-v0.1/{split}.jsonl"),
-                expected,
-            )
+            self.assertEqual(rebuilt_files[split], expected)
 
     def test_eval_revision_hashes_match_frozen_files_and_evaluator(self):
         manifest = json.loads((ROOT / "evals/manifest.json").read_text())
