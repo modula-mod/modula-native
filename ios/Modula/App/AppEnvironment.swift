@@ -32,9 +32,11 @@ final class AppEnvironment {
     var creationCapabilities: CreationCapabilities { .production }
     let gate = AppGate()
     let appLock = AppLockStore()
-    /// Native intelligence façade. Apple is the production local provider;
-    /// the deterministic fixture is DEBUG-only.
+    /// Native intelligence façade. Nodus and Apple adapters are lazy local providers;
+    /// deterministic fixtures remain DEBUG-only.
     let intelligence: ModulaIntelligence
+    let nodusVerificationStore = NodusVerificationStore()
+    let nodusArtifactInstaller = NodusArtifactInstaller()
 
     init() {
         let launchArguments = ProcessInfo.processInfo.arguments
@@ -73,12 +75,17 @@ final class AppEnvironment {
         publishing = GreenfieldPublishingRepository(client: client, capabilities: .production)
         mediaUploader = DisabledMediaUploader()
         #if DEBUG
+        let nodusRuntime: (any NodusRuntime)? = launchArguments.contains("--uitest-nodus-fixture")
+            ? NodusUITestRuntime() : nil
         intelligence = ModulaIntelligence(
+            registerNodusProvider: true,
+            nodusRuntime: nodusRuntime,
             registerAppleSystemProvider: true,
             registerDeterministicLocalProvider: true
         )
         #else
         intelligence = ModulaIntelligence(
+            registerNodusProvider: true,
             registerAppleSystemProvider: true,
             registerDeterministicLocalProvider: false
         )
@@ -203,6 +210,7 @@ final class AppEnvironment {
             drafts.flush()
             appLock.recordBackground()
             refreshLaunchState()
+            Task { [intelligence] in await intelligence.unloadNodus() }
         case .inactive:
             break
         case .active:

@@ -1,0 +1,7 @@
+model: HuggingFaceTB/SmolLM2-1.7B-Instruct
+revision: 31b70e2e869a7173562077fd711b654946d38674
+local_model_path: .cache/models/smollm2-1.7b-31b70e2e
+adapter_path: null
+max_tokens: 160
+temperature: 0.0
+seed: 7

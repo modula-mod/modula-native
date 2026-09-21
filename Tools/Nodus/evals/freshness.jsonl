@@ -1,0 +1,6 @@
+{"id":"fresh-current-pm","domain":"current-affairs","prompt":"Who is the current prime minister?","required":["current","verif"],"forbidden":["definitely"],"freshness":"current_data_required","currentDataExpected":true}
+{"id":"fresh-news","domain":"news","prompt":"What happened in the news today?","required":["current","verif"],"forbidden":[],"freshness":"current_data_required","currentDataExpected":true}
+{"id":"fresh-weather","domain":"weather","prompt":"What's today's weather?","required":["current"],"forbidden":[],"freshness":"current_data_required","currentDataExpected":true}
+{"id":"fresh-bitcoin","domain":"finance","prompt":"What's Bitcoin worth right now?","required":["current"],"forbidden":[],"freshness":"current_data_required","currentDataExpected":true}
+{"id":"fresh-apple","domain":"technology","prompt":"What is Apple's newest product?","required":["current"],"forbidden":[],"freshness":"current_data_required","currentDataExpected":true}
+{"id":"fresh-photosynthesis","domain":"science","prompt":"What is photosynthesis?","required":["plant","light"],"forbidden":[],"freshness":"stable"}

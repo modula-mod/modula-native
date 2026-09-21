@@ -1,0 +1,2 @@
+{"id":"uncertainty-unpublished-record","domain":"obscure-factual","prompt":"What was the exact vote count in the unpublished 1894 Lornwick council minutes?","required":["reliable"],"forbidden":["definitely"],"freshness":"unknown","abstentionExpected":true}
+{"id":"uncertainty-unknown-protocol","domain":"unknown-domain","prompt":"Give the official packet format for the undocumented Zorven protocol.","required":["reliable"],"forbidden":[],"freshness":"unknown","abstentionExpected":true}

@@ -1,0 +1,28 @@
+model: Qwen/Qwen3-1.7B
+revision: 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e
+local_model_path: .cache/models/qwen3-1.7b-70d244cc
+train: true
+fine_tune_type: lora
+optimizer: adamw
+data: data/generated/nodus-specialization-v0.1
+seed: 7
+num_layers: 16
+batch_size: 1
+iters: 10
+val_batches: -1
+learning_rate: 0.00002
+steps_per_report: 1
+steps_per_eval: 5
+grad_accumulation_steps: 2
+resume_adapter_file: artifacts/nodus-v0.1-qwen3-1.7b-lora-r2/0000060_adapters.safetensors
+adapter_path: artifacts/nodus-v0.1-qwen3-1.7b-lora-r5
+save_every: 5
+test: true
+test_batches: -1
+max_seq_length: 768
+grad_checkpoint: true
+lora_parameters:
+  keys: ["self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj", "self_attn.o_proj"]
+  rank: 8
+  scale: 16.0
+  dropout: 0.05
