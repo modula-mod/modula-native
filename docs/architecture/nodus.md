@@ -4,9 +4,13 @@ Nodus is Modula's compact, general-purpose local language-model family. It answe
 
 Nodus is not a command parser or an offline FAQ. Its retained general domains include science, history, geography, technology, basic mathematics and computing, writing, summarization, explanation, classification, extraction, and instruction following. Fine-tuning therefore includes substantial general replay data, and promotion fails when a category regresses by more than five percentage points without review.
 
-## N4X model status
+## NODUS-01B model status
 
 N4X integrates architecture only. There is **no accepted Nodus model** and the provider must report `modelNotInstalled` (or an equivalent unavailable state) until a separately approved artifact is installed. The R2 adapter remains an external experimental artifact and is not committed, bundled, selected by default, or promoted.
+
+NODUS-01B ran the required R3, R4, and R5 recovery experiments against the same pinned Qwen base. None passed the complete promotion scorecard. R5 step 1400 improved the backward-compatible Modula score from 0.4000 to 0.8000, but general accuracy fell to 0.9167, compatible calibrated ECE was 0.5175, freshness behavior was 0.6667, and abstention accuracy was 0.0. On the broader NODUS-01B suites it scored 0.6667 general and 0.3333 Modula, compared with base scores of 0.9000 and 0.2821. That broader Modula gain is only 0.0512, below the required 0.15.
+
+The result is **NODUS-01B PARTIAL**. No checkpoint is an accepted candidate; no checkpoint was fused, quantized, installed, or named Nodus v0.1. `modula.nodus` therefore remains unavailable without a separately accepted artifact, and its normal repository state remains `modelNotInstalled`.
 
 The recorded R2 promotion result is:
 
@@ -39,9 +43,9 @@ For current-data questions Nodus can provide stable background, but it sets fres
 
 Verification never grants training consent. Reconciliation may produce a learning candidate, but it remains ineligible or pending review until privacy eligibility, explicit global-training consent, and a separate human review all pass. Answers and verification results never trigger automatic training.
 
-## Training recovery hypothesis
+## Training recovery result
 
-The failed experiment used 126 examples: 36 Modula, 2 structured-action, 4 confidence, 6 freshness, 2 privacy, and 76 general examples. That is too small to expect reliable Modula specialization and calibrated confidence from a 1.7B model. NODUS-01B should test a substantially larger, curated and synthetic corpus with correction examples, hard negatives, structured intents, privacy, freshness, abstention, verification, and fake-capability cases. Dataset size and LoRA choices remain experimental; N4X performs no training, quantization, or promotion.
+The failed NODUS-01 experiment used 126 examples: 36 Modula, 2 structured-action, 4 confidence, 6 freshness, 2 privacy, and 76 general examples. NODUS-01B replaced it with three reproducible 6,000-example controlled mixtures, complete provenance, exact/normalized/near duplicate removal, semantic-family splits, and held-out exclusions. The recovery established that corpus volume alone is insufficient: the model learned some legacy keyword-shaped Modula cases but did not generalize reliably to the broader architecture, module, capability, structured-intent, hallucination, and abstention suite. Exact results and checkpoint comparisons are recorded in `Tools/Nodus/reports/nodus-01b-training-report.md`.
 
 ## Future boundary
 
