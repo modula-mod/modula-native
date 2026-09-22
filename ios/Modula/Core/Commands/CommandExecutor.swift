@@ -65,6 +65,9 @@ enum CommandExecutor {
         case .presentCommand:
             present(.commandCenter)
             return .executed
+        case .presentIntelligenceChat:
+            present(.intelligenceChat)
+            return .executed
         case .functionInvoke:
             // Reserved for future module action architecture. Disabled in N4D.
             return .unsupported

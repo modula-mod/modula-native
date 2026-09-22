@@ -24,6 +24,7 @@ struct OnboardingView: View {
                     .frame(maxWidth: 560)
                     .frame(maxWidth: .infinity)
                 }
+                .modulaSoftScrollEdge()
                 .scrollBounceBehavior(.basedOnSize)
                 cta
                     .padding(.horizontal, 24)

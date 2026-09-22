@@ -38,6 +38,9 @@ struct ModulaProgressiveHeader<Trailing: View>: View {
     var compactInitials: String? = nil
     var compactAvatarURL: URL? = nil
     var compactSubtitle: String? = nil
+    /// For full-bleed parents that ignore the top safe area — pad the content row so it
+    /// shares the same band as `FloatingHeroControls` (status bar + floating top pad).
+    var topChromeInset: CGFloat = 0
     @ViewBuilder var trailing: () -> Trailing
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -47,59 +50,66 @@ struct ModulaProgressiveHeader<Trailing: View>: View {
 
     private var clamped: CGFloat { ModulaScrollProgress.clamp(progress) }
     private var showsCompactIdentity: Bool { compactInitials != nil }
+    private var immersive: Bool { topChromeInset > 0 }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack(alignment: immersive ? .top : .bottom) {
             fadeBackdrop
-            ZStack {
-                if showsCompactIdentity {
-                    compactIdentity
-                        .opacity(reduceMotion ? (clamped > 0.5 ? 1 : 0) : Double(clamped))
-                        .offset(y: reduceMotion ? 0 : CGFloat(1 - clamped) * 8)
-                        .frame(maxWidth: .infinity)
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(clamped < 0.15)
-                } else {
-                    // Compact centered title — full-bleed center like system large→inline.
-                    Text(compactTitle)
-                        .font(.headline.weight(.semibold))
-                        .opacity(reduceMotion ? (clamped > 0.5 ? 1 : 0) : Double(clamped))
-                        .offset(y: reduceMotion ? 0 : CGFloat(1 - clamped) * 8)
-                        .frame(maxWidth: .infinity)
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(clamped < 0.15)
-                }
-
-                HStack(alignment: .center, spacing: 12) {
-                    if reduceMotion {
-                        Text(clamped > 0.5 ? " " : largeTitle)
-                            .font(.largeTitle.bold())
-                            .opacity(clamped > 0.5 ? 0 : 1)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                    } else {
-                        Text(largeTitle)
-                            .font(.largeTitle.bold())
-                            .opacity(Double(1 - clamped))
-                            .scaleEffect(1 - (0.18 * clamped), anchor: .leading)
-                            .offset(y: CGFloat(clamped) * -10)
-                    }
-                    Spacer(minLength: 8)
-                    trailing()
-                }
-            }
-            .padding(.horizontal, ModulaLayout.contentInset)
-            .padding(.bottom, 8)
-            .padding(.top, 4)
-            .frame(height: 44)
+            contentRow
+                .padding(.top, immersive ? topChromeInset + ModulaChromeMetrics.floatingTopPad : 4)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.progressiveHeader")
         .accessibilityValue(ModulaScrollProgress.softEdgePathLabel)
     }
 
+    private var contentRow: some View {
+        ZStack {
+            if showsCompactIdentity {
+                compactIdentity
+                    .opacity(reduceMotion ? (clamped > 0.5 ? 1 : 0) : Double(clamped))
+                    .offset(y: reduceMotion ? 0 : CGFloat(1 - clamped) * 8)
+                    .frame(maxWidth: .infinity)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(clamped < 0.15)
+            } else {
+                // Compact centered title — keep clear of the shared top-trailing capsule.
+                Text(compactTitle)
+                    .font(.headline.weight(.semibold))
+                    .opacity(reduceMotion ? (clamped > 0.5 ? 1 : 0) : Double(clamped))
+                    .offset(y: reduceMotion ? 0 : CGFloat(1 - clamped) * 8)
+                    .frame(maxWidth: .infinity)
+                    .padding(.trailing, ModulaChromeMetrics.trailingCapsuleReserve)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(clamped < 0.15)
+            }
+
+            HStack(alignment: .center, spacing: 12) {
+                if reduceMotion {
+                    Text(clamped > 0.5 ? " " : largeTitle)
+                        .font(.largeTitle.bold())
+                        .opacity(clamped > 0.5 ? 0 : 1)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                } else {
+                    Text(largeTitle)
+                        .font(.largeTitle.bold())
+                        .opacity(Double(1 - clamped))
+                        .scaleEffect(1 - (0.18 * clamped), anchor: .leading)
+                        .offset(y: CGFloat(clamped) * -10)
+                }
+                Spacer(minLength: 8)
+                trailing()
+            }
+        }
+        .padding(.horizontal, ModulaLayout.contentInset)
+        .padding(.bottom, 8)
+        .padding(.top, immersive ? 0 : 4)
+        .frame(height: ModulaLayout.minimumTouch)
+    }
+
     private var compactIdentity: some View {
-        HStack(spacing: 10) {
+        HStack(alignment: .center, spacing: 10) {
             if let compactInitials {
                 ModulaAvatar(initials: compactInitials, url: compactAvatarURL, size: 28)
             }
@@ -116,7 +126,7 @@ struct ModulaProgressiveHeader<Trailing: View>: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(.trailing, 88)
+        .padding(.trailing, ModulaChromeMetrics.trailingCapsuleReserve)
         .accessibilityElement(children: .combine)
         .accessibilityLabel([compactTitle, compactSubtitle].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", "))
     }
@@ -126,6 +136,7 @@ struct ModulaProgressiveHeader<Trailing: View>: View {
         let opaque = reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
         let base = ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas
         let strength = 0.12 + (0.78 * Double(clamped))
+        let fadeHeight = 148 + max(0, topChromeInset)
         Group {
             if opaque {
                 // Solid progressive veil — no material rectangle edge.
@@ -184,7 +195,7 @@ struct ModulaProgressiveHeader<Trailing: View>: View {
         }
         .frame(maxWidth: .infinity)
         // Tall enough to cover status bar + large title row without a hard bottom edge.
-        .frame(height: 148)
+        .frame(height: fadeHeight)
         .ignoresSafeArea(edges: .top)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
@@ -219,6 +230,7 @@ extension View {
             }
     }
 
+    /// Home’s progressive top blur. Apply on every page-level ScrollView / List / Form.
     @ViewBuilder
     func modulaSoftScrollEdge() -> some View {
         if #available(iOS 26.0, *) {

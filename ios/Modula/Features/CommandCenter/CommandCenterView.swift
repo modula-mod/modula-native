@@ -86,6 +86,7 @@ struct CommandCenterView: View {
                         .padding(.horizontal, 16)
                         .padding(.bottom, 24)
                     }
+                    .modulaSoftScrollEdge()
                     .onChange(of: selectedIndex) { _, index in
                         guard index >= 0, index < flatCommands.count else { return }
                         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.12)) {
@@ -94,6 +95,7 @@ struct CommandCenterView: View {
                     }
                 }
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Command Center")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -289,6 +291,7 @@ struct CreateActionPicker: View {
                     .accessibilityLabel(item.title)
                 }
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Create")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

@@ -1,4 +1,6 @@
+import PhotosUI
 import SwiftUI
+import UIKit
 
 struct StoryRing: View {
     let state: StoryRingState
@@ -73,11 +75,17 @@ struct StoryTray: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: compact ? 10 : 14) {
-                if let onCreate, app.stories.capabilities.create {
-                    Button(action: onCreate) {
+                if showsComposer {
+                    Button(action: onCreate ?? {}) {
                         VStack(spacing: compact ? 4 : 6) {
                             StoryAvatar(
-                                group: StoryGroup(id: "own-create", author: ConversationParticipant(id: "me", handle: "", displayName: "You", avatarURL: nil), items: [], isOwn: true),
+                                group: StoryGroup(
+                                    id: "own-create",
+                                    author: ConversationParticipant(id: "me", handle: "", displayName: "You", avatarURL: app.profile.ownProfile?.avatarURL),
+                                    items: [],
+                                    isOwn: true,
+                                    reportedRing: .own
+                                ),
                                 size: avatarSize,
                                 accent: app.appearance.accent.color
                             )
@@ -111,6 +119,12 @@ struct StoryTray: View {
         .frame(maxHeight: compact ? 86 : 120)
         .accessibilityIdentifier("home.story.tray")
     }
+
+    private var showsComposer: Bool {
+        onCreate != nil
+            && app.stories.capabilities.create
+            && !groups.contains(where: \.isOwn)
+    }
 }
 
 struct StoriesRouteView: View {
@@ -141,14 +155,19 @@ struct StoryRootPlaceholder: View {
                 )
             } else {
                 StoryTray(groups: app.stories.trayGroups) { group in
-                    if let id = group.representative?.id {
-                        app.navigation.replaceTop(with: .stories(.story(id)))
+                    Task {
+                        if let route = await app.stories.destination(for: group) {
+                            app.navigation.replaceTop(with: route)
+                        }
                     }
+                } onCreate: {
+                    app.navigation.replaceTop(with: .stories(.create))
                 }
                 .padding(ModulaLayout.contentInset)
             }
         }
         .modulaCanvas()
+        .modulaSoftScrollEdge()
         .navigationTitle("Stories")
         .task { await app.stories.loadIfNeeded() }
     }
@@ -159,12 +178,16 @@ struct StoryViewerHost: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        if let group = app.stories.group(containing: storyID) {
+        if let group = app.stories.group(containing: storyID), !group.items.isEmpty {
             StoryViewer(group: group, initialID: storyID)
         } else {
             ModulaEmptyState(title: "Story isn’t available.", message: "This story may have expired or isn’t shared with you.", symbol: "circle.dashed")
                 .modulaCanvas()
+                .modulaSoftScrollEdge()
                 .navigationTitle("Story")
+                .task {
+                    _ = await app.stories.hydrate(groupID: storyID)
+                }
         }
     }
 }
@@ -375,11 +398,70 @@ struct StoryProgressBar: View {
 
 struct StoryCreateView: View {
     @Environment(AppEnvironment.self) private var app
+    @State private var pickerItem: PhotosPickerItem?
+    @State private var preview: UIImage?
+    @State private var prepared: PreparedImage?
+    @State private var caption = ""
+    @State private var busy = false
 
     var body: some View {
         Group {
             if app.stories.capabilities.create {
-                CreationStudioView(kind: .story)
+                ScrollView {
+                    VStack(spacing: 18) {
+                        PhotosPicker(selection: $pickerItem, matching: .images) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                                    .fill(Color.primary.opacity(0.06))
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 360)
+                                if let preview {
+                                    Image(uiImage: preview)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 360)
+                                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                                } else {
+                                    VStack(spacing: 10) {
+                                        Image(systemName: "plus.circle.fill")
+                                            .font(.system(size: 36, weight: .semibold))
+                                        Text("Add a photo")
+                                            .font(.headline)
+                                    }
+                                    .foregroundStyle(app.appearance.accent.color)
+                                }
+                            }
+                        }
+                        .accessibilityLabel("Add a photo")
+
+                        TextField("Add a caption", text: $caption, axis: .vertical)
+                            .lineLimit(1...3)
+                            .textFieldStyle(.plain)
+                            .padding(14)
+                            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                        Button {
+                            Task { await publish() }
+                        } label: {
+                            if busy {
+                                ProgressView().frame(maxWidth: .infinity).frame(minHeight: 48)
+                            } else {
+                                Text("Share")
+                                    .font(.headline)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(minHeight: 48)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(app.appearance.accent.color)
+                        .disabled(prepared == nil || busy)
+                        .accessibilityIdentifier("story.create.share")
+                    }
+                    .padding(.horizontal, ModulaLayout.contentInset)
+                    .padding(.top, 12)
+                    .padding(.bottom, 28)
+                }
             } else {
                 ModulaEmptyState(
                     title: "Create story",
@@ -389,9 +471,44 @@ struct StoryCreateView: View {
             }
         }
         .modulaCanvas()
+        .modulaSoftScrollEdge()
         .navigationTitle("Create story")
+        .onChange(of: pickerItem) { _, item in
+            Task { await load(item) }
+        }
+        .overlay(alignment: .bottom) {
+            if let message = app.stories.actionError {
+                Label(message, systemImage: "exclamationmark.triangle")
+                    .font(.footnote.weight(.semibold))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(.regularMaterial, in: Capsule())
+                    .padding(.bottom, 12)
+            }
+        }
         .accessibilityIdentifier("story.create")
         .accessibilityValue(RouteSerializer.serialize(.stories(.create)))
+    }
+
+    private func load(_ item: PhotosPickerItem?) async {
+        guard let item, let data = try? await item.loadTransferable(type: Data.self) else { return }
+        do {
+            let image = try await MediaPreparation.jpegStrippingMetadata(data)
+            prepared = image
+            preview = UIImage(data: image.data)
+        } catch {
+            app.stories.setActionError("Couldn’t prepare that photo.")
+        }
+    }
+
+    private func publish() async {
+        guard let prepared else { return }
+        busy = true
+        defer { busy = false }
+        if await app.stories.publish(image: prepared, caption: caption) {
+            app.navigation.close()
+            HapticEngine.shared.play(.success)
+        }
     }
 }
 

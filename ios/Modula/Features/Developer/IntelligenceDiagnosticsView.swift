@@ -143,6 +143,7 @@ struct IntelligenceDiagnosticsView: View {
                 .disabled(runningProviderID != nil || snapshot?.deterministicProviderAvailability != .available)
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Local Intelligence")
         .accessibilityIdentifier("settings.developer.intelligence")
         .task { await refresh() }

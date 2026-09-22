@@ -63,6 +63,7 @@ private struct AccountRootView: View {
                     Section { Text(error).foregroundStyle(.red) }
                 }
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Account")
             .overlay { if app.auth.busy { ProgressView() } }
         } else {
@@ -76,6 +77,7 @@ private struct AccountRootView: View {
                 }
                 .accessibilityIdentifier("account.sign-in-cta")
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Account")
         }
     }
@@ -101,6 +103,7 @@ private struct AccountPasswordView: View {
                 }
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Password")
     }
 }
@@ -150,6 +153,7 @@ private struct AccountSessionsView: View {
                 }
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Sessions")
         .task { await load() }
     }
@@ -181,6 +185,7 @@ private struct AccountPersonalInformationView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Personal Information")
     }
 
@@ -199,6 +204,7 @@ private struct AccountUsernameView: View {
             Text(dest?.unavailableReason ?? "Username cannot be changed in this client.")
                 .foregroundStyle(.secondary)
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Username")
     }
 }
@@ -212,6 +218,7 @@ private struct AccountEmailView: View {
             Text(dest?.unavailableReason ?? "Email cannot be changed in this client.")
                 .foregroundStyle(.secondary)
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Email")
     }
 }
@@ -229,6 +236,7 @@ private struct AccountDeleteView: View {
             Button("Delete Account", role: .destructive) {}
                 .disabled(true)
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Delete Account")
     }
 }

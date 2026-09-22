@@ -53,6 +53,7 @@ struct CreationStudioView: View {
         }
         .accessibilityIdentifier("compose.studio")
         .navigationBarBackButtonHidden(true)
+        .modulaSoftScrollEdge()
         .navigationTitle("")
         .toolbar(.hidden, for: .navigationBar)
         .scrollDismissesKeyboard(.interactively)
@@ -184,6 +185,7 @@ struct CreationStudioView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 24)
             }
+            .modulaSoftScrollEdge()
             CreationToolDock(
                 kind: store.draft.kind,
                 capabilities: store.capabilities,

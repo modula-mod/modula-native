@@ -275,23 +275,32 @@ struct ProductHubView: View {
                 catalogueContent
             }
             .padding(.horizontal, ModulaLayout.contentInset)
-            .padding(.top, 8)
+            .padding(.top, 10)
             .padding(.bottom, 26)
+            .modulaPullContentEffects()
         }
-        .refreshable { await app.catalogue.load() }
+        .modulaSoftScrollEdge()
+        .modulaShellPullActions { await app.catalogue.load() }
         .navigationTitle("Product Hub")
         .navigationBarTitleDisplayMode(.large)
         .searchable(text: $query, prompt: "Search Product Hub")
         .modulaMinimizedSearchToolbar()
+        .modulaSidebarTrigger()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Section("Library") {
-                        Button("Installed", systemImage: "checkmark.circle") { app.navigation.open(.productHub(.collection(.installed))) }
-                        Button("Updates", systemImage: "arrow.triangle.2.circlepath") { app.navigation.open(.productHub(.collection(.updates))) }
+                        Button("Installed", systemImage: "checkmark.circle") {
+                            app.navigation.open(.productHub(.collection(.installed)))
+                        }
+                        Button("Updates", systemImage: "arrow.triangle.2.circlepath") {
+                            app.navigation.open(.productHub(.collection(.updates)))
+                        }
                     }
                     Section("Manage") {
-                        Button("Module Settings", systemImage: "gearshape") { app.navigation.open(.settings(.modules(.root))) }
+                        Button("Module Settings", systemImage: "gearshape") {
+                            app.navigation.open(.settings(.modules(.root)))
+                        }
                     }
                 } label: {
                     Image(systemName: "ellipsis")
@@ -387,6 +396,7 @@ struct ModuleDetailView: View {
                     }
                 }
                 .ignoresSafeArea(edges: .top)
+                .modulaSoftScrollEdge()
                 .modulaCanvas()
             } else if app.catalogue.loading {
                 ModulaLoadingState(title: "Loading module…")
@@ -396,6 +406,7 @@ struct ModuleDetailView: View {
                 }
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle(product?.name ?? "Module")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

@@ -122,6 +122,7 @@ struct AltTextEditor: View {
             Text("Optional. Used by VoiceOver and server accessibility metadata when supported.")
                 .foregroundStyle(.secondary)
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Alt Text")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }

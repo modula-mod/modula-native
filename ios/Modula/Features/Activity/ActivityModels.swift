@@ -138,13 +138,57 @@ struct ActivityPage: Sendable, Equatable {
 }
 
 enum ActivityFilter: String, CaseIterable, Identifiable, Hashable, Sendable {
-    case unread, people, posts, modules, system
+    case unread
+    case following
+    case mentions
+    case reactions
+    case comments
+    case requests
+    case people
+    case posts
+    case modules
+    case system
+
     var id: Self { self }
-    var title: String { rawValue.capitalized }
+
+    var title: String {
+        switch self {
+        case .unread: "Unread"
+        case .following: "Following"
+        case .mentions: "Mentions"
+        case .reactions: "Reactions"
+        case .comments: "Comments"
+        case .requests: "Requests"
+        case .people: "People"
+        case .posts: "Posts"
+        case .modules: "Modules"
+        case .system: "System"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .unread: "envelope.badge"
+        case .following: "person.2"
+        case .mentions: "at"
+        case .reactions: "heart"
+        case .comments: "bubble.left"
+        case .requests: "person.badge.plus"
+        case .people: "person"
+        case .posts: "text.alignleft"
+        case .modules: "shippingbox"
+        case .system: "gearshape"
+        }
+    }
 
     func matches(_ event: ActivityEvent) -> Bool {
         switch self {
         case .unread: !event.isRead
+        case .following: [.follow, .followRequest, .followAccepted].contains(event.kind)
+        case .mentions: event.kind.isMention
+        case .reactions: event.kind == .like || event.kind == .reaction
+        case .comments: event.kind == .comment
+        case .requests: event.kind.isRequest
         case .people: [.follow, .followRequest, .followAccepted, .mention, .like, .reaction, .comment].contains(event.kind)
         case .posts: [.like, .reaction, .comment, .mention, .repost, .share].contains(event.kind)
         case .modules: [.moduleEvent, .moduleUpdate].contains(event.kind)

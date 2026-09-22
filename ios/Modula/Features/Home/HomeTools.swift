@@ -41,6 +41,7 @@ struct HomeSummarySheet: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Home Summary")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -87,6 +88,7 @@ struct HomeFeedToolsSheet: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Tools")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -94,5 +96,103 @@ struct HomeFeedToolsSheet: View {
             }
         }
         .accessibilityIdentifier("home.tools")
+    }
+}
+
+struct HomeFeedsSheet: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+
+    private var mode: HomeMode {
+        if case .home(let mode) = app.navigation.currentRoute { return mode }
+        return .following
+    }
+
+    var body: some View {
+        let options = app.home.displayOptions(for: mode)
+        List {
+            Section("Your feeds") {
+                ForEach(HomeMode.allCases, id: \.self) { feed in
+                    Button {
+                        app.navigation.replaceContext(with: .home(feed))
+                        HapticEngine.shared.play(.navigation)
+                        dismiss()
+                    } label: {
+                        HStack {
+                            Label(feed.heroSubtitle, systemImage: symbol(for: feed))
+                            Spacer()
+                            if feed == mode { Image(systemName: "checkmark") }
+                        }
+                    }
+                    .accessibilityIdentifier("home.feeds.\(feed.rawValue)")
+                }
+            }
+            Section("Customise \(mode.heroSubtitle)") {
+                Toggle("Media only", isOn: Binding(
+                    get: { options.mediaOnly },
+                    set: { value in
+                        var next = options
+                        next.mediaOnly = value
+                        app.home.setDisplayOptions(next, for: mode)
+                        HapticEngine.shared.play(.selection)
+                    }
+                ))
+                .accessibilityIdentifier("home.feeds.media-only")
+                Toggle("Hide module posts", isOn: Binding(
+                    get: { options.hideModules },
+                    set: { value in
+                        var next = options
+                        next.hideModules = value
+                        app.home.setDisplayOptions(next, for: mode)
+                        HapticEngine.shared.play(.selection)
+                    }
+                ))
+                .accessibilityIdentifier("home.feeds.hide-modules")
+                Text("Applies to posts already loaded in this feed. It does not change Greenfield ranking.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            Section("More") {
+                Button {
+                    dismiss()
+                    app.navigation.open(.discover(.people))
+                    HapticEngine.shared.play(.navigation)
+                } label: {
+                    Label("Manage following", systemImage: "person.2")
+                }
+                .accessibilityIdentifier("home.feeds.following")
+                Button {
+                    Task {
+                        await app.home.refresh(mode, signedIn: app.auth.isSignedIn)
+                        HapticEngine.shared.play(.confirmation)
+                        dismiss()
+                    }
+                } label: {
+                    Label("Refresh \(mode.heroSubtitle)", systemImage: "arrow.clockwise")
+                }
+                .accessibilityIdentifier("home.feeds.refresh")
+            }
+            Section {
+                Text("Following, For You, and Modules are the live home feeds. Custom lists are not on the API yet.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .modulaSoftScrollEdge()
+        .navigationTitle("Feeds")
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Close") { dismiss() }
+            }
+        }
+        .accessibilityIdentifier("home.feeds")
+    }
+
+    private func symbol(for feed: HomeMode) -> String {
+        switch feed {
+        case .following: "person.2"
+        case .forYou: "sparkles"
+        case .modules: "shippingbox"
+        }
     }
 }

@@ -9,6 +9,11 @@ enum HomeLoadState: Equatable {
     case failed(String)
 }
 
+struct HomeFeedDisplayOptions: Equatable, Codable, Sendable {
+    var mediaOnly = false
+    var hideModules = false
+}
+
 struct HomeModeState: Equatable {
     var items: [SocialPost] = []
     var nextCursor: String?

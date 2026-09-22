@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import UIKit
 
 @MainActor @Observable
 final class ProfileStore {
@@ -10,11 +11,32 @@ final class ProfileStore {
     private(set) var editing = ProfileEditingState()
     private(set) var visitorPreviewActive = false
     private(set) var mediaBusy = false
+    private(set) var tabBarAvatar: UIImage?
     let customization = ProfileCustomizationCapabilities.production
+
+    var ownProfile: ModulaProfile? { sessions["me"]?.profile ?? sessions.first(where: { $0.key.hasPrefix("me") })?.value.profile }
 
     init(client: GreenfieldClient, posts: PostStateStore? = nil) {
         self.repository = GreenfieldProfileRepository(client: client)
         self.posts = posts
+    }
+
+    func refreshTabBarAvatar(account: GreenfieldAccount?, accent: UIColor) async {
+        let profile = ownProfile ?? session(for: .me, handleHint: account?.primaryHandle).profile
+        var photo: UIImage?
+        if let url = profile?.avatarURL {
+            if let cached = ProfileTabAvatarRenderer.cachedPhoto(for: url) {
+                photo = cached
+            } else if let (data, _) = try? await URLSession.shared.data(from: url), let image = UIImage(data: data) {
+                ProfileTabAvatarRenderer.storePhoto(image, for: url)
+                photo = image
+            }
+        }
+        tabBarAvatar = ProfileTabAvatarRenderer.image(
+            photo: photo,
+            initials: ProfileTabAvatarRenderer.initials(profile: profile, account: account),
+            accent: accent
+        )
     }
 
     func session(for identity: ProfileIdentity, handleHint: String? = nil) -> ProfileSessionState {
@@ -442,6 +464,7 @@ final class ProfileStore {
         state.loadState = .loaded
         sessions[key] = state
         sessions["me"] = state
+        Task { await refreshTabBarAvatar(account: nil, accent: UIColor(red: 54 / 255, green: 156 / 255, blue: 170 / 255, alpha: 1)) }
     }
 
     // MARK: - Private

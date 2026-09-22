@@ -42,6 +42,7 @@ enum CommandAction: Hashable, Sendable {
     case collectionOpen(collectionID: String?)
     case createPicker
     case presentCommand
+    case presentIntelligenceChat
     case functionInvoke(name: String, parameters: [String: String])
 }
 

@@ -55,6 +55,7 @@ struct EdgePickerSettingsView: View {
             .padding(.top, 10)
             .padding(.bottom, 28)
         }
+        .modulaSoftScrollEdge()
         .modulaCanvas()
         .navigationTitle("Edge Picker")
         .navigationBarTitleDisplayMode(.inline)

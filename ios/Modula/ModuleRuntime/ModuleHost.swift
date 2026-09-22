@@ -41,6 +41,7 @@ struct ModuleHost: View {
                 ContentUnavailableView("Module unavailable", systemImage: "square.stack.3d.up")
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle(session?.manifest.name ?? "Module")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

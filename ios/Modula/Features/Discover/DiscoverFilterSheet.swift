@@ -24,7 +24,8 @@ struct DiscoverFilterSheet: View {
                 }
             }
         }
-        .navigationTitle("Filters")
+        .modulaSoftScrollEdge()
+        .navigationTitle("Customise")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Close") { dismiss() }

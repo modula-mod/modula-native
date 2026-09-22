@@ -152,13 +152,451 @@ struct ModulaAvatar: View {
             .overlay(Text(initials).font(.headline).foregroundStyle(.white))
     }
 }
+
+/// Circular Profile tab glyph for the pre-iOS 26 custom tab bar.
+struct ProfileTabIcon: View {
+    var selected = false
+    var size: CGFloat = 26
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        Image(uiImage: app.profile.tabBarAvatar ?? ProfileTabAvatarRenderer.placeholder(
+            initials: ProfileTabAvatarRenderer.initials(profile: app.profile.ownProfile, account: app.auth.account),
+            accent: UIColor(app.appearance.accent.color),
+            pointSize: size
+        ))
+        .renderingMode(.original)
+        .resizable()
+        .scaledToFill()
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .accessibilityHidden(true)
+    }
+}
+
+/// SwiftUI `tabItem` snapshots flatten bitmaps into a template silhouette.
+/// This keeps the real photo on the Profile `UITabBarItem` and on the
+/// visible tab-button image view after Liquid Glass re-templates it.
+struct ProfileTabBarAvatarApplicator: UIViewRepresentable {
+    var image: UIImage?
+
+    func makeUIView(context: Context) -> ProfileTabBarAvatarHook {
+        let hook = ProfileTabBarAvatarHook()
+        hook.avatar = image
+        return hook
+    }
+
+    func updateUIView(_ hook: ProfileTabBarAvatarHook, context: Context) {
+        hook.avatar = image
+        hook.applySoon()
+    }
+}
+
+final class ProfileTabBarAvatarHook: UIView {
+    var avatar: UIImage? {
+        didSet { applySoon() }
+    }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        isHidden = true
+        backgroundColor = .clear
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        applySoon()
+    }
+
+    func applySoon() {
+        apply()
+        DispatchQueue.main.async { [weak self] in self?.apply() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in self?.apply() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.apply() }
+    }
+
+    func apply() {
+        guard let avatar else { return }
+        let prepared = avatar.withRenderingMode(.alwaysOriginal)
+        for bar in allTabBars() {
+            if let item = profileItem(in: bar) {
+                item.image = prepared
+                item.selectedImage = prepared
+            }
+            if let host = profileIconView(in: bar) {
+                pinOverlay(on: host, image: prepared)
+            }
+        }
+    }
+
+    private func profileItem(in bar: UITabBar) -> UITabBarItem? {
+        bar.items?.first(where: { $0.title?.caseInsensitiveCompare("Profile") == .orderedSame })
+            ?? bar.items?.last
+    }
+
+    private func profileIconView(in bar: UITabBar) -> UIView? {
+        if let labeled = firstView(in: bar, matching: { $0.accessibilityLabel?.caseInsensitiveCompare("Profile") == .orderedSame }) {
+            if let icon = preferredIconView(in: labeled) { return icon }
+            return labeled
+        }
+        let buttons = tabButtons(in: bar)
+        guard let button = buttons.last else { return nil }
+        return preferredIconView(in: button) ?? button
+    }
+
+    private func tabButtons(in bar: UITabBar) -> [UIView] {
+        bar.subviews
+            .filter { view in
+                let name = String(describing: type(of: view))
+                return name.localizedCaseInsensitiveContains("tabbarbutton")
+                    || name.localizedCaseInsensitiveContains("tabbutton")
+                    || (view is UIControl && view.frame.width > 20)
+            }
+            .sorted { $0.frame.minX < $1.frame.minX }
+    }
+
+    private func preferredIconView(in root: UIView) -> UIView? {
+        var images: [UIImageView] = []
+        walk(root) { view in
+            guard let imageView = view as? UIImageView else { return }
+            let width = imageView.bounds.width
+            if width >= 12, width <= 56 { images.append(imageView) }
+        }
+        return images.min(by: { abs($0.bounds.width - 26) < abs($1.bounds.width - 26) })
+    }
+
+    private func pinOverlay(on host: UIView, image: UIImage) {
+        let badge: ProfileTabAvatarOverlay
+        if let existing = existingAvatarOverlay(on: host) {
+            badge = existing
+        } else if let parent = host.superview {
+            badge = ProfileTabAvatarOverlay(frame: host.bounds)
+            badge.translatesAutoresizingMaskIntoConstraints = false
+            parent.addSubview(badge)
+            NSLayoutConstraint.activate([
+                badge.centerXAnchor.constraint(equalTo: host.centerXAnchor),
+                badge.centerYAnchor.constraint(equalTo: host.centerYAnchor),
+                badge.widthAnchor.constraint(equalTo: host.widthAnchor),
+                badge.heightAnchor.constraint(equalTo: host.heightAnchor)
+            ])
+        } else {
+            return
+        }
+        badge.image = image
+        badge.isHidden = false
+        if let imageView = host as? UIImageView {
+            imageView.tintColor = .clear
+        }
+    }
+
+    private func existingAvatarOverlay(on host: UIView) -> ProfileTabAvatarOverlay? {
+        host.superview?.subviews.compactMap { $0 as? ProfileTabAvatarOverlay }.first
+            ?? host.subviews.compactMap { $0 as? ProfileTabAvatarOverlay }.first
+    }
+
+    private func allTabBars() -> [UITabBar] {
+        var found: [UITabBar] = []
+        var seen = Set<ObjectIdentifier>()
+        func add(_ bar: UITabBar) {
+            let id = ObjectIdentifier(bar)
+            guard !seen.contains(id) else { return }
+            seen.insert(id)
+            found.append(bar)
+        }
+        if let window {
+            walk(window) { view in
+                if let bar = view as? UITabBar { add(bar) }
+            }
+        }
+        for scene in UIApplication.shared.connectedScenes {
+            guard let windowScene = scene as? UIWindowScene else { continue }
+            for window in windowScene.windows {
+                walk(window) { view in
+                    if let bar = view as? UITabBar { add(bar) }
+                }
+            }
+        }
+        return found
+    }
+
+    private func firstView(in root: UIView, matching: (UIView) -> Bool) -> UIView? {
+        if matching(root) { return root }
+        for child in root.subviews {
+            if let found = firstView(in: child, matching: matching) { return found }
+        }
+        return nil
+    }
+
+    private func walk(_ root: UIView, visit: (UIView) -> Void) {
+        visit(root)
+        for child in root.subviews { walk(child, visit: visit) }
+    }
+}
+
+/// Bounces the selected system tab icon. The SwiftUI `tabItem` snapshot
+/// does not run symbol effects on the live `UITabBar` buttons.
+struct TabBarIconMotionApplicator: UIViewRepresentable {
+    var selectedTab: AppTab
+    var reduceMotion: Bool
+
+    func makeUIView(context: Context) -> TabBarIconMotionHook {
+        let hook = TabBarIconMotionHook()
+        hook.reduceMotion = reduceMotion
+        hook.selectedTab = selectedTab
+        return hook
+    }
+
+    func updateUIView(_ hook: TabBarIconMotionHook, context: Context) {
+        hook.reduceMotion = reduceMotion
+        hook.applySelection(selectedTab)
+    }
+}
+
+final class TabBarIconMotionHook: UIView {
+    var selectedTab: AppTab = .home
+    var reduceMotion = false
+    private var bouncedTab: AppTab?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        isHidden = true
+        backgroundColor = .clear
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        applySoon()
+    }
+
+    func applySelection(_ tab: AppTab) {
+        selectedTab = tab
+        applySoon()
+    }
+
+    private func applySoon() {
+        bounceSelected()
+        DispatchQueue.main.async { [weak self] in self?.bounceSelected() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in self?.bounceSelected() }
+    }
+
+    private func bounceSelected() {
+        guard !reduceMotion else {
+            bouncedTab = selectedTab
+            return
+        }
+        guard bouncedTab != selectedTab else { return }
+        var bounced = false
+        let tabs = AppTab.allCases
+        for bar in allTabBars() {
+            let buttons = tabButtons(in: bar)
+            for (index, button) in buttons.enumerated() {
+                guard tabs.indices.contains(index) else { continue }
+                let tab = tabs[index]
+                guard tab == selectedTab else { continue }
+                if tab == .profile {
+                    bounceProfile(in: button)
+                    bounced = true
+                } else if let imageView = preferredIconView(in: button) {
+                    imageView.addSymbolEffect(.bounce, options: .nonRepeating, animated: true)
+                    bounced = true
+                }
+            }
+        }
+        if bounced { bouncedTab = selectedTab }
+    }
+
+    private func bounceProfile(in button: UIView) {
+        let overlay = firstView(in: button, matching: { $0 is ProfileTabAvatarOverlay })
+            ?? preferredIconView(in: button)
+        guard let overlay else { return }
+        overlay.layer.removeAnimation(forKey: "modula.tab.bounce")
+        let pop = CASpringAnimation(keyPath: "transform.scale")
+        pop.fromValue = 0.86
+        pop.toValue = 1
+        pop.damping = 13
+        pop.stiffness = 220
+        pop.mass = 0.7
+        pop.duration = pop.settlingDuration
+        overlay.layer.add(pop, forKey: "modula.tab.bounce")
+    }
+
+    private func allTabBars() -> [UITabBar] {
+        var found: [UITabBar] = []
+        var seen = Set<ObjectIdentifier>()
+        func add(_ bar: UITabBar) {
+            let id = ObjectIdentifier(bar)
+            guard !seen.contains(id) else { return }
+            seen.insert(id)
+            found.append(bar)
+        }
+        if let window {
+            walk(window) { view in
+                if let bar = view as? UITabBar { add(bar) }
+            }
+        }
+        for scene in UIApplication.shared.connectedScenes {
+            guard let windowScene = scene as? UIWindowScene else { continue }
+            for window in windowScene.windows {
+                walk(window) { view in
+                    if let bar = view as? UITabBar { add(bar) }
+                }
+            }
+        }
+        return found
+    }
+
+    private func tabButtons(in bar: UITabBar) -> [UIView] {
+        bar.subviews
+            .filter { view in
+                let name = String(describing: type(of: view))
+                return name.localizedCaseInsensitiveContains("tabbarbutton")
+                    || name.localizedCaseInsensitiveContains("tabbutton")
+                    || (view is UIControl && view.frame.width > 20)
+            }
+            .sorted { $0.frame.minX < $1.frame.minX }
+    }
+
+    private func preferredIconView(in root: UIView) -> UIImageView? {
+        var images: [UIImageView] = []
+        walk(root) { view in
+            guard let imageView = view as? UIImageView, !(view is ProfileTabAvatarOverlay) else { return }
+            let width = imageView.bounds.width
+            if width >= 12, width <= 56 { images.append(imageView) }
+        }
+        return images.min(by: { abs($0.bounds.width - 26) < abs($1.bounds.width - 26) })
+    }
+
+    private func firstView(in root: UIView, matching: (UIView) -> Bool) -> UIView? {
+        if matching(root) { return root }
+        for child in root.subviews {
+            if let found = firstView(in: child, matching: matching) { return found }
+        }
+        return nil
+    }
+
+    private func walk(_ root: UIView, visit: (UIView) -> Void) {
+        visit(root)
+        for child in root.subviews { walk(child, visit: visit) }
+    }
+}
+
+private final class ProfileTabAvatarOverlay: UIImageView {
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        contentMode = .scaleAspectFill
+        clipsToBounds = true
+        isUserInteractionEnabled = false
+        layer.masksToBounds = true
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        layer.cornerRadius = min(bounds.width, bounds.height) / 2
+    }
+}
+
+@MainActor
+enum ProfileTabAvatarRenderer {
+    private static var photos: [String: UIImage] = [:]
+
+    static func cachedPhoto(for url: URL) -> UIImage? { photos[url.absoluteString] }
+
+    static func storePhoto(_ image: UIImage, for url: URL) {
+        photos[url.absoluteString] = image
+    }
+
+    static func initials(profile: ModulaProfile?, account: GreenfieldAccount?) -> String {
+        if let profile { return profile.initials }
+        if let name = account?.displayName, !name.isEmpty {
+            let parts = name.split(separator: " ")
+            if parts.count >= 2 {
+                return String(parts[0].prefix(1) + parts[1].prefix(1)).uppercased()
+            }
+            return String(name.prefix(2)).uppercased()
+        }
+        if let handle = account?.primaryHandle, !handle.isEmpty {
+            return String(handle.prefix(2)).uppercased()
+        }
+        return "M"
+    }
+
+    static func placeholder(initials: String, accent: UIColor, pointSize: CGFloat = 26) -> UIImage {
+        image(photo: nil, initials: initials, accent: accent, pointSize: pointSize)
+    }
+
+    static func image(
+        photo: UIImage?,
+        initials: String,
+        accent: UIColor,
+        pointSize: CGFloat = 26
+    ) -> UIImage {
+        let scale = UIScreen.main.scale
+        let format = UIGraphicsImageRendererFormat.default()
+        format.opaque = false
+        format.scale = scale
+        let canvas = CGSize(width: pointSize, height: pointSize)
+        let renderer = UIGraphicsImageRenderer(size: canvas, format: format)
+        let rendered = renderer.image { _ in
+            let inset = pointSize * 0.08
+            let rect = CGRect(origin: .zero, size: canvas).insetBy(dx: inset, dy: inset)
+            let clip = UIBezierPath(ovalIn: rect)
+            clip.addClip()
+            if let photo, photo.size.width > 0, photo.size.height > 0 {
+                let photoSize = photo.size
+                let fill = max(rect.width / photoSize.width, rect.height / photoSize.height)
+                let draw = CGRect(
+                    x: rect.midX - photoSize.width * fill / 2,
+                    y: rect.midY - photoSize.height * fill / 2,
+                    width: photoSize.width * fill,
+                    height: photoSize.height * fill
+                )
+                photo.draw(in: draw)
+            } else {
+                drawInitials(initials, in: rect, accent: accent)
+            }
+            UIGraphicsGetCurrentContext()?.resetClip()
+            let ring = UIBezierPath(ovalIn: rect)
+            ring.lineWidth = 1
+            UIColor.white.withAlphaComponent(0.9).setStroke()
+            ring.stroke()
+        }
+        return rendered.withRenderingMode(.alwaysOriginal)
+    }
+
+    private static func drawInitials(_ initials: String, in rect: CGRect, accent: UIColor) {
+        accent.setFill()
+        UIBezierPath(ovalIn: rect).fill()
+        let font = UIFont.systemFont(ofSize: rect.height * 0.36, weight: .semibold)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: UIColor.white
+        ]
+        let text = initials as NSString
+        let size = text.size(withAttributes: attributes)
+        let origin = CGPoint(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2)
+        text.draw(at: origin, withAttributes: attributes)
+    }
+}
 struct ModulaBadge: View { var title: String; var symbol: String?; @Environment(AppEnvironment.self) private var app; var body: some View { Label(title, systemImage: symbol ?? "checkmark").font(.caption.weight(.semibold)).padding(.horizontal, 10).padding(.vertical, 6).background(app.appearance.accent.color.opacity(0.14), in: Capsule()).foregroundStyle(app.appearance.accent.color) } }
 struct ModulaCard<Content: View>: View { @ViewBuilder var content: Content; @Environment(AppEnvironment.self) private var app; @Environment(\.colorScheme) private var scheme; var body: some View { content.padding(16 * app.appearance.density.spacingScale).frame(maxWidth: .infinity, alignment: .leading).background(ModulaPalette.resolve(app.appearance, scheme: scheme).surface, in: RoundedRectangle(cornerRadius: radius, style: .continuous)).overlay(RoundedRectangle(cornerRadius: radius).stroke(.primary.opacity(0.07))).accessibilityElement(children: .contain) }; private var radius: Double { switch app.appearance.interfaceShape { case .soft: 24; case .balanced: 17; case .precise: 10 } } }
 
 private struct ModulaCanvasModifier: ViewModifier {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
-    func body(content: Content) -> some View { content.scrollContentBackground(.hidden).background(ModulaPalette.resolve(app.appearance, scheme: scheme).canvas) }
+    func body(content: Content) -> some View {
+        content
+            .scrollContentBackground(.hidden)
+            .background(ModulaPalette.resolve(app.appearance, scheme: scheme).canvas)
+            .modulaSoftScrollEdge()
+    }
 }
 extension View {
     func modulaCanvas() -> some View { modifier(ModulaCanvasModifier()) }
@@ -170,6 +608,14 @@ extension View {
         } else {
             self
         }
+    }
+
+    /// Settings-matching nav chrome on full-bleed heroes: keep the *system* bar
+    /// (same glass size and slot as Settings) but hide the bar material.
+    func modulaImmersiveSystemNavigation() -> some View {
+        self
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
     }
 }
 struct ModulaListRow: View { var title: String; var subtitle: String?; var symbol: String; var action: (() -> Void)?; var body: some View { Button { action?() } label: { HStack(spacing: 14) { Image(systemName: symbol).frame(width: 28).foregroundStyle(.tint); VStack(alignment: .leading, spacing: 2) { Text(title).font(.body.weight(.medium)); if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary) } }; Spacer(); if action != nil { Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) } }.frame(minHeight: 48).contentShape(Rectangle()) }.buttonStyle(.plain).disabled(action == nil).accessibilityLabel(title).accessibilityValue(subtitle ?? "") } }

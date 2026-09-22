@@ -8,6 +8,8 @@ final class NavigationCoordinator {
     private(set) var paths: [AppTab: [AppRoute]] = Dictionary(uniqueKeysWithValues: AppTab.allCases.map { ($0, []) })
     var presented: AppPresentation?
     var banner: ModulaBanner?
+    /// Leading global sidebar. Not a sixth tab and not Edge Picker.
+    var sidebarPresented = false
     /// Route to restore after a successful authentication challenge.
     private(set) var pendingReturnRoute: AppRoute?
     var currentRoute: AppRoute { paths[selectedTab]?.last ?? roots[selectedTab] ?? selectedTab.defaultRoute }
@@ -18,7 +20,13 @@ final class NavigationCoordinator {
     func binding(for tab: AppTab) -> Binding<[AppRoute]> {
         Binding(get: { self.paths[tab] ?? [] }, set: { self.paths[tab] = $0 })
     }
-    func select(_ tab: AppTab) { selectedTab = tab }
+    func select(_ tab: AppTab) {
+        selectedTab = tab
+        sidebarPresented = false
+    }
+
+    func presentSidebar() { sidebarPresented = true }
+    func dismissSidebar() { sidebarPresented = false }
     func open(path: String) -> Bool {
         guard let route = RouteParser.parse(path) else { return false }
         open(route); return true
@@ -107,8 +115,9 @@ final class NavigationCoordinator {
 enum AppPresentation: Identifiable, Hashable {
     case composer(ComposeRoute), share(AppRoute), filters, modulePermissions(String), appearancePicker(AppearanceSettingsRoute)
     case activitySummary, activityFilter, discoverFilter
-    case homeSummary, homeFeedTools
+    case homeSummary, homeFeedTools, homeFeeds
     case commandCenter
+    case intelligenceChat
     case createPicker
     case universalShare(SharePayload)
     case collectionPicker(postID: String)

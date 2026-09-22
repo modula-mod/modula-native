@@ -5,25 +5,22 @@ struct HomeView: View {
     let mode: HomeMode
     @Environment(AppEnvironment.self) private var app
     @Environment(\.trailingInteractionInset) private var trailingInteractionInset
-    @State private var headerProgress: CGFloat = 0
 
     var body: some View {
         let state = app.home.state(for: mode)
         ZStack(alignment: .top) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    // Keep the progress probe outside LazyVStack so recycling cannot drop it.
-                    ModulaScrollProgressReader()
                     LazyVStack(alignment: .leading, spacing: 14) {
                         modeCaption
-                        if !app.stories.trayGroups.isEmpty || app.stories.capabilities.create {
+                        if showsStoryTray {
                             StoryTray(groups: app.stories.trayGroups, compact: true) { group in
-                                if let id = group.representative?.id {
-                                    app.navigation.push(.stories(.story(id)))
-                                }
+                                Task { await openStory(group) }
                             } onCreate: {
                                 app.navigation.push(.stories(.create))
                             }
+                            .padding(.horizontal, -ModulaLayout.contentInset)
+                            .padding(.leading, 4)
                         }
                         if app.home.isOfflineHint && !state.items.isEmpty {
                             offlineBanner
@@ -34,74 +31,60 @@ struct HomeView: View {
                     .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
                     .padding(.top, 4)
                     .padding(.bottom, 120)
+                    .modulaPullContentEffects()
                 }
             }
-            .modulaScrollProgressTracking(progress: $headerProgress)
             .modulaSoftScrollEdge()
-            .onScrollGeometryChange(for: CGFloat.self) { geometry in
-                geometry.contentOffset.y
-            } action: { _, newOffset in
-                headerProgress = ModulaScrollProgress.progress(offsetY: max(0, newOffset), collapseDistance: 72)
-            }
-            .refreshable {
+            .modulaShellPullActions {
                 await app.home.refresh(mode, signedIn: app.auth.isSignedIn)
-            }
-
-            ModulaProgressiveHeader(
-                largeTitle: "Modula",
-                compactTitle: "Modula",
-                progress: headerProgress
-            ) {
-                HStack(spacing: 2) {
-                    Button {
-                        app.navigation.open(.compose(.post))
-                        HapticEngine.shared.play(.navigation)
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 17, weight: .semibold))
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Create")
-                    .accessibilityIdentifier("home.create")
-
-                    Button {
-                        app.navigation.push(.messages(.inbox))
-                        HapticEngine.shared.play(.navigation)
-                    } label: {
-                        ZStack(alignment: .topTrailing) {
-                            Image(systemName: "message")
-                                .font(.system(size: 16, weight: .semibold))
-                                .frame(width: 44, height: 44)
-                                .contentShape(Rectangle())
-                            if let count = app.messaging.accountUnreadCount, count > 0 {
-                                UnreadBadge(count: count)
-                                    .scaleEffect(0.85)
-                                    .offset(x: -6, y: 6)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(messagesAccessibilityLabel)
-                }
+                await app.stories.refresh()
             }
 
             if state.newerAvailable {
                 newerPill
-                    .padding(.top, 96)
+                    .padding(.top, 8)
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .modulaCanvas()
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .navigationBar)
+        .modulaSoftScrollEdge()
+        .navigationTitle("Modula")
+        .navigationBarTitleDisplayMode(.large)
+        .modulaSidebarTrigger()
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Create", systemImage: "plus") {
+                    app.navigation.open(.compose(.post))
+                    HapticEngine.shared.play(.navigation)
+                }
+                .accessibilityIdentifier("home.create")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    app.navigation.push(.messages(.inbox))
+                    HapticEngine.shared.play(.navigation)
+                } label: {
+                    Image(systemName: "message")
+                        .overlay(alignment: .topTrailing) {
+                            if let count = app.messaging.accountUnreadCount, count > 0 {
+                                UnreadBadge(count: count)
+                                    .scaleEffect(0.7)
+                                    .offset(x: 6, y: -6)
+                            }
+                        }
+                }
+                .accessibilityLabel(messagesAccessibilityLabel)
+            }
+        }
         .task(id: mode) {
             await app.home.loadIfNeeded(mode, signedIn: app.auth.isSignedIn)
             await app.stories.loadIfNeeded()
         }
         .onChange(of: app.auth.account?.accountId) { _, _ in
-            Task { await app.home.refresh(mode, signedIn: app.auth.isSignedIn) }
+            Task {
+                await app.home.refresh(mode, signedIn: app.auth.isSignedIn)
+                await app.stories.refresh()
+            }
         }
         .overlay(alignment: .bottom) {
             if let message = app.home.actionError {
@@ -132,7 +115,7 @@ struct HomeView: View {
             .font(.caption.weight(.semibold))
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 92)
+            .padding(.top, 4)
             .padding(.bottom, 2)
             .accessibilityIdentifier("home.hero")
             .accessibilityLabel(mode.heroTitle)
@@ -176,11 +159,21 @@ struct HomeView: View {
                 }
                 .padding(.top, 28)
                 .accessibilityIdentifier("home.error")
-            case _ where state.items.isEmpty:
-                emptyState
-                    .padding(.top, 20)
+            case _ where app.home.visiblePosts(for: mode).isEmpty:
+                Group {
+                    if state.items.isEmpty {
+                        emptyState
+                    } else {
+                        ModulaEmptyState(
+                            title: "Nothing matches this feed",
+                            message: "Turn off a customise option in Feeds.",
+                            symbol: "number"
+                        )
+                    }
+                }
+                .padding(.top, 20)
             default:
-                ForEach(state.items.filter { !app.posts.isHidden($0.id) }) { post in
+                ForEach(app.home.visiblePosts(for: mode)) { post in
                     let resolved = app.posts.resolved(post)
                     PostCard(
                         post: resolved,
@@ -324,6 +317,17 @@ struct HomeView: View {
         .padding(.top, 8)
         .redacted(reason: .placeholder)
         .accessibilityIdentifier("home.loading")
+    }
+
+    private var showsStoryTray: Bool {
+        app.auth.isSignedIn || !app.stories.trayGroups.isEmpty
+    }
+
+    private func openStory(_ group: StoryGroup) async {
+        if let route = await app.stories.destination(for: group) {
+            app.navigation.push(route)
+            HapticEngine.shared.play(.navigation)
+        }
     }
 
     private func openPost(_ post: SocialPost) {

@@ -32,6 +32,7 @@ struct ModulaShareSheet: View {
                     }
                 }
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Share")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -265,6 +266,7 @@ struct PeoplePicker: View {
                     }
                 }
             }
+            .modulaSoftScrollEdge()
             .navigationTitle(title)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

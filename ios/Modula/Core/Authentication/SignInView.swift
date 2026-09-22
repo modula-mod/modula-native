@@ -161,6 +161,7 @@ struct RegisterPlaceholderView: View {
                 .accessibilityIdentifier("auth.register.back")
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Create Account")
         .accessibilityIdentifier("auth.register")
     }
@@ -218,6 +219,7 @@ struct ForgotPasswordView: View {
                 }
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Forgot Password")
         .accessibilityIdentifier("auth.forgot")
     }

@@ -4,7 +4,6 @@ struct ModuleDetailV2View: View {
     let moduleID: String
     let section: ModuleDetailSection
     @Environment(AppEnvironment.self) private var app
-    @Environment(\.dismiss) private var dismiss
     @State private var headerProgress: CGFloat = 0
     @State private var mediaItem: ModulaMediaViewerItem?
 
@@ -25,7 +24,38 @@ struct ModuleDetailV2View: View {
                 }
             }
         }
-        .toolbar(.hidden, for: .navigationBar)
+        .modulaImmersiveSystemNavigation()
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                ShareLink(item: URL(string: "https://modula.digital/product-hub/module/\(moduleID)")!) {
+                    Image(systemName: "square.and.arrow.up")
+                }
+                .accessibilityLabel("Share")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    if let product {
+                        Button("Share", systemImage: "square.and.arrow.up") {
+                            app.navigation.presented = .universalShare(.module(id: moduleID, name: product.name, publisher: product.publisherName))
+                        }
+                        Button("Version History", systemImage: "clock.arrow.circlepath") {
+                            app.navigation.open(.productHub(.module(moduleID, .versionHistory)))
+                        }
+                        if installed {
+                            Button("Configure", systemImage: "slider.horizontal.3") {
+                                app.navigation.open(.settings(.modules(.module(moduleID, .general))))
+                            }
+                        }
+                        Button("Publisher", systemImage: "person.crop.square") {
+                            app.navigation.open(.productHub(.publisher(product.publisherId)))
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                }
+                .accessibilityLabel("More")
+            }
+        }
         .fullScreenCover(item: $mediaItem) { item in
             ModulaMediaViewer(
                 title: item.title,
@@ -60,16 +90,17 @@ struct ModuleDetailV2View: View {
                 }
             }
             .ignoresSafeArea(edges: .top)
+            .modulaSoftScrollEdge()
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
                 geometry.contentOffset.y
             } action: { _, offset in
                 headerProgress = ModulaScrollProgress.progress(offsetY: max(0, offset), collapseDistance: 120)
             }
 
-            compactHeader(product)
-            floatingChrome(product)
         }
         .modulaCanvas()
+        .modulaSoftScrollEdge()
+        .navigationTitle(product.name)
         .accessibilityElement(children: .contain)
     }
 
@@ -272,62 +303,6 @@ struct ModuleDetailV2View: View {
         let platforms = product.platforms.map { $0.lowercased() == "ios" ? "iOS" : $0.capitalized }.joined(separator: ", ")
         let host = manifest.map { "Requires Modula \($0.minHostVersion) and HostBridge \($0.minBridgeVersion)." } ?? "Required Modula version is not declared in the catalogue response."
         return "Declared platforms: \(platforms). \(host)"
-    }
-
-    private func compactHeader(_ product: CatalogueProduct) -> some View {
-        HStack(spacing: 10) {
-            ProductArtwork(product: product, size: 28)
-            Text(product.name)
-                .font(.headline)
-                .lineLimit(1)
-            Spacer()
-        }
-        .padding(.horizontal, 72)
-        .padding(.top, 10)
-        .opacity(Double(headerProgress))
-        .allowsHitTesting(false)
-        .accessibilityHidden(headerProgress < 0.5)
-    }
-
-    private func floatingChrome(_ product: CatalogueProduct) -> some View {
-        FloatingHeroControls {
-            FloatingHeroButton(title: "Back", symbol: "chevron.left") {
-                dismiss()
-            }
-        } trailing: {
-            HStack(spacing: 8) {
-                ShareLink(item: URL(string: "https://modula.digital/product-hub/module/\(moduleID)")!) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(width: 36, height: 36)
-                }
-                .modulaMaterial(.floating, in: Circle(), depth: .raised)
-                .accessibilityLabel("Share")
-                Menu {
-                    Button("Share", systemImage: "square.and.arrow.up") {
-                        app.navigation.presented = .universalShare(.module(id: moduleID, name: product.name, publisher: product.publisherName))
-                    }
-                    Button("Version History", systemImage: "clock.arrow.circlepath") {
-                        app.navigation.open(.productHub(.module(moduleID, .versionHistory)))
-                    }
-                    if installed {
-                        Button("Configure", systemImage: "slider.horizontal.3") {
-                            app.navigation.open(.settings(.modules(.module(moduleID, .general))))
-                        }
-                    }
-                    Button("Publisher", systemImage: "person.crop.square") {
-                        app.navigation.open(.productHub(.publisher(product.publisherId)))
-                    }
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(width: 36, height: 36)
-                }
-                .modulaMaterial(.floating, in: Circle(), depth: .raised)
-                .accessibilityLabel("More")
-            }
-        }
-        .padding(.top, 8)
     }
 
     private func perform(_ action: ModulePrimaryAction) {

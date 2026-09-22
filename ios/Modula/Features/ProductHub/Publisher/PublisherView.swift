@@ -51,6 +51,7 @@ struct PublisherView: View {
             }
             .padding(ModulaLayout.contentInset)
         }
+        .modulaSoftScrollEdge()
         .modulaCanvas()
         .navigationTitle(publisherName)
         .navigationBarTitleDisplayMode(.inline)

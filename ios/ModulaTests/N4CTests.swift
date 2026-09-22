@@ -247,6 +247,67 @@ final class StoryDomainTests: XCTestCase {
         XCTAssertEqual(RouteParser.parse("/stories/create"), .stories(.create))
         XCTAssertNotEqual(RouteParser.parse("/stories/create"), .stories(.story("create")))
     }
+
+    func testRailDecoderUsesGreenfieldDTO() {
+        let value: JSONValue = .object([
+            "items": .array([
+                .object([
+                    "groupId": .string("add:actor-1"),
+                    "ownerActorId": .string("actor-1"),
+                    "ownerProfileId": .string("profile-1"),
+                    "displayName": .string("Andrei"),
+                    "handle": .string("modula_orgggg"),
+                    "avatarUrl": .string("https://api.modula.digital/v1/media/profiles/a.jpg"),
+                    "ringState": .string("owner"),
+                    "itemCount": .number(0),
+                    "unviewedCount": .number(0),
+                    "isOwner": .bool(true)
+                ]),
+                .object([
+                    "groupId": .string("group-2"),
+                    "ownerProfileId": .string("profile-2"),
+                    "displayName": .string("Sophia"),
+                    "handle": .string("sophia"),
+                    "ringState": .string("unviewed"),
+                    "itemCount": .number(2),
+                    "isOwner": .bool(false)
+                ])
+            ])
+        ])
+        let groups = StoryPayloadDecoder.rail(from: value)
+        XCTAssertEqual(groups.count, 2)
+        XCTAssertTrue(groups[0].isComposerPlaceholder)
+        XCTAssertEqual(groups[0].ring, .own)
+        XCTAssertEqual(groups[1].id, "group-2")
+        XCTAssertEqual(groups[1].ring, .unseen)
+        XCTAssertEqual(groups[1].author.displayName, "Sophia")
+    }
+
+    func testGroupDecoderUsesItemIdsAndMediaUrl() {
+        let value: JSONValue = .object([
+            "groupId": .string("group-2"),
+            "displayName": .string("Sophia"),
+            "handle": .string("sophia"),
+            "isOwner": .bool(false),
+            "items": .array([
+                .object([
+                    "itemId": .string("item-1"),
+                    "mediaKind": .string("image"),
+                    "mediaUrl": .string("https://api.modula.digital/v1/media/stories/item-1.jpg"),
+                    "caption": .string("Hello"),
+                    "viewed": .bool(false),
+                    "createdAt": .string("2026-09-20T19:00:00.000Z")
+                ])
+            ])
+        ])
+        let group = StoryPayloadDecoder.group(value)
+        XCTAssertEqual(group?.id, "group-2")
+        XCTAssertEqual(group?.items.first?.id, "item-1")
+        XCTAssertEqual(group?.items.first?.kind, .image)
+        XCTAssertEqual(group?.items.first?.text, "Hello")
+        XCTAssertEqual(group?.items.first?.media?.url?.lastPathComponent, "item-1.jpg")
+        XCTAssertFalse(group?.items.first?.seen ?? true)
+    }
 }
 
 @MainActor
@@ -433,8 +494,8 @@ final class MessagingCapabilityHonestyTests: XCTestCase {
         XCTAssertFalse(MessagingBackendCapabilities.production.attachments)
         XCTAssertFalse(InMailBackendCapabilities.production.list)
         XCTAssertFalse(InMailBackendCapabilities.production.privacySettings)
-        XCTAssertFalse(StoryBackendCapabilities.production.list)
-        XCTAssertFalse(StoryBackendCapabilities.production.create)
+        XCTAssertTrue(StoryBackendCapabilities.production.list)
+        XCTAssertTrue(StoryBackendCapabilities.production.create)
         XCTAssertTrue(ReelBackendCapabilities.production.seedList)
         XCTAssertFalse(ReelBackendCapabilities.production.rankedFeed)
     }

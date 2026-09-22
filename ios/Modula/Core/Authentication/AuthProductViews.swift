@@ -23,6 +23,7 @@ struct AuthChrome<Content: View>: View {
             .frame(maxWidth: 520)
             .frame(maxWidth: .infinity)
         }
+        .modulaSoftScrollEdge()
         .modulaCanvas()
         .navigationBarTitleDisplayMode(.inline)
     }
