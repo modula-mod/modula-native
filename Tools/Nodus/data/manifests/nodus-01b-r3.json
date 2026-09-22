@@ -1,0 +1,66 @@
+{
+  "approvalState": "approved-for-experiment",
+  "baseModel": "Qwen/Qwen3-1.7B",
+  "baseRevision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+  "categoryDistribution": {
+    "ABSTENTION": 40,
+    "ACTION_SCHEMA": 180,
+    "AKI": 100,
+    "AUTHORITY_BOUNDARIES": 60,
+    "CAPABILITY_SELECTION": 190,
+    "CORRECTION": 40,
+    "FALSE_PREMISE": 30,
+    "FRESHNESS": 80,
+    "GAIA": 100,
+    "GENERAL_ASSISTANT": 3600,
+    "GOVERNOR": 100,
+    "HALLUCINATION_RESISTANCE": 30,
+    "LOCAL_INTELLIGENCE": 150,
+    "MODULA_ARCHITECTURE": 250,
+    "MODULA_KNOWLEDGE": 250,
+    "MODULE_KNOWLEDGE": 190,
+    "NODUS": 170,
+    "PRIVACY": 60,
+    "STRUCTURED_INTENT": 180,
+    "UNCERTAINTY": 50,
+    "UNKNOWN_CAPABILITY": 30,
+    "VERIFICATION_DECISION": 120
+  },
+  "createdAt": "2026-09-22T00:00:00Z",
+  "datasetRevision": "nodus-01b-r3-v1",
+  "duplicateRemoval": {
+    "exact": 2011,
+    "near": 55,
+    "normalized": 0
+  },
+  "exampleCount": 6000,
+  "files": {
+    "test": "e11b2b0eba1557dff12a8247c3db87477c7d89e48b61957540431b92927c5f2b",
+    "train": "b1fca286ca6f9114b59166a74813307b4cdf62173549e9063c04674a7ee7b944",
+    "valid": "25a59cf07074f1b0e407c51d83a999dec53f9bbba58adf81155356a6a64077a8"
+  },
+  "learningCandidateCount": 0,
+  "licenses": [
+    "CC0-1.0",
+    "Modula-internal"
+  ],
+  "manifestHash": "sha256:517968bf7f902c7fe9732a7e490e6f9b403b83874d0ea1ef0a066484f4c7ec15",
+  "parentRevision": null,
+  "privateProductionDataCount": 0,
+  "provenanceComplete": true,
+  "schemaVersion": 1,
+  "sourceCatalogHash": "sha256:5fd15ba5bc3ced43a2fe985d4576a0d44b3675af672dbe2725d6f4e2ecb42939",
+  "sourceExamplesHash": "sha256:d4d3b22c7cc409f8371c8962579cc55b05c39056f7171b9204c94b9ca81b16f0",
+  "sources": {
+    "modula-architecture-docs": 1500,
+    "modula-nodus01b-spec": 900,
+    "nodus-authored-general-replay": 3600
+  },
+  "splitCounts": {
+    "test": 532,
+    "train": 4782,
+    "valid": 686
+  },
+  "splitLeakage": "PASS",
+  "splitPolicy": "semantic-group-hash-80-10-10"
+}

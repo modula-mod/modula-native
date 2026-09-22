@@ -10,6 +10,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from build_dataset import build
+from build_corpus_01b import ALL_CATEGORIES, PROFILE_COUNTS, record
+from fit_calibration import fit as fit_calibration
 from build_model_manifest import build_manifest
 from build_specialization_dataset import build as build_specialization
 from common import GovernanceError, sha256, validate_learning_candidate
@@ -72,6 +74,61 @@ class DatasetPipelineTests(unittest.TestCase):
         invalid["train"] = False
         with self.assertRaises(ValueError):
             validate_config(invalid)
+
+    def test_nodus_01b_profiles_are_controlled_six_thousand_example_mixtures(self):
+        self.assertEqual(set(PROFILE_COUNTS), {"r3", "r4", "r5"})
+        for profile, counts in PROFILE_COUNTS.items():
+            self.assertEqual(set(counts), set(ALL_CATEGORIES), profile)
+            self.assertEqual(sum(counts.values()), 6_000, profile)
+        self.assertGreater(PROFILE_COUNTS["r4"]["MODULA_ARCHITECTURE"], PROFILE_COUNTS["r3"]["MODULA_ARCHITECTURE"])
+        self.assertGreater(PROFILE_COUNTS["r5"]["FRESHNESS"], PROFILE_COUNTS["r3"]["FRESHNESS"])
+
+    def test_nodus_01b_manifests_record_provenance_deduplication_and_no_leakage(self):
+        for profile in ("r3", "r4", "r5"):
+            manifest = json.loads((ROOT / f"data/manifests/nodus-01b-{profile}.json").read_text())
+            self.assertEqual(manifest["exampleCount"], 6_000)
+            self.assertTrue(manifest["provenanceComplete"])
+            self.assertEqual(manifest["privateProductionDataCount"], 0)
+            self.assertEqual(manifest["splitLeakage"], "PASS")
+            self.assertEqual(manifest["splitPolicy"], "semantic-group-hash-80-10-10")
+            self.assertGreater(manifest["duplicateRemoval"]["exact"], 0)
+            self.assertGreater(manifest["duplicateRemoval"]["near"], 0)
+            self.assertTrue(all(manifest["splitCounts"][name] > 0 for name in ("train", "valid", "test")))
+
+    def test_nodus_01b_configs_pin_base_dataset_and_experiment_controls(self):
+        for profile in ("r3", "r4", "r5"):
+            config = yaml.safe_load((ROOT / f"configs/nodus-01b-{profile}.yaml").read_text())
+            validate_config(config)
+            self.assertEqual(config["model"], SELECTED_BASE)
+            self.assertEqual(config["revision"], SELECTED_REVISION)
+            self.assertEqual(config["dataset_revision"], f"nodus-01b-{profile}-v1")
+            self.assertTrue(config["mask_prompt"])
+
+    def test_generation_provenance_hash_is_deterministic(self):
+        first = record(
+            item_id="fixture", group="fixture-group", category="NODUS", prompt="What is Nodus?",
+            response="A local model.", source="modula-nodus01b-spec", concept="identity",
+            document="fixture", seed=17,
+        )
+        second = record(
+            item_id="fixture", group="fixture-group", category="NODUS", prompt="What is Nodus?",
+            response="A local model.", source="modula-nodus01b-spec", concept="identity",
+            document="fixture", seed=17,
+        )
+        self.assertEqual(first["generationHash"], second["generationHash"])
+
+    def test_bucket_calibration_uses_validation_accuracy_with_smoothing(self):
+        report = {
+            "model": SELECTED_BASE, "revision": SELECTED_REVISION, "adapter": "fixture",
+            "results": [
+                {"confidenceBucket": "stable_answer", "passed": True},
+                {"confidenceBucket": "stable_answer", "passed": True},
+                {"confidenceBucket": "uncertain", "passed": False},
+            ],
+        }
+        calibration = fit_calibration(report)
+        self.assertEqual(calibration["method"], "deterministic-bucket-beta-calibration")
+        self.assertGreater(calibration["buckets"]["stable_answer"], calibration["buckets"]["uncertain"])
 
     def test_exact_instruction_scoring_rejects_extra_text(self):
         case = {"exact": "READY", "required": ["ready"], "forbidden": []}
@@ -242,6 +299,29 @@ class DatasetPipelineTests(unittest.TestCase):
         )
         self.assertTrue(result["gates"]["freshnessClassification"])
         self.assertFalse(result["gates"]["freshnessBehavior"])
+        self.assertFalse(result["promoted"])
+
+    def test_nodus_01b_requires_absolute_modula_gain_and_calibration_ceiling(self):
+        base = {
+            "scores": {"general": 1.0, "modula": 0.40, "freshness": 1.0},
+            "calibrationError": 0.4311,
+            "freshnessAccuracy": 1.0,
+            "abstentionAccuracy": 1.0,
+            "generalScoresByDomain": {"science": 1.0},
+        }
+        candidate = {
+            "scores": {"general": 1.0, "modula": 0.54, "freshness": 1.0},
+            "calibrationError": 0.4400,
+            "freshnessAccuracy": 1.0,
+            "abstentionAccuracy": 1.0,
+            "generalScoresByDomain": {"science": 1.0},
+        }
+        result = evaluate_gates(
+            base, candidate, runtime_passed=True, privacy_passed=True,
+            integrity_passed=True, license_passed=True, approval_reference="review",
+        )
+        self.assertFalse(result["gates"]["modulaImprovement"])
+        self.assertFalse(result["gates"]["confidenceCalibration"])
         self.assertFalse(result["promoted"])
 
     def test_category_regression_cannot_hide_behind_general_aggregate(self):

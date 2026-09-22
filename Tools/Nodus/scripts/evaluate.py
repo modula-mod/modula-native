@@ -38,7 +38,26 @@ def freshness_for(prompt: str) -> str:
     return "stable"
 
 
-def confidence_for(output: str, predicted_freshness: str) -> float:
+def confidence_bucket(output: str, predicted_freshness: str) -> str:
+    text = normalize(output)
+    if predicted_freshness == "current_data_required":
+        return "current_data"
+    if is_abstention(output):
+        return "abstention"
+    if predicted_freshness in {"possibly_stale", "unknown"} or any(
+        marker in text for marker in ("uncertain", "not enough", "may be stale", "cannot verify")
+    ):
+        return "uncertain"
+    if len(text.split()) < 5:
+        return "stable_short"
+    return "stable_answer"
+
+
+def confidence_for(
+    output: str,
+    predicted_freshness: str,
+    calibration: dict | None = None,
+) -> float:
     """Estimate confidence from model/runtime signals without consulting ground truth."""
     text = normalize(output)
     score = 0.62
@@ -52,7 +71,14 @@ def confidence_for(output: str, predicted_freshness: str) -> float:
         score -= 0.12
     if any(word in text for word in ("uncertain", "not enough", "verify", "may be stale")):
         score -= 0.08
-    return round(max(0.02, min(0.98, score)), 3)
+    uncalibrated = round(max(0.02, min(0.98, score)), 3)
+    if calibration is None:
+        return uncalibrated
+    bucket = confidence_bucket(output, predicted_freshness)
+    calibrated = calibration.get("buckets", {}).get(bucket)
+    if calibrated is None:
+        calibrated = calibration.get("fallback", uncalibrated)
+    return round(max(0.02, min(0.98, float(calibrated))), 3)
 
 
 def is_abstention(output: str) -> bool:
@@ -80,7 +106,11 @@ def score_case(case: dict, output: str) -> bool:
             "verify", "check", "reliable source", "trusted source", "weather service",
         ))
         return recognizes_live_dependency and recommends_check and not forbidden
-    return all(normalize(term) in text for term in case["required"]) and not any(
+    required = all(normalize(term) in text for term in case.get("required", []))
+    any_required = case.get("anyRequired", [])
+    if any_required:
+        required = required and any(normalize(term) in text for term in any_required)
+    return required and not any(
         normalize(term) in text for term in case.get("forbidden", [])
     )
 
@@ -88,10 +118,12 @@ def score_case(case: dict, output: str) -> bool:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path, required=True)
-    parser.add_argument("--suite", action="append", choices=["general", "modula", "freshness", "uncertainty"])
+    parser.add_argument("--suite", action="append")
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--calibration", type=Path)
     args = parser.parse_args()
     config = yaml.safe_load(args.config.read_text())
+    calibration = json.loads(args.calibration.read_text()) if args.calibration else None
     local_model = resolve_model_path(config)
     adapter = config.get("adapter_path")
     if adapter:
@@ -113,11 +145,14 @@ def main() -> None:
             elapsed = time.perf_counter() - started
             passed = score_case(case, output)
             predicted_freshness = freshness_for(case["prompt"])
-            confidence = confidence_for(output, predicted_freshness)
+            uncalibrated_confidence = confidence_for(output, predicted_freshness)
+            confidence = confidence_for(output, predicted_freshness, calibration)
             abstained = is_abstention(output)
             results.append({
                 "suite": suite, "id": case["id"], "domain": case["domain"], "prompt": case["prompt"],
                 "output": output, "passed": passed, "confidence": confidence,
+                "uncalibratedConfidence": uncalibrated_confidence,
+                "confidenceBucket": confidence_bucket(output, predicted_freshness),
                 "expectedFreshness": case["freshness"], "predictedFreshness": predicted_freshness,
                 "freshnessPassed": predicted_freshness == case["freshness"], "durationSeconds": round(elapsed, 3),
                 "abstentionExpected": bool(case.get("abstentionExpected", False)), "abstained": abstained,
@@ -133,6 +168,15 @@ def main() -> None:
     for domain in sorted({item["domain"] for item in results}):
         selected = [item for item in results if item["domain"] == domain]
         per_domain[domain] = round(sum(item["passed"] for item in selected) / len(selected), 4)
+    per_suite_domain = {}
+    for suite in suites:
+        suite_results = [item for item in results if item["suite"] == suite]
+        per_suite_domain[suite] = {}
+        for domain in sorted({item["domain"] for item in suite_results}):
+            selected = [item for item in suite_results if item["domain"] == domain]
+            per_suite_domain[suite][domain] = round(
+                sum(item["passed"] for item in selected) / len(selected), 4
+            )
     general_per_domain = {}
     for domain in sorted({item["domain"] for item in results if item["suite"] == "general"}):
         selected = [
@@ -151,6 +195,10 @@ def main() -> None:
     ]
     calibration_error = round(
         sum(abs(item["confidence"] - float(item["passed"])) for item in calibration_cases)
+        / len(calibration_cases), 4
+    )
+    uncalibrated_calibration_error = round(
+        sum(abs(item["uncalibratedConfidence"] - float(item["passed"])) for item in calibration_cases)
         / len(calibration_cases), 4
     )
     overconfidence = round(
@@ -178,9 +226,13 @@ def main() -> None:
     report = {
         "schemaVersion": 1, "model": config["model"], "revision": config["revision"], "adapter": adapter,
         "scores": per_suite, "scoresByDomain": per_domain,
+        "scoresBySuiteDomain": per_suite_domain,
         "generalScoresByDomain": general_per_domain,
         "freshnessAccuracy": round(sum(item["freshnessPassed"] for item in results) / len(results), 4),
         "calibrationError": calibration_error,
+        "uncalibratedCalibrationError": uncalibrated_calibration_error,
+        "calibrationMethod": calibration.get("method") if calibration else "legacy-deterministic-signals",
+        "calibrationArtifact": str(args.calibration.resolve()) if args.calibration else None,
         "calibrationScope": "stable_non_abstention",
         "calibrationCaseCount": len(calibration_cases),
         "overconfidenceRate": overconfidence,

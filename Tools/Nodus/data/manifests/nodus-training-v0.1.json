@@ -12,6 +12,11 @@
   },
   "createdAt": "2026-09-20T00:00:00Z",
   "datasetRevision": "nodus-training-v0.1",
+  "duplicateRemoval": {
+    "exact": 0,
+    "near": 0,
+    "normalized": 0
+  },
   "exampleCount": 126,
   "files": {
     "test": "102b0200327b3168dc618da23ead7b1248b29d03ab6e00b2e428df7c3cced8a9",
@@ -23,11 +28,12 @@
     "CC0-1.0",
     "Modula-internal"
   ],
-  "manifestHash": "sha256:c989ff11f300cc6040b4edf9df9290e2566a38759d72d6ccf071c46c1933c962",
+  "manifestHash": "sha256:7bc2adc9c5327dc196dcd003331412a9a67c4f3bc894c27a0b863dab7a55ea2b",
   "parentRevision": null,
   "privateProductionDataCount": 0,
+  "provenanceComplete": true,
   "schemaVersion": 1,
-  "sourceCatalogHash": "sha256:9155d93112931da0da6be2884475b81849b7c31d3494110a4cd004a366105ba7",
+  "sourceCatalogHash": "sha256:5fd15ba5bc3ced43a2fe985d4576a0d44b3675af672dbe2725d6f4e2ecb42939",
   "sourceExamplesHash": "sha256:1866645c5f4f800bdfad6c9ef5465e296dbc6f01e322f409dc36389b0b660f04",
   "sources": {
     "modula-nodus01-spec": 50,
@@ -37,5 +43,7 @@
     "test": 19,
     "train": 86,
     "valid": 21
-  }
+  },
+  "splitLeakage": "PASS",
+  "splitPolicy": "semantic-group-hash-70-15-15"
 }

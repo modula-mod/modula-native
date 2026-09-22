@@ -1,0 +1,66 @@
+{
+  "approvalState": "approved-for-experiment",
+  "baseModel": "Qwen/Qwen3-1.7B",
+  "baseRevision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+  "categoryDistribution": {
+    "ABSTENTION": 40,
+    "ACTION_SCHEMA": 270,
+    "AKI": 120,
+    "AUTHORITY_BOUNDARIES": 90,
+    "CAPABILITY_SELECTION": 228,
+    "CORRECTION": 40,
+    "FALSE_PREMISE": 30,
+    "FRESHNESS": 80,
+    "GAIA": 120,
+    "GENERAL_ASSISTANT": 3000,
+    "GOVERNOR": 120,
+    "HALLUCINATION_RESISTANCE": 30,
+    "LOCAL_INTELLIGENCE": 180,
+    "MODULA_ARCHITECTURE": 300,
+    "MODULA_KNOWLEDGE": 300,
+    "MODULE_KNOWLEDGE": 228,
+    "NODUS": 204,
+    "PRIVACY": 90,
+    "STRUCTURED_INTENT": 270,
+    "UNCERTAINTY": 50,
+    "UNKNOWN_CAPABILITY": 30,
+    "VERIFICATION_DECISION": 180
+  },
+  "createdAt": "2026-09-22T00:00:00Z",
+  "datasetRevision": "nodus-01b-r4-v1",
+  "duplicateRemoval": {
+    "exact": 2011,
+    "near": 55,
+    "normalized": 0
+  },
+  "exampleCount": 6000,
+  "files": {
+    "test": "3453941db677a251aaf2248e9a976edb8e30ea1b4fd0c196a2044cb83ed7a51b",
+    "train": "77f081d45b9ff505b697464528a81d0b3460ef4d1e2d226cea5f5cc3d537147b",
+    "valid": "07029cd74a00b63a3eb49f48ae6893082d12cf21c1628e2ba86fc052ed9f726f"
+  },
+  "learningCandidateCount": 0,
+  "licenses": [
+    "CC0-1.0",
+    "Modula-internal"
+  ],
+  "manifestHash": "sha256:30793f616b19b431a5cd39c83f2acac6358cd1fea65bfd2046ec57fa3d9f0aa8",
+  "parentRevision": null,
+  "privateProductionDataCount": 0,
+  "provenanceComplete": true,
+  "schemaVersion": 1,
+  "sourceCatalogHash": "sha256:5fd15ba5bc3ced43a2fe985d4576a0d44b3675af672dbe2725d6f4e2ecb42939",
+  "sourceExamplesHash": "sha256:f8b4243d371a1e7c5ecc3379388d85434b538a04c2b48aac9adf775f41fe7d94",
+  "sources": {
+    "modula-architecture-docs": 1800,
+    "modula-nodus01b-spec": 1200,
+    "nodus-authored-general-replay": 3000
+  },
+  "splitCounts": {
+    "test": 512,
+    "train": 4779,
+    "valid": 709
+  },
+  "splitLeakage": "PASS",
+  "splitPolicy": "semantic-group-hash-80-10-10"
+}

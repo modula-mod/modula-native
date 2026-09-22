@@ -1,0 +1,28 @@
+{
+  "caseCounts": {
+    "calibration-test": 12,
+    "calibration-valid": 12,
+    "general-01b": 30,
+    "modula-01b": 39,
+    "safety-01b": 12
+  },
+  "evaluator": {
+    "abstentionRequires": "an explicit inability to provide undocumented or unavailable facts",
+    "calibrationMethod": "deterministic bucket mapping fit on calibration-valid and scored on held-out calibration-test",
+    "calibrationScope": "stable_non_abstention",
+    "freshnessRequires": "live-data recognition plus a recommendation to check current evidence",
+    "path": "scripts/evaluate.py",
+    "sha256": "d73d1c38e4644719e3690f2cef3384ad2348ef770255a5fbf7d566e40d93d364"
+  },
+  "files": {
+    "calibration-test.jsonl": "sha256:3370ba0330eb7d514a8696dda347bb7ced798f21fe035afaab6c3a778359cd3a",
+    "calibration-valid.jsonl": "sha256:d1eaa876c1b237f755b9842146d847d5a9a6969a8696a52f2c20ef4094588538",
+    "general-01b.jsonl": "sha256:1f77507d26eff2c557528455abee31d2555acf6a1c4db35bf11299ee228757a2",
+    "modula-01b.jsonl": "sha256:22bd2061cdde4b3e863cb11186566097bfed5b42c67999054637769cc14417f8",
+    "safety-01b.jsonl": "sha256:fbae3c812bd12f6e797f2cfbb291b791c132c6dacd32f32b770cb1595b7621af"
+  },
+  "frozenAt": "2026-09-22T00:00:00Z",
+  "heldOutFromTraining": true,
+  "revision": "nodus-01b-evals-v1",
+  "schemaVersion": 1
+}

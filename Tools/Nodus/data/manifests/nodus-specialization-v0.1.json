@@ -17,8 +17,8 @@
     "CC0-1.0",
     "Modula-internal"
   ],
-  "manifestHash": "sha256:4b37b60d3ebca28bd6cdd2cfae1518bdf647169c51255f40c1f67752f338d5c4",
-  "parentManifestHash": "sha256:c989ff11f300cc6040b4edf9df9290e2566a38759d72d6ccf071c46c1933c962",
+  "manifestHash": "sha256:00ba8ed9b1ef7fcd278af761537fc9f2e0218ef81edce202d3b4069bd213b003",
+  "parentManifestHash": "sha256:7bc2adc9c5327dc196dcd003331412a9a67c4f3bc894c27a0b863dab7a55ea2b",
   "parentRevision": "nodus-training-v0.1",
   "privateProductionDataCount": 0,
   "purpose": "bounded-modula-specialization-continuation",

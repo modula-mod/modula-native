@@ -1,0 +1,66 @@
+{
+  "approvalState": "approved-for-experiment",
+  "baseModel": "Qwen/Qwen3-1.7B",
+  "baseRevision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+  "categoryDistribution": {
+    "ABSTENTION": 120,
+    "ACTION_SCHEMA": 180,
+    "AKI": 100,
+    "AUTHORITY_BOUNDARIES": 60,
+    "CAPABILITY_SELECTION": 190,
+    "CORRECTION": 110,
+    "FALSE_PREMISE": 90,
+    "FRESHNESS": 250,
+    "GAIA": 100,
+    "GENERAL_ASSISTANT": 3000,
+    "GOVERNOR": 100,
+    "HALLUCINATION_RESISTANCE": 90,
+    "LOCAL_INTELLIGENCE": 150,
+    "MODULA_ARCHITECTURE": 250,
+    "MODULA_KNOWLEDGE": 250,
+    "MODULE_KNOWLEDGE": 190,
+    "NODUS": 170,
+    "PRIVACY": 60,
+    "STRUCTURED_INTENT": 180,
+    "UNCERTAINTY": 150,
+    "UNKNOWN_CAPABILITY": 90,
+    "VERIFICATION_DECISION": 120
+  },
+  "createdAt": "2026-09-22T00:00:00Z",
+  "datasetRevision": "nodus-01b-r5-v1",
+  "duplicateRemoval": {
+    "exact": 2011,
+    "near": 55,
+    "normalized": 0
+  },
+  "exampleCount": 6000,
+  "files": {
+    "test": "47203958bcc99c06c251f6fce92e8f6d96a62360b345a3a9c600a78002235b78",
+    "train": "93ab27d34c8e0c4b941b8ccc689d14dd04b58d1c00d340db877ab731a15c29b9",
+    "valid": "72ed4fb3e491ae58b20f520ccd47b643feb2c5364cea6743421fa31adf314314"
+  },
+  "learningCandidateCount": 0,
+  "licenses": [
+    "CC0-1.0",
+    "Modula-internal"
+  ],
+  "manifestHash": "sha256:3a6e129e2b611e59357ff9efd937bb6ba02f223f468023d100bfb86989d42512",
+  "parentRevision": null,
+  "privateProductionDataCount": 0,
+  "provenanceComplete": true,
+  "schemaVersion": 1,
+  "sourceCatalogHash": "sha256:5fd15ba5bc3ced43a2fe985d4576a0d44b3675af672dbe2725d6f4e2ecb42939",
+  "sourceExamplesHash": "sha256:6daceca6c38d8d1316e6a90b6fdd5155503730a3cc81c516bbc622f2e820b653",
+  "sources": {
+    "modula-architecture-docs": 1500,
+    "modula-nodus01b-spec": 1500,
+    "nodus-authored-general-replay": 3000
+  },
+  "splitCounts": {
+    "test": 550,
+    "train": 4772,
+    "valid": 678
+  },
+  "splitLeakage": "PASS",
+  "splitPolicy": "semantic-group-hash-80-10-10"
+}

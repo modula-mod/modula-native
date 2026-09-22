@@ -1,0 +1,30 @@
+{"id":"g01-science-moon","domain":"Science","prompt":"Why do we observe different phases of the Moon over a month?","required":["sun","orbit","lit"],"forbidden":["earth's shadow causes every phase"],"freshness":"stable"}
+{"id":"g02-science-mitosis","domain":"Science","prompt":"What is the basic outcome of mitosis?","required":["two","cell"],"forbidden":[],"freshness":"stable"}
+{"id":"g03-science-rain","domain":"Science","prompt":"How does atmospheric water become rain?","required":["condens","droplet"],"forbidden":[],"freshness":"stable"}
+{"id":"g04-history-print","domain":"History","prompt":"Why was Gutenberg's printing press historically important?","required":["print","spread"],"forbidden":[],"freshness":"stable"}
+{"id":"g05-history-un","domain":"History","prompt":"In what year was the United Nations founded?","required":["1945"],"forbidden":[],"freshness":"stable"}
+{"id":"g06-history-rosetta","domain":"History","prompt":"Why did the Rosetta Stone matter to scholars?","required":["hieroglyph"],"forbidden":[],"freshness":"stable"}
+{"id":"g07-geography-canada","domain":"Geography","prompt":"Name Canada's capital city.","required":["ottawa"],"forbidden":["toronto"],"freshness":"stable"}
+{"id":"g08-geography-andes","domain":"Geography","prompt":"Along which side of South America are the Andes located?","required":["west"],"forbidden":[],"freshness":"stable"}
+{"id":"g09-geography-equator","domain":"Geography","prompt":"What latitude is the equator?","required":["zero"],"anyRequired":["degree","0"],"forbidden":[],"freshness":"stable"}
+{"id":"g10-tech-https","domain":"Technology","prompt":"What security layer distinguishes HTTPS from plain HTTP?","required":["tls"],"anyRequired":["encrypt","authentication"],"forbidden":[],"freshness":"stable"}
+{"id":"g11-tech-dns","domain":"Technology","prompt":"What practical job does DNS perform?","required":["domain","ip"],"forbidden":[],"freshness":"stable"}
+{"id":"g12-tech-cache","domain":"Technology","prompt":"Why do systems use a cache?","required":["latency"],"anyRequired":["faster","reuse","work"],"forbidden":[],"freshness":"stable"}
+{"id":"g13-cs-stack","domain":"Computer Science","prompt":"Which access order defines a stack?","required":["last","first"],"forbidden":[],"freshness":"stable"}
+{"id":"g14-cs-complexity","domain":"Computer Science","prompt":"What does Big-O notation communicate?","required":["growth"],"anyRequired":["complex","bound"],"forbidden":[],"freshness":"stable"}
+{"id":"g15-cs-transaction","domain":"Computer Science","prompt":"What is the purpose of a database transaction?","required":["operation"],"anyRequired":["atomic","unit","consisten"],"forbidden":[],"freshness":"stable"}
+{"id":"g16-code-python-len","domain":"Basic Coding","prompt":"What does Python evaluate len(['a', 'b', 'c', 'd']) to?","required":["4"],"forbidden":[],"freshness":"stable"}
+{"id":"g17-code-loop","domain":"Basic Coding","prompt":"In Python, what values are produced by range(3)?","required":["0","1","2"],"forbidden":["3, 4"],"freshness":"stable"}
+{"id":"g18-code-bool","domain":"Basic Coding","prompt":"What Boolean value does 5 > 2 produce?","required":["true"],"forbidden":["false"],"freshness":"stable"}
+{"id":"g19-math-percent","domain":"Math","prompt":"Calculate 18 percent of 50.","required":["9"],"forbidden":[],"freshness":"stable"}
+{"id":"g20-math-multiply","domain":"Math","prompt":"What is 27 multiplied by 14?","required":["378"],"forbidden":[],"freshness":"stable"}
+{"id":"g21-math-subtract","domain":"Math","prompt":"Subtract 38 from 105.","required":["67"],"forbidden":[],"freshness":"stable"}
+{"id":"g22-writing-thanks","domain":"Writing","prompt":"Write one professional sentence thanking a reviewer for spotting an error.","required":["thank"],"forbidden":[],"freshness":"stable"}
+{"id":"g23-writing-rewrite","domain":"Writing","prompt":"Rewrite concisely: We are writing to let you know that the meeting will start at noon.","required":["meeting","noon"],"forbidden":[],"freshness":"stable"}
+{"id":"g24-writing-tone","domain":"Writing","prompt":"Write a friendly one-sentence reminder to bring an umbrella.","required":["umbrella"],"forbidden":[],"freshness":"stable"}
+{"id":"g25-summary-clinic","domain":"Summarization","prompt":"Summarize in one sentence: The clinic added evening appointments because patient surveys showed many people could not attend during working hours.","required":["clinic","evening","patient"],"forbidden":[],"freshness":"stable"}
+{"id":"g26-summary-rail","domain":"Summarization","prompt":"Summarize in one sentence: The railway published a revised timetable after engineering work changed several weekend departure times.","required":["rail","timetable","weekend"],"forbidden":[],"freshness":"stable"}
+{"id":"g27-summary-museum","domain":"Summarization","prompt":"Summarize in one sentence: The museum reopened its east entrance following an accessibility review and installation of a new ramp.","required":["museum","entrance","access"],"forbidden":[],"freshness":"stable"}
+{"id":"g28-reasoning-birds","domain":"General Reasoning","prompt":"Every wren is a bird, and every bird is an animal. What must be true of every wren?","required":["animal"],"forbidden":[],"freshness":"stable"}
+{"id":"g29-reasoning-order","domain":"General Reasoning","prompt":"Mina is taller than Lee, and Lee is taller than Jo. Who is tallest?","required":["mina"],"forbidden":["jo is tallest"],"freshness":"stable"}
+{"id":"g30-reasoning-condition","domain":"General Reasoning","prompt":"If a file is encrypted, a key is needed to decrypt it. This file is encrypted. What follows?","required":["key"],"forbidden":[],"freshness":"stable"}

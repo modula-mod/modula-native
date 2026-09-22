@@ -78,7 +78,12 @@ def normalize(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
 
 
-def validate_example(record: dict[str, Any], known_sources: set[str]) -> dict[str, Any]:
+def validate_example(
+    record: dict[str, Any],
+    known_sources: set[str],
+    *,
+    require_generation_provenance: bool = False,
+) -> dict[str, Any]:
     required = {
         "id", "semanticGroup", "category", "prompt", "response", "source",
         "sourceRevision", "license", "creationMethod", "privacyClass", "trainingEligibility",
@@ -86,6 +91,17 @@ def validate_example(record: dict[str, Any], known_sources: set[str]) -> dict[st
     missing = sorted(required - record.keys())
     if missing:
         raise GovernanceError(f"{record.get('id', '<unknown>')}: missing {', '.join(missing)}")
+    if require_generation_provenance:
+        provenance = {
+            "generatorType", "sourceConcept", "sourceDocument", "templateVersion",
+            "seed", "category", "generationHash",
+        }
+        missing_provenance = sorted(provenance - record.keys())
+        if missing_provenance:
+            raise GovernanceError(
+                f"{record.get('id', '<unknown>')}: missing generation provenance "
+                + ", ".join(missing_provenance)
+            )
     if record["source"] not in known_sources:
         raise GovernanceError(f"{record['id']}: unknown source {record['source']}")
     if record["trainingEligibility"] != "approved":
@@ -98,6 +114,14 @@ def validate_example(record: dict[str, Any], known_sources: set[str]) -> dict[st
     content = {"prompt": record["prompt"], "response": record["response"]}
     enriched["contentHash"] = "sha256:" + sha256(canonical_json(content))
     enriched["createdAt"] = record.get("createdAt", "2026-09-20T00:00:00Z")
+    if require_generation_provenance:
+        supplied_hash = enriched.pop("generationHash")
+        unhashed = dict(enriched)
+        unhashed.pop("contentHash", None)
+        expected_hash = "sha256:" + sha256(canonical_json(unhashed))
+        if supplied_hash != expected_hash:
+            raise GovernanceError(f"{record['id']}: generation provenance hash mismatch")
+        enriched["generationHash"] = supplied_hash
     return enriched
 
 

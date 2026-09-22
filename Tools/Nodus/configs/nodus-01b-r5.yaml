@@ -1,0 +1,31 @@
+experiment: NODUS-01B-R5
+hypothesis: retain the balanced domain mix while tripling uncertainty, freshness, abstention, false-premise, and correction coverage
+model: Qwen/Qwen3-1.7B
+revision: 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e
+local_model_path: .cache/models/qwen3-1.7b-70d244cc
+dataset_revision: nodus-01b-r5-v1
+train: true
+fine_tune_type: lora
+optimizer: adamw
+data: data/generated/nodus-01b-r5
+seed: 29
+num_layers: 28
+batch_size: 1
+iters: 1400
+val_batches: 80
+learning_rate: 0.00004
+steps_per_report: 25
+steps_per_eval: 350
+grad_accumulation_steps: 2
+adapter_path: artifacts/nodus-01b-r5
+save_every: 350
+test: true
+test_batches: 80
+max_seq_length: 512
+grad_checkpoint: true
+mask_prompt: true
+lora_parameters:
+  keys: ["self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj", "self_attn.o_proj"]
+  rank: 16
+  scale: 32.0
+  dropout: 0.05
