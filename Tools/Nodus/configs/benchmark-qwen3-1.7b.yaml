@@ -1,0 +1,7 @@
+model: Qwen/Qwen3-1.7B
+revision: 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e
+local_model_path: .cache/models/qwen3-1.7b-70d244cc
+adapter_path: null
+max_tokens: 160
+temperature: 0.0
+seed: 7

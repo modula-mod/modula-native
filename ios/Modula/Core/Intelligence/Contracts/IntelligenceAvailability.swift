@@ -8,6 +8,7 @@ enum IntelligenceAvailability: String, Sendable, Equatable, Hashable, Codable, C
     case unsupportedDevice = "unsupported-device"
     case modelNotInstalled = "model-not-installed"
     case modelDownloading = "model-downloading"
+    case insufficientMemory = "insufficient-memory"
     case disabled
     case permissionDenied = "permission-denied"
     case offline
@@ -23,6 +24,7 @@ enum IntelligenceAvailability: String, Sendable, Equatable, Hashable, Codable, C
         case .unsupportedDevice: "Device not eligible"
         case .modelNotInstalled: "Model not installed"
         case .modelDownloading: "Model downloading"
+        case .insufficientMemory: "Insufficient memory"
         case .disabled: "Disabled"
         case .permissionDenied: "Permission denied"
         case .offline: "Offline"

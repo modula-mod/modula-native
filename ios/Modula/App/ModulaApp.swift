@@ -73,6 +73,11 @@ final class ModulaAppDelegate: NSObject, UIApplicationDelegate {
         return true
     }
 
+    func applicationDidReceiveMemoryWarning(_ application: UIApplication) {
+        guard let environment else { return }
+        Task { await environment.intelligence.unloadNodus() }
+    }
+
     private var pendingShortcut: UIApplicationShortcutItem?
 
     func application(

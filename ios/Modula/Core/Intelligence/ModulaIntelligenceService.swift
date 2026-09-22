@@ -24,6 +24,8 @@ actor ModulaIntelligence: ModulaIntelligenceService {
         tools: IntelligenceToolRegistry = IntelligenceToolRegistry(),
         diagnostics: IntelligenceDiagnostics = IntelligenceDiagnostics(),
         remoteIntelligencePermitted: Bool = false,
+        registerNodusProvider: Bool = false,
+        nodusRuntime: (any NodusRuntime)? = nil,
         registerAppleSystemProvider: Bool = false,
         registerDeterministicLocalProvider: Bool = true
     ) {
@@ -31,6 +33,10 @@ actor ModulaIntelligence: ModulaIntelligenceService {
             self.providers = providers
         } else {
             var defaultProviders: [any IntelligenceProvider] = []
+            if registerNodusProvider {
+                // Registration is cheap and lazy. No weights are loaded during app launch.
+                defaultProviders.append(NodusIntelligenceProvider(runtime: nodusRuntime ?? NodusRuntimeFactory.makeDefault()))
+            }
             if registerAppleSystemProvider {
                 // This is a cheap adapter. It does not create a model session at launch.
                 defaultProviders.append(AppleSystemIntelligenceProvider())
@@ -285,6 +291,8 @@ actor ModulaIntelligence: ModulaIntelligenceService {
         var localCount = 0
         var remoteCount = 0
         var appleAvailability: IntelligenceAvailability?
+        var nodusAvailability: IntelligenceAvailability?
+        var nodusLoadState: NodusLoadState?
         var deterministicAvailability: IntelligenceAvailability?
         for provider in all {
             switch provider.executionKind {
@@ -293,6 +301,9 @@ actor ModulaIntelligence: ModulaIntelligenceService {
             }
             if provider.id == AppleSystemIntelligenceProvider.providerID {
                 appleAvailability = await provider.availability()
+            } else if provider.id == NodusIntelligenceProvider.providerID {
+                nodusAvailability = await provider.availability()
+                nodusLoadState = await (provider as? NodusIntelligenceProvider)?.loadState()
             } else if provider.id == DeterministicLocalProvider.providerID {
                 deterministicAvailability = await provider.availability()
             }
@@ -301,18 +312,30 @@ actor ModulaIntelligence: ModulaIntelligenceService {
         let lastEvent = await diagnostics.snapshot()
         let appleExecutionSucceeded = lastEvent?.providerID == AppleSystemIntelligenceProvider.providerID
             && lastEvent?.status == .success
+        let nodusExecutionSucceeded = lastEvent?.providerID == NodusIntelligenceProvider.providerID
+            && lastEvent?.status == .success
         return IntelligenceServiceSnapshot(
             coreReady: true,
             providerCount: all.count,
             localProviderCount: localCount,
             remoteProviderCount: remoteCount,
+            nodusProviderAvailability: nodusAvailability,
+            nodusLoadState: nodusLoadState,
             appleProviderAvailability: appleAvailability,
             deterministicProviderAvailability: deterministicAvailability,
-            realModelConnected: appleAvailability == .available && appleExecutionSucceeded,
+            realModelConnected: (appleAvailability == .available && appleExecutionSucceeded)
+                || (nodusAvailability == .available && nodusExecutionSucceeded),
             privacyEnforcementPass: probe.pass,
             networkRequired: false,
             lastEvent: lastEvent
         )
+    }
+
+    func unloadNodus() async {
+        guard let provider = await providers.provider(id: NodusIntelligenceProvider.providerID) as? NodusIntelligenceProvider else {
+            return
+        }
+        await provider.unload()
     }
 }
 
@@ -321,6 +344,8 @@ struct IntelligenceServiceSnapshot: Sendable, Equatable {
     let providerCount: Int
     let localProviderCount: Int
     let remoteProviderCount: Int
+    let nodusProviderAvailability: IntelligenceAvailability?
+    let nodusLoadState: NodusLoadState?
     let appleProviderAvailability: IntelligenceAvailability?
     let deterministicProviderAvailability: IntelligenceAvailability?
     let realModelConnected: Bool

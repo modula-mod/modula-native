@@ -23,7 +23,13 @@ One typed route vocabulary serves native screens, deep links and validated modul
 
 Appearance uses semantic values rather than old RN style objects. Swift owns effective color scheme, OLED depth, accent, native surface preference and accessibility environment. Module snapshots contain portable values. New OS surface treatments are availability-gated. Native Dynamic Type, 44-point actions, labels and Reduce Motion are foundational.
 
-The approved future side rail is small, has three primary items, emphasizes the active icon and only transiently reveals its label. Its native implementation follows shell work; old drawer code is reference only.
+The accepted Edge Picker side rail is compact, emphasizes the active destination, and uses the current shell-owned motion and label behavior. Old drawer code is reference only and cannot replace the accepted native rail.
+
+## Design preservation rule
+
+The current accepted native design is authoritative. Intelligence, backend, module-runtime, and infrastructure missions may not change accepted visual behavior unless their scope explicitly includes an approved design change. If a merge conflict touches visual code, the current accepted design wins by default; only the smallest hook required by the integrating feature may be reintroduced, with an explicit reason and visual-regression evidence.
+
+This rule covers layout, spacing, typography, color, animation, transitions, navigation order, side-rail and tab behavior, sheets, drawers, feeds, Activity, Product Hub, Profile, Settings, and the shell. Historical implementation branches are never a reason to roll those surfaces backward.
 
 ## Scope and evidence
 

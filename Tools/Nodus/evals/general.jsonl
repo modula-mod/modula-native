@@ -1,0 +1,12 @@
+{"id":"general-capital-romania","domain":"geography","prompt":"What is the capital of Romania?","required":["bucharest"],"forbidden":[],"freshness":"stable"}
+{"id":"general-sky-blue","domain":"science","prompt":"Why does the daytime sky usually look blue?","required":["scatter","blue"],"forbidden":[],"freshness":"stable"}
+{"id":"general-binary-search","domain":"basic-cs","prompt":"What precondition does binary search require?","required":["sort"],"forbidden":[],"freshness":"stable"}
+{"id":"general-math","domain":"mathematics","prompt":"What is 15 percent of 80?","required":["12"],"forbidden":[],"freshness":"stable"}
+{"id":"general-history","domain":"history","prompt":"Which ancient civilization built Machu Picchu?","required":["inca"],"forbidden":[],"freshness":"stable"}
+{"id":"general-writing","domain":"writing","prompt":"Write one concise sentence thanking a colleague for careful review.","required":["thank"],"forbidden":[],"freshness":"stable"}
+{"id":"general-factual-water","domain":"general-factual","prompt":"At standard atmospheric pressure, at what Celsius temperature does pure water freeze?","required":["0"],"forbidden":[],"freshness":"stable"}
+{"id":"general-technology-tcp-udp","domain":"technology","prompt":"Explain one core difference between TCP and UDP.","required":["tcp","udp","reliab"],"forbidden":[],"freshness":"stable"}
+{"id":"general-basic-coding","domain":"basic-coding","prompt":"In Python, what value does len([10, 20, 30]) return?","required":["3"],"forbidden":[],"freshness":"stable"}
+{"id":"general-reasoning","domain":"reasoning","prompt":"All robins are birds and all birds have feathers. What follows about robins?","required":["robin","feather"],"forbidden":[],"freshness":"stable"}
+{"id":"general-summarization","domain":"summarization","prompt":"Summarize in one sentence: The library extended its weekend hours after student surveys showed strong demand for more evening study time.","required":["library","weekend","student"],"forbidden":[],"freshness":"stable"}
+{"id":"general-instruction","domain":"instruction-following","prompt":"Reply with exactly the word READY and nothing else.","required":["ready"],"forbidden":["because","certainly"],"exact":"READY","freshness":"stable"}

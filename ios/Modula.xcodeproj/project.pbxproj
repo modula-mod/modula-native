@@ -75,8 +75,26 @@
 		A50100000000000000000015 /* ModuleDetailV2View.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000015 /* ModuleDetailV2View.swift */; };
 		A50100000000000000000016 /* PublisherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000016 /* PublisherView.swift */; };
 		A50100000000000000000017 /* N4ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000017 /* N4ETests.swift */; };
+		A70100000000000000000001 /* NodusAnswer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A60100000000000000000001 /* NodusAnswer.swift */; };
+		A70100000000000000000002 /* NodusFreshnessClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A60100000000000000000002 /* NodusFreshnessClassifier.swift */; };
+		A70100000000000000000003 /* NodusConfidenceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A60100000000000000000003 /* NodusConfidenceEngine.swift */; };
+		A70100000000000000000004 /* NodusRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A60100000000000000000004 /* NodusRuntime.swift */; };
+		A70100000000000000000005 /* NodusIntelligenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A60100000000000000000005 /* NodusIntelligenceProvider.swift */; };
+		A70100000000000000000006 /* NodusVerificationContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = A60100000000000000000006 /* NodusVerificationContracts.swift */; };
+		A70100000000000000000007 /* NodusLearningContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = A60100000000000000000007 /* NodusLearningContracts.swift */; };
+		A70100000000000000000008 /* NodusVerificationTrust.swift in Sources */ = {isa = PBXBuildFile; fileRef = A60100000000000000000008 /* NodusVerificationTrust.swift */; };
+		A70100000000000000000009 /* NodusVerificationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A60100000000000000000009 /* NodusVerificationStore.swift */; };
+		A7010000000000000000000A /* NodusLearningPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6010000000000000000000A /* NodusLearningPipeline.swift */; };
+		A7010000000000000000000B /* NodusArtifactInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6010000000000000000000B /* NodusArtifactInstaller.swift */; };
+		A7010000000000000000000C /* MLXNodusRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6010000000000000000000C /* MLXNodusRuntime.swift */; };
+		A7010000000000000000000D /* Nodus01Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6010000000000000000000D /* Nodus01Tests.swift */; };
 		A7847EFDADE6BEEF365C2F21 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BEF0F5DFEB2FC30D2769C391 /* Foundation.framework */; };
 		A7C9B3B1BD7B84C45951A4CE /* manifests.json in Resources */ = {isa = PBXBuildFile; fileRef = 9BDB10B4EB59E29CECC0719A /* manifests.json */; };
+		A80100000000000000000001 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = A90100000000000000000001 /* MLXLLM */; };
+		A80100000000000000000002 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = A90100000000000000000002 /* MLXLMCommon */; };
+		A80100000000000000000003 /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = A90100000000000000000003 /* MLXHuggingFace */; };
+		A80100000000000000000004 /* HuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = A90100000000000000000004 /* HuggingFace */; };
+		A80100000000000000000005 /* Tokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = A90100000000000000000005 /* Tokenizers */; };
 		A9518E57DAAF8DED3BEACDEF /* IntelligenceError.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD892F52CC60A67EF80BCB01 /* IntelligenceError.swift */; };
 		B1619C7D6C8850CDEBCE8567 /* IntelligenceTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C65E626DB4E0A902B687238 /* IntelligenceTool.swift */; };
 		B2C7278B19CE66F5FB564E3F /* IntelligenceRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 370553C58FD3D96B35F6C6AF /* IntelligenceRouter.swift */; };
@@ -300,6 +318,19 @@
 		A40300000000000000000002 /* LI03AppleProviderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LI03AppleProviderTests.swift; sourceTree = "<group>"; };
 		A4CC36E2CB4875EBEDB19A1A /* IntelligenceToolValidation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceToolValidation.swift; path = Core/Intelligence/Tools/IntelligenceToolValidation.swift; sourceTree = "<group>"; };
 		A5E0D5A04B04831431C46FFA /* ActivityScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityScreen.swift; path = Features/Activity/ActivityScreen.swift; sourceTree = "<group>"; };
+		A60100000000000000000001 /* NodusAnswer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusAnswer.swift; path = Core/Intelligence/Nodus/NodusAnswer.swift; sourceTree = "<group>"; };
+		A60100000000000000000002 /* NodusFreshnessClassifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusFreshnessClassifier.swift; path = Core/Intelligence/Nodus/NodusFreshnessClassifier.swift; sourceTree = "<group>"; };
+		A60100000000000000000003 /* NodusConfidenceEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusConfidenceEngine.swift; path = Core/Intelligence/Nodus/NodusConfidenceEngine.swift; sourceTree = "<group>"; };
+		A60100000000000000000004 /* NodusRuntime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusRuntime.swift; path = Core/Intelligence/Nodus/NodusRuntime.swift; sourceTree = "<group>"; };
+		A60100000000000000000005 /* NodusIntelligenceProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusIntelligenceProvider.swift; path = Core/Intelligence/Nodus/NodusIntelligenceProvider.swift; sourceTree = "<group>"; };
+		A60100000000000000000006 /* NodusVerificationContracts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusVerificationContracts.swift; path = Core/Intelligence/Nodus/NodusVerificationContracts.swift; sourceTree = "<group>"; };
+		A60100000000000000000007 /* NodusLearningContracts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusLearningContracts.swift; path = Core/Intelligence/Nodus/NodusLearningContracts.swift; sourceTree = "<group>"; };
+		A60100000000000000000008 /* NodusVerificationTrust.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusVerificationTrust.swift; path = Core/Intelligence/Nodus/NodusVerificationTrust.swift; sourceTree = "<group>"; };
+		A60100000000000000000009 /* NodusVerificationStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusVerificationStore.swift; path = Core/Intelligence/Nodus/NodusVerificationStore.swift; sourceTree = "<group>"; };
+		A6010000000000000000000A /* NodusLearningPipeline.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusLearningPipeline.swift; path = Core/Intelligence/Nodus/NodusLearningPipeline.swift; sourceTree = "<group>"; };
+		A6010000000000000000000B /* NodusArtifactInstaller.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusArtifactInstaller.swift; path = Core/Intelligence/Nodus/NodusArtifactInstaller.swift; sourceTree = "<group>"; };
+		A6010000000000000000000C /* MLXNodusRuntime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MLXNodusRuntime.swift; path = Core/Intelligence/Nodus/MLXNodusRuntime.swift; sourceTree = "<group>"; };
+		A6010000000000000000000D /* Nodus01Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Nodus01Tests.swift; sourceTree = "<group>"; };
 		A632D57B46DA145ADCE10292 /* ReactNativeContainer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactNativeContainer.swift; path = ModuleRuntime/ReactNativeContainer.swift; sourceTree = "<group>"; };
 		AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleRuntimeController.swift; path = ModuleRuntime/ModuleRuntimeController.swift; sourceTree = "<group>"; };
 		AD892F52CC60A67EF80BCB01 /* IntelligenceError.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceError.swift; path = Core/Intelligence/Contracts/IntelligenceError.swift; sourceTree = "<group>"; };
@@ -456,6 +487,11 @@
 			files = (
 				0D960245240024C1142077ED /* Foundation.framework in Frameworks */,
 				1175B13D8406B4BE1358B31A /* libPods-Modula.a in Frameworks */,
+				A80100000000000000000001 /* MLXLLM in Frameworks */,
+				A80100000000000000000002 /* MLXLMCommon in Frameworks */,
+				A80100000000000000000003 /* MLXHuggingFace in Frameworks */,
+				A80100000000000000000004 /* HuggingFace in Frameworks */,
+				A80100000000000000000005 /* Tokenizers in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -487,7 +523,6 @@
 		2ADAF6A38EF8AFA036ABB851 /* ModulaTests */ = {
 			isa = PBXGroup;
 			children = (
-				E30100000000000000000019 /* PostSystemTests.swift */,
 				N40100000000000000000012 /* N4CTests.swift */,
 				D40100000000000000000018 /* N4DTests.swift */,
 				A40100000000000000000017 /* N4ETests.swift */,
@@ -501,6 +536,7 @@
 				F00100000000000000000006 /* ProfileTests.swift */,
 				834A240ED776595650758ACA /* LI02IntelligenceTests.swift */,
 				A40300000000000000000002 /* LI03AppleProviderTests.swift */,
+				A6010000000000000000000D /* Nodus01Tests.swift */,
 			);
 			path = ModulaTests;
 			sourceTree = "<group>";
@@ -543,28 +579,6 @@
 		9BD2EB7E520E442D8B488FEA /* Modula */ = {
 			isa = PBXGroup;
 			children = (
-				A40100000000000000000001 /* AppLaunchState.swift */,
-				A40100000000000000000002 /* AppGate.swift */,
-				A40100000000000000000003 /* AppGateHost.swift */,
-				A40100000000000000000004 /* OnboardingModels.swift */,
-				A40100000000000000000005 /* OnboardingView.swift */,
-				A40100000000000000000006 /* FirstRunModels.swift */,
-				A40100000000000000000007 /* FirstRunView.swift */,
-				A40100000000000000000008 /* AppLockModels.swift */,
-				A40100000000000000000009 /* AppLockCredentialStore.swift */,
-				A4010000000000000000000A /* BiometricAuthService.swift */,
-				A4010000000000000000000B /* AppLockStore.swift */,
-				A4010000000000000000000C /* AppLockViews.swift */,
-				A4010000000000000000000D /* SettingsRegistry.swift */,
-				A4010000000000000000000E /* SettingsCategoryViews.swift */,
-				A4010000000000000000000F /* GreenfieldAccountClient.swift */,
-				A40100000000000000000010 /* AuthProductViews.swift */,
-				A40100000000000000000011 /* ReactionKind.swift */,
-				A40100000000000000000012 /* ReactionPeopleView.swift */,
-				A40100000000000000000013 /* ProfileFullBleedChrome.swift */,
-				A40100000000000000000014 /* ModuleDetailModels.swift */,
-				A40100000000000000000015 /* ModuleDetailV2View.swift */,
-				A40100000000000000000016 /* PublisherView.swift */,
 				084039C8EE9493F07C7F4946 /* AppEnvironment.swift */,
 				B8D0072715530545613031A3 /* ModulaApp.swift */,
 				CE413545A422ACB4BACBB3DF /* RootView.swift */,
@@ -663,14 +677,9 @@
 				A40100000000000000000015 /* ModuleDetailV2View.swift */,
 				A40100000000000000000016 /* PublisherView.swift */,
 				F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */,
-				G40100000000000000000001 /* ModulaSurfaceSystem.swift */,
-				G40100000000000000000002 /* EdgeLoopEngine.swift */,
-				G40100000000000000000003 /* EdgeLoopShape.swift */,
-				G40100000000000000000004 /* ModulaEdgeLoop.swift */,
 				G40100000000000000000008 /* EdgePickerPreferences.swift */,
 				G40100000000000000000009 /* EdgeLoopMetrics.swift */,
 				G4010000000000000000000A /* EdgePickerSettingsView.swift */,
-				G40100000000000000000006 /* TypographyPreview.swift */,
 				DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */,
 				F00100000000000000000001 /* ProfileModels.swift */,
 				F00100000000000000000002 /* ProfileRepository.swift */,
@@ -751,6 +760,18 @@
 				A4CC36E2CB4875EBEDB19A1A /* IntelligenceToolValidation.swift */,
 				4ED61D09324116C37F15191A /* IntelligenceValue.swift */,
 				00C3046A71D34C45B14E30AE /* IntelligenceDiagnosticsView.swift */,
+				A60100000000000000000001 /* NodusAnswer.swift */,
+				A60100000000000000000002 /* NodusFreshnessClassifier.swift */,
+				A60100000000000000000003 /* NodusConfidenceEngine.swift */,
+				A60100000000000000000004 /* NodusRuntime.swift */,
+				A60100000000000000000005 /* NodusIntelligenceProvider.swift */,
+				A60100000000000000000006 /* NodusVerificationContracts.swift */,
+				A60100000000000000000007 /* NodusLearningContracts.swift */,
+				A60100000000000000000008 /* NodusVerificationTrust.swift */,
+				A60100000000000000000009 /* NodusVerificationStore.swift */,
+				A6010000000000000000000A /* NodusLearningPipeline.swift */,
+				A6010000000000000000000B /* NodusArtifactInstaller.swift */,
+				A6010000000000000000000C /* MLXNodusRuntime.swift */,
 			);
 			path = Modula;
 			sourceTree = "<group>";
@@ -824,6 +845,13 @@
 			dependencies = (
 			);
 			name = Modula;
+			packageProductDependencies = (
+				A90100000000000000000001 /* MLXLLM */,
+				A90100000000000000000002 /* MLXLMCommon */,
+				A90100000000000000000003 /* MLXHuggingFace */,
+				A90100000000000000000004 /* HuggingFace */,
+				A90100000000000000000005 /* Tokenizers */,
+			);
 			productName = Modula;
 			productReference = 790594A395FC6962F78767AC /* Modula.app */;
 			productType = "com.apple.product-type.application";
@@ -866,6 +894,11 @@
 				Base,
 			);
 			mainGroup = 1E9E7B0936EA28660974E0DA;
+			packageReferences = (
+				AA0100000000000000000001 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */,
+				AA0100000000000000000002 /* XCRemoteSwiftPackageReference "swift-huggingface" */,
+				AA0100000000000000000003 /* XCRemoteSwiftPackageReference "swift-transformers" */,
+			);
 			productRefGroup = 388B9B4ACD3E9E4C0F090FA8 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -1038,6 +1071,7 @@
 				G50100000000000000000007 /* N4GTests.swift in Sources */,
 				2EEAA0F73DFB8DA7C4592A74 /* LI02IntelligenceTests.swift in Sources */,
 				A30300000000000000000002 /* LI03AppleProviderTests.swift in Sources */,
+				A7010000000000000000000D /* Nodus01Tests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1106,28 +1140,6 @@
 				N5010000000000000000000F /* ReelViewer.swift in Sources */,
 				N50100000000000000000010 /* ProfilePresentation.swift in Sources */,
 				N50100000000000000000011 /* ProfileCustomizationViews.swift in Sources */,
-				A50100000000000000000011 /* ReactionKind.swift in Sources */,
-				A50100000000000000000012 /* ReactionPeopleView.swift in Sources */,
-				A50100000000000000000001 /* AppLaunchState.swift in Sources */,
-				A50100000000000000000002 /* AppGate.swift in Sources */,
-				A50100000000000000000003 /* AppGateHost.swift in Sources */,
-				A50100000000000000000004 /* OnboardingModels.swift in Sources */,
-				A50100000000000000000005 /* OnboardingView.swift in Sources */,
-				A50100000000000000000006 /* FirstRunModels.swift in Sources */,
-				A50100000000000000000007 /* FirstRunView.swift in Sources */,
-				A50100000000000000000008 /* AppLockModels.swift in Sources */,
-				A50100000000000000000009 /* AppLockCredentialStore.swift in Sources */,
-				A5010000000000000000000A /* BiometricAuthService.swift in Sources */,
-				A5010000000000000000000B /* AppLockStore.swift in Sources */,
-				A5010000000000000000000C /* AppLockViews.swift in Sources */,
-				A5010000000000000000000D /* SettingsRegistry.swift in Sources */,
-				A5010000000000000000000E /* SettingsCategoryViews.swift in Sources */,
-				A5010000000000000000000F /* GreenfieldAccountClient.swift in Sources */,
-				A50100000000000000000010 /* AuthProductViews.swift in Sources */,
-				A50100000000000000000013 /* ProfileFullBleedChrome.swift in Sources */,
-				A50100000000000000000014 /* ModuleDetailModels.swift in Sources */,
-				A50100000000000000000015 /* ModuleDetailV2View.swift in Sources */,
-				A50100000000000000000016 /* PublisherView.swift in Sources */,
 				F50100000000000000000001 /* ModulaImmersiveSurfaces.swift in Sources */,
 				G50100000000000000000001 /* ModulaSurfaceSystem.swift in Sources */,
 				G50100000000000000000002 /* EdgeLoopEngine.swift in Sources */,
@@ -1171,11 +1183,6 @@
 				E706DA503AC96378DE9BE822 /* KeychainStore.swift in Sources */,
 				48EF6D3FADBF1FED0E9DC0F6 /* ModuleBackendRequest.swift in Sources */,
 				20DD2162957F75B8920F2E80 /* ModulaDesignSystem.swift in Sources */,
-				G50100000000000000000001 /* ModulaSurfaceSystem.swift in Sources */,
-				G50100000000000000000002 /* EdgeLoopEngine.swift in Sources */,
-				G50100000000000000000003 /* EdgeLoopShape.swift in Sources */,
-				G50100000000000000000004 /* ModulaEdgeLoop.swift in Sources */,
-				G50100000000000000000006 /* TypographyPreview.swift in Sources */,
 				4D06B1162F85CC39C781DF95 /* ShellComponents.swift in Sources */,
 				D5010000000000000000001B /* ModulaPullActions.swift in Sources */,
 				D5010000000000000000001C /* ModulaPullEffects.metal in Sources */,
@@ -1251,6 +1258,18 @@
 				98B1FF0A78D3F224FB40C690 /* IntelligenceToolValidation.swift in Sources */,
 				BEEBE251735247E8828B2F26 /* IntelligenceValue.swift in Sources */,
 				F55C4DEFC5031B25247EC2F9 /* IntelligenceDiagnosticsView.swift in Sources */,
+				A70100000000000000000001 /* NodusAnswer.swift in Sources */,
+				A70100000000000000000002 /* NodusFreshnessClassifier.swift in Sources */,
+				A70100000000000000000003 /* NodusConfidenceEngine.swift in Sources */,
+				A70100000000000000000004 /* NodusRuntime.swift in Sources */,
+				A70100000000000000000005 /* NodusIntelligenceProvider.swift in Sources */,
+				A70100000000000000000006 /* NodusVerificationContracts.swift in Sources */,
+				A70100000000000000000007 /* NodusLearningContracts.swift in Sources */,
+				A70100000000000000000008 /* NodusVerificationTrust.swift in Sources */,
+				A70100000000000000000009 /* NodusVerificationStore.swift in Sources */,
+				A7010000000000000000000A /* NodusLearningPipeline.swift in Sources */,
+				A7010000000000000000000B /* NodusArtifactInstaller.swift in Sources */,
+				A7010000000000000000000C /* MLXNodusRuntime.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1604,6 +1623,61 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		AA0100000000000000000001 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ml-explore/mlx-swift-lm";
+			requirement = {
+				kind = exactVersion;
+				version = 3.31.3;
+			};
+		};
+		AA0100000000000000000002 /* XCRemoteSwiftPackageReference "swift-huggingface" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/huggingface/swift-huggingface";
+			requirement = {
+				kind = exactVersion;
+				version = 0.11.0;
+			};
+		};
+		AA0100000000000000000003 /* XCRemoteSwiftPackageReference "swift-transformers" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/huggingface/swift-transformers";
+			requirement = {
+				kind = exactVersion;
+				version = 1.3.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A90100000000000000000001 /* MLXLLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0100000000000000000001 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
+			productName = MLXLLM;
+		};
+		A90100000000000000000002 /* MLXLMCommon */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0100000000000000000001 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
+			productName = MLXLMCommon;
+		};
+		A90100000000000000000003 /* MLXHuggingFace */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0100000000000000000001 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
+			productName = MLXHuggingFace;
+		};
+		A90100000000000000000004 /* HuggingFace */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0100000000000000000002 /* XCRemoteSwiftPackageReference "swift-huggingface" */;
+			productName = HuggingFace;
+		};
+		A90100000000000000000005 /* Tokenizers */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0100000000000000000003 /* XCRemoteSwiftPackageReference "swift-transformers" */;
+			productName = Tokenizers;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = EBDE83ED03DAF5CA2B5616B1 /* Project object */;
 }

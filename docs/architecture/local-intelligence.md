@@ -1,6 +1,6 @@
 # Local Intelligence (Native)
 
-Native Modula owns on-device intelligence. Greenfield Mission 01 defined shared **protocol semantics**; Mission 02 established the Swift foundation, and Mission 03 adds Apple Foundation Models as one local provider.
+Native Modula owns on-device intelligence. Greenfield Mission 01 defined shared **protocol semantics**; LI-02 established the Swift foundation, LI-03 added Apple Foundation Models, and N4X reconciled those accepted layers with the current native design plus the safe NODUS-01 infrastructure.
 
 > There is no JavaScript or Expo bridge between Greenfield and native intelligence.
 
@@ -27,14 +27,14 @@ IntelligenceRouter
         ▼
 ProviderRegistry
         │
-  ┌─────┴──────────────────┐
-  │                        │
-apple.system       modula.test.local
-LOCAL              DEBUG fixture
-  │
-FoundationModels
-  │
-SystemLanguageModel.default
+  ┌──────────┬─────────────────────┐
+  │          │                     │
+modula.nodus apple.system  modula.test.local
+LOCAL        LOCAL         DEBUG fixture
+  │            │
+accepted       FoundationModels
+artifact       │
+only           SystemLanguageModel.default
 ```
 
 ## Location
@@ -70,7 +70,7 @@ Deterministic; no cost/quality scoring. Among eligible candidates, the first pro
 | `preferLocal` | Available local first; else remote only if `remoteIntelligencePermitted` |
 | `allowRemote` | Still prefer available local; else available remote |
 
-The application registers `apple.system` first. DEBUG builds also register `modula.test.local` for its explicit diagnostic action; Release builds do not register the fixture. Apple failure or unavailability is never presented as a fixture success.
+The application registers `modula.nodus` and `apple.system` as lazy local providers. DEBUG builds also register `modula.test.local` for its explicit diagnostic action; Release builds do not register the fixture. Provider failure or unavailability is never presented as a fixture success. N4X ships no accepted Nodus artifact, so `modula.nodus` truthfully reports `modelNotInstalled` and cannot execute.
 
 ## Providers
 
@@ -124,13 +124,18 @@ without rewriting:
 - `IntelligenceToolRegistry`
 - `ModulaIntelligence` façade
 
-This leaves the Mission 04 slot independent:
+Nodus uses the same provider boundary without changing LI-02 contracts:
 
 ```text
 ProviderRegistry
+  ├── modula.nodus
   ├── apple.system
-  └── modula.local.nano   (future)
+  └── modula.test.local   (DEBUG fixture)
 ```
+
+### Nodus Provider
+
+`modula.nodus` is local, lazy, and independent of Apple Foundation Models. N4X integrates its confidence, freshness, abstention, verification-queue, reconciliation, learning-candidate, artifact-verification, cancellation, and unload contracts. It does not integrate an accepted model. The rejected experimental adapter is never discovered or loaded by the app; only a separately reviewed, hash-verified artifact placed in the accepted application-support directory can make the provider available.
 
 ## Runtime and error boundaries
 
@@ -147,7 +152,8 @@ ProviderRegistry
 
 ## Explicitly out of scope
 
-- CoreML weights / llama.cpp / MLX / remote LLM APIs
+- Remote LLM APIs and unrestricted native web research
+- An accepted Nodus model or consumer model installation flow
 - Token streaming, model downloads, convenience `summarize()` feature APIs
 - Hosted-module intelligence bridge
 - Tool *execution* into native actions (validation only)
@@ -155,3 +161,11 @@ ProviderRegistry
 ## Diagnostics
 
 `ModulaLog.intelligence` records structural metadata only (request ID, capability, provider ID, execution kind, duration, status, error code). Prompt/input/output and tool argument content are not logged by default.
+
+## N4X acceptance state
+
+- LI-02 and LI-03 are integrated in the current native design lineage.
+- The current accepted visual design remains authoritative; no historical intelligence-branch UI is restored.
+- Apple Foundation Models may report available in the iOS 26.5 simulator while real generation fails with `operationNotAllowed` because Simulator is unsupported. This is an expected environment limitation, not a remote fallback trigger.
+- Physical-iPhone inference remains deferred until hardware is available.
+- Nodus infrastructure is integrated, but there are no accepted Nodus weights and no automatic training or verification-to-training path.

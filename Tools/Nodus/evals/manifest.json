@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "revision": "nodus-evals-v0.1",
+  "frozenAt": "2026-09-21T00:00:00Z",
+  "heldOutFromTraining": true,
+  "caseCounts": {
+    "freshness": 6,
+    "general": 12,
+    "modula": 5,
+    "uncertainty": 2
+  },
+  "files": {
+    "freshness.jsonl": "sha256:6889267b3c2b4f39619e41af853b4798ebb037e12bbb8848758a66bb14844cd9",
+    "general.jsonl": "sha256:7b666630d65342819f7bbc797f6c502c8783b9951b70c79f71239b67066cb1fa",
+    "modula.jsonl": "sha256:efa3d69e79169ed51bdc6217840f245f300237b58adf7c46e94df29b1be16008",
+    "uncertainty.jsonl": "sha256:e4a66066f3d42d78d0a8199dcc2b72a2497ce35e91e75350f3c32466eb047f60"
+  },
+  "evaluator": {
+    "path": "scripts/evaluate.py",
+    "sha256": "03dc6ca678f1f06b41b6352f8b90a4247f9e56bfa3e52ece6999382488dea879",
+    "calibrationScope": "stable_non_abstention",
+    "freshnessRequires": "live-data recognition plus a recommendation to check current evidence",
+    "abstentionRequires": "an explicit inability to provide undocumented or unavailable facts"
+  }
+}

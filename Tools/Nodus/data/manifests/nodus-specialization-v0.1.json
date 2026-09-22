@@ -1,0 +1,31 @@
+{
+  "approvalState": "approved-for-experiment",
+  "baseModel": "Qwen/Qwen3-1.7B",
+  "baseRevision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+  "categoryDistribution": {
+    "modula": 36
+  },
+  "createdAt": "2026-09-21T00:00:00Z",
+  "datasetRevision": "nodus-specialization-v0.1",
+  "exampleCount": 36,
+  "files": {
+    "test": "860c96cce04cb1e72fabf6bc744a25451233024d7c37a65b717ee46cf3267b2a",
+    "train": "ebece8e52ef2ab688957bcc4b7cef73cb164339c05965fa9a001bf300b19aa4a",
+    "valid": "8f7ed394d33e683bc0179e44e9431a8fe6a8cdfcd9efd71dfdd340e84d0dc5b0"
+  },
+  "licenses": [
+    "CC0-1.0",
+    "Modula-internal"
+  ],
+  "manifestHash": "sha256:4b37b60d3ebca28bd6cdd2cfae1518bdf647169c51255f40c1f67752f338d5c4",
+  "parentManifestHash": "sha256:c989ff11f300cc6040b4edf9df9290e2566a38759d72d6ccf071c46c1933c962",
+  "parentRevision": "nodus-training-v0.1",
+  "privateProductionDataCount": 0,
+  "purpose": "bounded-modula-specialization-continuation",
+  "schemaVersion": 1,
+  "splitCounts": {
+    "test": 4,
+    "train": 29,
+    "valid": 3
+  }
+}
