@@ -49,13 +49,16 @@ struct StoryGroup: Identifiable, Hashable, Sendable {
     let author: ConversationParticipant
     var items: [StoryItem]
     var isOwn: Bool
+    var reportedRing: StoryRingState? = nil
 
     var ring: StoryRingState {
+        if let reportedRing { return reportedRing }
         if isOwn { return .own }
         return items.contains(where: { !$0.seen }) ? .unseen : .seen
     }
 
     var representative: StoryItem? { items.first }
+    var isComposerPlaceholder: Bool { id.hasPrefix("add:") || (isOwn && items.isEmpty) }
 }
 
 struct StoryBackendCapabilities: Sendable, Equatable {
@@ -67,13 +70,13 @@ struct StoryBackendCapabilities: Sendable, Equatable {
     var privacy = false
     var video = false
 
-    static let production = StoryBackendCapabilities()
+    static let production = StoryBackendCapabilities(list: true, create: true)
 
     enum Paths {
-        static let groups = "/v1/stories"
-        static func story(_ id: String) -> String { "/v1/stories/\(escape(id))" }
+        static let rail = "/v1/stories/rail"
+        static func group(_ id: String) -> String { "/v1/stories/\(escape(id))" }
         static let create = "/v1/stories"
-        static func viewers(_ id: String) -> String { "/v1/stories/\(escape(id))/viewers" }
+        static func viewed(_ id: String) -> String { "/v1/stories/items/\(escape(id))/viewed" }
 
         private static func escape(_ value: String) -> String {
             value.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? value
@@ -82,43 +85,97 @@ struct StoryBackendCapabilities: Sendable, Equatable {
 }
 
 enum StoryPayloadDecoder {
+    static func rail(from value: JSONValue) -> [StoryGroup] {
+        let items = value["items"]?.array ?? value["groups"]?.array ?? []
+        return items.compactMap(railEntry)
+    }
+
     static func groups(from value: JSONValue) -> [StoryGroup] {
+        if value["groupId"] != nil { return [value].compactMap(group) }
         let items = value["items"]?.array ?? value["groups"]?.array ?? value["stories"]?.array ?? []
         return items.compactMap(group)
     }
 
-    static func group(_ value: JSONValue) -> StoryGroup? {
-        let items = (value["items"]?.array ?? [value]).compactMap(item)
-        guard let first = items.first else { return nil }
+    static func railEntry(_ value: JSONValue) -> StoryGroup? {
+        let groupId = value["groupId"]?.string ?? value["id"]?.string
+        guard let groupId else { return nil }
+        let author = author(from: value, fallbackID: groupId)
+        let isOwn = value["isOwner"]?.bool ?? value["isOwn"]?.bool ?? false
         return StoryGroup(
-            id: value["id"]?.string ?? first.author.id,
-            author: first.author,
+            id: groupId,
+            author: author,
+            items: [],
+            isOwn: isOwn,
+            reportedRing: ringState(value["ringState"]?.string, isOwn: isOwn)
+        )
+    }
+
+    static func group(_ value: JSONValue) -> StoryGroup? {
+        let author = value["author"].flatMap(MessagingPayloadDecoder.participant)
+            ?? author(from: value, fallbackID: value["groupId"]?.string ?? value["id"]?.string ?? "unknown")
+        let items = (value["items"]?.array ?? [value]).compactMap { item($0, author: author, isOwn: value["isOwner"]?.bool ?? value["isOwn"]?.bool ?? false) }
+        let groupId = value["groupId"]?.string ?? value["id"]?.string ?? items.first?.author.id
+        guard let groupId, author.id != "unknown" || !items.isEmpty else { return nil }
+        let isOwn = value["isOwner"]?.bool ?? items.first?.isOwn ?? false
+        return StoryGroup(
+            id: groupId,
+            author: author,
             items: items,
-            isOwn: first.isOwn
+            isOwn: isOwn,
+            reportedRing: ringState(value["ringState"]?.string, isOwn: isOwn)
         )
     }
 
     static func item(_ value: JSONValue) -> StoryItem? {
-        let id = value["id"]?.string
+        item(value, author: value["author"].flatMap(MessagingPayloadDecoder.participant), isOwn: value["isOwn"]?.bool ?? false)
+    }
+
+    static func item(_ value: JSONValue, author: ConversationParticipant?, isOwn: Bool) -> StoryItem? {
+        let id = value["itemId"]?.string ?? value["id"]?.string
         guard let id else { return nil }
-        let author = value["author"].flatMap(MessagingPayloadDecoder.participant) ?? ConversationParticipant(
+        let resolvedAuthor = author ?? value["author"].flatMap(MessagingPayloadDecoder.participant) ?? ConversationParticipant(
             id: "unknown", handle: "", displayName: "Member", avatarURL: nil
         )
-        let kind = StoryKind(parsing: value["kind"]?.string ?? value["type"]?.string)
+        let mediaURL = url(value["mediaUrl"]?.string ?? value["url"]?.string)
         let media = value["media"].flatMap { MediaPayloadDecoder.resource(from: $0, fallbackID: id) }
+            ?? mediaURL.map { MediaResource(id: id, kind: StoryKind(parsing: value["mediaKind"]?.string ?? value["kind"]?.string) == .video ? .video : .image, url: $0) }
+        let kind = StoryKind(parsing: value["mediaKind"]?.string ?? value["kind"]?.string ?? value["type"]?.string)
         return StoryItem(
             id: id,
-            author: author,
+            author: resolvedAuthor,
             createdAt: MessagingPayloadDecoder.decodeDate(value["createdAt"]?.string) ?? Date(),
             expiresAt: MessagingPayloadDecoder.decodeDate(value["expiresAt"]?.string),
             kind: kind == .unknown && media != nil ? .image : kind,
             media: media,
-            text: value["text"]?.string,
+            text: value["caption"]?.string ?? value["text"]?.string,
             background: value["background"]?.string ?? value["colour"]?.string,
-            seen: value["seen"]?.bool ?? false,
-            isOwn: value["isOwn"]?.bool ?? false,
+            seen: value["viewed"]?.bool ?? value["seen"]?.bool ?? false,
+            isOwn: value["isOwn"]?.bool ?? isOwn,
             viewerCount: value["viewerCount"]?.int
         )
+    }
+
+    private static func author(from value: JSONValue, fallbackID: String) -> ConversationParticipant {
+        ConversationParticipant(
+            id: value["ownerProfileId"]?.string ?? value["ownerActorId"]?.string ?? fallbackID,
+            handle: value["handle"]?.string ?? "",
+            displayName: value["displayName"]?.string ?? value["handle"]?.string ?? "Member",
+            avatarURL: url(value["avatarUrl"]?.string ?? value["avatarUri"]?.string)
+        )
+    }
+
+    private static func ringState(_ raw: String?, isOwn: Bool) -> StoryRingState {
+        switch (raw ?? "").lowercased() {
+        case "unviewed", "partial", "unseen": .unseen
+        case "viewed", "seen": .seen
+        case "owner", "uploading", "failed", "own": .own
+        default: isOwn ? .own : .unseen
+        }
+    }
+
+    private static func url(_ raw: String?) -> URL? {
+        guard let raw, !raw.isEmpty else { return nil }
+        return URL(string: raw)
     }
 }
 
@@ -213,10 +270,47 @@ struct StoryBackendRepository: Sendable {
         self.capabilities = capabilities
     }
 
-    func groups() async throws -> [StoryGroup] {
-        guard capabilities.list else { throw APIError.unavailable("Story isn't available.") }
-        let value: JSONValue = try await client.json("GET", path: StoryBackendCapabilities.Paths.groups)
-        return StoryPayloadDecoder.groups(from: value)
+    func rail() async throws -> [StoryGroup] {
+        guard capabilities.list else { throw APIError.unavailable("Stories aren’t available.") }
+        let value: JSONValue = try await client.json("GET", path: StoryBackendCapabilities.Paths.rail)
+        return StoryPayloadDecoder.rail(from: value)
+    }
+
+    func group(id: String) async throws -> StoryGroup {
+        guard capabilities.list else { throw APIError.unavailable("Stories aren’t available.") }
+        let value: JSONValue = try await client.json("GET", path: StoryBackendCapabilities.Paths.group(id))
+        guard let group = StoryPayloadDecoder.group(value) else { throw APIError.invalidResponse }
+        return group
+    }
+
+    func create(image: PreparedImage, caption: String?) async throws -> StoryGroup {
+        guard capabilities.create else { throw APIError.unavailable("Story publishing isn’t available.") }
+        var body: [String: JSONValue] = [
+            "mediaKind": .string("image"),
+            "base64": .string(image.data.base64EncodedString()),
+            "contentType": .string(image.mimeType),
+            "width": .number(Double(image.width)),
+            "height": .number(Double(image.height))
+        ]
+        if let caption, !caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            body["caption"] = .string(caption)
+        }
+        let value: JSONValue = try await client.authenticatedJSON(
+            "POST",
+            path: StoryBackendCapabilities.Paths.create,
+            body: .object(body)
+        )
+        guard let group = StoryPayloadDecoder.group(value) else { throw APIError.invalidResponse }
+        return group
+    }
+
+    func markViewed(itemID: StoryID) async throws {
+        guard capabilities.list else { return }
+        _ = try await client.authenticatedJSON(
+            "POST",
+            path: StoryBackendCapabilities.Paths.viewed(itemID),
+            body: .object([:])
+        )
     }
 }
 
@@ -227,6 +321,8 @@ final class StoryStore {
     private(set) var groups: [StoryGroup] = []
     private(set) var loadState: MessagingLoadState = .idle
     private(set) var actionError: String?
+
+    func setActionError(_ message: String?) { actionError = message }
 
     init(client: GreenfieldClient, capabilities: StoryBackendCapabilities = .production) {
         self.repository = StoryBackendRepository(client: client, capabilities: capabilities)
@@ -251,19 +347,65 @@ final class StoryStore {
         }
         loadState = groups.isEmpty ? .loading : .refreshing
         do {
-            groups = try await repository.groups()
+            groups = try await repository.rail()
             loadState = .loaded
+            actionError = nil
         } catch {
-            loadState = groups.isEmpty ? .failed("Story isn't available.") : .loaded
-            actionError = "Story isn't available."
+            loadState = groups.isEmpty ? .failed("Stories aren’t available.") : .loaded
+            actionError = "Stories aren’t available."
         }
     }
 
     func group(containing storyID: StoryID) -> StoryGroup? {
-        groups.first { group in group.items.contains { $0.id == storyID } }
+        groups.first { group in group.items.contains { $0.id == storyID } || group.id == storyID }
+    }
+
+    func hydrate(groupID: String) async -> StoryGroup? {
+        guard !groupID.hasPrefix("add:") else { return groups.first(where: { $0.id == groupID }) }
+        do {
+            let loaded = try await repository.group(id: groupID)
+            upsert(loaded)
+            return loaded
+        } catch {
+            actionError = "This story isn’t available."
+            return groups.first(where: { $0.id == groupID })
+        }
+    }
+
+    func destination(for group: StoryGroup) async -> AppRoute? {
+        if group.isComposerPlaceholder {
+            return capabilities.create ? .stories(.create) : nil
+        }
+        let loaded = group.items.isEmpty ? await hydrate(groupID: group.id) : group
+        guard let loaded else { return nil }
+        let item = loaded.items.first(where: { !$0.seen }) ?? loaded.items.first
+        return item.map { .stories(.story($0.id)) }
+    }
+
+    func publish(image: PreparedImage, caption: String?) async -> Bool {
+        guard capabilities.create else { return false }
+        do {
+            let group = try await repository.create(image: image, caption: caption)
+            upsert(group)
+            actionError = nil
+            return true
+        } catch let api as APIError {
+            actionError = api.userFacingMessage
+            return false
+        } catch {
+            actionError = "Couldn’t share your story."
+            return false
+        }
     }
 
     func markSeen(storyID: StoryID) {
+        applySeen(storyID: storyID)
+        Task {
+            try? await repository.markViewed(itemID: storyID)
+        }
+    }
+
+    private func applySeen(storyID: StoryID) {
         groups = groups.map { group in
             var copy = group
             copy.items = group.items.map { item in
@@ -282,7 +424,20 @@ final class StoryStore {
                     viewerCount: item.viewerCount
                 )
             }
+            if copy.items.contains(where: { $0.id == storyID }), !copy.isOwn {
+                copy.reportedRing = copy.items.contains(where: { !$0.seen }) ? .unseen : .seen
+            }
             return copy
+        }
+    }
+
+    private func upsert(_ group: StoryGroup) {
+        if let index = groups.firstIndex(where: { $0.id == group.id || ($0.isOwn && group.isOwn) }) {
+            groups[index] = group
+        } else if group.isOwn {
+            groups.insert(group, at: 0)
+        } else {
+            groups.append(group)
         }
     }
 

@@ -6,6 +6,7 @@ struct RootView: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var systemContrast
     @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         @Bindable var navigation = app.navigation
         @Bindable var appearance = app.appearance
@@ -23,13 +24,15 @@ struct RootView: View {
         .environment(\.leadingInteractionInset, clearance.leading)
         .environment(\.edgePickerSide, edgeSide)
         .overlay(alignment: edgeSide == .right ? .trailing : .leading) {
-            if policy.contextRailVisible {
+            if policy.contextRailVisible, !navigation.sidebarPresented {
                 ShellEdgeLoop(route: navigation.currentRoute)
                     .ignoresSafeArea(edges: edgeSide == .right ? .trailing : .leading)
                     .padding(.bottom, 80)
                     .padding(.top, 48)
             }
         }
+        .modulaSidebarEdgeOpen()
+        .overlay { ShellSidebarHost() }
         .sheet(item: $navigation.presented) { presentation in
             ModulaSheet { PresentationView(presentation: presentation) }
         }
@@ -47,6 +50,15 @@ struct RootView: View {
         }
         .task {
             await app.catalogue.load()
+            if app.auth.isSignedIn {
+                await app.profile.loadIfNeeded(
+                    .me,
+                    handleHint: app.auth.account?.primaryHandle,
+                    accountHandle: app.auth.account?.primaryHandle,
+                    catalogue: app.catalogue.products
+                )
+            }
+            await refreshTabAvatar()
             app.refreshQuickActions()
             let installed = app.catalogue.installedIDs.compactMap { id -> (id: String, name: String)? in
                 guard let product = app.catalogue.product(id) else { return (id, id) }
@@ -77,6 +89,21 @@ struct RootView: View {
                 app.runtime.lifecycle("inactive")
             }
         }
+        .onChange(of: app.auth.account?.accountId) { _, _ in
+            Task {
+                guard app.auth.isSignedIn else { return }
+                await app.profile.loadIfNeeded(
+                    .me,
+                    handleHint: app.auth.account?.primaryHandle,
+                    accountHandle: app.auth.account?.primaryHandle,
+                    catalogue: app.catalogue.products
+                )
+                await refreshTabAvatar()
+            }
+        }
+        .onChange(of: app.profile.ownProfile?.avatarURL) { _, _ in
+            Task { await refreshTabAvatar() }
+        }
         .onChange(of: appearance.contrastTransparency) { _, value in
             if value == .reduceTransparency || systemReduceTransparency { navigation.banner = nil }
         }
@@ -89,7 +116,7 @@ struct RootView: View {
             tabs(navigation: navigation)
                 .toolbar(policy.bottomBarVisible ? .visible : .hidden, for: .tabBar)
                 .tabViewBottomAccessory(isEnabled: policy.shellAccessoryVisible) {
-                    ShellAccessoryHost(route: navigation.currentRoute, nativeHosted: true)
+                    ShellAccessorySystemSlot(route: navigation.currentRoute)
                 }
                 .tabBarMinimizeBehavior(.onScrollDown)
         } else if #available(iOS 26.0, *) {
@@ -97,7 +124,7 @@ struct RootView: View {
                 .toolbar(policy.bottomBarVisible ? .visible : .hidden, for: .tabBar)
                 .tabViewBottomAccessory {
                     if policy.shellAccessoryVisible {
-                        ShellAccessoryHost(route: navigation.currentRoute, nativeHosted: true)
+                        ShellAccessorySystemSlot(route: navigation.currentRoute)
                     }
                 }
                 .tabBarMinimizeBehavior(.onScrollDown)
@@ -120,18 +147,55 @@ struct RootView: View {
                     RouteView(route: navigation.root(for: tab))
                         .navigationDestination(for: AppRoute.self) { RouteView(route: $0) }
                 }
+                .modulaSoftScrollEdge()
                 .tabItem {
-                    Label(tab.title, systemImage: navigation.selectedTab == tab ? tab.selectedIcon : tab.icon)
+                    if tab == .profile {
+                        Image(uiImage: app.profile.tabBarAvatar ?? ProfileTabAvatarRenderer.placeholder(
+                            initials: ProfileTabAvatarRenderer.initials(profile: app.profile.ownProfile, account: app.auth.account),
+                            accent: UIColor(app.appearance.accent.color)
+                        ))
+                        .renderingMode(.original)
+                        Text(tab.title)
+                    } else {
+                        Label(tab.title, systemImage: navigation.selectedTab == tab ? tab.selectedIcon : tab.icon)
+                            .symbolEffect(.bounce, value: navigation.selectedTab == tab)
+                            .contentTransition(.symbolEffect(.replace))
+                    }
                 }
                 .tag(tab)
             }
         }
+        .overlay {
+            ProfileTabBarAvatarApplicator(image: app.profile.tabBarAvatar)
+                .frame(width: 0, height: 0)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            TabBarIconMotionApplicator(
+                selectedTab: navigation.selectedTab,
+                reduceMotion: reduceMotion
+            )
+            .frame(width: 0, height: 0)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
+    }
+
+    private func refreshTabAvatar() async {
+        await app.profile.refreshTabBarAvatar(
+            account: app.auth.account,
+            accent: UIColor(app.appearance.accent.color)
+        )
     }
 }
 
 private struct RouteView: View {
     let route: AppRoute
     var body: some View {
+        destination.modulaSoftScrollEdge()
+    }
+
+    @ViewBuilder
+    private var destination: some View {
         switch route {
         case .boot: BootSplashView()
         case .auth(let route): AuthRouteView(route: route)
@@ -186,6 +250,11 @@ private struct PresentationView: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
+        destination.modulaSoftScrollEdge()
+    }
+
+    @ViewBuilder
+    private var destination: some View {
         switch presentation {
         case .composer(let route): CreationStudioView(route: route)
         case .share(let route):
@@ -203,7 +272,9 @@ private struct PresentationView: View {
         case .discoverFilter: DiscoverFilterSheet()
         case .homeSummary: HomeSummarySheet()
         case .homeFeedTools: HomeFeedToolsSheet()
+        case .homeFeeds: HomeFeedsSheet()
         case .commandCenter: CommandCenterView(context: commandContext)
+        case .intelligenceChat: IntelligenceChatView()
         case .createPicker: CreateActionPicker()
         case .universalShare(let payload): ModulaShareSheet(payload: payload)
         case .collectionPicker(let postID): CollectionPicker(postID: postID)
@@ -251,7 +322,11 @@ private struct PresentationView: View {
 
 struct DevelopmentRouteView: View {
     var title: String; var symbol: String
-    var body: some View { ModulaEmptyState(title: title, message: "This destination isn’t part of the current product surface.", symbol: symbol).navigationTitle(title) }
+    var body: some View {
+        ModulaEmptyState(title: title, message: "This destination isn’t part of the current product surface.", symbol: symbol)
+            .modulaSoftScrollEdge()
+            .navigationTitle(title)
+    }
 }
 struct ComposerFoundationView: View {
     let route: ComposeRoute

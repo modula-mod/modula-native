@@ -29,6 +29,7 @@ struct ReactionPeopleView: View {
                 Text(message)
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Reactions")
         .accessibilityIdentifier("post.people.reactions")
     }

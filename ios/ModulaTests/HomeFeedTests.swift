@@ -107,7 +107,7 @@ final class HomeFeedTests: XCTestCase {
         XCTAssertFalse(policy.showsBack)
         let config = ShellAccessoryConfiguration.configuration(for: .home(.following), activity: nil, signedIn: true)
         XCTAssertEqual(config.title, "Tools")
-        XCTAssertEqual(config.actions.map(\.id), ["compose", "summary", "tools"])
+        XCTAssertEqual(config.actions.map(\.id), ["feeds", "summary", "tools"])
         XCTAssertFalse(config.showsSearch)
         XCTAssertFalse(config.showsMore)
     }

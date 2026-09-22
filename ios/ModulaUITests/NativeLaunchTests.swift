@@ -67,7 +67,7 @@ final class N2PolishAccessibilityUITests: XCTestCase {
             XCTAssertTrue(element.exists, "Missing native tab \(title)")
             XCTAssertTrue(element.isHittable, "Unreachable native tab \(title)")
         }
-        for identifier in ["accessory.compose", "accessory.summary", "accessory.tools"] {
+        for identifier in ["accessory.feeds", "accessory.summary", "accessory.tools"] {
             let element = app.descendants(matching: .any)[identifier]
             XCTAssertTrue(element.exists, "Missing shell control \(identifier)")
             XCTAssertTrue(element.isHittable, "Unreachable shell control \(identifier)")
@@ -90,7 +90,7 @@ final class N2PolishAccessibilityUITests: XCTestCase {
             "--runtime-unavailable", "--reset-appearance", "--ui-oled", "--ui-large-text", "--ui-reduce-transparency",
             "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityExtraExtraLarge"
         ])
-        XCTAssertTrue(app.descendants(matching: .any)["accessory.compose"].firstMatch.isHittable
+        XCTAssertTrue(app.descendants(matching: .any)["accessory.feeds"].firstMatch.isHittable
             || app.descendants(matching: .any)["tab.accessory"].firstMatch.exists)
         XCTAssertTrue(app.tabBars.buttons["Home"].firstMatch.isHittable)
         XCTAssertTrue(app.buttons["For You"].firstMatch.isHittable)
@@ -917,7 +917,7 @@ final class N3CHomeUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["home.hero"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertFalse(app.descendants(matching: .any)["home.sign-in"].firstMatch.exists)
 
-        XCTAssertTrue(app.descendants(matching: .any)["accessory.compose"].firstMatch.exists)
+        XCTAssertTrue(app.descendants(matching: .any)["accessory.feeds"].firstMatch.exists)
         XCTAssertTrue(app.descendants(matching: .any)["accessory.summary"].firstMatch.exists)
         XCTAssertTrue(app.descendants(matching: .any)["accessory.tools"].firstMatch.exists)
 

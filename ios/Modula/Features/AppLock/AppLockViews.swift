@@ -235,6 +235,7 @@ struct PasscodeSetupView: View {
                 .accessibilityLabel("Cancel")
         }
         .padding(24)
+        .modulaSoftScrollEdge()
         .navigationTitle(title)
         .accessibilityIdentifier("applock.setup")
     }

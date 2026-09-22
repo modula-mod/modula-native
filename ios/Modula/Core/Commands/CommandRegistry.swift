@@ -253,6 +253,17 @@ enum CommandRegistry {
     private static func openCommands(capabilities: CommandCapabilitySnapshot) -> [ModulaCommand] {
         var items: [ModulaCommand] = [
             .init(
+                id: "open.intelligence.chat",
+                title: "AI Chat",
+                subtitle: "On-device intelligence",
+                icon: .init("sparkle"),
+                category: .open,
+                availability: .available,
+                action: .presentIntelligenceChat,
+                aliases: ["ai", "assistant", "intelligence", "apple intelligence"],
+                accessibilityHint: "Opens the on-device AI chat"
+            ),
+            .init(
                 id: "open.messages",
                 title: "Open Messages",
                 icon: .init("bubble.left.and.bubble.right"),
@@ -286,7 +297,7 @@ enum CommandRegistry {
                 title: "View Stories",
                 icon: .init("circle.dashed"),
                 category: .open,
-                availability: .unavailable,
+                availability: .available,
                 action: .routeOpen(.stories(.root)),
                 aliases: ["stories"],
                 accessibilityHint: "Opens Stories"

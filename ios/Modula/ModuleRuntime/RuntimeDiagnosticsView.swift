@@ -36,7 +36,9 @@ struct RuntimeDiagnosticsView: View {
                 LabeledContent("Accent", value: session.environment.accent)
                 if let error = session.error { Text(error) }
             }
-        }.navigationTitle("Runtime diagnostics")
+        }
+        .modulaSoftScrollEdge()
+        .navigationTitle("Runtime diagnostics")
     }
     private func metric(_ label: String, _ value: Double?, unit: String, id: String) -> some View {
         LabeledContent(label, value: value.map { String(format: "%.1f %@", $0, unit) } ?? "pending")

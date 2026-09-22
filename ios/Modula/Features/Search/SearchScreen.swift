@@ -67,6 +67,7 @@ struct SearchScreen: View {
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.bottom, 28)
         }
+        .modulaSoftScrollEdge()
         .modulaCanvas()
         .navigationTitle("Search")
         .navigationBarTitleDisplayMode(.inline)

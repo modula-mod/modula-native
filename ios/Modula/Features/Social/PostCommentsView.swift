@@ -175,6 +175,7 @@ struct PostCommentsView: View {
                     }
                 }
                 .listStyle(.plain)
+                .modulaSoftScrollEdge()
             }
         } else {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -2,27 +2,51 @@ import SwiftUI
 
 struct DiscoverSearchEntry: View {
     var action: () -> Void
+    var onCustomise: () -> Void
+    var onRefresh: () -> Void
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Text("Search people, posts, topics, modules")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                Spacer(minLength: 0)
+        let opaque = reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
+        HStack(spacing: 0) {
+            Button(action: action) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.body.weight(.semibold))
+                    Text("Search people, posts, topics")
+                        .font(.body)
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                }
+                .foregroundStyle(.secondary)
+                .padding(.leading, 14)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 16)
-            .frame(minHeight: 44)
-            .background(.thinMaterial, in: Capsule())
+            .buttonStyle(.plain)
+            .accessibilityLabel("Search people, posts, topics, modules")
+            .accessibilityIdentifier("discover.search-entry")
+            .accessibilityHint("Opens Search")
+
+            ModulaChromeIconButton(title: "Customise", symbol: "slider.horizontal.3", action: onCustomise)
+                .accessibilityIdentifier("discover.customise")
+
+            Menu {
+                Button("Customise", systemImage: "slider.horizontal.3", action: onCustomise)
+                Button("Refresh", systemImage: "arrow.clockwise", action: onRefresh)
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.body.weight(.semibold))
+                    .frame(width: ModulaChromeMetrics.iconHit, height: ModulaChromeMetrics.iconHit)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Options")
+            .accessibilityIdentifier("discover.options")
+            .padding(.trailing, 2)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Search people, posts, topics, modules")
-        .accessibilityIdentifier("discover.search-entry")
-        .accessibilityHint("Opens Search")
+        .modulaChrome(in: Capsule(), opaque: opaque)
     }
 }
 

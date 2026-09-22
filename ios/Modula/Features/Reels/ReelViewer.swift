@@ -93,6 +93,7 @@ struct ReelFeedView: View {
             }
             .scrollTargetLayout()
         }
+        .modulaSoftScrollEdge()
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: Binding(
             get: { app.reels.activeID },

@@ -21,6 +21,7 @@ struct InMailInboxView: View {
             search
             content
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("In-Mail")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -79,6 +80,7 @@ struct InMailInboxView: View {
                 .buttonStyle(.plain)
             }
             .listStyle(.plain)
+            .modulaSoftScrollEdge()
         }
     }
 }
@@ -138,6 +140,7 @@ struct InMailThreadView: View {
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.vertical, 16)
         }
+        .modulaSoftScrollEdge()
         .navigationTitle(thread?.subject ?? "In-Mail")
         .navigationBarTitleDisplayMode(.inline)
         .task { await app.inMail.loadThread(threadID) }
@@ -255,6 +258,7 @@ struct InMailComposer: View {
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.vertical, 16)
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("New In-Mail")
         .accessibilityIdentifier("inmail.compose")
         .onChange(of: mail.draft) { _, draft in

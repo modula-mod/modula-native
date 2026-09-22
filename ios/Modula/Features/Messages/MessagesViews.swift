@@ -35,6 +35,7 @@ struct ConversationListView: View {
             searchField
             content
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Messages")
         .navigationBarTitleDisplayMode(.large)
         .task { await app.messaging.loadInboxIfNeeded() }
@@ -98,6 +99,7 @@ struct ConversationListView: View {
                 }
             }
             .listStyle(.plain)
+            .modulaSoftScrollEdge()
         }
     }
 
@@ -278,6 +280,7 @@ struct ConversationView: View {
             composer
         }
         .navigationBarTitleDisplayMode(.inline)
+        .modulaSoftScrollEdge()
         .navigationTitle("")
         .task { await app.messaging.loadThreadIfNeeded(conversationID) }
         .refreshable { await app.messaging.refreshThread(conversationID) }
@@ -334,6 +337,7 @@ struct ConversationView: View {
                 .padding(.horizontal, ModulaLayout.contentInset)
                 .padding(.vertical, 12)
             }
+            .modulaSoftScrollEdge()
         }
     }
 
@@ -491,6 +495,7 @@ struct MessageRequestsView: View {
             MessagesScopePicker(selection: .requests)
             content
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Requests")
         .task { await app.messaging.loadRequestsIfNeeded() }
         .refreshable { await app.messaging.refreshRequests() }
@@ -535,6 +540,7 @@ struct MessageRequestsView: View {
                 }
             }
             .listStyle(.plain)
+            .modulaSoftScrollEdge()
         }
     }
 }
@@ -581,6 +587,7 @@ struct NewConversationView: View {
             message: "Starting a conversation isn’t available yet.",
             symbol: "square.and.pencil"
         )
+        .modulaSoftScrollEdge()
         .navigationTitle("New")
         .accessibilityIdentifier("messages.new")
     }

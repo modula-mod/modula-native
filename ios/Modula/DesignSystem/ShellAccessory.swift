@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Shell accessory configuration
 
@@ -29,7 +30,7 @@ struct ShellAccessoryConfiguration: Equatable {
                 symbol: "bell",
                 actions: [
                     ShellAccessoryAction(id: "summary", title: "Summary", symbol: "sparkles", enabled: signedIn, accessibilityIdentifier: "accessory.summary"),
-                    ShellAccessoryAction(id: "filter", title: "Filter", symbol: "line.3.horizontal.decrease", enabled: signedIn, accessibilityIdentifier: "accessory.filter"),
+                    ShellAccessoryAction(id: "filter", title: "Options", symbol: "line.3.horizontal.decrease", enabled: signedIn, accessibilityIdentifier: "accessory.filter"),
                     ShellAccessoryAction(id: "mark-read", title: "Mark All Read", symbol: "checkmark.circle", enabled: signedIn && hasUnread, accessibilityIdentifier: "accessory.mark-read")
                 ],
                 showsSearch: false,
@@ -40,7 +41,7 @@ struct ShellAccessoryConfiguration: Equatable {
                 title: "Tools",
                 symbol: "house",
                 actions: [
-                    ShellAccessoryAction(id: "compose", title: "Compose", symbol: "square.and.pencil", enabled: true, accessibilityIdentifier: "accessory.compose"),
+                    ShellAccessoryAction(id: "feeds", title: "Feeds", symbol: "number", enabled: true, accessibilityIdentifier: "accessory.feeds"),
                     ShellAccessoryAction(id: "summary", title: "Summary", symbol: "sparkles", enabled: true, accessibilityIdentifier: "accessory.summary"),
                     ShellAccessoryAction(id: "tools", title: "Tools", symbol: "slider.horizontal.3", enabled: true, accessibilityIdentifier: "accessory.tools")
                 ],
@@ -52,12 +53,11 @@ struct ShellAccessoryConfiguration: Equatable {
                 title: "Tools",
                 symbol: "safari",
                 actions: [
-                    ShellAccessoryAction(id: "search", title: "Search", symbol: "magnifyingglass", enabled: true, accessibilityIdentifier: "accessory.search"),
-                    ShellAccessoryAction(id: "filter", title: "Filters", symbol: "line.3.horizontal.decrease", enabled: true, accessibilityIdentifier: "accessory.filter"),
+                    ShellAccessoryAction(id: "customise", title: "Customise", symbol: "slider.horizontal.3", enabled: true, accessibilityIdentifier: "accessory.customise"),
                     ShellAccessoryAction(id: "refresh", title: "Refresh", symbol: "arrow.clockwise", enabled: true, accessibilityIdentifier: "accessory.refresh")
                 ],
                 showsSearch: false,
-                showsMore: false
+                showsMore: true
             )
         case .search:
             return Self(title: "Search", symbol: "magnifyingglass", actions: [], showsSearch: false, showsMore: false)
@@ -81,12 +81,317 @@ struct ShellAccessoryConfiguration: Equatable {
     }
 }
 
+enum ShellIntelligenceChatMetrics {
+    static let buttonSize: CGFloat = 48
+    static let dockSpacing: CGFloat = 10
+}
+
+/// Detached circular AI control — same language as the Music-style side buttons.
+struct ShellIntelligenceChatButton: View {
+    var compact = false
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @State private var pulse = 0
+
+    static var symbolName: String {
+        UIImage(systemName: "pencil.and.scribble") == nil ? "square.and.pencil" : "pencil.and.scribble"
+    }
+
+    var body: some View {
+        let opaque = reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
+        let size: CGFloat = compact ? 28 : ShellIntelligenceChatMetrics.buttonSize
+        Button {
+            pulse += 1
+            PresentationCoordinator.present(.intelligenceChat, in: app.navigation)
+            HapticEngine.shared.play(.contextOpen)
+        } label: {
+            Image(systemName: Self.symbolName)
+                .font(.system(size: compact ? 15 : 17, weight: .semibold))
+                .foregroundStyle(app.appearance.accent.color)
+                .symbolEffect(.bounce, value: pulse)
+                .frame(width: size, height: size)
+                .modifier(ShellIntelligenceChatChrome(compact: compact, opaque: opaque))
+                .modifier(ShellIntelligenceShimmer(isActive: !compact && !opaque))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("AI Chat")
+        .accessibilityHint("Opens on-device intelligence chat")
+        .accessibilityIdentifier("accessory.intelligence.chat")
+    }
+}
+
+private struct ShellIntelligenceChatChrome: ViewModifier {
+    var compact: Bool
+    var opaque: Bool
+
+    func body(content: Content) -> some View {
+        if compact {
+            content
+        } else {
+            content.modulaChrome(in: Circle(), opaque: opaque)
+        }
+    }
+}
+
+private struct ShellIntelligenceShimmer: ViewModifier {
+    var isActive: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(AppEnvironment.self) private var app
+
+    func body(content: Content) -> some View {
+        if !isActive || reduceMotion {
+            content
+        } else {
+            TimelineView(.animation(minimumInterval: 1 / 24)) { timeline in
+                let period = app.appearance.motion == .calm ? 5.2 : 3.8
+                let phase = timeline.date.timeIntervalSinceReferenceDate
+                    .truncatingRemainder(dividingBy: period) / period
+                content.overlay {
+                    Circle()
+                        .stroke(
+                            AngularGradient(
+                                stops: [
+                                    .init(color: .clear, location: 0),
+                                    .init(color: .clear, location: 0.58),
+                                    .init(color: Color.white.opacity(0.72), location: 0.74),
+                                    .init(color: app.appearance.accent.color.opacity(0.55), location: 0.84),
+                                    .init(color: .clear, location: 0.96)
+                                ],
+                                center: .center,
+                                angle: .degrees(phase * 360)
+                            ),
+                            lineWidth: 1.5
+                        )
+                        .allowsHitTesting(false)
+                }
+            }
+        }
+    }
+}
+
+/// Tools row + detached AI circle.
+struct ShellAccessoryDock: View {
+    let route: AppRoute
+    var toolsChrome = true
+
+    var body: some View {
+        HStack(spacing: ShellIntelligenceChatMetrics.dockSpacing) {
+            ShellAccessoryHost(route: route, nativeHosted: !toolsChrome)
+                .frame(maxWidth: .infinity, minHeight: ShellIntelligenceChatMetrics.buttonSize)
+            ShellIntelligenceChatButton()
+        }
+        .padding(.horizontal, 14)
+        .accessibilityElement(children: .contain)
+    }
+}
+
+/// System accessory only — width stays with the tab view.
+/// Inline vs expanded comes from `tabViewBottomAccessoryPlacement`.
+@available(iOS 26.0, *)
+struct ShellAccessorySystemSlot: View {
+    let route: AppRoute
+    @Environment(\.tabViewBottomAccessoryPlacement) private var placement
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        if placement == .inline {
+            inlineAccessory
+        } else {
+            ShellAccessoryDock(route: route, toolsChrome: false)
+                .background {
+                    TabAccessoryPlatterController(hidesExpandedPlatter: true)
+                        .frame(width: 0, height: 0)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+        }
+    }
+
+    private var inlineAccessory: some View {
+        let config = ShellAccessoryConfiguration.configuration(
+            for: route,
+            activity: app.activity,
+            signedIn: app.auth.isSignedIn
+        )
+        return HStack(spacing: 8) {
+            Image(systemName: config.symbol)
+            Text(config.title)
+                .lineLimit(1)
+        }
+        .font(.subheadline.weight(.semibold))
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(config.title)
+        .accessibilityIdentifier("tab.accessory")
+    }
+}
+
+@available(iOS 26.0, *)
+private struct TabAccessoryPlatterController: UIViewRepresentable {
+    var hidesExpandedPlatter: Bool
+
+    func makeUIView(context: Context) -> TabAccessoryPlatterHook {
+        let hook = TabAccessoryPlatterHook()
+        hook.hidesExpandedPlatter = hidesExpandedPlatter
+        return hook
+    }
+
+    func updateUIView(_ hook: TabAccessoryPlatterHook, context: Context) {
+        hook.hidesExpandedPlatter = hidesExpandedPlatter
+        hook.applySoon()
+    }
+}
+
+/// Strips the system accessory glass capsule without touching our hosting content.
+private final class TabAccessoryPlatterHook: UIView {
+    var hidesExpandedPlatter = true
+    private var hiddenViews: [UIView] = []
+    private var clearedEffects: [(UIVisualEffectView, UIVisualEffect?)] = []
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        isHidden = true
+        backgroundColor = .clear
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        applySoon()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        applySoon()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        applySoon()
+    }
+
+    func applySoon() {
+        apply()
+        DispatchQueue.main.async { [weak self] in self?.apply() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in self?.apply() }
+    }
+
+    func apply() {
+        if shouldHidePlatter() {
+            neutralize()
+        } else {
+            restore()
+        }
+    }
+
+    private func shouldHidePlatter() -> Bool {
+        if #available(iOS 26.0, *) {
+            if traitCollection.tabAccessoryEnvironment == .inline { return false }
+        }
+        return hidesExpandedPlatter
+    }
+
+    private func neutralize() {
+        let hosting = hostingAncestor()
+        var current: UIView? = self
+        var outsideHosting = hosting == nil
+        while let view = current {
+            if view is UITabBar || view is UIWindow { break }
+            if let hosting, view === hosting {
+                view.backgroundColor = .clear
+                view.isOpaque = false
+                outsideHosting = true
+                current = view.superview
+                continue
+            }
+            guard outsideHosting else {
+                current = view.superview
+                continue
+            }
+            view.backgroundColor = .clear
+            view.isOpaque = false
+            if let effectView = view as? UIVisualEffectView {
+                clearEffect(effectView)
+                for subview in effectView.subviews where subview !== effectView.contentView {
+                    conceal(subview)
+                }
+            }
+            if let parent = view.superview {
+                for sibling in parent.subviews where sibling !== view {
+                    concealChromeSibling(sibling)
+                }
+            }
+            current = view.superview
+        }
+    }
+
+    private func hostingAncestor() -> UIView? {
+        var current: UIView? = self
+        while let view = current {
+            if String(describing: type(of: view)).localizedCaseInsensitiveContains("Hosting") {
+                return view
+            }
+            current = view.superview
+        }
+        return nil
+    }
+
+    private func restore() {
+        hiddenViews.forEach { $0.isHidden = false; $0.alpha = 1 }
+        hiddenViews.removeAll()
+        clearedEffects.forEach { $0.0.effect = $0.1 }
+        clearedEffects.removeAll()
+    }
+
+    private func clearEffect(_ effectView: UIVisualEffectView) {
+        guard effectView.effect != nil else { return }
+        if !clearedEffects.contains(where: { $0.0 === effectView }) {
+            clearedEffects.append((effectView, effectView.effect))
+        }
+        effectView.effect = nil
+        effectView.backgroundColor = .clear
+        effectView.isOpaque = false
+    }
+
+    private func concealChromeSibling(_ view: UIView) {
+        if view is UITabBar { return }
+        let name = String(describing: type(of: view))
+        if name.localizedCaseInsensitiveContains("Hosting") { return }
+        if name.localizedCaseInsensitiveContains("TabBar"),
+           !name.localizedCaseInsensitiveContains("Accessory") {
+            return
+        }
+        if isChrome(view) {
+            conceal(view)
+            return
+        }
+        view.subviews.forEach(concealChromeSibling)
+    }
+
+    private func isChrome(_ view: UIView) -> Bool {
+        if view is UIVisualEffectView { return true }
+        let name = String(describing: type(of: view)).lowercased()
+        return ["glass", "effect", "platter", "backdrop", "material", "chrome", "visual"]
+            .contains { name.contains($0) }
+    }
+
+    private func conceal(_ view: UIView) {
+        guard !hiddenViews.contains(where: { $0 === view }) else { return }
+        view.isHidden = true
+        view.alpha = 0
+        hiddenViews.append(view)
+    }
+}
+
 /// Destination-scoped tool accessory. Modes stay on the context rail.
 struct ShellAccessoryHost: View {
     let route: AppRoute
     var nativeHosted = false
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @State private var iconPulse: [String: Int] = [:]
 
     var body: some View {
         let config = ShellAccessoryConfiguration.configuration(
@@ -100,6 +405,7 @@ struct ShellAccessoryHost: View {
                 .foregroundStyle(app.appearance.accent.color)
                 .frame(width: 24, height: 24)
                 .background(app.appearance.accent.color.opacity(0.12), in: Circle())
+                .symbolEffect(.bounce, value: config.symbol)
                 .contentTransition(.symbolEffect(.replace))
             Text(config.title)
                 .font(.system(size: 13, weight: .semibold))
@@ -108,10 +414,12 @@ struct ShellAccessoryHost: View {
             ForEach(config.actions) { action in
                 if action.enabled {
                     Button {
+                        iconPulse[action.id, default: 0] += 1
                         perform(action)
                     } label: {
                         Image(systemName: action.symbol)
                             .font(.system(size: 15, weight: .semibold))
+                            .symbolEffect(.bounce, value: iconPulse[action.id, default: 0])
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                     }
@@ -122,11 +430,13 @@ struct ShellAccessoryHost: View {
             }
             if config.showsSearch {
                 Button {
+                    iconPulse["search", default: 0] += 1
                     app.navigation.open(.search(.root(nil)))
                     HapticEngine.shared.play(.navigation)
                 } label: {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 15, weight: .semibold))
+                        .symbolEffect(.bounce, value: iconPulse["search", default: 0])
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
@@ -138,9 +448,9 @@ struct ShellAccessoryHost: View {
                 moreMenu
             }
         }
-        .padding(.leading, nativeHosted ? 2 : 8)
-        .padding(.trailing, nativeHosted ? 2 : 6)
-        .frame(maxWidth: nativeHosted ? .infinity : 310, minHeight: 36)
+        .padding(.leading, 10)
+        .padding(.trailing, 6)
+        .frame(maxWidth: .infinity, minHeight: ShellIntelligenceChatMetrics.buttonSize)
         .modulaAccessorySurface(
             nativeHosted: nativeHosted,
             opaque: reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
@@ -201,9 +511,13 @@ struct ShellAccessoryHost: View {
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: 16, weight: .bold))
+                .symbolEffect(.bounce, value: iconPulse["more", default: 0])
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
+        .simultaneousGesture(TapGesture().onEnded {
+            iconPulse["more", default: 0] += 1
+        })
         .accessibilityLabel("More")
         .accessibilityIdentifier("accessory.more")
     }
@@ -211,9 +525,10 @@ struct ShellAccessoryHost: View {
     private func perform(_ action: ShellAccessoryAction) {
         HapticEngine.shared.play(.selection)
         switch action.id {
-        case "compose":
-            app.navigation.open(.compose(.post))
-            HapticEngine.shared.play(.navigation)
+        case "feeds":
+            PresentationCoordinator.present(.homeFeeds, in: app.navigation)
+        case "customise":
+            PresentationCoordinator.present(.discoverFilter, in: app.navigation)
         case "summary":
             if case .home = route {
                 PresentationCoordinator.present(.homeSummary, in: app.navigation)
@@ -279,7 +594,7 @@ struct ModulaBottomChrome: View {
     var body: some View {
         VStack(spacing: 0) {
             if showsAccessory {
-                ShellAccessoryHost(route: route, nativeHosted: true)
+                ShellAccessoryDock(route: route)
                     .padding(.horizontal, 8)
                     .padding(.top, 4)
                     .padding(.bottom, 2)
@@ -304,6 +619,7 @@ struct ModulaTabBar: View {
     var embedded = false
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         @Bindable var navigation = app.navigation
@@ -315,15 +631,23 @@ struct ModulaTabBar: View {
                     HapticEngine.shared.play(.navigation)
                 } label: {
                     VStack(spacing: 2) {
-                        Image(systemName: selected ? tab.selectedIcon : tab.icon)
-                            .font(.system(size: 16, weight: selected ? .semibold : .medium))
-                            .symbolEffect(.bounce, value: selected)
+                        if tab == .profile {
+                            ProfileTabIcon(selected: selected, size: 26)
+                                .scaleEffect(selected && !reduceMotion ? 1.06 : 1)
+                                .animation(.spring(duration: 0.34, bounce: 0.28), value: selected)
+                        } else {
+                            Image(systemName: selected ? tab.selectedIcon : tab.icon)
+                                .font(.system(size: 16, weight: selected ? .semibold : .medium))
+                                .symbolEffect(.bounce, value: selected)
+                                .contentTransition(.symbolEffect(.replace))
+                                .foregroundStyle(selected ? app.appearance.accent.color : .secondary)
+                        }
                         Text(tab.title)
                             .font(.caption2.weight(selected ? .semibold : .medium))
+                            .foregroundStyle(selected ? app.appearance.accent.color : .secondary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.78)
                     }
-                    .foregroundStyle(selected ? app.appearance.accent.color : .secondary)
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .background {
                         if selected {

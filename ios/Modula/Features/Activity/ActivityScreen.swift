@@ -14,8 +14,10 @@ struct ActivityScreen: View {
             }
         }
         .modulaCanvas()
+        .modulaSoftScrollEdge()
         .navigationTitle("Activity")
         .navigationBarTitleDisplayMode(.large)
+        .modulaSidebarTrigger()
         .accessibilityIdentifier("activity.\(mode.rawValue)")
         .task(id: mode) {
             await app.activity.loadIfNeeded(mode, signedIn: app.auth.isSignedIn)
@@ -107,8 +109,10 @@ struct ActivityScreen: View {
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.bottom, 28)
+            .modulaPullContentEffects()
         }
-        .refreshable {
+        .modulaSoftScrollEdge()
+        .modulaShellPullActions {
             await app.activity.refresh(mode, signedIn: true)
         }
     }
@@ -189,6 +193,7 @@ struct ActivitySummarySheet: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Activity Summary")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -210,44 +215,64 @@ struct ActivityFilterSheet: View {
         }()
         let current = app.activity.state(for: mode).filter
         List {
-            Section("Refine \(mode.rawValue.capitalized)") {
-                Button {
+            Section("Status") {
+                filterRow(title: "All in \(mode.rawValue.capitalized)", symbol: "bell", selected: current == nil) {
                     Task {
                         await app.activity.setFilter(nil, mode: mode, signedIn: app.auth.isSignedIn)
                         dismiss()
                     }
-                } label: {
-                    HStack {
-                        Text("All in mode")
-                        Spacer()
-                        if current == nil { Image(systemName: "checkmark") }
-                    }
                 }
-                ForEach(ActivityFilter.allCases) { filter in
-                    Button {
-                        Task {
-                            await app.activity.setFilter(filter, mode: mode, signedIn: app.auth.isSignedIn)
-                            HapticEngine.shared.play(.selection)
-                            dismiss()
-                        }
-                    } label: {
-                        HStack {
-                            Text(filter.title)
-                            Spacer()
-                            if current == filter { Image(systemName: "checkmark") }
-                        }
+                filterRow(title: ActivityFilter.unread.title, symbol: ActivityFilter.unread.symbol, selected: current == .unread) {
+                    apply(.unread)
+                }
+            }
+            Section("Types") {
+                ForEach([ActivityFilter.following, .mentions, .reactions, .comments, .requests, .modules, .system]) { filter in
+                    filterRow(title: filter.title, symbol: filter.symbol, selected: current == filter) {
+                        apply(filter)
+                    }
+                    .accessibilityIdentifier("activity.filter.\(filter.rawValue)")
+                }
+            }
+            Section("Broader") {
+                ForEach([ActivityFilter.people, .posts]) { filter in
+                    filterRow(title: filter.title, symbol: filter.symbol, selected: current == filter) {
+                        apply(filter)
                     }
                     .accessibilityIdentifier("activity.filter.\(filter.rawValue)")
                 }
             }
         }
-        .navigationTitle("Filter")
+        .modulaSoftScrollEdge()
+        .navigationTitle("Options")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Close") { dismiss() }
             }
         }
         .accessibilityIdentifier("activity.filter")
+    }
+
+    private func apply(_ filter: ActivityFilter) {
+        let mode: ActivityMode = {
+            if case .activity(let mode) = app.navigation.currentRoute { return mode }
+            return .all
+        }()
+        Task {
+            await app.activity.setFilter(filter, mode: mode, signedIn: app.auth.isSignedIn)
+            HapticEngine.shared.play(.selection)
+            dismiss()
+        }
+    }
+
+    private func filterRow(title: String, symbol: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Label(title, systemImage: symbol)
+                Spacer()
+                if selected { Image(systemName: "checkmark") }
+            }
+        }
     }
 }
 

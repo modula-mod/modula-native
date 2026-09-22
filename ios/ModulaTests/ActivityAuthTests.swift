@@ -172,6 +172,15 @@ final class ActivityPayloadDecoderTests: XCTestCase {
             ActivityEvent(id: "3", kind: .moduleUpdate, actor: nil, actors: [], createdAt: Date(), isRead: true,
                           subject: nil, preview: nil, destination: .none, descriptionText: "updated", groupHint: nil, requestID: nil)
         ))
+        XCTAssertTrue(ActivityFilter.following.matches(
+            ActivityEvent(id: "4", kind: .follow, actor: nil, actors: [], createdAt: Date(), isRead: false,
+                          subject: nil, preview: nil, destination: .none, descriptionText: "followed", groupHint: nil, requestID: nil)
+        ))
+        XCTAssertTrue(ActivityFilter.system.matches(
+            ActivityEvent(id: "5", kind: .system, actor: nil, actors: [], createdAt: Date(), isRead: false,
+                          subject: nil, preview: nil, destination: .none, descriptionText: "notice", groupHint: nil, requestID: nil)
+        ))
+        XCTAssertFalse(ActivityFilter.following.matches(unread))
     }
 }
 

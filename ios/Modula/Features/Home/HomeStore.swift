@@ -13,11 +13,32 @@ final class HomeStore {
     ]
     private(set) var actionError: String?
     var isOfflineHint = false
+    private(set) var displayOptions: [String: HomeFeedDisplayOptions] = [:]
+    private let displayOptionsKey = "modula.native.home.feed-display.v1"
 
     init(client: GreenfieldClient, posts: PostStateStore, postActions: PostActionController) {
         self.repository = GreenfieldHomeRepository(client: client)
         self.posts = posts
         self.postActions = postActions
+        if let data = UserDefaults.standard.data(forKey: displayOptionsKey),
+           let decoded = try? JSONDecoder().decode([String: HomeFeedDisplayOptions].self, from: data) {
+            displayOptions = decoded
+        }
+    }
+
+    func displayOptions(for mode: HomeMode) -> HomeFeedDisplayOptions {
+        displayOptions[mode.rawValue] ?? HomeFeedDisplayOptions()
+    }
+
+    func setDisplayOptions(_ options: HomeFeedDisplayOptions, for mode: HomeMode) {
+        displayOptions[mode.rawValue] = options
+        if let data = try? JSONEncoder().encode(displayOptions) {
+            UserDefaults.standard.set(data, forKey: displayOptionsKey)
+        }
+    }
+
+    func visiblePosts(for mode: HomeMode) -> [SocialPost] {
+        applyDisplay(visibleItems(state(for: mode).items), mode: mode)
     }
 
     func state(for mode: HomeMode) -> HomeModeState {
@@ -26,7 +47,7 @@ final class HomeStore {
 
     func summary(for mode: HomeMode) -> FeedSummary {
         let state = modes[mode] ?? HomeModeState()
-        return .aggregate(from: visibleItems(state.items), rankingVersion: state.rankingVersion)
+        return .aggregate(from: visiblePosts(for: mode), rankingVersion: state.rankingVersion)
     }
 
     func loadIfNeeded(_ mode: HomeMode, signedIn: Bool) async {
@@ -211,5 +232,16 @@ final class HomeStore {
 
     private func visibleItems(_ items: [SocialPost]) -> [SocialPost] {
         items.filter { !posts.isHidden($0.id) }.map(posts.resolved)
+    }
+
+    private func applyDisplay(_ items: [SocialPost], mode: HomeMode) -> [SocialPost] {
+        let options = displayOptions(for: mode)
+        return items.filter { post in
+            if options.hideModules, post.kind == .module { return false }
+            if options.mediaOnly, !post.hasMedia, post.kind != .media, post.kind != .carousel, post.kind != .video {
+                return false
+            }
+            return true
+        }
     }
 }

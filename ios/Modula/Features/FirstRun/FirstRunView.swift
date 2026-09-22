@@ -27,6 +27,7 @@ struct FirstRunView: View {
                 }
                 .padding(24)
             }
+            .modulaSoftScrollEdge()
             .modulaCanvas()
             .navigationTitle("Set up Modula")
             .navigationBarTitleDisplayMode(.inline)

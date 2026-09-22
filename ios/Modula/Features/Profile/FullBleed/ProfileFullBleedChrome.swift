@@ -9,40 +9,30 @@ struct ProfileFloatingChrome: View {
     var moreActions: [ModulaContextAction]
     var onMore: (ModulaContextAction) -> Void
 
-    @Environment(AppEnvironment.self) private var app
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    private var opaque: Bool {
-        reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
-    }
-
     var body: some View {
         FloatingHeroControls {
             if showsBack {
-                Button(action: onBack) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .modulaChrome(in: Circle(), opaque: opaque)
-                .accessibilityLabel("Back")
-                .accessibilityIdentifier("profile.back")
+                FloatingHeroButton(title: "Back", symbol: "chevron.left", action: onBack)
+                    .accessibilityIdentifier("profile.back")
             } else {
-                Color.clear.frame(width: 44, height: 44)
+                Color.clear
+                    .frame(width: ModulaChromeMetrics.iconHit, height: ModulaChromeMetrics.iconHit)
                     .accessibilityHidden(true)
             }
         } trailing: {
-            // The only Share/More capsule on Profile — never duplicated in progressive header.
-            ProfileShareMoreCapsule(
+            // The only Share/More capsule on Profile — same ModulaTopTrailingChrome metrics/band.
+            ModulaShareMoreCapsule(
                 onShare: onShare,
                 moreActions: moreActions,
-                onMore: onMore
+                onMore: onMore,
+                shareAccessibilityLabel: "Share Profile",
+                shareAccessibilityIdentifier: "profile.share",
+                moreAccessibilityIdentifier: "profile.more",
+                capsuleAccessibilityIdentifier: "profile.share-more.capsule"
             )
         }
         // Parent ignores top safe area so the cover can full-bleed — chrome must
-        // clear the status bar / Dynamic Island itself.
+        // clear the status bar / Dynamic Island itself (same band as Home/Product Hub).
         .padding(.top, ProfileFullBleedMetrics.windowSafeAreaTop)
     }
 }

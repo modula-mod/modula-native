@@ -13,6 +13,7 @@ struct SettingsCapabilityUnavailableView: View {
         } description: {
             Text(reason)
         }
+        .modulaSoftScrollEdge()
         .navigationTitle(title)
         .accessibilityIdentifier("settings.unavailable")
     }
@@ -23,6 +24,11 @@ struct SettingsDestinationHost: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
+        destination.modulaSoftScrollEdge()
+    }
+
+    @ViewBuilder
+    private var destination: some View {
         switch route {
         case .root:
             SettingsView()
@@ -76,6 +82,7 @@ struct NotificationSettingsHost: View {
                 row("Modules", "Updates and activity", "shippingbox", .notifications(.modules))
                 row("Quiet Hours", "Delivery window", "moon.zzz", .notifications(.quietHours))
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Notifications")
             .accessibilityIdentifier("settings.notifications")
         case .push:
@@ -126,6 +133,7 @@ struct PushAuthorizationView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Push")
         .task { await refresh() }
         .accessibilityIdentifier("settings.notifications.push")
@@ -165,6 +173,7 @@ struct PrivacySecurityHost: View {
                 Button("App Lock") { app.navigation.open(.settings(.privacy(.appLock))) }
                 Button("Face ID & Biometrics") { app.navigation.open(.settings(.privacy(.biometrics))) }
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Privacy & Security")
             .accessibilityIdentifier("settings.privacy-security")
         case .privacy:
@@ -173,6 +182,7 @@ struct PrivacySecurityHost: View {
                 Text("Account privacy controls that lack a verified persistence contract are omitted rather than faked.")
                     .foregroundStyle(.secondary)
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Privacy")
         case .security:
             Form {
@@ -181,6 +191,7 @@ struct PrivacySecurityHost: View {
                 Button("Sessions") { app.navigation.open(.settings(.account(.sessions))) }
                 Button("Password") { app.navigation.open(.settings(.account(.password))) }
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Security")
         case .glassPrivacy, .blocked:
             let dest = SettingsRegistry.destination(for: .privacy(route))
@@ -257,6 +268,7 @@ struct AppLockSettingsView: View {
                 Text("Greenfield has no verified re-auth reset for a local App Lock PIN this run. Signing out clears the local lock. Unsynced drafts on this device are kept unless you discard them.")
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("App Lock")
         .sheet(isPresented: $showsSetup) {
             NavigationStack {
@@ -299,6 +311,7 @@ struct BiometricsSettingsView: View {
             Text("Biometric unlock falls back to your Modula passcode. Failed biometric attempts never open Home.")
                 .foregroundStyle(.secondary)
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Face ID & Biometrics")
         .accessibilityIdentifier("settings.privacy-security.biometrics")
     }
@@ -319,6 +332,7 @@ struct ModuleSettingsHost: View {
                 Button("Auto Updates") { app.navigation.open(.settings(.modules(.autoUpdates))) }
                 Button("Permissions") { app.navigation.open(.settings(.modules(.permissions))) }
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Modules")
         case .installed:
             ModuleInstalledList()
@@ -332,6 +346,7 @@ struct ModuleSettingsHost: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Module Updates")
         case .autoUpdates:
             let dest = SettingsRegistry.destination(for: .modules(.autoUpdates))
@@ -360,6 +375,7 @@ private struct ModuleInstalledList: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Installed")
     }
 
@@ -385,6 +401,7 @@ private struct ModulePermissionsOverview: View {
                 }
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Permissions")
     }
 }
@@ -429,6 +446,7 @@ private struct InstalledModuleSettings: View {
                 Text(product?.description ?? "No catalogue description.")
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle(section.rawValue.capitalized)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -461,6 +479,7 @@ struct DataStorageHost: View {
                 Button("Backup") { app.navigation.open(.settings(.dataStorage(.backup))) }
                 Button("Export") { app.navigation.open(.settings(.dataStorage(.export))) }
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Data & Storage")
         case .storage:
             Form {
@@ -475,6 +494,7 @@ struct DataStorageHost: View {
                     ProgressView("Measuring…")
                 }
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Storage")
             .task { usage = StorageUsageSnapshot.measure() }
         case .cache:
@@ -490,9 +510,11 @@ struct DataStorageHost: View {
                     Text("Cache cleared.")
                 }
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Cache")
         case .downloads:
             ContentUnavailableView("No downloaded content", systemImage: "arrow.down.to.line", description: Text("This build has no downloads subsystem."))
+                .modulaSoftScrollEdge()
                 .navigationTitle("Downloads")
         case .backup, .export:
             let dest = SettingsRegistry.destination(for: .dataStorage(route))
@@ -575,6 +597,7 @@ struct AccessibilitySettingsHost: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle(route == .root ? "Accessibility" : route.rawValue.capitalized)
     }
 }
@@ -599,6 +622,7 @@ struct FeatureSettingsHost: View {
                 Text(flag.detail).font(.footnote).foregroundStyle(.secondary)
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle(route == .experimental ? "Experimental" : "Features")
     }
 }
@@ -621,6 +645,7 @@ struct UpdateSettingsHost: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle(title)
     }
 
@@ -660,6 +685,7 @@ struct DeveloperSettingsHost: View {
                 Button("Diagnostics") { app.navigation.open(.settings(.developer(.diagnostics))) }
                 Button("Local Intelligence") { app.navigation.open(.settings(.developer(.intelligence))) }
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Developer")
         case .runtime, .diagnostics:
             RuntimeDiagnosticsView()
@@ -669,6 +695,7 @@ struct DeveloperSettingsHost: View {
             List(app.runtime.manifests, id: \.id) { manifest in
                 LabeledContent(manifest.name, value: manifest.version)
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Developer Modules")
         case .network:
             Form {
@@ -676,6 +703,7 @@ struct DeveloperSettingsHost: View {
                 Text("Tokens are never shown here.")
                     .foregroundStyle(.secondary)
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Network")
         case .featureFlags:
             FeatureSettingsHost(route: .root)
@@ -685,6 +713,7 @@ struct DeveloperSettingsHost: View {
                 LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")
                 LabeledContent("Build", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—")
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Environment")
         case .components:
             ComponentCatalogView()
@@ -728,6 +757,7 @@ struct AboutSettingsHost: View {
                 }
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle(route == .root ? "About" : route.rawValue.capitalized)
         .accessibilityIdentifier("settings.about")
     }

@@ -523,10 +523,9 @@ struct ProfileActionsRow: View {
     }
 }
 
-// MARK: - Tool actions (Edit / Follow — Share/More live in the top chrome capsule)
+// MARK: - Tool actions (Follow / Message — Edit lives in the top toolbar)
 
 struct ProfileToolActions: View {
-    let isOwn: Bool
     let followTitle: String
     let isFollowing: Bool
     var followBusy: Bool = false
@@ -549,7 +548,7 @@ struct ProfileToolActions: View {
                         ProgressView()
                             .controlSize(.small)
                     }
-                    Text(isOwn ? "Edit Profile" : followTitle)
+                    Text(followTitle)
                         .font(.subheadline.weight(.semibold))
                         .contentTransition(reduceMotion ? .opacity : .interpolate)
                 }
@@ -558,15 +557,15 @@ struct ProfileToolActions: View {
                 .foregroundStyle(primaryForeground)
                 .background(primaryBackground, in: Capsule())
                 .overlay(
-                    Capsule().stroke(primaryStroke, lineWidth: isOwn || isFollowing ? 1 : 0)
+                    Capsule().stroke(primaryStroke, lineWidth: isFollowing ? 1 : 0)
                 )
             }
             .buttonStyle(.plain)
             .disabled(followBusy)
-            .accessibilityLabel(isOwn ? "Edit Profile" : followTitle)
-            .accessibilityIdentifier(isOwn ? "profile.edit.cta" : "profile.follow.cta")
+            .accessibilityLabel(followTitle)
+            .accessibilityIdentifier("profile.follow.cta")
 
-            if let messageTitle, let onMessage, !isOwn {
+            if let messageTitle, let onMessage {
                 Button(action: onMessage) {
                     Text(messageTitle)
                         .font(.subheadline.weight(.semibold))
@@ -586,13 +585,11 @@ struct ProfileToolActions: View {
     }
 
     private var primaryForeground: Color {
-        if isOwn { return .primary }
-        return isFollowing ? .primary : .white
+        isFollowing ? .primary : .white
     }
 
     private var primaryBackground: some ShapeStyle {
-        if isOwn { return AnyShapeStyle(Color.primary.opacity(0.08)) }
-        return AnyShapeStyle(isFollowing ? Color.primary.opacity(0.08) : app.appearance.accent.color)
+        AnyShapeStyle(isFollowing ? Color.primary.opacity(0.08) : app.appearance.accent.color)
     }
 
     private var primaryStroke: Color {
@@ -839,45 +836,8 @@ struct ProfileModuleGrid: View {
 
 // MARK: - Floating glass icon button
 
-/// Settings-style Share + More cluster — one Liquid Glass capsule, 44pt targets.
-struct ProfileShareMoreCapsule: View {
-    var onShare: () -> Void
-    var moreActions: [ModulaContextAction]
-    var onMore: (ModulaContextAction) -> Void
-    @Environment(AppEnvironment.self) private var app
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    private var opaque: Bool {
-        reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
-    }
-
-    var body: some View {
-        HStack(spacing: 0) {
-            Button(action: onShare) {
-                Image(systemName: ModulaIconRegistry.symbol(.share, style: app.appearance.iconStyle))
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Share Profile")
-            .accessibilityIdentifier("profile.share")
-
-            ModulaContextMenu(actions: moreActions, onSelect: onMore) {
-                Image(systemName: ModulaIconRegistry.symbol(.more, style: app.appearance.iconStyle))
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .accessibilityLabel("More")
-            .accessibilityIdentifier("profile.more")
-        }
-        .padding(.horizontal, 4)
-        .modulaChrome(in: Capsule(), opaque: opaque)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("profile.share-more.capsule")
-    }
-}
+/// Compatibility alias — prefer `ModulaShareMoreCapsule` for new call sites.
+typealias ProfileShareMoreCapsule = ModulaShareMoreCapsule
 
 struct ProfileGlassIconButton: View {
     let title: String

@@ -219,6 +219,7 @@ struct ProfileView: View {
         .modulaCanvas()
         .environment(\.profileAccentColor, profile?.presentation.accent?.color)
         .modulaImmersiveSystemNavigation()
+        .modulaSidebarTrigger()
         .toolbar {
             if headerProgress > 0.35 {
                 ToolbarItem(placement: .principal) {
@@ -231,6 +232,14 @@ struct ProfileView: View {
                             .lineLimit(1)
                     }
                     .accessibilityLabel(compactTitle)
+                }
+            }
+            if isOwnProfile {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Edit Profile", systemImage: "pencil") {
+                        openSection(.edit)
+                    }
+                    .accessibilityIdentifier("profile.edit.cta")
                 }
             }
             if let profile {
@@ -397,22 +406,19 @@ struct ProfileView: View {
 
     @ViewBuilder
     private func primaryActions(_ profile: ModulaProfile) -> some View {
-        ProfileToolActions(
-            isOwn: isOwnProfile,
-            followTitle: profile.followState.title,
-            isFollowing: profile.isFollowing,
-            followBusy: followBusy,
-            messageTitle: isOwnProfile ? nil : messageActionTitle,
-            onPrimary: {
-                if isOwnProfile {
-                    openSection(.edit)
-                } else {
+        if !isOwnProfile {
+            ProfileToolActions(
+                followTitle: profile.followState.title,
+                isFollowing: profile.isFollowing,
+                followBusy: followBusy,
+                messageTitle: messageActionTitle,
+                onPrimary: {
                     Task { await toggleFollowPrimary(profile) }
-                }
-            },
-            onMessage: isOwnProfile ? nil : { openMessaging(for: profile) }
-        )
-        .accessibilitySortPriority(90)
+                },
+                onMessage: { openMessaging(for: profile) }
+            )
+            .accessibilitySortPriority(90)
+        }
     }
 
     private func metrics(_ profile: ModulaProfile) -> some View {

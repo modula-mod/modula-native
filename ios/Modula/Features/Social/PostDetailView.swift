@@ -93,12 +93,14 @@ struct PostDetailView: View {
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.bottom, 40)
         }
+        .modulaSoftScrollEdge()
         .navigationTitle(navigationTitle)
         .toolbar { toolbarContent }
     }
 
     private var commentsDestination: some View {
         PostCommentsView(postID: postID, isSheet: false)
+            .modulaSoftScrollEdge()
             .navigationTitle("Comments")
             .toolbar { toolbarContent }
     }
@@ -114,6 +116,7 @@ struct PostDetailView: View {
                     }
                 }
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Edit Post")
         } else {
             ContentUnavailableView(
@@ -121,6 +124,7 @@ struct PostDetailView: View {
                 systemImage: "pencil.slash",
                 description: Text("Post editing is not enabled for this account yet.")
             )
+            .modulaSoftScrollEdge()
             .navigationTitle("Edit Post")
         }
     }
@@ -388,6 +392,7 @@ struct PostShareSheet: View {
                 Spacer()
             }
             .padding(20)
+            .modulaSoftScrollEdge()
             .navigationTitle("Share Post")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -421,6 +426,7 @@ struct PostEditView: View {
                 }
             }
         }
+        .modulaSoftScrollEdge()
         .safeAreaInset(edge: .bottom) {
             Button("Save", action: onSave)
                 .buttonStyle(.borderedProminent)
@@ -443,6 +449,7 @@ struct PostPeopleListView: View {
         } description: {
             Text(message)
         }
+        .modulaSoftScrollEdge()
         .navigationTitle(title)
         .accessibilityIdentifier("post.people.\(section.rawValue)")
     }

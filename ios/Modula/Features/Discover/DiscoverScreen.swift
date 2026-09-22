@@ -24,14 +24,28 @@ struct DiscoverScreen: View {
             }
         }
         .modulaCanvas()
+        .modulaSoftScrollEdge()
         .navigationTitle("Discover")
         .navigationBarTitleDisplayMode(.large)
+        .modulaSidebarTrigger()
         .safeAreaInset(edge: .top, spacing: 0) {
             VStack(spacing: 10) {
-                DiscoverSearchEntry {
-                    app.navigation.open(.search(.root(nil)))
-                    HapticEngine.shared.play(.navigation)
-                }
+                DiscoverSearchEntry(
+                    action: {
+                        app.navigation.open(.search(.root(nil)))
+                        HapticEngine.shared.play(.navigation)
+                    },
+                    onCustomise: {
+                        PresentationCoordinator.present(.discoverFilter, in: app.navigation)
+                        HapticEngine.shared.play(.contextOpen)
+                    },
+                    onRefresh: {
+                        Task {
+                            await app.discover.refresh(section)
+                            HapticEngine.shared.play(.confirmation)
+                        }
+                    }
+                )
                 DiscoverScopePicker(selection: section) { destination in
                     app.discover.markVisited(destination)
                     app.navigation.replaceContext(with: .discover(destination))
@@ -70,8 +84,10 @@ struct DiscoverScreen: View {
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.top, 8)
             .padding(.bottom, 56)
+            .modulaPullContentEffects()
         }
-        .refreshable {
+        .modulaSoftScrollEdge()
+        .modulaShellPullActions(liftsAboveContent: false) {
             await app.discover.refresh(scope)
             HapticEngine.shared.play(.confirmation)
         }

@@ -170,6 +170,7 @@ struct SettingsView: View {
             .padding(.top, 10)
             .padding(.bottom, 28)
         }
+        .modulaSoftScrollEdge()
         .modulaCanvas()
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.large)
@@ -355,6 +356,7 @@ struct AppearanceSettingsView: View {
             .padding(.top, 10)
             .padding(.bottom, 28)
         }
+        .modulaSoftScrollEdge()
         .modulaCanvas()
         .navigationTitle(focus == .root ? "Appearance" : display(focus.rawValue))
         .navigationBarTitleDisplayMode(.inline)
@@ -426,6 +428,7 @@ struct AppearancePreviewScreen: View {
             }
             .padding(18)
         }
+        .modulaSoftScrollEdge()
         .modulaCanvas()
         .navigationTitle("Appearance Preview")
     }
@@ -442,12 +445,11 @@ struct AppIconPickerView: View {
                     HapticEngine.shared.play(.selection)
                 } label: {
                     VStack(spacing: 10) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 28, style: .continuous).fill(Color(hex: "#071C20"))
-                            Circle().fill(app.appearance.accent.color.opacity(0.35)).frame(width: 72).offset(x: 27, y: -27)
-                            Text("M").font(.system(size: 45, weight: .bold, design: .rounded)).foregroundStyle(.white)
-                        }
-                        .frame(width: 96, height: 96)
+                        Image("ModulaAppIcon")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 96, height: 96)
+                            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                         Label("Default", systemImage: "checkmark.circle.fill").font(.headline)
                     }
                     .frame(maxWidth: .infinity)
@@ -463,6 +465,7 @@ struct AppIconPickerView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 18)
         }
+        .modulaSoftScrollEdge()
         .modulaCanvas()
         .navigationTitle("App Icon")
     }
@@ -539,10 +542,29 @@ struct ComponentCatalogView: View {
                 }
                 catalog("Global navigation accessory") {
                     VStack(alignment: .leading, spacing: 8) {
-                        ModulaTabAccessory(route: .home(.following))
-                        Text("The five-item native tab bar is the live shell chrome below this catalog.")
+                        ShellAccessoryDock(route: .home(.following))
+                        Text("The five-item native tab bar is the live shell chrome below this catalog. AI Chat is a detached circle beside the Tools capsule.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                    }
+                }
+                catalog("Pull actions") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Pull down to refresh. While pulled, slide left for Command Center and right for Search.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        ModulaPullActionsChooser(destination: .refresh, refreshing: false, progress: 1)
+                    }
+                }
+                catalog("Global sidebar") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Leading overlay for library and account destinations. The five root tabs stay in the tab bar; Edge Picker stays on the content edge.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        ShellSidebarTrigger()
+                        ForEach(ShellSidebarDestination.allCases) { item in
+                            ModulaListRow(title: item.title, subtitle: item.subtitle, symbol: item.symbol)
+                        }
                     }
                 }
                 catalog("Edge Picker") {
@@ -621,6 +643,7 @@ struct ComponentCatalogView: View {
             }
             .padding(18)
         }
+        .modulaSoftScrollEdge()
         .modulaCanvas()
         .navigationTitle("Components")
         .accessibilityIdentifier("developer.components")

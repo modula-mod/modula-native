@@ -48,12 +48,41 @@ struct FullBleedHero<Media: View, Overlay: View>: View {
     }
 }
 
-/// Floating Back / Share / More cluster for immersive heroes.
+/// Shared metrics for top floating chrome — Settings navigation-bar glass size everywhere.
+enum ModulaChromeMetrics {
+    /// Settings / system nav bar item minimum (Liquid Glass reference: 44×44).
+    static let iconHit: CGFloat = 44
+    static let floatingTopPad: CGFloat = 8
+    static let floatingHorizontalPad: CGFloat = 16
+    /// Two Settings-sized toolbar icons + shared capsule inset.
+    static let trailingCapsuleReserve: CGFloat = 104
+}
+
+/// Top-trailing action chrome shared by Home / Product Hub (and Profile’s trailing side).
+/// Always sits in the same band: safe-area top + `floatingTopPad`.
+struct ModulaTopTrailingChrome<Content: View>: View {
+    /// Extra top pad when the parent ignores the status-bar safe area (full-bleed Profile).
+    var immersiveSafeAreaTop: CGFloat = 0
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Spacer(minLength: 0)
+            ModulaChromeActionCapsule {
+                content()
+            }
+        }
+        .padding(.horizontal, ModulaChromeMetrics.floatingHorizontalPad)
+        .padding(.top, immersiveSafeAreaTop + ModulaChromeMetrics.floatingTopPad)
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .dynamicTypeSize(...DynamicTypeSize.accessibility3)
+    }
+}
+
+/// Floating Back / trailing cluster for immersive heroes.
 struct FloatingHeroControls<Leading: View, Trailing: View>: View {
     @ViewBuilder var leading: () -> Leading
     @ViewBuilder var trailing: () -> Trailing
-    @Environment(AppEnvironment.self) private var app
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         HStack(spacing: 8) {
@@ -61,12 +90,13 @@ struct FloatingHeroControls<Leading: View, Trailing: View>: View {
             Spacer(minLength: 8)
             trailing()
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
+        .padding(.horizontal, ModulaChromeMetrics.floatingHorizontalPad)
+        .padding(.top, ModulaChromeMetrics.floatingTopPad)
         .dynamicTypeSize(...DynamicTypeSize.accessibility3)
     }
 }
 
+/// Circular back / single action — Settings toolbar `.glass` circle.
 struct FloatingHeroButton: View {
     let title: String
     let symbol: String
@@ -74,20 +104,108 @@ struct FloatingHeroButton: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
+    private var opaque: Bool {
+        reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
+    }
+
     var body: some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 16, weight: .semibold))
-                .frame(width: 36, height: 36)
-                .contentShape(Circle())
+        if #available(iOS 26.0, *), !opaque {
+            Button(title, systemImage: symbol, action: action)
+                .labelStyle(.iconOnly)
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .controlSize(.regular)
+        } else {
+            Button(title, systemImage: symbol, action: action)
+                .labelStyle(.iconOnly)
+                .buttonStyle(.plain)
+                .frame(width: ModulaChromeMetrics.iconHit, height: ModulaChromeMetrics.iconHit)
+                .modulaChrome(in: Circle(), opaque: opaque)
         }
-        .buttonStyle(.plain)
-        .modulaMaterial(
-            .floating,
-            in: Circle(),
-            depth: .raised
-        )
-        .accessibilityLabel(title)
+    }
+}
+
+/// Settings toolbar–matching Liquid Glass capsule (shared background around icon actions).
+struct ModulaChromeActionCapsule<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    private var opaque: Bool {
+        reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            content()
+        }
+        .controlSize(.regular)
+        .modifier(ModulaSettingsGlassCapsule(opaque: opaque))
+        .accessibilityElement(children: .contain)
+    }
+}
+
+/// Icon-only control sized like a Settings / system nav-bar bar button item.
+struct ModulaChromeIconButton: View {
+    let title: String
+    let symbol: String
+    var action: () -> Void
+
+    var body: some View {
+        Button(title, systemImage: symbol, action: action)
+            .labelStyle(.iconOnly)
+            .buttonStyle(.plain)
+            .frame(width: ModulaChromeMetrics.iconHit, height: ModulaChromeMetrics.iconHit)
+            .contentShape(Rectangle())
+            .accessibilityLabel(title)
+    }
+}
+
+private struct ModulaSettingsGlassCapsule: ViewModifier {
+    var opaque: Bool
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *), !opaque {
+            // Same material + capsule language as Settings’ grouped toolbar items.
+            content
+                .glassEffect(.regular.interactive(), in: Capsule())
+        } else {
+            content
+                .modulaChrome(in: Capsule(), opaque: opaque)
+        }
+    }
+}
+
+/// Canonical Share + More top cluster — one Settings-sized capsule.
+struct ModulaShareMoreCapsule: View {
+    var onShare: () -> Void
+    var moreActions: [ModulaContextAction]
+    var onMore: (ModulaContextAction) -> Void
+    var shareAccessibilityLabel: String = "Share"
+    var shareAccessibilityIdentifier: String = "chrome.share"
+    var moreAccessibilityIdentifier: String = "chrome.more"
+    var capsuleAccessibilityIdentifier: String = "chrome.share-more.capsule"
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        ModulaChromeActionCapsule {
+            ModulaChromeIconButton(
+                title: shareAccessibilityLabel,
+                symbol: ModulaIconRegistry.symbol(.share, style: app.appearance.iconStyle),
+                action: onShare
+            )
+            .accessibilityIdentifier(shareAccessibilityIdentifier)
+
+            ModulaContextMenu(actions: moreActions, onSelect: onMore) {
+                Image(systemName: ModulaIconRegistry.symbol(.more, style: app.appearance.iconStyle))
+                    .frame(width: ModulaChromeMetrics.iconHit, height: ModulaChromeMetrics.iconHit)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("More")
+            .accessibilityIdentifier(moreAccessibilityIdentifier)
+        }
+        .accessibilityIdentifier(capsuleAccessibilityIdentifier)
     }
 }
 

@@ -12,6 +12,7 @@
 		02ED22D448BC35987DA41C41 /* RuntimeDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */; };
 		045022BFF07BCC1674A60821 /* NavigationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */; };
 		083850E345065E6A6AB4731F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 586EC2A3D1894A46296513D8 /* PrivacyInfo.xcprivacy */; };
+		D5010000000000000000001A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D4010000000000000000001A /* Assets.xcassets */; };
 		0D772D4E34456894E5A2A5FD /* libPods-ModulaTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DE7A82A7615F703ED7EFABC2 /* libPods-ModulaTests.a */; };
 		0D960245240024C1142077ED /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BEF0F5DFEB2FC30D2769C391 /* Foundation.framework */; };
 		1175B13D8406B4BE1358B31A /* libPods-Modula.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D902DDFA87CA1FD5224F1994 /* libPods-Modula.a */; };
@@ -123,6 +124,10 @@
 		D50100000000000000000015 /* AppIntentsFoundation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000015 /* AppIntentsFoundation.swift */; };
 		D50100000000000000000016 /* SpotlightIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000016 /* SpotlightIndex.swift */; };
 		D50100000000000000000017 /* KeyboardCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000017 /* KeyboardCommands.swift */; };
+		D50100000000000000000019 /* ShellSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000019 /* ShellSidebar.swift */; };
+		D5010000000000000000001B /* ModulaPullActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4010000000000000000001B /* ModulaPullActions.swift */; };
+		D5010000000000000000001C /* ModulaPullEffects.metal in Sources */ = {isa = PBXBuildFile; fileRef = D4010000000000000000001C /* ModulaPullEffects.metal */; };
+		D5010000000000000000001D /* IntelligenceChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4010000000000000000001D /* IntelligenceChatView.swift */; };
 		D50100000000000000000018 /* N4DTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000018 /* N4DTests.swift */; };
 		DB3BEA70380AF2D78B2306D5 /* ModulaIntelligenceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97B62939727826A0A7B6B6A /* ModulaIntelligenceService.swift */; };
 		DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */; };
@@ -347,6 +352,11 @@
 		D40100000000000000000015 /* AppIntentsFoundation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppIntentsFoundation.swift; path = Features/SystemIntegration/AppIntentsFoundation.swift; sourceTree = "<group>"; };
 		D40100000000000000000016 /* SpotlightIndex.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SpotlightIndex.swift; path = Features/SystemIntegration/SpotlightIndex.swift; sourceTree = "<group>"; };
 		D40100000000000000000017 /* KeyboardCommands.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = KeyboardCommands.swift; path = Features/SystemIntegration/KeyboardCommands.swift; sourceTree = "<group>"; };
+		D40100000000000000000019 /* ShellSidebar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShellSidebar.swift; path = Features/Sidebar/ShellSidebar.swift; sourceTree = "<group>"; };
+		D4010000000000000000001B /* ModulaPullActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaPullActions.swift; path = DesignSystem/ModulaPullActions.swift; sourceTree = "<group>"; };
+		D4010000000000000000001C /* ModulaPullEffects.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = ModulaPullEffects.metal; path = DesignSystem/ModulaPullEffects.metal; sourceTree = "<group>"; };
+		D4010000000000000000001D /* IntelligenceChatView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceChatView.swift; path = Features/Intelligence/IntelligenceChatView.swift; sourceTree = "<group>"; };
+		D4010000000000000000001A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D40100000000000000000018 /* N4DTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4DTests.swift; sourceTree = "<group>"; };
 		D902DDFA87CA1FD5224F1994 /* libPods-Modula.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Modula.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductHubView.swift; path = Features/ProductHub/ProductHubView.swift; sourceTree = "<group>"; };
@@ -603,6 +613,7 @@
 				D40100000000000000000007 /* CommandExecutor.swift */,
 				D40100000000000000000008 /* ShareModels.swift */,
 				D40100000000000000000009 /* CommandCenterView.swift */,
+				D4010000000000000000001D /* IntelligenceChatView.swift */,
 				D4010000000000000000000A /* SavedModels.swift */,
 				D4010000000000000000000B /* SavedStore.swift */,
 				D4010000000000000000000C /* SavedView.swift */,
@@ -628,6 +639,7 @@
 				D40100000000000000000015 /* AppIntentsFoundation.swift */,
 				D40100000000000000000016 /* SpotlightIndex.swift */,
 				D40100000000000000000017 /* KeyboardCommands.swift */,
+				D40100000000000000000019 /* ShellSidebar.swift */,
 				A40100000000000000000011 /* ReactionKind.swift */,
 				A40100000000000000000012 /* ReactionPeopleView.swift */,
 				A40100000000000000000001 /* AppLaunchState.swift */,
@@ -674,6 +686,7 @@
 				B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */,
 				2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */,
 				586EC2A3D1894A46296513D8 /* PrivacyInfo.xcprivacy */,
+				D4010000000000000000001A /* Assets.xcassets */,
 				35DD2D0F98FBF95AC2D68618 /* ModulaBridge.swift */,
 				11C7225BC261899B6AA2414A /* ModulaHostBridge.mm */,
 				435419F8D75EB3FA37353703 /* ModuleEnvironment.swift */,
@@ -697,6 +710,8 @@
 				G40100000000000000000004 /* ModulaEdgeLoop.swift */,
 				G40100000000000000000006 /* TypographyPreview.swift */,
 				E30100000000000000000008 /* ModulaProgressiveHeader.swift */,
+				D4010000000000000000001B /* ModulaPullActions.swift */,
+				D4010000000000000000001C /* ModulaPullEffects.metal */,
 				E3010000000000000000000A /* ModulaContextMenu.swift */,
 				E3010000000000000000000B /* ModulaMediaViewer.swift */,
 				6C4472E61C35766446322975 /* ShellComponents.swift */,
@@ -875,6 +890,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				083850E345065E6A6AB4731F /* PrivacyInfo.xcprivacy in Resources */,
+				D5010000000000000000001A /* Assets.xcassets in Resources */,
 				A7C9B3B1BD7B84C45951A4CE /* manifests.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1161,6 +1177,8 @@
 				G50100000000000000000004 /* ModulaEdgeLoop.swift in Sources */,
 				G50100000000000000000006 /* TypographyPreview.swift in Sources */,
 				4D06B1162F85CC39C781DF95 /* ShellComponents.swift in Sources */,
+				D5010000000000000000001B /* ModulaPullActions.swift in Sources */,
+				D5010000000000000000001C /* ModulaPullEffects.metal in Sources */,
 				9B142191BFBCE380907C8378 /* GeneratedDesignContract.swift in Sources */,
 				C89812CA3410607F237A67DC /* AccountSettingsView.swift in Sources */,
 				5AF827934E990FCCD5C8DF02 /* ActivityModels.swift in Sources */,
@@ -1187,6 +1205,7 @@
 				D50100000000000000000007 /* CommandExecutor.swift in Sources */,
 				D50100000000000000000008 /* ShareModels.swift in Sources */,
 				D50100000000000000000009 /* CommandCenterView.swift in Sources */,
+				D5010000000000000000001D /* IntelligenceChatView.swift in Sources */,
 				D5010000000000000000000A /* SavedModels.swift in Sources */,
 				D5010000000000000000000B /* SavedStore.swift in Sources */,
 				D5010000000000000000000C /* SavedView.swift in Sources */,
@@ -1212,6 +1231,7 @@
 				D50100000000000000000015 /* AppIntentsFoundation.swift in Sources */,
 				D50100000000000000000016 /* SpotlightIndex.swift in Sources */,
 				D50100000000000000000017 /* KeyboardCommands.swift in Sources */,
+				D50100000000000000000019 /* ShellSidebar.swift in Sources */,
 				BB47BD84CB36684F9FB5C6D5 /* IntelligenceAvailability.swift in Sources */,
 				7F0E4764560ACE3663B3525E /* IntelligenceCapability.swift in Sources */,
 				A9518E57DAAF8DED3BEACDEF /* IntelligenceError.swift in Sources */,

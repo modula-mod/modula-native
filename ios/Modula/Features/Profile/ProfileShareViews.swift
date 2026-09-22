@@ -51,6 +51,7 @@ struct ProfileShareSheet: View {
                 Spacer()
             }
             .padding(20)
+            .modulaSoftScrollEdge()
             .navigationTitle("Share Profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -126,6 +127,7 @@ struct ModulaProfileCodeView: View {
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(ModulaPalette.resolve(app.appearance, scheme: scheme).canvas.ignoresSafeArea())
+            .modulaSoftScrollEdge()
             .navigationTitle("My Modula Code")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

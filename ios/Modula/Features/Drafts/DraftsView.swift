@@ -22,6 +22,7 @@ struct DraftsView: View {
                 }
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Drafts")
         .accessibilityIdentifier("drafts.root")
         .confirmationDialog(

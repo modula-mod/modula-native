@@ -211,10 +211,10 @@ final class DiscoverRoutingAndChromeTests: XCTestCase {
     func testDiscoverAccessoryIsToolsNotScopes() {
         let config = ShellAccessoryConfiguration.configuration(for: .discover(.trending), activity: nil, signedIn: false)
         XCTAssertEqual(config.title, "Tools")
-        XCTAssertEqual(config.actions.map(\.id), ["search", "filter", "refresh"])
+        XCTAssertEqual(config.actions.map(\.id), ["customise", "refresh"])
         XCTAssertFalse(config.actions.contains(where: { ["Trending", "People", "Topics", "Posts", "Modules"].contains($0.title) }))
         XCTAssertFalse(config.showsSearch)
-        XCTAssertFalse(config.showsMore)
+        XCTAssertTrue(config.showsMore)
     }
 
     func testSearchHandoffPreservesDiscoverRoot() {

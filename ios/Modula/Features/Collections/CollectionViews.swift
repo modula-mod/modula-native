@@ -31,6 +31,7 @@ struct CollectionsView: View {
                      : "Stored on this iPhone. Not synced to Greenfield.")
             }
         }
+        .modulaSoftScrollEdge()
         .navigationTitle("Collections")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -51,6 +52,7 @@ struct CollectionsView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+                .modulaSoftScrollEdge()
                 .navigationTitle("New Collection")
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
@@ -107,6 +109,7 @@ struct CollectionDetailView: View {
                         }
                     }
                 }
+                .modulaSoftScrollEdge()
                 .navigationTitle(collection.name)
                 .accessibilityLabel("\(collection.name), \(collection.itemCount) saved items")
             } else {
@@ -181,6 +184,7 @@ struct CollectionPicker: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Save to Collection")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

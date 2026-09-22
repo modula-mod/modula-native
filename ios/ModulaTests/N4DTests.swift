@@ -32,6 +32,23 @@ final class N4DRouteTests: XCTestCase {
         XCTAssertNil(AppRoute.command.tab)
         XCTAssertEqual(AppRoute.saved(.root).tab, .profile)
     }
+
+    func testSidebarDestinationsStayOffTheTabBar() {
+        let tabRoots: Set<AppRoute> = [
+            .home(.following),
+            .discover(.trending),
+            .productHub(.featured),
+            .activity(.all),
+            .me(.overview)
+        ]
+        for destination in ShellSidebarDestination.allCases {
+            XCTAssertFalse(tabRoots.contains(destination.route), destination.rawValue)
+        }
+        XCTAssertEqual(ShellSidebarDestination.saved.route, .saved(.root))
+        XCTAssertEqual(ShellSidebarDestination.settings.route, .settings(.root))
+        XCTAssertTrue(ShellSidebarDestination.saved.requiresSignIn)
+        XCTAssertFalse(ShellSidebarDestination.settings.requiresSignIn)
+    }
 }
 
 final class CommandRegistryTests: XCTestCase {
@@ -125,6 +142,12 @@ final class CommandExecutionTests: XCTestCase {
             CommandExecutor.perform(.settingsOpen(.appearance(.root)), navigation: navigation, present: present),
             .executed
         )
+
+        XCTAssertEqual(
+            CommandExecutor.perform(.presentIntelligenceChat, navigation: navigation, present: present),
+            .executed
+        )
+        XCTAssertEqual(presented, .intelligenceChat)
 
         XCTAssertEqual(
             CommandExecutor.perform(.functionInvoke(name: "x", parameters: [:]), navigation: navigation, present: present),
@@ -296,5 +319,30 @@ final class CollectionsDraftsShareTests: XCTestCase {
     func testSavedListCapabilityOpenByDefault() {
         XCTAssertFalse(SavedBackendCapabilities.production.listSavedPosts)
         XCTAssertTrue(SavedBackendCapabilities.production.toggleSave)
+    }
+
+    func testIntelligenceChatReplyUsesRealTextOnly() {
+        XCTAssertEqual(IntelligenceChatView.replyText(from: .string(" Hello ")), "Hello")
+        XCTAssertEqual(
+            IntelligenceChatView.replyText(from: .object(["text": .string("On device")])),
+            "On device"
+        )
+        XCTAssertNil(IntelligenceChatView.replyText(from: .object(["source": .string(DeterministicLocalProvider.providerID)])))
+        XCTAssertEqual(
+            IntelligenceChatView.userMessage(for: .localProviderUnavailable),
+            "On-device intelligence isn’t available right now."
+        )
+    }
+
+    func testPullDestinationResolvesFromHorizontal() {
+        XCTAssertEqual(ModulaPullDestination.resolve(horizontal: 0), .refresh)
+        XCTAssertEqual(ModulaPullDestination.resolve(horizontal: -20), .refresh)
+        XCTAssertEqual(ModulaPullDestination.resolve(horizontal: 20), .refresh)
+        XCTAssertEqual(ModulaPullDestination.resolve(horizontal: -52), .refresh)
+        XCTAssertEqual(ModulaPullDestination.resolve(horizontal: 52), .refresh)
+        XCTAssertEqual(ModulaPullDestination.resolve(horizontal: -80), .refresh)
+        XCTAssertEqual(ModulaPullDestination.resolve(horizontal: 80), .refresh)
+        XCTAssertEqual(ModulaPullDestination.resolve(horizontal: -88), .command)
+        XCTAssertEqual(ModulaPullDestination.resolve(horizontal: 88), .search)
     }
 }
