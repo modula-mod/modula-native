@@ -13,10 +13,11 @@ The training/evaluation contract, task-separated tooling, evaluation V2, dataset
 - Starting main: `76540820b041a93c42629a963365e1e49175ca15`
 - Starting origin/main: `76540820b041a93c42629a963365e1e49175ca15`
 - Feature branch: `phase-nodus-01c-alignment-recovery`
-- Feature HEAD: the source commit containing this report
-- Final main: publication recorded separately after integration
-- Final origin/main: publication recorded separately after integration
-- Match: publication recorded separately after integration
+- Feature HEAD: the commit containing this report (exact SHA is reported in the task closeout)
+- Feature remote: pushed to `origin/phase-nodus-01c-alignment-recovery`
+- Final main: `da5538859f0990fa060ae721c2312eade2b7299c` (newer local design work, left unchanged)
+- Final origin/main: `76540820b041a93c42629a963365e1e49175ca15`
+- Match: **NO**
 
 The accepted starting revision was verified as an ancestor of `origin/main`. During the phase, the canonical checkout acquired newer local commits and unrelated uncommitted work, including files overlapping the developer-navigation integration. That state was preserved; no reset, clean, stash, or canonical-tree overwrite was performed.
 
@@ -313,12 +314,14 @@ The protected Home, Activity, Product Hub, Profile, Feed, side rail, navigation,
 
 ## MAIN PUBLICATION
 
-- Merged: recorded separately after safe integration
-- Pushed: recorded separately after safe integration
-- Final SHA: recorded separately after safe integration
-- local main == origin/main: recorded separately after safe integration
+- Feature branch published: **YES**
+- Merged to local main: **NO**
+- Pushed to origin/main: **NO**
+- Final main SHA: `da5538859f0990fa060ae721c2312eade2b7299c`
+- Final origin/main SHA: `76540820b041a93c42629a963365e1e49175ca15`
+- local main == origin/main: **NO**
 
-The canonical checkout's unrelated dirty state must remain untouched during publication.
+Publication to main is blocked safely, not failed silently. During NODUS-01C, canonical `main` advanced by two unrelated, unpushed design commits and accumulated substantial uncommitted Settings/navigation work. Those uncommitted files overlap the Nodus navigation integration. A clean isolated trial merge against the two committed design commits succeeds, but applying the still-uncommitted Settings work conflicts in `AppRoute.swift`. Merging in the canonical checkout would risk overwriting user work; pushing the isolated merge would also publish unrelated commits and leave the canonical checkout out of sync. Neither action was authorized. The feature branch is pushed and ready for integration after the canonical state is resolved.
 
 ## WEIGHTS COMMITTED TO GIT
 
@@ -331,6 +334,7 @@ The canonical checkout's unrelated dirty state must remain untouched during publ
 3. Full native UI regression remains red on historical tests that fail identically on clean `origin/main`; focused Nodus tests, unit tests, Debug, Release, and simulator launch pass.
 4. Streaming was intentionally not added because the existing runtime does not expose a clean stable token stream for this developer surface.
 5. Physical-device acceptance is deferred.
+6. Main publication is pending resolution of the newer dirty canonical checkout; the complete source commit is preserved on the remote feature branch.
 
 ## NODUS-01C
 
