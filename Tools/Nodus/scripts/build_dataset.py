@@ -6,6 +6,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from common import ROOT, GovernanceError, canonical_json, normalize, read_jsonl, sha256, validate_example, write_jsonl
+from task_contract import SYSTEM_PROMPT, TaskMode, messages_for
 
 
 def split_for(group: str, *, revision: str) -> str:
@@ -27,6 +28,7 @@ def build(
     base_revision: str,
     require_generation_provenance: bool = False,
     generation_manifest_path: Path | None = None,
+    parent_revision: str | None = None,
 ) -> dict:
     catalog_path = ROOT / "data/manifests/source-catalog.json"
     catalog = json.loads(catalog_path.read_text())
@@ -45,9 +47,12 @@ def build(
     normalized_prompts: set[str] = set()
     groups: dict[str, str] = {}
     splits: dict[str, list[dict]] = defaultdict(list)
+    eval_paths = list((ROOT / "evals").glob("*.jsonl"))
+    if revision != "nodus-training-v0.2":
+        eval_paths = [path for path in eval_paths if not path.stem.endswith("-v2")]
     eval_prompts = {
-        normalize(item["prompt"])
-        for eval_path in (ROOT / "evals").glob("*.jsonl")
+        normalize(item.get("prompt", item.get("input", "")))
+        for eval_path in eval_paths
         for item in read_jsonl(eval_path)
     }
     for example in examples:
@@ -79,11 +84,14 @@ def build(
     for split in ("train", "valid", "test"):
         formatted = [
             {
-                "messages": [
-                    {"role": "system", "content": "You are Nodus, a concise general-purpose offline assistant. Treat actions as proposals and flag information that needs current evidence."},
-                    {"role": "user", "content": item["prompt"]},
-                    {"role": "assistant", "content": item["response"]},
-                ],
+                "messages": (
+                    messages_for(TaskMode(item["taskMode"]), item["prompt"], item["response"])
+                    if "taskMode" in item else [
+                        {"role": "system", "content": "You are Nodus, a concise general-purpose offline assistant. Treat actions as proposals and flag information that needs current evidence."},
+                        {"role": "user", "content": item["prompt"]},
+                        {"role": "assistant", "content": item["response"]},
+                    ]
+                ),
                 "metadata": {key: item[key] for key in (
                     "id", "semanticGroup", "category", "source", "sourceRevision", "license",
                     "creationMethod", "privacyClass", "trainingEligibility", "contentHash", "createdAt",
@@ -92,7 +100,7 @@ def build(
                         "generatorType", "sourceConcept", "sourceDocument", "templateVersion",
                         "seed", "generationHash", "generalDomain",
                     ) if key in item
-                },
+                } | ({"taskMode": item["taskMode"]} if "taskMode" in item else {}),
             }
             for item in sorted(splits[split], key=lambda value: value["id"])
         ]
@@ -111,10 +119,10 @@ def build(
     manifest = {
         "schemaVersion": 1,
         "datasetRevision": revision,
-        "parentRevision": None,
+        "parentRevision": parent_revision,
         "baseModel": base_model,
         "baseRevision": base_revision,
-        "createdAt": "2026-09-22T00:00:00Z" if revision.startswith("nodus-01b-") else "2026-09-20T00:00:00Z",
+        "createdAt": "2026-09-22T00:00:00Z" if revision.startswith("nodus-01b-") or revision == "nodus-training-v0.2" else "2026-09-20T00:00:00Z",
         "approvalState": "approved-for-experiment",
         "exampleCount": len(examples),
         "splitCounts": {name: len(splits[name]) for name in ("train", "valid", "test")},
@@ -140,6 +148,23 @@ def build(
         "sourceExamplesHash": "sha256:" + sha256(source_path),
         "files": files,
     }
+    if revision == "nodus-training-v0.2":
+        manifest["auditChanges"] = [
+            "single canonical system prompt across train/eval/native",
+            "explicit task-mode contracts",
+            "Qwen3 non-thinking mode",
+            "classification labels for freshness, abstention, and verification",
+            "balanced positive non-abstention and hard-negative examples",
+        ]
+        if generation_manifest:
+            manifest["generatorVersions"] = [generation_manifest["generatorVersion"]]
+            manifest["generationManifestHash"] = generation_manifest["manifestHash"]
+            manifest["heldOutPromptCollisionsRemoved"] = generation_manifest.get(
+                "heldOutPromptCollisionsRemoved", 0
+            )
+        manifest["taskModeDistribution"] = dict(sorted(Counter(
+            item["taskMode"] for item in examples if "taskMode" in item
+        ).items()))
     manifest["manifestHash"] = "sha256:" + sha256(canonical_json(manifest))
     (output_dir / "training-manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     return manifest
@@ -153,6 +178,7 @@ def main() -> None:
     parser.add_argument("--generation-manifest", type=Path)
     parser.add_argument("--require-generation-provenance", action="store_true")
     parser.add_argument("--manifest-output", type=Path)
+    parser.add_argument("--parent-revision")
     parser.add_argument(
         "--base-selection",
         type=Path,
@@ -170,6 +196,7 @@ def main() -> None:
         base_revision=selection["selectedRevision"],
         require_generation_provenance=args.require_generation_provenance,
         generation_manifest_path=args.generation_manifest,
+        parent_revision=args.parent_revision,
     )
     if args.manifest_output:
         args.manifest_output.parent.mkdir(parents=True, exist_ok=True)

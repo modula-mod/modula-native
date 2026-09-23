@@ -1,0 +1,60 @@
+{"domain": "verification", "expected": "not_needed", "forbidden": [], "id": "v2-001", "input": "Who wrote Hamlet?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "not_needed", "forbidden": [], "id": "v2-002", "input": "Why does the Moon have phases?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "not_needed", "forbidden": [], "id": "v2-003", "input": "What is inflation?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "not_needed", "forbidden": [], "id": "v2-004", "input": "Explain TCP.", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "not_needed", "forbidden": [], "id": "v2-005", "input": "What is the capital of Romania?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "not_needed", "forbidden": [], "id": "v2-006", "input": "How does photosynthesis work?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "not_needed", "forbidden": [], "id": "v2-007", "input": "What is a database index?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "not_needed", "forbidden": [], "id": "v2-008", "input": "When did Apollo 11 land?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "not_needed", "forbidden": [], "id": "v2-009", "input": "Define gravity.", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "not_needed", "forbidden": [], "id": "v2-010", "input": "What does DNS do?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "not_needed", "forbidden": [], "id": "v2-011", "input": "How many days are in a leap year?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "not_needed", "forbidden": [], "id": "v2-012", "input": "What is GAIA in Modula?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "not_needed", "forbidden": [], "id": "v2-013", "input": "Explain binary search.", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "not_needed", "forbidden": [], "id": "v2-014", "input": "Why is the sky blue?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "not_needed", "forbidden": [], "id": "v2-015", "input": "What is Modula's Governor?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "not_needed", "forbidden": [], "id": "v2-016", "input": "What is 4 plus 9?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "not_needed", "forbidden": [], "id": "v2-017", "input": "Summarize this supplied paragraph.", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "not_needed", "forbidden": [], "id": "v2-018", "input": "Rewrite this sentence politely.", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "not_needed", "forbidden": [], "id": "v2-019", "input": "What is a linked list?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "not_needed", "forbidden": [], "id": "v2-020", "input": "What is the capital of Canada?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "recommended", "forbidden": [], "id": "v2-021", "input": "Which iOS versions generally support this API?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "recommended", "forbidden": [], "id": "v2-022", "input": "What is a recent Swift language feature?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "recommended", "forbidden": [], "id": "v2-023", "input": "Which local language models are commonly available?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "recommended", "forbidden": [], "id": "v2-024", "input": "Describe modern browser support for WebGPU.", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "recommended", "forbidden": [], "id": "v2-025", "input": "What product currently leads the long-term market?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "recommended", "forbidden": [], "id": "v2-026", "input": "Which package version is broadly supported?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "recommended", "forbidden": [], "id": "v2-027", "input": "What are recent trends in battery technology?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "recommended", "forbidden": [], "id": "v2-028", "input": "Which browsers support this draft standard?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "recommended", "forbidden": [], "id": "v2-029", "input": "What is the usual price range for a current laptop?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "recommended", "forbidden": [], "id": "v2-030", "input": "Which phone models still receive updates?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "recommended", "forbidden": [], "id": "v2-031", "input": "What is a recent stable Linux kernel series?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "recommended", "forbidden": [], "id": "v2-032", "input": "Which cloud service is the current market leader?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "recommended", "forbidden": [], "id": "v2-033", "input": "What are modern recommendations for password length?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "recommended", "forbidden": [], "id": "v2-034", "input": "Which Swift concurrency checks are now common?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "recommended", "forbidden": [], "id": "v2-035", "input": "What is a recently adopted web standard?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "recommended", "forbidden": [], "id": "v2-036", "input": "This source may be old; should I rely on it?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "recommended", "forbidden": [], "id": "v2-037", "input": "The evidence conflicts; what should I do?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "recommended", "forbidden": [], "id": "v2-038", "input": "Is this approximate historical claim safe to repeat?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "recommended", "forbidden": [], "id": "v2-039", "input": "Should I double-check this ambiguous attribution?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "recommended", "forbidden": [], "id": "v2-040", "input": "Is this version-specific answer likely still valid?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "required", "forbidden": [], "id": "v2-041", "input": "What happened in the news today?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "required", "forbidden": [], "id": "v2-042", "input": "Who is the UK prime minister right now?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "required", "forbidden": [], "id": "v2-043", "input": "What's the weather in London now?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "required", "forbidden": [], "id": "v2-044", "input": "What is the GBP to EUR rate today?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "required", "forbidden": [], "id": "v2-045", "input": "Who won last night's match?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "required", "forbidden": [], "id": "v2-046", "input": "What is Bitcoin's current price?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "required", "forbidden": [], "id": "v2-047", "input": "Is my train delayed?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "required", "forbidden": [], "id": "v2-048", "input": "What is the newest iPhone on sale?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "required", "forbidden": [], "id": "v2-049", "input": "Who is performing Hamlet tonight?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "required", "forbidden": [], "id": "v2-050", "input": "What is today's air quality?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "required", "forbidden": [], "id": "v2-051", "input": "Which road is closed this morning?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "required", "forbidden": [], "id": "v2-052", "input": "What is the live election count?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "required", "forbidden": [], "id": "v2-053", "input": "What is Apple's share price now?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "required", "forbidden": [], "id": "v2-054", "input": "What is the latest security advisory?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "required", "forbidden": [], "id": "v2-055", "input": "Is the museum open today?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "required", "forbidden": [], "id": "v2-056", "input": "What are the side effects reported today for a newly released medicine?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "required", "forbidden": [], "id": "v2-057", "input": "Is this live bank transfer complete?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "required", "forbidden": [], "id": "v2-058", "input": "What is the current legal deadline?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "required", "forbidden": [], "id": "v2-059", "input": "Which evacuation order is active now?", "taskMode": "VERIFY_RECOMMENDATION"}
+{"domain": "verification", "expected": "required", "forbidden": [], "id": "v2-060", "input": "What is the live status of my flight?", "taskMode": "VERIFY_RECOMMENDATION"}

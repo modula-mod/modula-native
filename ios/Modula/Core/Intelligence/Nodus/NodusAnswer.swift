@@ -66,6 +66,7 @@ struct NodusAnswer: Sendable, Equatable, Codable {
     let modelVersion: String
     let latencySeconds: Double?
     let tokensPerSecond: Double?
+    var taskMode: NodusTaskMode? = nil
 
     var intelligenceValue: IntelligenceValue {
         .object([
@@ -84,6 +85,43 @@ struct NodusAnswer: Sendable, Equatable, Codable {
             "modelVersion": .string(modelVersion),
             "latencySeconds": latencySeconds.map(IntelligenceValue.double) ?? .null,
             "tokensPerSecond": tokensPerSecond.map(IntelligenceValue.double) ?? .null,
+            "taskMode": taskMode.map { .string($0.rawValue) } ?? .null,
         ])
+    }
+
+    static func parse(_ value: IntelligenceValue) -> NodusAnswer? {
+        guard let object = value.objectValue,
+              let text = object["answer"]?.stringValue,
+              let confidenceObject = object["confidence"]?.objectValue,
+              let answerConfidence = confidenceObject["answer"]?.doubleValue,
+              let evidenceConfidence = confidenceObject["evidence"]?.doubleValue,
+              let freshnessConfidence = confidenceObject["freshness"]?.doubleValue,
+              let bandRaw = confidenceObject["band"]?.stringValue,
+              let band = NodusConfidenceBand(rawValue: bandRaw),
+              let freshnessRaw = object["freshness"]?.stringValue,
+              let freshness = NodusFreshness(rawValue: freshnessRaw),
+              let evidenceRaw = object["evidenceState"]?.stringValue,
+              let evidence = NodusEvidenceState(rawValue: evidenceRaw),
+              let verification = object["verificationRecommended"]?.boolValue,
+              let abstained = object["abstained"]?.boolValue,
+              let modelVersion = object["modelVersion"]?.stringValue else { return nil }
+        return NodusAnswer(
+            answer: text,
+            confidence: NodusConfidence(
+                answer: answerConfidence,
+                evidence: evidenceConfidence,
+                freshness: freshnessConfidence,
+                band: band
+            ),
+            freshness: freshness,
+            evidenceState: evidence,
+            verificationRecommended: verification,
+            abstained: abstained,
+            reasons: object["reasons"]?.arrayValue?.compactMap(\.stringValue) ?? [],
+            modelVersion: modelVersion,
+            latencySeconds: object["latencySeconds"]?.doubleValue,
+            tokensPerSecond: object["tokensPerSecond"]?.doubleValue,
+            taskMode: object["taskMode"]?.stringValue.flatMap(NodusTaskMode.init(rawValue:))
+        )
     }
 }

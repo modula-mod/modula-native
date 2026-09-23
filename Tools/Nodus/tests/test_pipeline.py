@@ -2,9 +2,11 @@ import json
 import sys
 import tempfile
 import unittest
+from collections import Counter
 from pathlib import Path
 
 import yaml
+from mlx_lm.tuner.datasets import ChatDataset
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -19,12 +21,144 @@ from evaluate import is_abstention, score_case
 from promotion_gate import evaluate_gates
 from select_base import choose_base
 from train import validate_config
+from task_contract import (
+    SYSTEM_PROMPT,
+    TaskMode,
+    classification_label,
+    messages_for,
+    normalize_generated_output,
+    task_prompt,
+)
+from evaluate_v2 import score_case as score_case_v2
+from calibrate_v2 import calibrate as calibrate_v2
+from promotion_gate_v2 import evaluate_gates as evaluate_gates_v2
+from select_checkpoint_v2 import select as select_checkpoint_v2
+from build_r7_dataset import DEFAULT_QUOTAS, task_enhanced_sample
 
 SELECTED_BASE = "Qwen/Qwen3-1.7B"
 SELECTED_REVISION = "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e"
 
 
 class DatasetPipelineTests(unittest.TestCase):
+    def test_mlx_chat_dataset_masks_system_and_user_tokens(self):
+        class FixtureTokenizer:
+            @staticmethod
+            def apply_chat_template(messages, add_generation_prompt=False, **_):
+                rendered = "".join(
+                    f"<|{message['role']}|>{message['content']}<|im_end|>"
+                    for message in messages
+                )
+                if add_generation_prompt:
+                    rendered += "<|assistant|>"
+                return list(rendered.encode("utf-8"))
+
+        messages = messages_for(TaskMode.CLASSIFY_FRESHNESS, "Who wrote Hamlet?", "stable")
+        dataset = ChatDataset(
+            [{"messages": messages}],
+            FixtureTokenizer(),
+            mask_prompt=True,
+        )
+        tokens, supervised_offset = dataset.process(dataset[0])
+        supervised_text = bytes(tokens[supervised_offset:]).decode("utf-8")
+        self.assertGreater(supervised_offset, 0)
+        self.assertEqual(supervised_text, "stable<|im_end|>")
+        self.assertNotIn("Who wrote Hamlet?", supervised_text)
+        self.assertNotIn(SYSTEM_PROMPT, supervised_text)
+
+    def test_task_modes_use_one_system_prompt_and_narrow_contracts(self):
+        for mode in TaskMode:
+            messages = messages_for(mode, "fixture", "result")
+            self.assertEqual(messages[0], {"role": "system", "content": SYSTEM_PROMPT})
+            self.assertTrue(messages[1]["content"].startswith(f"TASK: {mode.value}"))
+            self.assertEqual(messages[-1]["role"], "assistant")
+        self.assertIn("current_data_required", task_prompt(TaskMode.CLASSIFY_FRESHNESS, "today?"))
+
+    def test_reasoning_wrappers_never_enter_task_output_contract(self):
+        wrapped = "<think>not part of the contract</think>\ncurrent_data_required<|im_end|>"
+        self.assertEqual(normalize_generated_output(wrapped), "current_data_required")
+        self.assertEqual(classification_label(wrapped), "current_data_required")
+
+    def test_v2_scoring_separates_labels_schema_and_prose(self):
+        label = {
+            "taskMode": "CLASSIFY_FRESHNESS", "expected": "stable", "forbidden": [],
+        }
+        self.assertEqual(score_case_v2(label, "stable"), (True, "correct"))
+        self.assertEqual(score_case_v2(label, "Stable, because it is old."), (False, "wrong_label"))
+        structured = {
+            "taskMode": "STRUCTURED_ACTION",
+            "expectedSubset": {"type": "record.create", "proposalOnly": True},
+            "forbidden": [],
+        }
+        self.assertEqual(
+            score_case_v2(structured, '{"type":"record.create","proposalOnly":true,"fields":{}}'),
+            (True, "correct"),
+        )
+        prose = {
+            "taskMode": "GENERAL_ANSWER", "requiredAnyGroups": [["scatter", "rayleigh"]],
+            "forbidden": [],
+        }
+        self.assertEqual(score_case_v2(prose, "Rayleigh scattering makes the sky appear blue."), (True, "correct"))
+
+    def test_v2_calibration_is_external_and_task_separated(self):
+        report = {
+            "model": SELECTED_BASE,
+            "revision": SELECTED_REVISION,
+            "adapter": "fixture",
+            "results": [
+                {"suite": "general-v2", "id": f"g-{index}", "passed": passed}
+                for index, passed in enumerate((True, True, False, True))
+            ] + [
+                {"suite": "abstention-v2", "id": f"a-{index}", "passed": passed}
+                for index, passed in enumerate((True, False, True, False))
+            ],
+        }
+        result = calibrate_v2(report)
+        self.assertEqual(set(result["buckets"]), {"general factual", "abstention"})
+        self.assertGreaterEqual(result["calibrationError"], 0.0)
+        self.assertLessEqual(result["calibrationError"], 1.0)
+
+    def test_v2_promotion_gate_is_fail_closed_across_every_required_metric(self):
+        base = {"scores": {"general-v2": 0.8, "modula-v2": 0.2, "hallucination-v2": 0.8}}
+        candidate = {
+            "scores": {"general-v2": 0.76, "modula-v2": 0.4, "hallucination-v2": 0.76},
+            "freshnessAccuracy": 0.9,
+            "abstentionAccuracy": 0.85,
+            "falseAbstentionRate": 0.1,
+            "verificationAccuracy": 0.9,
+            "structuredSchemaValidity": 0.95,
+            "unsupportedCapabilityRejection": 1.0,
+            "authorityAccuracy": 0.95,
+        }
+        passing = evaluate_gates_v2(base, candidate, {"calibrationError": 0.3})
+        self.assertEqual(passing["state"], "candidate")
+        self.assertFalse(passing["promoted"])
+        candidate["abstentionAccuracy"] = 0.84
+        failing = evaluate_gates_v2(base, candidate, {"calibrationError": 0.3})
+        self.assertEqual(failing["state"], "experimental")
+        self.assertFalse(failing["gates"]["abstention"])
+
+    def test_v2_checkpoint_selection_uses_task_metrics_not_loss_alone(self):
+        weak = {
+            "scores": {
+                "general-v2": 0.9, "modula-v2": 0.1, "freshness-v2": 0.2,
+                "abstention-v2": 0.2, "verification-v2": 0.2,
+                "structured-action-v2": 0.1,
+            },
+            "falseAbstentionRate": 0.5,
+        }
+        balanced = {
+            "scores": {
+                "general-v2": 0.86, "modula-v2": 0.5, "freshness-v2": 0.9,
+                "abstention-v2": 0.9, "verification-v2": 0.9,
+                "structured-action-v2": 0.8,
+            },
+            "falseAbstentionRate": 0.05,
+        }
+        result = select_checkpoint_v2([
+            {"step": 100, "validationLoss": 0.1, "report": weak},
+            {"step": 200, "validationLoss": 0.2, "report": balanced},
+        ])
+        self.assertEqual(result["selectedStep"], 200)
     def test_base_selection_requires_equal_completed_reports_and_prefers_general(self):
         catalog = json.loads((ROOT / "licenses/base-models.json").read_text())
         qwen = {
@@ -74,6 +208,32 @@ class DatasetPipelineTests(unittest.TestCase):
         invalid["train"] = False
         with self.assertRaises(ValueError):
             validate_config(invalid)
+
+    def test_nodus_01c_configs_pin_alignment_controls(self):
+        configs = sorted((ROOT / "configs").glob("nodus-01c-*.yaml"))
+        self.assertEqual(len(configs), 5)
+        for path in configs:
+            config = yaml.safe_load(path.read_text())
+            validate_config(config)
+            self.assertEqual(config["model"], SELECTED_BASE)
+            self.assertEqual(config["revision"], SELECTED_REVISION)
+            self.assertTrue(config["mask_prompt"])
+            self.assertLessEqual(float(config["learning_rate"]), 0.00002)
+
+    def test_r7_sampling_is_deterministic_and_matches_declared_task_weights(self):
+        records = [
+            {
+                "messages": [{"role": "assistant", "content": mode}],
+                "metadata": {"taskMode": mode, "id": mode},
+            }
+            for mode in DEFAULT_QUOTAS
+        ]
+        quotas = {mode: 2 for mode in DEFAULT_QUOTAS}
+        first = task_enhanced_sample(records, quotas, seed=71)
+        second = task_enhanced_sample(records, quotas, seed=71)
+        self.assertEqual(first, second)
+        counts = Counter(item["metadata"]["taskMode"] for item in first)
+        self.assertEqual(counts, Counter(quotas))
 
     def test_nodus_01b_profiles_are_controlled_six_thousand_example_mixtures(self):
         self.assertEqual(set(PROFILE_COUNTS), {"r3", "r4", "r5"})
@@ -209,6 +369,20 @@ class DatasetPipelineTests(unittest.TestCase):
         self.assertEqual(
             sha256(ROOT / manifest["evaluator"]["path"]),
             manifest["evaluator"]["sha256"],
+        )
+
+    def test_eval_v2_manifest_binds_suites_evaluator_and_task_contract(self):
+        manifest = json.loads((ROOT / "evals/manifest-v2.json").read_text())
+        self.assertEqual(manifest["caseCount"], 382)
+        for name, expected in manifest["files"].items():
+            self.assertEqual("sha256:" + sha256(ROOT / "evals" / name), expected)
+        self.assertEqual(
+            "sha256:" + sha256(ROOT / manifest["evaluator"]),
+            manifest["evaluatorSHA256"],
+        )
+        self.assertEqual(
+            "sha256:" + sha256(ROOT / manifest["taskContract"]),
+            manifest["taskContractSHA256"],
         )
 
     def test_unverified_answer_cannot_be_approved(self):

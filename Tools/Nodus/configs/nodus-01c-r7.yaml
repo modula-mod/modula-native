@@ -1,0 +1,31 @@
+experiment: NODUS-01C-R7
+hypothesis: task-enhanced sampling supplies the per-task exposure demonstrated by the successful micro experiments
+model: Qwen/Qwen3-1.7B
+revision: 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e
+local_model_path: .cache/models/qwen3-1.7b-70d244cc
+dataset_revision: nodus-training-v0.2-r7-task-enhanced
+train: true
+fine_tune_type: lora
+optimizer: adamw
+data: data/generated/nodus-training-v0.2-r7
+seed: 71
+num_layers: 20
+batch_size: 1
+iters: 1200
+val_batches: 100
+learning_rate: 0.00002
+steps_per_report: 25
+steps_per_eval: 100
+grad_accumulation_steps: 2
+adapter_path: artifacts/nodus-01c-r7
+save_every: 200
+test: true
+test_batches: 100
+max_seq_length: 512
+grad_checkpoint: true
+mask_prompt: true
+lora_parameters:
+  keys: ["self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj", "self_attn.o_proj"]
+  rank: 8
+  scale: 16.0
+  dropout: 0.05

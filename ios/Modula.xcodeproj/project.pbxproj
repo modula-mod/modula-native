@@ -115,6 +115,8 @@
 		C5010000000000000000000C /* N4FTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4010000000000000000000C /* N4FTests.swift */; };
 		C5321327FFFE3ADE609BB112 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 084039C8EE9493F07C7F4946 /* AppEnvironment.swift */; };
 		C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */; };
+		C80100000000000000000001 /* NodusChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90100000000000000000001 /* NodusChatView.swift */; };
+		C80100000000000000000002 /* NodusChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90100000000000000000002 /* NodusChatViewModel.swift */; };
 		C89812CA3410607F237A67DC /* AccountSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15D7EBEF5CC806F4A3DB8FD2 /* AccountSettingsView.swift */; };
 		CB83EAE823CBFCC164212148 /* IntelligenceToolRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 451A1E26A996A06EF909DBE4 /* IntelligenceToolRegistry.swift */; };
 		D278576A2004E2A30C65EFF5 /* IntelligencePrivacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803B42B4BF6BF7A874EF51D3 /* IntelligencePrivacy.swift */; };
@@ -353,6 +355,8 @@
 		C4010000000000000000000C /* N4FTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4FTests.swift; sourceTree = "<group>"; };
 		C727EBE1A122E68AE7538DFC /* IntelligenceResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceResponse.swift; path = Core/Intelligence/Contracts/IntelligenceResponse.swift; sourceTree = "<group>"; };
 		C8ECAD5355D79305D770912A /* ProfileView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileView.swift; path = Features/Profile/ProfileView.swift; sourceTree = "<group>"; };
+		C90100000000000000000001 /* NodusChatView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusChatView.swift; path = Features/Developer/NodusChatView.swift; sourceTree = "<group>"; };
+		C90100000000000000000002 /* NodusChatViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusChatViewModel.swift; path = Features/Developer/NodusChatViewModel.swift; sourceTree = "<group>"; };
 		CE413545A422ACB4BACBB3DF /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RootView.swift; path = App/RootView.swift; sourceTree = "<group>"; };
 		D40100000000000000000001 /* PrivateFileStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PrivateFileStore.swift; path = Core/Persistence/PrivateFileStore.swift; sourceTree = "<group>"; };
 		D40100000000000000000002 /* CommandModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommandModels.swift; path = Core/Commands/CommandModels.swift; sourceTree = "<group>"; };
@@ -742,6 +746,8 @@
 				A4CC36E2CB4875EBEDB19A1A /* IntelligenceToolValidation.swift */,
 				4ED61D09324116C37F15191A /* IntelligenceValue.swift */,
 				00C3046A71D34C45B14E30AE /* IntelligenceDiagnosticsView.swift */,
+				C90100000000000000000001 /* NodusChatView.swift */,
+				C90100000000000000000002 /* NodusChatViewModel.swift */,
 				A60100000000000000000001 /* NodusAnswer.swift */,
 				A60100000000000000000002 /* NodusFreshnessClassifier.swift */,
 				A60100000000000000000003 /* NodusConfidenceEngine.swift */,
@@ -1234,6 +1240,8 @@
 				98B1FF0A78D3F224FB40C690 /* IntelligenceToolValidation.swift in Sources */,
 				BEEBE251735247E8828B2F26 /* IntelligenceValue.swift in Sources */,
 				F55C4DEFC5031B25247EC2F9 /* IntelligenceDiagnosticsView.swift in Sources */,
+				C80100000000000000000001 /* NodusChatView.swift in Sources */,
+				C80100000000000000000002 /* NodusChatViewModel.swift in Sources */,
 				A70100000000000000000001 /* NodusAnswer.swift in Sources */,
 				A70100000000000000000002 /* NodusFreshnessClassifier.swift in Sources */,
 				A70100000000000000000003 /* NodusConfidenceEngine.swift in Sources */,

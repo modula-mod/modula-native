@@ -250,6 +250,50 @@ final class NativeLaunchTests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
     }
+
+    @MainActor
+    func testNodusChatModelNotInstalledState() throws {
+        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable"])
+        openSettingsFromShell(app)
+        XCTAssertTrue(app.buttons["Developer"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Developer"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["Nodus Chat"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Nodus Chat"].firstMatch.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["nodus.chat.screen"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.descendants(matching: .any)["nodus.chat.model-not-installed"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["nodus.chat.input"].isEnabled)
+    }
+
+    @MainActor
+    func testNodusChatFixtureSendMetadataVerifyCancelAndClear() throws {
+        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--uitest-nodus-fixture"])
+        openSettingsFromShell(app)
+        XCTAssertTrue(app.buttons["Developer"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Developer"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["Nodus Chat"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Nodus Chat"].firstMatch.tap()
+
+        let input = app.descendants(matching: .any)["nodus.chat.input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 8))
+        pasteText("What's today's weather?", into: input, app: app)
+        app.descendants(matching: .any)["nodus.chat.send"].tap()
+        XCTAssertTrue(app.buttons["Verify when online"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["Needs verification"].exists)
+        XCTAssertTrue(app.staticTexts["Current data needed"].exists)
+        app.buttons["Verify when online"].tap()
+        XCTAssertTrue(app.staticTexts["Verification queued locally"].waitForExistence(timeout: 5))
+
+        pasteText("CANCEL_TEST", into: input, app: app)
+        app.descendants(matching: .any)["nodus.chat.send"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["nodus.chat.stop"].waitForExistence(timeout: 3))
+        app.descendants(matching: .any)["nodus.chat.stop"].tap()
+        XCTAssertTrue(input.waitForExistence(timeout: 3))
+        XCTAssertTrue(input.isEnabled)
+
+        app.buttons["Clear"].tap()
+        XCTAssertTrue(app.staticTexts["Test Nodus locally"].waitForExistence(timeout: 5))
+    }
 }
 
 @MainActor

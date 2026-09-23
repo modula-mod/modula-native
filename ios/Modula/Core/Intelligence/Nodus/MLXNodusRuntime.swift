@@ -73,11 +73,10 @@ actor MLXNodusRuntime: NodusRuntime {
         }
         state = .generating
         defer { state = .loaded }
-        let instruction = Self.instruction(for: capability)
         let input = UserInput(chat: [
-            .system("You are Nodus, Modula's concise general-purpose offline assistant. Never claim live information without current evidence. Actions are proposals only."),
-            .user("\(instruction)\n\n\(prompt)"),
-        ])
+            .system(NodusPromptContract.system),
+            .user(prompt),
+        ], additionalContext: ["enable_thinking": false])
         let prepared = try await container.prepare(input: input)
         let stream = try await container.generate(
             input: prepared,
@@ -94,24 +93,13 @@ actor MLXNodusRuntime: NodusRuntime {
             }
         }
         return NodusRuntimeGeneration(
-            text: text.trimmingCharacters(in: .whitespacesAndNewlines), modelVersion: modelVersion,
+            text: NodusPromptContract.normalize(text), modelVersion: modelVersion,
             completed: true, tokensPerSecond: tokensPerSecond, modelConsistency: nil
         )
     }
 
     func unload() { container = nil; state = .unloaded }
 
-    private static func instruction(for capability: IntelligenceCapability) -> String {
-        switch capability {
-        case .generate: "Answer the request directly."
-        case .rewrite: "Rewrite while preserving meaning."
-        case .summarize: "Summarize accurately and concisely."
-        case .classify: "Return only the requested classification."
-        case .extract: "Extract only the requested facts."
-        case .intent: "Identify the primary intent."
-        case .toolCall: "Return a proposal only."
-        }
-    }
 }
 #endif
 

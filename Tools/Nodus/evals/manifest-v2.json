@@ -1,0 +1,38 @@
+{
+  "caseCount": 382,
+  "createdAt": "2026-09-22T00:00:00Z",
+  "evaluator": "scripts/evaluate_v2.py",
+  "evaluatorSHA256": "sha256:f0d6366119fc8de8045a7a9119c9afb1b38715d10375ad6bef47d21fcac6782a",
+  "files": {
+    "abstention-v2.jsonl": "sha256:7d6661285f0e78844b1de7476d26fde8f8055f03c40783a6b9753151db9ec861",
+    "freshness-v2.jsonl": "sha256:c371fcc4b10d75b5d0b11195380068c669b2c2aff1ad3f5a9ffac05021a50098",
+    "general-v2.jsonl": "sha256:d5add70ffae016fe23151159a3582d2996c5cb3afbe0690ad7ad4dfbd3f55731",
+    "hallucination-v2.jsonl": "sha256:d0e1301b1977ba552cf110b35098c33de2a65309d45675e74a4ff5765422cd4a",
+    "modula-v2.jsonl": "sha256:639e0eda125d0a97b79da3c10e8cfdc3b6f075b57506c3554a6e817eaea13d80",
+    "structured-action-v2.jsonl": "sha256:bc152fd3c90f3a0f974f635b4b908ed4a7c01768375dbeb0700561c8dbbbe9a0",
+    "verification-v2.jsonl": "sha256:cb87a96e4afd1be089b7768759a93db4fffcc36392fd8bcfe85f022e1c25dff8"
+  },
+  "manifestHash": "sha256:07aef2eb4664ee1954055a4868392914a84c58ac81095af557ff3643c951ffb4",
+  "revision": "nodus-eval-v2",
+  "schemaVersion": 2,
+  "suiteCounts": {
+    "abstention-v2": 60,
+    "freshness-v2": 60,
+    "general-v2": 50,
+    "hallucination-v2": 50,
+    "modula-v2": 52,
+    "structured-action-v2": 50,
+    "verification-v2": 60
+  },
+  "taskContract": "scripts/task_contract.py",
+  "taskContractSHA256": "sha256:54a442733999a4831a6a965f60296322a42cb72d80f8c3a6a056904c15e06fa8",
+  "taskModeCounts": {
+    "CLASSIFY_FRESHNESS": 60,
+    "GENERAL_ANSWER": 45,
+    "MODULA_ANSWER": 102,
+    "SHOULD_ABSTAIN": 60,
+    "STRUCTURED_ACTION": 50,
+    "SUMMARIZE": 5,
+    "VERIFY_RECOMMENDATION": 60
+  }
+}

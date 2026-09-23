@@ -65,6 +65,10 @@ struct IntelligenceDiagnosticsView: View {
                     Task { await rollbackArtifact() }
                 }
                 Text(artifactStatus).font(.caption).foregroundStyle(.secondary)
+                Button("Open Nodus Chat") {
+                    app.navigation.open(.settings(.developer(.nodusChat)))
+                }
+                .accessibilityIdentifier("intelligence.nodus.open-chat")
             }
 
             Section("Nodus playground") {
@@ -196,7 +200,7 @@ struct IntelligenceDiagnosticsView: View {
             let response = try await app.intelligence.executeDiagnostic(
                 request, usingProviderID: NodusIntelligenceProvider.providerID
             )
-            lastNodusAnswer = Self.parseNodusAnswer(response.output)
+            lastNodusAnswer = NodusAnswer.parse(response.output)
             lastNodusQuestion = nodusPrompt
             lastStatus = "Success"
         } catch let error as IntelligenceError {
@@ -262,39 +266,6 @@ struct IntelligenceDiagnosticsView: View {
             artifactStatus = "Could not delete installed artifact"
         }
         await refresh()
-    }
-
-    private static func parseNodusAnswer(_ value: IntelligenceValue) -> NodusAnswer? {
-        guard let object = value.objectValue,
-              let text = object["answer"]?.stringValue,
-              let confidenceObject = object["confidence"]?.objectValue,
-              let answerConfidence = confidenceObject["answer"]?.doubleValue,
-              let evidenceConfidence = confidenceObject["evidence"]?.doubleValue,
-              let freshnessConfidence = confidenceObject["freshness"]?.doubleValue,
-              let bandRaw = confidenceObject["band"]?.stringValue,
-              let band = NodusConfidenceBand(rawValue: bandRaw),
-              let freshnessRaw = object["freshness"]?.stringValue,
-              let freshness = NodusFreshness(rawValue: freshnessRaw),
-              let evidenceRaw = object["evidenceState"]?.stringValue,
-              let evidence = NodusEvidenceState(rawValue: evidenceRaw),
-              let verification = object["verificationRecommended"]?.boolValue,
-              let abstained = object["abstained"]?.boolValue,
-              let modelVersion = object["modelVersion"]?.stringValue else { return nil }
-        return NodusAnswer(
-            answer: text,
-            confidence: NodusConfidence(
-                answer: answerConfidence, evidence: evidenceConfidence,
-                freshness: freshnessConfidence, band: band
-            ),
-            freshness: freshness,
-            evidenceState: evidence,
-            verificationRecommended: verification,
-            abstained: abstained,
-            reasons: object["reasons"]?.arrayValue?.compactMap(\.stringValue) ?? [],
-            modelVersion: modelVersion,
-            latencySeconds: object["latencySeconds"]?.doubleValue,
-            tokensPerSecond: object["tokensPerSecond"]?.doubleValue
-        )
     }
 
     private func runTest(using providerID: String) async {
