@@ -6,6 +6,7 @@ actor FakeNodusRuntime: NodusRuntime {
     let generation: NodusRuntimeGeneration
     private(set) var generateCalls = 0
     private(set) var loadCalls = 0
+    private(set) var lastPrompt: String?
     private var state: NodusLoadState = .unloaded
 
     init(text: String, version: String = "Nodus test") {
@@ -19,12 +20,26 @@ actor FakeNodusRuntime: NodusRuntime {
     func load() { loadCalls += 1; state = .loaded }
     func generate(prompt: String, capability: IntelligenceCapability) -> NodusRuntimeGeneration {
         generateCalls += 1
+        lastPrompt = prompt
         return generation
     }
     func unload() { state = .unloaded }
 }
 
 final class NodusFreshnessAndConfidenceTests: XCTestCase {
+    func testTaskModeContractIsStableAndNormalizesReasoningWrapper() {
+        let prompt = NodusPromptContract.prompt(
+            mode: .classifyFreshness,
+            input: "What happened today?"
+        )
+        XCTAssertTrue(prompt.hasPrefix("TASK: CLASSIFY_FRESHNESS"))
+        XCTAssertTrue(prompt.contains("current_data_required"))
+        XCTAssertEqual(
+            NodusPromptContract.normalize("<think>private trace</think>\ncurrent_data_required<|im_end|>"),
+            "current_data_required"
+        )
+    }
+
     func testStableKnowledge() {
         XCTAssertEqual(NodusFreshnessClassifier().classify("Explain photosynthesis simply."), .stable)
     }
@@ -82,6 +97,26 @@ final class NodusFreshnessAndConfidenceTests: XCTestCase {
         XCTAssertEqual(response.executionKind, .local)
         XCTAssertEqual(response.output.objectValue?["freshness"]?.stringValue, NodusFreshness.stable.rawValue)
         XCTAssertEqual(response.output.objectValue?["verificationRecommended"]?.boolValue, false)
+        XCTAssertEqual(response.output.objectValue?["taskMode"]?.stringValue, NodusTaskMode.generalAnswer.rawValue)
+        let contractedPrompt = await runtime.lastPrompt
+        XCTAssertTrue(contractedPrompt?.hasPrefix("TASK: GENERAL_ANSWER") == true)
+    }
+
+    func testExplicitClassificationTaskModeReachesRuntime() async throws {
+        let runtime = FakeNodusRuntime(text: "stable")
+        let provider = NodusIntelligenceProvider(runtime: runtime)
+        let request = IntelligenceRequest(
+            capability: .classify,
+            input: .object([
+                "text": .string("Who wrote Hamlet?"),
+                "taskMode": .string(NodusTaskMode.classifyFreshness.rawValue),
+            ]),
+            privacy: .localOnly,
+            source: .test
+        )
+        _ = try await provider.execute(request, context: IntelligenceExecutionContext(source: .test))
+        let prompt = await runtime.lastPrompt
+        XCTAssertTrue(prompt?.hasPrefix("TASK: CLASSIFY_FRESHNESS") == true)
     }
 
     func testCurrentQuestionRecommendsVerificationWithoutNetwork() async throws {
@@ -118,6 +153,72 @@ final class NodusFreshnessAndConfidenceTests: XCTestCase {
         XCTAssertEqual(response.executionKind, .local)
         let remoteExecuteCalls = await remoteCounter.executeCalls
         XCTAssertEqual(remoteExecuteCalls, 0, "localOnly + modula.nodus must make zero remote AI calls")
+    }
+}
+
+@MainActor
+final class NodusChatViewModelTests: XCTestCase {
+    private func makeIntelligence(runtime: any NodusRuntime) throws -> ModulaIntelligence {
+        let provider = NodusIntelligenceProvider(runtime: runtime)
+        let registry = try IntelligenceProviderRegistry(providers: [provider])
+        return ModulaIntelligence(
+            providers: registry,
+            registerDeterministicLocalProvider: false
+        )
+    }
+
+    func testSendAndClearUseNodusProvider() async throws {
+        let runtime = FakeNodusRuntime(text: "Bucharest is the capital of Romania.")
+        let intelligence = try makeIntelligence(runtime: runtime)
+        let model = NodusChatViewModel()
+        await model.refresh(using: intelligence)
+        model.input = "What is the capital of Romania?"
+        model.send(using: intelligence)
+        for _ in 0 ..< 100 {
+            if !model.isGenerating { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(model.messages.count, 2)
+        XCTAssertEqual(model.messages.last?.answer?.taskMode, .generalAnswer)
+        model.clear()
+        XCTAssertTrue(model.messages.isEmpty)
+    }
+
+    func testCancelStopsGenerationAndRestoresComposer() async throws {
+        let intelligence = try makeIntelligence(runtime: NodusUITestRuntime())
+        let model = NodusChatViewModel()
+        await model.refresh(using: intelligence)
+        model.input = "CANCEL_TEST"
+        model.send(using: intelligence)
+        XCTAssertTrue(model.isGenerating)
+        model.cancel()
+        try await Task.sleep(for: .milliseconds(20))
+        XCTAssertFalse(model.isGenerating)
+    }
+
+    func testFreshChatAnswerQueuesLocalVerificationMission() async throws {
+        let intelligence = try makeIntelligence(runtime: NodusUITestRuntime())
+        let model = NodusChatViewModel()
+        await model.refresh(using: intelligence)
+        model.input = "What's today's weather?"
+        model.send(using: intelligence)
+        for _ in 0 ..< 100 {
+            if !model.isGenerating { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let message = try XCTUnwrap(model.messages.last)
+        XCTAssertEqual(message.answer?.freshness, .currentDataRequired)
+        XCTAssertEqual(message.answer?.verificationRecommended, true)
+
+        let fileURL = FileManager.default.temporaryDirectory
+            .appending(path: "nodus-chat-verification-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+        let store = NodusVerificationStore(fileURL: fileURL)
+        await model.queueVerification(for: message, store: store)
+        let snapshot = await store.snapshot()
+        XCTAssertEqual(snapshot.missions.count, 1)
+        XCTAssertEqual(snapshot.missions.first?.question, "What's today's weather?")
+        XCTAssertEqual(model.verificationStatus, "Verification queued locally")
     }
 }
 

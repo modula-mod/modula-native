@@ -1,0 +1,60 @@
+{"domain": "freshness", "expected": "stable", "forbidden": [], "id": "f2-001", "input": "Who wrote Hamlet?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "stable", "forbidden": [], "id": "f2-002", "input": "Why does the Moon have phases?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "stable", "forbidden": [], "id": "f2-003", "input": "What is inflation?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "stable", "forbidden": [], "id": "f2-004", "input": "Explain TCP.", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "stable", "forbidden": [], "id": "f2-005", "input": "What is the capital of Romania?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "stable", "forbidden": [], "id": "f2-006", "input": "How does photosynthesis work?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "stable", "forbidden": [], "id": "f2-007", "input": "What is a database index?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "stable", "forbidden": [], "id": "f2-008", "input": "When did Apollo 11 land?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "stable", "forbidden": [], "id": "f2-009", "input": "Define gravity.", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "stable", "forbidden": [], "id": "f2-010", "input": "What does DNS do?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "stable", "forbidden": [], "id": "f2-011", "input": "How many days are in a leap year?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "stable", "forbidden": [], "id": "f2-012", "input": "What is GAIA in Modula?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "stable", "forbidden": [], "id": "f2-013", "input": "Explain binary search.", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "stable", "forbidden": [], "id": "f2-014", "input": "Why is the sky blue?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "stable", "forbidden": [], "id": "f2-015", "input": "What is Modula's Governor?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "possibly_stale", "forbidden": [], "id": "f2-016", "input": "Which iOS versions generally support this API?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "possibly_stale", "forbidden": [], "id": "f2-017", "input": "What is a recent Swift language feature?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "possibly_stale", "forbidden": [], "id": "f2-018", "input": "Which local language models are commonly available?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "possibly_stale", "forbidden": [], "id": "f2-019", "input": "Describe modern browser support for WebGPU.", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "possibly_stale", "forbidden": [], "id": "f2-020", "input": "What product currently leads the long-term market?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "possibly_stale", "forbidden": [], "id": "f2-021", "input": "Which package version is broadly supported?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "possibly_stale", "forbidden": [], "id": "f2-022", "input": "What are recent trends in battery technology?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "possibly_stale", "forbidden": [], "id": "f2-023", "input": "Which browsers support this draft standard?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "possibly_stale", "forbidden": [], "id": "f2-024", "input": "What is the usual price range for a current laptop?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "possibly_stale", "forbidden": [], "id": "f2-025", "input": "Which phone models still receive updates?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "possibly_stale", "forbidden": [], "id": "f2-026", "input": "What is a recent stable Linux kernel series?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "possibly_stale", "forbidden": [], "id": "f2-027", "input": "Which cloud service is the current market leader?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "possibly_stale", "forbidden": [], "id": "f2-028", "input": "What are modern recommendations for password length?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "possibly_stale", "forbidden": [], "id": "f2-029", "input": "Which Swift concurrency checks are now common?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "possibly_stale", "forbidden": [], "id": "f2-030", "input": "What is a recently adopted web standard?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "current_data_required", "forbidden": [], "id": "f2-031", "input": "What happened in the news today?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "current_data_required", "forbidden": [], "id": "f2-032", "input": "Who is the UK prime minister right now?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "current_data_required", "forbidden": [], "id": "f2-033", "input": "What's the weather in London now?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "current_data_required", "forbidden": [], "id": "f2-034", "input": "What is the GBP to EUR rate today?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "current_data_required", "forbidden": [], "id": "f2-035", "input": "Who won last night's match?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "current_data_required", "forbidden": [], "id": "f2-036", "input": "What is Bitcoin's current price?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "current_data_required", "forbidden": [], "id": "f2-037", "input": "Is my train delayed?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "current_data_required", "forbidden": [], "id": "f2-038", "input": "What is the newest iPhone on sale?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "current_data_required", "forbidden": [], "id": "f2-039", "input": "Who is performing Hamlet tonight?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "current_data_required", "forbidden": [], "id": "f2-040", "input": "What is today's air quality?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "current_data_required", "forbidden": [], "id": "f2-041", "input": "Which road is closed this morning?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "current_data_required", "forbidden": [], "id": "f2-042", "input": "What is the live election count?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "current_data_required", "forbidden": [], "id": "f2-043", "input": "What is Apple's share price now?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "current_data_required", "forbidden": [], "id": "f2-044", "input": "What is the latest security advisory?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "current_data_required", "forbidden": [], "id": "f2-045", "input": "Is the museum open today?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "unknown", "forbidden": [], "id": "f2-046", "input": "What is in the unpublished Orinth ledger?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "unknown", "forbidden": [], "id": "f2-047", "input": "Describe the undocumented Zorven protocol.", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "unknown", "forbidden": [], "id": "f2-048", "input": "What does the unidentified device do?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "unknown", "forbidden": [], "id": "f2-049", "input": "What did the unspecified source claim?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "unknown", "forbidden": [], "id": "f2-050", "input": "Give the private Kestrel-9 archive result.", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "unknown", "forbidden": [], "id": "f2-051", "input": "What was decided in the missing meeting record?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "unknown", "forbidden": [], "id": "f2-052", "input": "What does this unknown binary format contain?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "unknown", "forbidden": [], "id": "f2-053", "input": "Who authored the anonymous unpublished memo?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "unknown", "forbidden": [], "id": "f2-054", "input": "What is the secret code in the sealed report?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "unknown", "forbidden": [], "id": "f2-055", "input": "Explain the unnamed internal system.", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "unknown", "forbidden": [], "id": "f2-056", "input": "What happened in the redacted trial?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "unknown", "forbidden": [], "id": "f2-057", "input": "State the unavailable test result.", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "unknown", "forbidden": [], "id": "f2-058", "input": "What is the meaning of the undefined project codename?", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "unknown", "forbidden": [], "id": "f2-059", "input": "Give the contents of the lost document.", "taskMode": "CLASSIFY_FRESHNESS"}
+{"domain": "freshness", "expected": "unknown", "forbidden": [], "id": "f2-060", "input": "What is the answer according to an unspecified source?", "taskMode": "CLASSIFY_FRESHNESS"}

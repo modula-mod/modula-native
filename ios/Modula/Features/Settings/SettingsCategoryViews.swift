@@ -903,6 +903,7 @@ struct DeveloperSettingsHost: View {
                 Button("Components") { app.navigation.open(.settings(.developer(.components))) }
                 Button("Diagnostics") { app.navigation.open(.settings(.developer(.diagnostics))) }
                 Button("Local Intelligence") { app.navigation.open(.settings(.developer(.intelligence))) }
+                Button("Nodus Chat") { app.navigation.open(.settings(.developer(.nodusChat))) }
             }
             .modulaSoftScrollEdge()
             .navigationTitle("Developer")
@@ -910,6 +911,8 @@ struct DeveloperSettingsHost: View {
             RuntimeDiagnosticsView()
         case .intelligence:
             IntelligenceDiagnosticsView()
+        case .nodusChat:
+            NodusChatView()
         case .modules:
             List(app.runtime.manifests, id: \.id) { manifest in
                 LabeledContent(manifest.name, value: manifest.version)

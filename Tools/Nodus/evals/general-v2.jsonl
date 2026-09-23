@@ -1,0 +1,50 @@
+{"domain": "science", "forbidden": [], "id": "g2-001", "input": "Why does the Moon show phases?", "requiredAnyGroups": [["sun", "sunlit"], ["orbit", "position"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "science", "forbidden": [], "id": "g2-002", "input": "How do plants make sugars?", "requiredAnyGroups": [["photosynthesis"], ["light", "sunlight"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "science", "forbidden": [], "id": "g2-003", "input": "What causes ocean tides?", "requiredAnyGroups": [["gravity", "gravitational"], ["moon"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "science", "forbidden": [], "id": "g2-004", "input": "Why does ice float on water?", "requiredAnyGroups": [["less dense", "density"], ["water"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "science", "forbidden": [], "id": "g2-005", "input": "What carries hereditary information?", "requiredAnyGroups": [["dna"], ["genetic", "hereditary"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "history", "forbidden": [], "id": "g2-006", "input": "In what year did Apollo 11 land on the Moon?", "requiredAnyGroups": [["1969"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "history", "forbidden": [], "id": "g2-007", "input": "What document was sealed in England in 1215?", "requiredAnyGroups": [["magna carta"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "history", "forbidden": [], "id": "g2-008", "input": "Why was the Rosetta Stone important?", "requiredAnyGroups": [["decipher", "decode"], ["hieroglyph"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "history", "forbidden": [], "id": "g2-009", "input": "Where did the Industrial Revolution begin?", "requiredAnyGroups": [["britain", "great britain", "england"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "history", "forbidden": [], "id": "g2-010", "input": "When was the United Nations founded?", "requiredAnyGroups": [["1945"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "geography", "forbidden": [], "id": "g2-011", "input": "What is the capital of Romania?", "requiredAnyGroups": [["bucharest"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "geography", "forbidden": [], "id": "g2-012", "input": "Which ocean is the largest?", "requiredAnyGroups": [["pacific"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "geography", "forbidden": [], "id": "g2-013", "input": "On which continent is the Sahara?", "requiredAnyGroups": [["africa"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "geography", "forbidden": [], "id": "g2-014", "input": "What latitude is the equator?", "requiredAnyGroups": [["zero", "0"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "geography", "forbidden": [], "id": "g2-015", "input": "What is the capital of New Zealand?", "requiredAnyGroups": [["wellington"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "technology", "forbidden": [], "id": "g2-016", "input": "What does DNS do?", "requiredAnyGroups": [["domain", "host name", "hostname"], ["ip", "address"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "technology", "forbidden": [], "id": "g2-017", "input": "Why is HTTPS used?", "requiredAnyGroups": [["encrypt", "tls"], ["http", "traffic", "connection"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "technology", "forbidden": [], "id": "g2-018", "input": "What is a software API?", "requiredAnyGroups": [["contract", "interface"], ["software", "component"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "technology", "forbidden": [], "id": "g2-019", "input": "Why do systems use caches?", "requiredAnyGroups": [["speed", "latency", "faster"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "technology", "forbidden": [], "id": "g2-020", "input": "What is version control for?", "requiredAnyGroups": [["change", "history"], ["file", "code"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "computer-science", "forbidden": [], "id": "g2-021", "input": "What ordering does a stack use?", "requiredAnyGroups": [["last in", "lifo"], ["first out"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "computer-science", "forbidden": [], "id": "g2-022", "input": "What ordering does a queue usually use?", "requiredAnyGroups": [["first in", "fifo"], ["first out"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "computer-science", "forbidden": [], "id": "g2-023", "input": "What prerequisite does binary search have?", "requiredAnyGroups": [["sorted", "ordered"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "computer-science", "forbidden": [], "id": "g2-024", "input": "What does Big-O notation describe?", "requiredAnyGroups": [["growth", "complexity", "scal"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "computer-science", "forbidden": [], "id": "g2-025", "input": "What makes recursion terminate?", "requiredAnyGroups": [["base case", "termination condition"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "math", "forbidden": [], "id": "g2-026", "input": "What is 17 multiplied by 6?", "requiredAnyGroups": [["102"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "math", "forbidden": [], "id": "g2-027", "input": "What is 15 percent of 200?", "requiredAnyGroups": [["30"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "math", "forbidden": [], "id": "g2-028", "input": "Solve 3x = 21.", "requiredAnyGroups": [["7"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "math", "forbidden": [], "id": "g2-029", "input": "What is the square root of 144?", "requiredAnyGroups": [["12"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "math", "forbidden": [], "id": "g2-030", "input": "What is 5 squared plus 4?", "requiredAnyGroups": [["29"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "writing", "forbidden": [], "id": "g2-031", "input": "Write a concise sentence thanking a colleague for careful feedback.", "requiredAnyGroups": [["thank"], ["feedback"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "writing", "forbidden": [], "id": "g2-032", "input": "Write one sentence politely declining a meeting.", "requiredAnyGroups": [["unable", "can't", "cannot", "decline"], ["meeting"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "writing", "forbidden": [], "id": "g2-033", "input": "Rewrite concisely: Due to the fact that it rained, the event was delayed.", "requiredAnyGroups": [["rain"], ["event"], ["delay"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "writing", "forbidden": [], "id": "g2-034", "input": "Write a clear one-sentence reminder to submit a report Friday.", "requiredAnyGroups": [["report"], ["friday"], ["submit", "send"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "writing", "forbidden": [], "id": "g2-035", "input": "Write a neutral sentence asking for clarification.", "requiredAnyGroups": [["clarif", "more detail", "explain"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "summarization", "forbidden": [], "id": "g2-036", "input": "Summarize: Engineering work changed weekend departures, so the railway issued a revised timetable.", "requiredAnyGroups": [["rail"], ["timetable", "schedule"], ["weekend"]], "taskMode": "SUMMARIZE"}
+{"domain": "summarization", "forbidden": [], "id": "g2-037", "input": "Summarize: The team tested three designs and selected the fastest one after measuring latency.", "requiredAnyGroups": [["team"], ["fast", "latency"], ["selected", "chose"]], "taskMode": "SUMMARIZE"}
+{"domain": "summarization", "forbidden": [], "id": "g2-038", "input": "Summarize: Heavy rain filled the reservoir, ending local water restrictions.", "requiredAnyGroups": [["rain"], ["restriction"], ["end", "lift"]], "taskMode": "SUMMARIZE"}
+{"domain": "summarization", "forbidden": [], "id": "g2-039", "input": "Summarize: The library extended Saturday hours after patrons requested more weekend access.", "requiredAnyGroups": [["library"], ["saturday", "weekend"], ["hours", "access"]], "taskMode": "SUMMARIZE"}
+{"domain": "summarization", "forbidden": [], "id": "g2-040", "input": "Summarize: A patch fixed the crash but did not change application features.", "requiredAnyGroups": [["patch"], ["crash"], ["feature", "behavio"]], "taskMode": "SUMMARIZE"}
+{"domain": "basic-reasoning", "forbidden": [], "id": "g2-041", "input": "All robins are birds and all birds have feathers. What follows about robins?", "requiredAnyGroups": [["robin"], ["feather"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "basic-reasoning", "forbidden": [], "id": "g2-042", "input": "Mina arrived before Jo, and Jo before Lee. Who arrived first?", "requiredAnyGroups": [["mina"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "basic-reasoning", "forbidden": [], "id": "g2-043", "input": "A box has four red and two blue balls. How many balls total?", "requiredAnyGroups": [["6", "six"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "basic-reasoning", "forbidden": [], "id": "g2-044", "input": "If the switch is off, the lamp is dark. The lamp is lit. Can the switch be off under that rule?", "requiredAnyGroups": [["no", "cannot"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "basic-reasoning", "forbidden": [], "id": "g2-045", "input": "A train travels 60 km in one hour at constant speed. How far in two hours?", "requiredAnyGroups": [["120"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "common-factual", "forbidden": [], "id": "g2-046", "input": "Who wrote Hamlet?", "requiredAnyGroups": [["shakespeare"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "common-factual", "forbidden": [], "id": "g2-047", "input": "What language is primarily spoken in Brazil?", "requiredAnyGroups": [["portuguese"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "common-factual", "forbidden": [], "id": "g2-048", "input": "How many days are in a leap year?", "requiredAnyGroups": [["366"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "common-factual", "forbidden": [], "id": "g2-049", "input": "What gas do humans need to breathe?", "requiredAnyGroups": [["oxygen"]], "taskMode": "GENERAL_ANSWER"}
+{"domain": "common-factual", "forbidden": [], "id": "g2-050", "input": "Which planet is known as the Red Planet?", "requiredAnyGroups": [["mars"]], "taskMode": "GENERAL_ANSWER"}

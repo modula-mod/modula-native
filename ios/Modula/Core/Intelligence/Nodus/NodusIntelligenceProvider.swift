@@ -35,17 +35,20 @@ struct NodusIntelligenceProvider: IntelligenceProvider {
         guard let prompt = Self.prompt(from: request.input), !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw IntelligenceError.invalidRequest(detail: "Nodus requires a non-empty string or object text")
         }
+        let taskMode = Self.taskMode(from: request.input) ?? .defaultMode(for: request.capability)
+        let contractedPrompt = NodusPromptContract.prompt(mode: taskMode, input: prompt)
         let started = ContinuousClock.now
         try await runtime.load()
         let generation: NodusRuntimeGeneration
         do {
-            generation = try await runtime.generate(prompt: prompt, capability: request.capability)
+            generation = try await runtime.generate(prompt: contractedPrompt, capability: request.capability)
         } catch is CancellationError {
             throw IntelligenceError.requestCancelled
         }
         try Task.checkCancellation()
         let freshness = freshnessClassifier.classify(prompt)
-        let normalized = generation.text.lowercased()
+        let normalizedText = NodusPromptContract.normalize(generation.text)
+        let normalized = normalizedText.lowercased()
         let uncertain = normalized.contains("not enough reliable") || normalized.contains("uncertain") || normalized.contains("verify")
         let confidence = confidenceEngine.evaluate(NodusConfidenceSignals(
             freshness: freshness,
@@ -68,7 +71,7 @@ struct NodusIntelligenceProvider: IntelligenceProvider {
         let components = elapsed.components
         let latency = Double(components.seconds) + Double(components.attoseconds) / 1e18
         let envelope = NodusAnswer(
-            answer: generation.text,
+            answer: normalizedText,
             confidence: confidence,
             freshness: freshness,
             evidenceState: .modelKnowledge,
@@ -77,7 +80,8 @@ struct NodusIntelligenceProvider: IntelligenceProvider {
             reasons: reasons,
             modelVersion: generation.modelVersion,
             latencySeconds: latency,
-            tokensPerSecond: generation.tokensPerSecond
+            tokensPerSecond: generation.tokensPerSecond,
+            taskMode: taskMode
         )
         return IntelligenceResponse(
             requestID: request.id,
@@ -95,6 +99,12 @@ struct NodusIntelligenceProvider: IntelligenceProvider {
         case .object(let object): object["text"]?.stringValue ?? object["prompt"]?.stringValue
         default: nil
         }
+    }
+
+    private static func taskMode(from input: IntelligenceValue) -> NodusTaskMode? {
+        guard case .object(let object) = input,
+              let raw = object["taskMode"]?.stringValue else { return nil }
+        return NodusTaskMode(rawValue: raw)
     }
 
     private static func isHighRisk(_ prompt: String) -> Bool {

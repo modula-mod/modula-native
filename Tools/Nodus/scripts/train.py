@@ -12,6 +12,7 @@ import yaml
 from mlx_lm import generate, load
 from mlx_lm.sample_utils import make_sampler
 from common import ROOT, resolve_model_path, sha256
+from task_contract import TaskMode, messages_for, normalize_generated_output
 
 
 def validate_config(config: dict) -> None:
@@ -39,10 +40,7 @@ def validate_config(config: dict) -> None:
 
 def reload_smoke(model_path: str, adapter_path: Path) -> str:
     model, tokenizer = load(model_path, adapter_path=str(adapter_path))
-    messages = [
-        {"role": "system", "content": "You are Nodus, a concise general-purpose offline assistant."},
-        {"role": "user", "content": "What is Nodus?"},
-    ]
+    messages = messages_for(TaskMode.GENERAL_ANSWER, "What is Nodus?")
     try:
         prompt = tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True, enable_thinking=False
@@ -52,7 +50,8 @@ def reload_smoke(model_path: str, adapter_path: Path) -> str:
     output = generate(
         model, tokenizer, prompt=prompt, max_tokens=48,
         sampler=make_sampler(temp=0.0), verbose=False,
-    ).strip()
+    )
+    output = normalize_generated_output(output)
     if not output:
         raise RuntimeError("Adapter reload generation returned no text")
     return output

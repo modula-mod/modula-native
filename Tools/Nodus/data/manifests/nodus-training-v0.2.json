@@ -1,0 +1,82 @@
+{
+  "approvalState": "approved-for-experiment",
+  "auditChanges": [
+    "single canonical system prompt across train/eval/native",
+    "explicit task-mode contracts",
+    "Qwen3 non-thinking mode",
+    "classification labels for freshness, abstention, and verification",
+    "balanced positive non-abstention and hard-negative examples"
+  ],
+  "baseModel": "Qwen/Qwen3-1.7B",
+  "baseRevision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+  "categoryDistribution": {
+    "ABSTENTION": 240,
+    "AKI": 134,
+    "AUTHORITY_BOUNDARIES": 120,
+    "CAPABILITY_SELECTION": 134,
+    "FRESHNESS": 240,
+    "GAIA": 134,
+    "GENERAL_ASSISTANT": 3622,
+    "GOVERNOR": 128,
+    "LOCAL_INTELLIGENCE": 134,
+    "MODULA_ARCHITECTURE": 134,
+    "MODULA_KNOWLEDGE": 134,
+    "MODULE_KNOWLEDGE": 134,
+    "NODUS": 134,
+    "STRUCTURED_INTENT": 300,
+    "UNKNOWN_CAPABILITY": 120,
+    "VERIFICATION_DECISION": 158
+  },
+  "createdAt": "2026-09-22T00:00:00Z",
+  "datasetRevision": "nodus-training-v0.2",
+  "duplicateRemoval": {
+    "exact": 2011,
+    "near": 55,
+    "normalized": 22
+  },
+  "exampleCount": 6000,
+  "files": {
+    "test": "f823f7823751e630f035325cfd780a7e5d6e715502990233c3c210381fbceae7",
+    "train": "6a0e55d2e21c43c5f32bb340b9c79d17632ca6b280abc273cb16a81e9261e998",
+    "valid": "93a19979c4ff298ac271ba51be78ad9bfaac507da12a70ab4320ed5d7546d382"
+  },
+  "generationManifestHash": "sha256:0f68d9c2f197af32104d98687141eafc142b9a9e9f2dcf638d7202123ce7c434",
+  "generatorVersions": [
+    "nodus-01c-corpus-v2"
+  ],
+  "heldOutPromptCollisionsRemoved": 4,
+  "learningCandidateCount": 0,
+  "licenses": [
+    "CC0-1.0",
+    "Modula-internal"
+  ],
+  "manifestHash": "sha256:d4503a535842fe36e6ea7c51cd765d2c6684a12a8aaad5b3b6b5456ebc158392",
+  "parentRevision": "nodus-01b-r3-v1,nodus-01b-r4-v1,nodus-01b-r5-v1",
+  "privateProductionDataCount": 0,
+  "provenanceComplete": true,
+  "schemaVersion": 1,
+  "sourceCatalogHash": "sha256:5fd15ba5bc3ced43a2fe985d4576a0d44b3675af672dbe2725d6f4e2ecb42939",
+  "sourceExamplesHash": "sha256:3de22ca4d151914cc58fb40f18240ee168fc89e4a54768cc700e4a5cd6682f0c",
+  "sources": {
+    "modula-architecture-docs": 1200,
+    "modula-nodus01b-spec": 1178,
+    "nodus-authored-general-replay": 3622
+  },
+  "splitCounts": {
+    "test": 875,
+    "train": 4163,
+    "valid": 962
+  },
+  "splitLeakage": "PASS",
+  "splitPolicy": "semantic-group-hash-70-15-15",
+  "taskModeDistribution": {
+    "CLASSIFY_FRESHNESS": 240,
+    "CLASSIFY_INTENT": 120,
+    "GENERAL_ANSWER": 3511,
+    "MODULA_ANSWER": 1320,
+    "SHOULD_ABSTAIN": 240,
+    "STRUCTURED_ACTION": 300,
+    "SUMMARIZE": 111,
+    "VERIFY_RECOMMENDATION": 158
+  }
+}
