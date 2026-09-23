@@ -1,6 +1,4 @@
 {
-  "version": 1,
-  "updatedAt": "2026-09-20T22:40:56.343154+00:00",
   "transcripts": {
     "/Users/msjoy/.cursor/projects/Users-msjoy-Developer-modula-native/agent-transcripts/05ab8350-fc08-4275-aafe-edbbf07d227e/05ab8350-fc08-4275-aafe-edbbf07d227e.jsonl": {
       "mtimeMs": 1789520941752,
@@ -106,6 +104,10 @@
       "mtimeMs": 1789586505993,
       "size": 19048
     },
+    "/Users/msjoy/.cursor/projects/Users-msjoy-Developer-modula-native/agent-transcripts/a363a869-9043-4bcc-80f1-caf19347560a/a363a869-9043-4bcc-80f1-caf19347560a.jsonl": {
+      "mtimeMs": 1790113030781,
+      "size": 4719
+    },
     "/Users/msjoy/.cursor/projects/Users-msjoy-Developer-modula-native/agent-transcripts/ac50e4c0-ab67-493f-802f-af1dfaf0396c/ac50e4c0-ab67-493f-802f-af1dfaf0396c.jsonl": {
       "mtimeMs": 1789595712014,
       "size": 222137
@@ -150,6 +152,22 @@
       "mtimeMs": 1789776858773,
       "size": 16143
     },
+    "/Users/msjoy/.cursor/projects/Users-msjoy-Developer-modula-native/agent-transcripts/db43c4bb-850e-4d88-a9b2-684b0d367821/db43c4bb-850e-4d88-a9b2-684b0d367821.jsonl": {
+      "mtimeMs": 1790144613997,
+      "size": 376970
+    },
+    "/Users/msjoy/.cursor/projects/Users-msjoy-Developer-modula-native/agent-transcripts/db43c4bb-850e-4d88-a9b2-684b0d367821/subagents/0faaf54f-c467-47c4-9dc0-fd3918a5571f.jsonl": {
+      "mtimeMs": 1790144619236,
+      "size": 3828
+    },
+    "/Users/msjoy/.cursor/projects/Users-msjoy-Developer-modula-native/agent-transcripts/db43c4bb-850e-4d88-a9b2-684b0d367821/subagents/896dc1e6-1726-499f-a2b8-114480caa5c0.jsonl": {
+      "mtimeMs": 1790117225845,
+      "size": 23467
+    },
+    "/Users/msjoy/.cursor/projects/Users-msjoy-Developer-modula-native/agent-transcripts/db43c4bb-850e-4d88-a9b2-684b0d367821/subagents/945a2012-4fee-464f-bfe0-adcade21a9ac.jsonl": {
+      "mtimeMs": 1790116619177,
+      "size": 22269
+    },
     "/Users/msjoy/.cursor/projects/Users-msjoy-Developer-modula-native/agent-transcripts/e0e661ab-66d1-4672-9992-677d41a54331/e0e661ab-66d1-4672-9992-677d41a54331.jsonl": {
       "mtimeMs": 1789518662345,
       "size": 133638
@@ -157,26 +175,6 @@
     "/Users/msjoy/.cursor/projects/Users-msjoy-Developer-modula-native/agent-transcripts/e0e661ab-66d1-4672-9992-677d41a54331/subagents/f6c73ad0-f158-4bd8-912e-14ebac4bd060.jsonl": {
       "mtimeMs": 1789517350792,
       "size": 17948
-    },
-    "/Users/msjoy/.cursor/projects/Users-msjoy-Developer-modula-native-main/agent-transcripts/3df28237-fc8d-401b-95ff-ae4e11dd88c4/3df28237-fc8d-401b-95ff-ae4e11dd88c4.jsonl": {
-      "mtimeMs": 1789943945289.0493,
-      "size": 909810
-    },
-    "/Users/msjoy/.cursor/projects/Users-msjoy-Developer-modula-native-main/agent-transcripts/3df28237-fc8d-401b-95ff-ae4e11dd88c4/subagents/090f84ed-fc78-4de7-bd62-9aabb10695ac.jsonl": {
-      "mtimeMs": 1789862610700.5327,
-      "size": 26533
-    },
-    "/Users/msjoy/.cursor/projects/Users-msjoy-Developer-modula-native-main/agent-transcripts/3df28237-fc8d-401b-95ff-ae4e11dd88c4/subagents/5aebf402-ea6a-4086-8306-2cd3b1706cb1.jsonl": {
-      "mtimeMs": 1789863534708.6404,
-      "size": 19275
-    },
-    "/Users/msjoy/.cursor/projects/Users-msjoy-Developer-modula-native-main/agent-transcripts/3df28237-fc8d-401b-95ff-ae4e11dd88c4/subagents/49d67cef-d3f1-4552-84d3-3b90907bb905.jsonl": {
-      "mtimeMs": 1789932609318.6377,
-      "size": 15620
-    },
-    "/Users/msjoy/.cursor/projects/Users-msjoy-Developer-modula-native-main/agent-transcripts/3df28237-fc8d-401b-95ff-ae4e11dd88c4/subagents/51cfcc18-1439-4424-8949-875ff069ce33.jsonl": {
-      "mtimeMs": 1789943961360.8708,
-      "size": 2382
     }
   }
 }

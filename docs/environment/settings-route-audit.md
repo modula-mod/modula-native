@@ -30,6 +30,69 @@ Live VPS verification remains OPEN. CAPABILITY-UNAVAILABLE screens are truthful,
 | /settings/appearance/interface-shape | IMPLEMENTED | Interface Shape |
 | /settings/appearance/module-branding | IMPLEMENTED | Module Branding |
 | /settings/appearance/preview | IMPLEMENTED | Appearance Preview |
+| /settings/personalisation | IMPLEMENTED | Personalisation |
+| /settings/personalisation/recommendations | IMPLEMENTED | Recommendations |
+| /settings/personalisation/stories | IMPLEMENTED | Stories prefs |
+| /settings/personalisation/captions | IMPLEMENTED | Captions |
+| /settings/intelligence | IMPLEMENTED | Intelligence |
+| /settings/intelligence/models | IMPLEMENTED | Models |
+| /settings/intelligence/knowledge | IMPLEMENTED | Knowledge |
+| /settings/intelligence/privacy | IMPLEMENTED | Intelligence Privacy |
+| /settings/intelligence/tools | IMPLEMENTED | Tools |
+| /settings/chats | IMPLEMENTED | Chats |
+| /settings/chats/composer | IMPLEMENTED | Composer |
+| /settings/chats/previews | IMPLEMENTED | Chat Previews |
+| /settings/chats/privacy | IMPLEMENTED | Chat Privacy |
+| /settings/audio | IMPLEMENTED | Audio |
+| /settings/audio/playback | IMPLEMENTED | Playback |
+| /settings/audio/voice | IMPLEMENTED | Voice |
+| /settings/audio/haptics | IMPLEMENTED | Audio Haptics |
+| /settings/language | IMPLEMENTED | Language |
+| /settings/media | IMPLEMENTED | Media |
+| /settings/media/video | IMPLEMENTED | Video |
+| /settings/media/images | IMPLEMENTED | Images |
+| /settings/media/downloads | IMPLEMENTED | Media Downloads |
+| /settings/feed | IMPLEMENTED | Feed |
+| /settings/battery | IMPLEMENTED | Battery & Data |
+| /settings/safety | IMPLEMENTED | Safety |
+| /settings/safety/reporting | CAPABILITY-UNAVAILABLE | Reporting |
+| /settings/safety/muted | CAPABILITY-UNAVAILABLE | Muted |
+| /settings/safety/sensitive | CAPABILITY-UNAVAILABLE | Sensitive content |
+| /settings/camera | IMPLEMENTED | Camera |
+| /settings/camera/capture | IMPLEMENTED | Capture |
+| /settings/camera/permissions | IMPLEMENTED | Camera Permissions |
+| /settings/gestures | IMPLEMENTED | Gestures |
+| /settings/finder | IMPLEMENTED | Search |
+| /settings/sharing | IMPLEMENTED | Sharing |
+| /settings/location | CAPABILITY-UNAVAILABLE | Location |
+| /settings/location/map | CAPABILITY-UNAVAILABLE | Map posts |
+| /settings/widgets | CAPABILITY-UNAVAILABLE | Widgets |
+| /settings/widgets/gallery | CAPABILITY-UNAVAILABLE | Widget gallery |
+| /settings/labs | IMPLEMENTED | Labs |
+| /settings/photos | IMPLEMENTED | Photos |
+| /settings/network | IMPLEMENTED | Network |
+| /settings/digests | IMPLEMENTED | Digests |
+| /settings/help | IMPLEMENTED | Help |
+| /settings/help/guides | IMPLEMENTED | Guides |
+| /settings/help/contact | CAPABILITY-UNAVAILABLE | Contact |
+| /settings/help/status | IMPLEMENTED | Status |
+| /settings/whats-new | IMPLEMENTED | What’s New |
+| /settings/creator | IMPLEMENTED | Creator |
+| /settings/creator/studio | IMPLEMENTED | Studio defaults |
+| /settings/creator/insights | CAPABILITY-UNAVAILABLE | Insights |
+| /settings/focus | IMPLEMENTED | Focus |
+| /settings/passkeys | CAPABILITY-UNAVAILABLE | Passkeys |
+| /settings/translate | IMPLEMENTED | Translate |
+| /settings/qr-code | IMPLEMENTED | Modula Code |
+| /settings/family | CAPABILITY-UNAVAILABLE | Family |
+| /settings/time-units | IMPLEMENTED | Time & Units |
+| /settings/keyboard | IMPLEMENTED | Keyboard |
+| /settings/connectors | CAPABILITY-UNAVAILABLE | Connectors |
+| /settings/integrations | CAPABILITY-UNAVAILABLE | Integrations |
+| /settings/monetisation | CAPABILITY-UNAVAILABLE | Monetisation |
+| /settings/monetisation/plans | CAPABILITY-UNAVAILABLE | Plans |
+| /settings/monetisation/payouts | CAPABILITY-UNAVAILABLE | Payouts |
+| /settings/monetisation/invoices | CAPABILITY-UNAVAILABLE | Invoices |
 | /settings/notifications | IMPLEMENTED | Notifications |
 | /settings/notifications/push | IMPLEMENTED | Push |
 | /settings/notifications/social | CAPABILITY-UNAVAILABLE | Social Notifications |
@@ -73,6 +136,7 @@ Live VPS verification remains OPEN. CAPABILITY-UNAVAILABLE screens are truthful,
 | /settings/developer/environment | DEVELOPER-ONLY | Environment |
 | /settings/developer/components | DEVELOPER-ONLY | Components |
 | /settings/developer/diagnostics | DEVELOPER-ONLY | Diagnostics |
+| /settings/developer/intelligence | DEVELOPER-ONLY | Local Intelligence |
 | /settings/about | IMPLEMENTED | About |
 | /settings/about/version | IMPLEMENTED | Version |
 | /settings/about/licenses | IMPLEMENTED | Licenses |

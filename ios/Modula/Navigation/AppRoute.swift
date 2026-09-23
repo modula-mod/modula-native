@@ -74,6 +74,44 @@ enum FeatureSettingsRoute: String, CaseIterable, Codable, Hashable { case root, 
 enum UpdateSettingsRoute: String, CaseIterable, Codable, Hashable { case root, channel, stable, unstable, versionLock = "version-lock" }
 enum DeveloperSettingsRoute: String, CaseIterable, Codable, Hashable { case root, runtime, modules, network, featureFlags = "feature-flags", environment, components, diagnostics, intelligence }
 enum AboutSettingsRoute: String, CaseIterable, Codable, Hashable { case root, version, licenses, privacy, terms }
+enum IntelligenceSettingsRoute: String, CaseIterable, Codable, Hashable { case root, models, knowledge, privacy, tools }
+enum PersonalisationSettingsRoute: String, CaseIterable, Codable, Hashable {
+    case root, recommendations, stories, captions
+}
+enum ConnectorsSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+enum IntegrationsSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+enum MonetisationSettingsRoute: String, CaseIterable, Codable, Hashable { case root, plans, payouts, invoices }
+enum ChatsSettingsRoute: String, CaseIterable, Codable, Hashable {
+    case root, composer, previews, privacy
+}
+enum AudioSettingsRoute: String, CaseIterable, Codable, Hashable {
+    case root, playback, voice, haptics
+}
+enum LanguageSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+enum MediaSettingsRoute: String, CaseIterable, Codable, Hashable { case root, video, images, downloads }
+enum FeedSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+enum BatterySettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+enum SafetySettingsRoute: String, CaseIterable, Codable, Hashable { case root, reporting, muted, sensitive }
+enum CameraSettingsRoute: String, CaseIterable, Codable, Hashable { case root, capture, permissions }
+enum GesturesSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+enum FinderSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+enum SharingSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+enum LocationSettingsRoute: String, CaseIterable, Codable, Hashable { case root, map }
+enum WidgetsSettingsRoute: String, CaseIterable, Codable, Hashable { case root, gallery }
+enum LabsSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+enum PhotosSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+enum NetworkSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+enum DigestsSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+enum HelpSettingsRoute: String, CaseIterable, Codable, Hashable { case root, guides, contact, status }
+enum WhatsNewSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+enum CreatorSettingsRoute: String, CaseIterable, Codable, Hashable { case root, studio, insights }
+enum FocusSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+enum PasskeysSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+enum TranslateSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+enum QRCodeSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+enum FamilySettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+enum TimeUnitsSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+enum KeyboardSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
 enum ModuleSettingsSection: String, CaseIterable, Codable, Hashable { case general, permissions, data, updates, diagnostics, about }
 enum ModuleSettingsRoute: Hashable {
     case root, installed, updates, autoUpdates, permissions
@@ -83,6 +121,38 @@ enum SettingsRoute: Hashable {
     case root
     case account(AccountSettingsRoute)
     case appearance(AppearanceSettingsRoute)
+    case personalisation(PersonalisationSettingsRoute)
+    case intelligence(IntelligenceSettingsRoute)
+    case chats(ChatsSettingsRoute)
+    case audio(AudioSettingsRoute)
+    case language(LanguageSettingsRoute)
+    case media(MediaSettingsRoute)
+    case feed(FeedSettingsRoute)
+    case battery(BatterySettingsRoute)
+    case safety(SafetySettingsRoute)
+    case camera(CameraSettingsRoute)
+    case gestures(GesturesSettingsRoute)
+    case finder(FinderSettingsRoute)
+    case sharing(SharingSettingsRoute)
+    case location(LocationSettingsRoute)
+    case widgets(WidgetsSettingsRoute)
+    case labs(LabsSettingsRoute)
+    case photos(PhotosSettingsRoute)
+    case network(NetworkSettingsRoute)
+    case digests(DigestsSettingsRoute)
+    case help(HelpSettingsRoute)
+    case whatsNew(WhatsNewSettingsRoute)
+    case creator(CreatorSettingsRoute)
+    case focus(FocusSettingsRoute)
+    case passkeys(PasskeysSettingsRoute)
+    case translate(TranslateSettingsRoute)
+    case qrCode(QRCodeSettingsRoute)
+    case family(FamilySettingsRoute)
+    case timeUnits(TimeUnitsSettingsRoute)
+    case keyboard(KeyboardSettingsRoute)
+    case connectors(ConnectorsSettingsRoute)
+    case integrations(IntegrationsSettingsRoute)
+    case monetisation(MonetisationSettingsRoute)
     case notifications(NotificationSettingsRoute)
     case privacy(PrivacySettingsRoute)
     case modules(ModuleSettingsRoute)
@@ -325,6 +395,38 @@ enum RouteParser {
             return UpdateSettingsRoute(rawValue: tail).map { .settings(.updates($0)) }
         case "developer": return DeveloperSettingsRoute(rawValue: tail).map { .settings(.developer($0)) }
         case "about": return AboutSettingsRoute(rawValue: tail).map { .settings(.about($0)) }
+        case "intelligence": return IntelligenceSettingsRoute(rawValue: tail).map { .settings(.intelligence($0)) }
+        case "personalisation": return PersonalisationSettingsRoute(rawValue: tail).map { .settings(.personalisation($0)) }
+        case "connectors": return ConnectorsSettingsRoute(rawValue: tail).map { .settings(.connectors($0)) }
+        case "integrations": return IntegrationsSettingsRoute(rawValue: tail).map { .settings(.integrations($0)) }
+        case "monetisation": return MonetisationSettingsRoute(rawValue: tail).map { .settings(.monetisation($0)) }
+        case "chats": return ChatsSettingsRoute(rawValue: tail).map { .settings(.chats($0)) }
+        case "audio": return AudioSettingsRoute(rawValue: tail).map { .settings(.audio($0)) }
+        case "language": return LanguageSettingsRoute(rawValue: tail).map { .settings(.language($0)) }
+        case "media": return MediaSettingsRoute(rawValue: tail).map { .settings(.media($0)) }
+        case "feed": return FeedSettingsRoute(rawValue: tail).map { .settings(.feed($0)) }
+        case "battery": return BatterySettingsRoute(rawValue: tail).map { .settings(.battery($0)) }
+        case "safety": return SafetySettingsRoute(rawValue: tail).map { .settings(.safety($0)) }
+        case "camera": return CameraSettingsRoute(rawValue: tail).map { .settings(.camera($0)) }
+        case "gestures": return GesturesSettingsRoute(rawValue: tail).map { .settings(.gestures($0)) }
+        case "finder": return FinderSettingsRoute(rawValue: tail).map { .settings(.finder($0)) }
+        case "sharing": return SharingSettingsRoute(rawValue: tail).map { .settings(.sharing($0)) }
+        case "location": return LocationSettingsRoute(rawValue: tail).map { .settings(.location($0)) }
+        case "widgets": return WidgetsSettingsRoute(rawValue: tail).map { .settings(.widgets($0)) }
+        case "labs": return LabsSettingsRoute(rawValue: tail).map { .settings(.labs($0)) }
+        case "photos": return PhotosSettingsRoute(rawValue: tail).map { .settings(.photos($0)) }
+        case "network": return NetworkSettingsRoute(rawValue: tail).map { .settings(.network($0)) }
+        case "digests": return DigestsSettingsRoute(rawValue: tail).map { .settings(.digests($0)) }
+        case "help": return HelpSettingsRoute(rawValue: tail).map { .settings(.help($0)) }
+        case "whats-new": return WhatsNewSettingsRoute(rawValue: tail).map { .settings(.whatsNew($0)) }
+        case "creator": return CreatorSettingsRoute(rawValue: tail).map { .settings(.creator($0)) }
+        case "focus": return FocusSettingsRoute(rawValue: tail).map { .settings(.focus($0)) }
+        case "passkeys": return PasskeysSettingsRoute(rawValue: tail).map { .settings(.passkeys($0)) }
+        case "translate": return TranslateSettingsRoute(rawValue: tail).map { .settings(.translate($0)) }
+        case "qr-code": return QRCodeSettingsRoute(rawValue: tail).map { .settings(.qrCode($0)) }
+        case "family": return FamilySettingsRoute(rawValue: tail).map { .settings(.family($0)) }
+        case "time-units": return TimeUnitsSettingsRoute(rawValue: tail).map { .settings(.timeUnits($0)) }
+        case "keyboard": return KeyboardSettingsRoute(rawValue: tail).map { .settings(.keyboard($0)) }
         default: return nil
         }
     }
@@ -469,6 +571,38 @@ enum RouteSerializer {
             else { setting("updates", r.rawValue) }
         case .developer(let r): setting("developer", r.rawValue)
         case .about(let r): setting("about", r.rawValue)
+        case .intelligence(let r): setting("intelligence", r.rawValue)
+        case .personalisation(let r): setting("personalisation", r.rawValue)
+        case .connectors(let r): setting("connectors", r.rawValue)
+        case .integrations(let r): setting("integrations", r.rawValue)
+        case .monetisation(let r): setting("monetisation", r.rawValue)
+        case .chats(let r): setting("chats", r.rawValue)
+        case .audio(let r): setting("audio", r.rawValue)
+        case .language(let r): setting("language", r.rawValue)
+        case .media(let r): setting("media", r.rawValue)
+        case .feed(let r): setting("feed", r.rawValue)
+        case .battery(let r): setting("battery", r.rawValue)
+        case .safety(let r): setting("safety", r.rawValue)
+        case .camera(let r): setting("camera", r.rawValue)
+        case .gestures(let r): setting("gestures", r.rawValue)
+        case .finder(let r): setting("finder", r.rawValue)
+        case .sharing(let r): setting("sharing", r.rawValue)
+        case .location(let r): setting("location", r.rawValue)
+        case .widgets(let r): setting("widgets", r.rawValue)
+        case .labs(let r): setting("labs", r.rawValue)
+        case .photos(let r): setting("photos", r.rawValue)
+        case .network(let r): setting("network", r.rawValue)
+        case .digests(let r): setting("digests", r.rawValue)
+        case .help(let r): setting("help", r.rawValue)
+        case .whatsNew(let r): setting("whats-new", r.rawValue)
+        case .creator(let r): setting("creator", r.rawValue)
+        case .focus(let r): setting("focus", r.rawValue)
+        case .passkeys(let r): setting("passkeys", r.rawValue)
+        case .translate(let r): setting("translate", r.rawValue)
+        case .qrCode(let r): setting("qr-code", r.rawValue)
+        case .family(let r): setting("family", r.rawValue)
+        case .timeUnits(let r): setting("time-units", r.rawValue)
+        case .keyboard(let r): setting("keyboard", r.rawValue)
         }
     }
     private static func setting(_ root: String, _ raw: String) -> String { path("settings", root, raw == "root" ? nil : raw) }

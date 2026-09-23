@@ -45,6 +45,70 @@ struct SettingsDestinationHost: View {
             EdgePickerSettingsView()
         case .appearance(let focus):
             AppearanceSettingsView(focus: focus)
+        case .personalisation(let nested):
+            PersonalisationSettingsHost(route: nested)
+        case .intelligence(let nested):
+            IntelligenceSettingsHost(route: nested)
+        case .chats(let nested):
+            ChatsSettingsHost(route: nested)
+        case .audio(let nested):
+            AudioSettingsHost(route: nested)
+        case .language(let nested):
+            LanguageSettingsHost(route: nested)
+        case .media(let nested):
+            MediaSettingsHost(route: nested)
+        case .feed(let nested):
+            FeedSettingsHost(route: nested)
+        case .battery(let nested):
+            BatterySettingsHost(route: nested)
+        case .safety(let nested):
+            SafetySettingsHost(route: nested)
+        case .camera(let nested):
+            CameraSettingsHost(route: nested)
+        case .gestures(let nested):
+            GesturesSettingsHost(route: nested)
+        case .finder(let nested):
+            FinderSettingsHost(route: nested)
+        case .sharing(let nested):
+            SharingSettingsHost(route: nested)
+        case .location(let nested):
+            LocationSettingsHost(route: nested)
+        case .widgets(let nested):
+            WidgetsSettingsHost(route: nested)
+        case .labs(let nested):
+            LabsSettingsHost(route: nested)
+        case .photos(let nested):
+            PhotosSettingsHost(route: nested)
+        case .network(let nested):
+            NetworkSettingsHost(route: nested)
+        case .digests(let nested):
+            DigestsSettingsHost(route: nested)
+        case .help(let nested):
+            HelpSettingsHost(route: nested)
+        case .whatsNew(let nested):
+            WhatsNewSettingsHost(route: nested)
+        case .creator(let nested):
+            CreatorSettingsHost(route: nested)
+        case .focus(let nested):
+            FocusSettingsHost(route: nested)
+        case .passkeys(let nested):
+            PasskeysSettingsHost(route: nested)
+        case .translate(let nested):
+            TranslateSettingsHost(route: nested)
+        case .qrCode(let nested):
+            QRCodeSettingsHost(route: nested)
+        case .family(let nested):
+            FamilySettingsHost(route: nested)
+        case .timeUnits(let nested):
+            TimeUnitsSettingsHost(route: nested)
+        case .keyboard(let nested):
+            KeyboardSettingsHost(route: nested)
+        case .connectors(let nested):
+            ConnectorsSettingsHost(route: nested)
+        case .integrations(let nested):
+            IntegrationsSettingsHost(route: nested)
+        case .monetisation(let nested):
+            MonetisationSettingsHost(route: nested)
         case .notifications(let nested):
             NotificationSettingsHost(route: nested)
         case .privacy(let nested):
@@ -76,42 +140,93 @@ struct NotificationSettingsHost: View {
     var body: some View {
         switch route {
         case .root:
-            Form {
-                row("Push", "Device authorization", "iphone.radiowaves.left.and.right", .notifications(.push))
-                row("Social", "Reactions, comments, follows", "heart", .notifications(.social))
-                row("Modules", "Updates and activity", "shippingbox", .notifications(.modules))
-                row("Quiet Hours", "Delivery window", "moon.zzz", .notifications(.quietHours))
+            SettingsScrollCanvas {
+                SettingsHeroBanner(
+                    title: "Notifications",
+                    subtitle: "Push authorization and category delivery.",
+                    symbol: "bell"
+                )
+                SettingsGroup(title: "Categories") {
+                    VStack(spacing: 0) {
+                        SettingsNavigationRow(title: "Push", subtitle: "Device authorization", symbol: "iphone.radiowaves.left.and.right") {
+                            app.navigation.open(.settings(.notifications(.push)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Social", subtitle: "Reactions, comments, follows", symbol: "heart") {
+                            app.navigation.open(.settings(.notifications(.social)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Modules", subtitle: "Updates and activity", symbol: "shippingbox") {
+                            app.navigation.open(.settings(.notifications(.modules)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Quiet Hours", subtitle: "Delivery window", symbol: "moon.zzz") {
+                            app.navigation.open(.settings(.notifications(.quietHours)))
+                        }
+                    }
+                }
+                SettingsAPIFootnote(text: "Push status is live from iOS. Social / modules / quiet-hours stay capability-honest until preference contracts are verified.")
             }
-            .modulaSoftScrollEdge()
             .navigationTitle("Notifications")
+            .navigationBarTitleDisplayMode(.inline)
             .accessibilityIdentifier("settings.notifications")
         case .push:
             PushAuthorizationView()
         case .social:
-            unavailable(.notifications(.social))
+            SettingsDesignedUnavailableCanvas(
+                title: "Social Notifications",
+                subtitle: "Reactions, comments, follows, mentions.",
+                symbol: "heart",
+                tiles: [
+                    ("Reactions", "When people react", "face.smiling"),
+                    ("Comments", "Replies on your posts", "text.bubble"),
+                    ("Follows", "New followers", "person.badge.plus"),
+                    ("Mentions", "When you’re tagged", "at")
+                ],
+                previewRows: [
+                    ("All social", "Master toggle", "bell.badge"),
+                    ("Digest", "Daily summary", "calendar")
+                ],
+                apiNote: SettingsRegistry.destination(for: .notifications(.social))?.unavailableReason
+                    ?? "Preference contract unverified."
+            )
         case .modules:
-            unavailable(.notifications(.modules))
+            SettingsDesignedUnavailableCanvas(
+                title: "Module Notifications",
+                subtitle: "Updates and module activity alerts.",
+                symbol: "shippingbox",
+                tiles: [
+                    ("Updates", "New versions", "arrow.triangle.2.circlepath"),
+                    ("Activity", "Module events", "bolt"),
+                    ("Permissions", "Grant requests", "switch.2"),
+                    ("Security", "Runtime warnings", "lock.shield")
+                ],
+                previewRows: [
+                    ("Installed only", "Limit to installed", "checkmark.circle"),
+                    ("Quiet", "Collapse into digest", "moon")
+                ],
+                apiNote: SettingsRegistry.destination(for: .notifications(.modules))?.unavailableReason
+                    ?? "No verified module-notification preference contract."
+            )
         case .quietHours:
-            unavailable(.notifications(.quietHours))
+            SettingsDesignedUnavailableCanvas(
+                title: "Quiet Hours",
+                subtitle: "Pause delivery overnight.",
+                symbol: "moon.zzz",
+                tiles: [
+                    ("Starts", "Local evening", "sunset"),
+                    ("Ends", "Local morning", "sunrise"),
+                    ("Allowlist", "Critical only", "star"),
+                    ("Focus", "Respect iOS Focus", "moon.stars")
+                ],
+                previewRows: [
+                    ("Schedule", "Weekdays / weekends", "calendar"),
+                    ("Override", "Mentions still deliver", "bell")
+                ],
+                apiNote: SettingsRegistry.destination(for: .notifications(.quietHours))?.unavailableReason
+                    ?? "Dispatcher not available."
+            )
         }
-    }
-
-    private func row(_ title: String, _ subtitle: String, _ symbol: String, _ route: SettingsRoute) -> some View {
-        Button {
-            app.navigation.open(.settings(route))
-        } label: {
-            Label(title, systemImage: symbol)
-        }
-        .accessibilityHint(subtitle)
-    }
-
-    private func unavailable(_ route: SettingsRoute) -> some View {
-        let dest = SettingsRegistry.destination(for: route)
-        return SettingsCapabilityUnavailableView(
-            title: dest?.title ?? "Unavailable",
-            reason: dest?.unavailableReason ?? "This setting is not available.",
-            symbol: dest?.symbol ?? "slash.circle"
-        )
     }
 }
 
@@ -165,16 +280,45 @@ struct PrivacySecurityHost: View {
     var body: some View {
         switch route {
         case .root:
-            Form {
-                Button("Privacy") { app.navigation.open(.settings(.privacy(.privacy))) }
-                Button("Security") { app.navigation.open(.settings(.privacy(.security))) }
-                Button("Glass Privacy") { app.navigation.open(.settings(.privacy(.glassPrivacy))) }
-                Button("Blocked Accounts") { app.navigation.open(.settings(.privacy(.blocked))) }
-                Button("App Lock") { app.navigation.open(.settings(.privacy(.appLock))) }
-                Button("Face ID & Biometrics") { app.navigation.open(.settings(.privacy(.biometrics))) }
+            SettingsScrollCanvas {
+                SettingsHeroBanner(
+                    title: "Privacy & Security",
+                    subtitle: "Locks, biometrics, and account protection.",
+                    symbol: "lock.shield"
+                )
+                SettingsGroup(title: "Privacy") {
+                    VStack(spacing: 0) {
+                        SettingsNavigationRow(title: "Privacy", subtitle: "Profile visibility", symbol: "hand.raised") {
+                            app.navigation.open(.settings(.privacy(.privacy)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Glass Privacy", subtitle: "Conversation levels", symbol: "bubble.left.and.bubble.right") {
+                            app.navigation.open(.settings(.privacy(.glassPrivacy)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Blocked Accounts", subtitle: "People you’ve blocked", symbol: "nosign") {
+                            app.navigation.open(.settings(.privacy(.blocked)))
+                        }
+                    }
+                }
+                SettingsGroup(title: "Security") {
+                    VStack(spacing: 0) {
+                        SettingsNavigationRow(title: "Security", subtitle: "Account & device", symbol: "lock") {
+                            app.navigation.open(.settings(.privacy(.security)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "App Lock", subtitle: "Passcode for this device", symbol: "lock.fill") {
+                            app.navigation.open(.settings(.privacy(.appLock)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Face ID & Biometrics", subtitle: "Unlock with biometrics", symbol: "faceid") {
+                            app.navigation.open(.settings(.privacy(.biometrics)))
+                        }
+                    }
+                }
             }
-            .modulaSoftScrollEdge()
             .navigationTitle("Privacy & Security")
+            .navigationBarTitleDisplayMode(.inline)
             .accessibilityIdentifier("settings.privacy-security")
         case .privacy:
             Form {
@@ -193,12 +337,41 @@ struct PrivacySecurityHost: View {
             }
             .modulaSoftScrollEdge()
             .navigationTitle("Security")
-        case .glassPrivacy, .blocked:
-            let dest = SettingsRegistry.destination(for: .privacy(route))
-            SettingsCapabilityUnavailableView(
-                title: dest?.title ?? "Unavailable",
-                reason: dest?.unavailableReason ?? "Unavailable.",
-                symbol: dest?.symbol ?? "slash.circle"
+        case .glassPrivacy:
+            SettingsDesignedUnavailableCanvas(
+                title: "Glass Privacy",
+                subtitle: "Conversation privacy levels.",
+                symbol: "bubble.left.and.bubble.right",
+                tiles: [
+                    ("Standard", "Normal chats", "bubble.left"),
+                    ("Protected", "Extra barriers", "lock.shield"),
+                    ("Vault", "Highest local protection", "lock.rectangle.stack"),
+                    ("Forwarding", "Control resharing", "arrowshape.turn.up.right")
+                ],
+                previewRows: [
+                    ("Default for new chats", "Choose a level", "slider.horizontal.3"),
+                    ("Screen security", "App Switcher blur", "eye.slash")
+                ],
+                apiNote: SettingsRegistry.destination(for: .privacy(.glassPrivacy))?.unavailableReason
+                    ?? "Protected Chat / Vault Chat are not cryptographically complete."
+            )
+        case .blocked:
+            SettingsDesignedUnavailableCanvas(
+                title: "Blocked Accounts",
+                subtitle: "People you’ve blocked.",
+                symbol: "nosign",
+                tiles: [
+                    ("People", "Blocked profiles", "person.crop.circle.badge.xmark"),
+                    ("Modules", "Blocked modules", "shippingbox"),
+                    ("Import", "From other apps", "square.and.arrow.down"),
+                    ("Export", "Your block list", "square.and.arrow.up")
+                ],
+                previewRows: [
+                    ("Search blocked", "Find someone", "magnifyingglass"),
+                    ("Unblock", "Restore access", "arrow.uturn.backward")
+                ],
+                apiNote: SettingsRegistry.destination(for: .privacy(.blocked))?.unavailableReason
+                    ?? "Verified block-list endpoint not available in native DTOs this run."
             )
         case .appLock:
             AppLockSettingsView()
@@ -326,14 +499,34 @@ struct ModuleSettingsHost: View {
     var body: some View {
         switch route {
         case .root:
-            Form {
-                Button("Installed") { app.navigation.open(.settings(.modules(.installed))) }
-                Button("Updates") { app.navigation.open(.settings(.modules(.updates))) }
-                Button("Auto Updates") { app.navigation.open(.settings(.modules(.autoUpdates))) }
-                Button("Permissions") { app.navigation.open(.settings(.modules(.permissions))) }
+            SettingsScrollCanvas {
+                SettingsHeroBanner(
+                    title: "Modules",
+                    subtitle: "Installed modules, updates, and HostBridge permissions.",
+                    symbol: "shippingbox"
+                )
+                SettingsGroup(title: "Manage") {
+                    VStack(spacing: 0) {
+                        SettingsNavigationRow(title: "Installed", subtitle: "On this account", symbol: "arrow.down.circle") {
+                            app.navigation.open(.settings(.modules(.installed)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Updates", subtitle: "Catalogue versions", symbol: "arrow.triangle.2.circlepath") {
+                            app.navigation.open(.settings(.modules(.updates)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Auto Updates", subtitle: "Update policy", symbol: "arrow.clockwise") {
+                            app.navigation.open(.settings(.modules(.autoUpdates)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Permissions", subtitle: "HostBridge grants", symbol: "switch.2") {
+                            app.navigation.open(.settings(.modules(.permissions)))
+                        }
+                    }
+                }
             }
-            .modulaSoftScrollEdge()
             .navigationTitle("Modules")
+            .navigationBarTitleDisplayMode(.inline)
         case .installed:
             ModuleInstalledList()
         case .updates:
@@ -472,15 +665,41 @@ struct DataStorageHost: View {
     var body: some View {
         switch route {
         case .root:
-            Form {
-                Button("Storage") { app.navigation.open(.settings(.dataStorage(.storage))) }
-                Button("Cache") { app.navigation.open(.settings(.dataStorage(.cache))) }
-                Button("Downloads") { app.navigation.open(.settings(.dataStorage(.downloads))) }
-                Button("Backup") { app.navigation.open(.settings(.dataStorage(.backup))) }
-                Button("Export") { app.navigation.open(.settings(.dataStorage(.export))) }
+            SettingsScrollCanvas {
+                SettingsHeroBanner(
+                    title: "Data & Storage",
+                    subtitle: "Measured usage, cache, and export honesty.",
+                    symbol: "internaldrive"
+                )
+                SettingsGroup(title: "On this device") {
+                    VStack(spacing: 0) {
+                        SettingsNavigationRow(title: "Storage", subtitle: "Measured local usage", symbol: "externaldrive") {
+                            app.navigation.open(.settings(.dataStorage(.storage)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Cache", subtitle: "Clear rebuildable cache", symbol: "xmark.bin") {
+                            app.navigation.open(.settings(.dataStorage(.cache)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Downloads", subtitle: "Downloaded content", symbol: "arrow.down.to.line") {
+                            app.navigation.open(.settings(.dataStorage(.downloads)))
+                        }
+                    }
+                }
+                SettingsGroup(title: "Account data") {
+                    VStack(spacing: 0) {
+                        SettingsNavigationRow(title: "Backup", subtitle: "Account or module backup", symbol: "arrow.clockwise.icloud") {
+                            app.navigation.open(.settings(.dataStorage(.backup)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Export", subtitle: "Account data export", symbol: "square.and.arrow.up") {
+                            app.navigation.open(.settings(.dataStorage(.export)))
+                        }
+                    }
+                }
             }
-            .modulaSoftScrollEdge()
             .navigationTitle("Data & Storage")
+            .navigationBarTitleDisplayMode(.inline)
         case .storage:
             Form {
                 if let usage {

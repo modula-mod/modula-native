@@ -88,42 +88,93 @@ struct SettingsRouteView: View {
 
 struct SettingsView: View {
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var identityNamespace
     @State private var query = ""
+    @State private var headerProgress: CGFloat = 0
+
+    private var isSearching: Bool { !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    private var compactVisible: Bool { !isSearching && headerProgress > 0.35 }
 
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
-                if query.isEmpty {
+                ModulaScrollProgressReader()
+
+                if !isSearching {
+                    SettingsIdentityHero(
+                        namespace: identityNamespace,
+                        progress: headerProgress,
+                        displayName: identityDisplayName,
+                        handle: identityHandle,
+                        initials: identityInitials,
+                        avatarURL: identityAvatarURL,
+                        onIdentityTap: openAccountOrLogin,
+                        onEdit: openProfileEdit
+                    )
+                }
+
+                if isSearching {
+                    SettingsGroup(title: "Results", subtitle: "Matches settings names and descriptions.") {
+                        VStack(spacing: 0) {
+                            ForEach(Array(filteredSearchItems.enumerated()), id: \.element.id) { index, item in
+                                SettingsNavigationRow(title: item.title, subtitle: item.subtitle, symbol: item.symbol) {
+                                    app.navigation.open(.settings(item.route))
+                                }
+                                if index < filteredSearchItems.count - 1 { SettingsDivider() }
+                            }
+                            if filteredSearchItems.isEmpty {
+                                ContentUnavailableView.search(text: query)
+                                    .frame(minHeight: 220)
+                            }
+                        }
+                    }
+                } else {
                     SettingsGroup(title: "You", subtitle: "Identity and the way Modula feels on this device.") {
                         VStack(spacing: 0) {
                             SettingsNavigationRow(title: "Account", subtitle: app.auth.account?.primaryHandle ?? "Sign in and personal information", symbol: "person.crop.circle") {
-                                app.navigation.open(app.auth.account == nil ? .auth(.login) : .settings(.account(.root)))
+                                openAccountOrLogin()
                             }
                             SettingsDivider()
                             SettingsNavigationRow(title: "Appearance", subtitle: "Theme, type, motion and module branding", symbol: "paintpalette") {
                                 app.navigation.open(.settings(.appearance(.root)))
                             }
+                            SettingsDivider()
+                            category("Personalisation", "Recommendations, stories and captions", "slider.horizontal.3", .personalisation(.root))
+                            SettingsDivider()
+                            category("Creator", "Studio defaults and insights", "paintbrush.pointed", .creator(.root))
+                            SettingsDivider()
+                            category("Modula Code", "Profile QR", "qrcode", .qrCode(.root))
                         }
                     }
-                    SettingsGroup(title: "Quick Controls", subtitle: "Common destinations, grouped without adding new settings state.") {
-                        ControlGroup {
-                            Button { app.navigation.open(.settings(.appearance(.root))) } label: {
-                                Label("Appearance", systemImage: "paintpalette")
-                            }
-                            Button { app.navigation.open(.settings(.privacy(.root))) } label: {
-                                Label("Privacy", systemImage: "lock.shield")
-                            }
-                            Button { app.navigation.open(.settings(.modules(.root))) } label: {
-                                Label("Modules", systemImage: "shippingbox")
-                            }
-                        }
-                        .controlSize(.large)
-                        .frame(maxWidth: .infinity)
-                    }
+
                     SettingsGroup(title: "Preferences") {
                         VStack(spacing: 0) {
+                            category("Intelligence", "On-device models, knowledge and privacy", "brain", .intelligence(.root)); SettingsDivider()
+                            category("Feed", "Home defaults for this device", "rectangle.stack", .feed(.root)); SettingsDivider()
+                            category("Search", "Lookup behaviour on this device", "magnifyingglass", .finder(.root)); SettingsDivider()
+                            category("Chats", "Composer, previews and chat privacy", "bubble.left.and.bubble.right", .chats(.root)); SettingsDivider()
+                            category("Audio", "Playback, voice and haptics", "speaker.wave.2", .audio(.root)); SettingsDivider()
+                            category("Media", "Video and image quality", "photo.on.rectangle.angled", .media(.root)); SettingsDivider()
+                            category("Camera", "Capture framing and save", "camera", .camera(.root)); SettingsDivider()
+                            category("Photos", "Library access and saves", "photo.on.rectangle", .photos(.root)); SettingsDivider()
+                            category("Keyboard", "Typing shortcuts", "keyboard", .keyboard(.root)); SettingsDivider()
+                            category("Gestures", "Touch shortcuts", "hand.draw", .gestures(.root)); SettingsDivider()
+                            category("Sharing", "Share sheet defaults", "square.and.arrow.up", .sharing(.root)); SettingsDivider()
+                            category("Translate", "Translation hints", "character.book.closed", .translate(.root)); SettingsDivider()
+                            category("Language", "App language on this device", "globe", .language(.root)); SettingsDivider()
+                            category("Time & Units", "Clocks and measurement", "clock", .timeUnits(.root)); SettingsDivider()
                             category("Notifications", "Push, activity and quiet hours", "bell", .notifications(.root)); SettingsDivider()
+                            category("Digests", "Weekly and morning summaries", "envelope.open", .digests(.root)); SettingsDivider()
+                            category("Focus", "Behaviour during iOS Focus", "moon.stars", .focus(.root)); SettingsDivider()
                             category("Privacy & Security", "Security, app lock and blocked accounts", "lock.shield", .privacy(.root)); SettingsDivider()
+                            category("Passkeys", "Passwordless sign-in", "person.badge.key", .passkeys(.root)); SettingsDivider()
+                            category("Safety", "Reporting and sensitive content", "shield.checkered", .safety(.root)); SettingsDivider()
+                            category("Location", "Precise and approximate access", "location", .location(.root)); SettingsDivider()
+                            category("Network", "Upload and preload behaviour", "network", .network(.root)); SettingsDivider()
+                            category("Battery & Data", "Data saver and Low Power", "battery.100.bolt", .battery(.root)); SettingsDivider()
+                            category("Widgets", "Home Screen surfaces", "rectangle.on.rectangle.angled", .widgets(.root)); SettingsDivider()
+                            category("Labs", "Optional local experiments", "flask", .labs(.root)); SettingsDivider()
                             category("Modules", moduleSummary, "shippingbox", .modules(.root)); SettingsDivider()
                             category("Data & Storage", "Downloads, cache, backup and export", "internaldrive", .dataStorage(.root)); SettingsDivider()
                             category("Accessibility", "Text, contrast and motion", "accessibility", .accessibility(.root)); SettingsDivider()
@@ -131,8 +182,22 @@ struct SettingsView: View {
                             category("Updates", "Version and update preferences", "arrow.triangle.2.circlepath", .updates(.root))
                         }
                     }
+
+                    SettingsGroup(title: "Platform", subtitle: "Connectors and commerce stay capability-honest.") {
+                        VStack(spacing: 0) {
+                            category("Connectors", "Link external accounts", "link", .connectors(.root)); SettingsDivider()
+                            category("Integrations", "Extend Modula with services", "puzzlepiece.extension", .integrations(.root)); SettingsDivider()
+                            category("Monetisation", "Plans, payouts and invoices", "creditcard", .monetisation(.root)); SettingsDivider()
+                            category("Family", "Shared plans and parental controls", "figure.2.and.child.holdinghands", .family(.root))
+                        }
+                    }
+
                     SettingsGroup(title: "Modula", subtitle: versionSummary) {
                         VStack(spacing: 0) {
+                            category("What’s New", "Release highlights", "sparkles", .whatsNew(.root))
+                            SettingsDivider()
+                            category("Help", "Guides, contact and status", "questionmark.circle", .help(.root))
+                            SettingsDivider()
                             category("About", "Version, acknowledgements and legal information", "info.circle", .about(.root))
                             #if DEBUG
                             SettingsDivider()
@@ -149,38 +214,42 @@ struct SettingsView: View {
                             #endif
                         }
                     }
-                } else {
-                    SettingsGroup(title: "Results", subtitle: "Matches settings names and descriptions.") {
-                        VStack(spacing: 0) {
-                            ForEach(Array(filteredSearchItems.enumerated()), id: \.element.id) { index, item in
-                                SettingsNavigationRow(title: item.title, subtitle: item.subtitle, symbol: item.symbol) {
-                                    app.navigation.open(.settings(item.route))
-                                }
-                                if index < filteredSearchItems.count - 1 { SettingsDivider() }
-                            }
-                            if filteredSearchItems.isEmpty {
-                                ContentUnavailableView.search(text: query)
-                                    .frame(minHeight: 220)
-                            }
-                        }
-                    }
                 }
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.top, 10)
             .padding(.bottom, 28)
         }
+        .modulaScrollProgressTracking(collapseDistance: 88, progress: $headerProgress)
         .modulaSoftScrollEdge()
         .modulaCanvas()
-        .navigationTitle("Settings")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationTitle(compactVisible ? "" : "Settings")
+        .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $query, prompt: "Search Settings")
         .modulaMinimizedSearchToolbar()
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .principal) {
+                if compactVisible {
+                    SettingsCompactIdentity(
+                        namespace: identityNamespace,
+                        displayName: identityDisplayName,
+                        initials: identityInitials,
+                        avatarURL: identityAvatarURL
+                    )
+                    .opacity(reduceMotion ? 1 : Double(ModulaScrollProgress.clamp((headerProgress - 0.35) / 0.4)))
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(headerProgress < 0.45)
+                }
+            }
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                if !isSearching {
+                    Button("Edit") { openProfileEdit() }
+                        .accessibilityLabel("Edit profile")
+                }
                 Menu {
                     Section("Shortcuts") {
                         Button("Appearance", systemImage: "paintpalette") { app.navigation.open(.settings(.appearance(.root))) }
+                        Button("Intelligence", systemImage: "brain") { app.navigation.open(.settings(.intelligence(.root))) }
                         Button("Privacy & Security", systemImage: "lock.shield") { app.navigation.open(.settings(.privacy(.root))) }
                         Button("Module Settings", systemImage: "shippingbox") { app.navigation.open(.settings(.modules(.root))) }
                     }
@@ -195,6 +264,26 @@ struct SettingsView: View {
             }
         }
         .accessibilityIdentifier("settings.root")
+    }
+
+    private var identityDisplayName: String {
+        if let name = app.profile.ownProfile?.displayName, !name.isEmpty { return name }
+        if let handle = app.auth.account?.primaryHandle, !handle.isEmpty { return handle }
+        return "Modula"
+    }
+
+    private var identityHandle: String? {
+        let handle = app.profile.ownProfile?.handle ?? app.auth.account?.primaryHandle
+        guard let handle, !handle.isEmpty else { return nil }
+        return handle.hasPrefix("@") ? handle : "@\(handle)"
+    }
+
+    private var identityInitials: String {
+        ProfileTabAvatarRenderer.initials(profile: app.profile.ownProfile, account: app.auth.account)
+    }
+
+    private var identityAvatarURL: URL? {
+        app.profile.ownProfile?.avatarURL
     }
 
     private var moduleSummary: String {
@@ -222,9 +311,106 @@ struct SettingsView: View {
 
     private var filteredSearchItems: [SettingsSearchItem] { searchItems }
 
-
     private func category(_ title: String, _ subtitle: String, _ symbol: String, _ route: SettingsRoute) -> some View {
         SettingsNavigationRow(title: title, subtitle: subtitle, symbol: symbol) { app.navigation.open(.settings(route)) }
+    }
+
+    private func openAccountOrLogin() {
+        app.navigation.open(app.auth.account == nil ? .auth(.login) : .settings(.account(.root)))
+    }
+
+    private func openProfileEdit() {
+        if app.auth.account == nil {
+            app.navigation.open(.auth(.login))
+        } else {
+            app.navigation.open(.me(.edit))
+        }
+    }
+}
+
+/// Centered Settings identity that dissolves into compact toolbar chrome on scroll.
+struct SettingsIdentityHero: View {
+    let namespace: Namespace.ID
+    var progress: CGFloat
+    var displayName: String
+    var handle: String?
+    var initials: String
+    var avatarURL: URL?
+    var onIdentityTap: () -> Void
+    var onEdit: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var clamped: CGFloat { ModulaScrollProgress.clamp(progress) }
+    private var heroOpacity: Double {
+        reduceMotion ? (clamped > 0.55 ? 0 : 1) : Double(max(0, 1 - clamped * 1.35))
+    }
+    private var heroScale: CGFloat {
+        reduceMotion ? 1 : max(0.72, 1 - clamped * 0.28)
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Button(action: onIdentityTap) {
+                ModulaAvatar(initials: initials, url: avatarURL, size: 96)
+                    .matchedGeometryEffect(id: "settings.identity.avatar", in: namespace, isSource: clamped < 0.55)
+                    .scaleEffect(heroScale)
+                    .accessibilityLabel("Account")
+            }
+            .buttonStyle(.plain)
+
+            Button(action: onIdentityTap) {
+                VStack(spacing: 4) {
+                    Text(displayName)
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    if let handle {
+                        Text(handle)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(handle.map { "\(displayName), \($0)" } ?? displayName)
+
+            Button(action: onEdit) {
+                Label("Edit Profile", systemImage: "pencil")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 44)
+            }
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
+            .accessibilityIdentifier("settings.identity.edit")
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .opacity(heroOpacity)
+        .allowsHitTesting(heroOpacity > 0.2)
+        .accessibilityHidden(heroOpacity < 0.2)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("settings.identity.hero")
+    }
+}
+
+struct SettingsCompactIdentity: View {
+    let namespace: Namespace.ID
+    var displayName: String
+    var initials: String
+    var avatarURL: URL?
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ModulaAvatar(initials: initials, url: avatarURL, size: 28)
+                .matchedGeometryEffect(id: "settings.identity.avatar", in: namespace, isSource: true)
+            Text(displayName)
+                .font(.headline.weight(.semibold))
+                .lineLimit(1)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(displayName)
+        .accessibilityIdentifier("settings.identity.compact")
     }
 }
 

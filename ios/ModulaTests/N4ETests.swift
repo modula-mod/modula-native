@@ -82,6 +82,21 @@ final class SettingsRouteTests: XCTestCase {
         XCTAssertTrue(face.contains { $0.route == .privacy(.biometrics) || $0.route == .privacy(.appLock) })
         let cache = SettingsRegistry.search(query: "cache", includeDeveloper: false)
         XCTAssertTrue(cache.contains { $0.route == .dataStorage(.cache) || $0.route == .dataStorage(.storage) })
+        let intelligence = SettingsRegistry.search(query: "intelligence", includeDeveloper: false)
+        XCTAssertTrue(intelligence.contains { $0.route == .intelligence(.root) })
+        let monetisation = SettingsRegistry.search(query: "monetisation", includeDeveloper: false)
+        XCTAssertTrue(monetisation.contains { $0.route == .monetisation(.root) && $0.availability == .capabilityUnavailable })
+    }
+
+    func testIntelligenceModelsExcludeDeterministicFixture() async {
+        let service = ModulaIntelligence(registerDeterministicLocalProvider: true)
+        let providers = await service.providers.allProviders()
+        XCTAssertTrue(providers.contains { $0.id == DeterministicLocalProvider.providerID })
+        let productIDs = providers
+            .map(\.id)
+            .filter { $0 != DeterministicLocalProvider.providerID }
+        XCTAssertFalse(productIDs.contains(DeterministicLocalProvider.providerID))
+        XCTAssertTrue(SettingsRegistry.destination(for: .intelligence(.models))?.availability == .implemented)
     }
 
     func testCommandCenterUsesRegistry() {

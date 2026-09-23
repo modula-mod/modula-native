@@ -208,6 +208,11 @@
 		G50100000000000000000008 /* EdgePickerPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000008 /* EdgePickerPreferences.swift */; };
 		G50100000000000000000009 /* EdgeLoopMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000009 /* EdgeLoopMetrics.swift */; };
 		G5010000000000000000000A /* EdgePickerSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = G4010000000000000000000A /* EdgePickerSettingsView.swift */; };
+		H50100000000000000000001 /* IntelligenceSettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = H40100000000000000000001 /* IntelligenceSettingsViews.swift */; };
+		H50100000000000000000002 /* SettingsShellViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = H40100000000000000000002 /* SettingsShellViews.swift */; };
+		H50100000000000000000003 /* SettingsChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = H40100000000000000000003 /* SettingsChrome.swift */; };
+		H50100000000000000000004 /* SettingsMorePages.swift in Sources */ = {isa = PBXBuildFile; fileRef = H40100000000000000000004 /* SettingsMorePages.swift */; };
+		H50100000000000000000005 /* SettingsExtraPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = H40100000000000000000005 /* SettingsExtraPages.swift */; };
 		N50100000000000000000001 /* MediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000001 /* MediaModels.swift */; };
 		N50100000000000000000002 /* ModulaVideoPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000002 /* ModulaVideoPlayer.swift */; };
 		N50100000000000000000003 /* MessageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000003 /* MessageModels.swift */; };
@@ -451,6 +456,11 @@
 		G40100000000000000000008 /* EdgePickerPreferences.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgePickerPreferences.swift; path = DesignSystem/EdgeLoop/EdgePickerPreferences.swift; sourceTree = "<group>"; };
 		G40100000000000000000009 /* EdgeLoopMetrics.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopMetrics.swift; path = DesignSystem/EdgeLoop/EdgeLoopMetrics.swift; sourceTree = "<group>"; };
 		G4010000000000000000000A /* EdgePickerSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgePickerSettingsView.swift; path = Features/Settings/EdgePickerSettingsView.swift; sourceTree = "<group>"; };
+		H40100000000000000000001 /* IntelligenceSettingsViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceSettingsViews.swift; path = Features/Settings/IntelligenceSettingsViews.swift; sourceTree = "<group>"; };
+		H40100000000000000000002 /* SettingsShellViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsShellViews.swift; path = Features/Settings/SettingsShellViews.swift; sourceTree = "<group>"; };
+		H40100000000000000000003 /* SettingsChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsChrome.swift; path = Features/Settings/SettingsChrome.swift; sourceTree = "<group>"; };
+		H40100000000000000000004 /* SettingsMorePages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsMorePages.swift; path = Features/Settings/SettingsMorePages.swift; sourceTree = "<group>"; };
+		H40100000000000000000005 /* SettingsExtraPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsExtraPages.swift; path = Features/Settings/SettingsExtraPages.swift; sourceTree = "<group>"; };
 		N40100000000000000000001 /* MediaModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MediaModels.swift; path = Features/Media/MediaModels.swift; sourceTree = "<group>"; };
 		N40100000000000000000002 /* ModulaVideoPlayer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaVideoPlayer.swift; path = Features/Media/ModulaVideoPlayer.swift; sourceTree = "<group>"; };
 		N40100000000000000000003 /* MessageModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessageModels.swift; path = Features/Messages/MessageModels.swift; sourceTree = "<group>"; };
@@ -680,6 +690,11 @@
 				G40100000000000000000008 /* EdgePickerPreferences.swift */,
 				G40100000000000000000009 /* EdgeLoopMetrics.swift */,
 				G4010000000000000000000A /* EdgePickerSettingsView.swift */,
+				H40100000000000000000001 /* IntelligenceSettingsViews.swift */,
+				H40100000000000000000002 /* SettingsShellViews.swift */,
+				H40100000000000000000003 /* SettingsChrome.swift */,
+				H40100000000000000000004 /* SettingsMorePages.swift */,
+				H40100000000000000000005 /* SettingsExtraPages.swift */,
 				DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */,
 				F00100000000000000000001 /* ProfileModels.swift */,
 				F00100000000000000000002 /* ProfileRepository.swift */,
@@ -1148,6 +1163,11 @@
 				G50100000000000000000008 /* EdgePickerPreferences.swift in Sources */,
 				G50100000000000000000009 /* EdgeLoopMetrics.swift in Sources */,
 				G5010000000000000000000A /* EdgePickerSettingsView.swift in Sources */,
+				H50100000000000000000001 /* IntelligenceSettingsViews.swift in Sources */,
+				H50100000000000000000002 /* SettingsShellViews.swift in Sources */,
+				H50100000000000000000003 /* SettingsChrome.swift in Sources */,
+				H50100000000000000000004 /* SettingsMorePages.swift in Sources */,
+				H50100000000000000000005 /* SettingsExtraPages.swift in Sources */,
 				G50100000000000000000006 /* TypographyPreview.swift in Sources */,
 				E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */,
 				DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */,
