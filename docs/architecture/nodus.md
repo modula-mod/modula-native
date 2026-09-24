@@ -4,7 +4,19 @@ Nodus is Modula's compact, general-purpose local language-model family. It answe
 
 Nodus is not a command parser or an offline FAQ. Its retained general domains include science, history, geography, technology, basic mathematics and computing, writing, summarization, explanation, classification, extraction, and instruction following. Fine-tuning therefore includes substantial general replay data, and promotion fails when a category regresses by more than five percentage points without review.
 
-## NODUS-01B model status
+## NODUS-01D experimental runtime status
+
+NODUS-01D makes the research-best NODUS-01C R7 step-1,200 checkpoint runnable for developer evaluation without promoting it. The developer-facing model is **Nodus R7 Experimental**. It is fused with pinned `Qwen/Qwen3-1.7B@70d244cc86ccca08cf5af4e1e306ecf908b1ad5e`, quantized to 4-bit MLX, and remains `experimentalCandidate` with `shippingAllowed = false`.
+
+Availability and trust are independent. A verified bundle can make `modula.nodus` available while its model stage remains experimental. Debug builds copy the candidate from `~/Library/Application Support/Modula/DeveloperModels/Nodus/R7/` only after checking the tracked `Tools/Nodus/manifests/nodus-r7-experimental.json` and every runtime file hash. Release excludes it by default; `MODULA_INCLUDE_EXPERIMENTAL_NODUS=1` is an explicit developer-only override. Builds without a cache still succeed and report `modelNotInstalled`, unless `MODULA_REQUIRE_EXPERIMENTAL_NODUS=1` makes the artifact mandatory for acceptance.
+
+The runtime discovers only app-bundled resources and never a user-specific build-machine path. It remains lazy: bundling does not load weights, and the first real request performs manifest verification and MLX loading. Developer Chat stays on the routed path `NodusChatView → NodusChatViewModel → ModulaIntelligence → IntelligenceRouter → modula.nodus → NodusIntelligenceProvider → MLX` with no fixture or remote fallback after a real-provider failure.
+
+MLX does not support inference in the iOS Simulator. A simulator build may contain and discover the experimental bundle, but the provider reports `unsupportedDevice` before initializing MLX so the process does not hit MLX's documented Metal abort. Real native inference must be accepted on a physical Apple device; host-side MLX diagnostics remain useful for artifact integrity and output checks, but are not a substitute for device acceptance.
+
+R7 is not an accepted release. It passed the abstention gate but failed general retention, Modula generalization, freshness, verification, authority, unsupported-capability, structured correctness, and hallucination gates. Those failures are preserved in the experimental manifest and remain visible policy, not waived promotion criteria.
+
+## Earlier model status
 
 N4X integrates architecture only. There is **no accepted Nodus model** and the provider must report `modelNotInstalled` (or an equivalent unavailable state) until a separately approved artifact is installed. The R2 adapter remains an external experimental artifact and is not committed, bundled, selected by default, or promoted.
 
@@ -28,7 +40,7 @@ This is a rejected experiment, not “Nodus v0.1 accepted.” Its SHA-256 is `05
 
 `NodusIntelligenceProvider` implements the existing Modula intelligence contract. MLX Swift LM is hidden behind `NodusRuntime`; callers do not depend on MLX types. The runtime loads lazily, supports cancellation and unload, and is released on backgrounding or a memory warning. Availability distinguishes installed, downloading, unsupported, insufficient-memory, disabled, and temporarily unavailable states.
 
-The developer installer accepts a pinned directory artifact, validates `nodus-manifest.json`, verifies every declared SHA-256 before loading, stages installation atomically, and retains the previous accepted artifact for rollback. Model weights, caches, adapters, and temporary checkpoints never enter Git.
+The accepted-model installer validates `nodus-manifest.json`, verifies every declared SHA-256 before loading, stages installation atomically, and retains the previous accepted artifact for rollback. The separate experimental path validates `nodus-r7-experimental.json`, including lifecycle and production-exclusion fields. Model weights, caches, adapters, and temporary checkpoints never enter Git.
 
 `localOnly` selection cannot fall through to a remote provider. Nodus does not call Greenfield, a VPS, Apple Foundation Models, or an external model for generation. Structured action output remains a proposal: Modula validates, authorizes, and executes it.
 

@@ -27,6 +27,8 @@ struct NodusIntelligenceProvider: IntelligenceProvider {
 
     func loadState() async -> NodusLoadState { await runtime.loadState() }
 
+    func modelIdentity() async -> NodusModelIdentity? { await runtime.modelIdentity() }
+
     func unload() async { await runtime.unload() }
 
     func execute(_ request: IntelligenceRequest, context: IntelligenceExecutionContext) async throws -> IntelligenceResponse {

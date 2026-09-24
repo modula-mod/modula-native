@@ -1,0 +1,50 @@
+{
+  "adapterSHA256": "ad236b529518e4d29cca4a24dd103066e231b89d9538210767484e291d8d7121",
+  "adapterSource": "Tools/Nodus/artifacts/nodus-01c-r7/0001200_adapters.safetensors",
+  "baseModel": "Qwen/Qwen3-1.7B",
+  "baseRevision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+  "createdAt": "2026-09-24T00:00:00Z",
+  "datasetRevision": "nodus-training-v0.2-r7-task-enhanced",
+  "displayName": "Nodus R7 Experimental",
+  "files": {
+    "LICENSE": "832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e",
+    "README.md": "748c964f9b7e5f2c3770ce013bbc0153be7c54311d9692c343b6188eefe77ac6",
+    "chat_template.jinja": "a55ee1b1660128b7098723e0abcd92caa0788061051c62d51cbe87d9cf1974d8",
+    "config.json": "60eef70aeb7fa7d1f9a6d45069cc7ff0f5a11139155a96aaf9d3991c5d24e58a",
+    "generation_config.json": "2325da0f15bb848e018c5ae071b7943332e9f871d6b60e2ed22ca97d4cb993d2",
+    "model.safetensors": "cbc1875427ca63f038a49180b747cf4ce9e96d47076f4f9a8cd3aeadcdbf2ebf",
+    "model.safetensors.index.json": "b2e5b0437ba3dd97c262018713af2fea5c010a8a95d6e24ee6dd045f4cac8ce0",
+    "tokenizer.json": "be75606093db2094d7cd20f3c2f385c212750648bd6ea4fb2bf507a6a4c55506",
+    "tokenizer_config.json": "ee8f6d44bf2353e6d3686c3adaf70e1ccfe9e6ed6822d0ab2f28cafdd7754792"
+  },
+  "fusedSHA256": "ee418d822af9769dbedf1e33852c3d23bad9e5df999e134676216185e546e4a1",
+  "id": "nodus-r7-experimental",
+  "knownFailedPromotionGates": [
+    "general-retention",
+    "modula-generalization",
+    "freshness",
+    "verification",
+    "authority",
+    "unsupported-capability",
+    "structured-correctness",
+    "hallucination"
+  ],
+  "knownQualityResults": {
+    "abstention": 0.8667,
+    "authority": 0.1,
+    "freshness": 0.7833,
+    "general": 0.76,
+    "hallucination": 0.38,
+    "modula": 0.0962,
+    "unsupportedCapability": 0.4,
+    "verification": 0.7833
+  },
+  "providerID": "modula.nodus",
+  "quantization": "4-bit affine, group size 64",
+  "quantizedSHA256": "55c62c3b63fc932dc3d1140dbe0ad4254cc1398c76a59c044a42e20d9c956ad8",
+  "runtimeFormat": "mlx",
+  "schemaVersion": 1,
+  "shippingAllowed": false,
+  "stage": "experimentalCandidate",
+  "trainingRun": "NODUS-01C-R7 step 1200"
+}

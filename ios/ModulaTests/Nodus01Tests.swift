@@ -7,6 +7,7 @@ actor FakeNodusRuntime: NodusRuntime {
     private(set) var generateCalls = 0
     private(set) var loadCalls = 0
     private(set) var lastPrompt: String?
+    private(set) var prompts: [String] = []
     private var state: NodusLoadState = .unloaded
 
     init(text: String, version: String = "Nodus test") {
@@ -21,6 +22,7 @@ actor FakeNodusRuntime: NodusRuntime {
     func generate(prompt: String, capability: IntelligenceCapability) -> NodusRuntimeGeneration {
         generateCalls += 1
         lastPrompt = prompt
+        prompts.append(prompt)
         return generation
     }
     func unload() { state = .unloaded }
@@ -194,6 +196,30 @@ final class NodusChatViewModelTests: XCTestCase {
         model.cancel()
         try await Task.sleep(for: .milliseconds(20))
         XCTAssertFalse(model.isGenerating)
+    }
+
+    func testMultiTurnContextIsForwardedAndBounded() async throws {
+        let runtime = FakeNodusRuntime(text: "A concise Nodus answer.")
+        let intelligence = try makeIntelligence(runtime: runtime)
+        let model = NodusChatViewModel()
+        await model.refresh(using: intelligence)
+
+        for turn in 1 ... 6 {
+            model.input = "turn \(turn)"
+            model.send(using: intelligence)
+            for _ in 0 ..< 100 {
+                if !model.isGenerating { break }
+                try await Task.sleep(for: .milliseconds(10))
+            }
+        }
+
+        let prompts = await runtime.prompts
+        XCTAssertEqual(prompts.count, 6)
+        XCTAssertTrue(prompts[1].contains("User: turn 1"))
+        XCTAssertTrue(prompts[1].contains("CURRENT USER MESSAGE:\nturn 2"))
+        XCTAssertFalse(prompts[5].contains("User: turn 1"))
+        XCTAssertTrue(prompts[5].contains("User: turn 5"))
+        XCTAssertTrue(prompts[5].contains("CURRENT USER MESSAGE:\nturn 6"))
     }
 
     func testFreshChatAnswerQueuesLocalVerificationMission() async throws {
@@ -383,6 +409,64 @@ final class NodusLearningLoopTests: XCTestCase {
 }
 
 final class NodusArtifactTests: XCTestCase {
+    func testExperimentalLifecycleIsAvailableButNeverShipping() {
+        let identity = NodusModelIdentity(
+            id: "nodus-r7-experimental",
+            displayName: "Nodus R7 Experimental",
+            stage: .experimentalCandidate,
+            shippingAllowed: false,
+            baseModel: "Qwen/Qwen3-1.7B",
+            baseRevision: "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+            quantization: "4-bit affine, group size 64",
+            runtimeFormat: "mlx"
+        )
+        XCTAssertEqual(identity.stage, .experimentalCandidate)
+        XCTAssertFalse(identity.shippingAllowed)
+        XCTAssertEqual(identity.stage.displayName, "Experimental candidate")
+    }
+
+    func testExperimentalManifestVerifiesAndRejectsTamperedWeights() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: "nodus-experimental-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let model = directory.appending(path: "model.safetensors")
+        try Data("fixture-model".utf8).write(to: model)
+        let manifest = NodusExperimentalManifest(
+            schemaVersion: 1,
+            id: "nodus-r7-experimental",
+            displayName: "Nodus R7 Experimental",
+            stage: .experimentalCandidate,
+            shippingAllowed: false,
+            providerID: "modula.nodus",
+            baseModel: "Qwen/Qwen3-1.7B",
+            baseRevision: "revision",
+            adapterSource: "external",
+            adapterSHA256: String(repeating: "a", count: 64),
+            trainingRun: "R7",
+            datasetRevision: "test",
+            knownQualityResults: ["abstention": 0.8667],
+            createdAt: "2026-09-24T00:00:00Z",
+            fusedSHA256: String(repeating: "b", count: 64),
+            quantizedSHA256: "95961064121671b15b52df85bfacda8bb6190628e7357d0864a7dbab6862c57a",
+            runtimeFormat: "mlx",
+            quantization: "4-bit affine, group size 64",
+            knownFailedPromotionGates: ["authority"],
+            files: [
+                "model.safetensors": "e6954ed9cce48114b2875996c433c4ada96795c4f7b5401b3ed7578086bbe242",
+            ]
+        )
+        let encoder = JSONEncoder()
+        try encoder.encode(manifest).write(
+            to: directory.appending(path: NodusExperimentalManifest.fileName)
+        )
+        XCTAssertNoThrow(try manifest.verify(in: directory))
+        try Data("tampered".utf8).write(to: model)
+        XCTAssertThrowsError(try manifest.verify(in: directory)) { error in
+            XCTAssertEqual(error as? NodusArtifactError, .hashMismatch("model.safetensors"))
+        }
+    }
+
     private func manifest(artifactHash: String, fileHash: String) -> NodusModelManifest {
         NodusModelManifest(
             schemaVersion: 1, nodusVersion: "Nodus test", parameters: 1,
@@ -573,26 +657,80 @@ final class NodusArtifactTests: XCTestCase {
     }
 }
 
-/// Opt-in simulator acceptance. The test skips in ordinary CI until an externally
-/// hashed Nodus artifact has been installed into the test host's accepted directory.
+final class NodusDeveloperEvaluationTests: XCTestCase {
+    func testRatingsPersistLocallyAndExportJSONL() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: "nodus-evaluations-\(UUID().uuidString)")
+        let file = root.appending(path: "evaluations.json")
+        let export = root.appending(path: "evaluations.jsonl")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let id = UUID()
+        let store = NodusDeveloperEvaluationStore(fileURL: file, exportURL: export)
+        try await store.upsert(NodusDeveloperEvaluation(
+            id: id,
+            modelID: "nodus-r7-experimental",
+            modelStage: .experimentalCandidate,
+            prompt: "Can GAIA bypass AKI?",
+            response: "No.",
+            rating: .good,
+            confidence: .medium,
+            freshness: .stable,
+            note: nil,
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000)
+        ))
+        let restored = NodusDeveloperEvaluationStore(fileURL: file, exportURL: export)
+        let records = await restored.snapshot()
+        XCTAssertEqual(records.count, 1)
+        XCTAssertEqual(records.first?.id, id)
+        XCTAssertEqual(records.first?.rating, .good)
+        let jsonl = try String(contentsOf: export, encoding: .utf8)
+        XCTAssertTrue(jsonl.contains("nodus-r7-experimental"))
+        XCTAssertTrue(jsonl.contains("\"rating\":\"good\""))
+    }
+}
+
+/// Opt-in simulator acceptance. A required-model Debug build discovers the same
+/// app-bundled experimental artifact used by Developer Nodus Chat.
 final class NodusInstalledRuntimeIntegrationTests: XCTestCase {
     private func installedDirectory() throws -> URL {
+        if let resources = Bundle.main.resourceURL {
+            let bundled = resources.appending(path: "Nodus/R7")
+            if FileManager.default.fileExists(
+                atPath: bundled.appending(path: NodusExperimentalManifest.fileName).path
+            ) {
+                return bundled
+            }
+        }
         let support = try XCTUnwrap(
             FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
         )
         let directory = support.appending(path: "Modula/Nodus/models/accepted")
-        guard FileManager.default.fileExists(atPath: directory.appending(path: "nodus-manifest.json").path) else {
-            throw XCTSkip("Install the externally verified Nodus artifact before runtime acceptance")
+        guard FileManager.default.fileExists(
+            atPath: directory.appending(path: "nodus-manifest.json").path
+        ) else {
+            throw XCTSkip("Build with MODULA_REQUIRE_EXPERIMENTAL_NODUS=1 for runtime acceptance")
         }
         return directory
     }
 
     func testInstalledModelGeneralModulaFreshnessAndCancellation() async throws {
-        let runtime = MLXNodusRuntime(modelDirectory: try installedDirectory(), minimumMemoryBytes: 0)
+        #if targetEnvironment(simulator)
+        throw XCTSkip("MLX does not support inference in the iOS Simulator; run this gate on a physical device")
+        #endif
+        let directory = try installedDirectory()
+        if FileManager.default.fileExists(
+            atPath: directory.appending(path: NodusExperimentalManifest.fileName).path
+        ) {
+            let manifest = try NodusExperimentalManifest.load(from: directory)
+            try manifest.verify(in: directory)
+        }
+        let runtime = MLXNodusRuntime(modelDirectory: directory, minimumMemoryBytes: 0)
         let availability = await runtime.availability()
         XCTAssertEqual(availability, .available)
         let provider = NodusIntelligenceProvider(runtime: runtime)
 
+        let coldStarted = ContinuousClock.now
         let general = try await provider.execute(
             IntelligenceRequest(
                 capability: .generate, input: .string("What is the capital of Romania?"),
@@ -600,6 +738,7 @@ final class NodusInstalledRuntimeIntegrationTests: XCTestCase {
             ),
             context: IntelligenceExecutionContext(source: .test)
         )
+        print("NODUS_DEVICE cold_load_and_first_generation=\(coldStarted.duration(to: .now)) output=\(general.output)")
         XCTAssertTrue(general.output.objectValue?["answer"]?.stringValue?.localizedCaseInsensitiveContains("Bucharest") == true)
 
         let modula = try await provider.execute(
@@ -609,6 +748,7 @@ final class NodusInstalledRuntimeIntegrationTests: XCTestCase {
             ),
             context: IntelligenceExecutionContext(source: .test)
         )
+        print("NODUS_DEVICE modula_output=\(modula.output)")
         let modulaAnswer = try XCTUnwrap(modula.output.objectValue?["answer"]?.stringValue?.lowercased())
         XCTAssertTrue(modulaAnswer.contains("gaia"))
         XCTAssertTrue(modulaAnswer.contains("aki"))
@@ -620,6 +760,7 @@ final class NodusInstalledRuntimeIntegrationTests: XCTestCase {
             ),
             context: IntelligenceExecutionContext(source: .test)
         )
+        print("NODUS_DEVICE freshness_output=\(freshness.output)")
         XCTAssertEqual(
             freshness.output.objectValue?["freshness"]?.stringValue,
             NodusFreshness.currentDataRequired.rawValue
@@ -637,13 +778,26 @@ final class NodusInstalledRuntimeIntegrationTests: XCTestCase {
                 context: IntelligenceExecutionContext(source: .test)
             )
         }
+        try await Task.sleep(for: .milliseconds(500))
         cancellation.cancel()
         do {
             _ = try await cancellation.value
             XCTFail("Cancelled generation unexpectedly completed")
         } catch let error as IntelligenceError {
             XCTAssertEqual(error, .requestCancelled)
+        } catch is CancellationError {
+            // The runtime checks cooperative task cancellation while consuming
+            // MLX events; either the raw Swift cancellation or routed typed
+            // cancellation is an accepted stopped-generation outcome.
         }
+        let recovered = try await provider.execute(
+            IntelligenceRequest(
+                capability: .generate, input: .string("What is the capital of Romania?"),
+                privacy: .localOnly, source: .test
+            ),
+            context: IntelligenceExecutionContext(source: .test)
+        )
+        XCTAssertTrue(recovered.output.objectValue?["answer"]?.stringValue?.contains("Bucharest") == true)
         await runtime.unload()
         let finalLoadState = await runtime.loadState()
         XCTAssertEqual(finalLoadState, .unloaded)

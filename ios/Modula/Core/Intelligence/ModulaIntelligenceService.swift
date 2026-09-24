@@ -293,6 +293,7 @@ actor ModulaIntelligence: ModulaIntelligenceService {
         var appleAvailability: IntelligenceAvailability?
         var nodusAvailability: IntelligenceAvailability?
         var nodusLoadState: NodusLoadState?
+        var nodusModelIdentity: NodusModelIdentity?
         var deterministicAvailability: IntelligenceAvailability?
         for provider in all {
             switch provider.executionKind {
@@ -304,6 +305,7 @@ actor ModulaIntelligence: ModulaIntelligenceService {
             } else if provider.id == NodusIntelligenceProvider.providerID {
                 nodusAvailability = await provider.availability()
                 nodusLoadState = await (provider as? NodusIntelligenceProvider)?.loadState()
+                nodusModelIdentity = await (provider as? NodusIntelligenceProvider)?.modelIdentity()
             } else if provider.id == DeterministicLocalProvider.providerID {
                 deterministicAvailability = await provider.availability()
             }
@@ -321,6 +323,7 @@ actor ModulaIntelligence: ModulaIntelligenceService {
             remoteProviderCount: remoteCount,
             nodusProviderAvailability: nodusAvailability,
             nodusLoadState: nodusLoadState,
+            nodusModelIdentity: nodusModelIdentity,
             appleProviderAvailability: appleAvailability,
             deterministicProviderAvailability: deterministicAvailability,
             realModelConnected: (appleAvailability == .available && appleExecutionSucceeded)
@@ -346,6 +349,7 @@ struct IntelligenceServiceSnapshot: Sendable, Equatable {
     let remoteProviderCount: Int
     let nodusProviderAvailability: IntelligenceAvailability?
     let nodusLoadState: NodusLoadState?
+    let nodusModelIdentity: NodusModelIdentity?
     let appleProviderAvailability: IntelligenceAvailability?
     let deterministicProviderAvailability: IntelligenceAvailability?
     let realModelConnected: Bool

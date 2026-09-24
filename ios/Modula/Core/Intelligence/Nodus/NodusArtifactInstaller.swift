@@ -12,6 +12,145 @@ enum NodusArtifactError: Error, Sendable, Equatable {
     case unexpectedArtifactHash
 }
 
+enum NodusModelStage: String, Sendable, Equatable, Codable, CaseIterable {
+    case experimentalCandidate
+    case candidate
+    case accepted
+    case quarantined
+
+    var displayName: String {
+        switch self {
+        case .experimentalCandidate: "Experimental candidate"
+        case .candidate: "Candidate"
+        case .accepted: "Accepted"
+        case .quarantined: "Quarantined"
+        }
+    }
+}
+
+struct NodusModelIdentity: Sendable, Equatable {
+    let id: String
+    let displayName: String
+    let stage: NodusModelStage
+    let shippingAllowed: Bool
+    let baseModel: String
+    let baseRevision: String
+    let quantization: String
+    let runtimeFormat: String
+}
+
+struct NodusExperimentalManifest: Sendable, Equatable, Codable {
+    static let fileName = "nodus-r7-experimental.json"
+
+    let schemaVersion: Int
+    let id: String
+    let displayName: String
+    let stage: NodusModelStage
+    let shippingAllowed: Bool
+    let providerID: String
+    let baseModel: String
+    let baseRevision: String
+    let adapterSource: String
+    let adapterSHA256: String
+    let trainingRun: String
+    let datasetRevision: String
+    let knownQualityResults: [String: Double]
+    let createdAt: String
+    let fusedSHA256: String
+    let quantizedSHA256: String
+    let runtimeFormat: String
+    let quantization: String
+    let knownFailedPromotionGates: [String]
+    let files: [String: String]
+
+    var identity: NodusModelIdentity {
+        NodusModelIdentity(
+            id: id,
+            displayName: displayName,
+            stage: stage,
+            shippingAllowed: shippingAllowed,
+            baseModel: baseModel,
+            baseRevision: baseRevision,
+            quantization: quantization,
+            runtimeFormat: runtimeFormat
+        )
+    }
+
+    static func load(from directory: URL) throws -> Self {
+        do {
+            return try JSONDecoder().decode(
+                Self.self,
+                from: Data(contentsOf: directory.appending(path: fileName))
+            )
+        } catch {
+            throw NodusArtifactError.invalidManifest
+        }
+    }
+
+    func verify(in directory: URL) throws {
+        guard schemaVersion == 1,
+              stage == .experimentalCandidate,
+              shippingAllowed == false,
+              providerID == NodusIntelligenceProvider.providerID,
+              runtimeFormat == "mlx",
+              quantization.hasPrefix("4-bit") else {
+            throw NodusArtifactError.unsupportedManifest
+        }
+        let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey]
+        guard let enumerator = FileManager.default.enumerator(
+            at: directory,
+            includingPropertiesForKeys: Array(keys),
+            options: []
+        ) else { throw NodusArtifactError.invalidManifest }
+        let directoryPath = directory.standardizedFileURL.path
+        var actualFiles = Set<String>()
+        for case let file as URL in enumerator {
+            let values = try file.resourceValues(forKeys: keys)
+            let path = file.standardizedFileURL.path
+            guard path.hasPrefix(directoryPath + "/") else { throw NodusArtifactError.invalidManifest }
+            let relative = String(path.dropFirst(directoryPath.count + 1))
+            if values.isSymbolicLink == true { throw NodusArtifactError.symbolicLink(relative) }
+            if values.isRegularFile == true, relative != Self.fileName { actualFiles.insert(relative) }
+        }
+        guard actualFiles == Set(files.keys) else {
+            let mismatch = actualFiles.symmetricDifference(Set(files.keys)).sorted().first ?? "unknown"
+            throw NodusArtifactError.unexpectedFile(mismatch)
+        }
+        for (relative, expectedHash) in files {
+            guard !relative.contains(".."), !relative.hasPrefix("/") else {
+                throw NodusArtifactError.invalidManifest
+            }
+            let file = directory.appending(path: relative)
+            guard FileManager.default.fileExists(atPath: file.path) else {
+                throw NodusArtifactError.missingFile(relative)
+            }
+            guard try Self.sha256(file) == expectedHash else {
+                throw NodusArtifactError.hashMismatch(relative)
+            }
+        }
+        let canonical = Data(
+            files.keys.sorted().map { "\($0)\0\(files[$0]!)\n" }.joined().utf8
+        )
+        guard Self.sha256(canonical) == quantizedSHA256 else {
+            throw NodusArtifactError.artifactHashMismatch
+        }
+    }
+
+    private static func sha256(_ url: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        var digest = SHA256()
+        while let data = try handle.read(upToCount: 1024 * 1024), !data.isEmpty {
+            digest.update(data: data)
+        }
+        return digest.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func sha256(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+}
+
 struct NodusModelManifest: Sendable, Equatable, Codable {
     let schemaVersion: Int
     let nodusVersion: String

@@ -9,3 +9,4 @@ export ENTRY_FILE=index.js
 export FORCE_BUNDLING=1
 export NODE_BINARY
 /bin/sh "$REACT_NATIVE_PATH/scripts/react-native-xcode.sh"
+"$MODULA_ROOT/Tools/Nodus/scripts/prepare-development-model.sh"

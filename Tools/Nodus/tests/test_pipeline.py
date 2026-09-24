@@ -34,12 +34,46 @@ from calibrate_v2 import calibrate as calibrate_v2
 from promotion_gate_v2 import evaluate_gates as evaluate_gates_v2
 from select_checkpoint_v2 import select as select_checkpoint_v2
 from build_r7_dataset import DEFAULT_QUOTAS, task_enhanced_sample
+from verify_development_model import tree_hash, verify as verify_development_model
 
 SELECTED_BASE = "Qwen/Qwen3-1.7B"
 SELECTED_REVISION = "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e"
 
 
 class DatasetPipelineTests(unittest.TestCase):
+    def test_experimental_manifest_is_non_shipping_and_hash_pinned(self):
+        manifest = json.loads((ROOT / "manifests/nodus-r7-experimental.json").read_text())
+        self.assertEqual(manifest["stage"], "experimentalCandidate")
+        self.assertFalse(manifest["shippingAllowed"])
+        self.assertEqual(manifest["providerID"], "modula.nodus")
+        self.assertEqual(manifest["quantizedSHA256"], tree_hash(manifest["files"]))
+
+    def test_development_model_verifier_accepts_valid_cache_and_rejects_tamper(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            cache = root / "cache"
+            cache.mkdir()
+            model = cache / "model.safetensors"
+            model.write_bytes(b"model")
+            digest = sha256(model)
+            manifest = {
+                "displayName": "Nodus fixture",
+                "stage": "experimentalCandidate",
+                "shippingAllowed": False,
+                "providerID": "modula.nodus",
+                "runtimeFormat": "mlx",
+                "files": {"model.safetensors": digest},
+            }
+            manifest["quantizedSHA256"] = tree_hash(manifest["files"])
+            manifest_path = root / "tracked.json"
+            cached_path = cache / "nodus-r7-experimental.json"
+            manifest_path.write_text(json.dumps(manifest))
+            cached_path.write_text(json.dumps(manifest))
+            self.assertEqual(verify_development_model(manifest_path, cache), manifest)
+            model.write_bytes(b"tampered")
+            with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
+                verify_development_model(manifest_path, cache)
+
     def test_mlx_chat_dataset_masks_system_and_user_tokens(self):
         class FixtureTokenizer:
             @staticmethod

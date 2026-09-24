@@ -6,7 +6,7 @@ Nodus v0 is adapted from an open-weight foundation model; it is not pretrained f
 
 NODUS-01 benchmarks Qwen3-1.7B and SmolLM2-1.7B-Instruct at exact upstream revisions before selection. `licenses/base-models.json` records publisher, license, commercial status, redistribution and derivative obligations, attribution, naming restrictions, and acceptable-use restrictions. Public Nodus branding never removes upstream provenance.
 
-Initial adaptation uses LoRA on Apple silicon. A pilot run proves loss reporting, validation, adapter reload, and generation before the full experiment. Base and tuned variants receive the exact same held-out general, Modula, and freshness evaluations. The accepted mobile artifact is exported at 4-bit only after comparative evaluation; the manifest retains base revision, dataset revision, method, quantization, hashes, and evaluation revision.
+Initial adaptation uses LoRA on Apple silicon. A pilot run proves loss reporting, validation, adapter reload, and generation before the full experiment. Base and tuned variants receive the same held-out evaluation. A promising failed-promotion checkpoint may now be exported at 4-bit as an experimental candidate for real developer evaluation, but only an artifact passing every production gate may become accepted. Manifests retain base revision, dataset revision, method, quantization, hashes, evaluation evidence, lifecycle stage, and shipping policy.
 
 ## Corpus governance
 
@@ -42,3 +42,9 @@ Artifacts move through `experimental`, `candidate`, `accepted`, `deprecated`, or
 For NODUS-01B, measurable Modula improvement is at least +0.15 absolute on comparable legacy and expanded suites. Compatible calibration must be below 0.4400; approximately 0.374 is the preferred 15% improvement target. General aggregate and each measured category may regress by no more than five points. Freshness, abstention, hallucination resistance, unknown capability, and false premise remain independent gates.
 
 No training process rewrites Swift, Python tooling, security policy, AKI policy, Governor policy, or deployment logic. Generated examples are data proposals; source modification remains separately governed.
+
+## Fast candidate workflow
+
+The iteration loop is now `train → fast diagnostic evaluation → experimental candidate → real Developer Nodus Chat → human/developer evaluation → full promotion suite → accepted`. A weak run is discarded before packaging; a promising run can be made runnable without being called shippable. Full promotion remains fail-closed and is never replaced by the diagnostic suite or human ratings.
+
+NODUS-01D performs no new training. It packages the preserved NODUS-01C R7 checkpoint, records its known failures, and uses a compact fused-versus-Q4 diagnostic only to detect runtime or quantization collapse.
