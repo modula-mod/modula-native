@@ -278,7 +278,6 @@ enum SettingsRegistry {
             item(.developer(.components), "Components", "Visual catalog", "square.grid.3x3", .developerOnly, terms: ["catalog"]),
             item(.developer(.diagnostics), "Diagnostics", "Runtime evidence", "stethoscope", .developerOnly, terms: ["diagnostics"]),
             item(.developer(.intelligence), "Local Intelligence", "Native intelligence diagnostics", "brain", .developerOnly, terms: ["intelligence", "ai", "local"]),
-            item(.developer(.nodusChat), "Nodus Chat", "Local Nodus conversation testing", "bubble.left.and.bubble.right", .developerOnly, terms: ["nodus", "chat", "intelligence"]),
             item(.about(.root), "About", "Version, licenses and legal", "info.circle", .implemented, terms: ["about"]),
             item(.about(.version), "Version", "Bundle version and build", "number", .implemented, terms: ["version", "build"]),
             item(.about(.licenses), "Licenses", "Third-party notices", "doc.plaintext", .implemented, terms: ["licenses", "oss"]),

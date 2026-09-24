@@ -51,11 +51,19 @@ struct NodusChatView: View {
 
     @ViewBuilder private var conversation: some View {
         if model.availability != .available && model.messages.isEmpty {
-            ContentUnavailableView(
-                "No accepted Nodus model is installed.",
-                systemImage: "brain.head.profile",
-                description: Text("Install a hash-verified accepted model from Local Intelligence diagnostics.")
-            )
+            VStack(spacing: 16) {
+                ContentUnavailableView(
+                    "No accepted Nodus model is installed.",
+                    systemImage: "brain.head.profile",
+                    description: Text("Install a hash-verified accepted model from Local Intelligence diagnostics.")
+                )
+                Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
+                    detail("Provider", NodusIntelligenceProvider.providerID)
+                    detail("Status", IntelligenceAvailability.modelNotInstalled.displayName)
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
             .accessibilityIdentifier("nodus.chat.model-not-installed")
         } else if model.messages.isEmpty {
             ContentUnavailableView(

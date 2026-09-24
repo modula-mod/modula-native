@@ -160,12 +160,12 @@ final class NativeLaunchTests: XCTestCase {
         let app = try launchThroughAppGate(arguments: ["--runtime-unavailable"])
         openSettingsFromShell(app)
 
-        let developer = app.buttons["Developer"].firstMatch
-        XCTAssertTrue(developer.waitForExistence(timeout: 5))
+        let developer = scrollToElement(named: "Developer", in: app, maximumSwipes: 8)
+        XCTAssertTrue(developer.exists)
         developer.tap()
 
-        let localIntelligence = app.buttons["Local Intelligence"].firstMatch
-        XCTAssertTrue(localIntelligence.waitForExistence(timeout: 5))
+        let localIntelligence = scrollToElement(named: "Local Intelligence", in: app, maximumSwipes: 4)
+        XCTAssertTrue(localIntelligence.exists)
         localIntelligence.tap()
 
         XCTAssertTrue(
@@ -197,10 +197,12 @@ final class NativeLaunchTests: XCTestCase {
     func testNodusConfidenceVerificationQueueAndCancellationUI() throws {
         let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--uitest-nodus-fixture"])
         openSettingsFromShell(app)
-        XCTAssertTrue(app.buttons["Developer"].firstMatch.waitForExistence(timeout: 5))
-        app.buttons["Developer"].firstMatch.tap()
-        XCTAssertTrue(app.buttons["Local Intelligence"].firstMatch.waitForExistence(timeout: 5))
-        app.buttons["Local Intelligence"].firstMatch.tap()
+        let developer = scrollToElement(named: "Developer", in: app, maximumSwipes: 8)
+        XCTAssertTrue(developer.exists)
+        developer.tap()
+        let localIntelligence = scrollToElement(named: "Local Intelligence", in: app, maximumSwipes: 4)
+        XCTAssertTrue(localIntelligence.exists)
+        localIntelligence.tap()
 
         let prompt = app.descendants(matching: .any)["intelligence.nodus.prompt"]
         for _ in 0..<4 where !prompt.exists { app.swipeUp() }
@@ -255,13 +257,20 @@ final class NativeLaunchTests: XCTestCase {
     func testNodusChatModelNotInstalledState() throws {
         let app = try launchThroughAppGate(arguments: ["--runtime-unavailable"])
         openSettingsFromShell(app)
-        XCTAssertTrue(app.buttons["Developer"].firstMatch.waitForExistence(timeout: 5))
-        app.buttons["Developer"].firstMatch.tap()
-        XCTAssertTrue(app.buttons["Nodus Chat"].firstMatch.waitForExistence(timeout: 5))
-        app.buttons["Nodus Chat"].firstMatch.tap()
+        let developer = scrollToElement(named: "Developer", in: app, maximumSwipes: 8)
+        XCTAssertTrue(developer.exists)
+        developer.tap()
+        let localIntelligence = scrollToElement(named: "Local Intelligence", in: app, maximumSwipes: 4)
+        XCTAssertTrue(localIntelligence.exists)
+        localIntelligence.tap()
+        let openChat = scrollToElement(named: "Open Nodus Chat", in: app, maximumSwipes: 4)
+        XCTAssertTrue(openChat.exists)
+        openChat.tap()
 
         XCTAssertTrue(app.descendants(matching: .any)["nodus.chat.screen"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.descendants(matching: .any)["nodus.chat.model-not-installed"].exists)
+        XCTAssertTrue(app.staticTexts["modula.nodus"].exists)
+        XCTAssertTrue(app.staticTexts["Model not installed"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["nodus.chat.input"].isEnabled)
     }
 
@@ -269,10 +278,15 @@ final class NativeLaunchTests: XCTestCase {
     func testNodusChatFixtureSendMetadataVerifyCancelAndClear() throws {
         let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--uitest-nodus-fixture"])
         openSettingsFromShell(app)
-        XCTAssertTrue(app.buttons["Developer"].firstMatch.waitForExistence(timeout: 5))
-        app.buttons["Developer"].firstMatch.tap()
-        XCTAssertTrue(app.buttons["Nodus Chat"].firstMatch.waitForExistence(timeout: 5))
-        app.buttons["Nodus Chat"].firstMatch.tap()
+        let developer = scrollToElement(named: "Developer", in: app, maximumSwipes: 8)
+        XCTAssertTrue(developer.exists)
+        developer.tap()
+        let localIntelligence = scrollToElement(named: "Local Intelligence", in: app, maximumSwipes: 4)
+        XCTAssertTrue(localIntelligence.exists)
+        localIntelligence.tap()
+        let openChat = scrollToElement(named: "Open Nodus Chat", in: app, maximumSwipes: 4)
+        XCTAssertTrue(openChat.exists)
+        openChat.tap()
 
         let input = app.descendants(matching: .any)["nodus.chat.input"]
         XCTAssertTrue(input.waitForExistence(timeout: 8))
@@ -797,6 +811,21 @@ private func openSettingsFromShell(_ app: XCUIApplication) {
     let settings = app.buttons["Settings"].firstMatch
     XCTAssertTrue(settings.waitForExistence(timeout: 4), "Missing Settings in More menu")
     settings.tap()
+}
+
+@MainActor
+private func scrollToElement(
+    named name: String,
+    in app: XCUIApplication,
+    maximumSwipes: Int
+) -> XCUIElement {
+    let element = app.descendants(matching: .any)[name].firstMatch
+    if element.waitForExistence(timeout: 1) { return element }
+    for _ in 0..<maximumSwipes {
+        app.swipeUp()
+        if element.waitForExistence(timeout: 1) { return element }
+    }
+    return element
 }
 
 @MainActor
