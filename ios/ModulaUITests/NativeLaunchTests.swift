@@ -255,7 +255,7 @@ final class NativeLaunchTests: XCTestCase {
 
     @MainActor
     func testNodusChatModelNotInstalledState() throws {
-        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable"])
+        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--uitest-nodus-missing"])
         openSettingsFromShell(app)
         let developer = scrollToElement(named: "Developer", in: app, maximumSwipes: 8)
         XCTAssertTrue(developer.exists)
@@ -295,6 +295,10 @@ final class NativeLaunchTests: XCTestCase {
         XCTAssertTrue(app.buttons["Verify when online"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.staticTexts["Needs verification"].exists)
         XCTAssertTrue(app.staticTexts["Current data needed"].exists)
+        let goodRating = app.descendants(matching: .any)["nodus.chat.rating.good"]
+        XCTAssertTrue(goodRating.waitForExistence(timeout: 5))
+        goodRating.tap()
+        XCTAssertTrue(app.staticTexts["Saved locally"].waitForExistence(timeout: 5))
         app.buttons["Verify when online"].tap()
         XCTAssertTrue(app.staticTexts["Verification queued locally"].waitForExistence(timeout: 5))
 
@@ -306,7 +310,40 @@ final class NativeLaunchTests: XCTestCase {
         XCTAssertTrue(input.isEnabled)
 
         app.buttons["Clear"].tap()
-        XCTAssertTrue(app.staticTexts["Test Nodus locally"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Not approved for production"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testNodusChatRealBundledModelOnPhysicalDevice() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("MLX does not support inference in the iOS Simulator")
+        #else
+        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable"], timeout: 90)
+        openSettingsFromShell(app)
+        let developer = scrollToElement(named: "Developer", in: app, maximumSwipes: 8)
+        XCTAssertTrue(developer.exists)
+        developer.tap()
+        let localIntelligence = scrollToElement(named: "Local Intelligence", in: app, maximumSwipes: 4)
+        XCTAssertTrue(localIntelligence.exists)
+        localIntelligence.tap()
+        let openChat = scrollToElement(named: "Open Nodus Chat", in: app, maximumSwipes: 4)
+        XCTAssertTrue(openChat.exists)
+        openChat.tap()
+
+        XCTAssertTrue(app.staticTexts["Not approved for production"].waitForExistence(timeout: 8))
+        let input = app.descendants(matching: .any)["nodus.chat.input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 8))
+        pasteText("What is the capital of Romania?", into: input, app: app)
+        app.descendants(matching: .any)["nodus.chat.send"].tap()
+        let answer = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS[c] %@", "Bucharest")
+        ).firstMatch
+        XCTAssertTrue(answer.waitForExistence(timeout: 60))
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "nodus-01d-real-physical-response"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        #endif
     }
 }
 

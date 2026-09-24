@@ -9,6 +9,7 @@ import Tokenizers
 actor MLXNodusRuntime: NodusRuntime {
     private let modelDirectory: URL
     private let modelVersion: String
+    private let identity: NodusModelIdentity?
     private let enabled: Bool
     private let minimumMemoryBytes: UInt64
     private var state: NodusLoadState = .unloaded
@@ -16,12 +17,14 @@ actor MLXNodusRuntime: NodusRuntime {
 
     init(
         modelDirectory: URL,
-        modelVersion: String = "Nodus v0.1",
+        modelVersion: String = "Nodus R7 Experimental",
+        identity: NodusModelIdentity? = nil,
         enabled: Bool = true,
         minimumMemoryBytes: UInt64 = 6 * 1_024 * 1_024 * 1_024
     ) {
         self.modelDirectory = modelDirectory
         self.modelVersion = modelVersion
+        self.identity = identity
         self.enabled = enabled
         self.minimumMemoryBytes = minimumMemoryBytes
     }
@@ -31,9 +34,20 @@ actor MLXNodusRuntime: NodusRuntime {
         if ProcessInfo.processInfo.physicalMemory < minimumMemoryBytes { return .insufficientMemory }
         let downloadingMarker = modelDirectory.deletingLastPathComponent().appending(path: "download.in-progress")
         if FileManager.default.fileExists(atPath: downloadingMarker.path) { return .modelDownloading }
-        guard FileManager.default.fileExists(atPath: modelDirectory.appending(path: "nodus-manifest.json").path) else {
+        let acceptedManifest = modelDirectory.appending(path: "nodus-manifest.json")
+        let experimentalManifest = modelDirectory.appending(path: NodusExperimentalManifest.fileName)
+        guard FileManager.default.fileExists(atPath: acceptedManifest.path)
+                || FileManager.default.fileExists(atPath: experimentalManifest.path) else {
             return .modelNotInstalled
         }
+        // MLX does not support iOS Simulator execution and aborts while
+        // constructing its Metal scheduler, including on the CPU stream.
+        // Report the limitation before touching MLX so Developer Chat fails
+        // safely instead of terminating the app. Physical devices are
+        // unaffected and continue through the real local MLX path.
+        #if targetEnvironment(simulator)
+        return .unsupportedDevice
+        #endif
         return state == .failed ? .temporarilyUnavailable : .available
     }
 
@@ -46,21 +60,34 @@ actor MLXNodusRuntime: NodusRuntime {
         }
         state = .loading
         do {
-            let installer = NodusArtifactInstaller(root: modelDirectory.deletingLastPathComponent())
-            guard let manifest = try await installer.installedManifest() else {
-                throw NodusArtifactError.invalidManifest
+            if FileManager.default.fileExists(
+                atPath: modelDirectory.appending(path: NodusExperimentalManifest.fileName).path
+            ) {
+                let manifest = try NodusExperimentalManifest.load(from: modelDirectory)
+                try manifest.verify(in: modelDirectory)
+            } else {
+                let installer = NodusArtifactInstaller(root: modelDirectory.deletingLastPathComponent())
+                guard let manifest = try await installer.installedManifest() else {
+                    throw NodusArtifactError.invalidManifest
+                }
+                try NodusArtifactInstaller.verify(manifest: manifest, in: modelDirectory)
             }
-            try NodusArtifactInstaller.verify(manifest: manifest, in: modelDirectory)
             container = try await LLMModelFactory.shared.loadContainer(
                 from: modelDirectory,
                 using: #huggingFaceTokenizerLoader()
             )
             state = .loaded
+        } catch let artifactError as NodusArtifactError {
+            state = .failed
+            throw IntelligenceError.providerFailure(
+                providerID: NodusIntelligenceProvider.providerID,
+                detail: "MODEL_MANIFEST_\(artifactError)"
+            )
         } catch {
             state = .failed
             throw IntelligenceError.providerFailure(
                 providerID: NodusIntelligenceProvider.providerID,
-                detail: "MODEL_LOAD_FAILED"
+                detail: "MLX_MODEL_LOAD_FAILED_\(String(describing: error))"
             )
         }
     }
@@ -100,14 +127,27 @@ actor MLXNodusRuntime: NodusRuntime {
 
     func unload() { container = nil; state = .unloaded }
 
+    func modelIdentity() -> NodusModelIdentity? { identity }
+
 }
 #endif
 
 enum NodusRuntimeFactory {
     static func makeDefault() -> any NodusRuntime {
         #if canImport(MLXLLM) && canImport(MLXLMCommon) && canImport(MLXHuggingFace) && canImport(Tokenizers)
-        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let preference = UserDefaults.standard.object(forKey: "modula.nodus.enabled") as? Bool
+        if let resources = Bundle.main.resourceURL {
+            let bundled = resources.appending(path: "Nodus/R7")
+            if let manifest = try? NodusExperimentalManifest.load(from: bundled) {
+                return MLXNodusRuntime(
+                    modelDirectory: bundled,
+                    modelVersion: manifest.displayName,
+                    identity: manifest.identity,
+                    enabled: preference ?? true
+                )
+            }
+        }
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         return MLXNodusRuntime(
             modelDirectory: support.appending(path: "Modula/Nodus/models/accepted"),
             enabled: preference ?? true

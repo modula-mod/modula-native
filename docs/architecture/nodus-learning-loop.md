@@ -23,3 +23,9 @@ Each approved candidate preserves the original answer and confidence, verified a
 The deterministic NODUS-01 fixture proves the loop from low-confidence answer through a persisted mission, signed correction, reconciliation, pending candidate, explicit test approval, and a hashed dataset revision. Production approval and model promotion remain separate operations.
 
 NODUS-01B adds deterministic confirmed, corrected, stale, and partial correction examples without ingesting private verification history. They use the same provenance and split controls as the corpus. Verification queue and reconciliation tests remain local fixtures: no mission is submitted over the network, and no candidate is automatically approved or trained. Because no model passed promotion, runtime and learning-loop defaults do not change.
+
+## Developer evaluation evidence
+
+NODUS-01D adds local ratings for experimental answers: `good`, `wrong`, `unsure`, `outdated`, and `hallucinated`. Each record binds the prompt, response, model ID, lifecycle stage, externally derived confidence/freshness, timestamp, and optional note. Records persist in local application support and can be explicitly exported as JSONL; they are not uploaded or sent to analytics.
+
+A rating is evaluation evidence, not training consent. It can inform a future reviewed dataset proposal, but it never changes weights, creates an approved learning candidate, or bypasses verification, privacy review, dataset versioning, retraining, evaluation, and promotion.

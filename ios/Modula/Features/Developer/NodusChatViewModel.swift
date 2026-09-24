@@ -1,6 +1,89 @@
 import Foundation
 import Observation
 
+enum NodusDeveloperRating: String, Sendable, Equatable, Codable, CaseIterable {
+    case good
+    case wrong
+    case unsure
+    case outdated
+    case hallucinated
+
+    var displayName: String { rawValue.capitalized }
+}
+
+struct NodusDeveloperEvaluation: Identifiable, Sendable, Equatable, Codable {
+    let id: UUID
+    let modelID: String
+    let modelStage: NodusModelStage
+    let prompt: String
+    let response: String
+    let rating: NodusDeveloperRating
+    let confidence: NodusConfidenceBand
+    let freshness: NodusFreshness
+    let note: String?
+    let createdAt: Date
+}
+
+actor NodusDeveloperEvaluationStore {
+    nonisolated let exportURL: URL
+    private let fileURL: URL
+    private var records: [NodusDeveloperEvaluation]
+
+    init(fileURL: URL? = nil, exportURL: URL? = nil) {
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let root = support.appending(path: "Modula/Nodus")
+        let resolvedFile = fileURL ?? root.appending(path: "developer-evaluations.json")
+        let resolvedExport = exportURL ?? root.appending(path: "developer-evaluations.jsonl")
+        self.fileURL = resolvedFile
+        self.exportURL = resolvedExport
+        self.records = (try? Data(contentsOf: resolvedFile))
+            .flatMap { try? JSONDecoder.modulaNodus.decode([NodusDeveloperEvaluation].self, from: $0) } ?? []
+        try? FileManager.default.createDirectory(
+            at: resolvedFile.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try? Self.writeExport(records, to: resolvedExport)
+    }
+
+    func upsert(_ evaluation: NodusDeveloperEvaluation) throws {
+        records.removeAll { $0.id == evaluation.id }
+        records.append(evaluation)
+        let encoder = JSONEncoder.modulaNodus
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(records).write(to: fileURL, options: .atomic)
+        try Self.writeExport(records, to: exportURL)
+    }
+
+    func snapshot() -> [NodusDeveloperEvaluation] { records }
+
+    private static func writeExport(_ records: [NodusDeveloperEvaluation], to url: URL) throws {
+        let encoder = JSONEncoder.modulaNodus
+        encoder.outputFormatting = [.sortedKeys]
+        var data = Data()
+        for record in records {
+            data.append(try encoder.encode(record))
+            data.append(Data("\n".utf8))
+        }
+        try data.write(to: url, options: .atomic)
+    }
+}
+
+private extension JSONEncoder {
+    static var modulaNodus: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }
+}
+
+private extension JSONDecoder {
+    static var modulaNodus: JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }
+}
+
 #if DEBUG
 struct NodusChatMessage: Identifiable, Sendable, Equatable {
     enum Role: Sendable { case user, nodus }
@@ -26,9 +109,12 @@ final class NodusChatViewModel {
     private(set) var messages: [NodusChatMessage] = []
     private(set) var availability: IntelligenceAvailability = .modelNotInstalled
     private(set) var loadState: NodusLoadState = .unloaded
+    private(set) var modelIdentity: NodusModelIdentity?
     private(set) var isGenerating = false
     private(set) var errorMessage: String?
     private(set) var verificationStatus: String?
+    private(set) var evaluationStatus: String?
+    private(set) var ratings: [UUID: NodusDeveloperRating] = [:]
     private var generationTask: Task<Void, Never>?
 
     var canSend: Bool {
@@ -39,6 +125,7 @@ final class NodusChatViewModel {
         let snapshot = await intelligence.diagnosticsSnapshot()
         availability = snapshot.nodusProviderAvailability ?? .modelNotInstalled
         loadState = snapshot.nodusLoadState ?? .unloaded
+        modelIdentity = snapshot.nodusModelIdentity
     }
 
     func send(using intelligence: ModulaIntelligence) {
@@ -56,6 +143,7 @@ final class NodusChatViewModel {
         verificationStatus = nil
         messages.append(NodusChatMessage(role: .user, text: question))
         isGenerating = true
+        if loadState == .unloaded { loadState = .loading }
 
         generationTask = Task { [weak self] in
             guard let self else { return }
@@ -109,6 +197,7 @@ final class NodusChatViewModel {
         messages.removeAll()
         errorMessage = nil
         verificationStatus = nil
+        evaluationStatus = nil
     }
 
     func queueVerification(for message: NodusChatMessage, store: NodusVerificationStore) async {
@@ -128,6 +217,45 @@ final class NodusChatViewModel {
             verificationStatus = "Verification queued locally"
         } catch {
             verificationStatus = "Could not queue verification"
+        }
+    }
+
+    func rate(
+        _ rating: NodusDeveloperRating,
+        message: NodusChatMessage,
+        store: NodusDeveloperEvaluationStore,
+        note: String? = nil
+    ) async {
+        guard let answer = message.answer else { return }
+        let responseIndex = messages.firstIndex(where: { $0.id == message.id }) ?? messages.endIndex
+        let prompt = messages[..<responseIndex].last(where: { $0.role == .user })?.text ?? ""
+        let identity = modelIdentity ?? NodusModelIdentity(
+            id: "nodus-unknown",
+            displayName: answer.modelVersion,
+            stage: .experimentalCandidate,
+            shippingAllowed: false,
+            baseModel: "Qwen/Qwen3-1.7B",
+            baseRevision: "unknown",
+            quantization: "unknown",
+            runtimeFormat: "mlx"
+        )
+        do {
+            try await store.upsert(NodusDeveloperEvaluation(
+                id: message.id,
+                modelID: identity.id,
+                modelStage: identity.stage,
+                prompt: prompt,
+                response: message.text,
+                rating: rating,
+                confidence: answer.confidence.band,
+                freshness: answer.freshness,
+                note: note,
+                createdAt: Date()
+            ))
+            ratings[message.id] = rating
+            evaluationStatus = "Saved locally"
+        } catch {
+            evaluationStatus = "Could not save evaluation"
         }
     }
 }

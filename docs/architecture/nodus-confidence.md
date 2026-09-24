@@ -21,3 +21,7 @@ Held-out results calibrate predicted confidence against correctness by domain. R
 NODUS-01B fits a deterministic bucket mapping on `calibration-valid.jsonl` and scores separate held-out cases. Runtime-observable buckets use Beta(2,2) smoothing. This remains an external calibration layer, not model-authored numeric truth or a second neural network.
 
 Compatible calibrated ECE was 0.4429 for R3 step 1200, 0.5081 for R4 step 300, and 0.5175 for R5 step 1400. All exceed the required `< 0.4400`; R5 abstention accuracy was 0.0. No calibration artifact is accepted for runtime use, and `NodusConfidenceEngine` remains the product boundary.
+
+## Experimental candidate display
+
+R7 does not author or validate its own numeric confidence. Developer Chat continues to derive confidence and freshness outside the model and presents only the bands `High`, `Medium`, `Low`, and `Needs verification`, plus `Stable`, `Possibly stale`, `Current data required`, or `Unknown`. This is especially important because R7 failed freshness and hallucination promotion gates. The experimental lifecycle badge comes from hash-verified bundled metadata, never generated text.

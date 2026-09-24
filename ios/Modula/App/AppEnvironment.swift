@@ -36,6 +36,7 @@ final class AppEnvironment {
     /// deterministic fixtures remain DEBUG-only.
     let intelligence: ModulaIntelligence
     let nodusVerificationStore = NodusVerificationStore()
+    let nodusEvaluationStore = NodusDeveloperEvaluationStore()
     let nodusArtifactInstaller = NodusArtifactInstaller()
 
     init() {
@@ -75,8 +76,14 @@ final class AppEnvironment {
         publishing = GreenfieldPublishingRepository(client: client, capabilities: .production)
         mediaUploader = DisabledMediaUploader()
         #if DEBUG
-        let nodusRuntime: (any NodusRuntime)? = launchArguments.contains("--uitest-nodus-fixture")
-            ? NodusUITestRuntime() : nil
+        let nodusRuntime: (any NodusRuntime)?
+        if launchArguments.contains("--uitest-nodus-missing") {
+            nodusRuntime = UnavailableNodusRuntime(availability: .modelNotInstalled)
+        } else if launchArguments.contains("--uitest-nodus-fixture") {
+            nodusRuntime = NodusUITestRuntime()
+        } else {
+            nodusRuntime = nil
+        }
         intelligence = ModulaIntelligence(
             registerNodusProvider: true,
             nodusRuntime: nodusRuntime,

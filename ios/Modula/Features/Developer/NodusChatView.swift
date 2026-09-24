@@ -21,6 +21,13 @@ struct NodusChatView: View {
                     .disabled(model.messages.isEmpty)
                     .accessibilityIdentifier("nodus.chat.clear")
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                ShareLink(item: app.nodusEvaluationStore.exportURL) {
+                    Image(systemName: "square.and.arrow.up")
+                }
+                .accessibilityLabel("Export Nodus evaluations")
+                .accessibilityIdentifier("nodus.chat.export-evaluations")
+            }
         }
         .task { await model.refresh(using: app.intelligence) }
         .onDisappear { model.cancel() }
@@ -31,7 +38,7 @@ struct NodusChatView: View {
             Image(systemName: "brain")
                 .foregroundStyle(Color.accentColor)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Nodus")
+                Text(model.modelIdentity?.displayName ?? "Nodus R7")
                     .font(.headline)
                     .accessibilityIdentifier("nodus.chat.screen")
                 Text(statusText)
@@ -39,23 +46,24 @@ struct NodusChatView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text("Local")
-                .font(.caption.weight(.medium))
-                .padding(.horizontal, 9)
-                .padding(.vertical, 5)
-                .background(.thinMaterial, in: Capsule())
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("Experimental")
+                    .foregroundStyle(.orange)
+                Text("Local · 4-bit")
+            }
+            .font(.caption.weight(.medium))
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
     }
 
     @ViewBuilder private var conversation: some View {
-        if model.availability != .available && model.messages.isEmpty {
+        if model.availability == .modelNotInstalled && model.messages.isEmpty {
             VStack(spacing: 16) {
                 ContentUnavailableView(
-                    "No accepted Nodus model is installed.",
+                    "Nodus model not installed",
                     systemImage: "brain.head.profile",
-                    description: Text("Install a hash-verified accepted model from Local Intelligence diagnostics.")
+                    description: Text("A verified experimental developer bundle was not found.")
                 )
                 Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
                     detail("Provider", NodusIntelligenceProvider.providerID)
@@ -65,12 +73,28 @@ struct NodusChatView: View {
                 .foregroundStyle(.secondary)
             }
             .accessibilityIdentifier("nodus.chat.model-not-installed")
-        } else if model.messages.isEmpty {
+        } else if model.availability != .available && model.messages.isEmpty {
             ContentUnavailableView(
-                "Test Nodus locally",
-                systemImage: "bubble.left.and.bubble.right",
-                description: Text("Ask a general or Modula question. This history stays in memory for this session.")
+                model.availability.displayName,
+                systemImage: "exclamationmark.triangle",
+                description: Text("Nodus cannot execute on this device. The experimental bundle remains local and no fallback provider will be used.")
             )
+            .accessibilityIdentifier("nodus.chat.unavailable")
+        } else if model.messages.isEmpty {
+            VStack(spacing: 14) {
+                Label("Experimental model", systemImage: "exclamationmark.triangle.fill")
+                    .font(.headline)
+                    .foregroundStyle(.orange)
+                Text("Not approved for production")
+                    .font(.subheadline.weight(.semibold))
+                Text("Ask any general or Modula question. Conversation context is bounded to recent messages.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                modelDetails
+            }
+            .padding()
+            .accessibilityIdentifier("nodus.chat.experimental-warning")
         } else {
             ScrollViewReader { proxy in
                 ScrollView {
@@ -120,12 +144,18 @@ struct NodusChatView: View {
                         .font(.caption)
                         .accessibilityIdentifier("nodus.chat.verify")
                     }
+                    evaluationControls(for: message)
                     DisclosureGroup("Details") {
                         Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 5) {
                             detail("Task", answer.taskMode?.rawValue ?? NodusTaskMode.generalAnswer.rawValue)
                             detail("Model", answer.modelVersion)
-                            detail("Base", "Qwen3-1.7B")
+                            detail("Base", model.modelIdentity?.baseModel ?? "Qwen/Qwen3-1.7B")
+                            detail("Model", "R7")
+                            detail("Stage", model.modelIdentity?.stage.displayName ?? "Experimental candidate")
+                            detail("Quantization", model.modelIdentity?.quantization ?? "4-bit")
                             detail("Provider", NodusIntelligenceProvider.providerID)
+                            detail("Execution", "Local")
+                            detail("Shipping", "Not allowed")
                             detail("Generation", answer.latencySeconds.map { String(format: "%.2f s", $0) } ?? "—")
                             detail("Tokens/sec", answer.tokensPerSecond.map { String(format: "%.1f", $0) } ?? "—")
                             detail("Request", message.requestID?.uuidString ?? "—")
@@ -148,7 +178,7 @@ struct NodusChatView: View {
 
     private var composer: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if let message = model.errorMessage ?? model.verificationStatus {
+            if let message = model.errorMessage ?? model.verificationStatus ?? model.evaluationStatus {
                 Text(message).font(.caption).foregroundStyle(.secondary)
             }
             HStack(alignment: .bottom, spacing: 10) {
@@ -186,8 +216,44 @@ struct NodusChatView: View {
             case .failed: "Load failed"
             default: "Ready"
             }
-        case .modelNotInstalled: "No accepted model installed"
+        case .modelNotInstalled: "Model not installed"
         default: model.availability.displayName
+        }
+    }
+
+    private var modelDetails: some View {
+        Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 6) {
+            detail("Base", model.modelIdentity?.baseModel ?? "Qwen/Qwen3-1.7B")
+            detail("Model", "R7")
+            detail("Stage", model.modelIdentity?.stage.displayName ?? "Experimental candidate")
+            detail("Quantization", model.modelIdentity?.quantization ?? "4-bit")
+            detail("Provider", NodusIntelligenceProvider.providerID)
+            detail("Execution", "Local")
+            detail("Shipping", "Not allowed")
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+    }
+
+    private func evaluationControls(for message: NodusChatMessage) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(NodusDeveloperRating.allCases, id: \.self) { rating in
+                    Button(rating.displayName) {
+                        Task {
+                            await model.rate(
+                                rating,
+                                message: message,
+                                store: app.nodusEvaluationStore
+                            )
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                    .tint(model.ratings[message.id] == rating ? Color.accentColor : nil)
+                    .accessibilityIdentifier("nodus.chat.rating.\(rating.rawValue)")
+                }
+            }
         }
     }
 }

@@ -95,6 +95,11 @@ protocol NodusRuntime: Sendable {
     func load() async throws
     func generate(prompt: String, capability: IntelligenceCapability) async throws -> NodusRuntimeGeneration
     func unload() async
+    func modelIdentity() async -> NodusModelIdentity?
+}
+
+extension NodusRuntime {
+    func modelIdentity() async -> NodusModelIdentity? { nil }
 }
 
 actor UnavailableNodusRuntime: NodusRuntime {
