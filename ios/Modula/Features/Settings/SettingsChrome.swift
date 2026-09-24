@@ -210,18 +210,32 @@ struct SettingsDesignedUnavailableCanvas: View {
 
 struct SettingsScrollCanvas<Content: View>: View {
     @ViewBuilder var content: Content
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 22) {
-                content
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 22) {
+                    content
+                }
+                .padding(.horizontal, ModulaLayout.contentInset)
+                .padding(.top, 10)
+                .padding(.bottom, 28)
             }
-            .padding(.horizontal, ModulaLayout.contentInset)
-            .padding(.top, 10)
-            .padding(.bottom, 28)
+            .onAppear { scroll(to: app.navigation.settingsFocusAnchor, proxy: proxy) }
+            .onChange(of: app.navigation.settingsFocusAnchor) { _, anchor in
+                scroll(to: anchor, proxy: proxy)
+            }
         }
         .modulaSoftScrollEdge()
         .modulaCanvas()
+    }
+
+    private func scroll(to anchor: String?, proxy: ScrollViewProxy) {
+        guard let anchor else { return }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+            proxy.scrollTo(anchor, anchor: .center)
+        }
     }
 }
 

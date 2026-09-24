@@ -39,9 +39,9 @@ final class ShellChromePolicyN3ATests: XCTestCase {
         XCTAssertFalse(policy.shellAccessoryVisible)
     }
 
-    func testGeneralSettingsKeepsTabBarWithoutAccessoryTools() {
+    func testGeneralSettingsHidesTabBarWithoutAccessoryTools() {
         let policy = ShellChromePolicy.policy(for: .settings(.appearance(.root)))
-        XCTAssertTrue(policy.bottomBarVisible)
+        XCTAssertFalse(policy.bottomBarVisible)
         XCTAssertFalse(policy.contextRailVisible)
         XCTAssertFalse(policy.shellAccessoryVisible)
     }

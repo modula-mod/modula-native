@@ -12,6 +12,8 @@ final class NavigationCoordinator {
     var sidebarPresented = false
     /// Route to restore after a successful authentication challenge.
     private(set) var pendingReturnRoute: AppRoute?
+    /// Settings control to scroll to and briefly emphasize after search.
+    var settingsFocusAnchor: String?
     var currentRoute: AppRoute { paths[selectedTab]?.last ?? roots[selectedTab] ?? selectedTab.defaultRoute }
     var currentPath: String { RouteSerializer.serialize(currentRoute) }
 
@@ -235,7 +237,7 @@ struct ShellChromePolicy: Equatable {
             )
         case .settings:
             Self(
-                bottomBarVisible: true,
+                bottomBarVisible: false,
                 contextRailVisible: false,
                 shellAccessoryVisible: false,
                 topBarStyle: .standard,

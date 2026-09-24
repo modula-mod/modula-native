@@ -146,6 +146,7 @@ struct NotificationSettingsHost: View {
                     subtitle: "Push authorization and category delivery.",
                     symbol: "bell"
                 )
+                NotificationStackGraphic()
                 SettingsGroup(title: "Categories") {
                     VStack(spacing: 0) {
                         SettingsNavigationRow(title: "Push", subtitle: "Device authorization", symbol: "iphone.radiowaves.left.and.right") {
@@ -162,6 +163,10 @@ struct NotificationSettingsHost: View {
                         SettingsDivider()
                         SettingsNavigationRow(title: "Quiet Hours", subtitle: "Delivery window", symbol: "moon.zzz") {
                             app.navigation.open(.settings(.notifications(.quietHours)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Digests", subtitle: "Weekly and morning summaries", symbol: "envelope.open") {
+                            app.navigation.open(.settings(.digests(.root)))
                         }
                     }
                 }
@@ -286,6 +291,7 @@ struct PrivacySecurityHost: View {
                     subtitle: "Locks, biometrics, and account protection.",
                     symbol: "lock.shield"
                 )
+                PrivacyLayersGraphic()
                 SettingsGroup(title: "Privacy") {
                     VStack(spacing: 0) {
                         SettingsNavigationRow(title: "Privacy", subtitle: "Profile visibility", symbol: "hand.raised") {
@@ -505,6 +511,7 @@ struct ModuleSettingsHost: View {
                     subtitle: "Installed modules, updates, and HostBridge permissions.",
                     symbol: "shippingbox"
                 )
+                ModuleOrbitGraphic(installedCount: app.catalogue.installedIDs.count)
                 SettingsGroup(title: "Manage") {
                     VStack(spacing: 0) {
                         SettingsNavigationRow(title: "Installed", subtitle: "On this account", symbol: "arrow.down.circle") {
@@ -803,6 +810,10 @@ struct AccessibilitySettingsHost: View {
         Form {
             switch route {
             case .root, .text:
+                AccessibilityPreviewGraphic(
+                    sample: "Modula text follows the system size you choose.",
+                    scale: dynamicTypeSize.isAccessibilitySize ? 1.35 : 1
+                )
                 LabeledContent("Dynamic Type", value: String(describing: dynamicTypeSize))
                 Text("Modula follows system text size. Appearance Text Size is an additional product scale and does not override Dynamic Type.")
                     .foregroundStyle(.secondary)

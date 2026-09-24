@@ -22,6 +22,8 @@ struct SettingsDestination: Identifiable, Hashable, Sendable {
     let symbol: String
     let availability: SettingsAvailability
     let searchTerms: [String]
+    /// Control to reveal after search navigation, when the destination can scroll to it.
+    let anchor: String?
     /// Factual reason when availability is capabilityUnavailable.
     let unavailableReason: String?
 
@@ -131,6 +133,7 @@ enum SettingsRegistry {
         _ symbol: String,
         _ availability: SettingsAvailability,
         terms: [String] = [],
+        anchor: String? = nil,
         reason: String? = nil
     ) -> SettingsDestination {
         SettingsDestination(
@@ -140,6 +143,7 @@ enum SettingsRegistry {
             symbol: symbol,
             availability: availability,
             searchTerms: terms,
+            anchor: anchor,
             unavailableReason: reason
         )
     }
@@ -187,14 +191,14 @@ enum SettingsRegistry {
             item(.audio(.root), "Audio", "Playback, voice and haptics", "speaker.wave.2", .implemented, terms: ["audio", "sound", "playback"]),
             item(.audio(.playback), "Playback", "Autoplay previews", "play.circle", .implemented, terms: ["autoplay"]),
             item(.audio(.voice), "Voice", "Voice note speed", "waveform", .implemented, terms: ["voice", "speed"]),
-            item(.audio(.haptics), "Audio Haptics", "Haptic on play", "hand.tap", .implemented, terms: ["haptics"]),
+            item(.audio(.haptics), "Audio Haptics", "Haptic on play", "hand.tap", .implemented, terms: ["haptics", "haptic"], anchor: "audio.haptics"),
             item(.language(.root), "Language", "App language on this device", "globe", .implemented, terms: ["language", "locale", "region"]),
             item(.media(.root), "Media", "Video and image quality", "photo.on.rectangle.angled", .implemented, terms: ["media", "video", "images"]),
             item(.media(.video), "Video", "Playback quality", "film", .implemented, terms: ["video quality"]),
             item(.media(.images), "Images", "Upload preferences", "photo", .implemented, terms: ["images", "upload"]),
             item(.media(.downloads), "Media Downloads", "Offline media", "arrow.down.circle", .implemented, terms: ["downloads"]),
             item(.feed(.root), "Feed", "Home defaults for this device", "rectangle.stack", .implemented, terms: ["feed", "home", "following", "for you"]),
-            item(.battery(.root), "Battery & Data", "Data saver and Low Power", "battery.100.bolt", .implemented, terms: ["battery", "data saver"]),
+            item(.battery(.root), "Battery & Data", "Data saver and Low Power", "battery.100.bolt", .implemented, terms: ["battery", "data saver", "low power"], anchor: "battery.lowPower"),
             item(.safety(.root), "Safety", "Reporting and sensitive content", "shield.checkered", .implemented, terms: ["safety", "report", "mute"]),
             item(.safety(.reporting), "Reporting", "Report reasons", "exclamationmark.bubble", .capabilityUnavailable, terms: ["report"], reason: "Report reason enums and endpoints need VPS verification before these rows become actionable."),
             item(.safety(.muted), "Muted", "Muted words and accounts", "speaker.slash", .capabilityUnavailable, terms: ["mute"], reason: "No verified mute-list settings contract is wired for this screen."),

@@ -215,6 +215,7 @@
 		H50100000000000000000003 /* SettingsChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = H40100000000000000000003 /* SettingsChrome.swift */; };
 		H50100000000000000000004 /* SettingsMorePages.swift in Sources */ = {isa = PBXBuildFile; fileRef = H40100000000000000000004 /* SettingsMorePages.swift */; };
 		H50100000000000000000005 /* SettingsExtraPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = H40100000000000000000005 /* SettingsExtraPages.swift */; };
+		S50100000000000000000001 /* SettingsVisualSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = S40100000000000000000001 /* SettingsVisualSystem.swift */; };
 		N50100000000000000000001 /* MediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000001 /* MediaModels.swift */; };
 		N50100000000000000000002 /* ModulaVideoPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000002 /* ModulaVideoPlayer.swift */; };
 		N50100000000000000000003 /* MessageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000003 /* MessageModels.swift */; };
@@ -465,6 +466,7 @@
 		H40100000000000000000003 /* SettingsChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsChrome.swift; path = Features/Settings/SettingsChrome.swift; sourceTree = "<group>"; };
 		H40100000000000000000004 /* SettingsMorePages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsMorePages.swift; path = Features/Settings/SettingsMorePages.swift; sourceTree = "<group>"; };
 		H40100000000000000000005 /* SettingsExtraPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsExtraPages.swift; path = Features/Settings/SettingsExtraPages.swift; sourceTree = "<group>"; };
+		S40100000000000000000001 /* SettingsVisualSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsVisualSystem.swift; path = Features/Settings/SettingsVisualSystem.swift; sourceTree = "<group>"; };
 		N40100000000000000000001 /* MediaModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MediaModels.swift; path = Features/Media/MediaModels.swift; sourceTree = "<group>"; };
 		N40100000000000000000002 /* ModulaVideoPlayer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaVideoPlayer.swift; path = Features/Media/ModulaVideoPlayer.swift; sourceTree = "<group>"; };
 		N40100000000000000000003 /* MessageModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessageModels.swift; path = Features/Messages/MessageModels.swift; sourceTree = "<group>"; };
@@ -699,6 +701,7 @@
 				H40100000000000000000003 /* SettingsChrome.swift */,
 				H40100000000000000000004 /* SettingsMorePages.swift */,
 				H40100000000000000000005 /* SettingsExtraPages.swift */,
+				S40100000000000000000001 /* SettingsVisualSystem.swift */,
 				DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */,
 				F00100000000000000000001 /* ProfileModels.swift */,
 				F00100000000000000000002 /* ProfileRepository.swift */,
@@ -1174,6 +1177,7 @@
 				H50100000000000000000003 /* SettingsChrome.swift in Sources */,
 				H50100000000000000000004 /* SettingsMorePages.swift in Sources */,
 				H50100000000000000000005 /* SettingsExtraPages.swift in Sources */,
+				S50100000000000000000001 /* SettingsVisualSystem.swift in Sources */,
 				G50100000000000000000006 /* TypographyPreview.swift in Sources */,
 				E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */,
 				DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */,

@@ -95,6 +95,7 @@ struct PersonalisationSettingsHost: View {
 
 struct LanguageSettingsHost: View {
     let route: LanguageSettingsRoute
+    @Environment(AppEnvironment.self) private var app
     @AppStorage("settings.language.appOverride") private var appOverride = "system"
     @AppStorage("settings.language.translationHints") private var translationHints = true
 
@@ -121,6 +122,17 @@ struct LanguageSettingsHost: View {
                 }
                 .scrollDisabled(true)
                 .frame(minHeight: 72)
+                SettingsGroup(title: "Region") {
+                    VStack(spacing: 0) {
+                        SettingsNavigationRow(title: "Translate", subtitle: "Translation hints", symbol: "character.book.closed") {
+                            app.navigation.open(.settings(.translate(.root)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Time & Units", subtitle: "Clocks and measurement", symbol: "clock") {
+                            app.navigation.open(.settings(.timeUnits(.root)))
+                        }
+                    }
+                }
                 SettingsAPIFootnote(text: "Override is device-local. Server-side locale / translation endpoints are not verified in this client.")
             }
             .navigationTitle("Language")
@@ -168,6 +180,7 @@ struct MediaSettingsHost: View {
                     subtitle: "Playback and upload quality on this device.",
                     symbol: "photo.on.rectangle.angled"
                 )
+                MediaQualityGraphic(quality: videoQuality)
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     SettingsFeatureTile(title: "Video", detail: "Quality & mute", symbol: "film", tint: app.appearance.accent.color)
                     SettingsFeatureTile(title: "Images", detail: "Upload originals", symbol: "photo", tint: app.appearance.accent.color)
@@ -184,6 +197,14 @@ struct MediaSettingsHost: View {
                         SettingsDivider()
                         SettingsNavigationRow(title: "Downloads", subtitle: "Offline media", symbol: "arrow.down.circle") {
                             app.navigation.open(.settings(.media(.downloads)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Camera", subtitle: "Capture framing and save", symbol: "camera") {
+                            app.navigation.open(.settings(.camera(.root)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Photos", subtitle: "Library access and saves", symbol: "photo.on.rectangle") {
+                            app.navigation.open(.settings(.photos(.root)))
                         }
                     }
                 }
@@ -244,7 +265,7 @@ struct FeedSettingsHost: View {
                     subtitle: "Home defaults — distinct from Personalisation recommendations and Appearance.",
                     symbol: "rectangle.stack"
                 )
-                SettingsSceneGraphic(style: .waves)
+                FeedCompositionGraphic(mode: defaultMode)
                 SettingsGroup(title: "Default Home mode") {
                     VStack(spacing: 0) {
                         feedMode("Following", "People you follow", "following", "person.2")
@@ -306,10 +327,14 @@ struct BatterySettingsHost: View {
                     subtitle: "Keep Modula light when power or cellular is constrained.",
                     symbol: "battery.100.bolt"
                 )
+                BatteryDataGraphic(dataSaver: dataSaver, pauseAutoplay: pauseAutoplay)
                 Form {
                     Toggle("Data saver", isOn: $dataSaver)
+                        .settingsAnchor("battery.dataSaver")
                     Toggle("Pause autoplay in Low Power Mode", isOn: $pauseAutoplay)
+                        .settingsAnchor("battery.lowPower")
                     Toggle("Extra motion reduction", isOn: $reduceMotionExtra)
+                        .settingsAnchor("battery.motion")
                 }
                 .scrollDisabled(true)
                 .frame(minHeight: 160)
@@ -560,6 +585,7 @@ struct ChatsSettingsHost: View {
                     subtitle: "Composer, previews, and local privacy defaults.",
                     symbol: "bubble.left.and.bubble.right"
                 )
+                ChatsPrivacyGraphic(receipts: readReceiptsDisplay)
                 SettingsGroup(title: "Open") {
                     VStack(spacing: 0) {
                         SettingsNavigationRow(title: "Composer", subtitle: "Enter to send, spell check", symbol: "keyboard") {
@@ -673,6 +699,7 @@ struct AudioSettingsHost: View {
         case .haptics:
             Form {
                 Toggle("Haptic on play", isOn: $hapticOnPlay)
+                    .settingsAnchor("audio.haptics")
             }
             .modulaSoftScrollEdge()
             .navigationTitle("Haptics")

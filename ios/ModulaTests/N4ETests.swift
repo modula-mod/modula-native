@@ -86,6 +86,10 @@ final class SettingsRouteTests: XCTestCase {
         XCTAssertTrue(intelligence.contains { $0.route == .intelligence(.root) })
         let monetisation = SettingsRegistry.search(query: "monetisation", includeDeveloper: false)
         XCTAssertTrue(monetisation.contains { $0.route == .monetisation(.root) && $0.availability == .capabilityUnavailable })
+        let lowPower = SettingsRegistry.search(query: "low power", includeDeveloper: false)
+        XCTAssertTrue(lowPower.contains { $0.route == .battery(.root) && $0.anchor == "battery.lowPower" })
+        let haptic = SettingsRegistry.search(query: "haptic", includeDeveloper: false)
+        XCTAssertTrue(haptic.contains { $0.route == .audio(.haptics) && $0.anchor == "audio.haptics" })
     }
 
     func testIntelligenceModelsExcludeDeterministicFixture() async {

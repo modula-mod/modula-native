@@ -186,11 +186,14 @@ struct FocusSettingsHost: View {
         case .root:
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Focus", subtitle: "How Modula behaves when iOS Focus is on.", symbol: "moon.stars")
-                SettingsSceneGraphic(style: .radar)
+                FocusAdaptationGraphic(dimActivity: dimActivity, hideBadges: hideBadges, allowMentions: allowMentions)
                 Form {
                     Toggle("Hide tab badges during Focus", isOn: $hideBadges)
+                        .settingsAnchor("focus.hideBadges")
                     Toggle("Dim Activity list", isOn: $dimActivity)
+                        .settingsAnchor("focus.dimActivity")
                     Toggle("Still allow @mentions", isOn: $allowMentions)
+                        .settingsAnchor("focus.mentions")
                 }
                 .scrollDisabled(true)
                 .frame(minHeight: 160)

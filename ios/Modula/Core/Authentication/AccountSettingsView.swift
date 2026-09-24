@@ -30,41 +30,66 @@ private struct AccountRootView: View {
 
     var body: some View {
         if let account = app.auth.account {
-            Form {
-                Section("Identity") {
-                    LabeledContent("Handle", value: "@\(account.primaryHandle)")
-                    if let name = account.displayName, !name.isEmpty {
-                        LabeledContent("Name", value: name)
+            SettingsScrollCanvas {
+                AccountIdentityGraphic(
+                    name: account.displayName?.isEmpty == false ? account.displayName! : account.primaryHandle,
+                    handle: "@\(account.primaryHandle)",
+                    status: account.status.capitalized,
+                    avatarURL: app.profile.ownProfile?.avatarURL
+                )
+                SettingsGroup(title: "This account") {
+                    VStack(spacing: 0) {
+                        accountFact("Handle", "@\(account.primaryHandle)", "at")
+                        SettingsDivider()
+                        accountFact("Status", account.status.capitalized, "checkmark.seal")
+                        SettingsDivider()
+                        accountFact("Account ID", redact(account.accountId), "number")
+                        if let email = account.email, !email.isEmpty {
+                            SettingsDivider()
+                            accountFact("Email", email, "envelope")
+                        }
                     }
-                    if let email = account.email, !email.isEmpty {
-                        LabeledContent("Email", value: email)
+                }
+                SettingsGroup(title: "Security") {
+                    VStack(spacing: 0) {
+                        SettingsNavigationRow(title: "Personal Information", subtitle: "Private account details", symbol: "person.text.rectangle") {
+                            app.navigation.open(.settings(.account(.personalInformation)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Username", subtitle: "@\(account.primaryHandle)", symbol: "at") {
+                            app.navigation.open(.settings(.account(.username)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Email", subtitle: account.email ?? "Not provided on this session", symbol: "envelope") {
+                            app.navigation.open(.settings(.account(.email)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Password", subtitle: "Reset through Greenfield", symbol: "key") {
+                            app.navigation.open(.settings(.account(.password)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Sessions", subtitle: "Devices signed into this account", symbol: "laptopcomputer.and.iphone") {
+                            app.navigation.open(.settings(.account(.sessions)))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Delete Account", subtitle: "Close this Modula account", symbol: "trash") {
+                            app.navigation.open(.settings(.account(.deleteAccount)))
+                        }
                     }
-                    LabeledContent("Status", value: account.status.capitalized)
-                    LabeledContent("Account ID", value: redact(account.accountId))
                 }
-                Section("Security") {
-                    Button("Personal Information") { app.navigation.open(.settings(.account(.personalInformation))) }
-                    Button("Username") { app.navigation.open(.settings(.account(.username))) }
-                    Button("Email") { app.navigation.open(.settings(.account(.email))) }
-                    Button("Password") { app.navigation.open(.settings(.account(.password))) }
-                    Button("Sessions") { app.navigation.open(.settings(.account(.sessions))) }
-                    Button("Delete Account") { app.navigation.open(.settings(.account(.deleteAccount))) }
+                Button("Sign Out", role: .destructive) {
+                    Task { await app.performSignOut(resetAppLock: true) }
                 }
-                Section {
-                    Button("Sign Out", role: .destructive) {
-                        Task { await app.performSignOut(resetAppLock: true) }
-                    }
-                    .disabled(app.auth.busy)
-                    .accessibilityIdentifier("account.sign-out")
-                } footer: {
-                    Text("Signing out clears the Keychain session on this device. Modules never receive account credentials.")
-                }
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .disabled(app.auth.busy)
+                .accessibilityIdentifier("account.sign-out")
+                SettingsAPIFootnote(text: "Signing out clears the Keychain session on this device. Modules never receive account credentials.")
                 if let error = app.auth.error {
-                    Section { Text(error).foregroundStyle(.red) }
+                    Text(error).font(.footnote).foregroundStyle(.red)
                 }
             }
-            .modulaSoftScrollEdge()
             .navigationTitle("Account")
+            .navigationBarTitleDisplayMode(.inline)
             .overlay { if app.auth.busy { ProgressView() } }
         } else {
             ContentUnavailableView {
@@ -82,9 +107,60 @@ private struct AccountRootView: View {
         }
     }
 
+    private func accountFact(_ title: String, _ value: String, _ symbol: String) -> some View {
+        HStack(spacing: 13) {
+            Image(systemName: symbol).frame(width: 28).foregroundStyle(.tint)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.caption).foregroundStyle(.secondary)
+                Text(value).font(.body.weight(.medium))
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(minHeight: 52)
+        .accessibilityElement(children: .combine)
+    }
+
     private func redact(_ id: String) -> String {
         guard id.count > 8 else { return "••••" }
         return String(id.prefix(4)) + "…" + String(id.suffix(4))
+    }
+}
+
+private struct AccountIdentityGraphic: View {
+    var name: String
+    var handle: String
+    var status: String
+    var avatarURL: URL?
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var appeared = false
+
+    var body: some View {
+        SettingsGraphicFrame(caption: "\(status) session on this device") {
+            VStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .stroke(app.appearance.accent.color.opacity(0.35), lineWidth: 1.5)
+                        .frame(width: 108, height: 108)
+                        .scaleEffect(appeared && !reduceMotion ? 1 : 0.86)
+                    Circle()
+                        .stroke(app.appearance.accent.color.opacity(0.7), lineWidth: 2)
+                        .frame(width: 92, height: 92)
+                    ModulaAvatar(initials: String(name.prefix(1)), url: avatarURL, size: 72)
+                        .scaleEffect(appeared ? 1 : 0.9)
+                }
+                VStack(spacing: 2) {
+                    Text(name).font(.title3.weight(.semibold))
+                    Text(handle).font(.subheadline).foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .onAppear {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) { appeared = true }
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(name), \(handle), \(status)")
     }
 }
 

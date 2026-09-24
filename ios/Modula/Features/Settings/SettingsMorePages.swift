@@ -158,15 +158,14 @@ struct SharingSettingsHost: View {
         case .root:
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Sharing", subtitle: "Defaults for the share sheet.", symbol: "square.and.arrow.up")
-                SettingsSceneGraphic(style: .grid)
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    SettingsFeatureTile(title: "Link", detail: "Canonical URLs", symbol: "link", tint: Color.accentColor)
-                    SettingsFeatureTile(title: "Sheet", detail: "System share", symbol: "square.and.arrow.up.on.square", tint: Color.accentColor)
-                }
+                SharingFlowGraphic(preferSheet: preferNative, copyAsLink: copyAsLink)
                 Form {
                     Toggle("Include @handle in share text", isOn: $includeHandle)
+                        .settingsAnchor("sharing.handle")
                     Toggle("Prefer system share sheet", isOn: $preferNative)
+                        .settingsAnchor("sharing.sheet")
                     Toggle("Copy link instead of opening sheet", isOn: $copyAsLink)
+                        .settingsAnchor("sharing.link")
                 }
                 .scrollDisabled(true)
                 .frame(minHeight: 160)
