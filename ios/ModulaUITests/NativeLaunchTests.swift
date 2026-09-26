@@ -406,7 +406,18 @@ final class NativeLaunchTests: XCTestCase {
         #if targetEnvironment(simulator)
         throw XCTSkip("MLX does not support inference in the iOS Simulator")
         #else
-        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable"], timeout: 90)
+        // Device-hosted UI tests cannot read the Mac-only N1 secret file. The
+        // DEBUG fixture sign-in button does not use those credentials, so enter
+        // through that accepted AppGate hook without copying a secret to the
+        // test bundle or device.
+        let app = XCUIApplication()
+        app.launchArguments = ["--runtime-unavailable", "--uitest-n1-api", "--uitest-skip-first-run"]
+        app.launch()
+        try awaitShellReady(
+            app,
+            credentials: N1UITestFixture(email: "unused@example.invalid", password: "unused"),
+            timeout: 90
+        )
         openSettingsFromShell(app)
         let developer = scrollToElement(named: "Developer", in: app, maximumSwipes: 8)
         XCTAssertTrue(developer.exists)
