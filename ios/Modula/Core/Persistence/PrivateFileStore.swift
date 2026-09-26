@@ -10,6 +10,10 @@ struct PrivateFileStore: Sendable {
         case collections = "collections"
         case share = "share"
         case spotlight = "spotlight"
+        case nodusConversations = "nodus/conversations"
+        case nodusKnowledge = "nodus/knowledge"
+        case nodusMemory = "nodus/memory"
+        case nodusLearning = "nodus/learning"
     }
 
     private let domain: Domain

@@ -72,7 +72,12 @@ enum DataSettingsRoute: String, CaseIterable, Codable, Hashable { case root, sto
 enum AccessibilitySettingsRoute: String, CaseIterable, Codable, Hashable { case root, text, contrast, motion }
 enum FeatureSettingsRoute: String, CaseIterable, Codable, Hashable { case root, enabled, experimental }
 enum UpdateSettingsRoute: String, CaseIterable, Codable, Hashable { case root, channel, stable, unstable, versionLock = "version-lock" }
-enum DeveloperSettingsRoute: String, CaseIterable, Codable, Hashable { case root, runtime, modules, network, featureFlags = "feature-flags", environment, components, diagnostics, intelligence, nodusChat = "nodus-chat" }
+enum DeveloperSettingsRoute: String, CaseIterable, Codable, Hashable {
+    case root, runtime, modules, network, featureFlags = "feature-flags", environment, components, diagnostics, intelligence
+    case nodus, nodusChat = "nodus-chat", nodusKnowledge = "nodus-knowledge"
+    case nodusMemory = "nodus-memory", nodusLearning = "nodus-learning"
+    case nodusModel = "nodus-model", nodusSearch = "nodus-search"
+}
 enum AboutSettingsRoute: String, CaseIterable, Codable, Hashable { case root, version, licenses, privacy, terms }
 enum IntelligenceSettingsRoute: String, CaseIterable, Codable, Hashable { case root, models, knowledge, privacy, tools }
 enum PersonalisationSettingsRoute: String, CaseIterable, Codable, Hashable {

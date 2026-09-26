@@ -35,6 +35,15 @@ struct NodusLearningCandidate: Sendable, Equatable, Codable, Identifiable {
     let privacyClass: NodusPrivacyClass
     let globalTrainingConsent: Bool
     let createdAt: Date
+    var rating: NodusDeveloperRating? = nil
+    var modelVersion: String? = nil
+    var reasoningMode: NodusReasoningMode? = nil
+    var searchEnabled: Bool? = nil
+    var knowledgeSources: [String]? = nil
+    var memoryItemIDs: [UUID]? = nil
+    var searchSources: [URL]? = nil
+    var freshness: NodusFreshness? = nil
+    var reviewedAt: Date? = nil
 }
 
 struct NodusReconciliation: Sendable, Equatable, Codable, Identifiable {

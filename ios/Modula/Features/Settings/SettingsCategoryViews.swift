@@ -921,8 +921,20 @@ struct DeveloperSettingsHost: View {
             RuntimeDiagnosticsView()
         case .intelligence:
             IntelligenceDiagnosticsView()
+        case .nodus:
+            NodusWorkspaceView()
         case .nodusChat:
             NodusChatView()
+        case .nodusKnowledge:
+            NodusKnowledgeView()
+        case .nodusMemory:
+            NodusMemoryView()
+        case .nodusLearning:
+            NodusLearningView()
+        case .nodusModel:
+            NodusModelDiagnosticsView()
+        case .nodusSearch:
+            NodusSearchSettingsView()
         case .modules:
             List(app.runtime.manifests, id: \.id) { manifest in
                 LabeledContent(manifest.name, value: manifest.version)

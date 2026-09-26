@@ -43,7 +43,14 @@ struct NodusIntelligenceProvider: IntelligenceProvider {
         try await runtime.load()
         let generation: NodusRuntimeGeneration
         do {
-            generation = try await runtime.generate(prompt: contractedPrompt, capability: request.capability)
+            generation = try await runtime.generate(
+                prompt: contractedPrompt,
+                capability: request.capability,
+                budget: NodusGenerationBudget(
+                    maximumOutputTokens: Self.maximumOutputTokens(from: request.input),
+                    reasoningMode: Self.reasoningMode(from: request.input)
+                )
+            )
         } catch is CancellationError {
             throw IntelligenceError.requestCancelled
         }
@@ -107,6 +114,19 @@ struct NodusIntelligenceProvider: IntelligenceProvider {
         guard case .object(let object) = input,
               let raw = object["taskMode"]?.stringValue else { return nil }
         return NodusTaskMode(rawValue: raw)
+    }
+
+    private static func maximumOutputTokens(from input: IntelligenceValue) -> Int {
+        guard case .object(let object) = input,
+              let requested = object["maxOutputTokens"]?.integerValue else { return 384 }
+        return min(max(requested, 64), 768)
+    }
+
+    private static func reasoningMode(from input: IntelligenceValue) -> NodusReasoningMode {
+        guard case .object(let object) = input,
+              let raw = object["reasoningMode"]?.stringValue,
+              let mode = NodusReasoningMode(rawValue: raw) else { return .standard }
+        return mode
     }
 
     private static func isHighRisk(_ prompt: String) -> Bool {
