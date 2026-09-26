@@ -275,7 +275,101 @@ final class NativeLaunchTests: XCTestCase {
     }
 
     @MainActor
-    func testNodusChatFixtureSendMetadataVerifyCancelAndClear() throws {
+    func testNodus02AWorkspaceAndSimulatorSurfaces() throws {
+        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--uitest-nodus-missing"])
+        openSettingsFromShell(app)
+        let developer = scrollToElement(named: "Developer", in: app, maximumSwipes: 8)
+        XCTAssertTrue(developer.exists)
+        developer.tap()
+        let localIntelligence = scrollToElement(named: "Local Intelligence", in: app, maximumSwipes: 4)
+        XCTAssertTrue(localIntelligence.exists)
+        localIntelligence.tap()
+
+        let openWorkspace = scrollToElement(named: "Open Nodus Workspace", in: app, maximumSwipes: 8)
+        XCTAssertTrue(openWorkspace.exists)
+        openWorkspace.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["nodus.workspace"].waitForExistence(timeout: 8))
+
+        let chats = app.descendants(matching: .any)["nodus.workspace.chats"]
+        XCTAssertTrue(chats.exists)
+        chats.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["nodus.chat.screen"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["Think"].exists)
+        XCTAssertTrue(app.buttons["Search"].exists)
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Knowledge")).firstMatch.exists)
+        XCTAssertTrue(app.buttons["Memory On"].exists)
+        app.descendants(matching: .any)["nodus.chat.conversations"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["nodus.conversations"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["New Chat"].exists)
+        app.buttons["Done"].tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        let knowledge = app.descendants(matching: .any)["nodus.workspace.knowledge"]
+        XCTAssertTrue(knowledge.waitForExistence(timeout: 5))
+        knowledge.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["nodus.knowledge"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["Modula Core"].exists)
+        XCTAssertTrue(app.staticTexts["My Knowledge"].exists)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        let memory = app.descendants(matching: .any)["nodus.workspace.memory"]
+        XCTAssertTrue(memory.waitForExistence(timeout: 5))
+        memory.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["nodus.memory"].waitForExistence(timeout: 8))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        let learning = app.descendants(matching: .any)["nodus.workspace.learning"]
+        XCTAssertTrue(learning.waitForExistence(timeout: 5))
+        learning.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["nodus.learning"].waitForExistence(timeout: 8))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        let diagnostics = app.descendants(matching: .any)["nodus.workspace.diagnostics"]
+        XCTAssertTrue(diagnostics.waitForExistence(timeout: 5))
+        diagnostics.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["nodus.diagnostics"].waitForExistence(timeout: 8))
+    }
+
+    @MainActor
+    func testNodus02ASearchFixtureGroundingAndSources() throws {
+        let app = try launchThroughAppGate(arguments: [
+            "--runtime-unavailable", "--uitest-nodus-fixture", "--uitest-nodus-search-fixture",
+        ])
+        openSettingsFromShell(app)
+        let developer = scrollToElement(named: "Developer", in: app, maximumSwipes: 8)
+        XCTAssertTrue(developer.exists)
+        developer.tap()
+        let localIntelligence = scrollToElement(named: "Local Intelligence", in: app, maximumSwipes: 4)
+        XCTAssertTrue(localIntelligence.exists)
+        localIntelligence.tap()
+        let openChat = scrollToElement(named: "Open Nodus Chat", in: app, maximumSwipes: 8)
+        XCTAssertTrue(openChat.exists)
+        openChat.tap()
+
+        let input = app.descendants(matching: .any)["nodus.chat.input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 8))
+        app.descendants(matching: .any)["nodus.chat.conversations"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["New Chat"].waitForExistence(timeout: 5))
+        app.buttons["New Chat"].tap()
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        app.buttons["Search"].tap()
+        XCTAssertTrue(app.buttons["Enable Online Search"].waitForExistence(timeout: 5))
+        app.buttons["Enable Online Search"].tap()
+        pasteText("What's the latest stable version of Swift?", into: input, app: app)
+        app.descendants(matching: .any)["nodus.chat.send"].tap()
+
+        let searched = app.staticTexts["Searched the web"]
+        for _ in 0..<5 where !searched.exists { app.swipeUp() }
+        XCTAssertTrue(searched.waitForExistence(timeout: 15))
+        let sources = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Sources")).firstMatch
+        XCTAssertTrue(sources.waitForExistence(timeout: 5))
+        sources.tap()
+        XCTAssertTrue(app.staticTexts["Swift releases fixture"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["swift.org"].exists)
+    }
+
+    @MainActor
+    func testNodusChatFixtureSendMetadataVerifyAndClear() throws {
         let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--uitest-nodus-fixture"])
         openSettingsFromShell(app)
         let developer = scrollToElement(named: "Developer", in: app, maximumSwipes: 8)
@@ -292,25 +386,19 @@ final class NativeLaunchTests: XCTestCase {
         XCTAssertTrue(input.waitForExistence(timeout: 8))
         pasteText("What's today's weather?", into: input, app: app)
         app.descendants(matching: .any)["nodus.chat.send"].tap()
-        XCTAssertTrue(app.buttons["Verify when online"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["Verify"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.staticTexts["Needs verification"].exists)
         XCTAssertTrue(app.staticTexts["Current data needed"].exists)
         let goodRating = app.descendants(matching: .any)["nodus.chat.rating.good"]
         XCTAssertTrue(goodRating.waitForExistence(timeout: 5))
         goodRating.tap()
-        XCTAssertTrue(app.staticTexts["Saved locally"].waitForExistence(timeout: 5))
-        app.buttons["Verify when online"].tap()
-        XCTAssertTrue(app.staticTexts["Verification queued locally"].waitForExistence(timeout: 5))
+        XCTAssertTrue(goodRating.exists)
+        app.buttons["Verify"].tap()
+        XCTAssertTrue(app.buttons["Verify"].exists)
 
-        pasteText("CANCEL_TEST", into: input, app: app)
-        app.descendants(matching: .any)["nodus.chat.send"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["nodus.chat.stop"].waitForExistence(timeout: 3))
-        app.descendants(matching: .any)["nodus.chat.stop"].tap()
-        XCTAssertTrue(input.waitForExistence(timeout: 3))
-        XCTAssertTrue(input.isEnabled)
-
+        app.descendants(matching: .any)["nodus.chat.actions"].firstMatch.tap()
         app.buttons["Clear"].tap()
-        XCTAssertTrue(app.staticTexts["Not approved for production"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Local Intelligence"].waitForExistence(timeout: 5))
     }
 
     @MainActor

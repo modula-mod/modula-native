@@ -12,27 +12,32 @@
 		02ED22D448BC35987DA41C41 /* RuntimeDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */; };
 		045022BFF07BCC1674A60821 /* NavigationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */; };
 		083850E345065E6A6AB4731F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 586EC2A3D1894A46296513D8 /* PrivacyInfo.xcprivacy */; };
-		D5010000000000000000001A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D4010000000000000000001A /* Assets.xcassets */; };
 		0D772D4E34456894E5A2A5FD /* libPods-ModulaTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DE7A82A7615F703ED7EFABC2 /* libPods-ModulaTests.a */; };
 		0D960245240024C1142077ED /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BEF0F5DFEB2FC30D2769C391 /* Foundation.framework */; };
 		1175B13D8406B4BE1358B31A /* libPods-Modula.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D902DDFA87CA1FD5224F1994 /* libPods-Modula.a */; };
 		118234885584A931FC29652A /* ReactNativeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D0904A1437768EB6AFED58D /* ReactNativeViewController.swift */; };
+		132ECA3BF1B10047030E0D14 /* NodusKnowledgeRetriever.swift in Sources */ = {isa = PBXBuildFile; fileRef = 206E73E88F38E0B83B3CDED7 /* NodusKnowledgeRetriever.swift */; };
 		18C0C36383D976CD0F415505 /* ReactNativeContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A632D57B46DA145ADCE10292 /* ReactNativeContainer.swift */; };
+		192EB8EA5AA176402490CDFC /* NodusKnowledgeImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758119BBED952BE097030AE2 /* NodusKnowledgeImporter.swift */; };
+		193A2686AB6E941B3918283A /* NodusSearchCredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 508EA0CA70B4B7ECD7DD4608 /* NodusSearchCredentialStore.swift */; };
 		20DD2162957F75B8920F2E80 /* ModulaDesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADB419E3CAE3BA05CB1C1E59 /* ModulaDesignSystem.swift */; };
 		21638B169590129BA65823F1 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 003916B967E1900F61DFB206 /* SettingsStore.swift */; };
 		22CC6AB6F1DCAECE01085714 /* ActivityScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E0D5A04B04831431C46FFA /* ActivityScreen.swift */; };
 		2EB8E6563046CB7FD4D651AD /* ModulaHostBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = 11C7225BC261899B6AA2414A /* ModulaHostBridge.mm */; };
 		2EEAA0F73DFB8DA7C4592A74 /* LI02IntelligenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 834A240ED776595650758ACA /* LI02IntelligenceTests.swift */; };
+		31481FAA55613DA55B530A41 /* NodusMemoryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3E435D0DE95F2C71A8C5D51 /* NodusMemoryModels.swift */; };
 		36217ECF8FA82AEF220905B2 /* ModuleSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90EAE77878B8E7792468645E /* ModuleSession.swift */; };
 		3AD8D6231F5274974F54F780 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37BECD2968D22B6943830857 /* SignInView.swift */; };
 		3DFCE2030F6AC41D3386B2F5 /* NativeLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AA9CD0861813EF42C424B9A /* NativeLaunchTests.swift */; };
 		40C4F5F54E3A9902F8396AC2 /* GreenfieldClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DD632C1523A313A40D2B0D3 /* GreenfieldClient.swift */; };
 		4154C7AA00AF7AB56F7031B3 /* ActivityRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3DC1AD1EDCCBBF93362A45C /* ActivityRepository.swift */; };
+		42449AAE9F9A80D339844630 /* NodusWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4D8BFFECC9B4F51FB6DADE9 /* NodusWorkspaceView.swift */; };
 		470E5C0C13B495ADACC3BDC8 /* ModulaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8D0072715530545613031A3 /* ModulaApp.swift */; };
 		4750A3C17078F3B24F7D4A7E /* ModulaColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0953B7C9CBB401D9F7D74DE /* ModulaColor.swift */; };
 		48A32338CAC0656514D71CF9 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BEF0F5DFEB2FC30D2769C391 /* Foundation.framework */; };
 		48EF6D3FADBF1FED0E9DC0F6 /* ModuleBackendRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97029B142178008022F2424B /* ModuleBackendRequest.swift */; };
 		490B3AA11BC41A7FD192FAA4 /* ModulaBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35DD2D0F98FBF95AC2D68618 /* ModulaBridge.swift */; };
+		49EEDF050005D21A42086711 /* NodusKnowledgeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAC389B69B72346128446B86 /* NodusKnowledgeStore.swift */; };
 		4D06B1162F85CC39C781DF95 /* ShellComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C4472E61C35766446322975 /* ShellComponents.swift */; };
 		4EC787BD49EB76EFD20BBBDC /* IntelligenceProviderRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53E8222C6157A7DA2FB3345B /* IntelligenceProviderRegistry.swift */; };
 		5AF827934E990FCCD5C8DF02 /* ActivityModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D8009D43EDDFCEAF03135C2 /* ActivityModels.swift */; };
@@ -42,7 +47,9 @@
 		72C4D78F9C1D0E3C2FD3BB95 /* ActivityComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDA1C8662B298F425D5FC310 /* ActivityComponents.swift */; };
 		7D7AABC4EB1C0A2313444D79 /* ModuleEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435419F8D75EB3FA37353703 /* ModuleEnvironment.swift */; };
 		7F0E4764560ACE3663B3525E /* IntelligenceCapability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64E0C1CE1DD2D90E75B3DF62 /* IntelligenceCapability.swift */; };
+		82685269B61760190FAE127E /* NodusMemoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F03524A18CE8AF15E324949F /* NodusMemoryView.swift */; };
 		8792C88AC2427176A7389799 /* ActivityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BB4C8A7DBAF1068946F2678 /* ActivityStore.swift */; };
+		8D7B7F2BD829546ECCC6F463 /* NodusKnowledgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F16AC42D21EE290AE5568247 /* NodusKnowledgeView.swift */; };
 		90EC78DC1C87A9562EC08717 /* AppRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */; };
 		9314852BE26D5B1EB2360CE8 /* ModuleRuntimeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */; };
 		93AFDE81000E32DA131CDFB4 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46F14EB7791E789BBE2A473A /* HomeView.swift */; };
@@ -52,6 +59,8 @@
 		A30300000000000000000001 /* AppleSystemIntelligenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40300000000000000000001 /* AppleSystemIntelligenceProvider.swift */; };
 		A30300000000000000000002 /* LI03AppleProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40300000000000000000002 /* LI03AppleProviderTests.swift */; };
 		A3FDEFCF2FC7C6C44C4CD7F9 /* DeterministicLocalProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1B51F430EC86144078FF8A /* DeterministicLocalProvider.swift */; };
+		A44484FDCEA2E6CF41AEE1E5 /* NodusSearchSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81CF3ED26A6B285D330D7448 /* NodusSearchSettingsView.swift */; };
+		A44901652DCA6620245BD853 /* BraveDeveloperSearchProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F1039644652AD5B7287B4F0 /* BraveDeveloperSearchProvider.swift */; };
 		A50100000000000000000001 /* AppLaunchState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000001 /* AppLaunchState.swift */; };
 		A50100000000000000000002 /* AppGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000002 /* AppGate.swift */; };
 		A50100000000000000000003 /* AppGateHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000003 /* AppGateHost.swift */; };
@@ -98,10 +107,15 @@
 		A9518E57DAAF8DED3BEACDEF /* IntelligenceError.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD892F52CC60A67EF80BCB01 /* IntelligenceError.swift */; };
 		B1619C7D6C8850CDEBCE8567 /* IntelligenceTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C65E626DB4E0A902B687238 /* IntelligenceTool.swift */; };
 		B2C7278B19CE66F5FB564E3F /* IntelligenceRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 370553C58FD3D96B35F6C6AF /* IntelligenceRouter.swift */; };
+		B4BECC0D3770A4A9C54EE599 /* NodusDeepReasoningCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E024B7E018DE17EDE324AD6D /* NodusDeepReasoningCoordinator.swift */; };
+		B637DBFC1210A7DB95458A0E /* NodusMemoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AD8456C7280E326DC1741F3 /* NodusMemoryStore.swift */; };
+		B6A6AE2B292755C9AEBA6A4F /* NodusContextBudget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A05D1CCD30E918E9BEC8E68 /* NodusContextBudget.swift */; };
 		B7E661790BD11DE3A721C204 /* ShellAccessory.swift in Sources */ = {isa = PBXBuildFile; fileRef = EECC47A5007CE1E5BB063A97 /* ShellAccessory.swift */; };
 		B9825B0168E160AB5B8411B9 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ECAD5355D79305D770912A /* ProfileView.swift */; };
 		BB47BD84CB36684F9FB5C6D5 /* IntelligenceAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3907C2A83DF1A9C8AE1CAC40 /* IntelligenceAvailability.swift */; };
 		BEEBE251735247E8828B2F26 /* IntelligenceValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ED61D09324116C37F15191A /* IntelligenceValue.swift */; };
+		C2D2BC0654B3A4ABD668B498 /* NodusConversationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03112C0E692C6AF64E25BDB0 /* NodusConversationEngine.swift */; };
+		C368076DA0291A0B1C8150D5 /* NodusLearningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9153219B0B0AFEC87CD926A6 /* NodusLearningView.swift */; };
 		C50100000000000000000001 /* CreationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000001 /* CreationModels.swift */; };
 		C50100000000000000000002 /* CreationCapabilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000002 /* CreationCapabilities.swift */; };
 		C50100000000000000000003 /* CreationStudioStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40100000000000000000003 /* CreationStudioStore.swift */; };
@@ -144,13 +158,17 @@
 		D50100000000000000000015 /* AppIntentsFoundation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000015 /* AppIntentsFoundation.swift */; };
 		D50100000000000000000016 /* SpotlightIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000016 /* SpotlightIndex.swift */; };
 		D50100000000000000000017 /* KeyboardCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000017 /* KeyboardCommands.swift */; };
+		D50100000000000000000018 /* N4DTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000018 /* N4DTests.swift */; };
 		D50100000000000000000019 /* ShellSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000019 /* ShellSidebar.swift */; };
+		D5010000000000000000001A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D4010000000000000000001A /* Assets.xcassets */; };
 		D5010000000000000000001B /* ModulaPullActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4010000000000000000001B /* ModulaPullActions.swift */; };
 		D5010000000000000000001C /* ModulaPullEffects.metal in Sources */ = {isa = PBXBuildFile; fileRef = D4010000000000000000001C /* ModulaPullEffects.metal */; };
 		D5010000000000000000001D /* IntelligenceChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4010000000000000000001D /* IntelligenceChatView.swift */; };
-		D50100000000000000000018 /* N4DTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40100000000000000000018 /* N4DTests.swift */; };
+		D71D627F67F64626C02E85DD /* NodusMemoryRetriever.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18B6C2CAB33A1886BA14C4E7 /* NodusMemoryRetriever.swift */; };
+		D90195AB663F1D6B78E7D368 /* NodusConversationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EA749138365B53444A18694 /* NodusConversationModels.swift */; };
 		DB3BEA70380AF2D78B2306D5 /* ModulaIntelligenceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97B62939727826A0A7B6B6A /* ModulaIntelligenceService.swift */; };
 		DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */; };
+		E0D95AA46131E2250F52B55D /* NodusKnowledgeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC3695AE2813EB68FE1AE272 /* NodusKnowledgeModels.swift */; };
 		E20100000000000000000001 /* DiscoverModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000001 /* DiscoverModels.swift */; };
 		E20100000000000000000002 /* DiscoverRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000002 /* DiscoverRepository.swift */; };
 		E20100000000000000000003 /* DiscoverStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000003 /* DiscoverStore.swift */; };
@@ -182,7 +200,9 @@
 		E40100000000000000000017 /* PostActionRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000017 /* PostActionRail.swift */; };
 		E40100000000000000000018 /* PostCommentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000018 /* PostCommentsView.swift */; };
 		E40100000000000000000019 /* PostSystemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000019 /* PostSystemTests.swift */; };
+		E423D28883AE5B3B8E115FCA /* Nodus02ATests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF7E2A43B8AEB5467D475D1F /* Nodus02ATests.swift */; };
 		E706DA503AC96378DE9BE822 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65C4B3534ABCFCD2C0AE4AB5 /* KeychainStore.swift */; };
+		EA0930929CA2A591BC762B41 /* NodusConversationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6F76DC91BAB0A497E6B24E0 /* NodusConversationStore.swift */; };
 		EC29FF07954140DE802361CB /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 093D191569CDD66161FC3552 /* JSONValue.swift */; };
 		EFC09C0DE4E7EC929F867E98 /* IntelligenceRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = F45DF2084F485AD64DD1A37F /* IntelligenceRequest.swift */; };
 		F10100000000000000000001 /* ProfileModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000001 /* ProfileModels.swift */; };
@@ -199,6 +219,7 @@
 		F43AEB1A67070000A929D731 /* N1FixtureCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = C086A4FED95A41F19B257A39 /* N1FixtureCredentials.swift */; };
 		F50100000000000000000001 /* ModulaImmersiveSurfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */; };
 		F55C4DEFC5031B25247EC2F9 /* IntelligenceDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00C3046A71D34C45B14E30AE /* IntelligenceDiagnosticsView.swift */; };
+		FA6841DD0637CD7B42AA6ED6 /* NodusSearchContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DEFF4D36F80610C9E3C893D /* NodusSearchContracts.swift */; };
 		FCF5472ED72B6CF79891F968 /* IntelligenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB03DB7121ABD1E492F3AC7E /* IntelligenceProvider.swift */; };
 		FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */; };
 		G50100000000000000000001 /* ModulaSurfaceSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000001 /* ModulaSurfaceSystem.swift */; };
@@ -215,7 +236,6 @@
 		H50100000000000000000003 /* SettingsChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = H40100000000000000000003 /* SettingsChrome.swift */; };
 		H50100000000000000000004 /* SettingsMorePages.swift in Sources */ = {isa = PBXBuildFile; fileRef = H40100000000000000000004 /* SettingsMorePages.swift */; };
 		H50100000000000000000005 /* SettingsExtraPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = H40100000000000000000005 /* SettingsExtraPages.swift */; };
-		S50100000000000000000001 /* SettingsVisualSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = S40100000000000000000001 /* SettingsVisualSystem.swift */; };
 		N50100000000000000000001 /* MediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000001 /* MediaModels.swift */; };
 		N50100000000000000000002 /* ModulaVideoPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000002 /* ModulaVideoPlayer.swift */; };
 		N50100000000000000000003 /* MessageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000003 /* MessageModels.swift */; };
@@ -234,6 +254,7 @@
 		N50100000000000000000010 /* ProfilePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000010 /* ProfilePresentation.swift */; };
 		N50100000000000000000011 /* ProfileCustomizationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000011 /* ProfileCustomizationViews.swift */; };
 		N50100000000000000000012 /* N4CTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000012 /* N4CTests.swift */; };
+		S50100000000000000000001 /* SettingsVisualSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = S40100000000000000000001 /* SettingsVisualSystem.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -257,11 +278,15 @@
 		003916B967E1900F61DFB206 /* SettingsStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsStore.swift; path = Features/Settings/SettingsStore.swift; sourceTree = "<group>"; };
 		007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RuntimeDiagnosticsView.swift; path = ModuleRuntime/RuntimeDiagnosticsView.swift; sourceTree = "<group>"; };
 		00C3046A71D34C45B14E30AE /* IntelligenceDiagnosticsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceDiagnosticsView.swift; path = Features/Developer/IntelligenceDiagnosticsView.swift; sourceTree = "<group>"; };
+		03112C0E692C6AF64E25BDB0 /* NodusConversationEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusConversationEngine.swift; path = Core/Intelligence/Nodus/Conversation/NodusConversationEngine.swift; sourceTree = "<group>"; };
 		084039C8EE9493F07C7F4946 /* AppEnvironment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppEnvironment.swift; path = App/AppEnvironment.swift; sourceTree = "<group>"; };
 		093D191569CDD66161FC3552 /* JSONValue.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = JSONValue.swift; path = Core/Networking/JSONValue.swift; sourceTree = "<group>"; };
 		1105A971BF52022B31F2CB36 /* ModulaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ModulaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		11C7225BC261899B6AA2414A /* ModulaHostBridge.mm */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.cpp.objcpp; name = ModulaHostBridge.mm; path = ModuleRuntime/Bridge/ModulaHostBridge.mm; sourceTree = "<group>"; };
 		15D7EBEF5CC806F4A3DB8FD2 /* AccountSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AccountSettingsView.swift; path = Core/Authentication/AccountSettingsView.swift; sourceTree = "<group>"; };
+		18B6C2CAB33A1886BA14C4E7 /* NodusMemoryRetriever.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusMemoryRetriever.swift; path = Core/Intelligence/Nodus/Memory/NodusMemoryRetriever.swift; sourceTree = "<group>"; };
+		1A05D1CCD30E918E9BEC8E68 /* NodusContextBudget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusContextBudget.swift; path = Core/Intelligence/Nodus/Reasoning/NodusContextBudget.swift; sourceTree = "<group>"; };
+		206E73E88F38E0B83B3CDED7 /* NodusKnowledgeRetriever.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusKnowledgeRetriever.swift; path = Core/Intelligence/Nodus/Knowledge/NodusKnowledgeRetriever.swift; sourceTree = "<group>"; };
 		2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NavigationCoordinator.swift; path = Navigation/NavigationCoordinator.swift; sourceTree = "<group>"; };
 		35DD2D0F98FBF95AC2D68618 /* ModulaBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaBridge.swift; path = ModuleRuntime/Bridge/ModulaBridge.swift; sourceTree = "<group>"; };
 		370553C58FD3D96B35F6C6AF /* IntelligenceRouter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceRouter.swift; path = Core/Intelligence/Routing/IntelligenceRouter.swift; sourceTree = "<group>"; };
@@ -272,7 +297,10 @@
 		451A1E26A996A06EF909DBE4 /* IntelligenceToolRegistry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceToolRegistry.swift; path = Core/Intelligence/Tools/IntelligenceToolRegistry.swift; sourceTree = "<group>"; };
 		46F14EB7791E789BBE2A473A /* HomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeView.swift; path = Features/Home/HomeView.swift; sourceTree = "<group>"; };
 		481FF6EED52E2B1FCE86E53D /* IntelligenceDiagnostics.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceDiagnostics.swift; path = Core/Intelligence/Diagnostics/IntelligenceDiagnostics.swift; sourceTree = "<group>"; };
+		4AD8456C7280E326DC1741F3 /* NodusMemoryStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusMemoryStore.swift; path = Core/Intelligence/Nodus/Memory/NodusMemoryStore.swift; sourceTree = "<group>"; };
+		4DEFF4D36F80610C9E3C893D /* NodusSearchContracts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusSearchContracts.swift; path = Core/Intelligence/Nodus/Search/NodusSearchContracts.swift; sourceTree = "<group>"; };
 		4ED61D09324116C37F15191A /* IntelligenceValue.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceValue.swift; path = Core/Intelligence/Values/IntelligenceValue.swift; sourceTree = "<group>"; };
+		508EA0CA70B4B7ECD7DD4608 /* NodusSearchCredentialStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusSearchCredentialStore.swift; path = Core/Intelligence/Nodus/Search/NodusSearchCredentialStore.swift; sourceTree = "<group>"; };
 		53E8222C6157A7DA2FB3345B /* IntelligenceProviderRegistry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceProviderRegistry.swift; path = Core/Intelligence/Providers/IntelligenceProviderRegistry.swift; sourceTree = "<group>"; };
 		586EC2A3D1894A46296513D8 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = ../PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActivityAuthTests.swift; sourceTree = "<group>"; };
@@ -282,23 +310,28 @@
 		6892B51E34CC27875E30261C /* Pods-ModulaTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ModulaTests.release.xcconfig"; path = "Target Support Files/Pods-ModulaTests/Pods-ModulaTests.release.xcconfig"; sourceTree = "<group>"; };
 		69B093117E45986E847387DC /* GeneratedDesignContract.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GeneratedDesignContract.swift; path = DesignSystem/Tokens/GeneratedDesignContract.swift; sourceTree = "<group>"; };
 		6C4472E61C35766446322975 /* ShellComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShellComponents.swift; path = DesignSystem/ShellComponents.swift; sourceTree = "<group>"; };
+		758119BBED952BE097030AE2 /* NodusKnowledgeImporter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusKnowledgeImporter.swift; path = Core/Intelligence/Nodus/Knowledge/NodusKnowledgeImporter.swift; sourceTree = "<group>"; };
 		7658F204F337CC6A7FAA4441 /* Pods-Modula-ModulaTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modula-ModulaTests.release.xcconfig"; path = "Target Support Files/Pods-Modula-ModulaTests/Pods-Modula-ModulaTests.release.xcconfig"; sourceTree = "<group>"; };
 		790594A395FC6962F78767AC /* Modula.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Modula.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7B1B51F430EC86144078FF8A /* DeterministicLocalProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DeterministicLocalProvider.swift; path = Core/Intelligence/Providers/DeterministicLocalProvider.swift; sourceTree = "<group>"; };
 		7D0904A1437768EB6AFED58D /* ReactNativeViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactNativeViewController.swift; path = ModuleRuntime/ReactNativeViewController.swift; sourceTree = "<group>"; };
 		7D8009D43EDDFCEAF03135C2 /* ActivityModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityModels.swift; path = Features/Activity/ActivityModels.swift; sourceTree = "<group>"; };
 		803B42B4BF6BF7A874EF51D3 /* IntelligencePrivacy.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligencePrivacy.swift; path = Core/Intelligence/Contracts/IntelligencePrivacy.swift; sourceTree = "<group>"; };
+		81CF3ED26A6B285D330D7448 /* NodusSearchSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusSearchSettingsView.swift; path = Features/Developer/Nodus/NodusSearchSettingsView.swift; sourceTree = "<group>"; };
 		834A240ED776595650758ACA /* LI02IntelligenceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LI02IntelligenceTests.swift; sourceTree = "<group>"; };
 		87FAF528B548627542BBEB0D /* Pods-Modula-ModulaTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modula-ModulaTests.debug.xcconfig"; path = "Target Support Files/Pods-Modula-ModulaTests/Pods-Modula-ModulaTests.debug.xcconfig"; sourceTree = "<group>"; };
 		8BB4C8A7DBAF1068946F2678 /* ActivityStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityStore.swift; path = Features/Activity/ActivityStore.swift; sourceTree = "<group>"; };
 		8E9539623085AAA12077638F /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsView.swift; path = Features/Settings/SettingsView.swift; sourceTree = "<group>"; };
+		8EA749138365B53444A18694 /* NodusConversationModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusConversationModels.swift; path = Core/Intelligence/Nodus/Conversation/NodusConversationModels.swift; sourceTree = "<group>"; };
 		9041733DFED31156EFEE81C2 /* ModulaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ModulaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		90EAE77878B8E7792468645E /* ModuleSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleSession.swift; path = ModuleRuntime/ModuleSession.swift; sourceTree = "<group>"; };
+		9153219B0B0AFEC87CD926A6 /* NodusLearningView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusLearningView.swift; path = Features/Developer/Nodus/NodusLearningView.swift; sourceTree = "<group>"; };
 		97029B142178008022F2424B /* ModuleBackendRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleBackendRequest.swift; path = ModuleRuntime/Bridge/ModuleBackendRequest.swift; sourceTree = "<group>"; };
 		9835AA81D7D5E62C87948FE5 /* IntelligenceExecutionKind.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceExecutionKind.swift; path = Core/Intelligence/Contracts/IntelligenceExecutionKind.swift; sourceTree = "<group>"; };
 		9AA9CD0861813EF42C424B9A /* NativeLaunchTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeLaunchTests.swift; sourceTree = "<group>"; };
 		9BDB10B4EB59E29CECC0719A /* manifests.json */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json; name = manifests.json; path = ../runtime/src/registry/manifests.json; sourceTree = "<group>"; };
 		9DD632C1523A313A40D2B0D3 /* GreenfieldClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GreenfieldClient.swift; path = Core/Networking/GreenfieldClient.swift; sourceTree = "<group>"; };
+		9F1039644652AD5B7287B4F0 /* BraveDeveloperSearchProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BraveDeveloperSearchProvider.swift; path = Core/Intelligence/Nodus/Search/BraveDeveloperSearchProvider.swift; sourceTree = "<group>"; };
 		A40100000000000000000001 /* AppLaunchState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppLaunchState.swift; path = Core/AppGate/AppLaunchState.swift; sourceTree = "<group>"; };
 		A40100000000000000000002 /* AppGate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppGate.swift; path = Core/AppGate/AppGate.swift; sourceTree = "<group>"; };
 		A40100000000000000000003 /* AppGateHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppGateHost.swift; path = Core/AppGate/AppGateHost.swift; sourceTree = "<group>"; };
@@ -347,6 +380,7 @@
 		B305577CCD34598919E97E55 /* Release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		B8D0072715530545613031A3 /* ModulaApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaApp.swift; path = App/ModulaApp.swift; sourceTree = "<group>"; };
 		BB8E23944EDA4143B0141E3D /* Pods-Modula.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modula.debug.xcconfig"; path = "Target Support Files/Pods-Modula/Pods-Modula.debug.xcconfig"; sourceTree = "<group>"; };
+		BC3695AE2813EB68FE1AE272 /* NodusKnowledgeModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusKnowledgeModels.swift; path = Core/Intelligence/Nodus/Knowledge/NodusKnowledgeModels.swift; sourceTree = "<group>"; };
 		BDA1C8662B298F425D5FC310 /* ActivityComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityComponents.swift; path = Features/Activity/ActivityComponents.swift; sourceTree = "<group>"; };
 		BEF0F5DFEB2FC30D2769C391 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		C086A4FED95A41F19B257A39 /* N1FixtureCredentials.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = N1FixtureCredentials.swift; path = Core/Authentication/N1FixtureCredentials.swift; sourceTree = "<group>"; };
@@ -370,6 +404,7 @@
 		C90100000000000000000001 /* NodusChatView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusChatView.swift; path = Features/Developer/NodusChatView.swift; sourceTree = "<group>"; };
 		C90100000000000000000002 /* NodusChatViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusChatViewModel.swift; path = Features/Developer/NodusChatViewModel.swift; sourceTree = "<group>"; };
 		CE413545A422ACB4BACBB3DF /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RootView.swift; path = App/RootView.swift; sourceTree = "<group>"; };
+		CF7E2A43B8AEB5467D475D1F /* Nodus02ATests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Nodus02ATests.swift; sourceTree = "<group>"; };
 		D40100000000000000000001 /* PrivateFileStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PrivateFileStore.swift; path = Core/Persistence/PrivateFileStore.swift; sourceTree = "<group>"; };
 		D40100000000000000000002 /* CommandModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommandModels.swift; path = Core/Commands/CommandModels.swift; sourceTree = "<group>"; };
 		D40100000000000000000003 /* CommandMatcher.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommandMatcher.swift; path = Core/Commands/CommandMatcher.swift; sourceTree = "<group>"; };
@@ -393,16 +428,18 @@
 		D40100000000000000000015 /* AppIntentsFoundation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppIntentsFoundation.swift; path = Features/SystemIntegration/AppIntentsFoundation.swift; sourceTree = "<group>"; };
 		D40100000000000000000016 /* SpotlightIndex.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SpotlightIndex.swift; path = Features/SystemIntegration/SpotlightIndex.swift; sourceTree = "<group>"; };
 		D40100000000000000000017 /* KeyboardCommands.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = KeyboardCommands.swift; path = Features/SystemIntegration/KeyboardCommands.swift; sourceTree = "<group>"; };
+		D40100000000000000000018 /* N4DTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4DTests.swift; sourceTree = "<group>"; };
 		D40100000000000000000019 /* ShellSidebar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShellSidebar.swift; path = Features/Sidebar/ShellSidebar.swift; sourceTree = "<group>"; };
+		D4010000000000000000001A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D4010000000000000000001B /* ModulaPullActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaPullActions.swift; path = DesignSystem/ModulaPullActions.swift; sourceTree = "<group>"; };
 		D4010000000000000000001C /* ModulaPullEffects.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = ModulaPullEffects.metal; path = DesignSystem/ModulaPullEffects.metal; sourceTree = "<group>"; };
 		D4010000000000000000001D /* IntelligenceChatView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceChatView.swift; path = Features/Intelligence/IntelligenceChatView.swift; sourceTree = "<group>"; };
-		D4010000000000000000001A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		D40100000000000000000018 /* N4DTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4DTests.swift; sourceTree = "<group>"; };
+		D6F76DC91BAB0A497E6B24E0 /* NodusConversationStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusConversationStore.swift; path = Core/Intelligence/Nodus/Conversation/NodusConversationStore.swift; sourceTree = "<group>"; };
 		D902DDFA87CA1FD5224F1994 /* libPods-Modula.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Modula.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductHubView.swift; path = Features/ProductHub/ProductHubView.swift; sourceTree = "<group>"; };
 		DC4EF43E9E96C1202C4F7E36 /* Debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		DE7A82A7615F703ED7EFABC2 /* libPods-ModulaTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ModulaTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E024B7E018DE17EDE324AD6D /* NodusDeepReasoningCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusDeepReasoningCoordinator.swift; path = Core/Intelligence/Nodus/Reasoning/NodusDeepReasoningCoordinator.swift; sourceTree = "<group>"; };
 		E0953B7C9CBB401D9F7D74DE /* ModulaColor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaColor.swift; path = DesignSystem/Tokens/ModulaColor.swift; sourceTree = "<group>"; };
 		E10100000000000000000001 /* DiscoverModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverModels.swift; path = Features/Discover/DiscoverModels.swift; sourceTree = "<group>"; };
 		E10100000000000000000002 /* DiscoverRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiscoverRepository.swift; path = Features/Discover/DiscoverRepository.swift; sourceTree = "<group>"; };
@@ -436,7 +473,9 @@
 		E30100000000000000000017 /* PostActionRail.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostActionRail.swift; path = Features/Social/PostActionRail.swift; sourceTree = "<group>"; };
 		E30100000000000000000018 /* PostCommentsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostCommentsView.swift; path = Features/Social/PostCommentsView.swift; sourceTree = "<group>"; };
 		E30100000000000000000019 /* PostSystemTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostSystemTests.swift; sourceTree = "<group>"; };
+		E3E435D0DE95F2C71A8C5D51 /* NodusMemoryModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusMemoryModels.swift; path = Core/Intelligence/Nodus/Memory/NodusMemoryModels.swift; sourceTree = "<group>"; };
 		E490C161A4B61D0F2ED2F9CE /* Pods-ModulaTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ModulaTests.debug.xcconfig"; path = "Target Support Files/Pods-ModulaTests/Pods-ModulaTests.debug.xcconfig"; sourceTree = "<group>"; };
+		E4D8BFFECC9B4F51FB6DADE9 /* NodusWorkspaceView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusWorkspaceView.swift; path = Features/Developer/Nodus/NodusWorkspaceView.swift; sourceTree = "<group>"; };
 		E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleHost.swift; path = ModuleRuntime/ModuleHost.swift; sourceTree = "<group>"; };
 		EB03DB7121ABD1E492F3AC7E /* IntelligenceProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceProvider.swift; path = Core/Intelligence/Contracts/IntelligenceProvider.swift; sourceTree = "<group>"; };
 		EECC47A5007CE1E5BB063A97 /* ShellAccessory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShellAccessory.swift; path = DesignSystem/ShellAccessory.swift; sourceTree = "<group>"; };
@@ -449,9 +488,12 @@
 		F00100000000000000000007 /* ProfileContextActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileContextActions.swift; path = Features/Profile/ProfileContextActions.swift; sourceTree = "<group>"; };
 		F00100000000000000000008 /* ProfileShareViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileShareViews.swift; path = Features/Profile/ProfileShareViews.swift; sourceTree = "<group>"; };
 		F00100000000000000000009 /* ProfileMediaViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileMediaViews.swift; path = Features/Profile/ProfileMediaViews.swift; sourceTree = "<group>"; };
+		F03524A18CE8AF15E324949F /* NodusMemoryView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusMemoryView.swift; path = Features/Developer/Nodus/NodusMemoryView.swift; sourceTree = "<group>"; };
+		F16AC42D21EE290AE5568247 /* NodusKnowledgeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusKnowledgeView.swift; path = Features/Developer/Nodus/NodusKnowledgeView.swift; sourceTree = "<group>"; };
 		F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaImmersiveSurfaces.swift; path = DesignSystem/Immersive/ModulaImmersiveSurfaces.swift; sourceTree = "<group>"; };
 		F45DF2084F485AD64DD1A37F /* IntelligenceRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceRequest.swift; path = Core/Intelligence/Contracts/IntelligenceRequest.swift; sourceTree = "<group>"; };
 		F97B62939727826A0A7B6B6A /* ModulaIntelligenceService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaIntelligenceService.swift; path = Core/Intelligence/ModulaIntelligenceService.swift; sourceTree = "<group>"; };
+		FAC389B69B72346128446B86 /* NodusKnowledgeStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusKnowledgeStore.swift; path = Core/Intelligence/Nodus/Knowledge/NodusKnowledgeStore.swift; sourceTree = "<group>"; };
 		G40100000000000000000001 /* ModulaSurfaceSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaSurfaceSystem.swift; path = DesignSystem/Surface/ModulaSurfaceSystem.swift; sourceTree = "<group>"; };
 		G40100000000000000000002 /* EdgeLoopEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopEngine.swift; path = DesignSystem/EdgeLoop/EdgeLoopEngine.swift; sourceTree = "<group>"; };
 		G40100000000000000000003 /* EdgeLoopShape.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopShape.swift; path = DesignSystem/EdgeLoop/EdgeLoopShape.swift; sourceTree = "<group>"; };
@@ -466,7 +508,6 @@
 		H40100000000000000000003 /* SettingsChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsChrome.swift; path = Features/Settings/SettingsChrome.swift; sourceTree = "<group>"; };
 		H40100000000000000000004 /* SettingsMorePages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsMorePages.swift; path = Features/Settings/SettingsMorePages.swift; sourceTree = "<group>"; };
 		H40100000000000000000005 /* SettingsExtraPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsExtraPages.swift; path = Features/Settings/SettingsExtraPages.swift; sourceTree = "<group>"; };
-		S40100000000000000000001 /* SettingsVisualSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsVisualSystem.swift; path = Features/Settings/SettingsVisualSystem.swift; sourceTree = "<group>"; };
 		N40100000000000000000001 /* MediaModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MediaModels.swift; path = Features/Media/MediaModels.swift; sourceTree = "<group>"; };
 		N40100000000000000000002 /* ModulaVideoPlayer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaVideoPlayer.swift; path = Features/Media/ModulaVideoPlayer.swift; sourceTree = "<group>"; };
 		N40100000000000000000003 /* MessageModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessageModels.swift; path = Features/Messages/MessageModels.swift; sourceTree = "<group>"; };
@@ -485,6 +526,7 @@
 		N40100000000000000000010 /* ProfilePresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfilePresentation.swift; path = Features/Profile/Customization/ProfilePresentation.swift; sourceTree = "<group>"; };
 		N40100000000000000000011 /* ProfileCustomizationViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileCustomizationViews.swift; path = Features/Profile/Customization/ProfileCustomizationViews.swift; sourceTree = "<group>"; };
 		N40100000000000000000012 /* N4CTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4CTests.swift; sourceTree = "<group>"; };
+		S40100000000000000000001 /* SettingsVisualSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsVisualSystem.swift; path = Features/Settings/SettingsVisualSystem.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -553,6 +595,7 @@
 				834A240ED776595650758ACA /* LI02IntelligenceTests.swift */,
 				A40300000000000000000002 /* LI03AppleProviderTests.swift */,
 				A6010000000000000000000D /* Nodus01Tests.swift */,
+				CF7E2A43B8AEB5467D475D1F /* Nodus02ATests.swift */,
 			);
 			path = ModulaTests;
 			sourceTree = "<group>";
@@ -796,6 +839,26 @@
 				A6010000000000000000000A /* NodusLearningPipeline.swift */,
 				A6010000000000000000000B /* NodusArtifactInstaller.swift */,
 				A6010000000000000000000C /* MLXNodusRuntime.swift */,
+				03112C0E692C6AF64E25BDB0 /* NodusConversationEngine.swift */,
+				8EA749138365B53444A18694 /* NodusConversationModels.swift */,
+				D6F76DC91BAB0A497E6B24E0 /* NodusConversationStore.swift */,
+				758119BBED952BE097030AE2 /* NodusKnowledgeImporter.swift */,
+				BC3695AE2813EB68FE1AE272 /* NodusKnowledgeModels.swift */,
+				206E73E88F38E0B83B3CDED7 /* NodusKnowledgeRetriever.swift */,
+				FAC389B69B72346128446B86 /* NodusKnowledgeStore.swift */,
+				E3E435D0DE95F2C71A8C5D51 /* NodusMemoryModels.swift */,
+				18B6C2CAB33A1886BA14C4E7 /* NodusMemoryRetriever.swift */,
+				4AD8456C7280E326DC1741F3 /* NodusMemoryStore.swift */,
+				1A05D1CCD30E918E9BEC8E68 /* NodusContextBudget.swift */,
+				E024B7E018DE17EDE324AD6D /* NodusDeepReasoningCoordinator.swift */,
+				9F1039644652AD5B7287B4F0 /* BraveDeveloperSearchProvider.swift */,
+				4DEFF4D36F80610C9E3C893D /* NodusSearchContracts.swift */,
+				508EA0CA70B4B7ECD7DD4608 /* NodusSearchCredentialStore.swift */,
+				F16AC42D21EE290AE5568247 /* NodusKnowledgeView.swift */,
+				9153219B0B0AFEC87CD926A6 /* NodusLearningView.swift */,
+				F03524A18CE8AF15E324949F /* NodusMemoryView.swift */,
+				81CF3ED26A6B285D330D7448 /* NodusSearchSettingsView.swift */,
+				E4D8BFFECC9B4F51FB6DADE9 /* NodusWorkspaceView.swift */,
 			);
 			path = Modula;
 			sourceTree = "<group>";
@@ -1096,6 +1159,7 @@
 				2EEAA0F73DFB8DA7C4592A74 /* LI02IntelligenceTests.swift in Sources */,
 				A30300000000000000000002 /* LI03AppleProviderTests.swift in Sources */,
 				A7010000000000000000000D /* Nodus01Tests.swift in Sources */,
+				E423D28883AE5B3B8E115FCA /* Nodus02ATests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1302,6 +1366,26 @@
 				A7010000000000000000000A /* NodusLearningPipeline.swift in Sources */,
 				A7010000000000000000000B /* NodusArtifactInstaller.swift in Sources */,
 				A7010000000000000000000C /* MLXNodusRuntime.swift in Sources */,
+				C2D2BC0654B3A4ABD668B498 /* NodusConversationEngine.swift in Sources */,
+				D90195AB663F1D6B78E7D368 /* NodusConversationModels.swift in Sources */,
+				EA0930929CA2A591BC762B41 /* NodusConversationStore.swift in Sources */,
+				192EB8EA5AA176402490CDFC /* NodusKnowledgeImporter.swift in Sources */,
+				E0D95AA46131E2250F52B55D /* NodusKnowledgeModels.swift in Sources */,
+				132ECA3BF1B10047030E0D14 /* NodusKnowledgeRetriever.swift in Sources */,
+				49EEDF050005D21A42086711 /* NodusKnowledgeStore.swift in Sources */,
+				31481FAA55613DA55B530A41 /* NodusMemoryModels.swift in Sources */,
+				D71D627F67F64626C02E85DD /* NodusMemoryRetriever.swift in Sources */,
+				B637DBFC1210A7DB95458A0E /* NodusMemoryStore.swift in Sources */,
+				B6A6AE2B292755C9AEBA6A4F /* NodusContextBudget.swift in Sources */,
+				B4BECC0D3770A4A9C54EE599 /* NodusDeepReasoningCoordinator.swift in Sources */,
+				A44901652DCA6620245BD853 /* BraveDeveloperSearchProvider.swift in Sources */,
+				FA6841DD0637CD7B42AA6ED6 /* NodusSearchContracts.swift in Sources */,
+				193A2686AB6E941B3918283A /* NodusSearchCredentialStore.swift in Sources */,
+				8D7B7F2BD829546ECCC6F463 /* NodusKnowledgeView.swift in Sources */,
+				C368076DA0291A0B1C8150D5 /* NodusLearningView.swift in Sources */,
+				82685269B61760190FAE127E /* NodusMemoryView.swift in Sources */,
+				A44484FDCEA2E6CF41AEE1E5 /* NodusSearchSettingsView.swift in Sources */,
+				42449AAE9F9A80D339844630 /* NodusWorkspaceView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

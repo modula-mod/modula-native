@@ -69,6 +69,14 @@ struct IntelligenceDiagnosticsView: View {
                     app.navigation.open(.settings(.developer(.nodusChat)))
                 }
                 .accessibilityIdentifier("intelligence.nodus.open-chat")
+                Button("Open Nodus Workspace") {
+                    app.navigation.open(.settings(.developer(.nodus)))
+                }
+                .accessibilityIdentifier("intelligence.nodus.open-workspace")
+                Button("Configure Online Search") {
+                    app.navigation.open(.settings(.developer(.nodusSearch)))
+                }
+                .accessibilityIdentifier("intelligence.nodus.open-search")
             }
 
             Section("Nodus playground") {

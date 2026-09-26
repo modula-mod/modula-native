@@ -4,6 +4,15 @@ import SwiftUI
 struct NodusChatView: View {
     @Environment(AppEnvironment.self) private var app
     @State private var model = NodusChatViewModel()
+    @State private var showingConversations = false
+    @State private var showingKnowledge = false
+    @State private var showingRename = false
+    @State private var confirmingSearchEnable = false
+    @State private var renameText = ""
+    @State private var correctionTarget: NodusMessage?
+    @State private var correctionRating: NodusDeveloperRating = .wrong
+    @State private var correctionText = ""
+    @State private var savingCitation: NodusCitation?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -13,42 +22,75 @@ struct NodusChatView: View {
             Divider()
             composer
         }
-        .navigationTitle("Nodus Chat")
+        .navigationTitle(model.activeConversation?.title ?? "Nodus")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Clear") { model.clear() }
-                    .disabled(model.messages.isEmpty)
-                    .accessibilityIdentifier("nodus.chat.clear")
+            ToolbarItem(placement: .topBarLeading) {
+                Button { showingConversations = true } label: { Image(systemName: "list.bullet") }
+                    .accessibilityLabel("Conversations")
+                    .accessibilityIdentifier("nodus.chat.conversations")
             }
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Menu {
+                    Button("New Chat", systemImage: "plus") { Task { await model.newConversation() } }
+                    Button("Rename", systemImage: "pencil") {
+                        renameText = model.activeConversation?.title ?? ""
+                        showingRename = true
+                    }
+                    Button("Clear", systemImage: "eraser") { model.clear() }
+                        .disabled(model.messages.isEmpty)
+                    Button("Delete Chat", systemImage: "trash", role: .destructive) {
+                        Task { await model.deleteActive() }
+                    }
+                } label: { Image(systemName: "ellipsis.circle") }
+                .accessibilityLabel("Chat actions")
+                .accessibilityIdentifier("nodus.chat.actions")
                 ShareLink(item: app.nodusEvaluationStore.exportURL) {
                     Image(systemName: "square.and.arrow.up")
                 }
                 .accessibilityLabel("Export Nodus evaluations")
-                .accessibilityIdentifier("nodus.chat.export-evaluations")
             }
         }
-        .task { await model.refresh(using: app.intelligence) }
+        .task { await model.configure(using: app) }
         .onDisappear { model.cancel() }
+        .sheet(isPresented: $showingConversations) {
+            NodusConversationListSheet(model: model)
+        }
+        .sheet(isPresented: $showingKnowledge) {
+            NodusKnowledgeAttachmentSheet(model: model)
+        }
+        .sheet(item: $correctionTarget) { message in
+            correctionSheet(message)
+        }
+        .sheet(item: $savingCitation) { citation in
+            NodusSaveSearchSourceSheet(citation: citation)
+        }
+        .alert("Rename Chat", isPresented: $showingRename) {
+            TextField("Title", text: $renameText)
+            Button("Cancel", role: .cancel) {}
+            Button("Rename") { Task { await model.renameActive(to: renameText) } }
+        }
+        .confirmationDialog("Enable Online Search?", isPresented: $confirmingSearchEnable) {
+            Button("Enable Online Search") { Task { await model.setSearchEnabled(true) } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The search query will be sent to the configured search provider. Nodus model inference remains local.")
+        }
     }
 
     private var statusHeader: some View {
         HStack(spacing: 10) {
-            Image(systemName: "brain")
-                .foregroundStyle(Color.accentColor)
+            Image(systemName: "brain").foregroundStyle(Color.accentColor)
             VStack(alignment: .leading, spacing: 2) {
-                Text(model.modelIdentity?.displayName ?? "Nodus R7")
+                Text(model.modelIdentity?.displayName ?? "Nodus R7 Experimental")
                     .font(.headline)
                     .accessibilityIdentifier("nodus.chat.screen")
-                Text(statusText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text(statusText).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
-                Text("Experimental")
-                    .foregroundStyle(.orange)
+            VStack(alignment: .trailing, spacing: 3) {
+                Text("Experimental").foregroundStyle(.orange)
+                Text(NodusIntelligenceProvider.providerID)
                 Text("Local · 4-bit")
             }
             .font(.caption.weight(.medium))
@@ -59,56 +101,38 @@ struct NodusChatView: View {
 
     @ViewBuilder private var conversation: some View {
         if model.availability == .modelNotInstalled && model.messages.isEmpty {
-            VStack(spacing: 16) {
-                ContentUnavailableView(
-                    "Nodus model not installed",
-                    systemImage: "brain.head.profile",
-                    description: Text("A verified experimental developer bundle was not found.")
-                )
-                Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
-                    detail("Provider", NodusIntelligenceProvider.providerID)
-                    detail("Status", IntelligenceAvailability.modelNotInstalled.displayName)
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
+            ContentUnavailableView(
+                "Nodus model not installed",
+                systemImage: "brain.head.profile",
+                description: Text("A verified experimental developer bundle was not found. Chats, Knowledge, and Memory remain available.")
+            )
             .accessibilityIdentifier("nodus.chat.model-not-installed")
         } else if model.availability != .available && model.messages.isEmpty {
             ContentUnavailableView(
                 model.availability.displayName,
                 systemImage: "exclamationmark.triangle",
-                description: Text("Nodus cannot execute on this device. The experimental bundle remains local and no fallback provider will be used.")
+                description: Text("Nodus cannot execute on this device. No fallback model will be used.")
             )
             .accessibilityIdentifier("nodus.chat.unavailable")
         } else if model.messages.isEmpty {
-            VStack(spacing: 14) {
-                Label("Experimental model", systemImage: "exclamationmark.triangle.fill")
-                    .font(.headline)
-                    .foregroundStyle(.orange)
-                Text("Not approved for production")
-                    .font(.subheadline.weight(.semibold))
-                Text("Ask any general or Modula question. Conversation context is bounded to recent messages.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                modelDetails
+            ContentUnavailableView {
+                Label("Local Intelligence", systemImage: "brain")
+            } description: {
+                Text("Start a local conversation. Think, Search, Knowledge, and Memory are independently controlled.")
             }
-            .padding()
-            .accessibilityIdentifier("nodus.chat.experimental-warning")
+            .accessibilityIdentifier("nodus.chat.empty")
         } else {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(model.messages) { message in
-                            messageBubble(message)
-                                .id(message.id)
+                            messageBubble(message).id(message.id)
                         }
                         if model.isGenerating {
                             HStack(spacing: 8) {
                                 ProgressView().controlSize(.small)
-                                Text("Nodus is thinking…")
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
+                                Text(model.progressText ?? "Thinking…")
+                                    .font(.footnote).foregroundStyle(.secondary)
                                 Spacer()
                             }
                             .padding(.horizontal)
@@ -124,80 +148,169 @@ struct NodusChatView: View {
         }
     }
 
-    private func messageBubble(_ message: NodusChatMessage) -> some View {
+    private func messageBubble(_ message: NodusMessage) -> some View {
         HStack {
             if message.role == .user { Spacer(minLength: 44) }
-            VStack(alignment: .leading, spacing: 8) {
-                Text(message.text)
-                    .textSelection(.enabled)
+            VStack(alignment: .leading, spacing: 9) {
+                Text(message.text).textSelection(.enabled)
                 if let answer = message.answer {
-                    HStack(spacing: 10) {
-                        Label(answer.confidence.band.displayName, systemImage: "gauge.with.dots.needle.33percent")
-                        Label(answer.freshness.displayName, systemImage: "clock")
-                    }
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    if answer.verificationRecommended {
-                        Button("Verify when online") {
-                            Task { await model.queueVerification(for: message, store: app.nodusVerificationStore) }
+                    responseBadges(message, answer: answer)
+                    if !message.citations.isEmpty { sourceList(message.citations) }
+                    HStack(spacing: 8) {
+                        if answer.verificationRecommended {
+                            Button("Verify") {
+                                Task { await model.queueVerification(for: message, store: app.nodusVerificationStore) }
+                            }
+                            .buttonStyle(.bordered).controlSize(.mini)
                         }
-                        .font(.caption)
-                        .accessibilityIdentifier("nodus.chat.verify")
+                        Menu("Remember this") {
+                            Button("All Conversations") {
+                                Task { await model.remember(message, scope: .global, using: app.nodusMemoryStore) }
+                            }
+                            Button("This Conversation") {
+                                Task { await model.remember(message, scope: .conversation, using: app.nodusMemoryStore) }
+                            }
+                        }
+                        .buttonStyle(.bordered).controlSize(.mini)
                     }
                     evaluationControls(for: message)
-                    DisclosureGroup("Details") {
-                        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 5) {
-                            detail("Task", answer.taskMode?.rawValue ?? NodusTaskMode.generalAnswer.rawValue)
-                            detail("Model", answer.modelVersion)
-                            detail("Base", model.modelIdentity?.baseModel ?? "Qwen/Qwen3-1.7B")
-                            detail("Model", "R7")
-                            detail("Stage", model.modelIdentity?.stage.displayName ?? "Experimental candidate")
-                            detail("Quantization", model.modelIdentity?.quantization ?? "4-bit")
-                            detail("Provider", NodusIntelligenceProvider.providerID)
-                            detail("Execution", "Local")
-                            detail("Shipping", "Not allowed")
-                            detail("Generation", answer.latencySeconds.map { String(format: "%.2f s", $0) } ?? "—")
-                            detail("Tokens/sec", answer.tokensPerSecond.map { String(format: "%.1f", $0) } ?? "—")
-                            detail("Request", message.requestID?.uuidString ?? "—")
-                        }
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    }
-                    .font(.caption)
+                    responseDetails(message, answer: answer)
                 }
             }
             .padding(12)
-            .background(message.role == .user ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.11), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(
+                message.role == .user ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.11),
+                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+            )
             if message.role == .nodus { Spacer(minLength: 44) }
         }
     }
 
-    private func detail(_ name: String, _ value: String) -> some View {
-        GridRow { Text(name); Text(value).textSelection(.enabled) }
+    private func responseBadges(_ message: NodusMessage, answer: NodusAnswer) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 10) {
+                Label(answer.confidence.band.displayName, systemImage: "gauge.with.dots.needle.33percent")
+                Label(answer.freshness.displayName, systemImage: "clock")
+            }
+            if message.details?.searchedWeb == true {
+                Label("Searched the web", systemImage: "network")
+            }
+            if message.details?.reasoningMode == .deep {
+                Label("Thought more deeply", systemImage: "brain")
+            }
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+    }
+
+    private func sourceList(_ citations: [NodusCitation]) -> some View {
+        DisclosureGroup("Sources · \(citations.count)") {
+            VStack(alignment: .leading, spacing: 7) {
+                ForEach(citations) { citation in
+                    HStack(alignment: .top) {
+                        if let url = citation.url {
+                            Link(destination: url) { sourceLabel(citation) }
+                        } else {
+                            sourceLabel(citation)
+                        }
+                        Spacer()
+                        if citation.kind == .web {
+                            Button("Save") { savingCitation = citation }
+                                .buttonStyle(.bordered).controlSize(.mini)
+                        }
+                    }
+                }
+            }
+            .padding(.top, 4)
+        }
+        .font(.caption)
+    }
+
+    private func sourceLabel(_ citation: NodusCitation) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(citation.title).lineLimit(2)
+            Text([citation.collectionName, citation.sourceName, citation.location].compactMap { $0 }.joined(separator: " · "))
+                .font(.caption2).foregroundStyle(.secondary)
+        }
+    }
+
+    private func responseDetails(_ message: NodusMessage, answer: NodusAnswer) -> some View {
+        DisclosureGroup("Details") {
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 5) {
+                detail("Model", "R7 Experimental")
+                detail("Stage", model.modelIdentity?.stage.displayName ?? "Experimental candidate")
+                detail("Provider", NodusIntelligenceProvider.providerID)
+                detail("Mode", message.details?.reasoningMode.displayName ?? "Standard")
+                detail("Search", message.details?.searchEnabled == true ? "On" : "Off")
+                detail("Knowledge chunks", "\(message.details?.knowledgeChunkCount ?? 0)")
+                detail("Memory items", "\(message.details?.memoryItemIDs.count ?? 0)")
+                detail("Sources", "\(message.citations.count)")
+                detail("Confidence", answer.confidence.band.displayName)
+                detail("Freshness", answer.freshness.displayName)
+                detail("Passes", "\(message.details?.inferencePasses ?? 1)")
+                detail("Generation", message.details?.generationDuration.map { String(format: "%.2f s", $0) } ?? "—")
+                detail("Request", message.requestID?.uuidString ?? "—")
+            }
+            .font(.caption2).foregroundStyle(.secondary)
+        }
+        .font(.caption)
     }
 
     private var composer: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if let message = model.errorMessage ?? model.verificationStatus ?? model.evaluationStatus {
-                Text(message).font(.caption).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            if let status = model.errorMessage ?? model.verificationStatus ?? model.evaluationStatus {
+                Text(status).font(.caption).foregroundStyle(.secondary)
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 7) {
+                    modeButton(
+                        model.activeConversation?.reasoningMode == .deep ? "Thinking" : "Think",
+                        symbol: "brain",
+                        selected: model.activeConversation?.reasoningMode == .deep
+                    ) {
+                        Task {
+                            await model.setReasoningMode(model.activeConversation?.reasoningMode == .deep ? .standard : .deep)
+                        }
+                    }
+                    modeButton(
+                        model.activeConversation?.searchEnabled == true ? "Online Search" : "Search",
+                        symbol: "network",
+                        selected: model.activeConversation?.searchEnabled == true
+                    ) {
+                        if model.activeConversation?.searchEnabled == true {
+                            Task { await model.setSearchEnabled(false) }
+                        } else {
+                            confirmingSearchEnable = true
+                        }
+                    }
+                    modeButton(
+                        "Knowledge · \(model.activeConversation?.attachedKnowledgeCollectionIDs.count ?? 0)",
+                        symbol: "books.vertical",
+                        selected: !(model.activeConversation?.attachedKnowledgeCollectionIDs.isEmpty ?? true)
+                    ) { showingKnowledge = true }
+                    modeButton(
+                        model.activeConversation?.memoryEnabled == true ? "Memory On" : "Memory Off",
+                        symbol: "memorychip",
+                        selected: model.activeConversation?.memoryEnabled == true
+                    ) {
+                        Task { await model.setMemoryEnabled(model.activeConversation?.memoryEnabled != true) }
+                    }
+                }
             }
             HStack(alignment: .bottom, spacing: 10) {
-                TextField("Message Nodus", text: $model.input, axis: .vertical)
+                TextField("Ask Nodus…", text: $model.input, axis: .vertical)
                     .lineLimit(1 ... 5)
                     .textFieldStyle(.plain)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 9)
+                    .padding(.horizontal, 12).padding(.vertical, 9)
                     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .disabled(model.availability != .available || model.isGenerating)
                     .accessibilityIdentifier("nodus.chat.input")
                 Button {
-                    model.isGenerating ? model.cancel() : model.send(using: app.intelligence)
+                    model.isGenerating ? model.cancel() : model.send(using: app)
                 } label: {
                     Image(systemName: model.isGenerating ? "stop.fill" : "arrow.up")
-                        .font(.headline)
-                        .frame(width: 36, height: 36)
-                        .background(Color.accentColor, in: Circle())
-                        .foregroundStyle(.white)
+                        .font(.headline).frame(width: 36, height: 36)
+                        .background(Color.accentColor, in: Circle()).foregroundStyle(.white)
                 }
                 .disabled(!model.isGenerating && !model.canSend)
                 .accessibilityLabel(model.isGenerating ? "Stop" : "Send")
@@ -207,53 +320,213 @@ struct NodusChatView: View {
         .padding()
     }
 
-    private var statusText: String {
-        switch model.availability {
-        case .available:
-            switch model.loadState {
-            case .loading: "Loading Nodus…"
-            case .generating: "Generating locally"
-            case .failed: "Load failed"
-            default: "Ready"
-            }
-        case .modelNotInstalled: "Model not installed"
-        default: model.availability.displayName
-        }
+    private func modeButton(_ title: String, symbol: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) { Label(title, systemImage: symbol) }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .tint(selected ? Color.accentColor : nil)
     }
 
-    private var modelDetails: some View {
-        Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 6) {
-            detail("Base", model.modelIdentity?.baseModel ?? "Qwen/Qwen3-1.7B")
-            detail("Model", "R7")
-            detail("Stage", model.modelIdentity?.stage.displayName ?? "Experimental candidate")
-            detail("Quantization", model.modelIdentity?.quantization ?? "4-bit")
-            detail("Provider", NodusIntelligenceProvider.providerID)
-            detail("Execution", "Local")
-            detail("Shipping", "Not allowed")
-        }
-        .font(.caption)
-        .foregroundStyle(.secondary)
-    }
-
-    private func evaluationControls(for message: NodusChatMessage) -> some View {
+    private func evaluationControls(for message: NodusMessage) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 ForEach(NodusDeveloperRating.allCases, id: \.self) { rating in
                     Button(rating.displayName) {
-                        Task {
-                            await model.rate(
-                                rating,
-                                message: message,
-                                store: app.nodusEvaluationStore
-                            )
+                        if rating.needsCorrection {
+                            correctionRating = rating
+                            correctionText = ""
+                            correctionTarget = message
+                        } else {
+                            Task { await model.rate(rating, message: message, store: app.nodusEvaluationStore) }
                         }
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.mini)
+                    .buttonStyle(.bordered).controlSize(.mini)
                     .tint(model.ratings[message.id] == rating ? Color.accentColor : nil)
                     .accessibilityIdentifier("nodus.chat.rating.\(rating.rawValue)")
                 }
             }
+        }
+    }
+
+    private func correctionSheet(_ message: NodusMessage) -> some View {
+        NavigationStack {
+            Form {
+                Section("Nodus answer") { Text(message.text).foregroundStyle(.secondary) }
+                Section("Correct answer / note") {
+                    TextField("What should Nodus have said?", text: $correctionText, axis: .vertical)
+                        .lineLimit(3 ... 10)
+                }
+                Section {
+                    Text("This creates a local Learning Candidate. It does not update model weights or start training.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle(correctionRating.displayName)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { correctionTarget = nil } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        Task {
+                            await model.rate(
+                                correctionRating, message: message, store: app.nodusEvaluationStore,
+                                correction: correctionText, learningStore: app.nodusVerificationStore
+                            )
+                            correctionTarget = nil
+                        }
+                    }
+                    .disabled(correctionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
+
+    private func detail(_ name: String, _ value: String) -> some View {
+        GridRow { Text(name); Text(value).textSelection(.enabled) }
+    }
+
+    private var statusText: String {
+        switch model.availability {
+        case .available:
+            if model.isGenerating { return model.progressText ?? "Generating locally" }
+            return model.loadState == .loading ? "Loading Nodus…" : "Ready · generation stays local"
+        case .modelNotInstalled: return "Model not installed"
+        default: return model.availability.displayName
+        }
+    }
+}
+
+private struct NodusConversationListSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Bindable var model: NodusChatViewModel
+    @State private var query = ""
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Button { Task { await model.newConversation(); dismiss() } } label: {
+                    Label("New Chat", systemImage: "plus.circle.fill")
+                }
+                ForEach(model.conversations) { conversation in
+                    Button {
+                        model.select(conversation)
+                        dismiss()
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(conversation.title).font(.body.weight(.medium)).lineLimit(1)
+                                Spacer()
+                                Text(conversation.updatedAt, style: .relative).font(.caption2).foregroundStyle(.secondary)
+                            }
+                            Text(conversation.preview).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                            HStack(spacing: 8) {
+                                if conversation.reasoningMode == .deep { Label("Think", systemImage: "brain") }
+                                if conversation.searchEnabled { Label("Search", systemImage: "network") }
+                                if !conversation.attachedKnowledgeCollectionIDs.isEmpty {
+                                    Label("\(conversation.attachedKnowledgeCollectionIDs.count)", systemImage: "books.vertical")
+                                }
+                            }
+                            .font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            .searchable(text: $query, prompt: "Search chats")
+            .onChange(of: query) { _, value in Task { await model.searchConversations(value) } }
+            .navigationTitle("Nodus")
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .accessibilityIdentifier("nodus.conversations")
+        }
+    }
+}
+
+private struct NodusKnowledgeAttachmentSheet: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @Bindable var model: NodusChatViewModel
+    @State private var collections: [NodusKnowledgeCollection] = []
+    @State private var selection: Set<UUID> = []
+
+    var body: some View {
+        NavigationStack {
+            List(collections) { collection in
+                Button {
+                    if selection.contains(collection.id) { selection.remove(collection.id) }
+                    else { selection.insert(collection.id) }
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text(collection.name)
+                            Text(collection.isReadOnly ? "System Knowledge · Read-only" : "User Knowledge")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if selection.contains(collection.id) { Image(systemName: "checkmark").foregroundStyle(.tint) }
+                    }
+                }
+            }
+            .navigationTitle("Knowledge")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Attach") { Task { await model.setKnowledgeCollections(selection); dismiss() } }
+                }
+            }
+            .task {
+                collections = await app.nodusKnowledgeStore.collections()
+                selection = model.activeConversation?.attachedKnowledgeCollectionIDs ?? []
+            }
+        }
+    }
+}
+
+private struct NodusSaveSearchSourceSheet: View {
+    let citation: NodusCitation
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var collections: [NodusKnowledgeCollection] = []
+    @State private var selectedID = NodusKnowledgeStore.myKnowledgeCollectionID
+    @State private var status: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Source") {
+                    Text(citation.title)
+                    Text(citation.sourceName).font(.caption).foregroundStyle(.secondary)
+                }
+                Section("Save to Knowledge") {
+                    Picker("Collection", selection: $selectedID) {
+                        ForEach(collections) { Text($0.name).tag($0.id) }
+                    }
+                    if let status { Text(status).font(.footnote).foregroundStyle(.secondary) }
+                }
+            }
+            .navigationTitle("Save Source")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { Task { await save() } }.disabled(collections.isEmpty)
+                }
+            }
+            .task {
+                collections = await app.nodusKnowledgeStore.collections().filter { !$0.isReadOnly }
+                if !collections.contains(where: { $0.id == selectedID }), let first = collections.first {
+                    selectedID = first.id
+                }
+            }
+        }
+    }
+
+    private func save() async {
+        do {
+            _ = try await app.nodusKnowledgeStore.add(
+                title: citation.title, sourceType: .web,
+                sourceName: citation.sourceName, sourceURL: citation.url,
+                text: citation.excerpt ?? citation.title, collectionID: selectedID
+            )
+            dismiss()
+        } catch {
+            status = error.localizedDescription
         }
     }
 }

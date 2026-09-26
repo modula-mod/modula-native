@@ -93,6 +93,14 @@ actor MLXNodusRuntime: NodusRuntime {
     }
 
     func generate(prompt: String, capability: IntelligenceCapability) async throws -> NodusRuntimeGeneration {
+        try await generate(prompt: prompt, capability: capability, budget: .standard)
+    }
+
+    func generate(
+        prompt: String,
+        capability: IntelligenceCapability,
+        budget: NodusGenerationBudget
+    ) async throws -> NodusRuntimeGeneration {
         try Task.checkCancellation()
         if container == nil { try await load() }
         guard let container else {
@@ -107,7 +115,11 @@ actor MLXNodusRuntime: NodusRuntime {
         let prepared = try await container.prepare(input: input)
         let stream = try await container.generate(
             input: prepared,
-            parameters: GenerateParameters(maxTokens: 384, temperature: 0.2, topP: 0.9)
+            parameters: GenerateParameters(
+                maxTokens: min(max(budget.maximumOutputTokens, 64), 768),
+                temperature: budget.reasoningMode == .deep ? 0.15 : 0.2,
+                topP: 0.9
+            )
         )
         var text = ""
         var tokensPerSecond: Double?
