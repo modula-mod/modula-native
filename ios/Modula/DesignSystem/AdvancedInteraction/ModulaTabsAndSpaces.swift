@@ -28,6 +28,36 @@ enum ModulaTabLayout: String, CaseIterable, Sendable {
     case scrollable
 }
 
+struct ModulaTabIndicator: View {
+    var selected = true
+
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        Capsule()
+            .fill(app.appearance.accent.color.opacity(selected ? 0.15 : 0))
+            .accessibilityHidden(true)
+    }
+}
+
+struct ModulaTabBadge: View {
+    var count: Int?
+    var showsNotificationDot = false
+    var selected = false
+
+    var body: some View {
+        Group {
+            if let count, count > 0 {
+                ModulaUnreadIndicator(count: count, tone: selected ? .accent : .muted)
+                    .scaleEffect(0.82)
+            } else if showsNotificationDot {
+                ModulaNotificationDot(tone: selected ? .accent : .muted, size: 7)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+}
+
 struct ModulaTabStrip<ID: Hashable & Sendable>: View {
     let items: [ModulaTabItem<ID>]
     @Binding var selection: ID
@@ -82,13 +112,11 @@ struct ModulaTabStrip<ID: Hashable & Sendable>: View {
                 if !compact || item.systemImage == nil {
                     Text(item.title).lineLimit(1)
                 }
-                if let count = item.badgeCount, count > 0 {
-                    ModulaUnreadIndicator(count: count, tone: selected ? .accent : .muted)
-                        .scaleEffect(0.82)
-                } else if item.showsNotificationDot {
-                    ModulaNotificationDot(tone: selected ? .accent : .muted, size: 7)
-                        .accessibilityHidden(true)
-                }
+                ModulaTabBadge(
+                    count: item.badgeCount,
+                    showsNotificationDot: item.showsNotificationDot,
+                    selected: selected
+                )
             }
             .font(.subheadline.weight(selected ? .semibold : .medium))
             .foregroundStyle(selected ? app.appearance.accent.color : .primary)
@@ -96,8 +124,7 @@ struct ModulaTabStrip<ID: Hashable & Sendable>: View {
             .frame(minHeight: ModulaLayout.minimumTouch)
             .background {
                 if selected {
-                    Capsule()
-                        .fill(app.appearance.accent.color.opacity(0.15))
+                    ModulaTabIndicator()
                         .matchedGeometryEffect(id: "modula.tab.indicator", in: indicatorNamespace)
                 }
             }
@@ -117,6 +144,20 @@ struct ModulaSpace<ID: Hashable & Sendable>: Identifiable, Hashable, Sendable {
     var systemImage: String
     var badgeCount: Int?
     var showsNotificationDot = false
+}
+
+struct ModulaSpaceBadge: View {
+    var count: Int?
+    var showsNotificationDot = false
+    var selected = false
+
+    var body: some View {
+        ModulaTabBadge(
+            count: count,
+            showsNotificationDot: showsNotificationDot,
+            selected: selected
+        )
+    }
 }
 
 enum ModulaSpaceOrder {
@@ -172,11 +213,11 @@ struct ModulaSpaceItem<ID: Hashable & Sendable>: View {
                 Text(space.title)
                     .font(.body.weight(selected ? .semibold : .regular))
                 Spacer()
-                if let count = space.badgeCount {
-                    ModulaUnreadIndicator(count: count, tone: .accent)
-                } else if space.showsNotificationDot {
-                    ModulaNotificationDot()
-                }
+                ModulaSpaceBadge(
+                    count: space.badgeCount,
+                    showsNotificationDot: space.showsNotificationDot,
+                    selected: selected
+                )
                 if selected { Image(systemName: "checkmark").foregroundStyle(app.appearance.accent.color) }
             }
             .frame(minHeight: ModulaLayout.minimumTouch)
