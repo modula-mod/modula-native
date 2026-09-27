@@ -45,18 +45,65 @@ class Nodus02A1EvidenceTests(unittest.TestCase):
         }
 
     def test_builds_reviewed_record_with_required_metadata(self) -> None:
-        reviews = [{"messageID": "answer-1", "developerRating": "good", "failureTaxonomy": []}]
-        records = MODULE.build_records(self.conversation(), [], reviews)
+        reviews = [{
+            "messageID": "answer-1", "developerRating": "good", "failureTaxonomy": [],
+            "knowledgeGrounding": {
+                "retrievedFactCorrect": True, "finalAnswerCorrect": True, "followsEvidence": True,
+            },
+            "thinkComparison": "better",
+        }]
+        capture = {"interactions": [{
+            "id": "modula-01", "category": "modula",
+            "thermalStateBefore": "nominal", "thermalStateAfter": "nominal",
+            "batteryLevelBefore": 0.8, "batteryLevelAfter": 0.79,
+            "response": {"id": "answer-1"},
+        }]}
+        records = MODULE.build_records(self.conversation(), [], reviews, capture)
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["conversationID"], "conversation-1")
         self.assertTrue(records[0]["thinkEnabled"])
         self.assertEqual(records[0]["knowledgeChunksUsed"], 1)
         self.assertEqual(records[0]["modelHash"], MODULE.MODEL_HASH)
+        self.assertEqual(records[0]["physical"]["category"], "modula")
+        self.assertEqual(records[0]["thinkComparison"], "better")
+
+    def test_requires_knowledge_grounding_diagnostic(self) -> None:
+        reviews = [{"messageID": "answer-1", "developerRating": "good", "failureTaxonomy": []}]
+        with self.assertRaisesRegex(ValueError, "knowledgeGrounding"):
+            MODULE.build_records(self.conversation(), [], reviews)
+
+    def test_requires_search_grounding_diagnostic(self) -> None:
+        conversation = self.conversation()
+        answer = conversation["conversations"][0]["messages"][1]
+        answer["details"]["searchedWeb"] = True
+        answer["citations"] = [{
+            "kind": "web", "title": "Swift", "sourceName": "swift.org",
+            "url": "https://swift.org/install", "retrievedAt": "2026-09-27T00:00:00Z",
+        }]
+        reviews = [{"messageID": "answer-1", "developerRating": "good", "failureTaxonomy": []}]
+        with self.assertRaisesRegex(ValueError, "searchGrounding"):
+            MODULE.build_records(conversation, [], reviews)
+
+    def test_requires_memory_assessment(self) -> None:
+        conversation = self.conversation()
+        answer = conversation["conversations"][0]["messages"][1]
+        answer["details"]["memoryItemIDs"] = ["memory-1"]
+        reviews = [{
+            "messageID": "answer-1", "developerRating": "good", "failureTaxonomy": [],
+            "knowledgeGrounding": {
+                "retrievedFactCorrect": True, "finalAnswerCorrect": True, "followsEvidence": True,
+            },
+        }]
+        with self.assertRaisesRegex(ValueError, "memoryAssessment"):
+            MODULE.build_records(conversation, [], reviews)
 
     def test_rejects_failed_rating_without_correction(self) -> None:
         reviews = [{
             "messageID": "answer-1", "developerRating": "wrong",
             "failureTaxonomy": ["modula_knowledge_error"], "rootCause": "MODEL",
+            "knowledgeGrounding": {
+                "retrievedFactCorrect": True, "finalAnswerCorrect": False, "followsEvidence": False,
+            },
         }]
         with self.assertRaisesRegex(ValueError, "correction required"):
             MODULE.build_records(self.conversation(), [], reviews)
@@ -65,12 +112,20 @@ class Nodus02A1EvidenceTests(unittest.TestCase):
         reviews = [{
             "messageID": "answer-1", "developerRating": "wrong", "correction": "Correct",
             "failureTaxonomy": ["invented_failure"], "rootCause": "MODEL",
+            "knowledgeGrounding": {
+                "retrievedFactCorrect": True, "finalAnswerCorrect": False, "followsEvidence": False,
+            },
         }]
         with self.assertRaisesRegex(ValueError, "invalid failure taxonomy"):
             MODULE.build_records(self.conversation(), [], reviews)
 
     def test_writes_deterministic_jsonl(self) -> None:
-        reviews = [{"messageID": "answer-1", "developerRating": "good", "failureTaxonomy": []}]
+        reviews = [{
+            "messageID": "answer-1", "developerRating": "good", "failureTaxonomy": [],
+            "knowledgeGrounding": {
+                "retrievedFactCorrect": True, "finalAnswerCorrect": True, "followsEvidence": True,
+            },
+        }]
         records = MODULE.build_records(self.conversation(), [], reviews)
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "records.jsonl"

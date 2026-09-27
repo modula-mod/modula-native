@@ -37,6 +37,14 @@ ROOT_CAUSES = {
     "UI / ORCHESTRATION",
     "UNKNOWN",
 }
+THINK_COMPARISONS = {"better", "same", "worse"}
+LEARNING_DISPOSITIONS = {
+    "eligible",
+    "ineligible",
+    "needs verification",
+    "duplicate",
+    "architecture-not-model",
+}
 
 
 def load_json(path: Path) -> Any:
@@ -78,16 +86,48 @@ def evaluation_map(payload: Any) -> dict[str, dict[str, Any]]:
     return {item["id"]: item for item in payload if isinstance(item, dict) and isinstance(item.get("id"), str)}
 
 
+def capture_map(payload: Any) -> dict[str, dict[str, Any]]:
+    if payload is None:
+        return {}
+    interactions = payload.get("interactions") if isinstance(payload, dict) else None
+    if not isinstance(interactions, list):
+        raise ValueError("physical capture must contain an interactions array")
+    result: dict[str, dict[str, Any]] = {}
+    for interaction in interactions:
+        response = interaction.get("response") if isinstance(interaction, dict) else None
+        message_id = response.get("id") if isinstance(response, dict) else None
+        if not isinstance(message_id, str):
+            continue
+        if message_id in result:
+            raise ValueError(f"duplicate physical response: {message_id}")
+        result[message_id] = interaction
+    return result
+
+
+def require_boolean_assessment(
+    review: dict[str, Any],
+    field: str,
+    keys: tuple[str, ...],
+    message_id: str,
+) -> dict[str, Any]:
+    assessment = review.get(field)
+    if not isinstance(assessment, dict) or any(not isinstance(assessment.get(key), bool) for key in keys):
+        raise ValueError(f"{field} with boolean {', '.join(keys)} required for {message_id}")
+    return assessment
+
+
 def build_records(
     conversations_payload: Any,
     evaluations_payload: Any,
     reviews_payload: Any,
+    capture_payload: Any = None,
 ) -> list[dict[str, Any]]:
     conversations = conversations_payload.get("conversations") if isinstance(conversations_payload, dict) else None
     if not isinstance(conversations, list):
         raise ValueError("conversation export must contain a conversations array")
     reviews = review_map(reviews_payload)
     evaluations = evaluation_map(evaluations_payload)
+    capture = capture_map(capture_payload)
     records: list[dict[str, Any]] = []
     seen_reviews: set[str] = set()
 
@@ -133,6 +173,37 @@ def build_records(
                 for source in citations
                 if source.get("kind") == "knowledge"
             ]
+            knowledge_grounding = None
+            if knowledge_sources:
+                knowledge_grounding = require_boolean_assessment(
+                    review,
+                    "knowledgeGrounding",
+                    ("retrievedFactCorrect", "finalAnswerCorrect", "followsEvidence"),
+                    message_id,
+                )
+            search_grounding = None
+            if details.get("searchedWeb") is True:
+                search_grounding = require_boolean_assessment(
+                    review,
+                    "searchGrounding",
+                    ("retrievalCorrect", "synthesisFaithful", "unsupportedClaimsAdded", "citationFidelity"),
+                    message_id,
+                )
+            memory_assessment = None
+            if details.get("memoryItemIDs"):
+                memory_assessment = require_boolean_assessment(
+                    review,
+                    "memoryAssessment",
+                    ("relevant", "scopeLeakage", "personalizationUseful"),
+                    message_id,
+                )
+            think_comparison = review.get("thinkComparison")
+            if think_comparison is not None and think_comparison not in THINK_COMPARISONS:
+                raise ValueError(f"invalid Think comparison for {message_id}")
+            learning_disposition = review.get("learningCandidateDisposition")
+            if learning_disposition is not None and learning_disposition not in LEARNING_DISPOSITIONS:
+                raise ValueError(f"invalid Learning Candidate disposition for {message_id}")
+            physical = capture.get(message_id, {})
             record = {
                 "schemaVersion": 1,
                 "conversationID": conversation.get("id"),
@@ -146,8 +217,11 @@ def build_records(
                 "knowledgeCollections": sorted(conversation.get("attachedKnowledgeCollectionIDs", [])),
                 "knowledgeChunksUsed": details.get("knowledgeChunkCount", 0),
                 "knowledgeSources": knowledge_sources,
+                "knowledgeGrounding": knowledge_grounding,
                 "memoryItemCount": len(details.get("memoryItemIDs", [])),
+                "memoryAssessment": memory_assessment,
                 "searchSources": web_sources,
+                "searchGrounding": search_grounding,
                 "freshnessResult": answer.get("freshness"),
                 "confidenceResult": confidence.get("band"),
                 "latency": {
@@ -162,7 +236,17 @@ def build_records(
                 "correction": review.get("correction") or evaluation.get("note"),
                 "failureTaxonomy": review.get("failureTaxonomy", []),
                 "rootCause": review.get("rootCause"),
+                "thinkComparison": think_comparison,
+                "learningCandidateDisposition": learning_disposition,
                 "reviewNote": review.get("reviewNote"),
+                "physical": {
+                    "scenarioID": physical.get("id"),
+                    "category": physical.get("category"),
+                    "thermalStateBefore": physical.get("thermalStateBefore"),
+                    "thermalStateAfter": physical.get("thermalStateAfter"),
+                    "batteryLevelBefore": physical.get("batteryLevelBefore"),
+                    "batteryLevelAfter": physical.get("batteryLevelAfter"),
+                },
                 "createdAt": message.get("createdAt"),
             }
             records.append(record)
@@ -184,11 +268,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Build reviewed NODUS-02A.1 evidence JSONL")
     parser.add_argument("--conversations", type=Path, required=True)
     parser.add_argument("--evaluations", type=Path)
+    parser.add_argument("--capture", type=Path)
     parser.add_argument("--reviews", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     evaluations = load_json(args.evaluations) if args.evaluations else []
-    records = build_records(load_json(args.conversations), evaluations, load_json(args.reviews))
+    capture = load_json(args.capture) if args.capture else None
+    records = build_records(load_json(args.conversations), evaluations, load_json(args.reviews), capture)
     write_jsonl(records, args.output)
     print(f"wrote {len(records)} reviewed NODUS-02A.1 records to {args.output}")
 

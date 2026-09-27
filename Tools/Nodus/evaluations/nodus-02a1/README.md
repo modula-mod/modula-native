@@ -10,6 +10,7 @@ repository.
 python3 Tools/Nodus/scripts/build_nodus_02a1_evidence.py \
   --conversations /private/path/conversations.json \
   --evaluations /private/path/developer-evaluations.json \
+  --capture /private/path/nodus-02a1-physical-acceptance.json \
   --reviews /private/path/reviews.json \
   --output Tools/Nodus/evaluations/nodus-02a1/reviewed-interactions.jsonl
 ```
@@ -17,6 +18,10 @@ python3 Tools/Nodus/scripts/build_nodus_02a1_evidence.py \
 The review overlay is keyed by Nodus response message ID. Every emitted record must have a human
 rating. Wrong, outdated, and hallucinated records must include a correction. Failure labels and root
 causes use the controlled NODUS-02A.1 taxonomies enforced by the normalizer.
+Knowledge-, Search-, and Memory-backed answers also require their respective grounding assessment
+objects. Think comparisons and Learning Candidate dispositions use controlled values. When the
+optional physical capture is supplied, the reviewed record includes scenario, thermal, and battery
+metadata without importing the API key or other device-private state.
 
 An empty `reviewed-interactions.jsonl` means no interaction has passed review yet; it is not evidence
 of a passing acceptance run.
