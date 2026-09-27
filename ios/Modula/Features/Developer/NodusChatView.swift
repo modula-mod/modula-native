@@ -295,6 +295,7 @@ struct NodusChatView: View {
                 Text(status).font(.caption).foregroundStyle(.secondary)
             }
             VStack(alignment: .leading, spacing: 8) {
+                activeContextChips
                 TextField("Ask Nodus…", text: $model.input, axis: .vertical)
                     .lineLimit(1 ... 6)
                     .textFieldStyle(.plain)
@@ -336,6 +337,40 @@ struct NodusChatView: View {
         .padding(.horizontal, 12)
         .padding(.top, 8)
         .padding(.bottom, 10)
+    }
+
+    @ViewBuilder
+    private var activeContextChips: some View {
+        let knowledgeCount = model.activeConversation?.attachedKnowledgeCollectionIDs.count ?? 0
+        let memoryEnabled = model.activeConversation?.memoryEnabled == true
+        if knowledgeCount > 0 || memoryEnabled {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 7) {
+                    if knowledgeCount > 0 {
+                        contextChip("Knowledge · \(knowledgeCount)", symbol: "books.vertical") {
+                            showingKnowledge = true
+                        }
+                    }
+                    if memoryEnabled {
+                        contextChip("Memory", symbol: "memorychip") {
+                            Task { await model.setMemoryEnabled(false) }
+                        }
+                    }
+                }
+            }
+            .disabled(model.isGenerating)
+        }
+    }
+
+    private func contextChip(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: symbol)
+                .font(.caption.weight(.medium))
+                .padding(.horizontal, 9)
+                .padding(.vertical, 5)
+                .background(Color.accentColor.opacity(0.14), in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     private var composerMenu: some View {

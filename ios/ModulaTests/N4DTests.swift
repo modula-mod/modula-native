@@ -88,6 +88,14 @@ final class CommandRegistryTests: XCTestCase {
         XCTAssertTrue(matches.contains { $0.command.id.rawValue.contains("appearance") || $0.command.title.lowercased().contains("dark") })
     }
 
+    func testExperimentalNodusCommandIdentity() {
+        let commands = CommandRegistry.visible(capabilities: CommandCapabilitySnapshot(signedIn: true))
+        let command = commands.first { $0.id.rawValue == "open.intelligence.chat" }
+        XCTAssertEqual(command?.title, "Nodus")
+        XCTAssertTrue(command?.aliases.contains("nodus") == true)
+        XCTAssertEqual(command?.action, .presentIntelligenceChat)
+    }
+
     func testCreateStoryUnavailableWhenCapabilityOff() {
         let caps = CommandCapabilitySnapshot(signedIn: true, storyCreate: false)
         let visible = CommandRegistry.visible(capabilities: caps)
