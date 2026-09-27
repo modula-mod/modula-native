@@ -25,3 +25,13 @@ metadata without importing the API key or other device-private state.
 
 An empty `reviewed-interactions.jsonl` means no interaction has passed review yet; it is not evidence
 of a passing acceptance run.
+
+After at least 75 interactions pass review, generate the required Markdown reports with:
+
+```bash
+python3 Tools/Nodus/scripts/build_nodus_02a1_reports.py \
+  --records Tools/Nodus/evaluations/nodus-02a1/reviewed-interactions.jsonl \
+  --output-directory Tools/Nodus/reports
+```
+
+The report builder refuses fewer than 75 reviewed interactions by default.
