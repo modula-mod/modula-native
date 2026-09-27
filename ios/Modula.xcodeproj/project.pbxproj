@@ -40,6 +40,7 @@
 		40C4F5F54E3A9902F8396AC2 /* GreenfieldClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DD632C1523A313A40D2B0D3 /* GreenfieldClient.swift */; };
 		4154C7AA00AF7AB56F7031B3 /* ActivityRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3DC1AD1EDCCBBF93362A45C /* ActivityRepository.swift */; };
 		42449AAE9F9A80D339844630 /* NodusWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4D8BFFECC9B4F51FB6DADE9 /* NodusWorkspaceView.swift */; };
+		A02A10000000000000000001 /* Nodus02A1PhysicalAcceptanceRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A02A10000000000000000002 /* Nodus02A1PhysicalAcceptanceRunner.swift */; };
 		470E5C0C13B495ADACC3BDC8 /* ModulaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8D0072715530545613031A3 /* ModulaApp.swift */; };
 		4750A3C17078F3B24F7D4A7E /* ModulaColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0953B7C9CBB401D9F7D74DE /* ModulaColor.swift */; };
 		48A32338CAC0656514D71CF9 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BEF0F5DFEB2FC30D2769C391 /* Foundation.framework */; };
@@ -516,6 +517,7 @@
 		E3E435D0DE95F2C71A8C5D51 /* NodusMemoryModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusMemoryModels.swift; path = Core/Intelligence/Nodus/Memory/NodusMemoryModels.swift; sourceTree = "<group>"; };
 		E490C161A4B61D0F2ED2F9CE /* Pods-ModulaTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ModulaTests.debug.xcconfig"; path = "Target Support Files/Pods-ModulaTests/Pods-ModulaTests.debug.xcconfig"; sourceTree = "<group>"; };
 		E4D8BFFECC9B4F51FB6DADE9 /* NodusWorkspaceView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusWorkspaceView.swift; path = Features/Developer/Nodus/NodusWorkspaceView.swift; sourceTree = "<group>"; };
+		A02A10000000000000000002 /* Nodus02A1PhysicalAcceptanceRunner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Nodus02A1PhysicalAcceptanceRunner.swift; path = Features/Developer/Nodus/Nodus02A1PhysicalAcceptanceRunner.swift; sourceTree = "<group>"; };
 		E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleHost.swift; path = ModuleRuntime/ModuleHost.swift; sourceTree = "<group>"; };
 		EB03DB7121ABD1E492F3AC7E /* IntelligenceProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceProvider.swift; path = Core/Intelligence/Contracts/IntelligenceProvider.swift; sourceTree = "<group>"; };
 		EECC47A5007CE1E5BB063A97 /* ShellAccessory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShellAccessory.swift; path = DesignSystem/ShellAccessory.swift; sourceTree = "<group>"; };
@@ -919,6 +921,7 @@
 				F03524A18CE8AF15E324949F /* NodusMemoryView.swift */,
 				81CF3ED26A6B285D330D7448 /* NodusSearchSettingsView.swift */,
 				E4D8BFFECC9B4F51FB6DADE9 /* NodusWorkspaceView.swift */,
+				A02A10000000000000000002 /* Nodus02A1PhysicalAcceptanceRunner.swift */,
 			);
 			path = Modula;
 			sourceTree = "<group>";
@@ -1466,6 +1469,7 @@
 				82685269B61760190FAE127E /* NodusMemoryView.swift in Sources */,
 				A44484FDCEA2E6CF41AEE1E5 /* NodusSearchSettingsView.swift in Sources */,
 				42449AAE9F9A80D339844630 /* NodusWorkspaceView.swift in Sources */,
+				A02A10000000000000000001 /* Nodus02A1PhysicalAcceptanceRunner.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

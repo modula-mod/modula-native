@@ -123,6 +123,19 @@ final class AppEnvironment {
         ModulaBridge.shared.navigation = navigation
         let appearanceStore = appearance
         HapticEngine.shared.intensityProvider = { [weak appearanceStore] in appearanceStore?.haptics ?? .standard }
+        #if DEBUG
+        if launchArguments.contains("--nodus-02a1-physical-acceptance") {
+            let configuredSearchKey = try? nodusSearchCredentials.loadKey()
+            let runner = Nodus02A1PhysicalAcceptanceRunner(
+                conversations: nodusConversationStore,
+                knowledge: nodusKnowledgeStore,
+                memory: nodusMemoryStore,
+                intelligence: intelligence,
+                searchKey: configuredSearchKey ?? nil
+            )
+            Task { await runner.run() }
+        }
+        #endif
     }
 
     func commandCapabilities() -> CommandCapabilitySnapshot {
