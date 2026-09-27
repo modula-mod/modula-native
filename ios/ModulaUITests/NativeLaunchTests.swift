@@ -354,6 +354,49 @@ final class NativeLaunchTests: XCTestCase {
     }
 
     @MainActor
+    func testNodusAccessoryComposerModesAndKeyboard() throws {
+        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--uitest-nodus-fixture"])
+        app.descendants(matching: .any)["accessory.intelligence.chat"].tap()
+        let actions = app.buttons["nodus.chat.actions"].firstMatch
+        XCTAssertTrue(actions.waitForExistence(timeout: 8))
+        actions.tap()
+        app.buttons["New Chat"].tap()
+
+        let think = app.buttons["Think"].firstMatch
+        XCTAssertTrue(think.waitForExistence(timeout: 8))
+        XCTAssertEqual(think.value as? String, "Off")
+        think.tap()
+        let thinkOn = NSPredicate(format: "value == %@", "On")
+        expectation(for: thinkOn, evaluatedWith: think)
+        waitForExpectations(timeout: 5)
+
+        let addContext = app.descendants(matching: .any)["nodus.chat.add-context"]
+        addContext.tap()
+        XCTAssertTrue(app.buttons["Knowledge"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Turn Search On"].exists)
+        app.buttons["Turn Memory Off"].tap()
+        XCTAssertFalse(app.buttons["Memory"].waitForExistence(timeout: 2))
+        addContext.tap()
+        app.buttons["Turn Memory On"].tap()
+        XCTAssertTrue(app.buttons["Memory"].waitForExistence(timeout: 5))
+
+        let input = app.descendants(matching: .any)["nodus.chat.input"]
+        pasteText(
+            "Give me a concise two-line status update, using my active context and preserving the local-only boundary.",
+            into: input,
+            app: app
+        )
+        let send = app.descendants(matching: .any)["nodus.chat.send"]
+        XCTAssertTrue(send.waitForExistence(timeout: 5))
+        XCTAssertTrue(send.isHittable)
+
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "nodus-accessory-composer-keyboard"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    @MainActor
     func testNodus02ASearchFixtureGroundingAndSources() throws {
         let app = try launchThroughAppGate(arguments: [
             "--runtime-unavailable", "--uitest-nodus-fixture", "--uitest-nodus-search-fixture",
