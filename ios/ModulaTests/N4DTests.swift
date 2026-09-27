@@ -322,6 +322,8 @@ final class CollectionsDraftsShareTests: XCTestCase {
     }
 
     func testIntelligenceChatReplyUsesRealTextOnly() {
+        XCTAssertEqual(IntelligenceChatIdentity.title, "Nodus")
+        XCTAssertTrue(IntelligenceChatIdentity.aliases.contains("nodus"))
         XCTAssertEqual(IntelligenceChatView.activeProviderID, NodusIntelligenceProvider.providerID)
         XCTAssertFalse(NodusChatPresentation.accessorySheet.showsDeveloperDiagnostics)
         XCTAssertTrue(NodusChatPresentation.developerWorkspace.showsDeveloperDiagnostics)

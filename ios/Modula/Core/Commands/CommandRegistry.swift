@@ -254,14 +254,14 @@ enum CommandRegistry {
         var items: [ModulaCommand] = [
             .init(
                 id: "open.intelligence.chat",
-                title: "AI Chat",
-                subtitle: "On-device intelligence",
+                title: IntelligenceChatIdentity.title,
+                subtitle: IntelligenceChatIdentity.subtitle,
                 icon: .init("sparkle"),
                 category: .open,
                 availability: .available,
                 action: .presentIntelligenceChat,
-                aliases: ["ai", "assistant", "intelligence", "apple intelligence"],
-                accessibilityHint: "Opens the on-device AI chat"
+                aliases: IntelligenceChatIdentity.aliases,
+                accessibilityHint: "Opens \(IntelligenceChatIdentity.title)"
             ),
             .init(
                 id: "open.messages",

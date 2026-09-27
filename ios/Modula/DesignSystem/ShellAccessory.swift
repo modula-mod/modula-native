@@ -114,8 +114,8 @@ struct ShellIntelligenceChatButton: View {
                 .modifier(ShellIntelligenceShimmer(isActive: !compact && !opaque))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("AI Chat")
-        .accessibilityHint("Opens on-device intelligence chat")
+        .accessibilityLabel(IntelligenceChatIdentity.title)
+        .accessibilityHint("Opens \(IntelligenceChatIdentity.subtitle.lowercased()) chat")
         .accessibilityIdentifier("accessory.intelligence.chat")
     }
 }

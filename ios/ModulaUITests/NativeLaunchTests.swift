@@ -335,6 +335,7 @@ final class NativeLaunchTests: XCTestCase {
         let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--uitest-nodus-fixture"])
         let accessory = app.descendants(matching: .any)["accessory.intelligence.chat"]
         XCTAssertTrue(accessory.waitForExistence(timeout: 8))
+        XCTAssertEqual(accessory.label, "Nodus")
         accessory.tap()
 
         XCTAssertTrue(app.descendants(matching: .any)["intelligence.chat"].waitForExistence(timeout: 8))

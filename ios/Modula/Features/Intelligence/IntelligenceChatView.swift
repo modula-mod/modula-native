@@ -1,5 +1,31 @@
 import SwiftUI
 
+enum IntelligenceChatIdentity {
+    static var title: String {
+        #if DEBUG
+        "Nodus"
+        #else
+        "AI Chat"
+        #endif
+    }
+
+    static var subtitle: String {
+        #if DEBUG
+        "On-device personal intelligence"
+        #else
+        "On-device intelligence"
+        #endif
+    }
+
+    static var aliases: [String] {
+        #if DEBUG
+        ["nodus", "ai", "assistant", "intelligence", "local intelligence"]
+        #else
+        ["ai", "assistant", "intelligence", "apple intelligence"]
+        #endif
+    }
+}
+
 @MainActor
 struct IntelligenceChatMessage: Identifiable, Equatable, Sendable {
     enum Role: Sendable {
