@@ -20,6 +20,25 @@ struct ContextCatalogPage: View {
         ]
     }
 
+    private var groups: [ModulaContextActionGroup] {
+        [
+            .init(id: "organize", title: "Organize", actions: [
+                .init(id: "pin", title: "Pin", systemImage: "pin"),
+                .init(id: "move", title: "Move", systemImage: "folder")
+            ]),
+            .init(id: "manage", title: "Manage", actions: [
+                .init(id: "mute", title: "Mute", systemImage: "bell.slash"),
+                .init(id: "remove", title: "Remove", systemImage: "trash", role: .destructive)
+            ])
+        ]
+    }
+
+    private var longActions: [ModulaContextAction] {
+        (1...7).map {
+            .init(id: "long-\($0)", title: "Long-content action \($0)", systemImage: "list.number")
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: ModulaSpacing.md) {
@@ -33,8 +52,33 @@ struct ContextCatalogPage: View {
                 CatalogLabSection(title: "Context Menu + Preview") {
                     Button("Open preview") { previewPresented = true }
                         .buttonStyle(.borderedProminent)
-                    Text("Includes grouped, disabled, nested, and destructive states above.")
+                    Text("The preview uses the shared overlay host and elevated Modula material.")
                         .font(.caption).foregroundStyle(.secondary)
+                }
+                CatalogLabSection(title: "Context Menu + Groups") {
+                    ModulaContextMenu(actions: [], groups: groups, onSelect: { latestAction = $0.title }) {
+                        Label("Open grouped actions", systemImage: "square.grid.2x2")
+                            .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
+                    }
+                }
+                CatalogLabSection(
+                    title: "Long Content + Edge Placement",
+                    note: "Long-press the bottom source, scrub the action list, or dismiss interactively. Reduce Motion substitutes opacity transitions."
+                ) {
+                    ModulaContextHost(
+                        actions: longActions,
+                        placement: .bottom,
+                        dismissBehavior: .interactive,
+                        onSelect: { latestAction = $0.title }
+                    ) {
+                        Label("Edge source", systemImage: "hand.tap")
+                            .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
+                            .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+                    } preview: {
+                        Text("A deliberately longer preview verifies wrapping, Dynamic Type, bottom-edge placement, and bounded actions without clipping.")
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(minHeight: 360)
                 }
             }.padding()
         }
