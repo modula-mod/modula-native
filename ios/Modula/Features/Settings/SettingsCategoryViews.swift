@@ -172,6 +172,7 @@ struct NotificationSettingsHost: View {
                 }
                 SettingsAPIFootnote(text: "Push status is live from iOS. Social / modules / quiet-hours stay capability-honest until preference contracts are verified.")
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Notifications")
             .navigationBarTitleDisplayMode(.inline)
             .accessibilityIdentifier("settings.notifications")
@@ -323,6 +324,7 @@ struct PrivacySecurityHost: View {
                     }
                 }
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Privacy & Security")
             .navigationBarTitleDisplayMode(.inline)
             .accessibilityIdentifier("settings.privacy-security")
@@ -532,6 +534,7 @@ struct ModuleSettingsHost: View {
                     }
                 }
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Modules")
             .navigationBarTitleDisplayMode(.inline)
         case .installed:
@@ -705,6 +708,7 @@ struct DataStorageHost: View {
                     }
                 }
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Data & Storage")
             .navigationBarTitleDisplayMode(.inline)
         case .storage:

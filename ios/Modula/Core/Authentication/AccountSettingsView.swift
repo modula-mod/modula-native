@@ -88,6 +88,7 @@ private struct AccountRootView: View {
                     Text(error).font(.footnote).foregroundStyle(.red)
                 }
             }
+            .modulaSoftScrollEdge()
             .navigationTitle("Account")
             .navigationBarTitleDisplayMode(.inline)
             .overlay { if app.auth.busy { ProgressView() } }
