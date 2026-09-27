@@ -1302,3 +1302,123 @@ final class N3DProfileUITests: XCTestCase {
         add(attachment)
     }
 }
+
+@MainActor
+final class MCAT02CatalogUITests: XCTestCase {
+    func testAdvancedInteractionCatalogPagesOpen() throws {
+        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--reset-appearance"])
+        openSettingsFromShell(app)
+
+        let catalog = scrollToElement(named: "Component Catalog", in: app, maximumSwipes: 10)
+        XCTAssertTrue(catalog.waitForExistence(timeout: 5))
+        catalog.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["developer.components"].waitForExistence(timeout: 6))
+
+        let advanced = scrollToElement(named: "Open interaction laboratory", in: app, maximumSwipes: 6)
+        XCTAssertTrue(advanced.exists)
+        advanced.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["catalog.advanced"].waitForExistence(timeout: 6))
+
+        for title in ["Context", "Reactions", "Overlays", "Sheets", "Tabs", "Spaces", "Selection", "Media", "Sharing", "Indicators", "Composer"] {
+            let row = scrollToElement(named: title, in: app, maximumSwipes: 8)
+            XCTAssertTrue(row.exists, "Missing catalog page \(title)")
+            row.tap()
+            XCTAssertTrue(app.navigationBars[title].waitForExistence(timeout: 4), "Failed to open \(title)")
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+            XCTAssertTrue(app.descendants(matching: .any)["catalog.advanced"].waitForExistence(timeout: 4))
+        }
+
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "mcat-02-advanced-interaction-catalog"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    func testCoreInteractionsInOLEDAndReducedMotion() throws {
+        let app = try launchThroughAppGate(arguments: [
+            "--runtime-unavailable", "--reset-appearance", "--ui-oled", "-UIAccessibilityReduceMotionEnabled", "YES"
+        ])
+        try openAdvancedCatalog(app)
+
+        openPage("Context", app: app)
+        let contextSource = app.staticTexts["Long-press this source"].firstMatch
+        XCTAssertTrue(contextSource.waitForExistence(timeout: 4))
+        contextSource.press(forDuration: 1.0)
+        let save = app.buttons["Save"].firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 4))
+        save.tap()
+        XCTAssertTrue(app.staticTexts["Latest action: Save"].waitForExistence(timeout: 4))
+        back(app)
+
+        openPage("Reactions", app: app)
+        let bar = app.descendants(matching: .any)["modula.reaction.bar"].firstMatch
+        XCTAssertTrue(bar.waitForExistence(timeout: 4))
+        bar.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5))
+            .press(forDuration: 0.5, thenDragTo: bar.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.5)))
+        XCTAssertTrue(bar.exists)
+        back(app)
+
+        openPage("Sheets", app: app)
+        let morph = app.buttons["Open sheet"].firstMatch
+        XCTAssertTrue(morph.waitForExistence(timeout: 4))
+        morph.tap()
+        XCTAssertTrue(app.staticTexts["Morphing Sheet"].waitForExistence(timeout: 4))
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        XCTAssertTrue(app.navigationBars["Sheets"].waitForExistence(timeout: 4))
+        back(app)
+
+        openPage("Tabs", app: app)
+        app.buttons["For You"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Selected: forYou"].waitForExistence(timeout: 4))
+        back(app)
+
+        openPage("Selection", app: app)
+        app.buttons["Select all"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["5 selected"].waitForExistence(timeout: 4))
+        back(app)
+
+        openPage("Media", app: app)
+        app.buttons["Portrait"].firstMatch.tap()
+        let viewer = app.descendants(matching: .any)["media.viewer"].firstMatch
+        XCTAssertTrue(viewer.waitForExistence(timeout: 4))
+        viewer.doubleTap()
+        app.buttons["Close media"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Media"].waitForExistence(timeout: 4))
+        back(app)
+
+        openPage("Composer", app: app)
+        let field = app.textFields["Ask or reply…"].firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 4))
+        field.tap()
+        field.typeText("Catalog acceptance")
+        XCTAssertTrue(app.buttons["Send"].firstMatch.isEnabled)
+
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "mcat-02-oled-reduced-motion-composer"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    private func openAdvancedCatalog(_ app: XCUIApplication) throws {
+        openSettingsFromShell(app)
+        let catalog = scrollToElement(named: "Component Catalog", in: app, maximumSwipes: 10)
+        XCTAssertTrue(catalog.waitForExistence(timeout: 5))
+        catalog.tap()
+        let advanced = scrollToElement(named: "Open interaction laboratory", in: app, maximumSwipes: 6)
+        XCTAssertTrue(advanced.exists)
+        advanced.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["catalog.advanced"].waitForExistence(timeout: 6))
+    }
+
+    private func openPage(_ title: String, app: XCUIApplication) {
+        let row = scrollToElement(named: title, in: app, maximumSwipes: 8)
+        XCTAssertTrue(row.exists)
+        row.tap()
+        XCTAssertTrue(app.navigationBars[title].waitForExistence(timeout: 4))
+    }
+
+    private func back(_ app: XCUIApplication) {
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.descendants(matching: .any)["catalog.advanced"].waitForExistence(timeout: 4))
+    }
+}
