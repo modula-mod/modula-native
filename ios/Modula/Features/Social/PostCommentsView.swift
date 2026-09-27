@@ -302,7 +302,7 @@ struct PostCommentsSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        ModulaSheet(detents: [.medium, .large]) {
+        ModulaSheet(detents: [.compact, .medium, .large]) {
             PostCommentsView(postID: postID, isSheet: true, onClose: { dismiss() })
         }
     }

@@ -850,6 +850,16 @@ struct ComponentCatalogView: View {
                     }
                     .accessibilityIdentifier("catalog.advanced-interaction")
                 }
+                catalog("Content & Posts") {
+                    NavigationLink {
+                        ContentPostCatalogView()
+                    } label: {
+                        Label("Open universal content laboratory", systemImage: "rectangle.stack.badge.play")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch, alignment: .leading)
+                    }
+                    .accessibilityIdentifier("catalog.content-posts")
+                }
                 catalog("Buttons & controls") {
                     VStack {
                         ModulaButton(title: "Primary Button", symbol: "sparkles") {}

@@ -8,7 +8,11 @@ import SwiftUI
 final class ModulaVideoPlaybackController {
     private(set) var state: MediaPlaybackState = .idle
     private(set) var player: AVPlayer?
+    private(set) var progress: Double = 0
+    private(set) var duration: TimeInterval = 0
+    private(set) var isMuted = true
     var autoplayAllowed = true
+    private var timeObserver: Any?
 
     func attach(url: URL) {
         guard player?.currentItem?.asset as? AVURLAsset == nil ||
@@ -17,8 +21,17 @@ final class ModulaVideoPlaybackController {
         let item = AVPlayerItem(url: url)
         let next = AVPlayer(playerItem: item)
         next.actionAtItemEnd = .pause
+        next.isMuted = isMuted
         player = next
         state = .preparing
+        timeObserver = next.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.5, preferredTimescale: 600), queue: .main) { [weak self, weak next] time in
+            guard let self, let next else { return }
+            Task { @MainActor in
+                let total = next.currentItem?.duration.seconds ?? 0
+                self.duration = total.isFinite ? max(0, total) : 0
+                self.progress = self.duration > 0 ? min(max(time.seconds / self.duration, 0), 1) : 0
+            }
+        }
     }
 
     func play() {
@@ -36,10 +49,19 @@ final class ModulaVideoPlaybackController {
         if state == .playing { pause() } else { play() }
     }
 
+    func toggleMute() {
+        isMuted.toggle()
+        player?.isMuted = isMuted
+    }
+
     func release() {
+        if let timeObserver, let player { player.removeTimeObserver(timeObserver) }
+        timeObserver = nil
         player?.pause()
         player = nil
         state = .idle
+        progress = 0
+        duration = 0
     }
 }
 
@@ -69,6 +91,32 @@ struct ModulaVideoPlayer: View {
                     .opacity(controller.state == .playing ? 0 : 1)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
+            }
+            if controller.player != nil, isActive {
+                VStack {
+                    Spacer()
+                    HStack(spacing: 8) {
+                        ProgressView(value: controller.progress)
+                            .tint(.white)
+                            .accessibilityLabel("Video progress")
+                            .accessibilityValue("\(Int(controller.progress * 100)) percent")
+                        Text(timeLabel)
+                            .font(.caption2.monospacedDigit().weight(.semibold))
+                            .foregroundStyle(.white)
+                        Button {
+                            controller.toggleMute()
+                        } label: {
+                            Image(systemName: controller.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                                .frame(width: 36, height: 36)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.white)
+                        .accessibilityLabel(controller.isMuted ? "Unmute video" : "Mute video")
+                    }
+                    .padding(.horizontal, 10)
+                    .background(.black.opacity(0.35), in: Capsule())
+                    .padding(8)
+                }
             }
         }
         .contentShape(Rectangle())
@@ -124,5 +172,10 @@ struct ModulaVideoPlayer: View {
             duration = "Video"
         }
         return [resource.altText, duration].compactMap { $0 }.joined(separator: ", ")
+    }
+
+    private var timeLabel: String {
+        let remaining = max(0, Int((controller.duration * (1 - controller.progress)).rounded()))
+        return String(format: "-%d:%02d", remaining / 60, remaining % 60)
     }
 }

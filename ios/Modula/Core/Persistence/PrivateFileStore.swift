@@ -14,6 +14,7 @@ struct PrivateFileStore: Sendable {
         case nodusKnowledge = "nodus/knowledge"
         case nodusMemory = "nodus/memory"
         case nodusLearning = "nodus/learning"
+        case attachmentDownloads = "content/attachments"
     }
 
     private let domain: Domain
@@ -61,6 +62,25 @@ struct PrivateFileStore: Sendable {
         let file = url(filename: filename)
         try fileManager.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
         try data.write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
+
+    func saveFile(at sourceURL: URL, filename: String) throws -> URL {
+        try ensureDirectory()
+        let destination = url(filename: filename)
+        try fileManager.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if fileManager.fileExists(atPath: destination.path) {
+            try fileManager.removeItem(at: destination)
+        }
+        try fileManager.copyItem(at: sourceURL, to: destination)
+        try fileManager.setAttributes(
+            [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+            ofItemAtPath: destination.path
+        )
+        return destination
+    }
+
+    func fileExists(filename: String) -> Bool {
+        fileManager.fileExists(atPath: url(filename: filename).path)
     }
 
     func remove(filename: String) throws {
