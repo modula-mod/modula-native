@@ -4,6 +4,18 @@ import UIKit
 #if DEBUG
 @MainActor
 final class Nodus02A1PhysicalAcceptanceRunner {
+    private actor StageProbe {
+        private var seen: Set<String> = []
+
+        func record(_ stage: NodusReasoningStage) {
+            seen.insert(stage.rawValue)
+        }
+
+        func contains(_ stage: NodusReasoningStage) -> Bool {
+            seen.contains(stage.rawValue)
+        }
+    }
+
     private struct Scenario {
         let id: String
         let category: String
@@ -153,6 +165,16 @@ final class Nodus02A1PhysicalAcceptanceRunner {
                 engine: engine
             )
 
+            capture.actions["cancelNormal"] = await verifyCancellation(
+                mode: .standard, searchEnabled: false, cancelAt: .drafting, engine: engine
+            )
+            capture.actions["cancelThink"] = await verifyCancellation(
+                mode: .deep, searchEnabled: false, cancelAt: .reviewing, engine: engine
+            )
+            capture.actions["cancelThinkSearch"] = await verifyCancellation(
+                mode: .deep, searchEnabled: true, cancelAt: .searchingWeb, engine: engine
+            )
+
             let all = await conversations.all()
             capture.actions["atLeastFiveConversationsPersisted"] = all.count >= 5
             if let first = all.first {
@@ -278,6 +300,54 @@ final class Nodus02A1PhysicalAcceptanceRunner {
         ))
         capture.completedInteractionCount = capture.interactions.count
         persist()
+    }
+
+    private func verifyCancellation(
+        mode: NodusReasoningMode,
+        searchEnabled: Bool,
+        cancelAt target: NodusReasoningStage,
+        engine: NodusConversationEngine
+    ) async -> Bool {
+        do {
+            var conversation = try await conversations.create()
+            conversation.reasoningMode = mode
+            conversation.searchEnabled = searchEnabled
+            conversation.memoryEnabled = false
+            try await conversations.upsert(conversation)
+            let probe = StageProbe()
+            let task = Task {
+                try await engine.send(
+                    question: searchEnabled
+                        ? "Summarize current Apple developer news and cite sources."
+                        : "Explain why cancellation must unwind local inference cleanly.",
+                    conversationID: conversation.id,
+                    progress: { stage in await probe.record(stage) }
+                )
+            }
+            for _ in 0 ..< 500 {
+                if await probe.contains(target) { break }
+                if task.isCancelled { break }
+                try? await Task.sleep(for: .milliseconds(10))
+            }
+            guard await probe.contains(target) else {
+                task.cancel()
+                _ = try? await task.value
+                return false
+            }
+            task.cancel()
+            do {
+                _ = try await task.value
+                return false
+            } catch is CancellationError {
+                return true
+            } catch let error as IntelligenceError {
+                return error == .requestCancelled
+            } catch {
+                return false
+            }
+        } catch {
+            return false
+        }
     }
 
     private func persist() {

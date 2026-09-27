@@ -322,6 +322,9 @@ final class CollectionsDraftsShareTests: XCTestCase {
     }
 
     func testIntelligenceChatReplyUsesRealTextOnly() {
+        XCTAssertEqual(IntelligenceChatView.activeProviderID, NodusIntelligenceProvider.providerID)
+        XCTAssertFalse(NodusChatPresentation.accessorySheet.showsDeveloperDiagnostics)
+        XCTAssertTrue(NodusChatPresentation.developerWorkspace.showsDeveloperDiagnostics)
         XCTAssertEqual(IntelligenceChatView.replyText(from: .string(" Hello ")), "Hello")
         XCTAssertEqual(
             IntelligenceChatView.replyText(from: .object(["text": .string("On device")])),

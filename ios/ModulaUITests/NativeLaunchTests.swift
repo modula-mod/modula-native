@@ -331,6 +331,28 @@ final class NativeLaunchTests: XCTestCase {
     }
 
     @MainActor
+    func testNodusAccessoryChatUsesPersistentComposer() throws {
+        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--uitest-nodus-fixture"])
+        let accessory = app.descendants(matching: .any)["accessory.intelligence.chat"]
+        XCTAssertTrue(accessory.waitForExistence(timeout: 8))
+        accessory.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["intelligence.chat"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.descendants(matching: .any)["nodus.chat.screen"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["nodus.chat.input"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["nodus.chat.add-context"].exists)
+        XCTAssertEqual(app.descendants(matching: .any)["nodus.chat.screen"].label, "Nodus")
+
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "nodus-accessory-chat-composer"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+
+        app.buttons["intelligence.chat.close"].firstMatch.tap()
+        XCTAssertFalse(app.descendants(matching: .any)["intelligence.chat"].waitForExistence(timeout: 2))
+    }
+
+    @MainActor
     func testNodus02ASearchFixtureGroundingAndSources() throws {
         let app = try launchThroughAppGate(arguments: [
             "--runtime-unavailable", "--uitest-nodus-fixture", "--uitest-nodus-search-fixture",

@@ -30,7 +30,30 @@ struct IntelligenceChatView: View {
     @State private var isSending = false
     @State private var availability: IntelligenceAvailability?
 
+    static var activeProviderID: String {
+        #if DEBUG
+        NodusIntelligenceProvider.providerID
+        #else
+        AppleSystemIntelligenceProvider.providerID
+        #endif
+    }
+
+    @ViewBuilder
     var body: some View {
+        #if DEBUG
+        NavigationStack {
+            NodusChatView(presentation: .accessorySheet)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("intelligence.chat")
+        }
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+        #else
+        legacyAppleIntelligenceChat
+        #endif
+    }
+
+    private var legacyAppleIntelligenceChat: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 transcript

@@ -1,9 +1,18 @@
 import SwiftUI
 
 #if DEBUG
+enum NodusChatPresentation: Equatable {
+    case developerWorkspace
+    case accessorySheet
+
+    var showsDeveloperDiagnostics: Bool { self == .developerWorkspace }
+}
+
 struct NodusChatView: View {
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
     @State private var model = NodusChatViewModel()
+    @FocusState private var composerFocused: Bool
     @State private var showingConversations = false
     @State private var showingKnowledge = false
     @State private var showingRename = false
@@ -13,15 +22,20 @@ struct NodusChatView: View {
     @State private var correctionRating: NodusDeveloperRating = .wrong
     @State private var correctionText = ""
     @State private var savingCitation: NodusCitation?
+    let presentation: NodusChatPresentation
+
+    init(presentation: NodusChatPresentation = .developerWorkspace) {
+        self.presentation = presentation
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             statusHeader
-            Divider()
+            if presentation.showsDeveloperDiagnostics { Divider() }
             conversation
-            Divider()
             composer
         }
+        .modulaCanvas()
         .navigationTitle(model.activeConversation?.title ?? "Nodus")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -45,10 +59,15 @@ struct NodusChatView: View {
                 } label: { Image(systemName: "ellipsis.circle") }
                 .accessibilityLabel("Chat actions")
                 .accessibilityIdentifier("nodus.chat.actions")
-                ShareLink(item: app.nodusEvaluationStore.exportURL) {
-                    Image(systemName: "square.and.arrow.up")
+                if presentation.showsDeveloperDiagnostics {
+                    ShareLink(item: app.nodusEvaluationStore.exportURL) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .accessibilityLabel("Export Nodus evaluations")
+                } else {
+                    Button("Close") { dismiss() }
+                        .accessibilityIdentifier("intelligence.chat.close")
                 }
-                .accessibilityLabel("Export Nodus evaluations")
             }
         }
         .task { await model.configure(using: app) }
@@ -80,23 +99,33 @@ struct NodusChatView: View {
 
     private var statusHeader: some View {
         HStack(spacing: 10) {
-            Image(systemName: "brain").foregroundStyle(Color.accentColor)
+            Image(systemName: presentation.showsDeveloperDiagnostics ? "brain" : "sparkles")
+                .foregroundStyle(Color.accentColor)
             VStack(alignment: .leading, spacing: 2) {
-                Text(model.modelIdentity?.displayName ?? "Nodus R7 Experimental")
+                Text(presentation.showsDeveloperDiagnostics ? (model.modelIdentity?.displayName ?? "Nodus R7 Experimental") : "Nodus")
                     .font(.headline)
                     .accessibilityIdentifier("nodus.chat.screen")
                 Text(statusText).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 3) {
-                Text("Experimental").foregroundStyle(.orange)
-                Text(NodusIntelligenceProvider.providerID)
-                Text("Local · 4-bit")
+            if presentation.showsDeveloperDiagnostics {
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text("Experimental").foregroundStyle(.orange)
+                    Text(NodusIntelligenceProvider.providerID)
+                    Text("Local · 4-bit")
+                }
+                .font(.caption.weight(.medium))
+            } else {
+                Text("Experimental")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.orange)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(.orange.opacity(0.12), in: Capsule())
             }
-            .font(.caption.weight(.medium))
         }
         .padding(.horizontal)
-        .padding(.vertical, 10)
+        .padding(.vertical, presentation.showsDeveloperDiagnostics ? 10 : 8)
     }
 
     @ViewBuilder private var conversation: some View {
@@ -173,15 +202,19 @@ struct NodusChatView: View {
                         }
                         .buttonStyle(.bordered).controlSize(.mini)
                     }
-                    evaluationControls(for: message)
-                    responseDetails(message, answer: answer)
+                    if presentation.showsDeveloperDiagnostics {
+                        evaluationControls(for: message)
+                        responseDetails(message, answer: answer)
+                    }
                 }
             }
             .padding(12)
-            .background(
-                message.role == .user ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.11),
-                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-            )
+            .background {
+                if message.role == .user || presentation.showsDeveloperDiagnostics {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(message.role == .user ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.11))
+                }
+            }
             if message.role == .nodus { Spacer(minLength: 44) }
         }
     }
@@ -261,10 +294,20 @@ struct NodusChatView: View {
             if let status = model.errorMessage ?? model.verificationStatus ?? model.evaluationStatus {
                 Text(status).font(.caption).foregroundStyle(.secondary)
             }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 7) {
+            VStack(alignment: .leading, spacing: 8) {
+                TextField("Ask Nodus…", text: $model.input, axis: .vertical)
+                    .lineLimit(1 ... 6)
+                    .textFieldStyle(.plain)
+                    .focused($composerFocused)
+                    .submitLabel(.send)
+                    .onSubmit { if model.canSend { model.send(using: app) } }
+                    .disabled(model.availability != .available || model.isGenerating)
+                    .accessibilityIdentifier("nodus.chat.input")
+
+                HStack(spacing: 8) {
+                    composerMenu
                     modeButton(
-                        model.activeConversation?.reasoningMode == .deep ? "Thinking" : "Think",
+                        model.activeConversation?.reasoningMode == .deep ? "Think" : nil,
                         symbol: "brain",
                         selected: model.activeConversation?.reasoningMode == .deep
                     ) {
@@ -273,58 +316,92 @@ struct NodusChatView: View {
                         }
                     }
                     modeButton(
-                        model.activeConversation?.searchEnabled == true ? "Online Search" : "Search",
+                        model.activeConversation?.searchEnabled == true ? "Search" : nil,
                         symbol: "network",
                         selected: model.activeConversation?.searchEnabled == true
-                    ) {
-                        if model.activeConversation?.searchEnabled == true {
-                            Task { await model.setSearchEnabled(false) }
-                        } else {
-                            confirmingSearchEnable = true
-                        }
-                    }
-                    modeButton(
-                        "Knowledge · \(model.activeConversation?.attachedKnowledgeCollectionIDs.count ?? 0)",
-                        symbol: "books.vertical",
-                        selected: !(model.activeConversation?.attachedKnowledgeCollectionIDs.isEmpty ?? true)
-                    ) { showingKnowledge = true }
-                    modeButton(
-                        model.activeConversation?.memoryEnabled == true ? "Memory On" : "Memory Off",
-                        symbol: "memorychip",
-                        selected: model.activeConversation?.memoryEnabled == true
-                    ) {
-                        Task { await model.setMemoryEnabled(model.activeConversation?.memoryEnabled != true) }
-                    }
+                    ) { toggleSearch() }
+                    Spacer(minLength: 4)
+                    sendButton
                 }
             }
-            HStack(alignment: .bottom, spacing: 10) {
-                TextField("Ask Nodus…", text: $model.input, axis: .vertical)
-                    .lineLimit(1 ... 5)
-                    .textFieldStyle(.plain)
-                    .padding(.horizontal, 12).padding(.vertical, 9)
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .disabled(model.availability != .available || model.isGenerating)
-                    .accessibilityIdentifier("nodus.chat.input")
-                Button {
-                    model.isGenerating ? model.cancel() : model.send(using: app)
-                } label: {
-                    Image(systemName: model.isGenerating ? "stop.fill" : "arrow.up")
-                        .font(.headline).frame(width: 36, height: 36)
-                        .background(Color.accentColor, in: Circle()).foregroundStyle(.white)
-                }
-                .disabled(!model.isGenerating && !model.canSend)
-                .accessibilityLabel(model.isGenerating ? "Stop" : "Send")
-                .accessibilityIdentifier(model.isGenerating ? "nodus.chat.stop" : "nodus.chat.send")
+            .padding(.horizontal, 12)
+            .padding(.top, 12)
+            .padding(.bottom, 9)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 25, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 25, style: .continuous)
+                    .stroke(Color.secondary.opacity(0.18), lineWidth: 0.5)
             }
         }
-        .padding()
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
     }
 
-    private func modeButton(_ title: String, symbol: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) { Label(title, systemImage: symbol) }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .tint(selected ? Color.accentColor : nil)
+    private var composerMenu: some View {
+        Menu {
+            Button("New Chat", systemImage: "plus.bubble") {
+                Task { await model.newConversation(); composerFocused = true }
+            }
+            Button("Knowledge", systemImage: "books.vertical") { showingKnowledge = true }
+            Button(
+                model.activeConversation?.memoryEnabled == true ? "Turn Memory Off" : "Turn Memory On",
+                systemImage: "memorychip"
+            ) {
+                Task { await model.setMemoryEnabled(model.activeConversation?.memoryEnabled != true) }
+            }
+            Button(
+                model.activeConversation?.searchEnabled == true ? "Turn Search Off" : "Turn Search On",
+                systemImage: "network"
+            ) { toggleSearch() }
+        } label: {
+            Image(systemName: "plus")
+                .font(.body.weight(.semibold))
+                .frame(width: 34, height: 34)
+                .background(Color.secondary.opacity(0.12), in: Circle())
+        }
+        .accessibilityLabel("Add context")
+        .accessibilityIdentifier("nodus.chat.add-context")
+    }
+
+    private var sendButton: some View {
+        Button {
+            model.isGenerating ? model.cancel() : model.send(using: app)
+        } label: {
+            Image(systemName: model.isGenerating ? "stop.fill" : "arrow.up")
+                .font(.headline)
+                .frame(width: 36, height: 36)
+                .background(model.isGenerating || model.canSend ? Color.accentColor : Color.secondary.opacity(0.28), in: Circle())
+                .foregroundStyle(.white)
+        }
+        .disabled(!model.isGenerating && !model.canSend)
+        .accessibilityLabel(model.isGenerating ? "Stop" : "Send")
+        .accessibilityIdentifier(model.isGenerating ? "nodus.chat.stop" : "nodus.chat.send")
+    }
+
+    private func modeButton(_ title: String?, symbol: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            if let title {
+                Label(title, systemImage: symbol)
+            } else {
+                Image(systemName: symbol)
+            }
+        }
+        .font(.subheadline.weight(.medium))
+        .padding(.horizontal, title == nil ? 0 : 9)
+        .frame(minWidth: 34, minHeight: 34)
+        .background(selected ? Color.accentColor.opacity(0.16) : Color.clear, in: Capsule())
+        .foregroundStyle(selected ? Color.accentColor : Color.primary)
+        .accessibilityLabel(symbol == "brain" ? "Think" : "Search")
+        .accessibilityValue(selected ? "On" : "Off")
+    }
+
+    private func toggleSearch() {
+        if model.activeConversation?.searchEnabled == true {
+            Task { await model.setSearchEnabled(false) }
+        } else {
+            confirmingSearchEnable = true
+        }
     }
 
     private func evaluationControls(for message: NodusMessage) -> some View {
