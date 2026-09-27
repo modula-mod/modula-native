@@ -7,6 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A03200000000000000000008 /* ModulaAttachmentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000008 /* ModulaAttachmentPicker.swift */; };
+		A03200000000000000000007 /* POST03Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000007 /* POST03Tests.swift */; };
+		A03200000000000000000001 /* ModulaAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000001 /* ModulaAttachment.swift */; };
+		A03200000000000000000002 /* AttachmentDownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000002 /* AttachmentDownloadManager.swift */; };
+		A03200000000000000000003 /* AttachmentViewers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000003 /* AttachmentViewers.swift */; };
+		A03200000000000000000004 /* ModulaPostModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000004 /* ModulaPostModels.swift */; };
+		A03200000000000000000005 /* PostContentRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000005 /* PostContentRenderer.swift */; };
+		A03200000000000000000006 /* ContentPostCatalogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000006 /* ContentPostCatalogView.swift */; };
 		001526FE43E0E8C9671B4E84 /* ModuleHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */; };
 		0139D48F433333A6C105C394 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E9539623085AAA12077638F /* SettingsView.swift */; };
 		02ED22D448BC35987DA41C41 /* RuntimeDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */; };
@@ -287,6 +295,14 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A03100000000000000000008 /* ModulaAttachmentPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaAttachmentPicker.swift; path = Features/Media/ModulaAttachmentPicker.swift; sourceTree = "<group>"; };
+		A03100000000000000000007 /* POST03Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = POST03Tests.swift; sourceTree = "<group>"; };
+		A03100000000000000000001 /* ModulaAttachment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaAttachment.swift; path = Features/Media/ModulaAttachment.swift; sourceTree = "<group>"; };
+		A03100000000000000000002 /* AttachmentDownloadManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AttachmentDownloadManager.swift; path = Features/Media/AttachmentDownloadManager.swift; sourceTree = "<group>"; };
+		A03100000000000000000003 /* AttachmentViewers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AttachmentViewers.swift; path = Features/Media/AttachmentViewers.swift; sourceTree = "<group>"; };
+		A03100000000000000000004 /* ModulaPostModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaPostModels.swift; path = Features/Social/ModulaPostModels.swift; sourceTree = "<group>"; };
+		A03100000000000000000005 /* PostContentRenderer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostContentRenderer.swift; path = Features/Social/PostContentRenderer.swift; sourceTree = "<group>"; };
+		A03100000000000000000006 /* ContentPostCatalogView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ContentPostCatalogView.swift; path = Features/Settings/ContentPostCatalogView.swift; sourceTree = "<group>"; };
 		003916B967E1900F61DFB206 /* SettingsStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsStore.swift; path = Features/Settings/SettingsStore.swift; sourceTree = "<group>"; };
 		007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RuntimeDiagnosticsView.swift; path = ModuleRuntime/RuntimeDiagnosticsView.swift; sourceTree = "<group>"; };
 		00C3046A71D34C45B14E30AE /* IntelligenceDiagnosticsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceDiagnosticsView.swift; path = Features/Developer/IntelligenceDiagnosticsView.swift; sourceTree = "<group>"; };
@@ -605,6 +621,7 @@
 		2ADAF6A38EF8AFA036ABB851 /* ModulaTests */ = {
 			isa = PBXGroup;
 			children = (
+				A03100000000000000000007 /* POST03Tests.swift */,
 				N40100000000000000000012 /* N4CTests.swift */,
 				D40100000000000000000018 /* N4DTests.swift */,
 				A40100000000000000000017 /* N4ETests.swift */,
@@ -663,6 +680,13 @@
 		9BD2EB7E520E442D8B488FEA /* Modula */ = {
 			isa = PBXGroup;
 			children = (
+				A03100000000000000000008 /* ModulaAttachmentPicker.swift */,
+				A03100000000000000000001 /* ModulaAttachment.swift */,
+				A03100000000000000000002 /* AttachmentDownloadManager.swift */,
+				A03100000000000000000003 /* AttachmentViewers.swift */,
+				A03100000000000000000004 /* ModulaPostModels.swift */,
+				A03100000000000000000005 /* PostContentRenderer.swift */,
+				A03100000000000000000006 /* ContentPostCatalogView.swift */,
 				084039C8EE9493F07C7F4946 /* AppEnvironment.swift */,
 				B8D0072715530545613031A3 /* ModulaApp.swift */,
 				CE413545A422ACB4BACBB3DF /* RootView.swift */,
@@ -1181,6 +1205,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A03200000000000000000007 /* POST03Tests.swift in Sources */,
 				C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */,
 				FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */,
 				E2010000000000000000000A /* DiscoverTests.swift in Sources */,
@@ -1204,6 +1229,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A03200000000000000000008 /* ModulaAttachmentPicker.swift in Sources */,
+				A03200000000000000000001 /* ModulaAttachment.swift in Sources */,
+				A03200000000000000000002 /* AttachmentDownloadManager.swift in Sources */,
+				A03200000000000000000003 /* AttachmentViewers.swift in Sources */,
+				A03200000000000000000004 /* ModulaPostModels.swift in Sources */,
+				A03200000000000000000005 /* PostContentRenderer.swift in Sources */,
+				A03200000000000000000006 /* ContentPostCatalogView.swift in Sources */,
 				C5321327FFFE3ADE609BB112 /* AppEnvironment.swift in Sources */,
 				A50100000000000000000001 /* AppLaunchState.swift in Sources */,
 				A50100000000000000000002 /* AppGate.swift in Sources */,

@@ -17,6 +17,7 @@ struct PostCard: View {
     var onOpenMedia: (@MainActor (SocialPostMedia) -> Void)? = nil
     var onOpenModule: (@MainActor (SocialPostModule) -> Void)? = nil
     var onReactLongPress: (() -> Void)? = nil
+    var videoCoordinator: FeedVideoCoordinator? = nil
 
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -35,16 +36,15 @@ struct PostCard: View {
                 onOpenAuthor: onOpenAuthor,
                 onMore: onMore
             )
-            Button(action: onOpenPost) {
-                PostRendererRegistry.content(
-                    for: post,
-                    onOpenMedia: onOpenMedia,
-                    onOpenModule: onOpenModule
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
+            PostRendererRegistry.content(
+                for: post,
+                videoCoordinator: videoCoordinator,
+                onOpenPost: onOpenPost,
+                onOpenMedia: onOpenMedia,
+                onOpenModule: onOpenModule
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
 
             if showsActionRail && !dynamicTypeSize.isAccessibilitySize {
                 HStack(alignment: .top, spacing: 12) {
@@ -215,157 +215,6 @@ struct PostBody: View {
 
     private var bodyFont: Font {
         .system(.body, design: app.appearance.fontDesign)
-    }
-}
-
-struct PostMediaView: View {
-    let media: [SocialPostMedia]
-    var onOpen: (@MainActor (SocialPostMedia) -> Void)?
-
-    var body: some View {
-        let images = media.filter(\.isImage)
-        if images.count == 1, let first = images.first {
-            mediaImage(first, immersive: true)
-        } else if images.count > 1 {
-            PostCarouselMedia(images: images, onOpen: onOpen)
-        }
-    }
-
-    private func mediaImage(_ item: SocialPostMedia, immersive: Bool) -> some View {
-        Button {
-            onOpen?(item)
-        } label: {
-            Group {
-                if let url = item.url {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image.resizable().scaledToFill()
-                        case .failure:
-                            placeholder
-                        default:
-                            placeholder.overlay(ProgressView().controlSize(.small))
-                        }
-                    }
-                } else {
-                    placeholder
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: immersive ? mediaHeight(for: item) : 160)
-            .clipShape(RoundedRectangle(cornerRadius: immersive ? 4 : 14, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(item.altText ?? "Photo attached")
-        .accessibilityHint("Opens media viewer")
-        .accessibilityIdentifier("post.media.\(item.id)")
-    }
-
-    private var placeholder: some View {
-        RoundedRectangle(cornerRadius: 4, style: .continuous)
-            .fill(Color.primary.opacity(0.08))
-            .overlay {
-                Image(systemName: "photo")
-                    .foregroundStyle(.tertiary)
-            }
-    }
-
-    private func mediaHeight(for item: SocialPostMedia) -> CGFloat {
-        guard let ratio = item.aspectRatio, ratio > 0 else { return 220 }
-        let clamped = min(max(ratio, 0.6), 1.8)
-        return min(320, max(160, 280 / clamped))
-    }
-}
-
-struct PostCarouselMedia: View {
-    let images: [SocialPostMedia]
-    var onOpen: (@MainActor (SocialPostMedia) -> Void)?
-    @State private var page = 0
-
-    var body: some View {
-        VStack(spacing: 8) {
-            TabView(selection: $page) {
-                ForEach(Array(images.enumerated()), id: \.element.id) { index, item in
-                    Button {
-                        onOpen?(item)
-                    } label: {
-                        Group {
-                            if let url = item.url {
-                                AsyncImage(url: url) { phase in
-                                    switch phase {
-                                    case .success(let image):
-                                        image.resizable().scaledToFill()
-                                    default:
-                                        Color.primary.opacity(0.08)
-                                    }
-                                }
-                            } else {
-                                Color.primary.opacity(0.08)
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 220)
-                        .clipped()
-                    }
-                    .buttonStyle(.plain)
-                    .tag(index)
-                    .accessibilityLabel(item.altText ?? "Image \(index + 1) of \(images.count)")
-                }
-            }
-            .tabViewStyle(.page(indexDisplayMode: .automatic))
-            .frame(height: 220)
-            .accessibilityLabel("\(images.count) images")
-            .accessibilityValue("Page \(page + 1) of \(images.count)")
-        }
-    }
-}
-
-struct PostLinkPreview: View {
-    let link: SocialPostLink
-    @Environment(AppEnvironment.self) private var app
-    @Environment(\.openURL) private var openURL
-
-    var body: some View {
-        Button {
-            openSafely()
-        } label: {
-            HStack(alignment: .top, spacing: 12) {
-                if let imageURL = link.imageURL {
-                    AsyncImage(url: imageURL) { phase in
-                        if case .success(let image) = phase {
-                            image.resizable().scaledToFill()
-                        } else {
-                            Color.primary.opacity(0.06)
-                        }
-                    }
-                    .frame(width: 64, height: 64)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    if let title = link.title {
-                        Text(title).font(.subheadline.weight(.semibold)).lineLimit(2)
-                    }
-                    if let description = link.description {
-                        Text(description).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-                    }
-                    if let domain = link.domain ?? link.url?.host {
-                        Text(domain).font(.caption2.weight(.semibold)).foregroundStyle(app.appearance.accent.color)
-                    }
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(.vertical, 8)
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(link.title ?? link.domain ?? "Link")
-        .accessibilityHint("Opens link")
-    }
-
-    private func openSafely() {
-        guard let url = link.url else { return }
-        guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else { return }
-        openURL(url)
     }
 }
 
@@ -568,53 +417,30 @@ enum PostRendererRegistry {
     @ViewBuilder
     static func content(
         for post: SocialPost,
+        presentation: PostPresentation = .feed,
+        videoCoordinator: FeedVideoCoordinator? = nil,
+        onOpenPost: (() -> Void)? = nil,
         onOpenMedia: (@MainActor (SocialPostMedia) -> Void)?,
         onOpenModule: (@MainActor (SocialPostModule) -> Void)?
     ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            PostBody(post: post)
-            switch post.kind {
-            case .media, .carousel, .text where post.hasMedia:
-                if post.hasMedia {
-                    PostMediaView(media: post.media, onOpen: onOpenMedia)
-                }
-            case .link:
-                if post.hasMedia {
-                    PostMediaView(media: post.media, onOpen: onOpenMedia)
-                }
-                if let link = post.link {
-                    PostLinkPreview(link: link)
-                }
-            case .module:
-                if let module = post.module {
-                    PostModuleChip(module: module) {
-                        onOpenModule?(module)
-                    }
-                }
-                if post.hasMedia {
-                    PostMediaView(media: post.media, onOpen: onOpenMedia)
-                }
-            case .video, .poll, .audio, .movie:
-                // Reserved — never fake playback / poll UI without backend truth.
-                if post.hasMedia {
-                    PostMediaView(media: post.media, onOpen: onOpenMedia)
-                }
-                if let link = post.link {
-                    PostLinkPreview(link: link)
-                }
-            case .text, .unknown:
-                if let link = post.link {
-                    PostLinkPreview(link: link)
-                }
-                if let module = post.module {
-                    PostModuleChip(module: module) {
-                        onOpenModule?(module)
-                    }
-                }
+            if let onOpenPost {
+                Button(action: onOpenPost) { PostBody(post: post) }
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityHint("Opens the full post")
+            } else {
+                PostBody(post: post)
             }
-            if post.kind != .link, let link = post.link, post.kind == .media {
-                PostLinkPreview(link: link)
-            }
+            PostCanonicalContent(
+                source: post,
+                presentation: presentation,
+                videoCoordinator: videoCoordinator,
+                onOpenAttachment: { attachment in
+                    if let media = post.media.first(where: { $0.id == attachment.id }) { onOpenMedia?(media) }
+                },
+                onOpenModule: onOpenModule
+            )
         }
     }
 }

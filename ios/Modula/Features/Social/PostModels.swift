@@ -107,6 +107,53 @@ struct SocialPostMedia: Hashable, Sendable, Identifiable {
     let altText: String?
     let kind: String
     let aspectRatio: CGFloat?
+    let previewURL: URL?
+    let thumbnailURL: URL?
+    let mimeType: String?
+    let filename: String?
+    let byteSize: Int64?
+    let width: Int?
+    let height: Int?
+    let duration: TimeInterval?
+    let pageCount: Int?
+    let title: String?
+    let creator: String?
+
+    init(
+        id: String,
+        url: URL?,
+        altText: String?,
+        kind: String,
+        aspectRatio: CGFloat?,
+        previewURL: URL? = nil,
+        thumbnailURL: URL? = nil,
+        mimeType: String? = nil,
+        filename: String? = nil,
+        byteSize: Int64? = nil,
+        width: Int? = nil,
+        height: Int? = nil,
+        duration: TimeInterval? = nil,
+        pageCount: Int? = nil,
+        title: String? = nil,
+        creator: String? = nil
+    ) {
+        self.id = id
+        self.url = url
+        self.altText = altText
+        self.kind = kind
+        self.aspectRatio = aspectRatio
+        self.previewURL = previewURL
+        self.thumbnailURL = thumbnailURL
+        self.mimeType = mimeType
+        self.filename = filename
+        self.byteSize = byteSize
+        self.width = width
+        self.height = height
+        self.duration = duration
+        self.pageCount = pageCount
+        self.title = title
+        self.creator = creator
+    }
 
     var isImage: Bool { kind == "image" || kind.isEmpty }
     var isVideo: Bool { kind == "video" }
@@ -514,7 +561,18 @@ enum SocialPayloadDecoder {
             url: url,
             altText: alt,
             kind: kind,
-            aspectRatio: ratio
+            aspectRatio: ratio,
+            previewURL: (value["previewUrl"]?.string ?? value["preview_url"]?.string).flatMap(URL.init(string:)),
+            thumbnailURL: (value["thumbnailUrl"]?.string ?? value["thumbnail_url"]?.string ?? value["posterUrl"]?.string).flatMap(URL.init(string:)),
+            mimeType: emptyToNil(value["mimeType"]?.string ?? value["mime_type"]?.string ?? value["contentType"]?.string),
+            filename: emptyToNil(value["filename"]?.string ?? value["fileName"]?.string ?? value["name"]?.string),
+            byteSize: (value["byteSize"]?.int ?? value["byte_size"]?.int ?? value["size"]?.int).map(Int64.init),
+            width: value["width"]?.int ?? value["dimensions"]?["width"]?.int,
+            height: value["height"]?.int ?? value["dimensions"]?["height"]?.int,
+            duration: value["duration"]?.number ?? value["durationMs"]?.number.map { $0 / 1_000 },
+            pageCount: value["pageCount"]?.int ?? value["page_count"]?.int ?? value["pages"]?.int,
+            title: emptyToNil(value["title"]?.string),
+            creator: emptyToNil(value["creator"]?.string ?? value["artist"]?.string)
         )
     }
 

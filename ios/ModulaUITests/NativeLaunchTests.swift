@@ -1422,3 +1422,70 @@ final class MCAT02CatalogUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["catalog.advanced"].waitForExistence(timeout: 4))
     }
 }
+
+@MainActor
+final class POST03CatalogUITests: XCTestCase {
+    func testContentPostCatalogPagesAndFullInteractionOpen() throws {
+        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--reset-appearance", "--ui-light"])
+        try openContentCatalog(app)
+
+        for title in [
+            "Post Shell", "Post Header", "Text Post", "Image Post", "Image Gallery", "Video Post",
+            "PDF Post", "Document Post", "Audio Post", "Link Post", "Mixed Content", "Action Rail",
+            "Metadata Chips", "Comments", "Attachment States"
+        ] {
+            openPage(title, app: app)
+            XCTAssertFalse(app.staticTexts[title].firstMatch.frame.isEmpty, "Invisible catalog content for \(title)")
+            back(app)
+        }
+
+        openPage("Full Post Interaction", app: app)
+        let reactionBar = app.descendants(matching: .any)["post.reaction.picker"]
+        for _ in 0..<5 where !reactionBar.exists { app.swipeUp() }
+        XCTAssertTrue(reactionBar.waitForExistence(timeout: 4))
+        app.buttons["Comments"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Comments"].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.textFields["Add a comment…"].waitForExistence(timeout: 4))
+
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "post-03-full-interaction-comments"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    func testContentCatalogSupportsOLEDAndReduceMotion() throws {
+        let app = try launchThroughAppGate(arguments: [
+            "--runtime-unavailable", "--reset-appearance", "--ui-oled", "-UIAccessibilityReduceMotionEnabled", "YES"
+        ])
+        try openContentCatalog(app)
+        openPage("Mixed Content", app: app)
+        XCTAssertTrue(app.staticTexts["+1 attachments"].waitForExistence(timeout: 4) || app.staticTexts["Mixed Content"].exists)
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "post-03-oled-reduced-motion-mixed-content"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    private func openContentCatalog(_ app: XCUIApplication) throws {
+        openSettingsFromShell(app)
+        let catalog = scrollToElement(named: "Component Catalog", in: app, maximumSwipes: 10)
+        XCTAssertTrue(catalog.waitForExistence(timeout: 5))
+        catalog.tap()
+        let content = scrollToElement(named: "Open universal content laboratory", in: app, maximumSwipes: 8)
+        XCTAssertTrue(content.exists)
+        content.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["catalog.posts"].waitForExistence(timeout: 6))
+    }
+
+    private func openPage(_ title: String, app: XCUIApplication) {
+        let row = scrollToElement(named: title, in: app, maximumSwipes: 12)
+        XCTAssertTrue(row.exists, "Missing content catalog page \(title)")
+        row.tap()
+        XCTAssertTrue(app.navigationBars[title].waitForExistence(timeout: 5), "Failed to open \(title)")
+    }
+
+    private func back(_ app: XCUIApplication) {
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.descendants(matching: .any)["catalog.posts"].waitForExistence(timeout: 4))
+    }
+}

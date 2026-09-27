@@ -5,6 +5,7 @@ struct HomeView: View {
     let mode: HomeMode
     @Environment(AppEnvironment.self) private var app
     @Environment(\.trailingInteractionInset) private var trailingInteractionInset
+    @State private var videoCoordinator = FeedVideoCoordinator()
 
     var body: some View {
         let state = app.home.state(for: mode)
@@ -177,7 +178,7 @@ struct HomeView: View {
                     let resolved = app.posts.resolved(post)
                     PostCard(
                         post: resolved,
-                        showsActionRail: resolved.hasMedia,
+                        showsActionRail: ModulaPostMapper.map(resolved).isMediaFirst,
                         isOwnPost: resolved.author?.id == app.auth.account?.accountId,
                         onOpenPost: { openPost(resolved) },
                         onOpenAuthor: { openAuthor(resolved) },
@@ -211,7 +212,8 @@ struct HomeView: View {
                         onOpenModule: { module in
                             app.navigation.push(.productHub(.module(module.id, .overview)))
                             HapticEngine.shared.play(.navigation)
-                        }
+                        },
+                        videoCoordinator: videoCoordinator
                     )
                     .onAppear {
                         if post.id == state.items.suffix(3).first?.id || post.id == state.items.last?.id {

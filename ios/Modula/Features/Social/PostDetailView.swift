@@ -12,7 +12,7 @@ struct PostDetailView: View {
     @State private var isLoading = true
     @State private var showsCommentsSheet = false
     @State private var showsShareSheet = false
-    @State private var mediaViewerItem: SocialPostMedia?
+    @State private var attachmentViewerItem: ModulaAttachment?
     @State private var confirmDelete = false
     @State private var editText = ""
     @State private var showsMoreMenu = false
@@ -50,15 +50,8 @@ struct PostDetailView: View {
                 }
             }
         }
-        .fullScreenCover(item: $mediaViewerItem) { item in
-            ModulaMediaViewer(
-                title: "Photo",
-                url: item.url,
-                accessibilityDescription: item.altText
-                    ?? post?.author.map { "Photo attached to \($0.displayName)'s post" }
-                    ?? "Photo attached",
-                onDismiss: { mediaViewerItem = nil }
-            )
+        .fullScreenCover(item: $attachmentViewerItem) { item in
+            AttachmentViewerRouter(attachment: item, imageGallery: postImageGallery) { attachmentViewerItem = nil }
         }
         .confirmationDialog("Delete this post?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete Post", role: .destructive) {
@@ -72,6 +65,13 @@ struct PostDetailView: View {
         }
         .accessibilityIdentifier("native.post")
         .accessibilityValue(RouteSerializer.serialize(.post(postID, section)))
+    }
+
+    private var postImageGallery: [ModulaAttachment] {
+        guard let post else { return [] }
+        return post.media
+            .map(ModulaPostMapper.attachment)
+            .filter { $0.kind == .image }
     }
 
     @ViewBuilder
@@ -146,7 +146,8 @@ struct PostDetailView: View {
             )
             PostRendererRegistry.content(
                 for: post,
-                onOpenMedia: { mediaViewerItem = $0 },
+                presentation: .detail,
+                onOpenMedia: { attachmentViewerItem = ModulaPostMapper.attachment($0) },
                 onOpenModule: { module in
                     app.navigation.push(.productHub(.module(module.id, .overview)))
                     HapticEngine.shared.play(.navigation)
