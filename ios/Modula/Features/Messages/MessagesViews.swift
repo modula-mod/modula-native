@@ -144,37 +144,28 @@ struct MessagesScopePicker: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        HStack(spacing: 6) {
-            chip("Chats", selected: selection == .inbox) {
-                app.navigation.replaceTop(with: .messages(.inbox))
-            }
-            chip("In-Mail", selected: selection == .inMail) {
-                app.navigation.replaceTop(with: .messages(.inMail(.inbox)))
-            }
-            chip("Requests", selected: selection == .requests) {
-                app.navigation.replaceTop(with: .messages(.requests))
-            }
-        }
+        ModulaTabStrip(
+            items: [
+                ModulaTabItem(id: MessagesScope.inbox, title: "Chats", systemImage: "bubble.left"),
+                ModulaTabItem(id: MessagesScope.inMail, title: "In-Mail", systemImage: "envelope"),
+                ModulaTabItem(id: MessagesScope.requests, title: "Requests", systemImage: "person.badge.clock")
+            ],
+            selection: Binding(get: { selection }, set: navigate),
+            layout: .equalWidth,
+            compact: true,
+            accessibilityLabel: "Message sections"
+        )
         .padding(.horizontal, ModulaLayout.contentInset)
         .padding(.vertical, 8)
-        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("messages.scope")
     }
 
-    private func chip(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button {
-            action()
-            HapticEngine.shared.play(.selection)
-        } label: {
-            Text(title)
-                .font(.subheadline.weight(selected ? .semibold : .medium))
-                .padding(.horizontal, 14)
-                .frame(minHeight: 36)
-                .background(selected ? app.appearance.accent.color.opacity(0.16) : Color.primary.opacity(0.06), in: Capsule())
-                .foregroundStyle(selected ? app.appearance.accent.color : .primary)
+    private func navigate(_ scope: MessagesScope) {
+        switch scope {
+        case .inbox: app.navigation.replaceTop(with: .messages(.inbox))
+        case .inMail: app.navigation.replaceTop(with: .messages(.inMail(.inbox)))
+        case .requests: app.navigation.replaceTop(with: .messages(.requests))
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
     }
 }
 
@@ -240,9 +231,7 @@ struct ConversationAvatar: View {
         ModulaAvatar(initials: participant?.initials ?? "?", url: participant?.avatarURL, size: 48)
             .overlay(alignment: .bottomTrailing) {
                 if unread {
-                    Circle()
-                        .fill(Color.primary)
-                        .frame(width: 10, height: 10)
+                    ModulaNotificationDot(tone: .accent, size: 10)
                         .overlay(Circle().stroke(Color(.systemBackground), lineWidth: 2))
                         .accessibilityHidden(true)
                 }
@@ -254,15 +243,7 @@ struct UnreadBadge: View {
     let count: Int
 
     var body: some View {
-        Text(count > 9 ? "9+" : "\(max(count, 1))")
-            .font(.caption2.weight(.bold))
-            .padding(.horizontal, 6)
-            .frame(minWidth: 18, minHeight: 18)
-            .background(Color.primary, in: Capsule())
-            .foregroundStyle(Color(.systemBackground))
-            .overlay(
-                Capsule().stroke(Color.primary.opacity(0.2), lineWidth: 0)
-            )
+        ModulaUnreadIndicator(count: max(count, 1), tone: .accent, maximum: 9)
             .accessibilityHidden(true)
     }
 }
@@ -411,15 +392,7 @@ struct MessageBubble: View {
             }
             if !message.isOwn { Spacer(minLength: 48) }
         }
-        .contextMenu {
-            ForEach(actions) { action in
-                Button(role: action.role == .destructive ? .destructive : nil) {
-                    onAction(action)
-                } label: {
-                    Label(action.title, systemImage: action.systemImage ?? "ellipsis")
-                }
-            }
-        }
+        .modulaContextMenu(actions: actions, onSelect: onAction)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityIdentifier("messages.bubble.\(message.id)")
@@ -458,32 +431,16 @@ struct MessageComposer: View {
     var onSend: () -> Void
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 10) {
-            TextField("Add a message...", text: $text, axis: .vertical)
-                .lineLimit(1...6)
-                .textFieldStyle(.plain)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .frame(minHeight: largeText ? 56 : 44)
-                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .disabled(!canSend)
-                .accessibilityLabel("Message")
-            Button(action: onSend) {
-                Text("Send")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(minHeight: 44)
-                    .padding(.horizontal, 14)
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(!canSend || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            .accessibilityLabel("Send")
-        }
+        ModulaComposer(
+            text: $text,
+            prompt: "Add a message...",
+            enabled: canSend,
+            showsAttachmentButton: showsAttachments,
+            onSend: onSend
+        )
         .padding(.horizontal, ModulaLayout.contentInset)
         .padding(.vertical, 8)
         .accessibilityIdentifier("messages.composer")
-        .overlay {
-            if showsAttachments { EmptyView() }
-        }
     }
 }
 

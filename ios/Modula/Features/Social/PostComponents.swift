@@ -84,25 +84,14 @@ struct PostCard: View {
         .accessibilityAction(named: "Share") { onShare?() ?? onRepost() }
         .accessibilityAction(named: "Open Author", onOpenAuthor)
         .accessibilityAction(named: "More Actions") { onMore?() }
-        .contextMenu {
-            let actions = PostContextActions.menu(
+        .modulaContextMenu(
+            actions: PostContextActions.menu(
                 isOwn: isOwnPost,
                 saved: post.saved,
                 capabilities: app.postActions.capabilities
-            )
-            ForEach(actions) { action in
-                Button(role: action.role == .destructive ? .destructive : nil) {
-                    onContextAction?(action)
-                } label: {
-                    if let systemImage = action.systemImage {
-                        Label(action.title, systemImage: systemImage)
-                    } else {
-                        Text(action.title)
-                    }
-                }
-                .disabled(!action.isInteractive)
-            }
-        }
+            ),
+            onSelect: { onContextAction?($0) }
+        )
     }
 }
 
@@ -465,9 +454,7 @@ struct PostActions: View {
                     multiEnabled: app.postActions.capabilities.multiReactions,
                     onSelect: { reaction in
                         showsReactionPicker = false
-                        if let reaction {
-                            Task { await app.postActions.setReaction(post, reaction: reaction) }
-                        }
+                        Task { await app.postActions.setReaction(post, reaction: reaction) }
                     },
                     onCancel: { showsReactionPicker = false }
                 )

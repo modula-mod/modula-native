@@ -23,8 +23,8 @@ enum ModulaPullDestination: String, CaseIterable, Equatable, Sendable {
     }
 
     static func resolve(horizontal: CGFloat, sideThreshold: CGFloat = 88) -> Self {
-        if horizontal < -sideThreshold { return .command }
-        if horizontal > sideThreshold { return .search }
+        if horizontal <= -sideThreshold { return .command }
+        if horizontal >= sideThreshold { return .search }
         return .refresh
     }
 }

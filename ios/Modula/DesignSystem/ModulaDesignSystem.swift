@@ -10,13 +10,25 @@ enum ModulaLayout {
     static let railRevealedWidth = 96.0
 }
 enum ModulaMotion {
-    enum Role { case selection, navigation, morph, reveal, dismiss, railExpand, railCollapse, sheetPresent }
+    enum Role {
+        case instantFeedback, selection, navigation, contentTransition
+        case presentation, overlay, morph, interactiveGesture, dismissal
+        case reveal, dismiss, railExpand, railCollapse, sheetPresent
+    }
     static func animation(_ role: Role, personality: AppearanceStore.MotionPersonality, reduceMotion: Bool) -> Animation? {
         guard !reduceMotion else { return .easeOut(duration: 0.12) }
         switch personality {
-        case .calm: return .easeOut(duration: role == .navigation ? 0.2 : 0.16)
-        case .standard: return .spring(duration: 0.38, bounce: 0.16)
-        case .expressive: return .spring(duration: 0.5, bounce: 0.28)
+        case .calm:
+            return .easeOut(duration: role == .navigation || role == .presentation ? 0.22 : 0.16)
+        case .standard:
+            switch role {
+            case .instantFeedback: return .easeOut(duration: 0.1)
+            case .selection, .contentTransition: return .snappy(duration: 0.28, extraBounce: 0.05)
+            case .interactiveGesture: return .interactiveSpring(response: 0.32, dampingFraction: 0.86)
+            default: return .spring(duration: 0.38, bounce: 0.16)
+            }
+        case .expressive:
+            return .spring(duration: role == .instantFeedback ? 0.18 : 0.5, bounce: 0.28)
         }
     }
 }
@@ -38,6 +50,15 @@ enum HapticSemantic: String, CaseIterable, Sendable {
     case saveComplete
     /// Legacy alias used by shell/chrome; maps to medium impact.
     case impact
+}
+
+extension HapticSemantic {
+    static let selectionChanged: Self = .selection
+    static let contextOpened: Self = .contextOpen
+    static let actionConfirmed: Self = .confirmation
+    static let reactionChanged: Self = .reactionSelect
+    static let reactionCommitted: Self = .confirmation
+    static let sheetDetentReached: Self = .dragThreshold
 }
 
 @MainActor final class HapticEngine {
@@ -585,7 +606,44 @@ enum ProfileTabAvatarRenderer {
         text.draw(at: origin, withAttributes: attributes)
     }
 }
-struct ModulaBadge: View { var title: String; var symbol: String?; @Environment(AppEnvironment.self) private var app; var body: some View { Label(title, systemImage: symbol ?? "checkmark").font(.caption.weight(.semibold)).padding(.horizontal, 10).padding(.vertical, 6).background(app.appearance.accent.color.opacity(0.14), in: Capsule()).foregroundStyle(app.appearance.accent.color) } }
+struct ModulaBadge: View {
+    var title: String
+    var symbol: String?
+    var tone: ModulaIndicatorTone = .accent
+    var style: ModulaBadgeStyle = .tinted
+    var selected = false
+
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        Group {
+            if let symbol {
+                Label(title, systemImage: symbol)
+            } else {
+                Text(title)
+            }
+        }
+        .font(.caption.weight(.semibold))
+        .lineLimit(1)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(background, in: Capsule())
+        .overlay(Capsule().stroke(color.opacity(style == .outlined ? 0.7 : 0), lineWidth: 1))
+        .foregroundStyle(foreground)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private var color: Color { tone.color(accent: app.appearance.accent.color) }
+    private var background: Color {
+        switch style {
+        case .filled: color
+        case .tinted: color.opacity(selected ? 0.22 : 0.14)
+        case .outlined: .clear
+        }
+    }
+    private var foreground: Color { style == .filled ? .white : color }
+}
 struct ModulaCard<Content: View>: View { @ViewBuilder var content: Content; @Environment(AppEnvironment.self) private var app; @Environment(\.colorScheme) private var scheme; var body: some View { content.padding(16 * app.appearance.density.spacingScale).frame(maxWidth: .infinity, alignment: .leading).background(ModulaPalette.resolve(app.appearance, scheme: scheme).surface, in: RoundedRectangle(cornerRadius: radius, style: .continuous)).overlay(RoundedRectangle(cornerRadius: radius).stroke(.primary.opacity(0.07))).accessibilityElement(children: .contain) }; private var radius: Double { switch app.appearance.interfaceShape { case .soft: 24; case .balanced: 17; case .precise: 10 } } }
 
 private struct ModulaCanvasModifier: ViewModifier {
@@ -626,7 +684,6 @@ struct ModulaMetricPicker<Value: Hashable, Content: View>: View { @Binding var s
 struct ModulaChip: View { var title: String; var selected = false; var action: () -> Void; var body: some View { Button(title, action: action).buttonStyle(.bordered).buttonBorderShape(.capsule).tint(selected ? .accentColor : .secondary).frame(minHeight: 44) } }
 struct ModulaToolbar<Content: View>: View { @ViewBuilder var content: Content; var body: some View { HStack(spacing: 8) { content }.padding(6).background(.regularMaterial, in: Capsule()) } }
 struct ModulaTopBar: View { var title: String; var trailing: (() -> Void)?; var body: some View { HStack { Text(title).font(.largeTitle.bold()); Spacer(); if let trailing { ModulaIconButton(title: "Settings", symbol: "gearshape", action: trailing) } }.padding(.horizontal, ModulaLayout.contentInset) } }
-struct ModulaSheet<Content: View>: View { @ViewBuilder var content: Content; var body: some View { NavigationStack { content }.presentationDetents([.medium, .large]).presentationDragIndicator(.visible) } }
 struct ModulaMenu<Content: View>: View { var title: String; @ViewBuilder var content: Content; var body: some View { Menu(title, content: { content }) } }
 struct ModulaEmptyState: View { var title: String; var message: String; var symbol: String; var body: some View { ContentUnavailableView(title, systemImage: symbol, description: Text(message)) } }
 struct ModulaLoadingState: View { var title = "Loading…"; var body: some View { ProgressView(title).frame(maxWidth: .infinity, minHeight: 180) } }

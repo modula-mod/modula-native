@@ -840,6 +840,16 @@ struct ComponentCatalogView: View {
                     }
                 }
                 AppearancePreviewView()
+                catalog("Advanced Interaction") {
+                    NavigationLink {
+                        AdvancedInteractionCatalogView()
+                    } label: {
+                        Label("Open interaction laboratory", systemImage: "hand.tap")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch, alignment: .leading)
+                    }
+                    .accessibilityIdentifier("catalog.advanced-interaction")
+                }
                 catalog("Buttons & controls") {
                     VStack {
                         ModulaButton(title: "Primary Button", symbol: "sparkles") {}

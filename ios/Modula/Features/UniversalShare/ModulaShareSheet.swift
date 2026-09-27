@@ -172,6 +172,9 @@ struct SharePreview: View {
     }
 }
 
+typealias ModulaSharePreview = SharePreview
+typealias ModulaShareDestination = ShareDestination
+
 struct ShareDestinationRow: View {
     let destination: ShareDestination
     var action: () -> Void
@@ -196,6 +199,8 @@ struct ShareDestinationRow: View {
         .accessibilityIdentifier("share.destination.\(destination.kind.rawValue)")
     }
 }
+
+typealias ModulaShareActionRow = ShareDestinationRow
 
 enum PeoplePickerMode: Sendable {
     case message

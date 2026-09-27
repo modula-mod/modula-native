@@ -220,16 +220,13 @@ struct PostCommentsView: View {
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(comment.voiceOverSummary)
-        .contextMenu {
-            let isOwn = comment.author?.id == app.auth.account?.accountId
-            ForEach(PostContextActions.commentMenu(isOwn: isOwn, capabilities: app.postActions.capabilities)) { action in
-                Button(role: action.role == .destructive ? .destructive : nil) {
-                    handleCommentAction(action, comment: comment, store: store)
-                } label: {
-                    Label(action.title, systemImage: action.systemImage ?? "ellipsis")
-                }
-            }
-        }
+        .modulaContextMenu(
+            actions: PostContextActions.commentMenu(
+                isOwn: comment.author?.id == app.auth.account?.accountId,
+                capabilities: app.postActions.capabilities
+            ),
+            onSelect: { handleCommentAction($0, comment: comment, store: store) }
+        )
     }
 
     private var composer: some View {
@@ -243,7 +240,7 @@ struct PostCommentsView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 6)
             }
-            HStack(spacing: 10) {
+            HStack(alignment: .bottom, spacing: 10) {
                 if let account = app.auth.account {
                     ModulaAvatar(
                         initials: String(account.displayName?.prefix(2) ?? account.primaryHandle.prefix(2)).uppercased(),
@@ -251,23 +248,22 @@ struct PostCommentsView: View {
                         size: 32
                     )
                 }
-                TextField("Add a comment…", text: Binding(
-                    get: { store?.draft ?? "" },
-                    set: { store?.draft = $0 }
-                ), axis: .vertical)
-                .focused($composerFocused)
-                .lineLimit(1...4)
+                ModulaComposer(
+                    text: Binding(
+                        get: { store?.draft ?? "" },
+                        set: { store?.draft = $0 }
+                    ),
+                    prompt: "Add a comment…",
+                    enabled: store != nil,
+                    sending: store?.isSending == true,
+                    showsAttachmentButton: false,
+                    externalFocus: Binding(
+                        get: { composerFocused },
+                        set: { composerFocused = $0 }
+                    ),
+                    onSend: { Task { _ = await store?.send() } }
+                )
                 .accessibilityIdentifier("post.comment.composer")
-                Button {
-                    Task {
-                        _ = await store?.send()
-                    }
-                } label: {
-                    Text("Send")
-                        .font(.subheadline.weight(.semibold))
-                }
-                .disabled(store?.isSending == true || (store?.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true))
-                .accessibilityIdentifier("post.comment.send")
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
@@ -306,8 +302,8 @@ struct PostCommentsSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        PostCommentsView(postID: postID, isSheet: true, onClose: { dismiss() })
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
+        ModulaSheet(detents: [.medium, .large]) {
+            PostCommentsView(postID: postID, isSheet: true, onClose: { dismiss() })
+        }
     }
 }

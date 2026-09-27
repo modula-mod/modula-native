@@ -216,6 +216,18 @@
 		F10100000000000000000009 /* ProfileMediaViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000009 /* ProfileMediaViews.swift */; };
 		F2381918FBC41E683AA717BB /* IntelligenceResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = C727EBE1A122E68AE7538DFC /* IntelligenceResponse.swift */; };
 		F280213B620AE297E6EC4D78 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE413545A422ACB4BACBB3DF /* RootView.swift */; };
+		F80200000000000000000001 /* ModulaIndicators.swift in Sources */ = {isa = PBXBuildFile; fileRef = F80100000000000000000001 /* ModulaIndicators.swift */; };
+		F80200000000000000000002 /* ModulaReactionBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F80100000000000000000002 /* ModulaReactionBar.swift */; };
+		F80200000000000000000003 /* ModulaSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = F80100000000000000000003 /* ModulaSelection.swift */; };
+		F80200000000000000000004 /* ModulaTabsAndSpaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = F80100000000000000000004 /* ModulaTabsAndSpaces.swift */; };
+		F80200000000000000000005 /* ModulaOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F80100000000000000000005 /* ModulaOverlay.swift */; };
+		F80200000000000000000006 /* ModulaSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F80100000000000000000006 /* ModulaSheet.swift */; };
+		F80200000000000000000007 /* ModulaComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F80100000000000000000007 /* ModulaComposer.swift */; };
+		F80200000000000000000008 /* AdvancedInteractionCatalogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F80100000000000000000008 /* AdvancedInteractionCatalogView.swift */; };
+		F80200000000000000000009 /* AdvancedInteractionFoundationCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F80100000000000000000009 /* AdvancedInteractionFoundationCatalog.swift */; };
+		F8020000000000000000000A /* AdvancedInteractionCollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8010000000000000000000A /* AdvancedInteractionCollectionCatalog.swift */; };
+		F8020000000000000000000B /* AdvancedInteractionMediaCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8010000000000000000000B /* AdvancedInteractionMediaCatalog.swift */; };
+		F8020000000000000000000C /* MCAT02Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8010000000000000000000C /* MCAT02Tests.swift */; };
 		F43AEB1A67070000A929D731 /* N1FixtureCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = C086A4FED95A41F19B257A39 /* N1FixtureCredentials.swift */; };
 		F50100000000000000000001 /* ModulaImmersiveSurfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */; };
 		F55C4DEFC5031B25247EC2F9 /* IntelligenceDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00C3046A71D34C45B14E30AE /* IntelligenceDiagnosticsView.swift */; };
@@ -463,6 +475,18 @@
 		E30100000000000000000009 /* HomeFeedTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeFeedTests.swift; sourceTree = "<group>"; };
 		E3010000000000000000000A /* ModulaContextMenu.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaContextMenu.swift; path = DesignSystem/ModulaContextMenu.swift; sourceTree = "<group>"; };
 		E3010000000000000000000B /* ModulaMediaViewer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaMediaViewer.swift; path = DesignSystem/ModulaMediaViewer.swift; sourceTree = "<group>"; };
+		F80100000000000000000001 /* ModulaIndicators.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaIndicators.swift; path = DesignSystem/AdvancedInteraction/ModulaIndicators.swift; sourceTree = "<group>"; };
+		F80100000000000000000002 /* ModulaReactionBar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaReactionBar.swift; path = DesignSystem/AdvancedInteraction/ModulaReactionBar.swift; sourceTree = "<group>"; };
+		F80100000000000000000003 /* ModulaSelection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaSelection.swift; path = DesignSystem/AdvancedInteraction/ModulaSelection.swift; sourceTree = "<group>"; };
+		F80100000000000000000004 /* ModulaTabsAndSpaces.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaTabsAndSpaces.swift; path = DesignSystem/AdvancedInteraction/ModulaTabsAndSpaces.swift; sourceTree = "<group>"; };
+		F80100000000000000000005 /* ModulaOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaOverlay.swift; path = DesignSystem/AdvancedInteraction/ModulaOverlay.swift; sourceTree = "<group>"; };
+		F80100000000000000000006 /* ModulaSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaSheet.swift; path = DesignSystem/AdvancedInteraction/ModulaSheet.swift; sourceTree = "<group>"; };
+		F80100000000000000000007 /* ModulaComposer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaComposer.swift; path = DesignSystem/AdvancedInteraction/ModulaComposer.swift; sourceTree = "<group>"; };
+		F80100000000000000000008 /* AdvancedInteractionCatalogView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AdvancedInteractionCatalogView.swift; path = Features/Settings/AdvancedInteractionCatalogView.swift; sourceTree = "<group>"; };
+		F80100000000000000000009 /* AdvancedInteractionFoundationCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AdvancedInteractionFoundationCatalog.swift; path = Features/Settings/AdvancedInteractionFoundationCatalog.swift; sourceTree = "<group>"; };
+		F8010000000000000000000A /* AdvancedInteractionCollectionCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AdvancedInteractionCollectionCatalog.swift; path = Features/Settings/AdvancedInteractionCollectionCatalog.swift; sourceTree = "<group>"; };
+		F8010000000000000000000B /* AdvancedInteractionMediaCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AdvancedInteractionMediaCatalog.swift; path = Features/Settings/AdvancedInteractionMediaCatalog.swift; sourceTree = "<group>"; };
+		F8010000000000000000000C /* MCAT02Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MCAT02Tests.swift; sourceTree = "<group>"; };
 		E30100000000000000000010 /* PostGestureThresholds.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostGestureThresholds.swift; path = Features/Social/PostGestureThresholds.swift; sourceTree = "<group>"; };
 		E30100000000000000000011 /* PostBackendCapabilities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostBackendCapabilities.swift; path = Features/Social/PostBackendCapabilities.swift; sourceTree = "<group>"; };
 		E30100000000000000000012 /* PostStateStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostStateStore.swift; path = Features/Social/PostStateStore.swift; sourceTree = "<group>"; };
@@ -596,6 +620,7 @@
 				A40300000000000000000002 /* LI03AppleProviderTests.swift */,
 				A6010000000000000000000D /* Nodus01Tests.swift */,
 				CF7E2A43B8AEB5467D475D1F /* Nodus02ATests.swift */,
+				F8010000000000000000000C /* MCAT02Tests.swift */,
 			);
 			path = ModulaTests;
 			sourceTree = "<group>";
@@ -788,6 +813,17 @@
 				D4010000000000000000001C /* ModulaPullEffects.metal */,
 				E3010000000000000000000A /* ModulaContextMenu.swift */,
 				E3010000000000000000000B /* ModulaMediaViewer.swift */,
+				F80100000000000000000001 /* ModulaIndicators.swift */,
+				F80100000000000000000002 /* ModulaReactionBar.swift */,
+				F80100000000000000000003 /* ModulaSelection.swift */,
+				F80100000000000000000004 /* ModulaTabsAndSpaces.swift */,
+				F80100000000000000000005 /* ModulaOverlay.swift */,
+				F80100000000000000000006 /* ModulaSheet.swift */,
+				F80100000000000000000007 /* ModulaComposer.swift */,
+				F80100000000000000000008 /* AdvancedInteractionCatalogView.swift */,
+				F80100000000000000000009 /* AdvancedInteractionFoundationCatalog.swift */,
+				F8010000000000000000000A /* AdvancedInteractionCollectionCatalog.swift */,
+				F8010000000000000000000B /* AdvancedInteractionMediaCatalog.swift */,
 				6C4472E61C35766446322975 /* ShellComponents.swift */,
 				69B093117E45986E847387DC /* GeneratedDesignContract.swift */,
 				15D7EBEF5CC806F4A3DB8FD2 /* AccountSettingsView.swift */,
@@ -1160,6 +1196,7 @@
 				A30300000000000000000002 /* LI03AppleProviderTests.swift in Sources */,
 				A7010000000000000000000D /* Nodus01Tests.swift in Sources */,
 				E423D28883AE5B3B8E115FCA /* Nodus02ATests.swift in Sources */,
+				F8020000000000000000000C /* MCAT02Tests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1256,6 +1293,17 @@
 				F10100000000000000000009 /* ProfileMediaViews.swift in Sources */,
 				E4010000000000000000000A /* ModulaContextMenu.swift in Sources */,
 				E4010000000000000000000B /* ModulaMediaViewer.swift in Sources */,
+				F80200000000000000000001 /* ModulaIndicators.swift in Sources */,
+				F80200000000000000000002 /* ModulaReactionBar.swift in Sources */,
+				F80200000000000000000003 /* ModulaSelection.swift in Sources */,
+				F80200000000000000000004 /* ModulaTabsAndSpaces.swift in Sources */,
+				F80200000000000000000005 /* ModulaOverlay.swift in Sources */,
+				F80200000000000000000006 /* ModulaSheet.swift in Sources */,
+				F80200000000000000000007 /* ModulaComposer.swift in Sources */,
+				F80200000000000000000008 /* AdvancedInteractionCatalogView.swift in Sources */,
+				F80200000000000000000009 /* AdvancedInteractionFoundationCatalog.swift in Sources */,
+				F8020000000000000000000A /* AdvancedInteractionCollectionCatalog.swift in Sources */,
+				F8020000000000000000000B /* AdvancedInteractionMediaCatalog.swift in Sources */,
 				21638B169590129BA65823F1 /* SettingsStore.swift in Sources */,
 				0139D48F433333A6C105C394 /* SettingsView.swift in Sources */,
 				90EC78DC1C87A9562EC08717 /* AppRoute.swift in Sources */,
