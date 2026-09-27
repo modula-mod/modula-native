@@ -55,7 +55,10 @@ struct NodusIntelligenceProvider: IntelligenceProvider {
             throw IntelligenceError.requestCancelled
         }
         try Task.checkCancellation()
-        let freshness = freshnessClassifier.classify(prompt)
+        // Conversation requests contain identity, history, and evidence scaffolding with phrases such as
+        // "current request". Classifying that assembled prompt makes otherwise stable questions look live.
+        // Prefer the router's classification when the trusted conversation engine supplies it.
+        let freshness = Self.freshness(from: request.input) ?? freshnessClassifier.classify(prompt)
         let normalizedText = NodusPromptContract.normalize(generation.text)
         let normalized = normalizedText.lowercased()
         let uncertain = normalized.contains("not enough reliable") || normalized.contains("uncertain") || normalized.contains("verify")
@@ -127,6 +130,12 @@ struct NodusIntelligenceProvider: IntelligenceProvider {
               let raw = object["reasoningMode"]?.stringValue,
               let mode = NodusReasoningMode(rawValue: raw) else { return .standard }
         return mode
+    }
+
+    private static func freshness(from input: IntelligenceValue) -> NodusFreshness? {
+        guard case .object(let object) = input,
+              let raw = object["freshness"]?.stringValue else { return nil }
+        return NodusFreshness(rawValue: raw)
     }
 
     private static func isHighRisk(_ prompt: String) -> Bool {

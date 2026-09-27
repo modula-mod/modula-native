@@ -107,6 +107,7 @@ actor NodusConversationEngine {
                         "taskMode": .string(taskMode.rawValue),
                         "maxOutputTokens": .integer(maxTokens),
                         "reasoningMode": .string(reasoningMode.rawValue),
+                        "freshness": .string(requestFreshness.rawValue),
                     ]),
                     privacy: .localOnly,
                     source: .developerDiagnostics

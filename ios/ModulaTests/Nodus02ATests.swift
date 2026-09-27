@@ -242,6 +242,32 @@ final class Nodus02ASearchAndReasoningTests: XCTestCase {
         XCTAssertEqual(generateCalls, 0)
     }
 
+    func testStableQuestionRetainsRouterFreshnessThroughContextPrompt() async throws {
+        let conversationFiles = PrivateFileStore(domain: .nodusConversations)
+        let knowledgeFiles = PrivateFileStore(domain: .nodusKnowledge)
+        let memoryFiles = PrivateFileStore(domain: .nodusMemory)
+        let suffix = UUID().uuidString
+        defer {
+            try? conversationFiles.remove(filename: "\(suffix).json")
+            try? knowledgeFiles.remove(filename: "\(suffix).json")
+            try? memoryFiles.remove(filename: "\(suffix).json")
+        }
+        let conversations = NodusConversationStore(files: conversationFiles, filename: "\(suffix).json")
+        let conversation = try await conversations.create()
+        let runtime = FakeNodusRuntime(text: "The Moon has phases because its sunlit half is seen from changing angles.")
+        let engine = NodusConversationEngine(
+            conversations: conversations,
+            knowledge: NodusKnowledgeStore(files: knowledgeFiles, filename: "\(suffix).json"),
+            memory: NodusMemoryStore(files: memoryFiles, filename: "\(suffix).json"),
+            intelligence: try makeIntelligence(runtime: runtime), searchProvider: nil
+        )
+
+        let result = try await engine.send(question: "Explain why the Moon has phases.", conversationID: conversation.id)
+
+        XCTAssertEqual(result.message.answer?.freshness, .stable)
+        XCTAssertNotEqual(result.message.answer?.confidence.band, .needsVerification)
+    }
+
     func testSearchOnNormalizesSourcesAndKeepsGenerationLocal() async throws {
         let conversationFiles = PrivateFileStore(domain: .nodusConversations)
         let knowledgeFiles = PrivateFileStore(domain: .nodusKnowledge)

@@ -135,6 +135,23 @@ final class NodusFreshnessAndConfidenceTests: XCTestCase {
         XCTAssertEqual(generateCalls, 1)
     }
 
+    func testTrustedFreshnessMetadataOverridesContextScaffolding() async throws {
+        let runtime = FakeNodusRuntime(text: "The Moon has phases because its sunlit half is seen from changing angles.")
+        let provider = NodusIntelligenceProvider(runtime: runtime)
+        let request = IntelligenceRequest(
+            capability: .generate,
+            input: .object([
+                "text": .string("CURRENT USER REQUEST: Explain why the Moon has phases. Answer the current request."),
+                "freshness": .string(NodusFreshness.stable.rawValue),
+            ]),
+            privacy: .localOnly,
+            source: .test
+        )
+        let response = try await provider.execute(request, context: IntelligenceExecutionContext(source: .test))
+        XCTAssertEqual(response.output.objectValue?["freshness"]?.stringValue, NodusFreshness.stable.rawValue)
+        XCTAssertEqual(response.output.objectValue?["verificationRecommended"]?.boolValue, false)
+    }
+
     func testLocalOnlyNodusNeverExecutesRemoteAIProvider() async throws {
         let runtime = FakeNodusRuntime(text: "Photosynthesis converts light energy into chemical energy.")
         let nodus = NodusIntelligenceProvider(runtime: runtime)
