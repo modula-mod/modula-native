@@ -64,6 +64,39 @@ final class PostSystemTests: XCTestCase {
         XCTAssertEqual(post?.media.count, 2)
     }
 
+    func testDecodeOrderedGreenfieldAttachments() {
+        let post = SocialPayloadDecoder.post(.object([
+            "id": .string("post-rich"),
+            "createdAt": .string("2026-09-27T12:00:00.000Z"),
+            "kind": .string("media"),
+            "content": .array([
+                .object([
+                    "id": .string("content-image"), "type": .string("image"), "order": .number(1),
+                    "attachment": .object([
+                        "id": .string("att-image"), "kind": .string("image"), "mimeType": .string("image/png"),
+                        "filename": .string("Photo.png"), "byteSize": .number(100), "status": .string("ready"),
+                        "originalURL": .string("https://api.example.test/v1/attachments/att-image/content"),
+                        "thumbnailURL": .string("https://api.example.test/v1/attachments/att-image/thumbnail")
+                    ])
+                ]),
+                .object([
+                    "id": .string("content-pdf"), "type": .string("pdf"), "order": .number(0),
+                    "caption": .string("Architecture"),
+                    "attachment": .object([
+                        "id": .string("att-pdf"), "kind": .string("pdf"), "mimeType": .string("application/pdf"),
+                        "filename": .string("Architecture.pdf"), "byteSize": .number(200), "status": .string("ready"),
+                        "originalURL": .string("https://api.example.test/v1/attachments/att-pdf/content")
+                    ])
+                ])
+            ])
+        ]))
+
+        XCTAssertEqual(post?.media.map(\.id), ["att-pdf", "att-image"])
+        XCTAssertEqual(post?.media.map(\.kind), ["pdf", "image"])
+        XCTAssertEqual(post?.media.first?.altText, "Architecture")
+        XCTAssertEqual(post?.media.last?.thumbnailURL?.lastPathComponent, "thumbnail")
+    }
+
     func testCommentPageDecode() {
         let page = SocialPayloadDecoder.commentPage(from: .object([
             "items": .array([

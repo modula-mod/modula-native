@@ -967,6 +967,7 @@ struct ComponentCatalogView: View {
                             capabilities: .production,
                             developerMode: true,
                             photoPicker: { EmptyView() },
+                            videoPicker: { EmptyView() },
                             onTool: { _ in }
                         )
                     }

@@ -1,5 +1,6 @@
 import PhotosUI
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct CreationStudioView: View {
     var route: ComposeRoute?
@@ -12,7 +13,10 @@ struct CreationStudioView: View {
     @FocusState private var editorFocused: Bool
     @State private var store: CreationStudioStore?
     @State private var pickerItems: [PhotosPickerItem] = []
+    @State private var videoPickerItems: [PhotosPickerItem] = []
+    @State private var showFileImporter = false
     @State private var moreExplanation: CreationTool?
+    @State private var publishTask: Task<Void, Never>?
 
     init(route: ComposeRoute) {
         self.route = route
@@ -35,7 +39,11 @@ struct CreationStudioView: View {
         }
         .modulaCanvas()
         .onAppear(perform: bootstrap)
-        .onDisappear { store?.flush() }
+        .onDisappear {
+            publishTask?.cancel()
+            publishTask = nil
+            store?.flush()
+        }
         .onChange(of: app.auth.account?.accountId) { _, id in
             app.drafts.setAccountID(id)
         }
@@ -91,6 +99,26 @@ struct CreationStudioView: View {
             Task { await store.attachImages(items) }
             pickerItems = []
         }
+        .onChange(of: videoPickerItems) { _, items in
+            guard !items.isEmpty else { return }
+            Task { await store.attachVideos(items) }
+            videoPickerItems = []
+        }
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: [.pdf, .plainText, .rtf, .audio, .movie, .image,
+                                  .init(filenameExtension: "doc") ?? .data,
+                                  .init(filenameExtension: "docx") ?? .data,
+                                  .init(filenameExtension: "ppt") ?? .data,
+                                  .init(filenameExtension: "pptx") ?? .data,
+                                  .init(filenameExtension: "xls") ?? .data,
+                                  .init(filenameExtension: "xlsx") ?? .data,
+                                  .zip],
+            allowsMultipleSelection: true
+        ) { result in
+            if case .success(let urls) = result { Task { await store.attachFiles(urls) } }
+            if case .failure = result { store.publishError = "Couldn't open those files. Your draft is safe." }
+        }
         .alert(
             moreExplanation?.title ?? "Unavailable",
             isPresented: Binding(
@@ -106,14 +134,20 @@ struct CreationStudioView: View {
 
     private func header(_ store: CreationStudioStore) -> some View {
         HStack(spacing: 12) {
-            Button("Cancel") { exitTapped(store) }
+            Button(store.draft.isPublishing ? "Stop" : "Cancel") {
+                if store.draft.isPublishing {
+                    publishTask?.cancel()
+                } else {
+                    exitTapped(store)
+                }
+            }
                 .fontDesign(.default)
                 .accessibilitySortPriority(100)
             Spacer()
             DraftStatusView(saved: app.drafts.showSavedIndicator, publishing: store.draft.isPublishing)
                 .accessibilitySortPriority(20)
             Button(store.draft.kind.publishLabel) {
-                Task { await publish(store) }
+                startPublishing(store)
             }
             .fontWeight(.semibold)
             .fontDesign(.default)
@@ -171,7 +205,7 @@ struct CreationStudioView: View {
                     }
                     if store.draft.state == .failed {
                         HStack {
-                            Button("Retry") { Task { await publish(store) } }
+                            Button("Retry") { startPublishing(store) }
                             Button("Edit") { store.draft.state = .editing }
                         }
                         .fontDesign(.default)
@@ -200,6 +234,16 @@ struct CreationStudioView: View {
                         .frame(minWidth: 44, minHeight: 44)
                     }
                     .disabled(!store.capabilities.toolEnabled(.photo))
+                },
+                videoPicker: {
+                    PhotosPicker(selection: $videoPickerItems, maxSelectionCount: 1, matching: .videos) {
+                        VStack(spacing: 4) {
+                            Image(systemName: "video")
+                            Text("Video").font(.caption2)
+                        }
+                        .frame(minWidth: 44, minHeight: 44)
+                    }
+                    .disabled(!store.capabilities.videoPost)
                 },
                 onTool: { tool in
                     handle(tool, store: store)
@@ -293,8 +337,10 @@ struct CreationStudioView: View {
             }
         case .poll:
             store.setPoll(store.draft.poll ?? PollDraft.blank(optionLimit: store.capabilities.maxPollOptions ?? 4))
-        case .video, .more:
-            moreExplanation = tool
+        case .video:
+            break
+        case .more:
+            showFileImporter = true
         }
     }
 
@@ -334,6 +380,14 @@ struct CreationStudioView: View {
         app.home.ingestPublished(post)
         app.profile.ingestPublished(post)
         close()
+    }
+
+    private func startPublishing(_ store: CreationStudioStore) {
+        guard publishTask == nil else { return }
+        publishTask = Task {
+            await publish(store)
+            publishTask = nil
+        }
     }
 
     private func exitTapped(_ store: CreationStudioStore) {
