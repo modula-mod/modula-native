@@ -1,6 +1,27 @@
 import XCTest
 import UIKit
 
+/// The accepted Edge Picker is scrub-only. Drive the real adjustable surface
+/// instead of reviving the obsolete tappable-item contract.
+@MainActor
+private func scrubEdgePicker(_ app: XCUIApplication, to route: String) {
+    let picker = app.descendants(matching: .any)["shell.edge-loop"].firstMatch
+    XCTAssertTrue(picker.waitForExistence(timeout: 5))
+    let start = picker.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72))
+    let end = picker.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.28))
+    start.press(forDuration: 0.12, thenDragTo: end)
+    let home = app.descendants(matching: .any)["native.home"].firstMatch
+    XCTAssertTrue(NSPredicate(format: "value == %@", route).evaluate(with: home))
+}
+
+@MainActor
+private func dismissModulaSheet(_ sheet: XCUIElement) {
+    let handle = sheet.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.02))
+    let destination = sheet.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.92))
+    handle.press(forDuration: 0.12, thenDragTo: destination)
+    XCTAssertFalse(sheet.waitForExistence(timeout: 4))
+}
+
 @MainActor
 final class N2ShellUITests: XCTestCase {
     func testCanonicalShellRailProductHubModuleHostAndAppearance() throws {
@@ -9,7 +30,7 @@ final class N2ShellUITests: XCTestCase {
         print("N2_METRIC shell_render_ms=\(launchStart.duration(to: .now).milliseconds)")
 
         let railStart = ContinuousClock.now
-        app.buttons["For You"].firstMatch.tap()
+        scrubEdgePicker(app, to: "/home/for-you")
         XCTAssertEqual(app.descendants(matching: .any)["native.home"].firstMatch.value as? String, "/home/for-you")
         print("N2_METRIC rail_switch_ms=\(railStart.duration(to: .now).milliseconds)")
         let tabStart = ContinuousClock.now
@@ -1250,16 +1271,23 @@ final class N3CHomeUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["accessory.summary"].firstMatch.exists)
         XCTAssertTrue(app.descendants(matching: .any)["accessory.tools"].firstMatch.exists)
 
-        app.buttons["For You"].firstMatch.tap()
+        scrubEdgePicker(app, to: "/home/for-you")
         XCTAssertEqual(app.descendants(matching: .any)["native.home"].firstMatch.value as? String, "/home/for-you")
 
-        app.descendants(matching: .any)["accessory.summary"].firstMatch.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["home.summary"].firstMatch.waitForExistence(timeout: 5))
-        app.buttons["Close"].firstMatch.tap()
+        let summary = app.buttons["accessory.summary"].firstMatch
+        XCTAssertTrue(summary.waitForExistence(timeout: 4))
+        summary.tap()
+        let sheet = app.descendants(matching: .any)["modula.sheet"].firstMatch
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Overview"].waitForExistence(timeout: 4))
+        dismissModulaSheet(sheet)
 
-        app.descendants(matching: .any)["accessory.tools"].firstMatch.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["home.tools"].firstMatch.waitForExistence(timeout: 5))
-        app.buttons["Close"].firstMatch.tap()
+        let tools = app.buttons["accessory.tools"].firstMatch
+        XCTAssertTrue(tools.waitForExistence(timeout: 4))
+        tools.tap()
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["home.tools.refresh"].waitForExistence(timeout: 4))
+        dismissModulaSheet(sheet)
 
         attachScreenshot(app, name: "n3c-home-tools")
     }
@@ -1272,7 +1300,7 @@ final class N3CHomeUITests: XCTestCase {
         attachScreenshot(app, name: "n3c-header-00-resting")
 
         // Switch to For You so the feed has public content to scroll under the header.
-        app.buttons["For You"].firstMatch.tap()
+        scrubEdgePicker(app, to: "/home/for-you")
         sleep(1)
         attachScreenshot(app, name: "n3c-header-01-foryou-resting")
 
@@ -1298,6 +1326,7 @@ final class N3CHomeUITests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
     }
+
 }
 
 @MainActor
@@ -1528,6 +1557,30 @@ final class POST03CatalogUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["+1 attachments"].waitForExistence(timeout: 4) || app.staticTexts["Mixed Content"].exists)
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "post-03-oled-reduced-motion-mixed-content"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    func testPOST04PublishingLabAndMixedFeedStressRoute() throws {
+        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--reset-appearance", "--ui-dark"])
+        try openContentCatalog(app)
+
+        openPage("Upload Queue", app: app)
+        XCTAssertTrue(app.staticTexts["Uploading 38%"].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.buttons["Retry"].exists)
+        XCTAssertTrue(app.buttons["Cancel"].exists)
+        back(app)
+
+        openPage("50+ Mixed Feed", app: app)
+        XCTAssertTrue(app.staticTexts["catalog.posts.stress-count"].waitForExistence(timeout: 4))
+        XCTAssertEqual(app.staticTexts["catalog.posts.stress-count"].label, "60 mixed posts")
+        XCTAssertTrue(app.staticTexts["Fixture stress-0"].waitForExistence(timeout: 4))
+        for _ in 0..<18 { app.swipeUp(velocity: .fast) }
+        XCTAssertFalse(app.staticTexts["Fixture stress-0"].exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Fixture stress-'")).firstMatch.exists)
+
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "post-04-sixty-item-mixed-feed"
         attachment.lifetime = .keepAlways
         add(attachment)
     }

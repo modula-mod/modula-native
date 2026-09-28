@@ -216,6 +216,42 @@ actor GreenfieldClient {
 
     func hasSession() -> Bool { tokens != nil }
 
+    func authenticatedUpload(
+        path: String,
+        fileURL: URL,
+        progress: @escaping @Sendable (Double) -> Void
+    ) async throws -> JSONValue {
+        guard let baseURL, baseURL.scheme == "https", baseURL.user == nil, baseURL.password == nil,
+              path.hasPrefix("/v1/"), !path.contains(".."),
+              let url = URL(string: path, relativeTo: baseURL)?.absoluteURL,
+              url.host == baseURL.host else { throw APIError.unconfigured }
+        let generation = epoch
+        let bearer = try await accessToken()
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.timeoutInterval = 300
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+        request.setValue("ModulaNative/0.1.0 (iOS)", forHTTPHeaderField: "User-Agent")
+        request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+        let transfer = UploadTransfer(progress: progress)
+        let (data, response) = try await withTaskCancellationHandler {
+            try await transfer.start(request: request, fileURL: fileURL)
+        } onCancel: {
+            transfer.cancel()
+        }
+        guard generation == epoch else { throw APIError.accountChanged }
+        guard let http = response as? HTTPURLResponse, data.count < 8_000_000 else { throw APIError.invalidResponse }
+        let envelope = try JSONDecoder().decode(Envelope<JSONValue>.self, from: data)
+        guard (200..<300).contains(http.statusCode), envelope.ok else {
+            let rawCode = envelope.error?.code ?? "REQUEST_FAILED"
+            let safeCode = rawCode.range(of: "^[A-Z0-9_]{1,80}$", options: .regularExpression) != nil ? rawCode : "REQUEST_FAILED"
+            throw APIError.rejected(http.statusCode, safeCode)
+        }
+        guard let value = envelope.data else { throw APIError.invalidResponse }
+        return value
+    }
+
     private func authenticated<T: Decodable & Sendable>(_ method: String, path: String, body: JSONValue? = nil) async throws -> T {
         let generation = epoch
         let bearer = try await accessToken()
@@ -270,5 +306,61 @@ actor GreenfieldClient {
         }
         guard let value = envelope.data else { throw APIError.invalidResponse }
         return value
+    }
+}
+
+private final class UploadTransfer: NSObject, URLSessionTaskDelegate, URLSessionDataDelegate, @unchecked Sendable {
+    private let lock = NSLock()
+    private let progress: @Sendable (Double) -> Void
+    private var received = Data()
+    private var continuation: CheckedContinuation<(Data, URLResponse), Error>?
+    private var task: URLSessionUploadTask?
+    private var session: URLSession?
+
+    init(progress: @escaping @Sendable (Double) -> Void) { self.progress = progress }
+
+    func start(request: URLRequest, fileURL: URL) async throws -> (Data, URLResponse) {
+        try await withCheckedThrowingContinuation { continuation in
+            lock.lock()
+            self.continuation = continuation
+            let session = URLSession(configuration: .ephemeral, delegate: self, delegateQueue: nil)
+            self.session = session
+            let task = session.uploadTask(with: request, fromFile: fileURL)
+            self.task = task
+            lock.unlock()
+            progress(0)
+            task.resume()
+        }
+    }
+
+    func cancel() {
+        lock.lock(); let task = task; lock.unlock()
+        task?.cancel()
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64,
+                    totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
+        guard totalBytesExpectedToSend > 0 else { return }
+        progress(min(max(Double(totalBytesSent) / Double(totalBytesExpectedToSend), 0), 1))
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        lock.lock(); received.append(data); lock.unlock()
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        lock.lock()
+        let continuation = self.continuation
+        self.continuation = nil
+        let data = received
+        let response = task.response
+        self.task = nil
+        self.session = nil
+        lock.unlock()
+        session.finishTasksAndInvalidate()
+        if let error { continuation?.resume(throwing: error); return }
+        guard let response else { continuation?.resume(throwing: APIError.invalidResponse); return }
+        progress(1)
+        continuation?.resume(returning: (data, response))
     }
 }

@@ -29,7 +29,16 @@ struct CreationCapabilities: Sendable, Equatable {
     var sensitiveMediaControls = false
 
     /// Production defaults from repository contracts. Live VPS re-audit may widen.
-    static let production = CreationCapabilities()
+    static let production: CreationCapabilities = {
+        var value = CreationCapabilities()
+        value.photoPost = true
+        value.carouselPost = true
+        value.videoPost = true
+        value.audioPost = true
+        value.mediaUpload = true
+        value.maxMediaCount = 10
+        return value
+    }()
 
     static let developerPreview: CreationCapabilities = {
         var value = CreationCapabilities()
@@ -64,7 +73,7 @@ struct CreationCapabilities: Sendable, Equatable {
         case .video: videoPost || reelPost
         case .link: linkPost
         case .poll: pollPost
-        case .more: false
+        case .more: mediaUpload
         }
     }
 
@@ -115,7 +124,7 @@ enum CreationTool: String, CaseIterable, Identifiable, Sendable, Hashable {
     func applies(to kind: CreationKind) -> Bool {
         switch kind {
         case .post, .photo, .carousel, .link:
-            return self != .more
+            return true
         case .poll:
             return self == .poll
         case .story:
@@ -123,7 +132,7 @@ enum CreationTool: String, CaseIterable, Identifiable, Sendable, Hashable {
         case .reel, .video:
             return self == .video
         case .audio, .movie:
-            return false
+            return self == .more
         }
     }
 }

@@ -427,7 +427,15 @@ enum SocialPayloadDecoder {
         let id = value["id"]?.string ?? value["postId"]?.string
         guard let id else { return nil }
         let author = value["author"].flatMap(author)
-        let mediaValues = value["media"]?.array ?? []
+        let contentValues = (value["content"]?.array ?? []).sorted {
+            ($0["order"]?.int ?? 0) < ($1["order"]?.int ?? 0)
+        }.compactMap { entry -> JSONValue? in
+            guard case .object(var attachment)? = entry["attachment"] else { return nil }
+            if attachment["kind"] == nil, let type = entry["type"] { attachment["kind"] = type }
+            if attachment["altText"] == nil, let caption = entry["caption"] { attachment["altText"] = caption }
+            return .object(attachment)
+        }
+        let mediaValues = contentValues.isEmpty ? (value["media"]?.array ?? []) : contentValues
         let media = mediaValues.enumerated().compactMap { index, item in media(item, fallbackID: "\(id)-\(index)") }
         let linkValue = value["link"]
         let link: SocialPostLink? = linkValue.map {
@@ -544,7 +552,8 @@ enum SocialPayloadDecoder {
     }
 
     static func media(_ value: JSONValue, fallbackID: String) -> SocialPostMedia? {
-        let url = value["url"]?.string.flatMap(URL.init(string:))
+        let url = (value["url"]?.string ?? value["originalURL"]?.string ?? value["originalUrl"]?.string)
+            .flatMap(URL.init(string:))
         let alt = emptyToNil(value["altText"]?.string ?? value["alt_text"]?.string)
         let kind = value["kind"]?.string ?? value["type"]?.string ?? "image"
         if url == nil && alt == nil { return nil }
@@ -562,8 +571,8 @@ enum SocialPayloadDecoder {
             altText: alt,
             kind: kind,
             aspectRatio: ratio,
-            previewURL: (value["previewUrl"]?.string ?? value["preview_url"]?.string).flatMap(URL.init(string:)),
-            thumbnailURL: (value["thumbnailUrl"]?.string ?? value["thumbnail_url"]?.string ?? value["posterUrl"]?.string).flatMap(URL.init(string:)),
+            previewURL: (value["previewURL"]?.string ?? value["previewUrl"]?.string ?? value["preview_url"]?.string).flatMap(URL.init(string:)),
+            thumbnailURL: (value["thumbnailURL"]?.string ?? value["thumbnailUrl"]?.string ?? value["thumbnail_url"]?.string ?? value["posterUrl"]?.string).flatMap(URL.init(string:)),
             mimeType: emptyToNil(value["mimeType"]?.string ?? value["mime_type"]?.string ?? value["contentType"]?.string),
             filename: emptyToNil(value["filename"]?.string ?? value["fileName"]?.string ?? value["name"]?.string),
             byteSize: (value["byteSize"]?.int ?? value["byte_size"]?.int ?? value["size"]?.int).map(Int64.init),

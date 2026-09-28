@@ -22,7 +22,57 @@ struct DraftMediaStore: Sendable {
             pixelHeight: height,
             byteCount: data.count,
             duration: nil,
-            sensitive: false
+            sensitive: false,
+            mimeType: "image/jpeg",
+            originalFilename: "\(id).jpg",
+            uploadState: .readyToUpload
+        )
+    }
+
+    func importData(
+        _ data: Data,
+        accountID: String,
+        id: String = UUID().uuidString,
+        kind: CreationMedia.Kind,
+        mimeType: String,
+        originalFilename: String,
+        width: Int? = nil,
+        height: Int? = nil,
+        duration: TimeInterval? = nil,
+        pageCount: Int? = nil
+    ) throws -> CreationMedia {
+        let ext = URL(fileURLWithPath: originalFilename).pathExtension.lowercased()
+        let suffix = ext.isEmpty ? "bin" : String(ext.prefix(12))
+        let filename = "\(sanitize(accountID))/\(id).\(suffix)"
+        try fileStore.saveData(data, filename: filename)
+        return CreationMedia(
+            id: id, kind: kind, filename: filename, altText: "", pixelWidth: width, pixelHeight: height,
+            byteCount: data.count, duration: duration, sensitive: false, mimeType: mimeType,
+            originalFilename: originalFilename, uploadState: .readyToUpload, pageCount: pageCount
+        )
+    }
+
+    func importFile(
+        at sourceURL: URL,
+        accountID: String,
+        id: String = UUID().uuidString,
+        kind: CreationMedia.Kind,
+        mimeType: String,
+        originalFilename: String,
+        width: Int? = nil,
+        height: Int? = nil,
+        duration: TimeInterval? = nil,
+        pageCount: Int? = nil
+    ) throws -> CreationMedia {
+        let ext = sourceURL.pathExtension.lowercased()
+        let suffix = ext.isEmpty ? "bin" : String(ext.prefix(12))
+        let filename = "\(sanitize(accountID))/\(id).\(suffix)"
+        let destination = try fileStore.saveFile(at: sourceURL, filename: filename)
+        let size = try destination.resourceValues(forKeys: [.fileSizeKey]).fileSize
+        return CreationMedia(
+            id: id, kind: kind, filename: filename, altText: "", pixelWidth: width, pixelHeight: height,
+            byteCount: size, duration: duration, sensitive: false, mimeType: mimeType,
+            originalFilename: originalFilename, uploadState: .readyToUpload, pageCount: pageCount
         )
     }
 

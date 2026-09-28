@@ -15,15 +15,15 @@ struct GreenfieldPublishingRepository: PublishingRepository {
             )
         }
         switch draft.kind {
-        case .post:
-            let body = CreationPayloadEncoder.textPostBody(from: draft)
+        case .post, .photo, .video, .carousel, .audio:
+            let body = CreationPayloadEncoder.postBody(from: draft)
             let value: JSONValue = try await client.authenticatedJSON("POST", path: "/v1/posts", body: body)
             let payload = value["post"] ?? value
             guard let post = SocialPayloadDecoder.post(payload) else {
                 throw APIError.invalidResponse
             }
             return post
-        case .story, .reel, .photo, .video, .link, .poll, .carousel, .audio, .movie:
+        case .story, .reel, .link, .poll, .movie:
             throw APIError.unavailable(
                 capabilities.unavailableReason[draft.kind] ?? "Publishing isn’t available yet."
             )

@@ -1,10 +1,11 @@
 import SwiftUI
 
-struct CreationToolDock<PhotoPicker: View>: View {
+struct CreationToolDock<PhotoPicker: View, VideoPicker: View>: View {
     var kind: CreationKind
     var capabilities: CreationCapabilities
     var developerMode: Bool
     @ViewBuilder var photoPicker: () -> PhotoPicker
+    @ViewBuilder var videoPicker: () -> VideoPicker
     var onTool: (CreationTool) -> Void
 
     var body: some View {
@@ -15,6 +16,10 @@ struct CreationToolDock<PhotoPicker: View>: View {
                         photoPicker()
                             .accessibilityLabel("Photo")
                             .accessibilityIdentifier("compose.tool.photo")
+                    } else if tool == .video && capabilities.toolEnabled(.video) {
+                        videoPicker()
+                            .accessibilityLabel("Video")
+                            .accessibilityIdentifier("compose.tool.video")
                     } else {
                         Button {
                             onTool(tool)
@@ -68,16 +73,25 @@ struct MediaAttachmentGrid: View {
     private func mediaCard(_ item: CreationMedia, index: Int, count: Int) -> some View {
         let url = fileURL(item)
         return ZStack(alignment: .bottomLeading) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                default:
-                    Rectangle().fill(.secondary.opacity(0.15))
+            if item.kind == .image {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image): image.resizable().scaledToFill()
+                    default: Rectangle().fill(.secondary.opacity(0.15))
+                    }
                 }
+                .frame(width: 148, height: 148).clipped()
+            } else {
+                VStack(spacing: 8) {
+                    Image(systemName: symbol(item.kind)).font(.title)
+                    Text(item.originalFilename ?? "Attachment").font(.caption).lineLimit(2).multilineTextAlignment(.center)
+                    if let progress = item.uploadProgress, item.uploadState == .uploading {
+                        ProgressView(value: progress).padding(.horizontal, 12)
+                    }
+                }
+                .frame(width: 148, height: 148)
+                .background(.secondary.opacity(0.10))
             }
-            .frame(width: 148, height: 148)
-            .clipped()
             Text("\(index + 1)")
                 .font(.caption.weight(.semibold))
                 .padding(.horizontal, 8)
@@ -95,17 +109,39 @@ struct MediaAttachmentGrid: View {
         .accessibilityAction(named: "Move later") { onMoveLater(item.id) }
         .accessibilityAction(named: "Remove") { onRemove(item.id) }
         .contextMenu {
-            Button("Alt Text", systemImage: "text.below.photo") { onAltText(item.id) }
-            Button("Rotate", systemImage: "rotate.right") { onRotate(item.id) }
+            Button("Description", systemImage: "text.below.photo") { onAltText(item.id) }
+            if item.kind == .image {
+                Button("Rotate", systemImage: "rotate.right") { onRotate(item.id) }
+            }
             Button("Move Earlier", systemImage: "arrow.left") { onMoveEarlier(item.id) }
             Button("Move Later", systemImage: "arrow.right") { onMoveLater(item.id) }
             Button("Remove", systemImage: "trash", role: .destructive) { onRemove(item.id) }
         }
     }
 
+    private func symbol(_ kind: CreationMedia.Kind) -> String {
+        switch kind {
+        case .image: "photo"
+        case .video: "video"
+        case .audio: "waveform"
+        case .pdf: "doc.richtext"
+        case .document, .unknown: "doc"
+        }
+    }
+
     private func label(_ item: CreationMedia, index: Int, count: Int) -> String {
         let alt = item.hasAltText ? item.altText : "Alt text not added"
-        return "Photo \(index + 1) of \(count). \(alt)."
+        let name = item.originalFilename ?? "Attachment"
+        let kind: String
+        switch item.kind {
+        case .image: kind = "Image"
+        case .video: kind = "Video"
+        case .audio: kind = "Audio"
+        case .pdf: kind = "PDF document"
+        case .document: kind = "Document"
+        case .unknown: kind = "Attachment"
+        }
+        return "\(kind) \(index + 1) of \(count), \(name). \(alt)."
     }
 }
 
