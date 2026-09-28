@@ -169,19 +169,15 @@ private struct ShellIntelligenceShimmer: ViewModifier {
     }
 }
 
-/// Tools row + detached AI circle.
+/// Destination tools row. AI Mode lives in the pull-from-top actions.
 struct ShellAccessoryDock: View {
     let route: AppRoute
     var toolsChrome = true
 
     var body: some View {
-        HStack(spacing: ShellIntelligenceChatMetrics.dockSpacing) {
-            ShellAccessoryHost(route: route, nativeHosted: !toolsChrome)
-                .frame(maxWidth: .infinity, minHeight: ShellIntelligenceChatMetrics.buttonSize)
-            ShellIntelligenceChatButton()
-        }
-        .padding(.horizontal, 14)
-        .accessibilityElement(children: .contain)
+        ShellAccessoryHost(route: route, nativeHosted: !toolsChrome)
+            .frame(maxWidth: .infinity, minHeight: ShellIntelligenceChatMetrics.buttonSize)
+            .accessibilityElement(children: .contain)
     }
 }
 

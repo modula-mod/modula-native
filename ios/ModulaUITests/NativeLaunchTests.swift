@@ -354,10 +354,7 @@ final class NativeLaunchTests: XCTestCase {
     @MainActor
     func testNodusAccessoryChatUsesPersistentComposer() throws {
         let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--uitest-nodus-fixture"])
-        let accessory = app.descendants(matching: .any)["accessory.intelligence.chat"]
-        XCTAssertTrue(accessory.waitForExistence(timeout: 8))
-        XCTAssertEqual(accessory.label, "Nodus")
-        accessory.tap()
+        openIntelligenceChat(app)
 
         XCTAssertTrue(app.descendants(matching: .any)["intelligence.chat"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.descendants(matching: .any)["nodus.chat.screen"].exists)
@@ -377,7 +374,7 @@ final class NativeLaunchTests: XCTestCase {
     @MainActor
     func testNodusAccessoryComposerModesAndKeyboard() throws {
         let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--uitest-nodus-fixture"])
-        app.descendants(matching: .any)["accessory.intelligence.chat"].tap()
+        openIntelligenceChat(app)
         let actions = app.buttons["nodus.chat.actions"].firstMatch
         XCTAssertTrue(actions.waitForExistence(timeout: 8))
         actions.tap()
@@ -834,6 +831,18 @@ private func requireN1FixtureOrSkip() throws -> N1UITestFixture {
         throw XCTSkip("N1 fixture file unavailable; AppGate UITests require local fixture credentials")
     }
     return fixture
+}
+
+@MainActor
+private func openIntelligenceChat(_ app: XCUIApplication) {
+    app.typeKey("k", modifierFlags: .command)
+    let search = app.descendants(matching: .any)["command.search"]
+    XCTAssertTrue(search.waitForExistence(timeout: 8))
+    search.tap()
+    search.typeText("Nodus")
+    let row = app.descendants(matching: .any)["command.row.open.intelligence.chat"]
+    XCTAssertTrue(row.waitForExistence(timeout: 8))
+    row.tap()
 }
 
 /// Launch Modula and traverse AppGate → onboarding/auth → first-run (unless skipped) → shell.

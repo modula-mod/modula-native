@@ -357,5 +357,9 @@ final class CollectionsDraftsShareTests: XCTestCase {
         XCTAssertEqual(ModulaPullDestination.resolve(horizontal: 80), .refresh)
         XCTAssertEqual(ModulaPullDestination.resolve(horizontal: -88), .command)
         XCTAssertEqual(ModulaPullDestination.resolve(horizontal: 88), .search)
+        XCTAssertEqual(ModulaPullDestination.resolve(horizontal: 167), .search)
+        XCTAssertEqual(ModulaPullDestination.resolve(horizontal: 168), .ai)
+        XCTAssertEqual(ModulaPullDestination.resolve(horizontal: 220), .ai)
+        XCTAssertEqual(ModulaPullDestination.allCases.map(\.title), ["Command", "Refresh", "Search", "AI Mode"])
     }
 }

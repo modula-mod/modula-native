@@ -906,14 +906,14 @@ struct ComponentCatalogView: View {
                 catalog("Global navigation accessory") {
                     VStack(alignment: .leading, spacing: 8) {
                         ShellAccessoryDock(route: .home(.following))
-                        Text("The five-item native tab bar is the live shell chrome below this catalog. AI Chat is a detached circle beside the Tools capsule.")
+                        Text("The five-item native tab bar is the live shell chrome below this catalog. AI Mode is a pull-from-top action beside Search, Refresh, and Command.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
                 }
                 catalog("Pull actions") {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Pull down to refresh. While pulled, slide left for Command Center and right for Search.")
+                        Text("Pull down to refresh. While pulled, slide left for Command, right for Search, and further right for AI Mode.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                         ModulaPullActionsChooser(destination: .refresh, refreshing: false, progress: 1)

@@ -1,16 +1,19 @@
 import SwiftUI
+import UIKit
 
-/// Directional pull-to-refresh: center refreshes, slide left opens Command Center, slide right opens Search.
+/// Directional pull-to-refresh: center refreshes, slide left opens Command Center, slide right opens Search, and a further slide right opens AI Mode.
 enum ModulaPullDestination: String, CaseIterable, Equatable, Sendable {
     case command
     case refresh
     case search
+    case ai
 
     var title: String {
         switch self {
         case .command: "Command"
         case .refresh: "Refresh"
         case .search: "Search"
+        case .ai: "AI Mode"
         }
     }
 
@@ -19,11 +22,14 @@ enum ModulaPullDestination: String, CaseIterable, Equatable, Sendable {
         case .command: "sparkles"
         case .refresh: "arrow.clockwise"
         case .search: "magnifyingglass"
+        case .ai:
+            UIImage(systemName: "pencil.and.scribble") == nil ? "square.and.pencil" : "pencil.and.scribble"
         }
     }
 
-    static func resolve(horizontal: CGFloat, sideThreshold: CGFloat = 88) -> Self {
+    static func resolve(horizontal: CGFloat, sideThreshold: CGFloat = 88, aiThreshold: CGFloat = 168) -> Self {
         if horizontal <= -sideThreshold { return .command }
+        if horizontal >= aiThreshold { return .ai }
         if horizontal >= sideThreshold { return .search }
         return .refresh
     }
@@ -114,8 +120,9 @@ struct ModulaPullActionsChooser: View {
     private func slotAppear(_ item: ModulaPullDestination) -> CGFloat {
         let delay: CGFloat = switch item {
         case .command: 0
-        case .refresh: 0.1
-        case .search: 0.2
+        case .refresh: 0.08
+        case .search: 0.16
+        case .ai: 0.24
         }
         return min(max((settle - delay) / max(1 - delay, 0.01), 0), 1)
     }
@@ -125,6 +132,7 @@ struct ModulaPullActionsModifier: ViewModifier {
     var onRefresh: () async -> Void
     var onCommand: () -> Void
     var onSearch: () -> Void
+    var onAI: () -> Void
     var liftsAboveContent = true
 
     @State private var pull: CGFloat = 0
@@ -192,6 +200,7 @@ struct ModulaPullActionsModifier: ViewModifier {
             }
             .accessibilityAction(named: "Command Center") { onCommand() }
             .accessibilityAction(named: "Search") { onSearch() }
+            .accessibilityAction(named: "AI Mode") { onAI() }
     }
 
     private var directionGesture: some Gesture {
@@ -235,6 +244,10 @@ struct ModulaPullActionsModifier: ViewModifier {
             reset()
             HapticEngine.shared.play(.navigation)
             onSearch()
+        case .ai:
+            reset()
+            HapticEngine.shared.play(.contextOpen)
+            onAI()
         }
     }
 
@@ -280,6 +293,9 @@ struct ModulaShellPullActionsModifier: ViewModifier {
             onSearch: {
                 app.navigation.open(.search(.root(nil)))
             },
+            onAI: {
+                PresentationCoordinator.present(.intelligenceChat, in: app.navigation)
+            },
             liftsAboveContent: liftsAboveContent
         )
     }
@@ -290,12 +306,14 @@ extension View {
         onRefresh: @escaping () async -> Void,
         onCommand: @escaping () -> Void,
         onSearch: @escaping () -> Void,
+        onAI: @escaping () -> Void,
         liftsAboveContent: Bool = true
     ) -> some View {
         modifier(ModulaPullActionsModifier(
             onRefresh: onRefresh,
             onCommand: onCommand,
             onSearch: onSearch,
+            onAI: onAI,
             liftsAboveContent: liftsAboveContent
         ))
     }
