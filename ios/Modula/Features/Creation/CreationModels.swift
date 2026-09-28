@@ -118,16 +118,57 @@ struct CreationMedia: Identifiable, Codable, Equatable, Hashable, Sendable {
     var byteCount: Int?
     var duration: TimeInterval?
     var sensitive: Bool
+    var mimeType: String? = nil
+    var originalFilename: String? = nil
+    var checksum: String? = nil
+    var remoteAttachmentID: String? = nil
+    var uploadState: DraftAttachmentState? = nil
+    var uploadProgress: Double? = nil
+    var uploadError: String? = nil
+    var pageCount: Int? = nil
+    var uploadSessionID: String? = nil
+    var pendingAttachmentID: String? = nil
 
     enum Kind: String, Codable, Sendable, Hashable {
         case image
         case video
         case audio
+        case pdf
+        case document
         case unknown
     }
 
     var hasAltText: Bool {
         !altText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
+enum DraftAttachmentState: String, Codable, Sendable, Hashable {
+    case local, preparing, readyToUpload, uploading, processing, ready, failed, cancelled
+}
+
+/// Early UX mirror of Greenfield's authoritative attachment policy.
+enum CreationAttachmentPolicy {
+    private static let MiB = 1_024 * 1_024
+
+    static func maximumBytes(for mimeType: String) -> Int? {
+        switch mimeType.lowercased().split(separator: ";", maxSplits: 1).first.map(String.init) {
+        case "image/jpeg", "image/png", "image/webp", "image/heic": 20 * MiB
+        case "video/mp4", "video/quicktime": 100 * MiB
+        case "audio/mpeg", "audio/mp4", "audio/wav": 50 * MiB
+        case "application/pdf": 50 * MiB
+        case "text/plain", "text/rtf", "application/rtf", "application/msword",
+             "application/vnd.ms-powerpoint", "application/vnd.ms-excel",
+             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/zip": 25 * MiB
+        default: nil
+        }
+    }
+
+    static func accepts(mimeType: String, byteCount: Int) -> Bool {
+        guard let maximum = maximumBytes(for: mimeType) else { return false }
+        return byteCount > 0 && byteCount <= maximum
     }
 }
 
@@ -318,6 +359,9 @@ enum CreationValidator {
             if draft.media.contains(where: { $0.kind == .video }) && !capabilities.videoPost {
                 return .unsupportedMedia
             }
+            if draft.media.contains(where: { $0.kind == .audio }) && !capabilities.audioPost {
+                return .unsupportedMedia
+            }
             if draft.media.contains(where: { $0.kind == .image }) && !capabilities.photoPost && draft.kind != .story {
                 return .unsupportedMedia
             }
@@ -374,8 +418,39 @@ enum CreationPayloadEncoder {
         ])
     }
 
+    static func postBody(from draft: CreationDraft) -> JSONValue {
+        var body: [String: JSONValue] = [
+            "text": .string(draft.trimmedText),
+            "audience": .string(draft.audience.greenfieldValue),
+            "idempotencyKey": .string(draft.idempotencyKey)
+        ]
+        if !draft.media.isEmpty {
+            body["content"] = .array(draft.media.enumerated().compactMap { _, item in
+                guard let attachmentID = item.remoteAttachmentID else { return nil }
+                return .object([
+                    "type": .string(item.kind.attachmentType),
+                    "attachmentId": .string(attachmentID),
+                    "caption": item.altText.isEmpty ? .null : .string(item.altText)
+                ])
+            })
+        }
+        return .object(body)
+    }
+
     static func keys(in body: JSONValue) -> [String] {
         guard case .object(let object) = body else { return [] }
         return object.keys.sorted()
+    }
+}
+
+private extension CreationMedia.Kind {
+    var attachmentType: String {
+        switch self {
+        case .image: "image"
+        case .video: "video"
+        case .audio: "audio"
+        case .pdf: "pdf"
+        case .document, .unknown: "document"
+        }
     }
 }

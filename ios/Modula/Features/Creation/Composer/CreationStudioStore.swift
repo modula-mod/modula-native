@@ -3,6 +3,11 @@ import Observation
 import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
+import CryptoKit
+import AVFoundation
+import CoreTransferable
+import ImageIO
+import PDFKit
 
 @MainActor @Observable
 final class CreationStudioStore {
@@ -150,15 +155,101 @@ final class CreationStudioStore {
         for item in items {
             guard let data = try? await item.loadTransferable(type: Data.self) else { continue }
             do {
-                let prepared = try await MediaPreparation.jpegStrippingMetadata(data)
+                let type = item.supportedContentTypes.first(where: { $0.conforms(to: .image) }) ?? .jpeg
+                let mimeType = type.preferredMIMEType ?? "image/jpeg"
+                guard CreationAttachmentPolicy.accepts(mimeType: mimeType, byteCount: data.count) else {
+                    publishError = "That photo type or size isn't supported. Your draft is safe."
+                    continue
+                }
+                let dimensions = Self.imageDimensions(data)
                 let media = try await Task.detached(priority: .userInitiated) { [mediaStore, accountID = draft.accountID] in
-                    try mediaStore.importJPEG(prepared.data, accountID: accountID, width: prepared.width, height: prepared.height)
+                    try mediaStore.importData(
+                        data, accountID: accountID, kind: .image,
+                        mimeType: mimeType,
+                        originalFilename: "Photo.\(type.preferredFilenameExtension ?? "jpg")",
+                        width: dimensions?.0, height: dimensions?.1
+                    )
                 }.value
                 draft.media.append(media)
                 if draft.kind == .post { draft.kind = draft.media.count > 1 ? .carousel : .photo }
                 HapticEngine.shared.play(.lightImpact)
             } catch {
                 publishError = "Couldn't add that photo. Your draft is safe."
+            }
+        }
+        persist()
+    }
+
+    func attachVideos(_ items: [PhotosPickerItem]) async {
+        guard capabilities.videoPost else { return }
+        preparingMedia = true
+        defer { preparingMedia = false }
+        for item in items {
+            guard let picked = try? await item.loadTransferable(type: CreationPickedVideo.self) else { continue }
+            defer { try? FileManager.default.removeItem(at: picked.url) }
+            do {
+                let type = item.supportedContentTypes.first(where: { $0.conforms(to: .movie) }) ?? .mpeg4Movie
+                let mimeType = type.preferredMIMEType ?? "video/mp4"
+                let values = try picked.url.resourceValues(forKeys: [.fileSizeKey])
+                let byteCount = values.fileSize ?? 0
+                guard CreationAttachmentPolicy.accepts(mimeType: mimeType, byteCount: byteCount) else {
+                    publishError = "That video type or size isn't supported. Your draft is safe."
+                    continue
+                }
+                let asset = AVURLAsset(url: picked.url)
+                let duration = try? await asset.load(.duration).seconds
+                let naturalSize = try? await asset.loadTracks(withMediaType: .video).first?.load(.naturalSize)
+                let media = try mediaStore.importFile(
+                        at: picked.url, accountID: draft.accountID, kind: .video,
+                        mimeType: mimeType,
+                        originalFilename: "Video.\(type.preferredFilenameExtension ?? "mp4")",
+                        width: naturalSize.map { Int(abs($0.width)) },
+                        height: naturalSize.map { Int(abs($0.height)) },
+                        duration: duration
+                )
+                draft.media.append(media)
+                if draft.kind == .post { draft.kind = .video }
+            } catch {
+                publishError = "Couldn't add that video. Your draft is safe."
+            }
+        }
+        persist()
+    }
+
+    func attachFiles(_ urls: [URL]) async {
+        preparingMedia = true
+        defer { preparingMedia = false }
+        for source in urls.prefix(max(0, (capabilities.maxMediaCount ?? 10) - draft.media.count)) {
+            let scoped = source.startAccessingSecurityScopedResource()
+            defer { if scoped { source.stopAccessingSecurityScopedResource() } }
+            do {
+                let values = try source.resourceValues(forKeys: [.contentTypeKey, .fileSizeKey, .nameKey])
+                let type = values.contentType ?? UTType(filenameExtension: source.pathExtension) ?? .data
+                let mimeType = type.preferredMIMEType ?? "application/octet-stream"
+                guard CreationAttachmentPolicy.accepts(mimeType: mimeType, byteCount: values.fileSize ?? 0) else {
+                    publishError = "\(values.name ?? source.lastPathComponent) has an unsupported type or size."
+                    continue
+                }
+                let kind: CreationMedia.Kind
+                if type.conforms(to: .pdf) { kind = .pdf }
+                else if type.conforms(to: .audio) { kind = .audio }
+                else if type.conforms(to: .movie) { kind = .video }
+                else if type.conforms(to: .image) { kind = .image }
+                else { kind = .document }
+                let pageCount = kind == .pdf ? PDFDocument(url: source)?.pageCount : nil
+                let duration: TimeInterval?
+                if kind == .audio || kind == .video {
+                    duration = try? await AVURLAsset(url: source).load(.duration).seconds
+                } else { duration = nil }
+                let media = try mediaStore.importFile(
+                    at: source, accountID: draft.accountID, kind: kind,
+                    mimeType: mimeType,
+                    originalFilename: values.name ?? source.lastPathComponent,
+                    duration: duration, pageCount: pageCount
+                )
+                draft.media.append(media)
+            } catch {
+                publishError = "Couldn't add \(source.lastPathComponent). Your draft is safe."
             }
         }
         persist()
@@ -172,10 +263,17 @@ final class CreationStudioStore {
         defer { preparingMedia = false }
         do {
             let prepared = try await MediaPreparation.rotatedJPEG(data, quarterTurns: 1)
-            try mediaStore.importJPEG(prepared.data, accountID: draft.accountID, id: item.id, width: prepared.width, height: prepared.height)
-            draft.media[index].pixelWidth = prepared.width
-            draft.media[index].pixelHeight = prepared.height
-            draft.media[index].byteCount = prepared.data.count
+            var rotated = try mediaStore.importJPEG(
+                prepared.data,
+                accountID: draft.accountID,
+                id: item.id,
+                width: prepared.width,
+                height: prepared.height
+            )
+            rotated.altText = item.altText
+            rotated.sensitive = item.sensitive
+            if item.filename != rotated.filename { mediaStore.remove(item) }
+            draft.media[index] = rotated
             persist()
         } catch {
             publishError = "Couldn't rotate that photo."
@@ -279,10 +377,58 @@ final class CreationStudioStore {
             publishError = problem.accessibilityHint
             return nil
         }
-        HapticEngine.shared.play(.confirmation)
-        draft.state = .publishing
-        persist(debounce: false)
         do {
+            HapticEngine.shared.play(.confirmation)
+            if !draft.media.isEmpty {
+                draft.state = .uploading
+                persist(debounce: false)
+                for index in draft.media.indices where draft.media[index].remoteAttachmentID == nil {
+                    try Task.checkCancellation()
+                    draft.media[index].uploadState = .uploading
+                    draft.media[index].uploadError = nil
+                    let media = draft.media[index]
+                    let fileURL = mediaStore.fileURL(media)
+                    let checksum = try await Self.sha256(fileURL)
+                    draft.media[index].checksum = checksum
+                    let prepared = PreparedMedia(
+                        id: media.id, kind: media.kind, fileURL: fileURL,
+                        mimeType: media.mimeType ?? "application/octet-stream",
+                        filename: media.originalFilename ?? URL(fileURLWithPath: media.filename).lastPathComponent,
+                        altText: media.altText, byteCount: media.byteCount ?? 0, checksum: checksum,
+                        width: media.pixelWidth, height: media.pixelHeight, duration: media.duration, pageCount: media.pageCount,
+                        uploadSessionID: media.uploadSessionID, pendingAttachmentID: media.pendingAttachmentID
+                    )
+                    let uploaded = try await uploader.upload(
+                        prepared,
+                        progress: { [weak self] fraction in
+                            Task { @MainActor in
+                                guard let self, let live = self.draft.media.firstIndex(where: { $0.id == media.id }) else { return }
+                                self.draft.media[live].uploadProgress = fraction
+                                let completed = Double(self.draft.media.filter { $0.remoteAttachmentID != nil }.count)
+                                self.uploadFraction = (completed + fraction) / Double(max(self.draft.media.count, 1))
+                            }
+                        },
+                        sessionCreated: { [weak self] uploadID, attachmentID in
+                            Task { @MainActor in
+                                guard let self, let live = self.draft.media.firstIndex(where: { $0.id == media.id }) else { return }
+                                self.draft.media[live].uploadSessionID = uploadID
+                                self.draft.media[live].pendingAttachmentID = attachmentID
+                                self.persist(debounce: false)
+                            }
+                        }
+                    )
+                    guard let live = draft.media.firstIndex(where: { $0.id == media.id }) else { continue }
+                    draft.media[live].remoteAttachmentID = uploaded.remoteID
+                    draft.media[live].uploadSessionID = nil
+                    draft.media[live].pendingAttachmentID = nil
+                    draft.media[live].uploadState = .ready
+                    draft.media[live].uploadProgress = 1
+                    persist(debounce: false)
+                }
+            }
+            draft.state = .publishing
+            uploadFraction = nil
+            persist(debounce: false)
             let post = try await publisher.publish(draft)
             draft.state = .published
             drafts.markPublished(id: draft.id)
@@ -290,16 +436,32 @@ final class CreationStudioStore {
             HapticEngine.shared.play(.success)
             return post
         } catch is CancellationError {
+            uploadFraction = nil
+            resetActiveUploads(to: .cancelled, message: nil)
+            draft.state = .cancelled
+            persist(debounce: false)
+            return nil
+        } catch MediaUploadError.cancelled {
+            uploadFraction = nil
+            resetActiveUploads(to: .cancelled, message: nil)
+            draft.state = .cancelled
+            persist(debounce: false)
+            return nil
+        } catch where Task.isCancelled {
+            uploadFraction = nil
+            resetActiveUploads(to: .cancelled, message: nil)
             draft.state = .cancelled
             persist(debounce: false)
             return nil
         } catch let api as APIError where api == .unauthenticated {
+            resetActiveUploads(to: .failed, message: "Sign in required")
             draft.state = .failed
             persist(debounce: false)
             publishError = "Sign in to publish. Your draft is safe."
             HapticEngine.shared.play(.failure)
             return nil
         } catch {
+            resetActiveUploads(to: .failed, message: "Upload failed")
             draft.state = .failed
             persist(debounce: false)
             publishError = "Couldn't publish your post. Your draft is safe."
@@ -308,9 +470,56 @@ final class CreationStudioStore {
             return nil
         }
     }
+
+    /// Preserve the server IDs for reconciliation on Retry. The uploader reuses a failed
+    /// session, recovers a ready attachment after a lost response, and creates a fresh session
+    /// only when the prior server state is no longer usable.
+    private func resetActiveUploads(to state: DraftAttachmentState, message: String?) {
+        for index in draft.media.indices where draft.media[index].uploadState == .uploading {
+            draft.media[index].uploadState = state
+            draft.media[index].uploadError = message
+            draft.media[index].uploadProgress = 0
+        }
+    }
+
+    private nonisolated static func sha256(_ fileURL: URL) async throws -> String {
+        try await Task.detached(priority: .utility) {
+            let handle = try FileHandle(forReadingFrom: fileURL)
+            defer { try? handle.close() }
+            var digest = SHA256()
+            while let data = try handle.read(upToCount: 1_048_576), !data.isEmpty {
+                digest.update(data: data)
+            }
+            return digest.finalize().map { String(format: "%02x", $0) }.joined()
+        }.value
+    }
+
+    private nonisolated static func imageDimensions(_ data: Data) -> (Int, Int)? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let values = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = values[kCGImagePropertyPixelWidth] as? Int,
+              let height = values[kCGImagePropertyPixelHeight] as? Int else { return nil }
+        return (width, height)
+    }
 }
 
 enum CreationExitDecision {
     case dismiss
     case prompt
+}
+
+private struct CreationPickedVideo: Transferable {
+    let url: URL
+
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(contentType: .movie) { video in
+            SentTransferredFile(video.url)
+        } importing: { received in
+            let copy = FileManager.default.temporaryDirectory
+                .appendingPathComponent("creation-video-\(UUID().uuidString)")
+                .appendingPathExtension(received.file.pathExtension.isEmpty ? "mp4" : received.file.pathExtension)
+            try FileManager.default.copyItem(at: received.file, to: copy)
+            return CreationPickedVideo(url: copy)
+        }
+    }
 }

@@ -17,6 +17,19 @@ enum ContentPostCatalogRoute: String, CaseIterable, Identifiable {
     case comments = "Comments"
     case states = "Attachment States"
     case fullInteraction = "Full Post Interaction"
+    case richComposer = "Rich Composer"
+    case uploadQueue = "Upload Queue"
+    case imageDraft = "Image Draft"
+    case videoDraft = "Video Draft"
+    case pdfDraft = "PDF Draft"
+    case documentDraft = "Document Draft"
+    case audioDraft = "Audio Draft"
+    case mixedDraft = "Mixed Draft"
+    case uploadFailure = "Upload Failure"
+    case retry = "Retry"
+    case processing = "Processing"
+    case publishState = "Publish State"
+    case stressFeed = "50+ Mixed Feed"
 
     var id: String { rawValue }
     var symbol: String {
@@ -37,6 +50,19 @@ enum ContentPostCatalogRoute: String, CaseIterable, Identifiable {
         case .comments: "bubble.left.and.bubble.right"
         case .states: "arrow.triangle.2.circlepath"
         case .fullInteraction: "hand.tap"
+        case .richComposer: "square.and.pencil"
+        case .uploadQueue: "arrow.up.circle"
+        case .imageDraft: "photo.badge.plus"
+        case .videoDraft: "video.badge.plus"
+        case .pdfDraft: "doc.richtext.fill"
+        case .documentDraft: "doc.badge.plus"
+        case .audioDraft: "waveform.badge.plus"
+        case .mixedDraft: "square.stack.3d.up.fill"
+        case .uploadFailure: "exclamationmark.arrow.triangle.2.circlepath"
+        case .retry: "arrow.clockwise"
+        case .processing: "gearshape.2"
+        case .publishState: "paperplane"
+        case .stressFeed: "speedometer"
         }
     }
 }
@@ -115,6 +141,10 @@ private struct ContentPostCatalogPage: View {
         switch route {
         case .fullInteraction: "Reference flow: content, reaction selection, comments, context, and expansion."
         case .states: "Loading, failed, offline, and unavailable states stay truthful."
+        case .richComposer, .uploadQueue, .imageDraft, .videoDraft, .pdfDraft, .documentDraft,
+             .audioDraft, .mixedDraft, .uploadFailure, .retry, .processing, .publishState:
+            "Interactive publishing fixtures use the same explicit draft and upload states as Creation Studio."
+        case .stressFeed: "Sixty mixed renderer instances exercise lazy loading and feed rhythm without seeding production data."
         default: "Uses the same production component selected by the canonical content renderer."
         }
     }
@@ -200,6 +230,54 @@ private struct ContentPostCatalogPage: View {
                 .init(id: "copy", title: "Copy link", systemImage: "link"),
                 .init(id: "save", title: "Save", systemImage: "bookmark")
             ]) { _ in }
+        case .richComposer:
+            VStack(alignment: .leading, spacing: ModulaSpacing.md) {
+                TextField("What's happening?", text: $commentText, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                AttachmentPipelineCatalogLab(initialState: .local, showsMixedQueue: true)
+            }
+        case .uploadQueue, .mixedDraft:
+            AttachmentPipelineCatalogLab(initialState: .uploading, showsMixedQueue: true)
+        case .imageDraft:
+            DraftAttachmentCatalogCard(kind: .image, name: "Portrait.jpg", state: .readyToUpload, progress: 0)
+        case .videoDraft:
+            DraftAttachmentCatalogCard(kind: .video, name: "Sunset.mp4", state: .uploading, progress: 0.38)
+        case .pdfDraft:
+            DraftAttachmentCatalogCard(kind: .pdf, name: "Product Strategy.pdf", state: .readyToUpload, progress: 0)
+        case .documentDraft:
+            DraftAttachmentCatalogCard(kind: .document, name: "Product Brief.docx", state: .readyToUpload, progress: 0)
+        case .audioDraft:
+            DraftAttachmentCatalogCard(kind: .audio, name: "A Walk.m4a", state: .uploading, progress: 0.72)
+        case .uploadFailure:
+            AttachmentPipelineCatalogLab(initialState: .failed, showsMixedQueue: false)
+        case .retry:
+            AttachmentPipelineCatalogLab(initialState: .failed, showsMixedQueue: true)
+        case .processing:
+            AttachmentPipelineCatalogLab(initialState: .processing, showsMixedQueue: false)
+        case .publishState:
+            AttachmentPipelineCatalogLab(initialState: .ready, showsMixedQueue: true)
+        case .stressFeed:
+            LazyVStack(alignment: .leading, spacing: ModulaSpacing.lg) {
+                Text("60 mixed posts")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("catalog.posts.stress-count")
+                ForEach(PostCatalogFixtures.stressPosts) { post in
+                    VStack(alignment: .leading, spacing: ModulaSpacing.sm) {
+                        Text("Fixture \(post.id)").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                        if let body = post.body { Text(body).font(.body) }
+                        ModulaPostContentRenderer(
+                            post: post,
+                            presentation: .feed,
+                            onOpenAttachment: { _ in },
+                            onOpenLink: { _ in },
+                            onOpenModule: { _ in }
+                        )
+                        Divider()
+                    }
+                }
+            }
+            .accessibilityIdentifier("catalog.posts.stress-feed")
         }
     }
 
@@ -233,6 +311,85 @@ private struct ContentPostCatalogPage: View {
     }
 }
 
+private struct AttachmentPipelineCatalogLab: View {
+    @State private var state: DraftAttachmentState
+    @State private var progress: Double
+    let showsMixedQueue: Bool
+
+    init(initialState: DraftAttachmentState, showsMixedQueue: Bool) {
+        _state = State(initialValue: initialState)
+        _progress = State(initialValue: initialState == .uploading ? 0.38 : (initialState == .ready ? 1 : 0))
+        self.showsMixedQueue = showsMixedQueue
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: ModulaSpacing.sm) {
+            if showsMixedQueue {
+                DraftAttachmentCatalogCard(kind: .image, name: "Photo.png", state: .ready, progress: 1)
+                DraftAttachmentCatalogCard(kind: .video, name: "Walkthrough.mp4", state: state, progress: progress)
+                DraftAttachmentCatalogCard(kind: .pdf, name: "Architecture.pdf", state: .readyToUpload, progress: 0)
+            } else {
+                DraftAttachmentCatalogCard(kind: .video, name: "Walkthrough.mp4", state: state, progress: progress)
+            }
+            Picker("State", selection: $state) {
+                ForEach([DraftAttachmentState.local, .readyToUpload, .uploading, .processing, .ready, .failed, .cancelled], id: \.self) {
+                    Text($0.rawValue.capitalized).tag($0)
+                }
+            }
+            .pickerStyle(.menu)
+            if state == .uploading { Slider(value: $progress, in: 0...1).accessibilityLabel("Upload progress") }
+            HStack {
+                Button("Retry", systemImage: "arrow.clockwise") { state = .uploading; progress = 0.15 }
+                Button("Cancel", role: .destructive) { state = .cancelled }
+            }
+            .buttonStyle(.bordered)
+        }
+    }
+}
+
+private struct DraftAttachmentCatalogCard: View {
+    let kind: CreationMedia.Kind
+    let name: String
+    let state: DraftAttachmentState
+    let progress: Double
+
+    var body: some View {
+        HStack(spacing: ModulaSpacing.sm) {
+            Image(systemName: symbol).frame(width: 36, height: 36).background(.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: ModulaRadius.small))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                Text(status).font(.caption).foregroundStyle(state == .failed ? .red : .secondary)
+                if state == .uploading { ProgressView(value: progress) }
+            }
+            Spacer(minLength: 0)
+            if state == .ready { Image(systemName: "checkmark.circle.fill").foregroundStyle(ModulaColor.accent) }
+        }
+        .padding(ModulaSpacing.sm)
+        .background(.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: ModulaRadius.medium))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(kind.rawValue) attachment, \(name), \(status)")
+    }
+
+    private var status: String {
+        switch state {
+        case .uploading: "Uploading \(Int(progress * 100))%"
+        case .readyToUpload: "Ready to upload"
+        case .failed: "Upload failed"
+        default: state.rawValue.capitalized
+        }
+    }
+
+    private var symbol: String {
+        switch kind {
+        case .image: "photo"
+        case .video: "video"
+        case .audio: "waveform"
+        case .pdf: "doc.richtext"
+        case .document, .unknown: "doc"
+        }
+    }
+}
+
 private enum PostCatalogFixtures {
     static let image = attachment(id: "portrait", kind: .image, mime: "image/jpeg", name: "Portrait.jpg", dimensions: CGSize(width: 900, height: 1_300), alt: "Portrait travel photograph fixture")
     static let gallery = (1...5).map { attachment(id: "gallery-\($0)", kind: .image, mime: "image/jpeg", name: "Travel \($0).jpg", dimensions: CGSize(width: 1_200, height: $0.isMultiple(of: 2) ? 900 : 1_400), alt: "Gallery image \($0) of 5") }
@@ -254,6 +411,28 @@ private enum PostCatalogFixtures {
         context: PostContext(feed: "Product", location: "London", audience: "Public", visibility: .public, audioTitle: nil, collection: "Design", topic: "systems", module: nil),
         engagement: PostEngagement(liked: false, saved: false, reposted: false, viewerReaction: nil, likeCount: 24, replyCount: 3, repostCount: 2, quoteCount: 0, reactionCount: 24)
     )
+
+    static let stressPosts: [ModulaPost] = (0..<60).map { index in
+        let content: [PostContentBlock]
+        switch index % 6 {
+        case 0: content = []
+        case 1: content = [.image(.init(attachment: image))]
+        case 2: content = [.imageGallery(.init(attachments: gallery))]
+        case 3: content = [.video(.init(attachment: video))]
+        case 4: content = [.pdf(.init(attachment: pdf))]
+        default: content = mixedPost.content
+        }
+        return ModulaPost(
+            id: "stress-\(index)",
+            author: mixedPost.author,
+            createdAt: Date(timeIntervalSinceNow: TimeInterval(-index * 60)),
+            editedAt: nil,
+            body: "Mixed feed performance fixture \(index + 1).",
+            content: content,
+            context: mixedPost.context,
+            engagement: mixedPost.engagement
+        )
+    }
 
     private static func attachment(id: String, kind: AttachmentKind, mime: String, name: String, bytes: Int64? = nil, dimensions: CGSize? = nil, duration: TimeInterval? = nil, pages: Int? = nil, alt: String? = nil) -> ModulaAttachment {
         ModulaAttachment(id: id, kind: kind, remoteURL: nil, mimeType: mime, filename: name, byteSize: bytes, dimensions: dimensions, duration: duration, accessibilityDescription: alt, metadata: AttachmentMetadata(pageCount: pages))

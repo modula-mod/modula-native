@@ -27,17 +27,17 @@ final class CreationCapabilityTests: XCTestCase {
         let caps = CreationCapabilities.production
         XCTAssertTrue(caps.textPost)
         XCTAssertTrue(caps.canPublish(.post))
-        XCTAssertFalse(caps.canPublish(.photo))
-        XCTAssertFalse(caps.canPublish(.carousel))
-        XCTAssertFalse(caps.canPublish(.video))
+        XCTAssertTrue(caps.canPublish(.photo))
+        XCTAssertTrue(caps.canPublish(.carousel))
+        XCTAssertTrue(caps.canPublish(.video))
         XCTAssertFalse(caps.canPublish(.link))
         XCTAssertFalse(caps.canPublish(.poll))
-        XCTAssertFalse(caps.canPublish(.audio))
+        XCTAssertTrue(caps.canPublish(.audio))
         XCTAssertFalse(caps.canPublish(.movie))
         XCTAssertFalse(caps.canPublish(.story))
         XCTAssertFalse(caps.canPublish(.reel))
         XCTAssertNil(caps.characterLimit)
-        XCTAssertFalse(caps.toolVisible(.photo, kind: .post, developerMode: false))
+        XCTAssertTrue(caps.toolVisible(.photo, kind: .post, developerMode: false))
         XCTAssertTrue(caps.toolVisible(.photo, kind: .post, developerMode: true))
     }
 
@@ -144,7 +144,7 @@ final class CreationValidationTests: XCTestCase {
         draft.text = "Hello"
         XCTAssertNil(CreationValidator.problem(for: draft, capabilities: caps))
         draft.kind = .video
-        XCTAssertEqual(CreationValidator.problem(for: draft, capabilities: caps), .kindUnavailable(.video))
+        XCTAssertNil(CreationValidator.problem(for: draft, capabilities: caps))
         draft.kind = .poll
         draft.poll = PollDraft.blank()
         XCTAssertEqual(CreationValidator.problem(for: draft, capabilities: caps), .kindUnavailable(.poll))
@@ -164,6 +164,29 @@ final class CreationValidationTests: XCTestCase {
         XCTAssertNil(body["mentions"])
     }
 
+    func testRichPostPayloadPreservesReadyAttachmentOrder() {
+        var draft = CreationDraft.fresh(kind: .post, accountID: "acct", audience: .everyone)
+        draft.text = "Mixed content"
+        draft.media = [
+            CreationMedia(
+                id: "local-pdf", kind: .pdf, filename: "pdf.bin", altText: "Architecture",
+                pixelWidth: nil, pixelHeight: nil, byteCount: 40, duration: nil, sensitive: false,
+                mimeType: "application/pdf", originalFilename: "Architecture.pdf",
+                remoteAttachmentID: "att-pdf", uploadState: .ready, pageCount: 2
+            ),
+            CreationMedia(
+                id: "local-image", kind: .image, filename: "image.bin", altText: "",
+                pixelWidth: 100, pixelHeight: 80, byteCount: 30, duration: nil, sensitive: false,
+                mimeType: "image/png", originalFilename: "Photo.png",
+                remoteAttachmentID: "att-image", uploadState: .ready
+            ),
+        ]
+
+        let content = CreationPayloadEncoder.postBody(from: draft)["content"]?.array
+        XCTAssertEqual(content?.map { $0["attachmentId"]?.string }, ["att-pdf", "att-image"])
+        XCTAssertEqual(content?.map { $0["type"]?.string }, ["pdf", "image"])
+    }
+
     func testMentionsAndTopicsAreExtractedNotInvented() {
         let text = "Hello @sophia and #native from Modula"
         XCTAssertEqual(CreationEntityParser.mentions(in: text).map(\.handle), ["sophia"])
@@ -173,6 +196,13 @@ final class CreationValidationTests: XCTestCase {
 }
 
 final class CreationMediaTests: XCTestCase {
+    func testNativeAttachmentPolicyMirrorsSupportedFamiliesAndLimits() {
+        XCTAssertTrue(CreationAttachmentPolicy.accepts(mimeType: "image/jpeg", byteCount: 1_024))
+        XCTAssertTrue(CreationAttachmentPolicy.accepts(mimeType: "application/pdf", byteCount: 50 * 1_024 * 1_024))
+        XCTAssertFalse(CreationAttachmentPolicy.accepts(mimeType: "application/x-executable", byteCount: 100))
+        XCTAssertFalse(CreationAttachmentPolicy.accepts(mimeType: "video/mp4", byteCount: 101 * 1_024 * 1_024))
+    }
+
     func testJPEGPreparationStripsToJPEG() async throws {
         let png = tinyPNG()
         let prepared = try await MediaPreparation.jpegStrippingMetadata(png, maxPixel: 32, quality: 0.8)
@@ -217,19 +247,19 @@ final class CreationMediaTests: XCTestCase {
             }
         }
         let fractions = ProgressBox()
-        let success = try await MockMediaUploader(behavior: .success).upload(prepared) { fractions.append($0) }
+        let success = try await MockMediaUploader(behavior: .success).upload(prepared, progress: { fractions.append($0) }, sessionCreated: { _, _ in })
         XCTAssertEqual(success.remoteID, "remote-m1")
         XCTAssertFalse(fractions.isEmpty)
         do {
-            _ = try await MockMediaUploader(behavior: .failure).upload(prepared) { _ in }
+            _ = try await MockMediaUploader(behavior: .failure).upload(prepared, progress: { _ in }, sessionCreated: { _, _ in })
             XCTFail("expected failure")
         } catch MediaUploadError.failed {}
         do {
-            _ = try await MockMediaUploader(behavior: .cancel).upload(prepared) { _ in }
+            _ = try await MockMediaUploader(behavior: .cancel).upload(prepared, progress: { _ in }, sessionCreated: { _, _ in })
             XCTFail("expected cancel")
         } catch MediaUploadError.cancelled {}
         do {
-            _ = try await DisabledMediaUploader().upload(prepared) { _ in }
+            _ = try await DisabledMediaUploader().upload(prepared, progress: { _ in }, sessionCreated: { _, _ in })
             XCTFail("disabled uploader must not succeed")
         } catch MediaUploadError.unavailable {}
     }
@@ -299,6 +329,47 @@ final class CreationPublishingTests: XCTestCase {
         XCTAssertEqual(AudienceSelection(greenfield: "followers"), .followers)
         XCTAssertEqual(AudienceSelection(greenfield: "mystery"), .everyone)
     }
+
+    @MainActor
+    func testFailedUploadKeepsServerIdentityForReconciledRetry() async throws {
+        let mediaStore = DraftMediaStore()
+        let media = try mediaStore.importData(
+            Data([0x89, 0x50, 0x4E, 0x47]), accountID: "acct-retry", kind: .image,
+            mimeType: "image/png", originalFilename: "retry.png", width: 1, height: 1
+        )
+        var draft = CreationDraft.fresh(kind: .post, accountID: "acct-retry", audience: .everyone)
+        draft.media = [media]
+        let drafts = DraftStore(autosaveMilliseconds: 1)
+        drafts.setAccountID("acct-retry")
+        let post = SocialPost(
+            id: "retry-post", author: SocialAuthor(id: "acct-retry", handle: "retry", displayName: "Retry", avatarURL: nil),
+            createdAt: Date(), editedAt: nil, feed: "following", text: "", kind: .media,
+            visibility: .public, audience: "public", media: [], link: nil, module: nil, glowColour: nil,
+            engagement: .init(liked: false, saved: false, reposted: false, viewerReaction: nil,
+                              likeCount: 0, replyCount: 0, repostCount: 0, quoteCount: 0, reactionCount: 0)
+        )
+        let failed = CreationStudioStore(
+            kind: .post, accountID: "acct-retry", originPath: nil, drafts: drafts, mediaStore: mediaStore,
+            publisher: MockPublishingRepository(behavior: .success(post)),
+            uploader: MockMediaUploader(behavior: .failure), capabilities: .production
+        )
+        failed.draft = draft
+        let failedResult = await failed.publish()
+        XCTAssertNil(failedResult)
+        XCTAssertEqual(failed.draft.media[0].uploadState, DraftAttachmentState.failed)
+        XCTAssertEqual(failed.draft.media[0].uploadSessionID, "upload-\(media.id)")
+        XCTAssertEqual(failed.draft.media[0].pendingAttachmentID, "pending-\(media.id)")
+
+        let retry = CreationStudioStore(
+            kind: .post, accountID: "acct-retry", originPath: nil, drafts: drafts, mediaStore: mediaStore,
+            publisher: MockPublishingRepository(behavior: .success(post)),
+            uploader: MockMediaUploader(behavior: .success), capabilities: .production
+        )
+        retry.draft = failed.draft
+        let retriedResult = await retry.publish()
+        XCTAssertEqual(retriedResult?.id, "retry-post")
+        XCTAssertEqual(retry.draft.media[0].remoteAttachmentID, "remote-\(media.id)")
+    }
 }
 
 final class CreationAccessibilityModelTests: XCTestCase {
@@ -306,7 +377,7 @@ final class CreationAccessibilityModelTests: XCTestCase {
         var draft = CreationDraft.fresh(kind: .post, accountID: "acct", audience: .everyone)
         XCTAssertEqual(CreationValidator.problem(for: draft, capabilities: .production)?.accessibilityHint, "Write something to publish.")
         draft.text = "Hi"
-        draft.kind = .photo
+        draft.kind = .link
         XCTAssertTrue(CreationValidator.problem(for: draft, capabilities: .production)?.accessibilityHint.contains("available") == true)
         XCTAssertEqual(PollDraft.minimumOptions, 2)
     }

@@ -78,7 +78,7 @@ final class AppEnvironment {
         draftMedia = DraftMediaStore()
         drafts = DraftStore(mediaStore: draftMedia)
         publishing = GreenfieldPublishingRepository(client: client, capabilities: .production)
-        mediaUploader = DisabledMediaUploader()
+        mediaUploader = GreenfieldMediaUploader(client: client)
         #if DEBUG
         let nodusRuntime: (any NodusRuntime)?
         if launchArguments.contains("--uitest-nodus-missing") {
