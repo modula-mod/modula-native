@@ -131,6 +131,31 @@ final class ProfileTests: XCTestCase {
         XCTAssertTrue(profile.isVerified)
     }
 
+    func testProfileVisibilityRoundTripsFromGreenfieldResponseIntoEditDraft() throws {
+        let json: JSONValue = .object([
+            "id": .string("private-profile"),
+            "handle": .string("private.person"),
+            "displayName": .string("Private Person"),
+            "kind": .string("person"),
+            "bio": .string("Owner-only profile"),
+            "followerCount": .number(0),
+            "followingCount": .number(0),
+            "moduleCount": .number(0),
+            "postCount": .number(0),
+            "joinedAt": .string("2026-01-01T00:00:00.000Z"),
+            "visibility": .string("private"),
+            "identityClaims": .array([]),
+            "links": .array([]),
+            "featuredModuleIds": .array([]),
+            "isFollowing": .bool(false),
+            "followsViewer": .bool(false)
+        ])
+
+        let profile = try XCTUnwrap(ProfilePayloadDecoder.profile(from: json))
+        XCTAssertEqual(profile.visibility, .private)
+        XCTAssertEqual(ProfileEditDraft.from(profile).visibility, .private)
+    }
+
     func testCountFormattingAccessibility() {
         XCTAssertEqual(ProfileCountFormatter.compact(999), "999")
         XCTAssertTrue(ProfileCountFormatter.compact(1_200).contains("1"))

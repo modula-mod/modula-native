@@ -74,12 +74,14 @@ struct ModulaVideoViewer: View {
     let attachment: ModulaAttachment
     var onDismiss: () -> Void
     @State private var controller = ModulaVideoPlaybackController()
+    @State private var download = AttachmentDownloadModel()
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         NavigationStack {
             ZStack {
                 Color.black.ignoresSafeArea()
-                if let url = attachment.playableURL {
+                if case .downloaded(let url) = download.state {
                     VideoPlayer(player: controller.player)
                         .onAppear {
                             controller.autoplayAllowed = false
@@ -91,6 +93,17 @@ struct ModulaVideoViewer: View {
                         .accessibilityAction(named: controller.state == .playing ? "Pause" : "Play") {
                             controller.toggle()
                         }
+                } else if case .failed(let message) = download.state {
+                    ContentUnavailableView("Video unavailable", systemImage: "video.badge.exclamationmark", description: Text(message))
+                        .foregroundStyle(.white)
+                        .overlay(alignment: .bottom) {
+                            Button("Retry", systemImage: "arrow.clockwise") {
+                                download.retry(attachment, manager: app.attachmentDownloads)
+                            }
+                            .buttonStyle(.borderedProminent).padding(.bottom, 32)
+                        }
+                } else {
+                    ProgressView("Preparing video…").tint(.white).foregroundStyle(.white)
                 }
             }
             .navigationTitle(attachment.displayName)
@@ -101,6 +114,8 @@ struct ModulaVideoViewer: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Done", action: onDismiss) }
             }
         }
+        .task(id: attachment.id) { download.prepare(attachment, downloadsRemote: true, manager: app.attachmentDownloads) }
+        .onDisappear { download.cancel(attachment.id) }
     }
 }
 
@@ -110,6 +125,7 @@ struct ModulaPDFViewer: View {
     @State private var download = AttachmentDownloadModel()
     @State private var currentPage = 0
     @State private var pageCount = 0
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         NavigationStack {
@@ -135,7 +151,16 @@ struct ModulaPDFViewer: View {
                 case .downloading, .notDownloaded:
                     ProgressView("Preparing PDF…")
                 case .failed(let message):
-                    ContentUnavailableView("PDF unavailable", systemImage: "doc.richtext", description: Text(message))
+                    ContentUnavailableView {
+                        Label("PDF unavailable", systemImage: "doc.richtext")
+                    } description: {
+                        Text(message)
+                    } actions: {
+                        Button("Retry", systemImage: "arrow.clockwise") {
+                            download.retry(attachment, manager: app.attachmentDownloads)
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
                 }
             }
             .navigationTitle(attachment.displayName)
@@ -147,7 +172,7 @@ struct ModulaPDFViewer: View {
                 }
             }
         }
-        .task(id: attachment.id) { download.prepare(attachment, downloadsRemote: true) }
+        .task(id: attachment.id) { download.prepare(attachment, downloadsRemote: true, manager: app.attachmentDownloads) }
         .onDisappear { download.cancel(attachment.id) }
     }
 }
@@ -216,6 +241,7 @@ struct ModulaDocumentPreview: View {
     let attachment: ModulaAttachment
     var onDismiss: () -> Void
     @State private var download = AttachmentDownloadModel()
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         NavigationStack {
@@ -226,7 +252,16 @@ struct ModulaDocumentPreview: View {
                 case .downloading, .notDownloaded:
                     ProgressView("Preparing document…")
                 case .failed(let message):
-                    ContentUnavailableView("Preview unavailable", systemImage: "doc", description: Text(message))
+                    ContentUnavailableView {
+                        Label("Preview unavailable", systemImage: "doc")
+                    } description: {
+                        Text(message)
+                    } actions: {
+                        Button("Retry", systemImage: "arrow.clockwise") {
+                            download.retry(attachment, manager: app.attachmentDownloads)
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
                 }
             }
             .navigationTitle(attachment.displayName)
@@ -238,7 +273,7 @@ struct ModulaDocumentPreview: View {
                 }
             }
         }
-        .task(id: attachment.id) { download.prepare(attachment, downloadsRemote: true) }
+        .task(id: attachment.id) { download.prepare(attachment, downloadsRemote: true, manager: app.attachmentDownloads) }
         .onDisappear { download.cancel(attachment.id) }
     }
 }
@@ -306,6 +341,8 @@ struct ModulaAudioViewer: View {
     let attachment: ModulaAttachment
     var onDismiss: () -> Void
     @State private var audio = ModulaAudioPlayerState()
+    @State private var download = AttachmentDownloadModel()
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         NavigationStack {
@@ -316,15 +353,30 @@ struct ModulaAudioViewer: View {
                 Text(attachment.metadata.title ?? attachment.displayName).font(.title2.bold())
                 if let creator = attachment.metadata.creator { Text(creator).foregroundStyle(.secondary) }
                 ProgressView(value: audio.progress).tint(ModulaColor.accent)
-                Button(audio.isPlaying ? "Pause" : "Play", systemImage: audio.isPlaying ? "pause.fill" : "play.fill") { audio.toggle() }
+                if case .failed(let message) = download.state {
+                    ContentUnavailableView("Audio unavailable", systemImage: "waveform.badge.exclamationmark", description: Text(message))
+                    Button("Retry", systemImage: "arrow.clockwise") { download.retry(attachment, manager: app.attachmentDownloads) }
+                        .buttonStyle(.bordered)
+                } else {
+                    Button(audio.isPlaying ? "Pause" : "Play", systemImage: audio.isPlaying ? "pause.fill" : "play.fill") { audio.toggle() }
                     .buttonStyle(.borderedProminent)
                     .tint(ModulaColor.accent)
+                    .disabled(playableURL == nil)
+                }
             }
             .padding(ModulaSpacing.lg)
             .navigationTitle("Audio")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done", action: onDismiss) } }
         }
-        .onAppear { if let url = attachment.playableURL { audio.attach(url: url) } }
+        .task(id: attachment.id) { download.prepare(attachment, downloadsRemote: true, manager: app.attachmentDownloads) }
+        .onChange(of: download.state) { _, state in
+            if case .downloaded(let url) = state { audio.attach(url: url) }
+        }
         .onDisappear { audio.release() }
+    }
+
+    private var playableURL: URL? {
+        if case .downloaded(let url) = download.state { return url }
+        return nil
     }
 }

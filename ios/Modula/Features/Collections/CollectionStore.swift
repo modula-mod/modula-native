@@ -43,8 +43,7 @@ final class CollectionStore {
             isDefault: false
         )
         collections.append(collection)
-        persist()
-        return collection
+        return persist() ? collection : nil
     }
 
     func rename(id: String, name: String) {
@@ -62,12 +61,13 @@ final class CollectionStore {
         persist()
     }
 
-    func add(postID: String, to collectionID: String) {
-        guard let index = collections.firstIndex(where: { $0.id == collectionID }) else { return }
-        guard !collections[index].itemIDs.contains(postID) else { return }
+    @discardableResult
+    func add(postID: String, to collectionID: String) -> Bool {
+        guard let index = collections.firstIndex(where: { $0.id == collectionID }) else { return false }
+        guard !collections[index].itemIDs.contains(postID) else { return true }
         collections[index].itemIDs.append(postID)
         collections[index].updatedAt = Date()
-        persist()
+        return persist()
     }
 
     func remove(postID: String, from collectionID: String) {
@@ -104,8 +104,18 @@ final class CollectionStore {
         collections = decoded
     }
 
-    private func persist() {
-        guard let data = try? JSONEncoder().encode(collections) else { return }
-        try? fileStore.saveData(data, filename: filename)
+    @discardableResult
+    private func persist() -> Bool {
+        do {
+            let data = try JSONEncoder().encode(collections)
+            try fileStore.saveData(data, filename: filename)
+            error = nil
+            return true
+        } catch {
+            // Restore disk truth: failed writes must not appear as saved changes.
+            load()
+            self.error = "Couldn’t save the collection on this iPhone. Free up storage and try again."
+            return false
+        }
     }
 }

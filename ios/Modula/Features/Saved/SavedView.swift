@@ -12,6 +12,8 @@ struct SavedView: View {
                     message: "Saving posts works. Listing saved posts waits on a Greenfield contract.",
                     symbol: "bookmark"
                 )
+            } else if !app.saved.loaded && app.saved.posts.isEmpty {
+                ProgressView("Loading saved posts…")
             } else if let error = app.saved.error, app.saved.posts.isEmpty {
                 ModulaErrorState(message: error) {
                     Task { await app.saved.load(force: true) }

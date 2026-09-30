@@ -20,6 +20,7 @@ protocol ProfileRepository: Sendable {
 
 actor GreenfieldProfileRepository: ProfileRepository {
     private let client: GreenfieldClient
+    private let mediaUploader: GreenfieldMediaUploader
     private var profileCache: [String: ModulaProfile] = [:]
     private var postsCache: [String: ProfilePostPage] = [:]
     private var followersCache: [String: ProfilePeoplePage] = [:]
@@ -28,6 +29,7 @@ actor GreenfieldProfileRepository: ProfileRepository {
 
     init(client: GreenfieldClient) {
         self.client = client
+        self.mediaUploader = GreenfieldMediaUploader(client: client)
     }
 
     func cachedProfile(key: String) -> ModulaProfile? { profileCache[key] }
@@ -209,19 +211,28 @@ actor GreenfieldProfileRepository: ProfileRepository {
     }
 
     func uploadOwnMedia(kind: ProfileMediaKind, image: PreparedImage) async throws -> ModulaProfile {
-        let value: JSONValue = try await client.authenticatedJSON(
-            "POST",
-            path: "/v1/profiles/me/\(kind.rawValue)",
-            body: .object([
-                "kind": .string("image"),
-                "base64": .string(image.data.base64EncodedString()),
-                "mimeType": .string(image.mimeType),
-                "contentType": .string(image.mimeType),
-                "width": .number(Double(image.width)),
-                "height": .number(Double(image.height))
-            ])
+        var prepared = PreparedMedia(
+            id: "profile-\(kind.rawValue)-\(UUID().uuidString)",
+            kind: .image,
+            data: image.data,
+            mimeType: image.mimeType,
+            filename: "profile-\(kind.rawValue).\(Self.imageExtension(for: image.mimeType))",
+            altText: kind.title
         )
-        return try decodedOwnProfile(value)
+        prepared.width = image.width
+        prepared.height = image.height
+        let uploaded = try await mediaUploader.upload(prepared, progress: { _ in }, sessionCreated: { _, _ in })
+        do {
+            let value: JSONValue = try await client.authenticatedJSON(
+                "POST",
+                path: "/v1/profiles/me/\(kind.rawValue)",
+                body: .object(["attachmentId": .string(uploaded.remoteID)])
+            )
+            return try decodedOwnProfile(value)
+        } catch {
+            let _: JSONValue? = try? await client.authenticatedJSON("DELETE", path: "/v1/attachments/\(uploaded.remoteID)")
+            throw error
+        }
     }
 
     func removeOwnMedia(kind: ProfileMediaKind) async throws -> ModulaProfile {
@@ -241,6 +252,15 @@ actor GreenfieldProfileRepository: ProfileRepository {
         profileCache[profile.routeID] = profile
         profileCache[profile.id] = profile
         return profile
+    }
+
+    private static func imageExtension(for mimeType: String) -> String {
+        switch mimeType.lowercased() {
+        case "image/png": "png"
+        case "image/heic", "image/heif": "heic"
+        case "image/webp": "webp"
+        default: "jpg"
+        }
     }
 
     // MARK: - Private

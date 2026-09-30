@@ -1,8 +1,23 @@
 import CoreGraphics
 import Foundation
+import ImageIO
+import SwiftUI
 import UniformTypeIdentifiers
+import UIKit
 
 typealias AttachmentID = String
+
+enum AttachmentRemoteState: String, Codable, Hashable, Sendable {
+    case created, uploading, uploaded, processing, ready, failed, expired, rejected
+
+    init(parsing raw: String?) {
+        self = raw.flatMap(Self.init(rawValue:)) ?? .ready
+    }
+
+    var isTerminalFailure: Bool {
+        self == .failed || self == .expired || self == .rejected
+    }
+}
 
 enum AttachmentKind: String, CaseIterable, Codable, Hashable, Sendable {
     case image
@@ -103,6 +118,7 @@ struct ModulaAttachment: Identifiable, Codable, Hashable, Sendable {
     let duration: TimeInterval?
     let accessibilityDescription: String?
     let metadata: AttachmentMetadata
+    let remoteState: AttachmentRemoteState?
 
     init(
         id: AttachmentID,
@@ -117,7 +133,8 @@ struct ModulaAttachment: Identifiable, Codable, Hashable, Sendable {
         dimensions: CGSize? = nil,
         duration: TimeInterval? = nil,
         accessibilityDescription: String? = nil,
-        metadata: AttachmentMetadata = .empty
+        metadata: AttachmentMetadata = .empty,
+        remoteState: AttachmentRemoteState? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -132,6 +149,7 @@ struct ModulaAttachment: Identifiable, Codable, Hashable, Sendable {
         self.duration = duration.flatMap { $0 >= 0 ? $0 : nil }
         self.accessibilityDescription = Self.clean(accessibilityDescription)
         self.metadata = metadata
+        self.remoteState = remoteState
     }
 
     var displayName: String {
@@ -141,6 +159,8 @@ struct ModulaAttachment: Identifiable, Codable, Hashable, Sendable {
     var bestPreviewURL: URL? { thumbnailURL ?? previewURL }
     var playableURL: URL? { localFileURL ?? remoteURL }
     var isAvailable: Bool { localFileURL != nil || remoteURL != nil || bestPreviewURL != nil }
+    var resolvedRemoteState: AttachmentRemoteState { remoteState ?? .ready }
+    var cacheIdentity: String { "\(id):\(kind.rawValue)" }
 
     var accessibilityLabel: String {
         var values: [String] = []
@@ -180,4 +200,123 @@ enum AttachmentLoadState: Equatable, Sendable {
     case retrying
     case offlineCached
     case offlineUnavailable
+}
+
+enum ModulaRemoteImagePhase {
+    case loading
+    case success(UIImage)
+    case failure(String)
+}
+
+enum ModulaRemoteImageDecoder {
+    nonisolated static func downsample(data: Data, maximumPixelSize: CGFloat) -> UIImage? {
+        let options = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithData(data as CFData, options) else { return nil }
+        let thumbnailOptions = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: max(64, Int(maximumPixelSize))
+        ] as CFDictionary
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnailOptions) else { return nil }
+        return UIImage(cgImage: cgImage)
+    }
+}
+
+/// Authenticated, downsampled image loading for Greenfield media. Cache identity is
+/// supplied by the attachment/profile domain rather than a temporary access URL.
+struct ModulaRemoteImage<Content: View>: View {
+    let url: URL?
+    let cacheKey: String
+    var maximumPixelSize: CGFloat = 1_600
+    var retryID = 0
+    @ViewBuilder let content: (ModulaRemoteImagePhase) -> Content
+
+    @Environment(AppEnvironment.self) private var app
+    @State private var phase: ModulaRemoteImagePhase = .loading
+
+    var body: some View {
+        content(phase)
+            .task(id: TaskIdentity(cacheKey: cacheKey, url: url, retryID: retryID)) {
+                await load()
+            }
+    }
+
+    @MainActor
+    private func load() async {
+        guard let url else {
+            phase = .failure("Media is unavailable.")
+            return
+        }
+        if let cached = ModulaRemoteImageCache.shared.image(for: cacheKey) {
+            phase = .success(cached)
+            return
+        }
+        phase = .loading
+        do {
+            let client = app.client
+            let data = try await ModulaRemoteImagePipeline.shared.data(for: cacheKey) {
+                try await client.mediaData(from: url)
+            }
+            try Task.checkCancellation()
+            let maximumPixelSize = maximumPixelSize
+            guard let image = await Task.detached(priority: .utility, operation: {
+                ModulaRemoteImageDecoder.downsample(data: data, maximumPixelSize: maximumPixelSize)
+            }).value else {
+                phase = .failure("The image could not be decoded.")
+                return
+            }
+            ModulaRemoteImageCache.shared.insert(image, for: cacheKey)
+            phase = .success(image)
+        } catch is CancellationError {
+            return
+        } catch {
+            phase = .failure("The image could not be loaded.")
+        }
+    }
+
+    private struct TaskIdentity: Hashable {
+        let cacheKey: String
+        let url: URL?
+        let retryID: Int
+    }
+}
+
+private actor ModulaRemoteImagePipeline {
+    static let shared = ModulaRemoteImagePipeline()
+    private var inFlight: [String: Task<Data, Error>] = [:]
+
+    func data(for key: String, fetch: @escaping @Sendable () async throws -> Data) async throws -> Data {
+        if let existing = inFlight[key] { return try await existing.value }
+        let task = Task { try await fetch() }
+        inFlight[key] = task
+        do {
+            let data = try await task.value
+            inFlight[key] = nil
+            return data
+        } catch {
+            inFlight[key] = nil
+            throw error
+        }
+    }
+}
+
+@MainActor
+private final class ModulaRemoteImageCache {
+    static let shared = ModulaRemoteImageCache()
+    private let storage = NSCache<NSString, UIImage>()
+
+    private init() {
+        storage.countLimit = 120
+        storage.totalCostLimit = 96 * 1_024 * 1_024
+    }
+
+    func image(for key: String) -> UIImage? {
+        storage.object(forKey: key as NSString)
+    }
+
+    func insert(_ image: UIImage, for key: String) {
+        let pixels = Int(image.size.width * image.scale * image.size.height * image.scale)
+        storage.setObject(image, forKey: key as NSString, cost: min(pixels * 4, Int.max))
+    }
 }

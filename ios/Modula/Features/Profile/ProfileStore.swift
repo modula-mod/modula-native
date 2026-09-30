@@ -5,6 +5,7 @@ import UIKit
 @MainActor @Observable
 final class ProfileStore {
     private let repository: GreenfieldProfileRepository
+    private let client: GreenfieldClient
     private let posts: PostStateStore?
     private(set) var sessions: [String: ProfileSessionState] = [:]
     private(set) var actionError: String?
@@ -17,6 +18,7 @@ final class ProfileStore {
     var ownProfile: ModulaProfile? { sessions["me"]?.profile ?? sessions.first(where: { $0.key.hasPrefix("me") })?.value.profile }
 
     init(client: GreenfieldClient, posts: PostStateStore? = nil) {
+        self.client = client
         self.repository = GreenfieldProfileRepository(client: client)
         self.posts = posts
     }
@@ -25,11 +27,18 @@ final class ProfileStore {
         let profile = ownProfile ?? session(for: .me, handleHint: account?.primaryHandle).profile
         var photo: UIImage?
         if let url = profile?.avatarURL {
+            tabBarAvatar = ProfileTabAvatarRenderer.status(symbol: "person.crop.circle", accent: accent)
             if let cached = ProfileTabAvatarRenderer.cachedPhoto(for: url) {
                 photo = cached
-            } else if let (data, _) = try? await URLSession.shared.data(from: url), let image = UIImage(data: data) {
+            } else if let data = try? await client.mediaData(from: url),
+                      let image = await Task.detached(priority: .utility, operation: {
+                          ModulaRemoteImageDecoder.downsample(data: data, maximumPixelSize: 192)
+                      }).value {
                 ProfileTabAvatarRenderer.storePhoto(image, for: url)
                 photo = image
+            } else {
+                tabBarAvatar = ProfileTabAvatarRenderer.status(symbol: "exclamationmark", accent: accent)
+                return
             }
         }
         tabBarAvatar = ProfileTabAvatarRenderer.image(
@@ -458,13 +467,15 @@ final class ProfileStore {
     }
 
     private func applyOwn(_ profile: ModulaProfile) {
+        // Media mutations increment the same profile version as text edits.
+        // Keep unsaved fields, but rebase their optimistic concurrency token.
+        editing.draft?.expectedVersion = profile.version
         let key = sessionKey(.me, handleHint: profile.handle)
         var state = sessions[key] ?? ProfileSessionState()
         state.profile = profile
         state.loadState = .loaded
         sessions[key] = state
         sessions["me"] = state
-        Task { await refreshTabBarAvatar(account: nil, accent: UIColor(red: 54 / 255, green: 156 / 255, blue: 170 / 255, alpha: 1)) }
     }
 
     // MARK: - Private

@@ -23,6 +23,7 @@ struct RootView: View {
         .environment(\.trailingInteractionInset, clearance.trailing)
         .environment(\.leadingInteractionInset, clearance.leading)
         .environment(\.edgePickerSide, edgeSide)
+        .environment(\.shellChromeMetrics, ShellChromeMetrics.resolve(policy: policy))
         .overlay(alignment: edgeSide == .right ? .trailing : .leading) {
             if policy.contextRailVisible, !navigation.sidebarPresented {
                 ShellEdgeLoop(route: navigation.currentRoute)
@@ -150,8 +151,9 @@ struct RootView: View {
                 .modulaSoftScrollEdge()
                 .tabItem {
                     if tab == .profile {
-                        Image(uiImage: app.profile.tabBarAvatar ?? ProfileTabAvatarRenderer.placeholder(
-                            initials: ProfileTabAvatarRenderer.initials(profile: app.profile.ownProfile, account: app.auth.account),
+                        Image(uiImage: app.profile.tabBarAvatar ?? ProfileTabAvatarRenderer.fallback(
+                            profile: app.profile.ownProfile,
+                            account: app.auth.account,
                             accent: UIColor(app.appearance.accent.color)
                         ))
                         .renderingMode(.original)

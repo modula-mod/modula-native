@@ -77,8 +77,7 @@ struct CreationStudioView: View {
         }
         .confirmationDialog("Save this draft?", isPresented: exitBinding(store), titleVisibility: .visible) {
             Button("Save Draft") {
-                store.saveAndExit()
-                close()
+                if store.saveAndExit() { close() }
             }
             Button("Discard", role: .destructive) {
                 store.discard()
@@ -144,8 +143,15 @@ struct CreationStudioView: View {
                 .fontDesign(.default)
                 .accessibilitySortPriority(100)
             Spacer()
-            DraftStatusView(saved: app.drafts.showSavedIndicator, publishing: store.draft.isPublishing)
-                .accessibilitySortPriority(20)
+            if app.drafts.saveError != nil {
+                Label("Not saved", systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .accessibilityLabel(app.drafts.saveError ?? "Draft not saved")
+            } else {
+                DraftStatusView(saved: app.drafts.showSavedIndicator, publishing: store.draft.isPublishing)
+                    .accessibilitySortPriority(20)
+            }
             Button(store.draft.kind.publishLabel) {
                 startPublishing(store)
             }

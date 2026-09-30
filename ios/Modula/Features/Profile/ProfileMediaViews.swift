@@ -51,6 +51,7 @@ struct ProfileMediaWorkspace: ViewModifier {
     @State private var showsLibrary = false
     @State private var showsCamera = false
     @State private var libraryItem: PhotosPickerItem?
+    @State private var activeKind: ProfileMediaKind = .avatar
 
     func body(content: Content) -> some View {
         content
@@ -102,11 +103,24 @@ struct ProfileMediaWorkspace: ViewModifier {
                         .background(.regularMaterial, in: Capsule())
                         .padding(.bottom, 12)
                         .accessibilityIdentifier("profile.media.progress")
+                } else if let message = app.profile.actionError {
+                    HStack(spacing: 10) {
+                        Label(message, systemImage: "exclamationmark.triangle.fill")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        Button("Dismiss") { app.profile.clearActionError() }
+                            .font(.footnote.weight(.semibold))
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(.regularMaterial, in: Capsule())
+                    .padding(.bottom, 12)
+                    .accessibilityIdentifier("profile.media.error")
                 }
             }
     }
 
-    private var currentKind: ProfileMediaKind { action?.kind ?? .avatar }
+    private var currentKind: ProfileMediaKind { action?.kind ?? activeKind }
 
     private var pickerTitle: String {
         switch currentKind {
@@ -146,6 +160,7 @@ struct ProfileMediaWorkspace: ViewModifier {
 
     private func handleAction() {
         guard let action else { return }
+        activeKind = action.kind
         switch action {
         case .pick:
             break
@@ -180,7 +195,7 @@ struct ProfileMediaWorkspace: ViewModifier {
             return
         }
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
+            let data = try await app.client.mediaData(from: url)
             await beginCrop(data: data, kind: kind)
         } catch {
             app.profile.setMediaError("Couldn't load the current photo.")
@@ -233,6 +248,16 @@ private struct ProfileMediaCropper: View {
                         .overlay(Rectangle().stroke(.white.opacity(0.35), lineWidth: 1))
                     VStack {
                         Spacer()
+                        if let message = app.profile.actionError {
+                            Label(message, systemImage: "exclamationmark.triangle.fill")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 10)
+                                .background(.red.opacity(0.78), in: Capsule())
+                                .padding(.bottom, 10)
+                                .accessibilityIdentifier("profile.media.crop.error")
+                        }
                         Text(session.kind == .avatar ? "Drag and pinch to frame your photo." : "Drag and pinch to reposition the cover.")
                             .font(.footnote)
                             .foregroundStyle(.white.opacity(0.78))
@@ -340,6 +365,7 @@ private struct ProfileMediaCropper: View {
     private func save() async {
         saving = true
         defer { saving = false }
+        app.profile.setMediaError(nil)
         let imageSize = session.image.size
         let screen = UIScreen.main.bounds.size
         let viewport = viewportSize(in: screen)
@@ -453,10 +479,10 @@ struct ProfileMediaEditorRow: View {
         case .cover:
             Group {
                 if let url {
-                    AsyncImage(url: url) { phase in
+                    ModulaRemoteImage(url: url, cacheKey: "profile-cover-thumbnail:\(url.path)", maximumPixelSize: 480) { phase in
                         switch phase {
                         case .success(let image):
-                            image.resizable().scaledToFill()
+                            Image(uiImage: image).resizable().scaledToFill()
                         default:
                             Color.primary.opacity(0.08)
                         }

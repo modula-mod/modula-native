@@ -1,6 +1,7 @@
 import AVKit
 import Observation
 import SwiftUI
+import UIKit
 
 /// Shared playback surface for post video, story video, and reels.
 /// Only the owner should keep a player attached; distant pages must call `release()`.
@@ -68,7 +69,8 @@ final class ModulaVideoPlaybackController {
 struct ModulaVideoPlayer: View {
     let resource: MediaResource
     var isActive: Bool
-        var controller: ModulaVideoPlaybackController
+    var controller: ModulaVideoPlaybackController
+    var fallbackPoster: UIImage? = nil
     var onToggle: (() -> Void)? = nil
 
     @Environment(\.scenePhase) private var scenePhase
@@ -128,10 +130,14 @@ struct ModulaVideoPlayer: View {
         .onChange(of: isActive) { _, active in
             if active { activate() } else { controller.pause() }
         }
+        .onChange(of: resource.url) { _, _ in
+            if isActive { activate() }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { controller.pause() }
         }
         .onDisappear { controller.pause() }
+        .onAppear { if isActive { activate() } }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityAddTraits(.startsMediaSession)
@@ -142,17 +148,26 @@ struct ModulaVideoPlayer: View {
 
     @ViewBuilder
     private var poster: some View {
-        if let posterURL = resource.posterURL ?? (resource.kind == .image ? resource.url : nil) {
-            AsyncImage(url: posterURL) { phase in
+        if let fallbackPoster {
+            Image(uiImage: fallbackPoster).resizable().scaledToFill()
+        } else if let posterURL = resource.posterURL ?? (resource.kind == .image ? resource.url : nil) {
+            ModulaRemoteImage(url: posterURL, cacheKey: "media:\(resource.id):poster", maximumPixelSize: 1_600) { phase in
                 switch phase {
                 case .success(let image):
-                    image.resizable().scaledToFill()
+                    Image(uiImage: image).resizable().scaledToFill()
                 default:
-                    Color.black
+                    posterPlaceholder
                 }
             }
         } else {
+            posterPlaceholder
+        }
+    }
+
+    private var posterPlaceholder: some View {
+        ZStack {
             Color.black
+            Image(systemName: "video").font(.largeTitle).foregroundStyle(.white.opacity(0.32))
         }
     }
 

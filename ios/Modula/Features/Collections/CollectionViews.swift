@@ -7,6 +7,7 @@ struct CollectionsView: View {
 
     var body: some View {
         List {
+            if let error = app.collections.error { Text(error).foregroundStyle(.red) }
             Section {
                 ForEach(app.collections.collections.filter(\.isDefault)) { collection in
                     NavigationLink(value: AppRoute.collections(.collection(collection.id))) {
@@ -47,6 +48,7 @@ struct CollectionsView: View {
         .sheet(isPresented: $showCreate) {
             NavigationStack {
                 Form {
+                    if let error = app.collections.error { Text(error).foregroundStyle(.red) }
                     TextField("Name", text: $newName)
                     Text("Stored on this iPhone")
                         .font(.footnote)
@@ -60,7 +62,7 @@ struct CollectionsView: View {
                     }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Create") {
-                            _ = app.collections.create(name: newName)
+                            guard app.collections.create(name: newName) != nil else { return }
                             newName = ""
                             showCreate = false
                             HapticEngine.shared.play(.confirmation)
@@ -153,10 +155,11 @@ struct CollectionPicker: View {
     var body: some View {
         NavigationStack {
             List {
+                if let error = app.collections.error { Text(error).foregroundStyle(.red) }
                 Section("Collections") {
                     ForEach(app.collections.collections.filter { !$0.isDefault }) { collection in
                         Button {
-                            app.collections.add(postID: postID, to: collection.id)
+                            guard app.collections.add(postID: postID, to: collection.id) else { return }
                             HapticEngine.shared.play(.confirmation)
                             onDone?()
                             dismiss()
@@ -170,7 +173,7 @@ struct CollectionPicker: View {
                         TextField("Name", text: $newName)
                         Button("Add") {
                             if let created = app.collections.create(name: newName) {
-                                app.collections.add(postID: postID, to: created.id)
+                                guard app.collections.add(postID: postID, to: created.id) else { return }
                                 newName = ""
                                 HapticEngine.shared.play(.confirmation)
                                 onDone?()

@@ -18,15 +18,17 @@ struct PrivateFileStore: Sendable {
     }
 
     private let domain: Domain
+    private let rootURL: URL?
     nonisolated(unsafe) private let fileManager: FileManager
 
-    init(domain: Domain, fileManager: FileManager = .default) {
+    init(domain: Domain, fileManager: FileManager = .default, rootURL: URL? = nil) {
         self.domain = domain
         self.fileManager = fileManager
+        self.rootURL = rootURL
     }
 
     var directoryURL: URL {
-        let root = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        let root = rootURL ?? fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? fileManager.temporaryDirectory
         return root
             .appendingPathComponent("digital.modula.app", isDirectory: true)

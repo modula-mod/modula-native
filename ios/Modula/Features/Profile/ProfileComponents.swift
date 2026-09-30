@@ -19,6 +19,7 @@ struct ProfileCover: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var retryID = 0
 
     private var coverHeight: CGFloat {
         ProfileFullBleedMetrics.coverHeight(
@@ -43,21 +44,32 @@ struct ProfileCover: View {
                 fallbackComposition
                     .opacity(coverURL == nil ? 1 : 0.001)
                 if let coverURL {
-                    AsyncImage(url: coverURL) { phase in
+                    ModulaRemoteImage(
+                        url: coverURL,
+                        cacheKey: "cover:\(coverURL.path)",
+                        maximumPixelSize: 2_400,
+                        retryID: retryID
+                    ) { phase in
                         switch phase {
                         case .success(let image):
-                            image
+                            Image(uiImage: image)
                                 .resizable()
                                 .scaledToFill()
                                 .frame(width: width, height: coverHeight + stretch)
                                 .clipped()
                         case .failure:
-                            fallbackComposition
-                        case .empty:
+                            fallbackComposition.overlay(alignment: .topTrailing) {
+                                Button("Retry cover", systemImage: "arrow.clockwise") { retryID += 1 }
+                                    .labelStyle(.iconOnly)
+                                    .frame(width: 44, height: 44)
+                                    .background(.black.opacity(0.38), in: Circle())
+                                    .foregroundStyle(.white)
+                                    .padding(.top, safeAreaTop + 8)
+                                    .padding(.trailing, 12)
+                            }
+                        case .loading:
                             fallbackComposition
                                 .overlay(ProgressView().tint(.white.opacity(0.7)))
-                        @unknown default:
-                            fallbackComposition
                         }
                     }
                 }

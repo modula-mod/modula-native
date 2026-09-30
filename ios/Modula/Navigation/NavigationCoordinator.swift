@@ -258,6 +258,19 @@ struct ShellChromePolicy: Equatable {
                 immersive: false,
                 hidesForKeyboard: true
             )
+        case .developer(.components):
+            // Catalog pages remain in the production shell but use a deliberate
+            // inspection presentation without a floating accessory over the sample.
+            Self(
+                bottomBarVisible: true,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .standard,
+                showsBack: true,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: true
+            )
         case .messages:
             Self(
                 bottomBarVisible: false,
@@ -325,5 +338,29 @@ struct ShellChromePolicy: Equatable {
                 hidesForKeyboard: true
             )
         }
+    }
+}
+
+/// One source of truth for content clearance around persistent shell chrome.
+/// SwiftUI's TabView/safeAreaInset owns the occupied height; content adds only
+/// this optical clearance rather than guessing per screen.
+struct ShellChromeMetrics: Equatable, Sendable {
+    let bottomBarHeight: CGFloat
+    let accessoryHeight: CGFloat
+    let containerReservesOccupiedRegion: Bool
+    let opticalClearance: CGFloat
+
+    var occupiedBottomHeight: CGFloat { bottomBarHeight + accessoryHeight }
+    var contentBottomInset: CGFloat {
+        containerReservesOccupiedRegion ? opticalClearance : occupiedBottomHeight + opticalClearance
+    }
+
+    static func resolve(policy: ShellChromePolicy, containerReservesOccupiedRegion: Bool = true) -> Self {
+        Self(
+            bottomBarHeight: policy.bottomBarVisible ? 49 : 0,
+            accessoryHeight: policy.shellAccessoryVisible ? 52 : 0,
+            containerReservesOccupiedRegion: containerReservesOccupiedRegion,
+            opticalClearance: policy.bottomBarVisible ? 16 : 8
+        )
     }
 }

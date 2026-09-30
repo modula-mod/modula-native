@@ -150,12 +150,15 @@ struct ModulaAvatar: View {
     var body: some View {
         Group {
             if let url {
-                AsyncImage(url: url) { phase in
+                ModulaRemoteImage(
+                    url: url,
+                    cacheKey: "avatar:\(url.path)",
+                    maximumPixelSize: max(160, size * UIScreen.main.scale)
+                ) { phase in
                     switch phase {
-                    case .success(let image):
-                        image.resizable().scaledToFill()
-                    default:
-                        initialsView
+                    case .success(let image): Image(uiImage: image).resizable().scaledToFill()
+                    case .loading: loadingView
+                    case .failure: failureView
                     }
                 }
             } else {
@@ -172,6 +175,20 @@ struct ModulaAvatar: View {
             .fill(app.appearance.accent.color.gradient)
             .overlay(Text(initials).font(.headline).foregroundStyle(.white))
     }
+
+    private var loadingView: some View {
+        Circle()
+            .fill(Color.secondary.opacity(0.12))
+            .overlay(ProgressView().controlSize(.small))
+            .accessibilityLabel("Loading profile avatar")
+    }
+
+    private var failureView: some View {
+        Circle()
+            .fill(Color.secondary.opacity(0.12))
+            .overlay(Image(systemName: "person.crop.circle.badge.exclamationmark").foregroundStyle(.secondary))
+            .accessibilityLabel("Profile avatar could not be loaded")
+    }
 }
 
 /// Circular Profile tab glyph for the pre-iOS 26 custom tab bar.
@@ -181,8 +198,9 @@ struct ProfileTabIcon: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        Image(uiImage: app.profile.tabBarAvatar ?? ProfileTabAvatarRenderer.placeholder(
-            initials: ProfileTabAvatarRenderer.initials(profile: app.profile.ownProfile, account: app.auth.account),
+        Image(uiImage: app.profile.tabBarAvatar ?? ProfileTabAvatarRenderer.fallback(
+            profile: app.profile.ownProfile,
+            account: app.auth.account,
             accent: UIColor(app.appearance.accent.color),
             pointSize: size
         ))
@@ -551,6 +569,28 @@ enum ProfileTabAvatarRenderer {
 
     static func placeholder(initials: String, accent: UIColor, pointSize: CGFloat = 26) -> UIImage {
         image(photo: nil, initials: initials, accent: accent, pointSize: pointSize)
+    }
+
+    static func fallback(profile: ModulaProfile?, account: GreenfieldAccount?, accent: UIColor, pointSize: CGFloat = 26) -> UIImage {
+        guard profile?.avatarURL == nil else { return status(symbol: "person.crop.circle", accent: accent, pointSize: pointSize) }
+        return placeholder(initials: initials(profile: profile, account: account), accent: accent, pointSize: pointSize)
+    }
+
+    static func status(symbol: String, accent: UIColor, pointSize: CGFloat = 26) -> UIImage {
+        let format = UIGraphicsImageRendererFormat.default()
+        format.opaque = false
+        format.scale = UIScreen.main.scale
+        return UIGraphicsImageRenderer(size: CGSize(width: pointSize, height: pointSize), format: format).image { _ in
+            let inset = pointSize * 0.08
+            let rect = CGRect(x: inset, y: inset, width: pointSize - inset * 2, height: pointSize - inset * 2)
+            accent.withAlphaComponent(0.16).setFill()
+            UIBezierPath(ovalIn: rect).fill()
+            let configuration = UIImage.SymbolConfiguration(pointSize: rect.height * 0.46, weight: .semibold)
+            if let icon = UIImage(systemName: symbol, withConfiguration: configuration)?.withTintColor(accent, renderingMode: .alwaysOriginal) {
+                let origin = CGPoint(x: rect.midX - icon.size.width / 2, y: rect.midY - icon.size.height / 2)
+                icon.draw(at: origin)
+            }
+        }.withRenderingMode(.alwaysOriginal)
     }
 
     static func image(

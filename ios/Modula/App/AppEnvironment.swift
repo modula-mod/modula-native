@@ -29,6 +29,7 @@ final class AppEnvironment {
     let draftMedia: DraftMediaStore
     let publishing: GreenfieldPublishingRepository
     let mediaUploader: any MediaUploading
+    let attachmentDownloads: AttachmentDownloadManager
     var creationCapabilities: CreationCapabilities { .production }
     let gate = AppGate()
     let appLock = AppLockStore()
@@ -73,12 +74,13 @@ final class AppEnvironment {
         stories = StoryStore(client: client)
         reels = ReelStore(client: client)
         commandRecents = CommandRecentsStore()
-        saved = SavedStore(client: client)
+        saved = SavedStore(client: client, state: posts)
         collections = CollectionStore()
         draftMedia = DraftMediaStore()
         drafts = DraftStore(mediaStore: draftMedia)
         publishing = GreenfieldPublishingRepository(client: client, capabilities: .production)
         mediaUploader = GreenfieldMediaUploader(client: client)
+        attachmentDownloads = AttachmentDownloadManager(downloader: GreenfieldAttachmentDownloader(client: client))
         #if DEBUG
         let nodusRuntime: (any NodusRuntime)?
         if launchArguments.contains("--uitest-nodus-missing") {

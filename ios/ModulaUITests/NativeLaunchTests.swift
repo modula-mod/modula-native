@@ -4,14 +4,23 @@ import UIKit
 /// The accepted Edge Picker is scrub-only. Drive the real adjustable surface
 /// instead of reviving the obsolete tappable-item contract.
 @MainActor
-private func scrubEdgePicker(_ app: XCUIApplication, to route: String) {
+private func scrubEdgePicker(_ app: XCUIApplication, to route: String, forward: Bool = true) {
     let picker = app.descendants(matching: .any)["shell.edge-loop"].firstMatch
     XCTAssertTrue(picker.waitForExistence(timeout: 5))
-    let start = picker.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72))
-    let end = picker.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.28))
+    // The accessibility element spans the screen-height rail. Keep the scrub to
+    // one item stride; a large normalized drag can legitimately coast through
+    // several looping items and make the destination device-size dependent.
+    let start = picker.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: forward ? 0.42 : 0.58))
+    let end = picker.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.50))
     start.press(forDuration: 0.12, thenDragTo: end)
-    let home = app.descendants(matching: .any)["native.home"].firstMatch
-    XCTAssertTrue(NSPredicate(format: "value == %@", route).evaluate(with: home))
+    if route.hasPrefix("/home/") {
+        let home = app.descendants(matching: .any)["native.home"].firstMatch
+        XCTAssertTrue(home.waitForExistence(timeout: 5))
+        XCTAssertTrue(NSPredicate(format: "value == %@", route).evaluate(with: home))
+    } else {
+        let identifier = String(route.dropFirst()).replacingOccurrences(of: "/", with: ".")
+        XCTAssertTrue(app.descendants(matching: .any)[identifier].firstMatch.waitForExistence(timeout: 5))
+    }
 }
 
 @MainActor
@@ -58,11 +67,9 @@ final class N2ShellUITests: XCTestCase {
         )
 
         selectTab(app, "Activity")
-        app.buttons["Mentions"].firstMatch.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["activity.mentions"].waitForExistence(timeout: 5))
+        scrubEdgePicker(app, to: "/activity/mentions")
         selectTab(app, "Profile")
-        app.buttons["Posts"].firstMatch.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["profile.posts"].waitForExistence(timeout: 5))
+        scrubEdgePicker(app, to: "/profile/posts")
 
         selectTab(app, "Home")
         openSettingsFromShell(app)
@@ -94,11 +101,11 @@ final class N2PolishAccessibilityUITests: XCTestCase {
             XCTAssertTrue(element.isHittable, "Unreachable shell control \(identifier)")
         }
 
-        app.buttons["Modules"].firstMatch.tap()
-        XCTAssertEqual(app.descendants(matching: .any)["native.home"].value as? String, "/home/modules")
+        scrubEdgePicker(app, to: "/home/for-you")
+        scrubEdgePicker(app, to: "/home/modules")
         attachScreenshot(app, name: "edge-rail-revealed-loop-state")
-        app.buttons["Following"].firstMatch.tap()
-        XCTAssertEqual(app.descendants(matching: .any)["native.home"].value as? String, "/home/following")
+        scrubEdgePicker(app, to: "/home/for-you", forward: false)
+        scrubEdgePicker(app, to: "/home/following", forward: false)
 
         openSettingsFromShell(app)
         XCTAssertTrue(app.descendants(matching: .any)["settings.root"].waitForExistence(timeout: 5))
@@ -114,7 +121,8 @@ final class N2PolishAccessibilityUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["accessory.feeds"].firstMatch.isHittable
             || app.descendants(matching: .any)["tab.accessory"].firstMatch.exists)
         XCTAssertTrue(app.tabBars.buttons["Home"].firstMatch.isHittable)
-        XCTAssertTrue(app.buttons["For You"].firstMatch.isHittable)
+        XCTAssertTrue(app.descendants(matching: .any)["shell.edge-loop"].firstMatch.isHittable)
+        scrubEdgePicker(app, to: "/home/for-you")
         openSettingsFromShell(app)
         app.buttons["Appearance"].firstMatch.tap()
         XCTAssertTrue(app.descendants(matching: .any)["settings.appearance"].waitForExistence(timeout: 6))
@@ -311,14 +319,16 @@ final class NativeLaunchTests: XCTestCase {
         openWorkspace.tap()
         XCTAssertTrue(app.descendants(matching: .any)["nodus.workspace"].waitForExistence(timeout: 8))
 
-        let chats = app.descendants(matching: .any)["nodus.workspace.chats"]
+        let chats = app.descendants(matching: .any)["nodus.workspace.chats"].firstMatch
         XCTAssertTrue(chats.exists)
         chats.tap()
         XCTAssertTrue(app.descendants(matching: .any)["nodus.chat.screen"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["Think"].exists)
         XCTAssertTrue(app.buttons["Search"].exists)
-        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Knowledge")).firstMatch.exists)
-        XCTAssertTrue(app.buttons["Memory On"].exists)
+        app.buttons["nodus.chat.add-context"].tap()
+        XCTAssertTrue(app.buttons["Knowledge"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Turn Memory On"].exists || app.buttons["Turn Memory Off"].exists)
+        app.tap()
         app.descendants(matching: .any)["nodus.chat.conversations"].firstMatch.tap()
         XCTAssertTrue(app.descendants(matching: .any)["nodus.conversations"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["New Chat"].exists)
@@ -836,7 +846,7 @@ private func requireN1FixtureOrSkip() throws -> N1UITestFixture {
 @MainActor
 private func openIntelligenceChat(_ app: XCUIApplication) {
     app.typeKey("k", modifierFlags: .command)
-    let search = app.descendants(matching: .any)["command.search"]
+    let search = app.textFields["Search commands"].firstMatch
     XCTAssertTrue(search.waitForExistence(timeout: 8))
     search.tap()
     search.typeText("Nodus")
@@ -1131,12 +1141,10 @@ final class N3AActivityAuthUITests: XCTestCase {
         // AppGate requires sign-in before shell; Activity no longer presents a signed-out CTA.
         XCTAssertFalse(app.descendants(matching: .any)["activity.sign-in"].exists)
 
-        app.buttons["Mentions"].firstMatch.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["activity.mentions"].waitForExistence(timeout: 5))
-        app.buttons["Requests"].firstMatch.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["activity.requests"].waitForExistence(timeout: 5))
-        app.buttons["All"].firstMatch.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["activity.all"].waitForExistence(timeout: 5))
+        scrubEdgePicker(app, to: "/activity/mentions")
+        scrubEdgePicker(app, to: "/activity/requests")
+        scrubEdgePicker(app, to: "/activity/mentions", forward: false)
+        scrubEdgePicker(app, to: "/activity/all", forward: false)
 
         // Accessory tools (when signed in) — Search must not be required on Activity.
         XCTAssertTrue(app.descendants(matching: .any)["tab.accessory"].exists)
@@ -1534,9 +1542,10 @@ final class POST03CatalogUITests: XCTestCase {
         try openContentCatalog(app)
 
         for title in [
-            "Post Shell", "Post Header", "Text Post", "Image Post", "Image Gallery", "Video Post",
-            "PDF Post", "Document Post", "Audio Post", "Link Post", "Mixed Content", "Action Rail",
-            "Metadata Chips", "Comments", "Attachment States"
+            "Immersive Post Shell", "Post Header", "Text Post", "Image Post", "Image Gallery", "Video Post",
+            "PDF Post", "Document Post", "Audio Post", "Link Post", "Mixed Content", "Media Action Rail",
+            "Metadata Chips", "Comments Morph", "Post Detail", "Feed Rhythm", "Loading States",
+            "Error States", "Attachment Diagnostics"
         ] {
             openPage(title, app: app)
             XCTAssertFalse(app.staticTexts[title].firstMatch.frame.isEmpty, "Invisible catalog content for \(title)")
@@ -1580,13 +1589,18 @@ final class POST03CatalogUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Cancel"].exists)
         back(app)
 
-        openPage("50+ Mixed Feed", app: app)
+        openPage("60+ Mixed Feed", app: app)
         XCTAssertTrue(app.staticTexts["catalog.posts.stress-count"].waitForExistence(timeout: 4))
-        XCTAssertEqual(app.staticTexts["catalog.posts.stress-count"].label, "60 mixed posts")
-        XCTAssertTrue(app.staticTexts["Fixture stress-0"].waitForExistence(timeout: 4))
+        XCTAssertTrue(
+            ["60 live-backed mixed posts", "60 state fixtures · live feed unavailable"]
+                .contains(app.staticTexts["catalog.posts.stress-count"].label)
+        )
+        let firstFixture = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Fixture '")).firstMatch
+        XCTAssertTrue(firstFixture.waitForExistence(timeout: 4))
+        let firstFixtureLabel = firstFixture.label
         for _ in 0..<18 { app.swipeUp(velocity: .fast) }
-        XCTAssertFalse(app.staticTexts["Fixture stress-0"].exists)
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Fixture stress-'")).firstMatch.exists)
+        XCTAssertFalse(app.staticTexts[firstFixtureLabel].exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Fixture '")).firstMatch.exists)
 
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "post-04-sixty-item-mixed-feed"

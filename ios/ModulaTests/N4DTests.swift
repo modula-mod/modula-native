@@ -205,6 +205,73 @@ final class CommandRecentsTests: XCTestCase {
 
 @MainActor
 final class CollectionsDraftsShareTests: XCTestCase {
+    func testComposerCloseCannotResavePublishedOrDiscardedDraft() {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let files = PrivateFileStore(domain: .drafts, rootURL: root)
+        let store = DraftStore(fileStore: files)
+        var draft = CreationDraft.fresh(kind: .post, accountID: "acceptance", audience: .everyone)
+        draft.text = "Finished"
+        for terminalState in [CreationState.published, .discarded] {
+            draft.state = terminalState
+            store.upsertCreation(draft, debounce: false)
+            XCTAssertTrue(store.flush())
+            XCTAssertTrue(DraftStore(fileStore: files).posts.isEmpty)
+        }
+    }
+
+    func testFlushPersistsEveryDraftKindBeforeDebounce() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let files = PrivateFileStore(domain: .drafts, rootURL: root)
+        let store = DraftStore(fileStore: files, autosaveMilliseconds: 60_000)
+        store.upsertPost(PostDraft(id: "p", text: "Post", mediaReferences: [], lastEdited: Date()))
+        store.upsertInMail(InMailDraft(toHandle: "reader", subject: "Subject", body: "Mail"))
+        store.upsertStory(StoryDraft(id: "s", mediaAssetIDs: [], caption: "Story", lastEdited: Date()))
+        XCTAssertTrue(store.flush())
+        let reloaded = DraftStore(fileStore: files)
+        XCTAssertEqual(reloaded.posts.first?.text, "Post")
+        XCTAssertEqual(reloaded.inMailDraft()?.body, "Mail")
+        XCTAssertEqual(reloaded.stories.first?.caption, "Story")
+    }
+
+    func testDiscardCancelsPendingAutosaveForEveryKind() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let files = PrivateFileStore(domain: .drafts, rootURL: root)
+        let store = DraftStore(fileStore: files, autosaveMilliseconds: 10)
+        store.upsertPost(PostDraft(id: "p", text: "Post", mediaReferences: [], lastEdited: Date()))
+        store.upsertInMail(InMailDraft(toHandle: "reader", subject: "Subject", body: "Mail"))
+        store.upsertStory(StoryDraft(id: "s", mediaAssetIDs: [], caption: "Story", lastEdited: Date()))
+        store.discardPost(id: "p")
+        store.discardInMail()
+        store.discardStory(id: "s")
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertTrue(store.flush())
+        XCTAssertTrue(DraftStore(fileStore: files).allPreviews.isEmpty)
+    }
+
+    func testDiskFailureNeverReportsSavedAndCanRetry() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        // A regular file where a directory is required deterministically fails writes.
+        try Data("blocked".utf8).write(to: root)
+        let store = DraftStore(fileStore: PrivateFileStore(domain: .drafts, rootURL: root))
+        store.upsertPost(PostDraft(id: "p", text: "Keep me", mediaReferences: [], lastEdited: Date()), debounce: false)
+        XCTAssertFalse(store.showSavedIndicator)
+        XCTAssertNotNil(store.saveError)
+        XCTAssertFalse(store.flush())
+        XCTAssertEqual(store.postDraft(id: "p")?.text, "Keep me")
+        let collections = CollectionStore(fileStore: PrivateFileStore(domain: .collections, rootURL: root))
+        XCTAssertNil(collections.create(name: "Must not claim success"))
+        XCTAssertNotNil(collections.error)
+        XCTAssertTrue(collections.userCollections.isEmpty)
+        try FileManager.default.removeItem(at: root)
+        XCTAssertTrue(store.flush())
+        XCTAssertNil(store.saveError)
+        XCTAssertEqual(DraftStore(fileStore: PrivateFileStore(domain: .drafts, rootURL: root)).posts.first?.text, "Keep me")
+    }
+
     func testLocalCollectionsCRUD() {
         let store = CollectionStore(
             fileStore: PrivateFileStore(domain: .collections)
@@ -325,8 +392,10 @@ final class CollectionsDraftsShareTests: XCTestCase {
     }
 
     func testSavedListCapabilityOpenByDefault() {
-        XCTAssertFalse(SavedBackendCapabilities.production.listSavedPosts)
+        XCTAssertTrue(SavedBackendCapabilities.production.listSavedPosts)
         XCTAssertTrue(SavedBackendCapabilities.production.toggleSave)
+        XCTAssertEqual(SavedBackendCapabilities.Paths.savedPosts(cursor: nil), "/v1/saves")
+        XCTAssertFalse(SavedBackendCapabilities.production.pagination)
     }
 
     func testIntelligenceChatReplyUsesRealTextOnly() {

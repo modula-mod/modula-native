@@ -5,7 +5,9 @@ struct HomeView: View {
     let mode: HomeMode
     @Environment(AppEnvironment.self) private var app
     @Environment(\.trailingInteractionInset) private var trailingInteractionInset
+    @Environment(\.shellChromeMetrics) private var shellChromeMetrics
     @State private var videoCoordinator = FeedVideoCoordinator()
+    @State private var commentsPost: SocialPost?
 
     var body: some View {
         let state = app.home.state(for: mode)
@@ -31,7 +33,7 @@ struct HomeView: View {
                     .padding(.leading, ModulaLayout.contentInset)
                     .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
                     .padding(.top, 4)
-                    .padding(.bottom, 120)
+                    .padding(.bottom, shellChromeMetrics.contentBottomInset)
                     .modulaPullContentEffects()
                 }
             }
@@ -98,6 +100,9 @@ struct HomeView: View {
                     .onTapGesture { app.home.clearActionError() }
                     .accessibilityIdentifier("home.banner")
             }
+        }
+        .sheet(item: $commentsPost) { post in
+            PostCommentsSheet(postID: post.id)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("native.home")
@@ -186,8 +191,8 @@ struct HomeView: View {
                             Task { await app.home.toggleLike(resolved, mode: mode) }
                         },
                         onComment: {
-                            app.navigation.open(.post(resolved.id, .comments))
-                            HapticEngine.shared.play(.navigation)
+                            commentsPost = resolved
+                            HapticEngine.shared.play(.contextOpen)
                         },
                         onRepost: {
                             Task { await app.home.toggleRepost(resolved, mode: mode) }

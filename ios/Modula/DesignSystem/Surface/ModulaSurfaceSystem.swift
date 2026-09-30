@@ -200,6 +200,15 @@ private struct EdgePickerSideKey: EnvironmentKey {
     static let defaultValue: EdgePickerSide = .right
 }
 
+private struct ShellChromeMetricsKey: EnvironmentKey {
+    static let defaultValue = ShellChromeMetrics(
+        bottomBarHeight: 0,
+        accessoryHeight: 0,
+        containerReservesOccupiedRegion: true,
+        opticalClearance: 8
+    )
+}
+
 extension EnvironmentValues {
     var trailingInteractionInset: CGFloat {
         get { self[TrailingInteractionInsetKey.self] }
@@ -214,6 +223,11 @@ extension EnvironmentValues {
     var edgePickerSide: EdgePickerSide {
         get { self[EdgePickerSideKey.self] }
         set { self[EdgePickerSideKey.self] = newValue }
+    }
+
+    var shellChromeMetrics: ShellChromeMetrics {
+        get { self[ShellChromeMetricsKey.self] }
+        set { self[ShellChromeMetricsKey.self] = newValue }
     }
 }
 

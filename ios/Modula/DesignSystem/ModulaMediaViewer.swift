@@ -211,6 +211,7 @@ struct ModulaMediaViewerPage: View {
     @State private var scale: CGFloat = 1
     @State private var settledScale: CGFloat = 1
     @State private var settledOffset: CGSize = .zero
+    @State private var retryID = 0
     @GestureState private var gestureOffset: CGSize = .zero
 
     var body: some View {
@@ -233,11 +234,14 @@ struct ModulaMediaViewerPage: View {
     @ViewBuilder private var mediaContent: some View {
         switch item.source {
         case .remote(let url):
-            AsyncImage(url: url) { phase in
+            ModulaRemoteImage(url: url, cacheKey: "viewer:\(item.id)", maximumPixelSize: 4_096, retryID: retryID) { phase in
                 switch phase {
-                case .success(let image): image.resizable().scaledToFit()
-                case .empty: ProgressView().tint(.white)
-                default: fallback
+                case .success(let image): Image(uiImage: image).resizable().scaledToFit()
+                case .loading: ProgressView().tint(.white)
+                case .failure: fallback.overlay(alignment: .bottom) {
+                    Button("Retry", systemImage: "arrow.clockwise") { retryID += 1 }
+                        .buttonStyle(.bordered).tint(.white).padding(.bottom, 44)
+                }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

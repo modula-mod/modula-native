@@ -6,6 +6,12 @@ struct DraftsView: View {
 
     var body: some View {
         List {
+            if let error = app.drafts.saveError {
+                Section {
+                    Text(error)
+                    Button("Retry Save") { app.drafts.flush() }
+                }
+            }
             if app.drafts.allPreviews.isEmpty {
                 ContentUnavailableView("No drafts", systemImage: "doc.text", description: Text("Unfinished posts and letters appear here."))
             } else {

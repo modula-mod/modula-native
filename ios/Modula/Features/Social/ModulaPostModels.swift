@@ -83,6 +83,46 @@ enum PostContentBlock: Hashable, Sendable, Identifiable {
     }
 }
 
+/// A visual strategy for the canonical post model. These values never create a
+/// second post domain; they only let the shared shell choose an appropriate rhythm.
+enum PostPresentationStyle: String, Equatable, Sendable, CaseIterable {
+    case conversational
+    case editorial
+    case immersiveImage
+    case immersiveVideo
+    case gallery
+    case document
+    case audio
+    case mixed
+}
+
+struct ModulaPostLayoutPolicy: Equatable, Sendable {
+    let style: PostPresentationStyle
+    let prefersActionRail: Bool
+    let feedAttachmentLimit: Int
+
+    static func resolve(_ post: ModulaPost) -> Self {
+        guard post.content.count <= 1 else {
+            return .init(style: .mixed, prefersActionRail: false, feedAttachmentLimit: 2)
+        }
+        guard let first = post.content.first else {
+            return .init(style: .conversational, prefersActionRail: false, feedAttachmentLimit: 0)
+        }
+        switch first {
+        case .image:
+            return .init(style: .immersiveImage, prefersActionRail: true, feedAttachmentLimit: 1)
+        case .imageGallery:
+            return .init(style: .gallery, prefersActionRail: true, feedAttachmentLimit: 1)
+        case .video:
+            return .init(style: .immersiveVideo, prefersActionRail: true, feedAttachmentLimit: 1)
+        case .pdf, .document, .link:
+            return .init(style: .document, prefersActionRail: false, feedAttachmentLimit: 1)
+        case .audio:
+            return .init(style: .audio, prefersActionRail: false, feedAttachmentLimit: 1)
+        }
+    }
+}
+
 struct ModulaPost: Identifiable, Hashable, Sendable {
     let id: PostID
     let author: PostAuthor?
@@ -94,6 +134,7 @@ struct ModulaPost: Identifiable, Hashable, Sendable {
     var engagement: PostEngagement
 
     var isMediaFirst: Bool { content.first?.isMediaFirst == true }
+    var presentationStyle: PostPresentationStyle { ModulaPostLayoutPolicy.resolve(self).style }
     var hasAttachments: Bool { !content.isEmpty }
     var shareURL: URL { URL(string: "https://modula.digital/post/\(id)")! }
 }
@@ -169,7 +210,8 @@ enum ModulaPostMapper {
                 creator: media.creator,
                 pageCount: media.pageCount,
                 documentID: kind == .pdf || kind == .document ? media.id : nil
-            )
+            ),
+            remoteState: AttachmentRemoteState(parsing: media.status)
         )
     }
 

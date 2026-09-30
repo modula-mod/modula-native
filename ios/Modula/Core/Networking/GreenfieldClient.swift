@@ -252,6 +252,41 @@ actor GreenfieldClient {
         return value
     }
 
+    /// Loads media through the same authenticated session as JSON requests. Greenfield
+    /// attachment URLs are deliberately protected; raw `AsyncImage`/`URLSession.shared`
+    /// requests cannot satisfy that contract for private or owner-only content.
+    func mediaData(from url: URL, maximumBytes: Int = 32_000_000) async throws -> Data {
+        let request = try await mediaRequest(for: url)
+        let (data, response) = try await transport.data(for: request)
+        guard let http = response as? HTTPURLResponse,
+              (200...299).contains(http.statusCode),
+              data.count <= maximumBytes else { throw APIError.invalidResponse }
+        return data
+    }
+
+    func downloadMedia(from url: URL) async throws -> URL {
+        let request = try await mediaRequest(for: url)
+        let (temporaryURL, response) = try await transport.download(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            try? FileManager.default.removeItem(at: temporaryURL)
+            throw APIError.invalidResponse
+        }
+        return temporaryURL
+    }
+
+    private func mediaRequest(for url: URL) async throws -> URLRequest {
+        guard url.scheme?.lowercased() == "https", url.user == nil, url.password == nil else {
+            throw APIError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 30
+        request.setValue("ModulaNative/0.1.0 (iOS)", forHTTPHeaderField: "User-Agent")
+        if url.host == baseURL?.host, url.path.hasPrefix("/v1/"), tokens != nil {
+            request.setValue("Bearer \(try await accessToken())", forHTTPHeaderField: "Authorization")
+        }
+        return request
+    }
+
     private func authenticated<T: Decodable & Sendable>(_ method: String, path: String, body: JSONValue? = nil) async throws -> T {
         let generation = epoch
         let bearer = try await accessToken()

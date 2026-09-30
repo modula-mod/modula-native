@@ -23,6 +23,18 @@ final class PostSystemTests: XCTestCase {
         XCTAssertFalse(policy.contextRailVisible)
         XCTAssertFalse(policy.shellAccessoryVisible)
         XCTAssertTrue(policy.bottomBarVisible)
+        let metrics = ShellChromeMetrics.resolve(policy: policy)
+        XCTAssertEqual(metrics.occupiedBottomHeight, 49)
+        XCTAssertEqual(metrics.contentBottomInset, 16)
+    }
+
+    @MainActor
+    func testCatalogInspectionChromeDoesNotObscureSamples() {
+        let policy = ShellChromePolicy.policy(for: .developer(.components), isTabRoot: false)
+        XCTAssertTrue(policy.bottomBarVisible)
+        XCTAssertFalse(policy.shellAccessoryVisible)
+        XCTAssertFalse(policy.contextRailVisible)
+        XCTAssertEqual(ShellChromeMetrics.resolve(policy: policy).occupiedBottomHeight, 49)
     }
 
     func testDecodeUnknownKindDoesNotCrash() {
@@ -64,7 +76,7 @@ final class PostSystemTests: XCTestCase {
         XCTAssertEqual(post?.media.count, 2)
     }
 
-    func testDecodeOrderedGreenfieldAttachments() {
+    func testDecodeOrderedGreenfieldAttachments() throws {
         let post = SocialPayloadDecoder.post(.object([
             "id": .string("post-rich"),
             "createdAt": .string("2026-09-27T12:00:00.000Z"),
@@ -94,7 +106,67 @@ final class PostSystemTests: XCTestCase {
         XCTAssertEqual(post?.media.map(\.id), ["att-pdf", "att-image"])
         XCTAssertEqual(post?.media.map(\.kind), ["pdf", "image"])
         XCTAssertEqual(post?.media.first?.altText, "Architecture")
+        XCTAssertEqual(post?.media.map(\.status), ["ready", "ready"])
         XCTAssertEqual(post?.media.last?.thumbnailURL?.lastPathComponent, "thumbnail")
+        let canonical = try XCTUnwrap(post.map(ModulaPostMapper.map))
+        XCTAssertEqual(canonical.content.map(PostRendererKind.resolve), [.pdf, .image])
+    }
+
+    func testProcessingAttachmentWithoutURLRemainsVisible() throws {
+        let post = SocialPayloadDecoder.post(.object([
+            "id": .string("post-processing"),
+            "createdAt": .string("2026-09-27T12:00:00.000Z"),
+            "kind": .string("media"),
+            "content": .array([
+                .object([
+                    "id": .string("content-video"), "type": .string("video"), "order": .number(0),
+                    "attachment": .object([
+                        "id": .string("att-video"), "kind": .string("video"),
+                        "mimeType": .string("video/mp4"), "filename": .string("Clip.mp4"),
+                        "status": .string("processing")
+                    ])
+                ])
+            ])
+        ]))
+
+        XCTAssertEqual(post?.media.count, 1)
+        XCTAssertNil(post?.media.first?.url)
+        let attachment = try XCTUnwrap(post?.media.first.map(ModulaPostMapper.attachment))
+        XCTAssertEqual(attachment.resolvedRemoteState, .processing)
+    }
+
+    func testPresentationPolicyUsesOneCanonicalPostModel() {
+        let attachment = ModulaAttachment(
+            id: "image-1",
+            kind: .image,
+            remoteURL: URL(string: "https://api.example.test/v1/attachments/image-1/content"),
+            mimeType: "image/jpeg"
+        )
+        let post = ModulaPost(
+            id: "post-1",
+            author: nil,
+            createdAt: Date(),
+            editedAt: nil,
+            body: "Caption",
+            content: [.image(.init(attachment: attachment))],
+            context: PostContext(feed: nil, location: nil, audience: nil, visibility: .public, audioTitle: nil, collection: nil, topic: nil, module: nil),
+            engagement: PostEngagement(liked: false, saved: false, reposted: false, viewerReaction: nil, likeCount: 0, replyCount: 0, repostCount: 0, quoteCount: 0, reactionCount: 0)
+        )
+
+        XCTAssertEqual(post.presentationStyle, .immersiveImage)
+        XCTAssertTrue(ModulaPostLayoutPolicy.resolve(post).prefersActionRail)
+        let mixed = ModulaPost(
+            id: post.id,
+            author: post.author,
+            createdAt: post.createdAt,
+            editedAt: post.editedAt,
+            body: post.body,
+            content: post.content + [.pdf(.init(attachment: attachment))],
+            context: post.context,
+            engagement: post.engagement
+        )
+        XCTAssertEqual(mixed.presentationStyle, .mixed)
+        XCTAssertFalse(ModulaPostLayoutPolicy.resolve(mixed).prefersActionRail)
     }
 
     func testCommentPageDecode() {

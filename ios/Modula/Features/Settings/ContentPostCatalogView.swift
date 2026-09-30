@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum ContentPostCatalogRoute: String, CaseIterable, Identifiable {
-    case shell = "Post Shell"
+    case shell = "Immersive Post Shell"
     case header = "Post Header"
     case text = "Text Post"
     case image = "Image Post"
@@ -12,10 +12,14 @@ enum ContentPostCatalogRoute: String, CaseIterable, Identifiable {
     case audio = "Audio Post"
     case link = "Link Post"
     case mixed = "Mixed Content"
-    case actionRail = "Action Rail"
+    case actionRail = "Media Action Rail"
     case metadata = "Metadata Chips"
-    case comments = "Comments"
-    case states = "Attachment States"
+    case comments = "Comments Morph"
+    case postDetail = "Post Detail"
+    case feedRhythm = "Feed Rhythm"
+    case states = "Loading States"
+    case errorStates = "Error States"
+    case diagnostics = "Attachment Diagnostics"
     case fullInteraction = "Full Post Interaction"
     case richComposer = "Rich Composer"
     case uploadQueue = "Upload Queue"
@@ -29,7 +33,7 @@ enum ContentPostCatalogRoute: String, CaseIterable, Identifiable {
     case retry = "Retry"
     case processing = "Processing"
     case publishState = "Publish State"
-    case stressFeed = "50+ Mixed Feed"
+    case stressFeed = "60+ Mixed Feed"
 
     var id: String { rawValue }
     var symbol: String {
@@ -48,7 +52,11 @@ enum ContentPostCatalogRoute: String, CaseIterable, Identifiable {
         case .actionRail: "ellipsis.rectangle"
         case .metadata: "tag"
         case .comments: "bubble.left.and.bubble.right"
+        case .postDetail: "rectangle.expand.vertical"
+        case .feedRhythm: "water.waves"
         case .states: "arrow.triangle.2.circlepath"
+        case .errorStates: "exclamationmark.triangle"
+        case .diagnostics: "stethoscope"
         case .fullInteraction: "hand.tap"
         case .richComposer: "square.and.pencil"
         case .uploadQueue: "arrow.up.circle"
@@ -135,12 +143,22 @@ private struct ContentPostCatalogPage: View {
                 .padding(ModulaSpacing.md)
             }
         }
+        .task(id: route.id) {
+            guard route == .stressFeed || route == .feedRhythm else { return }
+            for mode in HomeMode.allCases {
+                await app.home.loadIfNeeded(mode, signedIn: app.auth.account != nil)
+            }
+        }
     }
 
     private var note: String {
         switch route {
         case .fullInteraction: "Reference flow: content, reaction selection, comments, context, and expansion."
-        case .states: "Loading, failed, offline, and unavailable states stay truthful."
+        case .states: "Content-shaped loading states must resolve to ready or failed."
+        case .errorStates: "Failures name the affected capability and expose a real retry action."
+        case .diagnostics: "Development-only metadata exposes attachment state without credentials or signed URL values."
+        case .feedRhythm: "A single post domain adapts its spacing and controls to the content it carries."
+        case .postDetail: "Detail renders every canonical block in order with stronger content breathing room."
         case .richComposer, .uploadQueue, .imageDraft, .videoDraft, .pdfDraft, .documentDraft,
              .audioDraft, .mixedDraft, .uploadFailure, .retry, .processing, .publishState:
             "Interactive publishing fixtures use the same explicit draft and upload states as Creation Studio."
@@ -197,6 +215,33 @@ private struct ContentPostCatalogPage: View {
         case .comments:
             Button("Open comments sheet", systemImage: "bubble.right") { commentsPresented = true }
                 .buttonStyle(.borderedProminent).tint(app.appearance.accent.color)
+        case .postDetail:
+            ModulaPostContentRenderer(
+                post: PostCatalogFixtures.mixedPost,
+                presentation: .detail,
+                onOpenAttachment: { selectedAttachment = $0 },
+                onOpenLink: { openURL($0) },
+                onOpenModule: { _ in }
+            )
+        case .feedRhythm:
+            VStack(alignment: .leading, spacing: ModulaSpacing.lg) {
+                ForEach(Array(stressPosts.prefix(8))) { post in
+                    VStack(alignment: .leading, spacing: ModulaSpacing.sm) {
+                        Text(post.presentationStyle.rawValue)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        if let body = post.body { Text(body) }
+                        ModulaPostContentRenderer(
+                            post: post,
+                            presentation: .feed,
+                            onOpenAttachment: { selectedAttachment = $0 },
+                            onOpenLink: { openURL($0) },
+                            onOpenModule: { _ in }
+                        )
+                    }
+                    Divider().opacity(0.3)
+                }
+            }
         case .states:
             VStack(spacing: ModulaSpacing.sm) {
                 ProgressView("Loading attachment…")
@@ -213,6 +258,18 @@ private struct ContentPostCatalogPage: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        case .errorStates:
+            VStack(spacing: ModulaSpacing.sm) {
+                CatalogAttachmentError(title: "Couldn’t load photo", symbol: "photo", retry: {})
+                CatalogAttachmentError(title: "Document unavailable", symbol: "doc.richtext", retry: {})
+                CatalogAttachmentError(title: "Video couldn’t be played", symbol: "video.slash", retry: {})
+            }
+        case .diagnostics:
+            VStack(spacing: ModulaSpacing.sm) {
+                AttachmentDiagnosticsCard(attachment: PostCatalogFixtures.image, lastRequestResult: "Not requested")
+                AttachmentDiagnosticsCard(attachment: PostCatalogFixtures.pdf, lastRequestResult: "Not requested")
+                AttachmentDiagnosticsCard(attachment: PostCatalogFixtures.processingVideo, lastRequestResult: "Processing")
+            }
         case .fullInteraction:
             VStack(alignment: .leading, spacing: ModulaSpacing.md) {
                 fixtureHeader
@@ -258,11 +315,11 @@ private struct ContentPostCatalogPage: View {
             AttachmentPipelineCatalogLab(initialState: .ready, showsMixedQueue: true)
         case .stressFeed:
             LazyVStack(alignment: .leading, spacing: ModulaSpacing.lg) {
-                Text("60 mixed posts")
+                Text(liveStressSource.isEmpty ? "60 state fixtures · live feed unavailable" : "60 live-backed mixed posts")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("catalog.posts.stress-count")
-                ForEach(PostCatalogFixtures.stressPosts) { post in
+                ForEach(stressPosts) { post in
                     VStack(alignment: .leading, spacing: ModulaSpacing.sm) {
                         Text("Fixture \(post.id)").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                         if let body = post.body { Text(body).font(.body) }
@@ -281,11 +338,37 @@ private struct ContentPostCatalogPage: View {
         }
     }
 
+    private var liveStressSource: [ModulaPost] {
+        var seen = Set<String>()
+        return HomeMode.allCases
+            .flatMap { app.home.visiblePosts(for: $0) }
+            .filter { seen.insert($0.id).inserted }
+            .map(ModulaPostMapper.map)
+    }
+
+    private var stressPosts: [ModulaPost] {
+        let live = liveStressSource
+        guard !live.isEmpty else { return PostCatalogFixtures.stressPosts }
+        return (0..<60).map { index in
+            let source = live[index % live.count]
+            return ModulaPost(
+                id: "live-stress-\(index)-\(source.id)",
+                author: source.author,
+                createdAt: source.createdAt,
+                editedAt: source.editedAt,
+                body: source.body,
+                content: source.content,
+                context: source.context,
+                engagement: source.engagement
+            )
+        }
+    }
+
     private var fixtureHeader: some View {
         HStack(spacing: ModulaSpacing.sm) {
             ModulaAvatar(initials: "AR", size: 40)
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) { Text("Alex Rivers").font(.subheadline.bold()); Image(systemName: "checkmark.seal.fill").foregroundStyle(ModulaColor.accent) }
+                HStack(spacing: 4) { Text("Alex Rivers").font(.subheadline.bold()); Image(systemName: "checkmark.seal.fill").foregroundStyle(app.appearance.accent.color) }
                 Text("Bali, Indonesia · 2h").font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
@@ -308,6 +391,56 @@ private struct ContentPostCatalogPage: View {
         ModulaPostMetadataChip(systemImage: "music.note", title: "Tycho · A Walk")
         ModulaPostMetadataChip(systemImage: "location", title: "Bali, Indonesia")
         ModulaPostMetadataChip(systemImage: "number", title: "travel")
+    }
+}
+
+private struct CatalogAttachmentError: View {
+    let title: String
+    let symbol: String
+    let retry: () -> Void
+
+    var body: some View {
+        HStack(spacing: ModulaSpacing.sm) {
+            Image(systemName: symbol).foregroundStyle(.secondary).frame(width: 34)
+            Text(title).font(.subheadline.weight(.semibold))
+            Spacer(minLength: 0)
+            Button("Retry", systemImage: "arrow.clockwise", action: retry).labelStyle(.iconOnly)
+        }
+        .padding(ModulaSpacing.sm)
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: ModulaRadius.medium))
+    }
+}
+
+private struct AttachmentDiagnosticsCard: View {
+    let attachment: ModulaAttachment
+    let lastRequestResult: String
+
+    var body: some View {
+        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
+            diagnostic("ID", attachment.id)
+            diagnostic("Kind", attachment.kind.rawValue)
+            diagnostic("MIME", attachment.mimeType ?? "unknown")
+            diagnostic("Remote state", String(describing: attachment.resolvedRemoteState))
+            diagnostic("Access URL", attachment.remoteURL == nil ? "absent" : "present")
+            diagnostic("Preview URL", attachment.previewURL == nil ? "absent" : "present")
+            diagnostic("Thumbnail URL", attachment.thumbnailURL == nil ? "absent" : "present")
+            diagnostic("Cache key", attachment.cacheIdentity)
+            diagnostic("Last request", lastRequestResult)
+        }
+        .font(.caption.monospaced())
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(ModulaSpacing.sm)
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: ModulaRadius.medium))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Attachment diagnostics for \(attachment.id), state \(String(describing: attachment.resolvedRemoteState))")
+    }
+
+    @ViewBuilder
+    private func diagnostic(_ label: String, _ value: String) -> some View {
+        GridRow {
+            Text(label).foregroundStyle(.secondary)
+            Text(value).textSelection(.enabled)
+        }
     }
 }
 
@@ -352,6 +485,7 @@ private struct DraftAttachmentCatalogCard: View {
     let name: String
     let state: DraftAttachmentState
     let progress: Double
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         HStack(spacing: ModulaSpacing.sm) {
@@ -362,7 +496,7 @@ private struct DraftAttachmentCatalogCard: View {
                 if state == .uploading { ProgressView(value: progress) }
             }
             Spacer(minLength: 0)
-            if state == .ready { Image(systemName: "checkmark.circle.fill").foregroundStyle(ModulaColor.accent) }
+            if state == .ready { Image(systemName: "checkmark.circle.fill").foregroundStyle(app.appearance.accent.color) }
         }
         .padding(ModulaSpacing.sm)
         .background(.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: ModulaRadius.medium))
@@ -394,6 +528,7 @@ private enum PostCatalogFixtures {
     static let image = attachment(id: "portrait", kind: .image, mime: "image/jpeg", name: "Portrait.jpg", dimensions: CGSize(width: 900, height: 1_300), alt: "Portrait travel photograph fixture")
     static let gallery = (1...5).map { attachment(id: "gallery-\($0)", kind: .image, mime: "image/jpeg", name: "Travel \($0).jpg", dimensions: CGSize(width: 1_200, height: $0.isMultiple(of: 2) ? 900 : 1_400), alt: "Gallery image \($0) of 5") }
     static let video = attachment(id: "video", kind: .video, mime: "video/mp4", name: "Sunset.mp4", duration: 42, alt: "Short sunset video fixture")
+    static let processingVideo = ModulaAttachment(id: "processing-video", kind: .video, remoteURL: nil, mimeType: "video/mp4", filename: "Processing.mp4", remoteState: .processing)
     static let pdf = attachment(id: "pdf", kind: .pdf, mime: "application/pdf", name: "Modula Design System.pdf", bytes: 7_800_000, pages: 42)
     static let document = attachment(id: "docx", kind: .document, mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", name: "Product Brief.docx", bytes: 420_000)
     static let spreadsheet = attachment(id: "xlsx", kind: .document, mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", name: "Roadmap.xlsx", bytes: 910_000)
@@ -414,12 +549,15 @@ private enum PostCatalogFixtures {
 
     static let stressPosts: [ModulaPost] = (0..<60).map { index in
         let content: [PostContentBlock]
-        switch index % 6 {
-        case 0: content = []
-        case 1: content = [.image(.init(attachment: image))]
-        case 2: content = [.imageGallery(.init(attachments: gallery))]
-        case 3: content = [.video(.init(attachment: video))]
-        case 4: content = [.pdf(.init(attachment: pdf))]
+        switch index {
+        case 0..<10: content = []
+        case 10..<20: content = [.image(.init(attachment: image))]
+        case 20..<25: content = [.imageGallery(.init(attachments: gallery))]
+        case 25..<33: content = [.video(.init(attachment: video))]
+        case 33..<38: content = [.pdf(.init(attachment: pdf))]
+        case 38..<43: content = [.document(.init(attachment: document))]
+        case 43..<47: content = [.audio(.init(attachment: audio))]
+        case 47..<51: content = [.link(link)]
         default: content = mixedPost.content
         }
         return ModulaPost(

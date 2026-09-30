@@ -8,6 +8,7 @@ final class DraftStore {
     private let mediaStore: DraftMediaStore
     private let defaults: UserDefaults
     private var autosaveTasks: [String: Task<Void, Never>] = [:]
+    private var pendingWrites: [String: @MainActor () -> Void] = [:]
     private var pendingPosts: [String: PostDraft] = [:]
     private let autosaveNanoseconds: UInt64
 
@@ -18,6 +19,7 @@ final class DraftStore {
     private(set) var lastSavedAt: Date?
     /// Subtle composer indicator — not a giant banner.
     private(set) var showSavedIndicator = false
+    private(set) var saveError: String?
     /// Set by Drafts library before opening Creation Studio.
     var pendingResumeID: String?
 
@@ -85,6 +87,7 @@ final class DraftStore {
     }
 
     func upsertCreation(_ draft: CreationDraft, debounce: Bool = true) {
+        guard draft.state != .published, draft.state != .discarded else { return }
         upsertPost(PostDraft(draft), debounce: debounce)
     }
 
@@ -102,10 +105,14 @@ final class DraftStore {
     }
 
     func discardPost(id: String = "post-primary") {
+        cancelPending(id: id)
         let existing = posts.first { $0.id == id } ?? pendingPosts[id]
         posts.removeAll { $0.id == id }
         pendingPosts[id] = nil
-        persist()
+        guard persist() else {
+            if let existing { posts.append(existing) }
+            return
+        }
         if let existing {
             mediaStore.remove(ids: existing.media.map(\.id) + existing.mediaReferences, from: existing.media)
         }
@@ -138,8 +145,10 @@ final class DraftStore {
     }
 
     func discardInMail(id: String = "inmail-primary") {
+        cancelPending(id: id)
+        let previous = inMails
         inMails.removeAll { $0.id == id }
-        persist()
+        guard persist() else { inMails = previous; return }
         ModulaLog.app.info("draft.discard kind=inMail count=\(self.inMails.count, privacy: .public)")
     }
 
@@ -156,8 +165,10 @@ final class DraftStore {
     }
 
     func discardStory(id: String) {
+        cancelPending(id: id)
+        let previous = stories
         stories.removeAll { $0.id == id }
-        persist()
+        guard persist() else { stories = previous; return }
         ModulaLog.app.info("draft.discard kind=story count=\(self.stories.count, privacy: .public)")
     }
 
@@ -169,13 +180,16 @@ final class DraftStore {
         }
     }
 
-    func flush() {
+    @discardableResult
+    func flush() -> Bool {
         for task in autosaveTasks.values { task.cancel() }
         autosaveTasks.removeAll()
-        for draft in pendingPosts.values {
-            writePost(draft)
-        }
+        let writes = Array(pendingWrites.values)
+        pendingWrites.removeAll()
+        for write in writes { write() }
         pendingPosts.removeAll()
+        // Retry any earlier failed write, even when debounce has already fired.
+        return persist()
     }
 
     // MARK: - Persistence
@@ -188,16 +202,25 @@ final class DraftStore {
     }
 
     private func schedule(id: String, debounce: Bool, work: @escaping @MainActor () -> Void) {
-        autosaveTasks[id]?.cancel()
+        cancelPending(id: id)
+        showSavedIndicator = false
         if !debounce {
             work()
             return
         }
+        pendingWrites[id] = work
         autosaveTasks[id] = Task { @MainActor in
             try? await Task.sleep(nanoseconds: autosaveNanoseconds)
             guard !Task.isCancelled else { return }
             work()
+            pendingWrites[id] = nil
+            autosaveTasks[id] = nil
         }
+    }
+
+    private func cancelPending(id: String) {
+        autosaveTasks.removeValue(forKey: id)?.cancel()
+        pendingWrites[id] = nil
     }
 
     private func writePost(_ draft: PostDraft) {
@@ -209,8 +232,7 @@ final class DraftStore {
         } else {
             posts.append(next)
         }
-        persist()
-        markSaved()
+        if persist() { markSaved() }
         ModulaLog.app.info("draft.autosave kind=post count=\(self.posts.count, privacy: .public)")
     }
 
@@ -222,8 +244,7 @@ final class DraftStore {
         } else {
             inMails.append(next)
         }
-        persist()
-        markSaved()
+        if persist() { markSaved() }
         ModulaLog.app.info("draft.autosave kind=inMail count=\(self.inMails.count, privacy: .public)")
     }
 
@@ -235,8 +256,7 @@ final class DraftStore {
         } else {
             stories.append(next)
         }
-        persist()
-        markSaved()
+        if persist() { markSaved() }
         ModulaLog.app.info("draft.autosave kind=story count=\(self.stories.count, privacy: .public)")
     }
 
@@ -267,10 +287,19 @@ final class DraftStore {
         )
     }
 
-    private func persist() {
+    @discardableResult
+    private func persist() -> Bool {
         let index = DraftIndex(posts: posts, inMails: inMails, stories: stories)
-        guard let data = try? JSONEncoder().encode(index) else { return }
-        try? fileStore.saveData(data, filename: filename)
+        do {
+            let data = try JSONEncoder().encode(index)
+            try fileStore.saveData(data, filename: filename)
+            saveError = nil
+            return true
+        } catch {
+            showSavedIndicator = false
+            saveError = "Couldn’t save your draft on this iPhone. Free up storage and try again."
+            return false
+        }
     }
 
     private func cleanupMedia() {

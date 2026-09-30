@@ -15,6 +15,14 @@ struct URLSessionAttachmentDownloader: AttachmentRemoteDownloading {
     }
 }
 
+struct GreenfieldAttachmentDownloader: AttachmentRemoteDownloading {
+    let client: GreenfieldClient
+
+    func download(from url: URL) async throws -> URL {
+        try await client.downloadMedia(from: url)
+    }
+}
+
 enum AttachmentDownloadError: LocalizedError, Equatable {
     case unavailable
     case invalidResponse
@@ -107,16 +115,22 @@ actor AttachmentDownloadManager {
 final class AttachmentDownloadModel {
     private(set) var state: AttachmentDownloadState = .notDownloaded
     private var task: Task<Void, Never>?
-    private let manager: AttachmentDownloadManager
+    private var manager: AttachmentDownloadManager
 
     init(manager: AttachmentDownloadManager = .shared) {
         self.manager = manager
     }
 
-    func prepare(_ attachment: ModulaAttachment, downloadsRemote: Bool) {
+    func prepare(
+        _ attachment: ModulaAttachment,
+        downloadsRemote: Bool,
+        manager: AttachmentDownloadManager? = nil
+    ) {
+        if let manager { self.manager = manager }
+        let activeManager = self.manager
         task?.cancel()
         task = Task {
-            if let local = await manager.cachedURL(for: attachment) {
+            if let local = await activeManager.cachedURL(for: attachment) {
                 state = .downloaded(local)
                 return
             }
@@ -126,13 +140,20 @@ final class AttachmentDownloadModel {
             }
             state = .downloading
             do {
-                state = .downloaded(try await manager.download(attachment))
+                state = .downloaded(try await activeManager.download(attachment))
             } catch is CancellationError {
                 state = .notDownloaded
             } catch {
                 state = .failed(error.localizedDescription)
             }
         }
+    }
+
+    func retry(
+        _ attachment: ModulaAttachment,
+        manager: AttachmentDownloadManager? = nil
+    ) {
+        prepare(attachment, downloadsRemote: true, manager: manager)
     }
 
     func cancel(_ attachmentID: AttachmentID) {

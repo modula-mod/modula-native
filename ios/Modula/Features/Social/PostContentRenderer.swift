@@ -72,7 +72,9 @@ struct ModulaPostContentRenderer: View {
     var onOpenModule: (SocialPostModule) -> Void
 
     private var visibleBlocks: [PostContentBlock] {
-        presentation == .detail ? post.content : Array(post.content.prefix(2))
+        presentation == .detail
+            ? post.content
+            : Array(post.content.prefix(ModulaPostLayoutPolicy.resolve(post).feedAttachmentLimit))
     }
 
     var body: some View {
@@ -95,21 +97,25 @@ struct ModulaPostContentRenderer: View {
 
     @ViewBuilder
     private func blockView(_ block: PostContentBlock) -> some View {
-        switch block {
-        case .image(let value):
-            ModulaPostImage(attachment: value.attachment, immersive: true) { onOpenAttachment(value.attachment) }
-        case .imageGallery(let value):
-            ModulaPostImageGallery(attachments: value.attachments, onOpen: onOpenAttachment)
-        case .video(let value):
-            ModulaVideoSurface(attachment: value.attachment, coordinator: videoCoordinator) { onOpenAttachment(value.attachment) }
-        case .pdf(let value):
-            ModulaPDFSurface(attachment: value.attachment) { onOpenAttachment(value.attachment) }
-        case .document(let value):
-            ModulaDocumentCard(attachment: value.attachment) { onOpenAttachment(value.attachment) }
-        case .audio(let value):
-            ModulaAudioSurface(attachment: value.attachment) { onOpenAttachment(value.attachment) }
-        case .link(let value):
-            ModulaLinkPreview(content: value, onOpen: onOpenLink)
+        if let attachment = block.attachment, attachment.resolvedRemoteState != .ready {
+            AttachmentRemoteStateSurface(attachment: attachment)
+        } else {
+            switch block {
+            case .image(let value):
+                ModulaPostImage(attachment: value.attachment, immersive: true) { onOpenAttachment(value.attachment) }
+            case .imageGallery(let value):
+                ModulaPostImageGallery(attachments: value.attachments, onOpen: onOpenAttachment)
+            case .video(let value):
+                ModulaVideoSurface(attachment: value.attachment, coordinator: videoCoordinator) { onOpenAttachment(value.attachment) }
+            case .pdf(let value):
+                ModulaPDFSurface(attachment: value.attachment) { onOpenAttachment(value.attachment) }
+            case .document(let value):
+                ModulaDocumentCard(attachment: value.attachment) { onOpenAttachment(value.attachment) }
+            case .audio(let value):
+                ModulaAudioSurface(attachment: value.attachment) { onOpenAttachment(value.attachment) }
+            case .link(let value):
+                ModulaLinkPreview(content: value, onOpen: onOpenLink)
+            }
         }
     }
 
@@ -133,27 +139,71 @@ struct ModulaPostContentRenderer: View {
     }
 }
 
+private struct AttachmentRemoteStateSurface: View {
+    let attachment: ModulaAttachment
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        HStack(spacing: ModulaSpacing.sm) {
+            Image(systemName: symbol)
+                .font(.title3)
+                .foregroundStyle(attachment.resolvedRemoteState.isTerminalFailure ? Color.secondary : app.appearance.accent.color)
+                .frame(width: 44, height: 44)
+                .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: ModulaRadius.small))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.subheadline.weight(.semibold))
+                Text(attachment.displayName).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            }
+            Spacer(minLength: 0)
+            if !attachment.resolvedRemoteState.isTerminalFailure { ProgressView().controlSize(.small) }
+        }
+        .padding(ModulaSpacing.sm)
+        .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: ModulaRadius.medium))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title), \(attachment.displayName)")
+    }
+
+    private var title: String {
+        switch attachment.resolvedRemoteState {
+        case .created, .uploading, .uploaded: "Upload is finishing"
+        case .processing: "Attachment is processing"
+        case .failed: "Attachment failed"
+        case .expired: "Attachment expired"
+        case .rejected: "Attachment was rejected"
+        case .ready: "Attachment ready"
+        }
+    }
+
+    private var symbol: String {
+        attachment.resolvedRemoteState.isTerminalFailure ? "exclamationmark.triangle" : "gearshape.2"
+    }
+}
+
 struct ModulaPostImage: View {
     let attachment: ModulaAttachment
     var immersive = false
     var onOpen: () -> Void
+    @State private var retryID = 0
 
     var body: some View {
-        Button(action: onOpen) {
-            AsyncImage(url: attachment.playableURL ?? attachment.bestPreviewURL) { phase in
-                switch phase {
-                case .success(let image): image.resizable().scaledToFit()
-                case .failure: attachmentFailure
-                default: attachmentPlaceholder.overlay { ProgressView().controlSize(.small) }
-                }
+        ModulaRemoteImage(
+            url: attachment.bestPreviewURL ?? attachment.playableURL,
+            cacheKey: "attachment:\(attachment.id):feed-image",
+            maximumPixelSize: 2_000,
+            retryID: retryID
+        ) { phase in
+            switch phase {
+            case .success(let image): Image(uiImage: image).resizable().scaledToFit()
+            case .failure: attachmentFailure
+            case .loading: attachmentPlaceholder.overlay { ProgressView().controlSize(.small) }
             }
-            .frame(maxWidth: .infinity)
-            .frame(maxHeight: adaptiveMaximumHeight)
-            .background(Color.primary.opacity(0.035))
-            .clipShape(RoundedRectangle(cornerRadius: immersive ? ModulaRadius.small : ModulaRadius.medium, style: .continuous))
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+        .frame(maxHeight: adaptiveMaximumHeight)
+        .background(Color.primary.opacity(0.035))
+        .clipShape(RoundedRectangle(cornerRadius: immersive ? ModulaRadius.small : ModulaRadius.medium, style: .continuous))
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onOpen)
         .accessibilityLabel(attachment.accessibilityLabel)
         .accessibilityHint("Opens full-screen media viewer")
         .accessibilityIdentifier("post.attachment.\(attachment.id)")
@@ -170,8 +220,13 @@ struct ModulaPostImage: View {
 
     private var attachmentFailure: some View {
         attachmentPlaceholder.overlay {
-            Label("Image unavailable", systemImage: "photo.badge.exclamationmark")
-                .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            VStack(spacing: 8) {
+                Label("Couldn’t load photo", systemImage: "photo.badge.exclamationmark")
+                    .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Button("Retry", systemImage: "arrow.clockwise") { retryID += 1 }
+                    .font(.caption.weight(.semibold))
+                    .buttonStyle(.bordered)
+            }
         }
     }
 }
@@ -210,6 +265,9 @@ struct ModulaVideoSurface: View {
     var coordinator: FeedVideoCoordinator?
     var onExpand: () -> Void
     @State private var controller = ModulaVideoPlaybackController()
+    @State private var download = AttachmentDownloadModel()
+    @State private var decodedPoster: UIImage?
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -217,17 +275,37 @@ struct ModulaVideoSurface: View {
                 resource: MediaResource(
                     id: attachment.id,
                     kind: .video,
-                    url: attachment.playableURL,
+                    url: playableURL,
                     posterURL: attachment.bestPreviewURL,
                     altText: attachment.accessibilityDescription,
                     dimensions: attachment.dimensions.map { MediaDimensions(width: Int($0.width), height: Int($0.height)) },
                     duration: attachment.duration
                 ),
                 isActive: coordinator?.activeVideoID == attachment.id || coordinator == nil,
-                controller: controller
+                controller: controller,
+                fallbackPoster: decodedPoster
             )
             .frame(maxWidth: .infinity).frame(height: 280)
             .clipShape(RoundedRectangle(cornerRadius: ModulaRadius.small, style: .continuous))
+
+            switch download.state {
+            case .failed:
+                VStack(spacing: 8) {
+                    Label("Video couldn’t be prepared", systemImage: "video.badge.exclamationmark")
+                    Button("Retry", systemImage: "arrow.clockwise") {
+                        download.retry(attachment, manager: app.attachmentDownloads)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .font(.caption.weight(.semibold))
+                .padding(12)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: ModulaRadius.small))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .downloading, .notDownloaded:
+                ProgressView().tint(.white).frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .downloaded:
+                EmptyView()
+            }
 
             Button(action: onExpand) {
                 Image(systemName: "arrow.up.left.and.arrow.down.right")
@@ -249,6 +327,32 @@ struct ModulaVideoSurface: View {
             coordinator?.remove(id: attachment.id)
             controller.release()
         }
+        .task(id: attachment.id) {
+            download.prepare(attachment, downloadsRemote: true, manager: app.attachmentDownloads)
+        }
+        .onChange(of: download.state) { _, state in
+            guard case .downloaded(let url) = state, attachment.bestPreviewURL == nil else { return }
+            generatePoster(from: url)
+        }
+    }
+
+    private var playableURL: URL? {
+        if case .downloaded(let url) = download.state { return url }
+        return attachment.localFileURL
+    }
+
+    private func generatePoster(from url: URL) {
+        Task {
+            let image = await Task.detached(priority: .utility) { () -> UIImage? in
+                let asset = AVURLAsset(url: url)
+                let generator = AVAssetImageGenerator(asset: asset)
+                generator.appliesPreferredTrackTransform = true
+                generator.maximumSize = CGSize(width: 1_400, height: 1_400)
+                guard let cgImage = try? generator.copyCGImage(at: CMTime(seconds: 0.1, preferredTimescale: 600), actualTime: nil) else { return nil }
+                return UIImage(cgImage: cgImage)
+            }.value
+            decodedPoster = image
+        }
     }
 
     private func reportVisibility(_ frame: CGRect) {
@@ -263,6 +367,7 @@ struct ModulaVideoSurface: View {
 struct ModulaPDFSurface: View {
     let attachment: ModulaAttachment
     var onOpen: () -> Void
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         Button(action: onOpen) {
@@ -271,7 +376,7 @@ struct ModulaPDFSurface: View {
                     .frame(maxWidth: .infinity).frame(height: 230)
                     .background(Color.primary.opacity(0.05))
                 HStack(spacing: ModulaSpacing.sm) {
-                    Image(systemName: "doc.richtext.fill").foregroundStyle(ModulaColor.accent)
+                    Image(systemName: "doc.richtext.fill").foregroundStyle(app.appearance.accent.color)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(attachment.displayName).font(.subheadline.weight(.semibold)).lineLimit(2)
                         Text(documentMetadata).font(.caption).foregroundStyle(.secondary)
@@ -299,27 +404,54 @@ struct ModulaPDFSurface: View {
 private struct PDFPreview: View {
     let attachment: ModulaAttachment
     @State private var image: UIImage?
+    @State private var decodeFailed = false
+    @State private var download = AttachmentDownloadModel()
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         Group {
-            if let previewURL = attachment.bestPreviewURL {
-                AsyncImage(url: previewURL) { phase in
-                    if case .success(let value) = phase { value.resizable().scaledToFit() }
-                    else { placeholder }
-                }
-            } else if let image {
+            if let image {
                 Image(uiImage: image).resizable().scaledToFit()
-            } else { placeholder }
+            } else {
+                switch (download.state, decodeFailed) {
+                case (.failed, _), (_, true):
+                    placeholder.overlay {
+                        Button("Retry PDF preview", systemImage: "arrow.clockwise") {
+                            Task {
+                                try? await app.attachmentDownloads.remove(attachment)
+                                decodeFailed = false
+                                download.retry(attachment, manager: app.attachmentDownloads)
+                            }
+                        }
+                        .font(.caption.weight(.semibold)).buttonStyle(.bordered)
+                    }
+                default:
+                    placeholder.overlay { ProgressView().controlSize(.small) }
+                }
+            }
         }
         .task(id: attachment.id) {
             if let cached = ModulaThumbnailCache.shared.image(for: attachment.id) {
                 image = cached
                 return
             }
-            guard let local = attachment.localFileURL, let document = PDFDocument(url: local), let page = document.page(at: 0) else { return }
-            let thumbnail = page.thumbnail(of: CGSize(width: 500, height: 620), for: .cropBox)
-            ModulaThumbnailCache.shared.insert(thumbnail, for: attachment.id)
-            image = thumbnail
+            download.prepare(attachment, downloadsRemote: true, manager: app.attachmentDownloads)
+        }
+        .onChange(of: download.state) { _, state in
+            guard case .downloaded(let local) = state else { return }
+            Task {
+                let thumbnail = await Task.detached(priority: .utility) { () -> UIImage? in
+                    guard let document = PDFDocument(url: local), let page = document.page(at: 0) else { return nil }
+                    return page.thumbnail(of: CGSize(width: 500, height: 620), for: .cropBox)
+                }.value
+                guard let thumbnail else {
+                    decodeFailed = true
+                    return
+                }
+                ModulaThumbnailCache.shared.insert(thumbnail, for: attachment.id)
+                decodeFailed = false
+                image = thumbnail
+            }
         }
     }
 
@@ -331,6 +463,7 @@ private struct PDFPreview: View {
 struct ModulaDocumentCard: View {
     let attachment: ModulaAttachment
     var onOpen: () -> Void
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         Button(action: onOpen) {
@@ -358,18 +491,18 @@ struct ModulaDocumentCard: View {
 
     @ViewBuilder private var documentIcon: some View {
         if let previewURL = attachment.bestPreviewURL {
-            AsyncImage(url: previewURL) { phase in
-                if case .success(let image) = phase { image.resizable().scaledToFill() }
-                else { Image(systemName: attachment.kind.defaultSystemImage).font(.title2).foregroundStyle(ModulaColor.accent) }
+            ModulaRemoteImage(url: previewURL, cacheKey: "attachment:\(attachment.id):document-preview", maximumPixelSize: 320) { phase in
+                if case .success(let image) = phase { Image(uiImage: image).resizable().scaledToFill() }
+                else { Image(systemName: attachment.kind.defaultSystemImage).font(.title2).foregroundStyle(app.appearance.accent.color) }
             }
             .frame(width: 48, height: 52).clipped()
-            .background(ModulaColor.accent.opacity(0.1), in: RoundedRectangle(cornerRadius: ModulaRadius.small))
+            .background(app.appearance.accent.color.opacity(0.1), in: RoundedRectangle(cornerRadius: ModulaRadius.small))
             .clipShape(RoundedRectangle(cornerRadius: ModulaRadius.small))
         } else {
             Image(systemName: attachment.kind.defaultSystemImage)
-                .font(.title2).foregroundStyle(ModulaColor.accent)
+                .font(.title2).foregroundStyle(app.appearance.accent.color)
                 .frame(width: 48, height: 52)
-                .background(ModulaColor.accent.opacity(0.1), in: RoundedRectangle(cornerRadius: ModulaRadius.small))
+                .background(app.appearance.accent.color.opacity(0.1), in: RoundedRectangle(cornerRadius: ModulaRadius.small))
         }
     }
 }
@@ -378,43 +511,73 @@ struct ModulaAudioSurface: View {
     let attachment: ModulaAttachment
     var onExpand: () -> Void
     @State private var audio = ModulaAudioPlayerState()
+    @State private var download = AttachmentDownloadModel()
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        HStack(spacing: ModulaSpacing.sm) {
-            Button {
-                if let url = attachment.playableURL { audio.attach(url: url); audio.toggle() }
-            } label: {
-                Image(systemName: audio.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.title3.bold()).foregroundStyle(.white).frame(width: 48, height: 48)
-                    .background(ModulaColor.accent, in: Circle())
-            }
-            .accessibilityLabel(audio.isPlaying ? "Pause" : "Play")
-            VStack(alignment: .leading, spacing: 5) {
-                Text(attachment.metadata.title ?? attachment.displayName).font(.subheadline.weight(.semibold)).lineLimit(1)
-                Text(attachment.metadata.creator ?? "Audio").font(.caption).foregroundStyle(.secondary)
-                HStack(spacing: 3) {
-                    ForEach(0..<22, id: \.self) { index in
-                        Capsule().fill(index < Int(audio.progress * 22) ? ModulaColor.accent : Color.secondary.opacity(0.3))
-                            .frame(width: 3, height: CGFloat(7 + ((index * 7) % 13)))
-                    }
+        ZStack {
+            HStack(spacing: ModulaSpacing.sm) {
+                Button {
+                    if let url = playableURL { audio.attach(url: url); audio.toggle() }
+                } label: {
+                    Image(systemName: audio.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.title3.bold()).foregroundStyle(.white).frame(width: 48, height: 48)
+                        .background(app.appearance.accent.color, in: Circle())
                 }
-                .accessibilityHidden(true)
+                .accessibilityLabel(audio.isPlaying ? "Pause" : "Play")
+                .disabled(playableURL == nil)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(attachment.metadata.title ?? attachment.displayName).font(.subheadline.weight(.semibold)).lineLimit(1)
+                    Text(attachment.metadata.creator ?? "Audio").font(.caption).foregroundStyle(.secondary)
+                    HStack(spacing: 3) {
+                        ForEach(0..<22, id: \.self) { index in
+                            Capsule().fill(index < Int(audio.progress * 22) ? app.appearance.accent.color : Color.secondary.opacity(0.3))
+                                .frame(width: 3, height: CGFloat(7 + ((index * 7) % 13)))
+                        }
+                    }
+                    .accessibilityHidden(true)
+                }
+                Spacer()
+                Button(action: onExpand) { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }
+                    .accessibilityLabel("Open audio player")
             }
-            Spacer()
-            Button(action: onExpand) { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }
-                .accessibilityLabel("Open audio player")
+            if case .downloading = download.state {
+                ProgressView().controlSize(.small).frame(maxWidth: .infinity, alignment: .trailing).padding(.trailing, 54)
+            } else if case .failed = download.state {
+                HStack {
+                    Label("Audio unavailable", systemImage: "waveform.badge.exclamationmark")
+                        .font(.caption.weight(.semibold))
+                    Spacer()
+                    Button("Retry", systemImage: "arrow.clockwise") {
+                        download.retry(attachment, manager: app.attachmentDownloads)
+                    }
+                    .labelStyle(.iconOnly)
+                }
+                .padding(.horizontal, ModulaSpacing.sm)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.regularMaterial)
+            }
         }
         .padding(ModulaSpacing.sm)
         .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: ModulaRadius.medium))
         .onDisappear { audio.release() }
+        .task(id: attachment.id) {
+            download.prepare(attachment, downloadsRemote: true, manager: app.attachmentDownloads)
+        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(attachment.accessibilityLabel)
+    }
+
+    private var playableURL: URL? {
+        if case .downloaded(let url) = download.state { return url }
+        return attachment.localFileURL
     }
 }
 
 struct ModulaLinkPreview: View {
     let content: LinkContent
     var onOpen: (URL) -> Void
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         Button {
@@ -423,14 +586,14 @@ struct ModulaLinkPreview: View {
         } label: {
             HStack(alignment: .top, spacing: ModulaSpacing.sm) {
                 if let imageURL = content.imageURL {
-                    AsyncImage(url: imageURL) { phase in
-                        if case .success(let image) = phase { image.resizable().scaledToFill() } else { Color.primary.opacity(0.06) }
+                    ModulaRemoteImage(url: imageURL, cacheKey: "link:\(imageURL.absoluteString)", maximumPixelSize: 320) { phase in
+                        if case .success(let image) = phase { Image(uiImage: image).resizable().scaledToFill() } else { Color.primary.opacity(0.06) }
                     }
                     .frame(width: 76, height: 76).clipped()
                     .clipShape(RoundedRectangle(cornerRadius: ModulaRadius.small))
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(content.domain ?? content.destination?.host ?? "Link").font(.caption2.weight(.bold)).foregroundStyle(ModulaColor.accent)
+                    Text(content.domain ?? content.destination?.host ?? "Link").font(.caption2.weight(.bold)).foregroundStyle(app.appearance.accent.color)
                     if let title = content.title { Text(title).font(.subheadline.weight(.semibold)).lineLimit(2) }
                     if let description = content.description { Text(description).font(.caption).foregroundStyle(.secondary).lineLimit(2) }
                 }

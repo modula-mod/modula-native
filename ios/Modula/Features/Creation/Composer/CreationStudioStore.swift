@@ -344,7 +344,7 @@ final class CreationStudioStore {
     }
 
     func persist(debounce: Bool = true) {
-        guard !draft.accountID.isEmpty else { return }
+        guard !draft.accountID.isEmpty, draft.state != .published, draft.state != .discarded else { return }
         drafts.upsertCreation(draft, debounce: debounce)
     }
 
@@ -367,9 +367,15 @@ final class CreationStudioStore {
         return .dismiss
     }
 
-    func saveAndExit() {
+    @discardableResult
+    func saveAndExit() -> Bool {
         persist(debounce: false)
         showExitPrompt = false
+        guard drafts.flush() else {
+            publishError = drafts.saveError
+            return false
+        }
+        return true
     }
 
     func publish() async -> SocialPost? {

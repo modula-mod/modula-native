@@ -7,6 +7,7 @@ struct ProfileView: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.openURL) private var openURL
     @Environment(\.trailingInteractionInset) private var trailingInteractionInset
+    @Environment(\.shellChromeMetrics) private var shellChromeMetrics
     @State private var headerProgress: CGFloat = 0
     @State private var confirmsBlock = false
     @State private var confirmsReport = false
@@ -186,7 +187,7 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     ModulaScrollProgressReader()
                     content
-                        .padding(.bottom, 120)
+                        .padding(.bottom, shellChromeMetrics.contentBottomInset)
                 }
             }
             .modulaScrollProgressTracking(collapseDistance: 96, progress: $headerProgress)

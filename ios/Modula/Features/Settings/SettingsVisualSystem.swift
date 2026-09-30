@@ -112,9 +112,9 @@ struct SettingsCoverHeader: View {
             ZStack(alignment: .bottom) {
                 fallback
                 if let coverURL {
-                    AsyncImage(url: coverURL) { phase in
+                    ModulaRemoteImage(url: coverURL, cacheKey: "settings-cover:\(coverURL.path)", maximumPixelSize: 2_000) { phase in
                         if case .success(let image) = phase {
-                            image.resizable().scaledToFill()
+                            Image(uiImage: image).resizable().scaledToFill()
                         } else if case .failure = phase {
                             fallback
                         } else {

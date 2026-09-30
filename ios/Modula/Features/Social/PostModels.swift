@@ -118,6 +118,7 @@ struct SocialPostMedia: Hashable, Sendable, Identifiable {
     let pageCount: Int?
     let title: String?
     let creator: String?
+    let status: String?
 
     init(
         id: String,
@@ -135,7 +136,8 @@ struct SocialPostMedia: Hashable, Sendable, Identifiable {
         duration: TimeInterval? = nil,
         pageCount: Int? = nil,
         title: String? = nil,
-        creator: String? = nil
+        creator: String? = nil,
+        status: String? = nil
     ) {
         self.id = id
         self.url = url
@@ -153,6 +155,7 @@ struct SocialPostMedia: Hashable, Sendable, Identifiable {
         self.pageCount = pageCount
         self.title = title
         self.creator = creator
+        self.status = status
     }
 
     var isImage: Bool { kind == "image" || kind.isEmpty }
@@ -556,7 +559,8 @@ enum SocialPayloadDecoder {
             .flatMap(URL.init(string:))
         let alt = emptyToNil(value["altText"]?.string ?? value["alt_text"]?.string)
         let kind = value["kind"]?.string ?? value["type"]?.string ?? "image"
-        if url == nil && alt == nil { return nil }
+        let status = emptyToNil(value["status"]?.string)
+        if url == nil && alt == nil && status == nil && value["filename"]?.string == nil { return nil }
         let ratio: CGFloat?
         if let w = value["width"]?.number, let h = value["height"]?.number, h != 0 {
             ratio = CGFloat(w / h)
@@ -581,7 +585,8 @@ enum SocialPayloadDecoder {
             duration: value["duration"]?.number ?? value["durationMs"]?.number.map { $0 / 1_000 },
             pageCount: value["pageCount"]?.int ?? value["page_count"]?.int ?? value["pages"]?.int,
             title: emptyToNil(value["title"]?.string),
-            creator: emptyToNil(value["creator"]?.string ?? value["artist"]?.string)
+            creator: emptyToNil(value["creator"]?.string ?? value["artist"]?.string),
+            status: status
         )
     }
 

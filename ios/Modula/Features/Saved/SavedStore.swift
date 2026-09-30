@@ -4,6 +4,7 @@ import Observation
 @MainActor @Observable
 final class SavedStore {
     private let repository: SavedRepository
+    private let state: PostStateStore
     let capabilities: SavedBackendCapabilities
     private(set) var posts: [SocialPost] = []
     private(set) var nextCursor: String?
@@ -14,8 +15,9 @@ final class SavedStore {
     /// Backend list remains OPEN until VPS confirms.
     var backendListOpen: Bool { !capabilities.listSavedPosts }
 
-    init(client: GreenfieldClient, capabilities: SavedBackendCapabilities = .production) {
+    init(client: GreenfieldClient, state: PostStateStore, capabilities: SavedBackendCapabilities = .production) {
         self.repository = GreenfieldSavedRepository(client: client, capabilities: capabilities)
+        self.state = state
         self.capabilities = capabilities
     }
 
@@ -26,12 +28,13 @@ final class SavedStore {
             posts = []
             return
         }
-        guard force || !loading else { return }
+        guard !loading else { return }
         loading = true
         defer { loading = false }
         do {
             let page = try await repository.savedPosts(cursor: nil)
             posts = page.posts
+            state.upsert(contentsOf: page.posts)
             nextCursor = page.nextCursor
             hasMore = page.hasMore
             loaded = true
@@ -49,6 +52,7 @@ final class SavedStore {
         do {
             let page = try await repository.savedPosts(cursor: cursor)
             posts.append(contentsOf: page.posts)
+            state.upsert(contentsOf: page.posts)
             nextCursor = page.nextCursor
             hasMore = page.hasMore
         } catch {
@@ -59,6 +63,7 @@ final class SavedStore {
     func unsave(postID: SocialPostID, postActions: PostActionController) async {
         let previous = posts
         guard let post = posts.first(where: { $0.id == postID }) else { return }
+        postActions.ingest(post)
         posts.removeAll { $0.id == postID }
         // Reuse N4B save toggle path so engagement state stays canonical.
         if post.saved {

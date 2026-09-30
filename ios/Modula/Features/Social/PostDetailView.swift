@@ -7,6 +7,7 @@ struct PostDetailView: View {
 
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.shellChromeMetrics) private var shellChromeMetrics
     @State private var post: SocialPost?
     @State private var loadError: String?
     @State private var isLoading = true
@@ -91,7 +92,7 @@ struct PostDetailView: View {
                 }
             }
             .padding(.horizontal, ModulaLayout.contentInset)
-            .padding(.bottom, 40)
+            .padding(.bottom, shellChromeMetrics.contentBottomInset)
         }
         .modulaSoftScrollEdge()
         .navigationTitle(navigationTitle)

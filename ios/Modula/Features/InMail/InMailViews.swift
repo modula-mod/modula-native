@@ -244,6 +244,7 @@ struct InMailComposer: View {
                 Button {
                     Task {
                         if let thread = await app.inMail.sendDraft() {
+                            app.drafts.discardInMail()
                             app.navigation.replaceTop(with: .messages(.inMail(.thread(thread.id))))
                         }
                     }
@@ -265,7 +266,12 @@ struct InMailComposer: View {
             app.drafts.upsertInMail(draft)
         }
         .overlay(alignment: .top) {
-            if app.drafts.showSavedIndicator {
+            if let error = app.drafts.saveError {
+                Text(error)
+                    .font(.caption)
+                    .padding(10)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+            } else if app.drafts.showSavedIndicator {
                 Text("Draft saved")
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 10)

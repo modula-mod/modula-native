@@ -4,7 +4,7 @@ struct SavedBackendCapabilities: Sendable, Equatable {
     /// Per-post save toggle exists (N4B).
     var toggleSave = true
     /// List of saved posts from Greenfield.
-    var listSavedPosts = false
+    var listSavedPosts = true
     var listSavedModules = false
     var listSavedLinks = false
     var pagination = false
@@ -13,13 +13,9 @@ struct SavedBackendCapabilities: Sendable, Equatable {
     static let production = SavedBackendCapabilities()
 
     enum Paths {
-        /// Provisional until VPS confirms.
+        /// Greenfield returns the authenticated account's hydrated saved posts.
         static func savedPosts(cursor: String?) -> String {
-            var path = "/v1/saved/posts?limit=30"
-            if let cursor, let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
-                path += "&cursor=\(encoded)"
-            }
-            return path
+            "/v1/saves"
         }
     }
 }

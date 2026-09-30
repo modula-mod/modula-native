@@ -29,6 +29,9 @@ struct PostCard: View {
 
     var body: some View {
         let post = resolved
+        let canonical = ModulaPostMapper.map(post)
+        let layout = ModulaPostLayoutPolicy.resolve(canonical)
+        let usesRail = showsActionRail && layout.prefersActionRail && !dynamicTypeSize.isAccessibilitySize
         VStack(alignment: .leading, spacing: 10 * app.appearance.density.spacingScale) {
             PostHeader(
                 post: post,
@@ -36,19 +39,23 @@ struct PostCard: View {
                 onOpenAuthor: onOpenAuthor,
                 onMore: onMore
             )
-            PostRendererRegistry.content(
-                for: post,
+
+            postBody(post)
+
+            PostCanonicalContent(
+                source: post,
                 videoCoordinator: videoCoordinator,
-                onOpenPost: onOpenPost,
-                onOpenMedia: onOpenMedia,
+                onOpenAttachment: { attachment in
+                    if let media = post.media.first(where: { $0.id == attachment.id }) {
+                        onOpenMedia?(media)
+                    }
+                },
                 onOpenModule: onOpenModule
             )
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
-
-            if showsActionRail && !dynamicTypeSize.isAccessibilitySize {
-                HStack(alignment: .top, spacing: 12) {
-                    Spacer(minLength: 0)
+            .overlay(alignment: .trailing) {
+                if usesRail {
                     PostActionRail(
                         post: post,
                         onLike: onLike,
@@ -58,9 +65,11 @@ struct PostCard: View {
                         onReactLongPress: onReactLongPress,
                         onContextAction: onContextAction
                     )
+                    .padding(.trailing, 8)
                 }
-                .padding(.trailing, max(0, TrailingInteractionSafeArea.postActionRail - 40))
-            } else {
+            }
+
+            if !usesRail {
                 PostActions(
                     post: post,
                     onLike: onLike,
@@ -72,6 +81,9 @@ struct PostCard: View {
             }
 
             PostMetadata(post: post)
+            if layout.prefersActionRail {
+                PostCommentPrompt(post: post, onComment: onComment)
+            }
         }
         .padding(.vertical, 12 * app.appearance.density.spacingScale)
         .padding(.trailing, trailingInteractionInset > 0 && showsActionRail ? 4 : 0)
@@ -92,6 +104,18 @@ struct PostCard: View {
             ),
             onSelect: { onContextAction?($0) }
         )
+    }
+
+    @ViewBuilder
+    private func postBody(_ post: SocialPost) -> some View {
+        if post.text?.isEmpty == false {
+            Button(action: onOpenPost) {
+                PostBody(post: post)
+            }
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityHint("Opens the full post")
+        }
     }
 }
 
@@ -126,7 +150,7 @@ struct PostHeader: View {
                                 Text(author.displayName)
                                     .font(.subheadline.weight(.semibold))
                                     .lineLimit(1)
-                                Text("@\(author.handle)")
+                                Text(headerContext(author: author))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
@@ -143,19 +167,15 @@ struct PostHeader: View {
                 .accessibilityIdentifier(post.author.map { "home.author.\($0.id)" } ?? "home.author.unknown")
 
                 Spacer(minLength: 8)
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(ActivityRelativeTime.string(from: post.createdAt))
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                    if post.isEdited {
-                        Text("Edited")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
                 moreButton
             }
         }
+    }
+
+    private func headerContext(author: SocialAuthor) -> String {
+        let origin = post.feed.flatMap { $0.isEmpty ? nil : $0 } ?? "@\(author.handle)"
+        let time = ActivityRelativeTime.string(from: post.createdAt)
+        return post.isEdited ? "\(origin) · \(time) · Edited" : "\(origin) · \(time)"
     }
 
     @ViewBuilder
@@ -172,6 +192,42 @@ struct PostHeader: View {
             .accessibilityLabel("More")
             .accessibilityIdentifier("post.more.\(post.id)")
         }
+    }
+}
+
+private struct PostCommentPrompt: View {
+    let post: SocialPost
+    let onComment: () -> Void
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        Button(action: onComment) {
+            HStack(spacing: 9) {
+                if let profile = app.profile.ownProfile {
+                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 28)
+                } else {
+                    Image(systemName: "person.crop.circle")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                }
+                Text(post.replyCount > 0 ? "Join the conversation…" : "Add a comment…")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.up")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 10)
+            .frame(minHeight: 42)
+            .background(Color.primary.opacity(0.045), in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Add a comment")
+        .accessibilityHint("Opens comments")
+        .accessibilityIdentifier("post.comment.prompt.\(post.id)")
     }
 }
 

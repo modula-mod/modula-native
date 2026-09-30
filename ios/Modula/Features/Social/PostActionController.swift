@@ -8,6 +8,7 @@ final class PostActionController {
     private let state: PostStateStore
     private var likeGeneration: [SocialPostID: UInt64] = [:]
     private var saveGeneration: [SocialPostID: UInt64] = [:]
+    private var savesInFlight: Set<SocialPostID> = []
     private var repostGeneration: [SocialPostID: UInt64] = [:]
     private(set) var lastError: String?
     let capabilities: PostBackendCapabilities
@@ -101,7 +102,12 @@ final class PostActionController {
 
     func toggleSave(_ post: SocialPost) async {
         guard capabilities.save else { return }
+        // Generation checks protect local state, but cannot order server writes.
+        // Ignore repeated taps until this save/unsave has completed.
+        guard savesInFlight.insert(post.id).inserted else { return }
+        defer { savesInFlight.remove(post.id) }
         let current = state.resolved(post)
+        state.upsert(current)
         let nextSaved = !current.saved
         let snapshot = current.engagement
         let generation = (saveGeneration[current.id] ?? 0) + 1

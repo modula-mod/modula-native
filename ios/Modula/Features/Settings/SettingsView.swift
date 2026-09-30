@@ -860,6 +860,16 @@ struct ComponentCatalogView: View {
                     }
                     .accessibilityIdentifier("catalog.content-posts")
                 }
+                catalog("Profile") {
+                    NavigationLink {
+                        ProfileCatalogLabView()
+                    } label: {
+                        Label("Open profile media laboratory", systemImage: "person.crop.rectangle.stack")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch, alignment: .leading)
+                    }
+                    .accessibilityIdentifier("catalog.profile")
+                }
                 catalog("Buttons & controls") {
                     VStack {
                         ModulaButton(title: "Primary Button", symbol: "sparkles") {}
@@ -1015,5 +1025,80 @@ struct ComponentCatalogView: View {
 
     private func catalog<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         ModulaSection(title: title) { content() }
+    }
+}
+
+private struct ProfileCatalogLabView: View {
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: ModulaSpacing.lg) {
+                lab("Profile Hero", note: "Uses the production cover crop, progressive fade, overlap geometry, and authenticated media loader.") {
+                    ProfileCover(
+                        coverURL: app.profile.ownProfile?.coverURL,
+                        coverColour: app.profile.ownProfile?.coverColour ?? "#369CAA",
+                        safeAreaTop: 0,
+                        pocketCenterX: ModulaLayout.contentInset + 52,
+                        pocketRadius: 60
+                    )
+                    .frame(height: 220)
+                    .clipShape(RoundedRectangle(cornerRadius: ModulaRadius.large, style: .continuous))
+                }
+                lab("Avatar states", note: "Absent media uses initials. Loading and network failure remain visually distinct from absence.") {
+                    HStack(spacing: ModulaSpacing.md) {
+                        avatarState("Absent", url: nil)
+                        VStack(spacing: 6) {
+                            ProgressView().frame(width: 64, height: 64).background(Color.primary.opacity(0.05), in: Circle())
+                            Text("Loading").font(.caption2).foregroundStyle(.secondary)
+                        }
+                        avatarState("Failure", url: URL(string: "https://invalid.example.test/avatar.jpg"))
+                        if let url = app.profile.ownProfile?.avatarURL { avatarState("Live", url: url) }
+                    }
+                }
+                lab("Cover states", note: "The fallback is intentional Modula artwork; unavailable remote media exposes retry instead of appearing absent.") {
+                    VStack(spacing: ModulaSpacing.sm) {
+                        ProfileCover(coverURL: nil, coverColour: "#369CAA", safeAreaTop: 0)
+                            .frame(height: 170).clipShape(RoundedRectangle(cornerRadius: ModulaRadius.medium))
+                        ProfileCover(coverURL: URL(string: "https://invalid.example.test/cover.jpg"), coverColour: "#369CAA", safeAreaTop: 0)
+                            .frame(height: 170).clipShape(RoundedRectangle(cornerRadius: ModulaRadius.medium))
+                    }
+                }
+                lab("Large Dynamic Type", note: "Identity content may grow without changing media ownership or creating a second profile layout.") {
+                    HStack(alignment: .top, spacing: ModulaSpacing.sm) {
+                        ModulaAvatar(initials: "AR", size: 72)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("Alex Rivers").font(.title2.bold())
+                            Text("@alex · Product designer and photographer")
+                            Text("Joined September 2026").foregroundStyle(.secondary)
+                        }
+                    }
+                    .environment(\.dynamicTypeSize, .accessibility3)
+                }
+            }
+            .padding(ModulaSpacing.md)
+        }
+        .modulaCanvas()
+        .navigationTitle("Profile Lab")
+        .navigationBarTitleDisplayMode(.inline)
+        .accessibilityIdentifier("catalog.profile.lab")
+    }
+
+    private func avatarState(_ title: String, url: URL?) -> some View {
+        VStack(spacing: 6) {
+            ModulaAvatar(initials: "AR", url: url, size: 64)
+            Text(title).font(.caption2).foregroundStyle(.secondary)
+        }
+    }
+
+    private func lab<Content: View>(_ title: String, note: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: ModulaSpacing.sm) {
+            Text(title).font(.headline)
+            Text(note).font(.footnote).foregroundStyle(.secondary)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(ModulaSpacing.md)
+        .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: ModulaRadius.large))
     }
 }
