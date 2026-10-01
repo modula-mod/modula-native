@@ -115,6 +115,9 @@ struct ShellIntelligenceChatButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(IntelligenceChatIdentity.title)
+        .accessibilityShowsLargeContentViewer {
+            Label(IntelligenceChatIdentity.title, systemImage: Self.symbolName)
+        }
         .accessibilityHint("Opens \(IntelligenceChatIdentity.subtitle.lowercased()) chat")
         .accessibilityIdentifier("accessory.intelligence.chat")
     }
@@ -421,6 +424,9 @@ struct ShellAccessoryHost: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(action.title)
+                    .accessibilityShowsLargeContentViewer {
+                        Label(action.title, systemImage: action.symbol)
+                    }
                     .accessibilityIdentifier(action.accessibilityIdentifier)
                 }
             }
@@ -438,6 +444,9 @@ struct ShellAccessoryHost: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Search Modula")
+                .accessibilityShowsLargeContentViewer {
+                    Label("Search", systemImage: "magnifyingglass")
+                }
                 .accessibilityIdentifier("accessory.search")
             }
             if config.showsMore {

@@ -103,6 +103,14 @@ struct ShellSidebarHost: View {
                         .frame(width: width)
                         .frame(maxHeight: .infinity)
                         .transition(.move(edge: .leading).combined(with: .opacity))
+                        // Keep VoiceOver inside the open sidebar; the two-finger
+                        // "Z" scrub closes it like the scrim tap does.
+                        .accessibilityAddTraits(.isModal)
+                        .accessibilityAction(.escape) { dismiss() }
+                        .onKeyPress(.escape) {
+                            dismiss()
+                            return .handled
+                        }
                         .gesture(
                             DragGesture(minimumDistance: 24)
                                 .onEnded { value in
