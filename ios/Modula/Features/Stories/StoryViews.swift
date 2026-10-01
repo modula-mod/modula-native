@@ -1,20 +1,26 @@
 import PhotosUI
 import SwiftUI
+import ImageIO
 import UIKit
+import UniformTypeIdentifiers
 
 struct StoryRing: View {
     let state: StoryRingState
     var size: CGFloat = 64
     var accent: Color
+    /// `.own` shows a "+" only when there is nothing posted yet; an own ring with live
+    /// stories is drawn as an active (thick) ring instead.
+    var showsAddBadge = true
 
     var body: some View {
-        let line = state == .unseen ? max(2.5, size * 0.045) : max(1.5, size * 0.03)
+        let emphasised = state == .unseen || (state == .own && !showsAddBadge)
+        let line = emphasised ? max(2.5, size * 0.045) : max(1.5, size * 0.03)
         Circle()
             .strokeBorder(style: StrokeStyle(lineWidth: line, dash: state == .seen ? [4, 3] : []))
             .foregroundStyle(ringColor)
             .frame(width: size + line * 2, height: size + line * 2)
             .overlay(alignment: .bottomTrailing) {
-                if state == .own {
+                if state == .own && showsAddBadge {
                     Image(systemName: "plus")
                         .font(.system(size: size * 0.22, weight: .bold))
                         .foregroundStyle(.white)
@@ -31,7 +37,7 @@ struct StoryRing: View {
         switch state {
         case .unseen: accent
         case .seen: Color.primary.opacity(0.28)
-        case .own: accent.opacity(0.85)
+        case .own: showsAddBadge ? accent.opacity(0.85) : accent
         }
     }
 }
@@ -43,7 +49,7 @@ struct StoryAvatar: View {
 
     var body: some View {
         ZStack {
-            StoryRing(state: group.ring, size: size, accent: accent)
+            StoryRing(state: group.ring, size: size, accent: accent, showsAddBadge: group.isComposerPlaceholder)
             ModulaAvatar(initials: group.author.initials, url: group.author.avatarURL, size: size)
         }
         .frame(width: size + 10, height: size + 10)
@@ -56,7 +62,7 @@ struct StoryAvatar: View {
         switch group.ring {
         case .unseen: availability = "Unseen story"
         case .seen: availability = "Seen story"
-        case .own: availability = "Your story"
+        case .own: availability = group.isComposerPlaceholder ? "Add to your story" : "Your story"
         }
         return "\(group.author.displayName), \(availability)"
     }
@@ -96,6 +102,8 @@ struct StoryTray: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Your story")
+                    .accessibilityValue("empty")
+                    .accessibilityIdentifier("home.story.own")
                 }
                 ForEach(groups) { group in
                     Button {
@@ -111,6 +119,8 @@ struct StoryTray: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityValue(group.isOwn ? (group.isComposerPlaceholder ? "empty" : "active") : "")
+                    .accessibilityIdentifier(group.isOwn ? "home.story.own" : "home.story.\(group.id)")
                 }
             }
             .padding(.vertical, compact ? 2 : 4)
@@ -201,6 +211,7 @@ struct StoryViewer: View {
     @State private var engine: StoryProgressEngine
     @State private var holding = false
     @State private var loadedItemID: StoryID?
+    @State private var failedItemID: StoryID?
     @State private var retryID = 0
     @State private var videoCoordinator = FeedVideoCoordinator()
     @State private var expandedVideo: ModulaAttachment?
@@ -227,7 +238,17 @@ struct StoryViewer: View {
                     .contentShape(Rectangle())
                     .onTapGesture { handle(engine.next()); if !reduceMotion { HapticEngine.shared.play(.selection) } }
             }
-            .allowsHitTesting(loadedItemID == item?.id && item?.kind != .video)
+            .allowsHitTesting(StoryViewerGate.allowsTapNavigation(item: item, loadedID: loadedItemID, failedID: failedItemID))
+            if let item, failedItemID == item.id {
+                VStack(spacing: 12) {
+                    Image(systemName: "photo.badge.exclamationmark").font(.largeTitle).accessibilityHidden(true)
+                    Text("Couldn’t load this story")
+                    Button("Retry") { failedItemID = nil; retryID += 1 }.buttonStyle(.bordered)
+                }
+                .foregroundStyle(.white)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("story.failed")
+            }
             chrome(item)
         }
         .statusBarHidden(true)
@@ -254,6 +275,12 @@ struct StoryViewer: View {
             let event = engine.tick(0.05)
             if event == .advanced { HapticEngine.shared.play(.selection) }
             if event == .finished { app.navigation.close() }
+        }
+        .onChange(of: group.items.map(\.id)) { _, ids in
+            // Hydration can grow the group after the viewer opened; keep the bar in sync
+            // and stay on the item being watched.
+            let current = currentItem?.id ?? initialID
+            engine.resize(count: ids.count, keepingIndex: ids.firstIndex(of: current))
         }
         .onChange(of: scenePhase) { _, phase in
             engine.isAppActive = phase == .active
@@ -292,12 +319,8 @@ struct StoryViewer: View {
                         case .loading:
                             ProgressView("Loading story…").tint(.white).foregroundStyle(.white)
                         case .failure:
-                            VStack(spacing: 12) {
-                                Image(systemName: "photo.badge.exclamationmark").font(.largeTitle)
-                                Text("Couldn’t load this story")
-                                Button("Retry") { retryID += 1 }.buttonStyle(.bordered)
-                            }
-                            .foregroundStyle(.white)
+                            // The message + Retry are drawn above the tap zones (see body).
+                            Color.clear.onAppear { failedItemID = item.id }
                         }
                     }
                 } else {
@@ -398,6 +421,16 @@ struct StoryViewer: View {
     }
 }
 
+enum StoryViewerGate {
+    /// Tap zones are live once the item rendered, and also when its media failed:
+    /// a broken image must not trap the viewer (previously only the small Previous/Next
+    /// buttons worked). Videos keep explicit navigation until playback finishes.
+    static func allowsTapNavigation(item: StoryItem?, loadedID: StoryID?, failedID: StoryID?) -> Bool {
+        guard let item, item.kind != .video else { return false }
+        return loadedID == item.id || failedID == item.id
+    }
+}
+
 struct StoryProgressBar: View {
     let count: Int
     let index: Int
@@ -472,6 +505,8 @@ struct StoryCreateView: View {
                             }
                         }
                         .accessibilityLabel("Add a photo")
+                        .accessibilityValue(photoAccessibilityValue)
+                        .accessibilityIdentifier("story.create.photo")
                         .disabled(busy)
 
                         HStack {
@@ -530,7 +565,12 @@ struct StoryCreateView: View {
         .onChange(of: pickerItem) { _, item in
             Task { await load(item) }
         }
-        .task { await restoreDraft() }
+        .task {
+            await restoreDraft()
+            #if DEBUG
+            await injectUITestPhotoIfRequested()
+            #endif
+        }
         .onChange(of: caption) { _, _ in saveDraft() }
         .onChange(of: visibility) { _, _ in saveDraft() }
         .onDisappear { if !published { saveDraft(); app.drafts.flush() } }
@@ -548,10 +588,27 @@ struct StoryCreateView: View {
         .accessibilityValue(RouteSerializer.serialize(.stories(.create)))
     }
 
+    private var photoAccessibilityValue: String {
+        guard let prepared else { return "No photo selected" }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--uitest-story-large-photo") {
+            return "Photo selected, \(prepared.data.count) bytes"
+        }
+        #endif
+        return "Photo selected"
+    }
+
     private func load(_ item: PhotosPickerItem?) async {
         guard let item, let data = try? await item.loadTransferable(type: Data.self) else { return }
+        await load(data: data)
+    }
+
+    private func load(data: Data) async {
+        app.stories.setActionError(nil)
         do {
-            let image = try await MediaPreparation.jpegStrippingMetadata(data)
+            let image = try await MediaPreparation.jpegStrippingMetadata(
+                data, maxPixel: StoryUploadBudget.targetLongEdge, quality: StoryUploadBudget.preferredQuality
+            )
             guard let accountID = app.auth.account?.accountId else { return }
             let media = try app.draftMedia.importJPEG(image.data, accountID: accountID, width: image.width, height: image.height)
             prepared = image
@@ -575,6 +632,19 @@ struct StoryCreateView: View {
         }
     }
 
+    #if DEBUG
+    /// UI-test hook: `--uitest-story-large-photo` feeds a generated, detail-heavy photo
+    /// (well over 1 MB once prepared) through the same path as the Photos picker.
+    /// Only honoured against the isolated N1 fixture host, never production.
+    private func injectUITestPhotoIfRequested() async {
+        guard ProcessInfo.processInfo.arguments.contains("--uitest-story-large-photo"), prepared == nil else { return }
+        guard GreenfieldEnvironmentLabel.isIsolatedFixture(host: await app.client.apiOriginHost) else { return }
+        let data = await Task.detached(priority: .userInitiated) { StoryUITestPhoto.detailedJPEG() }.value
+        guard let data else { return }
+        await load(data: data)
+    }
+    #endif
+
     private func saveDraft() {
         guard restored, !published else { return }
         app.drafts.upsertStory(StoryDraft(id: draftID, mediaAssetIDs: draftMedia.map { [$0.id] } ?? [],
@@ -591,7 +661,9 @@ struct StoryCreateView: View {
         guard let media = saved.media else { return }
         do {
             let data = try Data(contentsOf: app.draftMedia.fileURL(media))
-            let image = try await MediaPreparation.jpegStrippingMetadata(data)
+            let image = try await MediaPreparation.jpegStrippingMetadata(
+                data, maxPixel: StoryUploadBudget.targetLongEdge, quality: StoryUploadBudget.preferredQuality
+            )
             prepared = image
             preview = UIImage(data: image.data)
         } catch {
@@ -601,6 +673,39 @@ struct StoryCreateView: View {
 }
 
 #if DEBUG
+enum StoryUITestPhoto {
+    /// Gradient plus deterministic grain: compresses like a real high-detail photo,
+    /// so the prepared 3072px q0.9 JPEG lands above the story byte budget and must be fitted.
+    nonisolated static func detailedJPEG(width: Int = 2304, height: Int = 3072) -> Data? {
+        let bytesPerRow = width * 4
+        var pixels = [UInt8](repeating: 255, count: bytesPerRow * height)
+        var seed: UInt32 = 0x9E37_79B9
+        for y in 0..<height {
+            for x in 0..<width {
+                seed = seed &* 1_664_525 &+ 1_013_904_223
+                let grain = Int(seed >> 24) - 128
+                let offset = y * bytesPerRow + x * 4
+                pixels[offset] = UInt8(clamping: 54 + x * 120 / width + grain / 2)
+                pixels[offset + 1] = UInt8(clamping: 156 - y * 90 / height + grain / 2)
+                pixels[offset + 2] = UInt8(clamping: 170 + (x + y) * 60 / (width + height) + grain / 2)
+            }
+        }
+        let output = NSMutableData()
+        let made: Bool = pixels.withUnsafeMutableBytes { buffer in
+            guard let context = CGContext(
+                data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: bytesPerRow,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+            ), let image = context.makeImage(),
+                let destination = CGImageDestinationCreateWithData(output, UTType.jpeg.identifier as CFString, 1, nil) else {
+                return false
+            }
+            CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: 0.95] as CFDictionary)
+            return CGImageDestinationFinalize(destination)
+        }
+        return made ? output as Data : nil
+    }
+}
+
 #Preview("Story rings") {
     HStack {
         StoryRing(state: .unseen, accent: .teal)

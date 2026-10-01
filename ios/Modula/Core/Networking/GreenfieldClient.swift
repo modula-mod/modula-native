@@ -23,6 +23,12 @@ enum APIError: Error, LocalizedError, Equatable {
         case .rejected(_, "RATE_LIMITED"), .rejected(_, "TOO_MANY_REQUESTS"):
             "Too many attempts. Try again shortly."
         case .rejected(_, "VALIDATION_FAILED"): "Check the details you entered and try again."
+        case .rejected(413, _), .rejected(_, "PAYLOAD_TOO_LARGE"):
+            "That file is too large to upload. Try a smaller photo."
+        case .rejected(_, "SERVER_UNAVAILABLE"):
+            "Modula is having trouble right now. Try again in a moment."
+        case .rejected(let status, _) where status >= 500:
+            "Modula is having trouble right now. Try again in a moment."
         case .rejected: "Unable to complete the request. Try again."
         }
     }
@@ -121,6 +127,12 @@ actor GreenfieldClient {
     private var refreshTask: Task<SessionTokens, Error>?
     private var epoch = 0
     private var accountID: String?
+    private var sessionInvalidated: (@Sendable () -> Void)?
+
+    /// Called (off the main actor) when the server rejects the session and a refresh
+    /// can't recover it, so the app can leave the signed-in state instead of silently
+    /// carrying a dead token (prod: POST /v1/stories → 401 after the session was revoked).
+    func setSessionInvalidationHandler(_ handler: (@Sendable () -> Void)?) { sessionInvalidated = handler }
 
     /// Non-secret origin label for diagnostics (fixture vs production host).
     var apiOriginHost: String? { baseURL?.host }
@@ -188,6 +200,64 @@ actor GreenfieldClient {
         })
     }
 
+    /// Installations with their lifecycle status and version (`GET /v1/modules/installed`).
+    func installedModules() async throws -> [ModuleInstallation] {
+        let value: JSONValue = try await authenticated("GET", path: "/v1/modules/installed")
+        return Self.installations(from: value)
+    }
+
+    nonisolated static func installations(from value: JSONValue) -> [ModuleInstallation] {
+        let items = value.array ?? value["items"]?.array ?? []
+        return items.compactMap { item in
+            guard let id = item["moduleId"]?.string ?? item["module_id"]?.string ?? item["productId"]?.string else { return nil }
+            return ModuleInstallation(moduleId: id, status: item["status"]?.string ?? "enabled", version: item["version"]?.string)
+        }
+    }
+
+    /// Public store listing for one module (`GET /v1/registry/modules/:id`).
+    func moduleListing(_ moduleID: String) async throws -> ModuleListing {
+        guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
+        let value: JSONValue = try await send("GET", path: "/v1/registry/modules/\(path)")
+        guard let listing = ModuleListing(json: value) else { throw APIError.invalidResponse }
+        return listing
+    }
+
+    /// Lifecycle mutations. All are idempotent on the server via `idempotencyKey`, so the
+    /// single 401-refresh retry in `authenticated` cannot double-apply them.
+    func installModule(_ moduleID: String, version: String?, approvedPermissions: [String], idempotencyKey: String) async throws -> String? {
+        guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
+        var body: [String: JSONValue] = ["platform": .string("ios"), "idempotencyKey": .string(idempotencyKey)]
+        if let version { body["version"] = .string(version) }
+        if !approvedPermissions.isEmpty { body["approvedPermissions"] = .array(approvedPermissions.map(JSONValue.string)) }
+        let value: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/install", body: .object(body))
+        return value["status"]?.string
+    }
+
+    func enableModule(_ moduleID: String, idempotencyKey: String) async throws {
+        guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
+        let _: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/enable", body: .object(["idempotencyKey": .string(idempotencyKey)]))
+    }
+
+    func updateModule(_ moduleID: String, version: String, approvedPermissionIncrease: Bool, idempotencyKey: String) async throws {
+        guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
+        let _: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/update", body: .object([
+            "version": .string(version), "approvedPermissionIncrease": .bool(approvedPermissionIncrease), "idempotencyKey": .string(idempotencyKey),
+        ]))
+    }
+
+    /// Uninstall keeps the account's module data so a reinstall restores it.
+    func uninstallModule(_ moduleID: String, idempotencyKey: String) async throws {
+        guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
+        let _: JSONValue = try await authenticated("DELETE", path: "/v1/modules/\(path)/install", body: .object([
+            "choice": .string("keepData"), "idempotencyKey": .string(idempotencyKey),
+        ]))
+    }
+
+    /// Module ids are reverse-DNS; anything else never reaches a URL path.
+    nonisolated static func modulePath(_ moduleID: String) -> String? {
+        moduleID.range(of: "^[a-z][a-z0-9.-]{1,127}$", options: .regularExpression) == nil ? nil : moduleID
+    }
+
     func moduleRequest(method: String, path: String, body: JSONValue?, expectedAccountID: String) async throws -> JSONValue {
         guard accountID == expectedAccountID else { throw APIError.accountChanged }
         let generation = epoch
@@ -197,8 +267,8 @@ actor GreenfieldClient {
     }
 
     /// Authenticated JSON fetch used by Activity and other native features.
-    func authenticatedJSON(_ method: String, path: String, body: JSONValue? = nil) async throws -> JSONValue {
-        try await authenticated(method, path: path, body: body)
+    func authenticatedJSON(_ method: String, path: String, body: JSONValue? = nil, timeout: TimeInterval = 20) async throws -> JSONValue {
+        try await authenticated(method, path: path, body: body, timeout: timeout)
     }
 
     /// Public JSON fetch (no bearer). Used by Discover/Search when signed out.
@@ -215,6 +285,16 @@ actor GreenfieldClient {
     }
 
     func hasSession() -> Bool { tokens != nil }
+
+    #if DEBUG
+    /// UITest-only: forget the local session without contacting the server.
+    func discardLocalSession() {
+        epoch += 1
+        refreshTask?.cancel(); refreshTask = nil
+        tokens = nil; accountID = nil
+        try? keychain.clear()
+    }
+    #endif
 
     func authenticatedUpload(
         path: String,
@@ -241,15 +321,7 @@ actor GreenfieldClient {
             transfer.cancel()
         }
         guard generation == epoch else { throw APIError.accountChanged }
-        guard let http = response as? HTTPURLResponse, data.count < 8_000_000 else { throw APIError.invalidResponse }
-        let envelope = try JSONDecoder().decode(Envelope<JSONValue>.self, from: data)
-        guard (200..<300).contains(http.statusCode), envelope.ok else {
-            let rawCode = envelope.error?.code ?? "REQUEST_FAILED"
-            let safeCode = rawCode.range(of: "^[A-Z0-9_]{1,80}$", options: .regularExpression) != nil ? rawCode : "REQUEST_FAILED"
-            throw APIError.rejected(http.statusCode, safeCode)
-        }
-        guard let value = envelope.data else { throw APIError.invalidResponse }
-        return value
+        return try Self.decodeEnvelope(data, response: response, method: "PUT", path: path)
     }
 
     /// Loads media through the same authenticated session as JSON requests. Greenfield
@@ -287,18 +359,55 @@ actor GreenfieldClient {
         return request
     }
 
-    private func authenticated<T: Decodable & Sendable>(_ method: String, path: String, body: JSONValue? = nil) async throws -> T {
+    private func authenticated<T: Decodable & Sendable>(
+        _ method: String, path: String, body: JSONValue? = nil, timeout: TimeInterval = 20
+    ) async throws -> T {
         let generation = epoch
         let bearer = try await accessToken()
-        let result: T = try await send(method, path: path, body: body, bearer: bearer)
-        guard generation == epoch else { throw APIError.accountChanged }
-        return result
+        do {
+            let result: T = try await send(method, path: path, body: body, bearer: bearer, timeout: timeout)
+            guard generation == epoch else { throw APIError.accountChanged }
+            return result
+        } catch APIError.rejected(401, _) where generation == epoch && tokens != nil {
+            // The access token was rejected although it looked valid locally (revoked
+            // session, clock skew). A 401 means the request wasn't processed, so refresh
+            // once and retry; if the refresh is rejected too, the session is gone.
+            let renewed = try await accessToken(forceRefresh: true, rejected: bearer)
+            do {
+                let result: T = try await send(method, path: path, body: body, bearer: renewed, timeout: timeout)
+                guard generation == epoch else { throw APIError.accountChanged }
+                return result
+            } catch APIError.rejected(401, _) where generation == epoch {
+                invalidateSession()
+                throw APIError.unauthenticated
+            }
+        }
     }
 
-    private func accessToken() async throws -> String {
+    private func invalidateSession() {
+        epoch += 1
+        refreshTask?.cancel(); refreshTask = nil
+        tokens = nil; accountID = nil
+        try? keychain.clear()
+        sessionInvalidated?()
+    }
+
+    /// Only a definitive rejection of the refresh token ends the session. Offline, timeouts
+    /// and 5xx keep the stored tokens so the user stays signed in and can retry.
+    nonisolated static func refreshFailureEndsSession(_ error: Error) -> Bool {
+        switch error {
+        case APIError.rejected(let status, _): return status == 400 || status == 401 || status == 403
+        case APIError.unauthenticated: return true
+        default: return false
+        }
+    }
+
+    private func accessToken(forceRefresh: Bool = false, rejected: String? = nil) async throws -> String {
         if let refreshTask { return try await refreshTask.value.accessToken }
         guard let current = tokens else { throw APIError.unauthenticated }
-        if current.accessValid { return current.accessToken }
+        // Another request may already have rotated the token that was rejected.
+        if forceRefresh, let rejected, current.accessToken != rejected { return current.accessToken }
+        if current.accessValid && !forceRefresh { return current.accessToken }
         let generation = epoch
         let task = Task<SessionTokens, Error> {
             let next: SessionTokens = try await self.send("POST", path: "/v1/sessions/refresh", body: .object(["refreshToken": .string(current.refreshToken)]))
@@ -311,36 +420,76 @@ actor GreenfieldClient {
         defer { if generation == epoch { refreshTask = nil } }
         do { return try await task.value.accessToken }
         catch {
-            if generation == epoch {
-                tokens = nil; accountID = nil
-                try? keychain.clear()
+            if generation == epoch, Self.refreshFailureEndsSession(error) {
+                invalidateSession()
+                throw APIError.unauthenticated
             }
             throw error
         }
     }
 
-    private func send<T: Decodable & Sendable>(_ method: String, path: String, body: JSONValue? = nil, bearer: String? = nil) async throws -> T {
+    private func send<T: Decodable & Sendable>(
+        _ method: String, path: String, body: JSONValue? = nil, bearer: String? = nil, timeout: TimeInterval = 20
+    ) async throws -> T {
         guard let baseURL, baseURL.scheme == "https", baseURL.user == nil, baseURL.password == nil,
               path.hasPrefix("/v1/"), !path.contains(".."), let url = URL(string: path, relativeTo: baseURL)?.absoluteURL,
               url.host == baseURL.host else { throw APIError.unconfigured }
         var request = URLRequest(url: url)
         request.httpMethod = method
-        request.timeoutInterval = 20
+        request.timeoutInterval = timeout
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if body != nil { request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
         request.setValue("ModulaNative/0.1.0 (iOS)", forHTTPHeaderField: "User-Agent")
         if let bearer { request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
         request.httpBody = try body.map { try JSONEncoder().encode($0) }
         let (data, response) = try await transport.data(for: request)
+        return try Self.decodeEnvelope(data, response: response, method: method, path: path)
+    }
+
+    /// Decodes a Greenfield envelope. Responses that are not envelopes (for example the
+    /// nginx HTML 413 page in front of both hosts, or an HTML 502/503 from the edge) are
+    /// mapped by status to safe `APIError` codes instead of surfacing a decoding error,
+    /// and are logged without the body (which may echo request data).
+    nonisolated static func decodeEnvelope<T: Decodable>(
+        _ data: Data,
+        response: URLResponse,
+        method: String,
+        path: String
+    ) throws -> T {
         guard let http = response as? HTTPURLResponse, data.count < 8_000_000 else { throw APIError.invalidResponse }
-        let envelope = try JSONDecoder().decode(Envelope<T>.self, from: data)
+        let envelope: Envelope<T>
+        do {
+            envelope = try JSONDecoder().decode(Envelope<T>.self, from: data)
+        } catch {
+            let mapped = nonEnvelopeError(status: http.statusCode)
+            let contentType = http.value(forHTTPHeaderField: "Content-Type") ?? "unknown"
+            ModulaLog.network.error(
+                "Greenfield \(method, privacy: .public) \(path, privacy: .public) returned a non-envelope \(http.statusCode, privacy: .public) response (\(contentType, privacy: .public), \(data.count, privacy: .public) bytes) → \(mapped.diagnosticDescription, privacy: .public)"
+            )
+            throw mapped
+        }
         guard (200..<300).contains(http.statusCode), envelope.ok else {
             let rawCode = envelope.error?.code ?? "REQUEST_FAILED"
             let safeCode = rawCode.range(of: "^[A-Z0-9_]{1,80}$", options: .regularExpression) != nil ? rawCode : "REQUEST_FAILED"
+            if http.statusCode >= 500 || http.statusCode == 413 {
+                ModulaLog.network.error(
+                    "Greenfield \(method, privacy: .public) \(path, privacy: .public) failed \(http.statusCode, privacy: .public) \(safeCode, privacy: .public)"
+                )
+            }
             throw APIError.rejected(http.statusCode, safeCode)
         }
         guard let value = envelope.data else { throw APIError.invalidResponse }
         return value
+    }
+
+    /// Status-only mapping for bodies that are not Greenfield JSON.
+    nonisolated static func nonEnvelopeError(status: Int) -> APIError {
+        switch status {
+        case 413: .rejected(413, "PAYLOAD_TOO_LARGE")
+        case 429: .rejected(429, "RATE_LIMITED")
+        case 500...599: .rejected(status, "SERVER_UNAVAILABLE")
+        default: .invalidResponse
+        }
     }
 }
 

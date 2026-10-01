@@ -3,6 +3,11 @@ import CoreFoundation
 
 /// Closed record API vocabulary. JavaScript never supplies a URL, header or account.
 struct ModuleBackendRequest {
+    private static let queryValueAllowed: CharacterSet = {
+        var set = CharacterSet.alphanumerics
+        set.insert(charactersIn: "-._~")
+        return set
+    }()
     let method: String
     let path: String
     let body: JSONValue?
@@ -31,13 +36,33 @@ struct ModuleBackendRequest {
         }
         switch action {
         case "backend.records.list":
-            guard exact(["collection"]) || exact(["collection", "cursor"]) else { return nil }
-            var path = "\(base)?limit=50&recordState=active&sort=updatedAt&direction=desc"
+            // Closed vocabulary: optional cursor, search text, and a sort from a fixed set.
+            let allowed: Set<String> = ["collection", "cursor", "query", "sort", "direction"]
+            guard Set(params.keys).isSubset(of: allowed) else { return nil }
+            var items = [
+                URLQueryItem(name: "limit", value: "50"),
+                URLQueryItem(name: "recordState", value: "active")
+            ]
+            let sort = params["sort"] ?? "updatedAt"
+            guard let sort = sort as? String, ["updatedAt", "createdAt", "title"].contains(sort) else { return nil }
+            let direction = params["direction"] ?? (sort == "title" ? "asc" : "desc")
+            guard let direction = direction as? String, ["asc", "desc"].contains(direction) else { return nil }
+            items += [URLQueryItem(name: "sort", value: sort), URLQueryItem(name: "direction", value: direction)]
+            if let query = params["query"] {
+                guard let query = query as? String else { return nil }
+                let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard trimmed.count <= 200, !trimmed.contains(where: { $0.isNewline || $0.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) } }) else { return nil }
+                if !trimmed.isEmpty { items.append(URLQueryItem(name: "q", value: trimmed)) }
+            }
             if let cursor = params["cursor"] {
                 guard let cursor = cursor as? String, cursor.range(of: "^[0-9]{1,10}$", options: .regularExpression) != nil else { return nil }
-                path += "&cursor=\(cursor)"
+                items.append(URLQueryItem(name: "cursor", value: cursor))
             }
-            return Self(method: "GET", path: path, body: nil)
+            // Strict encoding: "+", "&", "=", "#" and non-ASCII in search text never alter the query.
+            let encoded = items.map { item in
+                "\(item.name)=\(item.value?.addingPercentEncoding(withAllowedCharacters: Self.queryValueAllowed) ?? "")"
+            }.joined(separator: "&")
+            return Self(method: "GET", path: "\(base)?\(encoded)", body: nil)
         case "backend.records.get":
             guard exact(["collection", "recordID"]), let path = recordPath() else { return nil }
             return Self(method: "GET", path: path, body: nil)

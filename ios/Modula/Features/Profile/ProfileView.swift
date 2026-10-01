@@ -1028,12 +1028,19 @@ struct ProfileView: View {
 
     private func openProfileStory(_ profile: ModulaProfile) {
         guard let group = app.stories.groups.first(where: { $0.author.id == profile.id || $0.author.handle == profile.handle }),
-              let id = group.representative?.id else {
+              group.hasStories, !group.isComposerPlaceholder else {
             openAvatarViewer(profile)
             return
         }
-        app.navigation.push(.stories(.story(id)))
-        HapticEngine.shared.play(.navigation)
+        // Rail entries are summaries (no items), so resolve through the store, which hydrates.
+        Task {
+            guard let route = await app.stories.destination(for: group) else {
+                openAvatarViewer(profile)
+                return
+            }
+            app.navigation.push(route)
+            HapticEngine.shared.play(.navigation)
+        }
     }
 
     private func handleContextAction(_ action: ModulaContextAction, profile: ModulaProfile) {

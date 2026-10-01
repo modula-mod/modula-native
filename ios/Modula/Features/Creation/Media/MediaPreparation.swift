@@ -11,9 +11,12 @@ struct PreparedImage: Sendable, Equatable {
     var mimeType: String
 }
 
-enum MediaPreparationError: Error {
+enum MediaPreparationError: Error, Equatable {
     case empty
     case unsupported
+    /// The image could not be brought under the requested byte budget, even at the
+    /// smallest permitted size and quality.
+    case exceedsByteBudget
 }
 
 enum MediaPreparation {
@@ -59,6 +62,88 @@ enum MediaPreparation {
         CGImageDestinationAddImage(destination, scaled, options as CFDictionary)
         guard CGImageDestinationFinalize(destination) else { throw MediaPreparationError.unsupported }
         return PreparedImage(data: output as Data, width: targetWidth, height: targetHeight, mimeType: "image/jpeg")
+    }
+
+    /// Re-encodes `data` as a metadata-free JPEG whose encoded size is at most `maxBytes`.
+    /// Quality is stepped down first (0.9 → 0.72) at the largest allowed size; only then
+    /// is the long edge reduced (×0.84 per step) toward `minPixel`. At `minPixel` the
+    /// ladder extends to 0.6, and only a pathological image falls back below `minPixel`
+    /// (2048px, then 1440px last resorts). Never upscales; applies EXIF orientation.
+    static func jpegFitting(
+        _ data: Data,
+        maxBytes: Int,
+        maxPixel: CGFloat = 3072,
+        minPixel: CGFloat = 2048
+    ) async throws -> PreparedImage {
+        try await Task.detached(priority: .userInitiated) {
+            try jpegFittingSync(data, maxBytes: maxBytes, maxPixel: maxPixel, minPixel: minPixel)
+        }.value
+    }
+
+    nonisolated static let fittingQualityLadder: [CGFloat] = [0.9, 0.86, 0.82, 0.78, 0.75, 0.72]
+    nonisolated static let floorQualityLadder: [CGFloat] = [0.68, 0.64, 0.6]
+    nonisolated static let lastResortLongEdges: [CGFloat] = [2048, 1440]
+
+    nonisolated static func jpegFittingSync(
+        _ data: Data,
+        maxBytes: Int,
+        maxPixel: CGFloat = 3072,
+        minPixel: CGFloat = 2048
+    ) throws -> PreparedImage {
+        guard !data.isEmpty, maxBytes > 0 else { throw MediaPreparationError.empty }
+        guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let sourceWidth = properties[kCGImagePropertyPixelWidth] as? Int,
+              let sourceHeight = properties[kCGImagePropertyPixelHeight] as? Int else {
+            throw MediaPreparationError.unsupported
+        }
+        let longest = CGFloat(max(sourceWidth, sourceHeight))
+        let start = min(maxPixel, longest)
+        let floor = min(minPixel, start)
+        var sizes: [CGFloat] = [start]
+        while let last = sizes.last, last > floor {
+            sizes.append(max(floor, (last * 0.84).rounded()))
+        }
+        func attempt(_ pixel: CGFloat, _ ladder: [CGFloat]) throws -> PreparedImage? {
+            // Thumbnail decode downsamples efficiently, applies EXIF orientation and never upscales.
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: Int(pixel.rounded()),
+                kCGImageSourceShouldCacheImmediately: true
+            ]
+            guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+                throw MediaPreparationError.unsupported
+            }
+            for quality in ladder {
+                let encoded = try encodeJPEG(image, quality: quality)
+                if encoded.count <= maxBytes {
+                    return PreparedImage(data: encoded, width: image.width, height: image.height, mimeType: "image/jpeg")
+                }
+            }
+            return nil
+        }
+        for (index, pixel) in sizes.enumerated() {
+            let atFloor = index == sizes.count - 1
+            if let fitted = try attempt(pixel, atFloor ? fittingQualityLadder + floorQualityLadder : fittingQualityLadder) {
+                return fitted
+            }
+        }
+        for pixel in lastResortLongEdges where pixel < floor {
+            if let fitted = try attempt(pixel, fittingQualityLadder + floorQualityLadder) { return fitted }
+        }
+        throw MediaPreparationError.exceedsByteBudget
+    }
+
+    nonisolated private static func encodeJPEG(_ image: CGImage, quality: CGFloat) throws -> Data {
+        let output = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(output, UTType.jpeg.identifier as CFString, 1, nil) else {
+            throw MediaPreparationError.unsupported
+        }
+        // Only the bitmap is written: no EXIF/GPS/camera metadata survives.
+        CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
+        guard CGImageDestinationFinalize(destination) else { throw MediaPreparationError.unsupported }
+        return output as Data
     }
 
     static func cropJPEG(

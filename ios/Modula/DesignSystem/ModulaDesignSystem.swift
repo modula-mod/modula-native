@@ -135,10 +135,200 @@ struct ModulaText: View {
     private var design: Font.Design { switch app.appearance.fontFamily { case .rounded, .geometric: .rounded; case .editorial: .serif; case .mono: .monospaced; default: .default } }
 }
 struct ModulaIcon: View { var role: ModulaIconRole; var selected = false; @Environment(AppEnvironment.self) private var app; var body: some View { Image(systemName: ModulaIconRegistry.symbol(role, style: app.appearance.iconStyle, selected: selected)).imageScale(.large) } }
+/// Primary call to action. Accent capsule with distinct enabled, pressed, disabled and
+/// loading states; loading keeps the accent fill so progress never reads as "disabled".
 struct ModulaButton: View {
-    let title: String; var symbol: String?; var action: () -> Void
+    let title: String; var symbol: String?; var isLoading = false; var loadingTitle: String?; var action: () -> Void
     @Environment(AppEnvironment.self) private var app
-    var body: some View { Button(action: action) { Label(title, systemImage: symbol ?? "arrow.right").frame(maxWidth: .infinity).frame(minHeight: ModulaLayout.minimumTouch).font(.headline) }.buttonStyle(.borderedProminent).tint(app.appearance.accent.color).buttonBorderShape(.capsule) }
+    @ScaledMetric(relativeTo: .headline) private var height = 52.0
+
+    init(title: String, symbol: String? = nil, isLoading: Bool = false, loadingTitle: String? = nil, action: @escaping () -> Void) {
+        self.title = title; self.symbol = symbol; self.isLoading = isLoading; self.loadingTitle = loadingTitle; self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: ModulaSpacing.xs) {
+                if isLoading {
+                    ProgressView().tint(.white).controlSize(.regular)
+                    Text(loadingTitle ?? title)
+                } else if let symbol {
+                    Label(title, systemImage: symbol)
+                } else {
+                    Text(title)
+                }
+            }
+            .font(.headline)
+            .lineLimit(2)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: max(ModulaLayout.minimumTouch, height))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(ModulaPrimaryButtonStyle(accent: app.appearance.accent.color, isLoading: isLoading))
+        .accessibilityValue(isLoading ? (loadingTitle ?? "In progress") : "")
+    }
+}
+
+struct ModulaPrimaryButtonStyle: ButtonStyle {
+    var accent: Color
+    var isLoading = false
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    func makeBody(configuration: Configuration) -> some View {
+        let active = isEnabled || isLoading
+        configuration.label
+            .padding(.horizontal, ModulaSpacing.lg)
+            .foregroundStyle(active ? Color.white : accent.opacity(contrast == .increased ? 0.9 : 0.62))
+            .background {
+                Capsule()
+                    .fill(active ? AnyShapeStyle(accent.gradient) : AnyShapeStyle(accent.opacity(scheme == .dark ? 0.16 : 0.12)))
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(active ? 0.18 : 0), lineWidth: 0.75))
+                    .shadow(color: accent.opacity(active && !configuration.isPressed ? 0.32 : 0), radius: 14, y: 6)
+            }
+            .brightness(configuration.isPressed ? -0.06 : 0)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
+            .animation(reduceMotion ? nil : .snappy(duration: 0.18), value: configuration.isPressed)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: active)
+    }
+}
+
+/// Labelled form field with a leading symbol, accent focus ring, inline validation
+/// message and (for secure fields) a show/hide toggle that keeps keyboard focus.
+/// Keyboard, content type, submit label and `onSubmit` modifiers applied to the
+/// field propagate to the inner text input.
+struct ModulaFormField<Focus: Hashable>: View {
+    enum Kind { case text, secure }
+
+    let title: String
+    let symbol: String
+    @Binding var text: String
+    var kind: Kind = .text
+    var prompt: String?
+    var message: String?
+    var focus: FocusState<Focus?>.Binding
+    var focusValue: Focus
+    var identifier: String
+
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isEnabled) private var isEnabled
+    @ScaledMetric(relativeTo: .body) private var fieldHeight = 56.0
+    @ScaledMetric(relativeTo: .body) private var iconWidth = 22.0
+    @State private var revealed = false
+
+    private var isFocused: Bool { focus.wrappedValue == focusValue }
+    private var hasError: Bool { message != nil }
+    private var radius: CGFloat { app.appearance.interfaceShape.radius(for: .control) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: ModulaSpacing.xs) {
+            HStack(spacing: ModulaSpacing.sm) {
+                Image(systemName: symbol)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(iconColor)
+                    .frame(width: iconWidth)
+                    .accessibilityHidden(true)
+                input
+                    .font(.body)
+                    .frame(maxWidth: .infinity, minHeight: max(ModulaLayout.minimumTouch, fieldHeight))
+                if kind == .secure {
+                    Button {
+                        let target = focusValue
+                        let wasFocused = isFocused
+                        revealed.toggle()
+                        if wasFocused {
+                            DispatchQueue.main.async { focus.wrappedValue = target }
+                        }
+                        HapticEngine.shared.play(.selection)
+                    } label: {
+                        Image(systemName: revealed ? "eye.slash" : "eye")
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(.secondary)
+                            .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(revealed ? "Hide password" : "Show password")
+                    .accessibilityIdentifier("\(identifier).visibility")
+                }
+            }
+            .padding(.leading, ModulaSpacing.md)
+            .padding(.trailing, kind == .secure ? ModulaSpacing.xxs : ModulaSpacing.md)
+            .background(fill, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .strokeBorder(borderColor, lineWidth: isFocused || hasError ? 1.5 : 1)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .onTapGesture { focus.wrappedValue = focusValue }
+            .opacity(isEnabled ? 1 : 0.6)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: isFocused)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: hasError)
+
+            if let message {
+                Label(message, systemImage: "exclamationmark.circle.fill")
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(Color.red)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("\(identifier).message")
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    /// Secure fields keep both inputs mounted and swap visibility in place. Removing a
+    /// filled `SecureField` from the hierarchy makes iOS offer "Save Password?" and
+    /// drops focus; a disabled input can't hold focus, so the shared focus value
+    /// always resolves to the visible one.
+    @ViewBuilder
+    private var input: some View {
+        let promptText = Text(prompt ?? title).foregroundStyle(Color.secondary)
+        if kind == .secure {
+            ZStack {
+                SecureField(title, text: $text, prompt: promptText)
+                    .focused(focus, equals: focusValue)
+                    .disabled(revealed)
+                    .opacity(revealed ? 0 : 1)
+                    .accessibilityHidden(revealed)
+                    .accessibilityIdentifier(identifier)
+                    .accessibilityHint(message ?? "")
+                TextField(title, text: $text, prompt: promptText)
+                    .focused(focus, equals: focusValue)
+                    .disabled(!revealed)
+                    .opacity(revealed ? 1 : 0)
+                    .accessibilityHidden(!revealed)
+                    .accessibilityIdentifier(identifier)
+                    .accessibilityHint(message ?? "")
+            }
+        } else {
+            TextField(title, text: $text, prompt: promptText)
+                .focused(focus, equals: focusValue)
+                .accessibilityIdentifier(identifier)
+                .accessibilityHint(message ?? "")
+        }
+    }
+
+    private var iconColor: Color {
+        if hasError { return .red }
+        return isFocused ? app.appearance.accent.color : .secondary
+    }
+
+    private var fill: Color {
+        if isFocused { return app.appearance.accent.color.opacity(scheme == .dark ? 0.14 : 0.07) }
+        return Color.primary.opacity(scheme == .dark ? 0.08 : 0.045)
+    }
+
+    private var borderColor: Color {
+        if hasError { return .red.opacity(0.85) }
+        if isFocused { return app.appearance.accent.color }
+        return Color.primary.opacity(contrast == .increased ? 0.28 : 0.1)
+    }
 }
 struct ModulaIconButton: View { let title: String; let symbol: String; var action: () -> Void; var body: some View { Button(action: action) { Image(systemName: symbol).frame(width: 44, height: 44) }.accessibilityLabel(title) } }
 struct ModulaAvatar: View {

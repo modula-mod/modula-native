@@ -873,6 +873,9 @@ struct ComponentCatalogView: View {
                 catalog("Buttons & controls") {
                     VStack {
                         ModulaButton(title: "Primary Button", symbol: "sparkles") {}
+                        ModulaButton(title: "Primary Button", isLoading: true, loadingTitle: "Working…") {}
+                        ModulaButton(title: "Disabled Button") {}.disabled(true)
+                        FormFieldCatalogSample()
                         HStack {
                             ModulaIconButton(title: "Search", symbol: "magnifyingglass") {}
                             ModulaChip(title: "Selected", selected: true) {}
@@ -1100,5 +1103,25 @@ private struct ProfileCatalogLabView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(ModulaSpacing.md)
         .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: ModulaRadius.large))
+    }
+}
+
+/// Developer catalog sample for `ModulaFormField` (focus, validation, secure toggle).
+private struct FormFieldCatalogSample: View {
+    private enum Field: Hashable { case email, secret }
+    @State private var email = "name@"
+    @State private var secret = ""
+    @FocusState private var focused: Field?
+
+    var body: some View {
+        VStack(spacing: ModulaSpacing.sm) {
+            ModulaFormField(title: "Email", symbol: "envelope", text: $email,
+                            message: SignInView.looksLikeEmail(email) ? nil : "That email address looks incomplete.",
+                            focus: $focused, focusValue: Field.email, identifier: "catalog.form-field.email")
+                .keyboardType(.emailAddress)
+                .textInputAutocapitalization(.never)
+            ModulaFormField(title: "Password", symbol: "lock", text: $secret, kind: .secure,
+                            focus: $focused, focusValue: Field.secret, identifier: "catalog.form-field.secret")
+        }
     }
 }

@@ -8,7 +8,7 @@ import Darwin
 
 @MainActor @Observable
 final class ModuleRuntimeController {
-    static let bridgeVersion = "0.1.0"
+    nonisolated static let bridgeVersion = "0.1.0"
     private var factory: RCTReactNativeFactory?
     private var factoryDelegate: RuntimeDelegate?
     private(set) var initializationCount = 0
@@ -50,6 +50,21 @@ final class ModuleRuntimeController {
         }
         return session
     }
+
+    /// Why `prepare` would refuse a module, in user-facing words (nil when it can open).
+    /// The host used to show a bare "Module unavailable" with no way forward.
+    nonisolated static func unavailableReason(for moduleID: String, in manifests: [ModuleManifest]) -> String? {
+        guard let manifest = manifests.first(where: { $0.id == moduleID }) else {
+            return "This module isn’t included in this version of Modula."
+        }
+        guard manifest.runtime == "react-native" else { return "\(manifest.name) uses a runtime this app doesn’t support." }
+        guard manifest.minBridgeVersion == bridgeVersion, manifest.minHostVersion == "0.1.0" else {
+            return "\(manifest.name) needs a newer version of Modula. Update the app to open it."
+        }
+        return nil
+    }
+
+    func unavailableReason(for moduleID: String) -> String? { Self.unavailableReason(for: moduleID, in: manifests) }
 
     func setAccount(_ id: String?) {
         guard id != accountID else { return }

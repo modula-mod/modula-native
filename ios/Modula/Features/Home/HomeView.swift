@@ -34,10 +34,9 @@ struct HomeView: View {
                                 .tint(app.appearance.accent.color)
                                 .accessibilityIdentifier("home.open-reels")
                             }
-                            StoryTray(groups: app.stories.trayGroups, compact: true) { group in
+                            // The header "+" is the single create entry on Home.
+                            StoryTray(groups: StoryStore.homeTrayGroups(app.stories.trayGroups), compact: true) { group in
                                 Task { await openStory(group) }
-                            } onCreate: {
-                                app.navigation.push(.stories(.create))
                             }
                             .padding(.horizontal, -ModulaLayout.contentInset)
                             .padding(.leading, 4)
@@ -249,6 +248,23 @@ struct HomeView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .accessibilityIdentifier("home.loading-more")
+                }
+                if state.loadState == .loaded, let message = state.loadMoreError {
+                    VStack(spacing: 8) {
+                        Text(message)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        Button("Retry") {
+                            HapticEngine.shared.play(.selection)
+                            Task { await app.home.loadMore(mode) }
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityLabel("Retry loading more posts")
+                        .accessibilityIdentifier("home.load-more-retry")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
                 }
             }
         }

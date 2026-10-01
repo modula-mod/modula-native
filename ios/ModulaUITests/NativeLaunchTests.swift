@@ -595,8 +595,8 @@ final class VaultRuntimeUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["active"].waitForExistence(timeout: 8))
 
         app.buttons["Open my native Profile"].tap()
-        XCTAssertTrue(app.navigationBars["Profile"].waitForExistence(timeout: 8))
-        app.buttons["tab.modules"].tap()
+        assertNativeProfileVisible(app)
+        selectTab(app, "Modules")
         XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 20))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Runtime: 1'")).firstMatch.exists)
         app.buttons["Close"].firstMatch.tap()
@@ -607,6 +607,151 @@ final class VaultRuntimeUITests: XCTestCase {
         XCTAssertFalse(noteButton(app, title: editedTitle).exists)
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Runtime: 1'")).firstMatch.exists)
         app.buttons["Close"].firstMatch.tap()
+    }
+
+    /// Rich editing, search, sort and the unsaved-changes guard against real n1 records.
+    func testVaultRichEditingSearchSortAndDiscardGuard() throws {
+        let app = try launchSignedInApp()
+        openProductHub(app)
+        openVault(app)
+        XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 20))
+        attachVaultScreenshot(app, name: "vault-list")
+
+        let title = "VaultRich-\(UUID().uuidString.prefix(6))"
+        app.buttons["New Note"].tap()
+        pasteText(title, into: textInput(app, label: "Note title"), app: app)
+        pasteText("Intro paragraph for the rich note.", into: textInput(app, label: "Note content"), app: app)
+        app.buttons["Checklist"].tap()
+        let item = labelled(app, "Checklist item 1")
+        XCTAssertTrue(item.waitForExistence(timeout: 5), "Inserting a checklist switches to block editing")
+        pasteText("Ship the renderer", into: item, app: app)
+        app.buttons["Heading"].tap()
+        let heading = labelled(app, "Heading")
+        XCTAssertTrue(heading.waitForExistence(timeout: 5))
+        pasteText("Next steps", into: heading, app: app)
+        XCTAssertTrue(app.staticTexts["Unsaved changes"].exists)
+        app.buttons["Save note"].tap()
+        XCTAssertTrue(app.staticTexts["Saved"].waitForExistence(timeout: 20))
+        attachVaultScreenshot(app, name: "vault-rich-editor")
+
+        // Unsaved edits ask before leaving.
+        let titleField = textInput(app, label: "Note title")
+        titleField.tap()
+        titleField.typeText(" draft")
+        app.buttons["Notes"].tap()
+        XCTAssertTrue(app.alerts["Discard changes?"].waitForExistence(timeout: 5))
+        app.alerts.buttons["Discard"].tap()
+        XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 20))
+
+        // Search narrows the list on the server; sort switches order.
+        let search = app.descendants(matching: .any)["vault.search"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        pasteText(title, into: search, app: app)
+        XCTAssertTrue(app.buttons[title].waitForExistence(timeout: 15))
+        XCTAssertFalse(app.buttons["N1 Fixture 1"].waitForExistence(timeout: 2), "Search filters other notes out")
+        attachVaultScreenshot(app, name: "vault-search")
+        app.buttons["Clear search"].firstMatch.tap()
+        pasteText("zz-no-such-note-\(UUID().uuidString.prefix(4))", into: search, app: app)
+        XCTAssertTrue(app.staticTexts["No matching notes"].waitForExistence(timeout: 15))
+        attachVaultScreenshot(app, name: "vault-no-results")
+        app.buttons["Clear search"].firstMatch.tap()
+        // Sort options are RN tabs (role tab), not buttons.
+        let byTitle = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "A–Z")).firstMatch
+        XCTAssertTrue(byTitle.waitForExistence(timeout: 5))
+        byTitle.tap()
+        expectation(for: NSPredicate(format: "isSelected == true"), evaluatedWith: byTitle)
+        waitForExpectations(timeout: 5)
+        XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 15))
+        attachVaultScreenshot(app, name: "vault-sorted-az")
+
+        // Reopen: structure survived the round trip; then clean up.
+        pasteText(title, into: search, app: app)
+        XCTAssertTrue(app.buttons[title].waitForExistence(timeout: 15))
+        app.buttons[title].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["vault.blocks"].waitForExistence(timeout: 10))
+        XCTAssertTrue(labelled(app, "Checklist item 1").waitForExistence(timeout: 5))
+        attachVaultScreenshot(app, name: "vault-rich-reopened")
+        app.buttons["Move to Trash"].tap()
+        XCTAssertTrue(app.alerts.buttons["Move to Trash"].waitForExistence(timeout: 5))
+        app.alerts.buttons["Move to Trash"].tap()
+        XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 20))
+        app.buttons["Close"].firstMatch.tap()
+    }
+
+    private func labelled(_ app: XCUIApplication, _ label: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ AND (elementType == %d OR elementType == %d)",
+            label, XCUIElement.ElementType.textField.rawValue, XCUIElement.ElementType.textView.rawValue)).firstMatch
+    }
+
+    private func attachVaultScreenshot(_ app: XCUIApplication, name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    /// Product Hub store page end to end against n1: icons and cover in the list, rich
+    /// detail page, uninstall (data kept), reinstall with permission confirmation, open
+    /// into the renderer. Leaves Vault installed.
+    func testStoreDetailInstallOpenUninstallLifecycle() throws {
+        let app = try launchSignedInApp()
+        openProductHub(app)
+        XCTAssertTrue(app.descendants(matching: .any)["artwork.digital.modula.vault-notes"].firstMatch.waitForExistence(timeout: 15))
+        attachVaultScreenshot(app, name: "D-hub-list")
+        let card = app.buttons["product.digital.modula.vault-notes"].firstMatch
+        if card.waitForExistence(timeout: 5) { card.tap() } else { app.buttons["product-hub.featured"].firstMatch.tap() }
+
+        let primary = app.buttons["module.primary"].firstMatch
+        XCTAssertTrue(primary.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["module.stats"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["What’s New"].waitForExistence(timeout: 10))
+        attachVaultScreenshot(app, name: "D-detail-top")
+
+        // Make sure we start installed (a previous failed run may have left it removed).
+        if primary.label == "Install" {
+            primary.tap()
+            app.buttons["module.install.confirm"].firstMatch.tap()
+            XCTAssertTrue(waitForLabel(primary, "Open", timeout: 60))
+        }
+        XCTAssertEqual(primary.label, "Open")
+
+        app.swipeUp()
+        XCTAssertTrue(app.descendants(matching: .any)["module.screenshots"].firstMatch.waitForExistence(timeout: 5))
+        attachVaultScreenshot(app, name: "D-detail-screenshots")
+        app.swipeUp()
+        attachVaultScreenshot(app, name: "D-detail-privacy-permissions")
+        let uninstall = app.buttons["module.uninstall"].firstMatch
+        for _ in 0..<4 where !uninstall.isHittable { app.swipeUp() }
+        attachVaultScreenshot(app, name: "D-detail-information")
+        uninstall.tap()
+        let confirmUninstall = app.buttons["module.uninstall.confirm"].firstMatch
+        XCTAssertTrue(confirmUninstall.waitForExistence(timeout: 5))
+        confirmUninstall.tap()
+
+        for _ in 0..<8 where !primary.isHittable { app.swipeDown() }
+        XCTAssertTrue(waitForLabel(primary, "Install", timeout: 60),
+                      "Uninstall should settle; error: \(app.descendants(matching: .any)["module.lifecycle-error"].firstMatch.label)")
+        attachVaultScreenshot(app, name: "D-detail-not-installed")
+
+        primary.tap()
+        let confirmInstall = app.buttons["module.install.confirm"].firstMatch
+        XCTAssertTrue(confirmInstall.waitForExistence(timeout: 5))
+        Thread.sleep(forTimeInterval: 1)
+        attachVaultScreenshot(app, name: "D-install-confirm")
+        confirmInstall.tap()
+        XCTAssertTrue(waitForLabel(primary, "Open", timeout: 60),
+                      "Install should settle; error: \(app.descendants(matching: .any)["module.lifecycle-error"].firstMatch.label)")
+        attachVaultScreenshot(app, name: "D-detail-reinstalled")
+
+        primary.tap()
+        XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 25), "Reinstalled module opens with its kept data")
+        XCTAssertTrue(noteButton(app, title: "N1 Fixture 1").waitForExistence(timeout: 5), "keepData uninstall preserves notes")
+        attachVaultScreenshot(app, name: "D-opened-after-reinstall")
+    }
+
+    private func waitForLabel(_ element: XCUIElement, _ label: String, timeout: TimeInterval) -> Bool {
+        let predicate = NSPredicate(format: "label == %@", label)
+        return XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: element)], timeout: timeout) == .completed
     }
 
     func testTenOpenCloseCyclesReuseOneRuntime() throws {
@@ -783,8 +928,8 @@ final class PhysicalN1AcceptanceTests: XCTestCase {
         app.activate()
         XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 20))
         app.buttons["Open my native Profile"].tap()
-        XCTAssertTrue(app.navigationBars["Profile"].waitForExistence(timeout: 10))
-        app.buttons["tab.modules"].tap()
+        assertNativeProfileVisible(app)
+        selectTab(app, "Modules")
         app.buttons["Close"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Product Hub"].waitForExistence(timeout: 10)
             || app.descendants(matching: .any)["product-hub"].waitForExistence(timeout: 5))
@@ -1081,6 +1226,16 @@ private func openProductHubFromShell(_ app: XCUIApplication) {
     )
 }
 
+/// The own profile is a full-bleed tab root (no "Profile" navigation bar since the
+/// shell redesign); accept either the legacy bar or the profile's own controls.
+@MainActor
+private func assertNativeProfileVisible(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+    let shown = app.navigationBars["Profile"].waitForExistence(timeout: 8)
+        || app.descendants(matching: .any)["profile.share"].waitForExistence(timeout: 4)
+        || app.descendants(matching: .any)["accessory.share"].waitForExistence(timeout: 2)
+    XCTAssertTrue(shown, "Native Profile did not open", file: file, line: line)
+}
+
 @MainActor
 private func selectTab(_ app: XCUIApplication, _ title: String) {
     let tab = app.tabBars.buttons[title].firstMatch
@@ -1273,6 +1428,81 @@ final class N3BDiscoverUITests: XCTestCase {
 }
 
 @MainActor
+final class SignInUITests: XCTestCase {
+    /// Real Sign In surface against the N1 fixture: landmarks, disabled → enabled CTA,
+    /// show/hide password, inline server error, then manual email/password sign-in.
+    func testSignInStatesErrorAndManualSignIn() throws {
+        let fixture = try requireN1FixtureOrSkip()
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--uitest-n1-api", "--uitest-skip-first-run", "--uitest-signed-out", "--reset-appearance", "--ui-light"
+        ]
+        app.launch()
+        let login = app.descendants(matching: .any)["auth.login"].firstMatch
+        let deadline = Date().addingTimeInterval(20)
+        while !login.exists && Date() < deadline {
+            let skip = app.descendants(matching: .any)["onboarding.skip"]
+            if skip.exists { skip.tap() }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        XCTAssertTrue(login.waitForExistence(timeout: 5), "Sign In did not appear")
+
+        let email = app.descendants(matching: .any)["auth.email"].firstMatch
+        let password = app.secureTextFields["auth.password"].firstMatch
+        let signIn = app.buttons["auth.sign-in"].firstMatch
+        XCTAssertTrue(email.waitForExistence(timeout: 5))
+        XCTAssertTrue(password.exists)
+        XCTAssertTrue(signIn.exists)
+        XCTAssertFalse(signIn.isEnabled, "Sign In must be disabled until both fields are filled")
+        XCTAssertTrue(app.buttons["auth.forgot-password"].exists)
+        XCTAssertTrue(app.buttons["auth.create-account"].exists)
+        attachScreenshot(app, name: "signin-empty-light")
+
+        pasteText(fixture.email, into: email, app: app)
+        pasteText("definitely-not-the-password", into: password, app: app)
+        XCTAssertTrue(signIn.isEnabled)
+
+        let toggle = app.buttons["auth.password.visibility"].firstMatch
+        XCTAssertTrue(toggle.exists)
+        XCTAssertEqual(toggle.label, "Show password")
+        toggle.tap()
+        XCTAssertTrue(app.textFields["auth.password"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertEqual(app.buttons["auth.password.visibility"].firstMatch.label, "Hide password")
+        attachScreenshot(app, name: "signin-filled-revealed-light")
+        let hide = app.buttons["Hide password"].firstMatch
+        expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: hide)
+        waitForExpectations(timeout: 5)
+        hide.tap()
+        XCTAssertTrue(app.secureTextFields["auth.password"].firstMatch.waitForExistence(timeout: 3))
+
+        signIn.tap()
+        let error = app.descendants(matching: .any)["auth.error"].firstMatch
+        XCTAssertTrue(error.waitForExistence(timeout: 20), "Wrong password should show an inline error")
+        XCTAssertFalse(app.descendants(matching: .any)["native.home"].exists)
+        attachScreenshot(app, name: "signin-error-light")
+
+        // Password is cleared after a failed attempt; enter the real one by hand.
+        pasteText(fixture.password, into: app.secureTextFields["auth.password"].firstMatch, app: app)
+        XCTAssertFalse(error.exists, "Editing should clear the stale error")
+        signIn.tap()
+        let home = app.descendants(matching: .any)["native.home"].firstMatch
+        let firstRun = app.descendants(matching: .any)["firstrun.root"].firstMatch
+        let signedIn = Date().addingTimeInterval(30)
+        while !(home.exists || firstRun.exists) && Date() < signedIn {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        }
+        XCTAssertTrue(home.exists || firstRun.exists, "Manual sign-in did not reach the shell")
+    }
+
+    private func attachScreenshot(_ app: XCUIApplication, name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}
+
+@MainActor
 final class N3CHomeUITests: XCTestCase {
     func testConversationUsesContinuousDetailAndPinnedComposer() throws {
         let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--reset-appearance", "--ui-dark"])
@@ -1317,6 +1547,54 @@ final class N3CHomeUITests: XCTestCase {
         attachScreenshot(app, name: "post05-reels-entry")
         app.buttons["Back"].firstMatch.tap()
         XCTAssertTrue(app.descendants(matching: .any)["native.home"].firstMatch.waitForExistence(timeout: 5))
+    }
+
+    /// Regression for stories over nginx's 1 MiB body limit: injects a >1 MB prepared
+    /// photo (DEBUG hook, N1 fixture host only) and shares it to the N1 test server.
+    func testLargeStoryPhotoSharesToN1Fixture() throws {
+        let app = try launchThroughAppGate(arguments: [
+            "--runtime-unavailable", "--reset-appearance", "--ui-light", "--uitest-story-large-photo"
+        ])
+        let create = app.buttons["Create story"].firstMatch
+        XCTAssertTrue(create.waitForExistence(timeout: 8))
+        create.tap()
+        let composer = app.descendants(matching: .any)["story.create"].firstMatch
+        XCTAssertTrue(composer.waitForExistence(timeout: 6))
+        let photo = app.descendants(matching: .any)["story.create.photo"].firstMatch
+        XCTAssertTrue(photo.waitForExistence(timeout: 6))
+        let selected = NSPredicate(format: "value BEGINSWITH %@", "Photo selected")
+        expectation(for: selected, evaluatedWith: photo)
+        waitForExpectations(timeout: 30)
+        let digits = (photo.value as? String)?.components(separatedBy: CharacterSet.decimalDigits.inverted).joined() ?? ""
+        XCTAssertGreaterThan(Int(digits) ?? 0, 1_048_576, "Injected story photo must exceed the 1 MiB proxy limit")
+        let caption = app.textFields["Add a caption"].firstMatch
+        if caption.waitForExistence(timeout: 3) {
+            caption.tap()
+            caption.typeText("N1 large photo regression")
+        }
+        let share = app.buttons["story.create.share"].firstMatch
+        XCTAssertTrue(share.waitForExistence(timeout: 5))
+        XCTAssertTrue(share.isEnabled)
+        attachScreenshot(app, name: "story-large-photo-ready")
+        share.tap()
+        expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: composer)
+        waitForExpectations(timeout: 90)
+        XCTAssertTrue(app.descendants(matching: .any)["native.home"].firstMatch.waitForExistence(timeout: 10))
+        attachScreenshot(app, name: "story-large-photo-posted")
+
+        // The posted story must surface as a live own story, before and after a rail refresh.
+        let own = app.descendants(matching: .any)["home.story.own"].firstMatch
+        XCTAssertTrue(own.waitForExistence(timeout: 8))
+        XCTAssertEqual(own.value as? String, "active", "Own story tile must not fall back to the empty composer tile")
+        app.swipeDown()
+        app.swipeDown()
+        sleep(3)
+        XCTAssertEqual(own.value as? String, "active", "Rail refresh must keep the posted story visible")
+        own.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["story.viewer"].firstMatch.waitForExistence(timeout: 10),
+                      "Tapping your story opens the viewer, not the composer")
+        XCTAssertFalse(app.descendants(matching: .any)["story.create"].firstMatch.exists)
+        attachScreenshot(app, name: "story-large-photo-viewer")
     }
 
     func testHomeFeedLandmarksAndTools() throws {

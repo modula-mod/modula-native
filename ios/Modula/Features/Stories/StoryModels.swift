@@ -1,5 +1,7 @@
+import CoreGraphics
 import Foundation
 import Observation
+import OSLog
 
 typealias StoryID = String
 
@@ -50,6 +52,10 @@ struct StoryGroup: Identifiable, Hashable, Sendable {
     var items: [StoryItem]
     var isOwn: Bool
     var reportedRing: StoryRingState? = nil
+    /// Item count reported by the rail. `GET /v1/stories/rail` returns summaries only
+    /// (`items` stay empty until the group is hydrated), so this is how a rail entry
+    /// says "this author has live stories".
+    var itemCount: Int? = nil
 
     var ring: StoryRingState {
         if let reportedRing { return reportedRing }
@@ -58,7 +64,12 @@ struct StoryGroup: Identifiable, Hashable, Sendable {
     }
 
     var representative: StoryItem? { items.first }
-    var isComposerPlaceholder: Bool { id.hasPrefix("add:") || (isOwn && items.isEmpty) }
+    var hasStories: Bool { !items.isEmpty || (itemCount ?? 0) > 0 }
+    /// Only the server's `add:` entry (or an own entry with nothing in it) opens the composer.
+    /// An own rail summary with `itemCount > 0` is a real story even though `items` is empty.
+    var isComposerPlaceholder: Bool { id.hasPrefix("add:") || (isOwn && !hasStories) }
+    /// The rail summary promises more items than are loaded, so the group must be fetched.
+    var needsHydration: Bool { items.isEmpty || items.count < (itemCount ?? 0) }
 }
 
 struct StoryBackendCapabilities: Sendable, Equatable {
@@ -106,7 +117,8 @@ enum StoryPayloadDecoder {
             author: author,
             items: [],
             isOwn: isOwn,
-            reportedRing: ringState(value["ringState"]?.string, isOwn: isOwn)
+            reportedRing: ringState(value["ringState"]?.string, isOwn: isOwn),
+            itemCount: value["itemCount"]?.int
         )
     }
 
@@ -122,7 +134,8 @@ enum StoryPayloadDecoder {
             author: author,
             items: items,
             isOwn: isOwn,
-            reportedRing: ringState(value["ringState"]?.string, isOwn: isOwn)
+            reportedRing: ringState(value["ringState"]?.string, isOwn: isOwn),
+            itemCount: items.count
         )
     }
 
@@ -197,7 +210,7 @@ enum StoryGrouping {
 
 @Observable
 final class StoryProgressEngine {
-    let durations: [TimeInterval]
+    private(set) var durations: [TimeInterval]
     private(set) var index = 0
     private(set) var progress: Double = 0
     private(set) var isPaused = false
@@ -253,12 +266,49 @@ final class StoryProgressEngine {
         index = min(max(newIndex, 0), durations.count - 1)
         progress = 0
     }
+
+    /// The group gained or lost items while the viewer is open (e.g. hydration after the
+    /// viewer opened on a partial group). Keep the current item and its progress when it
+    /// still exists, otherwise clamp; the segment bar then matches the real item count.
+    func resize(count: Int, duration: TimeInterval = 5, keepingIndex newIndex: Int? = nil) {
+        let count = max(count, 1)
+        guard count != durations.count || (newIndex != nil && newIndex != index) else { return }
+        let keepsProgress = newIndex == nil || newIndex == index
+        durations = Array(repeating: max(duration, 0.5), count: count)
+        index = min(max(newIndex ?? index, 0), count - 1)
+        if !keepsProgress { progress = 0 }
+    }
 }
 
 enum StoryProgressEvent: Equatable {
     case none
     case advanced
     case finished
+}
+
+/// Request-size contract for inline story media. `POST /v1/stories` only accepts the
+/// photo as base64 inside JSON, so the whole body must fit the Greenfield JSON body
+/// limit and the edge nginx limit (both being raised to 25 MiB on prod and N1).
+/// `maximumBodyBytes` is the single tunable; everything else derives from it.
+enum StoryUploadBudget {
+    /// Largest JSON body we will send: 20 MB (≈14.7 MB raw JPEG), under the 25 MiB limit.
+    static let maximumBodyBytes = 20_000_000
+    /// Full-screen quality on Pro iPhones. Sources at least this large are sent at
+    /// this long edge; resolution only drops if quality alone can't meet the budget.
+    static let targetLongEdge: CGFloat = 3072
+    static let minimumLongEdge: CGFloat = 3072
+    static let preferredQuality: CGFloat = 0.9
+    /// Large inline bodies on mobile data need far longer than the default 20s.
+    static let requestTimeout: TimeInterval = 120
+    /// JSON keys, numbers, visibility and punctuation.
+    static let envelopeOverheadBytes = 1_024
+
+    /// Largest raw JPEG that base64-encodes (4/3) into the remaining body budget,
+    /// allowing ~2% for `JSONEncoder` escaping `/` inside the base64 text.
+    static func imageByteBudget(captionByteCount: Int) -> Int {
+        let available = maximumBodyBytes - envelopeOverheadBytes - captionByteCount * 2
+        return max(0, Int(Double(available) * 0.75 / 1.02))
+    }
 }
 
 struct StoryBackendRepository: Sendable {
@@ -285,24 +335,65 @@ struct StoryBackendRepository: Sendable {
 
     func create(image: PreparedImage, caption: String?, visibility: String = "public") async throws -> StoryGroup {
         guard capabilities.create else { throw APIError.unavailable("Story publishing isn’t available.") }
+        let body = try await Self.uploadableBody(image: image, caption: caption, visibility: visibility)
+        let value: JSONValue = try await client.authenticatedJSON(
+            "POST",
+            path: StoryBackendCapabilities.Paths.create,
+            body: body,
+            timeout: StoryUploadBudget.requestTimeout
+        )
+        guard let group = StoryPayloadDecoder.group(value) else { throw APIError.invalidResponse }
+        return group
+    }
+
+    /// Greenfield's `POST /v1/stories` only accepts the media inline as base64 (there is
+    /// no attachment/upload reference for stories). Keep full-screen quality (quality is
+    /// lowered before resolution), but fit the JPEG to `StoryUploadBudget` and verify the
+    /// *encoded* JSON size (base64 is 4/3 and `JSONEncoder` escapes `/`) before sending,
+    /// so the request stays under the API/edge body limits instead of failing with a 413.
+    static func uploadableBody(image: PreparedImage, caption: String?, visibility: String) async throws -> JSONValue {
+        let trimmedCaption = caption?.trimmingCharacters(in: .whitespacesAndNewlines)
+        var budget = StoryUploadBudget.imageByteBudget(captionByteCount: trimmedCaption?.utf8.count ?? 0)
+        for _ in 0..<4 {
+            let fitted: PreparedImage
+            if image.data.count <= budget {
+                fitted = image
+            } else {
+                fitted = try await MediaPreparation.jpegFitting(
+                    image.data,
+                    maxBytes: budget,
+                    maxPixel: StoryUploadBudget.targetLongEdge,
+                    minPixel: StoryUploadBudget.minimumLongEdge
+                )
+            }
+            let body = requestBody(image: fitted, caption: trimmedCaption, visibility: visibility)
+            let encodedSize = try JSONEncoder().encode(body).count
+            if encodedSize <= StoryUploadBudget.maximumBodyBytes {
+                if fitted.data.count != image.data.count {
+                    ModulaLog.network.notice(
+                        "story media fitted \(image.data.count, privacy: .public)B \(image.width, privacy: .public)x\(image.height, privacy: .public) → \(fitted.data.count, privacy: .public)B \(fitted.width, privacy: .public)x\(fitted.height, privacy: .public); body \(encodedSize, privacy: .public)B"
+                    )
+                }
+                return body
+            }
+            budget = Int(Double(budget) * 0.9)
+        }
+        throw APIError.rejected(413, "PAYLOAD_TOO_LARGE")
+    }
+
+    static func requestBody(image: PreparedImage, caption: String?, visibility: String) -> JSONValue {
         var body: [String: JSONValue] = [
             "mediaKind": .string("image"),
             "base64": .string(image.data.base64EncodedString()),
             "contentType": .string(image.mimeType),
             "width": .number(Double(image.width)),
-            "height": .number(Double(image.height))
+            "height": .number(Double(image.height)),
+            "visibility": .string(visibility)
         ]
-        body["visibility"] = .string(visibility)
-        if let caption, !caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if let caption, !caption.isEmpty {
             body["caption"] = .string(caption)
         }
-        let value: JSONValue = try await client.authenticatedJSON(
-            "POST",
-            path: StoryBackendCapabilities.Paths.create,
-            body: .object(body)
-        )
-        guard let group = StoryPayloadDecoder.group(value) else { throw APIError.invalidResponse }
-        return group
+        return .object(body)
     }
 
     func markViewed(itemID: StoryID) async throws {
@@ -332,6 +423,12 @@ final class StoryStore {
 
     var trayGroups: [StoryGroup] { groups }
 
+    /// Home already has one "Create story" control in the Stories header, so its tray
+    /// shows only real stories — no client composer tile and no server `add:` placeholder.
+    nonisolated static func homeTrayGroups(_ groups: [StoryGroup]) -> [StoryGroup] {
+        groups.filter { !$0.isComposerPlaceholder }
+    }
+
     func loadIfNeeded() async {
         guard capabilities.list else {
             loadState = .loaded
@@ -348,12 +445,26 @@ final class StoryStore {
         }
         loadState = groups.isEmpty ? .loading : .refreshing
         do {
-            groups = try await repository.rail()
+            groups = Self.merge(rail: try await repository.rail(), previous: groups)
             loadState = .loaded
             actionError = nil
         } catch {
             loadState = groups.isEmpty ? .failed("Stories aren’t available.") : .loaded
             actionError = "Stories aren’t available."
+        }
+    }
+
+    /// The rail carries summaries only. Keep items we already hydrated (e.g. the group
+    /// returned by a successful publish) when the rail still reports the same count, so a
+    /// refresh right after Share doesn't turn "Your story" back into an empty composer tile.
+    static func merge(rail: [StoryGroup], previous: [StoryGroup]) -> [StoryGroup] {
+        let loaded = Dictionary(previous.filter { !$0.items.isEmpty }.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return rail.map { entry in
+            guard entry.items.isEmpty, let known = loaded[entry.id],
+                  entry.itemCount == nil || entry.itemCount == known.items.count else { return entry }
+            var merged = entry
+            merged.items = known.items
+            return merged
         }
     }
 
@@ -377,7 +488,7 @@ final class StoryStore {
         if group.isComposerPlaceholder {
             return capabilities.create ? .stories(.create) : nil
         }
-        let loaded = group.items.isEmpty ? await hydrate(groupID: group.id) : group
+        let loaded = group.needsHydration ? await hydrate(groupID: group.id) : group
         guard let loaded else { return nil }
         let item = loaded.items.first(where: { !$0.seen }) ?? loaded.items.first
         return item.map { .stories(.story($0.id)) }
@@ -391,10 +502,22 @@ final class StoryStore {
             actionError = nil
             return true
         } catch let api as APIError {
+            ModulaLog.network.error("story publish failed: \(api.diagnosticDescription, privacy: .public)")
             actionError = api.userFacingMessage
             return false
+        } catch MediaPreparationError.exceedsByteBudget {
+            ModulaLog.network.error("story publish failed: media could not meet the upload budget")
+            actionError = "This photo is too detailed to share as a story. Try a different photo."
+            return false
+        } catch let url as URLError {
+            ModulaLog.network.error("story publish failed: URLError \(url.code.rawValue, privacy: .public)")
+            actionError = url.code == .timedOut
+                ? "Sharing took too long. Check your connection and try again."
+                : "Couldn’t reach Modula. Check your connection and try again."
+            return false
         } catch {
-            actionError = "Couldn’t share your story."
+            ModulaLog.network.error("story publish failed: \(String(describing: type(of: error)), privacy: .public)")
+            actionError = "Couldn’t share your story. Try again."
             return false
         }
     }

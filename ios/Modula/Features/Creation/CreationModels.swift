@@ -427,11 +427,15 @@ enum CreationPayloadEncoder {
         if !draft.media.isEmpty {
             body["content"] = .array(draft.media.enumerated().compactMap { _, item in
                 guard let attachmentID = item.remoteAttachmentID else { return nil }
-                return .object([
+                var entry: [String: JSONValue] = [
                     "type": .string(item.kind.attachmentType),
-                    "attachmentId": .string(attachmentID),
-                    "caption": item.altText.isEmpty ? .null : .string(item.altText)
-                ])
+                    "attachmentId": .string(attachmentID)
+                ]
+                // Greenfield rejects `caption: null` with 400 VALIDATION_FAILED
+                // ("Invalid attachment caption"): the key must be a string or absent.
+                let caption = item.altText.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !caption.isEmpty { entry["caption"] = .string(String(caption.prefix(500))) }
+                return .object(entry)
             })
         }
         return .object(body)

@@ -5,12 +5,25 @@ import Observation
 final class ProductHubStore {
     private let client: GreenfieldClient
     private(set) var products: [CatalogueProduct] = []
-    private(set) var installedIDs: Set<String> = []
+    /// Account installations keyed by module id, including transitional states.
+    private(set) var installations: [String: ModuleInstallation] = [:]
+    /// Store listings (`/v1/registry/modules/:id`) fetched on demand for detail pages.
+    private(set) var listings: [String: ModuleListing] = [:]
+    private(set) var listingFailed: Set<String> = []
+    /// Install / update / uninstall in flight from this device.
+    private(set) var operations: [String: ModuleOperation] = [:]
+    var lifecycleErrors: [String: String] = [:]
     private(set) var loading = false
     private(set) var loaded = false
     var error: String?
+    /// Poll cadence while the server settles a lifecycle change; tests shorten it.
+    var settlePollInterval: Duration = .milliseconds(900)
+    var settleAttempts = 30
 
     init(client: GreenfieldClient) { self.client = client }
+
+    /// Modules the account has installed (any non-removed state).
+    var installedIDs: Set<String> { Set(installations.values.filter(\.isPresent).map(\.moduleId)) }
 
     func load() async {
         guard !loading else { return }
@@ -20,30 +33,164 @@ final class ProductHubStore {
         do {
             products = try await client.catalogue()
             loaded = true
-            if let installed = try? await client.installedModuleIDs() { installedIDs = installed }
+            installations = await Self.installations(client: client, previous: installations)
         } catch {
             self.error = "Product catalogue is unavailable. Pull to refresh."
         }
     }
 
     func product(_ id: String) -> CatalogueProduct? { products.first { $0.moduleId == id } }
+
+    func loadListing(_ id: String, force: Bool = false) async {
+        guard force || listings[id] == nil else { return }
+        do {
+            listings[id] = try await client.moduleListing(id)
+            listingFailed.remove(id)
+        } catch {
+            listingFailed.insert(id)
+        }
+    }
+
+    func refreshInstallations() async {
+        installations = await Self.installations(client: client, previous: installations)
+    }
+
+    /// Installed modules belong to the signed-in account. Signed out (or the session was
+    /// rejected) means nothing is installed; a transient failure keeps the last known set.
+    /// Previously a failed fetch always kept the old set, so after signing out (or into
+    /// another account) the hub still showed the previous account's modules as "Open".
+    static func installations(client: GreenfieldClient, previous: [String: ModuleInstallation]) async -> [String: ModuleInstallation] {
+        guard await client.hasSession() else { return [:] }
+        do {
+            let items = try await client.installedModules()
+            return Dictionary(items.map { ($0.moduleId, $0) }, uniquingKeysWith: { first, _ in first })
+        } catch APIError.unauthenticated, APIError.rejected(401, _), APIError.rejected(403, _), APIError.accountChanged {
+            return [:]
+        } catch {
+            return previous
+        }
+    }
+
+    static func installedIDs(client: GreenfieldClient, previous: Set<String>) async -> Set<String> {
+        let prior = Dictionary(uniqueKeysWithValues: previous.map { ($0, ModuleInstallation(moduleId: $0, status: "enabled", version: nil)) })
+        return Set(await installations(client: client, previous: prior).values.filter(\.isPresent).map(\.moduleId))
+    }
+
+    /// Installs (granting the permissions the listing declared and the user reviewed),
+    /// then waits until the installation is enabled. Returns true when it can be opened.
+    @discardableResult
+    func install(_ id: String, permissions: [String]) async -> Bool {
+        guard operations[id] == nil else { return false }
+        operations[id] = .installing
+        lifecycleErrors[id] = nil
+        defer { operations[id] = nil }
+        do {
+            _ = try await client.installModule(id, version: product(id)?.latestVersion, approvedPermissions: permissions, idempotencyKey: Self.key("install", id))
+            return try await settle(id) { $0?.isRunnable == true }
+        } catch {
+            lifecycleErrors[id] = Self.message(error, verb: "install")
+            await refreshInstallations()
+            return false
+        }
+    }
+
+    @discardableResult
+    func update(_ id: String) async -> Bool {
+        guard operations[id] == nil, let latest = product(id)?.latestVersion else { return false }
+        operations[id] = .updating
+        lifecycleErrors[id] = nil
+        defer { operations[id] = nil }
+        do {
+            try await client.updateModule(id, version: latest, approvedPermissionIncrease: false, idempotencyKey: Self.key("update", id))
+            return try await settle(id) { $0?.isRunnable == true && $0?.version.map { !ModuleVersion.isOlder($0, than: latest) } ?? true }
+        } catch {
+            lifecycleErrors[id] = Self.message(error, verb: "update")
+            await refreshInstallations()
+            return false
+        }
+    }
+
+    @discardableResult
+    func uninstall(_ id: String) async -> Bool {
+        guard operations[id] == nil else { return false }
+        operations[id] = .uninstalling
+        lifecycleErrors[id] = nil
+        defer { operations[id] = nil }
+        do {
+            try await client.uninstallModule(id, idempotencyKey: Self.key("uninstall", id))
+            return try await settle(id) { $0 == nil || $0?.isPresent == false }
+        } catch {
+            lifecycleErrors[id] = Self.message(error, verb: "remove")
+            await refreshInstallations()
+            return false
+        }
+    }
+
+    /// Polls installations until `done` holds. An installation that lands disabled is
+    /// enabled once; failure states end the wait with an error.
+    private func settle(_ id: String, until done: (ModuleInstallation?) -> Bool) async throws -> Bool {
+        var enableRequested = false
+        for attempt in 0..<settleAttempts {
+            if attempt > 0 { try await Task.sleep(for: settlePollInterval) }
+            let items = try await client.installedModules()
+            installations = Dictionary(items.map { ($0.moduleId, $0) }, uniquingKeysWith: { first, _ in first })
+            let current = installations[id]
+            if done(current) { return true }
+            if current?.status == "failed" || current?.status == "incompatible" || current?.status == "quarantined" {
+                lifecycleErrors[id] = "The module couldn’t be set up (\(current?.status ?? "failed")). Try again."
+                return false
+            }
+            if current?.needsEnable == true, !enableRequested {
+                enableRequested = true
+                try await client.enableModule(id, idempotencyKey: Self.key("enable", id))
+            }
+        }
+        lifecycleErrors[id] = "This is taking longer than usual. Pull to refresh in a moment."
+        return false
+    }
+
+    private static func key(_ verb: String, _ id: String) -> String { "ios-\(verb)-\(id)-\(UUID().uuidString)" }
+
+    private static func message(_ error: Error, verb: String) -> String {
+        switch error {
+        case APIError.unauthenticated, APIError.rejected(401, _): "Sign in to Modula to \(verb) modules."
+        case APIError.rejected(_, "CAPABILITY_DISABLED"): "Installing modules is turned off on this server."
+        case APIError.rejected(_, "CONFLICT"), APIError.rejected(409, _): "Another change to this module is in progress. Try again shortly."
+        case let api as APIError: "Couldn’t \(verb) the module. \(api.userFacingMessage)"
+        default: "Couldn’t \(verb) the module. Check your connection and try again."
+        }
+    }
 }
 
-private struct VaultFoldMark: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let inset = rect.width * 0.18
-        let fold = rect.width * 0.28
-        path.move(to: CGPoint(x: rect.minX + inset, y: rect.minY + inset))
-        path.addLine(to: CGPoint(x: rect.maxX - inset - fold, y: rect.minY + inset))
-        path.addLine(to: CGPoint(x: rect.maxX - inset, y: rect.minY + inset + fold))
-        path.addLine(to: CGPoint(x: rect.maxX - inset, y: rect.maxY - inset))
-        path.addLine(to: CGPoint(x: rect.minX + inset, y: rect.maxY - inset))
-        path.closeSubpath()
-        path.move(to: CGPoint(x: rect.maxX - inset - fold, y: rect.minY + inset))
-        path.addLine(to: CGPoint(x: rect.maxX - inset - fold, y: rect.minY + inset + fold))
-        path.addLine(to: CGPoint(x: rect.maxX - inset, y: rect.minY + inset + fold))
-        return path
+@MainActor
+extension AppEnvironment {
+    /// Store artwork for a module from the registry listing; nil sources mean callers
+    /// draw neutral placeholders. Bundled module code never supplies artwork.
+    func moduleArtwork(_ id: String) -> ModuleArtwork {
+        ModuleArtwork(listing: catalogue.listings[id])
+    }
+}
+
+/// Renders a remote https image from the registry; `placeholder` covers missing art,
+/// loading and failures so artwork never shows a broken state.
+struct ModuleArtImage<Placeholder: View>: View {
+    let source: ModuleArtSource?
+    var contentMode: ContentMode = .fill
+    @ViewBuilder var placeholder: () -> Placeholder
+
+    var body: some View {
+        switch source {
+        case .remote(let url):
+            AsyncImage(url: url, transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
+                if case .success(let image) = phase {
+                    image.resizable().aspectRatio(contentMode: contentMode)
+                } else {
+                    placeholder()
+                }
+            }
+        case nil:
+            placeholder()
+        }
     }
 }
 
@@ -53,36 +200,33 @@ struct ProductArtwork: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
+        let art = app.moduleArtwork(product.moduleId)
+        ModuleArtImage(source: art.icon) { placeholder }
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: size * 0.24, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: size * 0.24, style: .continuous).stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
+            .shadow(color: baseColor.opacity(0.28), radius: size * 0.16, y: size * 0.08)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(product.name) icon")
+            .accessibilityIdentifier("artwork.\(product.moduleId)")
+    }
+
+    /// Neutral placeholder used when the registry has no icon: a plain tile with the
+    /// product's initial. Never module-specific art.
+    private var placeholder: some View {
         ZStack {
             RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
-                .fill(baseColor)
+                .fill(LinearGradient(colors: [baseColor, baseColor.opacity(0.78)], startPoint: .topLeading, endPoint: .bottomTrailing))
             RoundedRectangle(cornerRadius: size * 0.2, style: .continuous)
                 .stroke(Color.white.opacity(0.18), lineWidth: 1)
                 .padding(size * 0.06)
-            if product.moduleId.contains("vault") {
-                VaultFoldMark()
-                    .stroke(Color.white, style: StrokeStyle(lineWidth: max(2, size * 0.055), lineCap: .round, lineJoin: .round))
-                    .frame(width: size * 0.58, height: size * 0.58)
-                VStack(spacing: size * 0.055) {
-                    Capsule().fill(app.appearance.accent.color).frame(width: size * 0.23, height: max(2, size * 0.035))
-                    Capsule().fill(app.appearance.accent.color.opacity(0.68)).frame(width: size * 0.17, height: max(2, size * 0.035))
-                }
-                .offset(x: -size * 0.045, y: size * 0.07)
-            } else {
-                Text(product.name.prefix(1).uppercased())
-                    .font(.system(size: size * 0.42, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-            }
+            Text(product.name.prefix(1).uppercased())
+                .font(.system(size: size * 0.42, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
         }
-        .frame(width: size, height: size)
-        .shadow(color: baseColor.opacity(0.28), radius: size * 0.16, y: size * 0.08)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(product.name) artwork")
     }
 
-    private var baseColor: Color {
-        product.moduleId.contains("vault") ? Color(hex: "#103B41") : Color(hex: "#343752")
-    }
+    private var baseColor: Color { Color(hex: "#343752") }
 }
 
 struct ProductBackdrop: View {
@@ -90,27 +234,32 @@ struct ProductBackdrop: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
+        let art = app.moduleArtwork(product.moduleId)
         GeometryReader { proxy in
-            ZStack {
-                Color(hex: product.moduleId.contains("vault") ? "#061E22" : "#171827")
-                Circle()
-                    .fill(app.appearance.accent.color.opacity(0.2))
-                    .frame(width: proxy.size.width * 0.8)
-                    .offset(x: proxy.size.width * 0.34, y: -proxy.size.height * 0.24)
-                Circle()
-                    .stroke(app.appearance.accent.color.opacity(0.4), lineWidth: 1)
-                    .frame(width: proxy.size.width * 0.56)
-                    .offset(x: proxy.size.width * 0.35, y: -proxy.size.height * 0.24)
-                ForEach(0..<4, id: \.self) { index in
-                    Capsule()
-                        .fill(Color.white.opacity(0.07 + Double(index) * 0.025))
-                        .frame(width: proxy.size.width * (0.46 - Double(index) * 0.055), height: 7)
-                        .rotationEffect(.degrees(-22))
-                        .offset(x: -proxy.size.width * 0.25, y: CGFloat(index * 27) - 18)
-                }
-            }
+            ModuleArtImage(source: art.cover) { placeholder(proxy.size) }
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .clipped()
         }
         .accessibilityHidden(true)
+    }
+
+    /// Neutral cover placeholder (no module-specific art) until the registry supplies one.
+    private func placeholder(_ size: CGSize) -> some View {
+        ZStack {
+            Color(hex: "#171827")
+            LinearGradient(colors: [app.appearance.accent.color.opacity(0.55), .clear], startPoint: .topTrailing, endPoint: .bottomLeading)
+            Circle()
+                .fill(app.appearance.accent.color.opacity(0.2))
+                .frame(width: size.width * 0.8)
+                .offset(x: size.width * 0.34, y: -size.height * 0.24)
+            ForEach(0..<4, id: \.self) { index in
+                Capsule()
+                    .fill(Color.white.opacity(0.07 + Double(index) * 0.025))
+                    .frame(width: size.width * (0.46 - Double(index) * 0.055), height: 7)
+                    .rotationEffect(.degrees(-22))
+                    .offset(x: -size.width * 0.25, y: CGFloat(index * 27) - 18)
+            }
+        }
     }
 }
 
@@ -179,25 +328,32 @@ struct ProductCard: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 15) {
-                ProductArtwork(product: product, size: 72)
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(product.name).font(.headline)
-                    PublisherLabel(name: product.publisherName)
-                    Text(installed ? "Installed" : (product.installability?.reason ?? product.status.capitalized))
-                        .font(.caption)
+                ProductArtwork(product: product, size: 64)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(product.name).font(.headline).foregroundStyle(.primary)
+                    Text(product.description)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                    PublisherLabel(name: product.publisherName)
                 }
                 Spacer(minLength: 6)
-                Image(systemName: "chevron.right")
-                    .font(.caption.bold())
-                    .foregroundStyle(.tertiary)
+                Text(installed ? "OPEN" : (product.installable ? "GET" : "SOON"))
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(product.installable || installed ? app.appearance.accent.color : .secondary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(Color.primary.opacity(0.07), in: Capsule())
+                    .accessibilityHidden(true)
             }
-            .padding(15)
+            .padding(14)
             .background(ModulaPalette.resolve(app.appearance, scheme: scheme).surface, in: RoundedRectangle(cornerRadius: 21, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 21, style: .continuous).stroke(.primary.opacity(0.065)))
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(product.name), \(product.publisherName)")
+        .accessibilityValue(installed ? "Installed" : (product.installable ? "Available" : "Coming soon"))
         .accessibilityIdentifier("product.\(product.moduleId)")
     }
 }
@@ -225,32 +381,37 @@ struct ProductShelf: View {
 struct ProductHero: View {
     let product: CatalogueProduct
     var action: () -> Void
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         Button(action: action) {
             ZStack(alignment: .bottomLeading) {
                 ProductBackdrop(product: product)
-                VStack(alignment: .leading, spacing: 10) {
-                    Spacer()
-                    ProductArtwork(product: product, size: 86)
-                    Text(product.name)
-                        .font(.largeTitle.bold())
-                    Text(product.description)
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.76))
-                        .lineLimit(2)
-                    Label("View module", systemImage: "arrow.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.9))
+                LinearGradient(colors: [.clear, .black.opacity(0.72)], startPoint: .center, endPoint: .bottom)
+                HStack(alignment: .bottom, spacing: 14) {
+                    ProductArtwork(product: product, size: 64)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("FEATURED")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.72))
+                        Text(product.name).font(.title2.bold())
+                        Text(product.description)
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.82))
+                            .lineLimit(2)
+                    }
+                    Spacer(minLength: 0)
                 }
                 .foregroundStyle(.white)
-                .padding(20)
+                .padding(18)
             }
-            .frame(height: 300)
+            .frame(height: 280)
             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Featured module, \(product.name)")
+        .accessibilityIdentifier("product-hub.featured")
     }
 }
 
@@ -268,7 +429,7 @@ struct ProductHubView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
-                Text("Native modules, grounded in catalogue truth.")
+                Text("Modules that extend Modula, installed to your account.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 sessionState
