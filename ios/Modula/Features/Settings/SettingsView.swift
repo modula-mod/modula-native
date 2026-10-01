@@ -745,9 +745,10 @@ struct AppearancePreviewView: View {
             VStack(alignment: .leading, spacing: 12 * app.appearance.density.spacingScale) {
                 HStack {
                     ModulaAvatar(initials: "M")
+                        .accessibilityHidden(true)
                     VStack(alignment: .leading) {
                         ModulaText(text: "Modula Preview", role: .headline)
-                        Text("Native design contract v1").font(.caption).foregroundStyle(.secondary)
+                        Text("How your choices look").font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
                     ModulaBadge(title: "Live", symbol: "sparkles")
@@ -844,17 +845,17 @@ struct ComponentCatalogView: View {
                 catalog("Live Appearance") {
                     VStack(spacing: 12) {
                         Picker("Theme", selection: $appearance.theme) {
-                            ForEach(AppearanceStore.Theme.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
+                            ForEach(AppearanceStore.Theme.allCases, id: \.self) { Text(settingsDisplayTitle($0.rawValue)).tag($0) }
                         }.pickerStyle(.segmented)
                         Picker("Dark Style", selection: $appearance.darkStyle) {
-                            ForEach(AppearanceStore.DarkStyle.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
+                            ForEach(AppearanceStore.DarkStyle.allCases, id: \.self) { Text(settingsDisplayTitle($0.rawValue)).tag($0) }
                         }.pickerStyle(.segmented)
                         HStack {
                             Picker("Accent", selection: $appearance.accent) { ForEach(AppearanceStore.Accent.allCases) { Text($0.title).tag($0) } }
-                            Picker("Font", selection: $appearance.fontFamily) { ForEach(AppearanceStore.FontFamily.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) } }
+                            Picker("Font", selection: $appearance.fontFamily) { ForEach(AppearanceStore.FontFamily.allCases, id: \.self) { Text(settingsDisplayTitle($0.rawValue)).tag($0) } }
                         }
                         Picker("Density", selection: $appearance.density) {
-                            ForEach(AppearanceStore.Density.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
+                            ForEach(AppearanceStore.Density.allCases, id: \.self) { Text(settingsDisplayTitle($0.rawValue)).tag($0) }
                         }.pickerStyle(.segmented)
                     }
                 }

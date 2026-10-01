@@ -89,7 +89,7 @@ struct FirstRunView: View {
                 }
                 .accessibilityElement(children: .combine)
             } else {
-                Text("No genuine installable starter modules are in the current catalogue response.")
+                Text("There are no starter modules to install right now. You can add modules later from Product Hub.")
                     .foregroundStyle(.secondary)
             }
         }

@@ -316,10 +316,13 @@ struct PostDetailView: View {
             app.postActions.hideLocally(post)
             dismiss()
         case "mute-author":
-            // Mute uses Profile graph APIs when available; otherwise no-op with honest messaging.
+            // Actually mute (was: opened the author's profile).
             if let author = post.author {
-                app.navigation.push(.profile(author.routeID, .overview))
-                HapticEngine.shared.play(.navigation)
+                Task {
+                    if await app.profile.mute(profileID: author.id) {
+                        app.navigation.flash("Muted \(author.displayName)", symbol: "speaker.slash")
+                    }
+                }
             }
         default:
             break

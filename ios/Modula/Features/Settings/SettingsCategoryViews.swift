@@ -424,9 +424,11 @@ struct AppLockSettingsView: View {
                             Spacer()
                             if lock.settings.interval == interval {
                                 Image(systemName: "checkmark")
+                                    .foregroundStyle(app.appearance.accent.color)
                             }
                         }
                     }
+                    .accessibilityAddTraits(lock.settings.interval == interval ? .isSelected : [])
                 }
             }
             Section {
@@ -628,29 +630,31 @@ private struct InstalledModuleSettings: View {
                     ForEach(manifest.permissions, id: \.self) { permission in
                         VStack(alignment: .leading) {
                             Text(permission).font(.headline)
-                            Text("Declared by the module manifest. HostBridge enforces this grant; there is no decorative toggle.")
+                            Text("This module asked for this access. Modula only allows what’s listed here.")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
                     }
                 } else {
-                    Text("No HostBridge permissions are declared for this module.")
+                    Text("This module doesn’t ask for any special access.")
                         .foregroundStyle(.secondary)
                 }
             case .data:
-                Text("Offline module data is owned by the module runtime. Clearing cache does not delete it.")
+                Text("Data saved by this module isn’t removed when you clear the cache.")
                     .foregroundStyle(.secondary)
             case .updates:
-                LabeledContent("Catalogue version", value: product?.latestVersion ?? "Not published")
+                LabeledContent("Installed version", value: manifest?.version ?? "Not installed")
+                LabeledContent("Latest version", value: product?.latestVersion ?? "Not published")
             case .diagnostics:
                 LabeledContent("Runtime", value: manifest?.runtime ?? "—")
                 LabeledContent("Bridge", value: ModuleRuntimeController.bridgeVersion)
             case .about:
-                Text(product?.description ?? "No catalogue description.")
+                Text(product?.description ?? "No description yet.")
             }
         }
         .modulaSoftScrollEdge()
-        .navigationTitle(section.rawValue.capitalized)
+        .modulaCanvas()
+        .navigationTitle(settingsDisplayTitle(section.rawValue))
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
@@ -671,6 +675,8 @@ struct DataStorageHost: View {
     @Environment(AppEnvironment.self) private var app
     @State private var usage: StorageUsageSnapshot?
     @State private var cleared = false
+    @State private var confirmingClearCache = false
+    @State private var clearingCache = false
 
     var body: some View {
         switch route {
@@ -726,15 +732,31 @@ struct DataStorageHost: View {
             }
             .modulaSoftScrollEdge()
             .navigationTitle("Storage")
-            .task { usage = StorageUsageSnapshot.measure() }
+            // Walking the cache folders can take a while; measure off the main thread.
+            .task { usage = await Task.detached(priority: .utility) { StorageUsageSnapshot.measure() }.value }
         case .cache:
             Form {
                 Text("Clears URLCache and temporary files only. Account session, drafts and offline module data are kept.")
                     .foregroundStyle(.secondary)
                 Button("Clear Cache", role: .destructive) {
-                    StorageUsageSnapshot.clearCache()
-                    cleared = true
-                    HapticEngine.shared.play(.confirmation)
+                    confirmingClearCache = true
+                    HapticEngine.shared.play(.warning)
+                }
+                .disabled(clearingCache)
+                .confirmationDialog("Clear cache?", isPresented: $confirmingClearCache, titleVisibility: .visible) {
+                    Button("Clear Cache", role: .destructive) {
+                        clearingCache = true
+                        Task {
+                            // File deletion off the main thread.
+                            await Task.detached(priority: .userInitiated) { StorageUsageSnapshot.clearCache() }.value
+                            clearingCache = false
+                            cleared = true
+                            HapticEngine.shared.play(.confirmation)
+                            AccessibilityNotification.Announcement("Cache cleared").post()
+                        }
+                    }
+                } message: {
+                    Text("Images and temporary files will download again when needed.")
                 }
                 if cleared {
                     Text("Cache cleared.")
@@ -743,7 +765,7 @@ struct DataStorageHost: View {
             .modulaSoftScrollEdge()
             .navigationTitle("Cache")
         case .downloads:
-            ContentUnavailableView("No downloaded content", systemImage: "arrow.down.to.line", description: Text("This build has no downloads subsystem."))
+            ContentUnavailableView("No downloaded content", systemImage: "arrow.down.to.line", description: Text("Downloaded content will appear here."))
                 .modulaSoftScrollEdge()
                 .navigationTitle("Downloads")
         case .backup, .export:
@@ -753,7 +775,7 @@ struct DataStorageHost: View {
     }
 }
 
-struct StorageUsageSnapshot {
+struct StorageUsageSnapshot: Sendable {
     var caches: String
     var temporary: String
     var applicationSupport: String
@@ -832,7 +854,7 @@ struct AccessibilitySettingsHost: View {
             }
         }
         .modulaSoftScrollEdge()
-        .navigationTitle(route == .root ? "Accessibility" : route.rawValue.capitalized)
+        .navigationTitle(route == .root ? "Accessibility" : settingsDisplayTitle(route.rawValue))
     }
 }
 
@@ -1006,7 +1028,7 @@ struct AboutSettingsHost: View {
             }
         }
         .modulaSoftScrollEdge()
-        .navigationTitle(route == .root ? "About" : route.rawValue.capitalized)
+        .navigationTitle(route == .root ? "About" : settingsDisplayTitle(route.rawValue))
         .accessibilityIdentifier("settings.about")
     }
 }

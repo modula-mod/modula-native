@@ -585,3 +585,24 @@ struct SettingsBadgesGraphic: View {
         }
     }
 }
+
+
+/// Human-readable label for a raw enum value ("reduceMotion" -> "Reduce
+/// Motion", "oled" -> "OLED") instead of `rawValue.capitalized`.
+func settingsDisplayTitle(_ raw: String) -> String {
+    let special: [String: String] = ["oled": "OLED", "ui": "UI", "ai": "AI", "id": "ID"]
+    if let match = special[raw.lowercased()] { return match }
+    var words: [String] = []
+    var current = ""
+    for character in raw {
+        if character == "_" || character == "-" || character == " " {
+            if !current.isEmpty { words.append(current); current = "" }
+        } else if character.isUppercase, !current.isEmpty {
+            words.append(current); current = String(character)
+        } else {
+            current.append(character)
+        }
+    }
+    if !current.isEmpty { words.append(current) }
+    return words.map { special[$0.lowercased()] ?? ($0.prefix(1).uppercased() + $0.dropFirst()) }.joined(separator: " ")
+}

@@ -58,6 +58,9 @@ struct ProfileEditView: View {
         .modulaCanvas()
         .navigationTitle("Edit Profile")
         .navigationBarTitleDisplayMode(.inline)
+        // With unsaved edits, Back (and swipe-back) would silently drop them;
+        // hide it so Cancel's Save/Discard prompt is the way out.
+        .navigationBarBackButtonHidden(editing.isDirty)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel") { attemptDismiss() }

@@ -86,6 +86,7 @@ struct HelpSettingsHost: View {
 
 struct WhatsNewSettingsHost: View {
     let route: WhatsNewSettingsRoute
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         switch route {
@@ -110,7 +111,8 @@ struct WhatsNewSettingsHost: View {
 
     private func bullet(_ text: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.accentColor)
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(app.appearance.accent.color)
+                .accessibilityHidden(true)
             Text(text).font(.subheadline).fixedSize(horizontal: false, vertical: true)
         }
     }

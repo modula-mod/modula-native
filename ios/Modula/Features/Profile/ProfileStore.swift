@@ -344,6 +344,21 @@ final class ProfileStore {
         }
     }
 
+    /// Mute by profile id without requiring a loaded profile session
+    /// (e.g. "Mute Author" from a post).
+    @discardableResult
+    func mute(profileID: ProfileID) async -> Bool {
+        do {
+            try await repository.mute(profileID: profileID)
+            HapticEngine.shared.play(.mediumImpact)
+            return true
+        } catch {
+            actionError = "Could not mute this profile."
+            HapticEngine.shared.play(.failure)
+            return false
+        }
+    }
+
     func report(identity: ProfileIdentity, handleHint: String?, category: String, details: String? = nil) async {
         let key = sessionKey(identity, handleHint: handleHint)
         guard let profile = sessions[key]?.profile else { return }

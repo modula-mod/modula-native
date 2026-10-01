@@ -224,7 +224,7 @@ struct MediaSettingsHost: View {
                 ContentUnavailableView(
                     "No downloads yet",
                     systemImage: "tray",
-                    description: Text("This build has no offline media catalogue.")
+                    description: Text("Downloaded media will appear here.")
                 )
                 .frame(minHeight: 180)
                 SettingsAPIFootnote(text: "A downloads subsystem is not present. UI is ready for when offline media lands.")
@@ -237,6 +237,7 @@ struct MediaSettingsHost: View {
 
 struct FeedSettingsHost: View {
     let route: FeedSettingsRoute
+    @Environment(AppEnvironment.self) private var app
     @AppStorage("settings.feed.defaultMode") private var defaultMode = "following"
     @AppStorage("settings.feed.mediaOnly") private var mediaOnly = false
     @AppStorage("settings.feed.hideModulePosts") private var hideModulePosts = false
@@ -287,12 +288,15 @@ struct FeedSettingsHost: View {
                 }
                 Spacer()
                 if defaultMode == tag {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.accentColor)
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(app.appearance.accent.color)
                 }
             }
             .padding(.vertical, 8)
+            .frame(minHeight: ModulaLayout.minimumTouch)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(defaultMode == tag ? .isSelected : [])
     }
 }
 
@@ -668,7 +672,9 @@ struct AudioSettingsHost: View {
                 VStack(alignment: .leading) {
                     Text("Voice playback speed")
                     Slider(value: $voiceSpeed, in: 0.75...2.0, step: 0.25)
-                    Text(String(format: "%.2g×", voiceSpeed))
+                        .accessibilityLabel("Voice playback speed")
+                        .accessibilityValue(voiceSpeed.formatted(.number.precision(.fractionLength(0...2))) + " times")
+                    Text(voiceSpeed.formatted(.number.precision(.fractionLength(0...2))) + "×")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
