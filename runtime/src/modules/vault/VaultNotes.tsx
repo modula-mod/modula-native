@@ -9,6 +9,15 @@ import {DocumentBlocks, LoadingRow, ModuleButton, ModuleFallback, ThemedText} fr
 import {InlineNotice, RecordRow, SearchField, SegmentedControl, SkeletonRows, ToggleRow, Toolbar} from '../../ui/kit';
 import {useDebounced} from '../../ui/hooks';
 
+/**
+ * TEMPORARY FALLBACK. This hand-built Vault Notes UI stays only until the generic
+ * declarative host renders the verified Vault Notes 1.7.0 `modula.frontend.1.0`
+ * artifact delivered through the registry (see docs/architecture/module-authoring.md
+ * and the modula-product-standard repo). Do not extend it: new behaviour belongs in
+ * the product's frontend, not in the shell. Remove once the declarative path ships.
+ */
+export const VAULT_NOTES_NATIVE_FALLBACK = {temporary: true, until: 'declarative host renders verified Vault Notes 1.7.0 frontend'} as const;
+
 type Props = {context: ModuleContext; host: Host; lifecycle: string};
 type ListPrefs = {query: string; sort: NoteSort};
 
