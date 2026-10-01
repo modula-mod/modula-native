@@ -236,6 +236,28 @@ final class ModuleAuthorizationTests: XCTestCase {
         XCTAssertEqual(ModuleBackendRequest.parse(action: "backend.records.list", params: ["collection": "note"], manifest: manifest)?.method, "GET")
     }
 
+    func testRecordListAcceptsSearchAndSortFromAClosedVocabulary() throws {
+        let manifest = ModuleManifest(id: "digital.modula.vault-notes", name: "Vault", version: "1.7.0", runtime: "react-native", entry: "vault", permissions: [], minHostVersion: "0.1.0", minBridgeVersion: "0.1.0", collections: ["note"])
+        func path(_ params: [String: Any]) -> String? {
+            ModuleBackendRequest.parse(action: "backend.records.list", params: params, manifest: manifest)?.path
+        }
+        let base = "/v1/modules/digital.modula.vault-notes/records/note"
+        XCTAssertEqual(path(["collection": "note"]), "\(base)?limit=50&recordState=active&sort=updatedAt&direction=desc")
+        XCTAssertEqual(path(["collection": "note", "sort": "title"]), "\(base)?limit=50&recordState=active&sort=title&direction=asc")
+        XCTAssertEqual(path(["collection": "note", "sort": "createdAt", "direction": "asc", "cursor": "50"]),
+                       "\(base)?limit=50&recordState=active&sort=createdAt&direction=asc&cursor=50")
+        // Search text can't smuggle extra query parameters.
+        XCTAssertEqual(path(["collection": "note", "query": " a&recordState=deleted+é "]),
+                       "\(base)?limit=50&recordState=active&sort=updatedAt&direction=desc&q=a%26recordState%3Ddeleted%2B%C3%A9")
+        XCTAssertEqual(path(["collection": "note", "query": "  "]), "\(base)?limit=50&recordState=active&sort=updatedAt&direction=desc")
+        XCTAssertNil(path(["collection": "note", "sort": "data.secret"]))
+        XCTAssertNil(path(["collection": "note", "direction": "sideways"]))
+        XCTAssertNil(path(["collection": "note", "query": String(repeating: "x", count: 201)]))
+        XCTAssertNil(path(["collection": "note", "query": "a\nb"]))
+        XCTAssertNil(path(["collection": "note", "query": 3]))
+        XCTAssertNil(path(["collection": "note", "limit": "500"]))
+    }
+
     func testJavaScriptInitialPropertiesContainNoCredential() throws {
         let runtime = ModuleRuntimeController()
         runtime.setAccount("account-identifier")
