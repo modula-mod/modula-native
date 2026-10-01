@@ -32,7 +32,7 @@ struct PublisherView: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Publisher \(publisherName)")
 
-                Text("This is product publisher identity, not a social Profile. A verified publisher may later link to a social account.")
+                Text("This is the publisher’s page for their modules. It’s separate from their social profile.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 
