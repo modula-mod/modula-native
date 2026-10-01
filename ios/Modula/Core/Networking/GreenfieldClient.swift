@@ -245,6 +245,49 @@ actor GreenfieldClient {
         ]))
     }
 
+    /// Registry versions of a module relative to this account's installation
+    /// (`GET /v1/modules/:id/versions`), gated by registry trust and iOS compatibility.
+    func moduleVersions(_ moduleID: String) async throws -> ModuleVersionList {
+        guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
+        let value: JSONValue = try await authenticated("GET", path: "/v1/modules/\(path)/versions?platform=ios")
+        guard let list = ModuleVersionList(json: value) else { throw APIError.invalidResponse }
+        return list
+    }
+
+    /// Dry run of a version switch: permission changes, warnings and the target release's
+    /// install descriptor (`POST /v1/modules/:id/version-preview`). Changes nothing.
+    func previewModuleVersion(_ moduleID: String, version: String) async throws -> ModuleVersionPreview {
+        guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
+        let value: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/version-preview", body: .object([
+            "version": .string(version), "platform": .string("ios"),
+        ]))
+        guard let preview = ModuleVersionPreview(json: value) else { throw APIError.invalidResponse }
+        return preview
+    }
+
+    /// Public registry facts for one immutable release, used to verify descriptors.
+    func registryReleaseFacts(_ moduleID: String, version: String) async throws -> ModuleRegistryReleaseFacts {
+        guard let path = Self.modulePath(moduleID),
+              let encoded = version.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: ".-+"))) else { throw APIError.invalidResponse }
+        let value: JSONValue = try await send("GET", path: "/v1/registry/modules/\(path)/versions/\(encoded)")
+        guard let facts = ModuleRegistryReleaseFacts(json: value) else { throw APIError.invalidResponse }
+        return facts
+    }
+
+    /// Switches an installation to an exact registry version (upgrade or downgrade). Returns
+    /// the target release's install descriptor issued with the transition.
+    func switchModuleVersion(_ moduleID: String, version: String, approvedPermissions: [String], acknowledgeDowngradeRisk: Bool, idempotencyKey: String) async throws -> ModuleInstallDescriptor? {
+        guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
+        let value: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/update", body: .object([
+            "version": .string(version),
+            "platform": .string("ios"),
+            "approvedPermissions": .array(approvedPermissions.map(JSONValue.string)),
+            "acknowledgeDowngradeRisk": .bool(acknowledgeDowngradeRisk),
+            "idempotencyKey": .string(idempotencyKey),
+        ]))
+        return value["descriptor"].flatMap(ModuleInstallDescriptor.init(json:))
+    }
+
     /// Uninstall keeps the account's module data so a reinstall restores it.
     func uninstallModule(_ moduleID: String, idempotencyKey: String) async throws {
         guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
