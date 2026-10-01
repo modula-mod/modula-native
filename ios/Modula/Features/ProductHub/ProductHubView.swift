@@ -162,34 +162,16 @@ final class ProductHubStore {
     }
 }
 
-private struct VaultFoldMark: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let inset = rect.width * 0.18
-        let fold = rect.width * 0.28
-        path.move(to: CGPoint(x: rect.minX + inset, y: rect.minY + inset))
-        path.addLine(to: CGPoint(x: rect.maxX - inset - fold, y: rect.minY + inset))
-        path.addLine(to: CGPoint(x: rect.maxX - inset, y: rect.minY + inset + fold))
-        path.addLine(to: CGPoint(x: rect.maxX - inset, y: rect.maxY - inset))
-        path.addLine(to: CGPoint(x: rect.minX + inset, y: rect.maxY - inset))
-        path.closeSubpath()
-        path.move(to: CGPoint(x: rect.maxX - inset - fold, y: rect.minY + inset))
-        path.addLine(to: CGPoint(x: rect.maxX - inset - fold, y: rect.minY + inset + fold))
-        path.addLine(to: CGPoint(x: rect.maxX - inset, y: rect.minY + inset + fold))
-        return path
-    }
-}
-
 @MainActor
 extension AppEnvironment {
-    /// Store artwork for a module: server listing first, then the bundled manifest's
-    /// `presentation`, then nil (callers draw placeholders).
+    /// Store artwork for a module from the registry listing; nil sources mean callers
+    /// draw neutral placeholders. Bundled module code never supplies artwork.
     func moduleArtwork(_ id: String) -> ModuleArtwork {
-        ModuleArtwork(listing: catalogue.listings[id], presentation: runtime.manifests.first { $0.id == id }?.presentation)
+        ModuleArtwork(listing: catalogue.listings[id])
     }
 }
 
-/// Renders a bundled asset or remote https image; `placeholder` covers missing assets,
+/// Renders a remote https image from the registry; `placeholder` covers missing art,
 /// loading and failures so artwork never shows a broken state.
 struct ModuleArtImage<Placeholder: View>: View {
     let source: ModuleArtSource?
@@ -198,12 +180,6 @@ struct ModuleArtImage<Placeholder: View>: View {
 
     var body: some View {
         switch source {
-        case .asset(let name):
-            if let image = UIImage(named: name) {
-                Image(uiImage: image).resizable().aspectRatio(contentMode: contentMode)
-            } else {
-                placeholder()
-            }
         case .remote(let url):
             AsyncImage(url: url, transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
                 if case .success(let image) = phase {
@@ -225,41 +201,32 @@ struct ProductArtwork: View {
 
     var body: some View {
         let art = app.moduleArtwork(product.moduleId)
-        ModuleArtImage(source: art.icon) { generated(tint: art.tintHex) }
+        ModuleArtImage(source: art.icon) { placeholder }
             .frame(width: size, height: size)
             .clipShape(RoundedRectangle(cornerRadius: size * 0.24, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: size * 0.24, style: .continuous).stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
-            .shadow(color: baseColor(art.tintHex).opacity(0.28), radius: size * 0.16, y: size * 0.08)
+            .shadow(color: baseColor.opacity(0.28), radius: size * 0.16, y: size * 0.08)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(product.name) icon")
             .accessibilityIdentifier("artwork.\(product.moduleId)")
     }
 
-    /// Placeholder used when a module ships no icon: tinted tile with its initial
-    /// (Vault keeps its folded-note mark).
-    private func generated(tint: String?) -> some View {
+    /// Neutral placeholder used when the registry has no icon: a plain tile with the
+    /// product's initial. Never module-specific art.
+    private var placeholder: some View {
         ZStack {
             RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
-                .fill(LinearGradient(colors: [baseColor(tint), baseColor(tint).opacity(0.78)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .fill(LinearGradient(colors: [baseColor, baseColor.opacity(0.78)], startPoint: .topLeading, endPoint: .bottomTrailing))
             RoundedRectangle(cornerRadius: size * 0.2, style: .continuous)
                 .stroke(Color.white.opacity(0.18), lineWidth: 1)
                 .padding(size * 0.06)
-            if product.moduleId.contains("vault") {
-                VaultFoldMark()
-                    .stroke(Color.white, style: StrokeStyle(lineWidth: max(2, size * 0.055), lineCap: .round, lineJoin: .round))
-                    .frame(width: size * 0.58, height: size * 0.58)
-            } else {
-                Text(product.name.prefix(1).uppercased())
-                    .font(.system(size: size * 0.42, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-            }
+            Text(product.name.prefix(1).uppercased())
+                .font(.system(size: size * 0.42, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
         }
     }
 
-    private func baseColor(_ tint: String?) -> Color {
-        if let tint { return Color(hex: tint) }
-        return product.moduleId.contains("vault") ? Color(hex: "#103B41") : Color(hex: "#343752")
-    }
+    private var baseColor: Color { Color(hex: "#343752") }
 }
 
 struct ProductBackdrop: View {
@@ -269,17 +236,18 @@ struct ProductBackdrop: View {
     var body: some View {
         let art = app.moduleArtwork(product.moduleId)
         GeometryReader { proxy in
-            ModuleArtImage(source: art.cover) { generated(proxy.size, tint: art.tintHex) }
+            ModuleArtImage(source: art.cover) { placeholder(proxy.size) }
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .clipped()
         }
         .accessibilityHidden(true)
     }
 
-    private func generated(_ size: CGSize, tint: String?) -> some View {
+    /// Neutral cover placeholder (no module-specific art) until the registry supplies one.
+    private func placeholder(_ size: CGSize) -> some View {
         ZStack {
-            Color(hex: tint.map { _ in "#0B1F24" } ?? (product.moduleId.contains("vault") ? "#061E22" : "#171827"))
-            LinearGradient(colors: [(tint.map { Color(hex: $0) } ?? app.appearance.accent.color).opacity(0.55), .clear], startPoint: .topTrailing, endPoint: .bottomLeading)
+            Color(hex: "#171827")
+            LinearGradient(colors: [app.appearance.accent.color.opacity(0.55), .clear], startPoint: .topTrailing, endPoint: .bottomLeading)
             Circle()
                 .fill(app.appearance.accent.color.opacity(0.2))
                 .frame(width: size.width * 0.8)
@@ -358,13 +326,12 @@ struct ProductCard: View {
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        let art = app.moduleArtwork(product.moduleId)
         Button(action: action) {
             HStack(spacing: 15) {
                 ProductArtwork(product: product, size: 64)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(product.name).font(.headline).foregroundStyle(.primary)
-                    Text(art.subtitle ?? product.description)
+                    Text(product.description)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
@@ -417,7 +384,6 @@ struct ProductHero: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        let art = app.moduleArtwork(product.moduleId)
         Button(action: action) {
             ZStack(alignment: .bottomLeading) {
                 ProductBackdrop(product: product)
@@ -429,7 +395,7 @@ struct ProductHero: View {
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(.white.opacity(0.72))
                         Text(product.name).font(.title2.bold())
-                        Text(art.subtitle ?? product.description)
+                        Text(product.description)
                             .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.82))
                             .lineLimit(2)

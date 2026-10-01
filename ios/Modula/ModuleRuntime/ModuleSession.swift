@@ -11,17 +11,6 @@ struct ModuleManifest: Codable, Sendable {
     let minHostVersion: String
     let minBridgeVersion: String
     let collections: [String]?
-    /// Optional store artwork/copy. Absent in older manifests; Product Hub falls back to placeholders.
-    var presentation: ModulePresentation? = nil
-}
-
-struct ModulePresentation: Codable, Sendable, Hashable {
-    struct Screenshot: Codable, Sendable, Hashable { let source: String; let alt: String? }
-    let subtitle: String?
-    let tint: String?
-    let icon: String?
-    let cover: String?
-    let screenshots: [Screenshot]?
 }
 
 @MainActor @Observable

@@ -1145,32 +1145,28 @@ final class ModuleStoreTests: XCTestCase {
         XCTAssertNil(ModuleListing(json: .object([:])))
     }
 
-    func testArtworkPrefersServerThenManifestThenPlaceholder() throws {
-        let presentation = ModulePresentation(subtitle: "S", tint: "#1F8A84", icon: "asset:VaultNotesIcon", cover: "javascript:alert(1)",
-                                              screenshots: [.init(source: "asset:VaultNotesShot1", alt: "List"), .init(source: "ftp://x", alt: nil)])
-        let local = ModuleArtwork(listing: nil, presentation: presentation)
-        XCTAssertEqual(local.icon, .asset("VaultNotesIcon"))
-        XCTAssertNil(local.cover, "Unsupported schemes fall back to the placeholder")
-        XCTAssertEqual(local.screenshots.map(\.alt), ["List"])
-        XCTAssertNil(ModuleArtwork(listing: nil, presentation: ModulePresentation(subtitle: nil, tint: "red", icon: nil, cover: nil, screenshots: nil)).tintHex)
-        let none = ModuleArtwork(listing: nil, presentation: nil)
-        XCTAssertNil(none.icon); XCTAssertTrue(none.screenshots.isEmpty)
-        XCTAssertNil(ModuleArtSource("asset:../../etc"), "Asset names are restricted")
+    func testArtworkComesOnlyFromTheRegistryListing() throws {
+        var listing = try XCTUnwrap(ModuleListing(json: .object(["moduleId": .string("digital.modula.vault-notes")])))
+        listing.iconURL = URL(string: "https://cdn.modula.digital/icon.png")
+        listing.previews = [.init(id: "p1", source: URL(string: "https://cdn.modula.digital/a.png")!, alt: "List", aspect: nil)]
+        let remote = ModuleArtwork(listing: listing)
+        XCTAssertEqual(remote.icon, .remote(URL(string: "https://cdn.modula.digital/icon.png")!))
+        XCTAssertNil(remote.cover, "Missing cover falls back to the neutral placeholder")
+        XCTAssertEqual(remote.screenshots.map(\.alt), ["List"])
+        let none = ModuleArtwork(listing: nil)
+        XCTAssertNil(none.icon); XCTAssertNil(none.cover); XCTAssertTrue(none.screenshots.isEmpty)
+        XCTAssertNil(ModuleArtSource("asset:VaultNotesIcon"), "Bundled asset references are not artwork sources")
+        XCTAssertNil(ModuleArtSource("javascript:alert(1)"))
+        XCTAssertNotNil(ModuleArtSource("https://cdn.modula.digital/cover.jpg"))
     }
 
-    func testBundledManifestsDecodeWithPresentation() throws {
+    func testBundledManifestsCarryNoInventedPresentationBlock() throws {
         let url = try XCTUnwrap(Bundle.main.url(forResource: "manifests", withExtension: "json"))
-        let manifests = try JSONDecoder().decode([ModuleManifest].self, from: Data(contentsOf: url))
-        let vault = try XCTUnwrap(manifests.first { $0.id == "digital.modula.vault-notes" })
-        XCTAssertEqual(vault.presentation?.icon, "asset:VaultNotesIcon")
-        XCTAssertNotNil(UIImage(named: "VaultNotesIcon"))
-        XCTAssertNotNil(UIImage(named: "VaultNotesCover"))
-        XCTAssertEqual(vault.presentation?.screenshots?.compactMap { ModuleArtSource($0.source) }.count, 3)
-        for shot in vault.presentation?.screenshots ?? [] {
-            if case .asset(let name) = ModuleArtSource(shot.source) { XCTAssertNotNil(UIImage(named: name), name) }
-        }
-        let legacy = #"[{"id":"a.b","name":"A","version":"1.0.0","runtime":"react-native","entry":"x","permissions":[],"minHostVersion":"0.1.0","minBridgeVersion":"0.1.0"}]"#
-        XCTAssertNil(try JSONDecoder().decode([ModuleManifest].self, from: Data(legacy.utf8)).first?.presentation)
+        let raw = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [[String: Any]])
+        XCTAssertFalse(raw.isEmpty)
+        XCTAssertTrue(raw.allSatisfy { $0["presentation"] == nil })
+        XCTAssertNoThrow(try JSONDecoder().decode([ModuleManifest].self, from: Data(contentsOf: url)))
+        XCTAssertNil(UIImage(named: "VaultNotesIcon"), "The app bundles no module artwork")
     }
 
     @MainActor

@@ -237,23 +237,15 @@ struct ModuleListing: Equatable, Sendable {
     var highRiskCount: Int { permissions.filter { ["high", "restricted"].contains($0.risk) }.count }
 }
 
-/// Where a piece of store artwork comes from: a bundled asset (`asset:Name`), a remote
-/// https image, or nothing (the view draws a tinted placeholder).
+/// Where a piece of store artwork comes from. Artwork is only ever loaded from the
+/// verified registry listing (https URLs); the app bundles no module art. When there is
+/// no source the view draws a neutral placeholder.
 enum ModuleArtSource: Equatable, Sendable {
-    case asset(String)
     case remote(URL)
 
     init?(_ raw: String?) {
-        guard let raw, !raw.isEmpty else { return nil }
-        if raw.hasPrefix("asset:") {
-            let name = String(raw.dropFirst("asset:".count))
-            guard name.count <= 80, name.range(of: "^[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*$", options: .regularExpression) != nil else { return nil }
-            self = .asset(name)
-        } else if let url = ModuleListing.https(raw) {
-            self = .remote(url)
-        } else {
-            return nil
-        }
+        guard let raw, !raw.isEmpty, let url = ModuleListing.https(raw) else { return nil }
+        self = .remote(url)
     }
 }
 
@@ -264,27 +256,19 @@ struct ModuleScreenshot: Equatable, Identifiable, Sendable {
     let aspect: Double
 }
 
-/// Store artwork resolved from the server listing first, then the manifest's
-/// `presentation` block, then placeholders.
+/// Store artwork resolved from the registry listing; anything missing is drawn as a
+/// neutral placeholder by the views.
 struct ModuleArtwork: Equatable, Sendable {
     var icon: ModuleArtSource?
     var cover: ModuleArtSource?
     var screenshots: [ModuleScreenshot]
-    var tintHex: String?
-    var subtitle: String?
 
-    init(listing: ModuleListing?, presentation: ModulePresentation?) {
-        icon = listing?.iconURL.map(ModuleArtSource.remote) ?? ModuleArtSource(presentation?.icon)
-        cover = listing?.coverURL.map(ModuleArtSource.remote) ?? ModuleArtSource(presentation?.cover)
-        if let previews = listing?.previews, !previews.isEmpty {
-            screenshots = previews.map { ModuleScreenshot(id: $0.id, source: .remote($0.source), alt: $0.alt ?? "Screenshot", aspect: $0.aspect ?? 0.56) }
-        } else {
-            screenshots = (presentation?.screenshots ?? []).prefix(10).enumerated().compactMap { index, shot in
-                ModuleArtSource(shot.source).map { ModuleScreenshot(id: "shot-\(index)", source: $0, alt: shot.alt ?? "Screenshot \(index + 1)", aspect: 0.6) }
-            }
+    init(listing: ModuleListing?) {
+        icon = listing?.iconURL.map(ModuleArtSource.remote)
+        cover = listing?.coverURL.map(ModuleArtSource.remote)
+        screenshots = (listing?.previews ?? []).map {
+            ModuleScreenshot(id: $0.id, source: .remote($0.source), alt: $0.alt ?? "Screenshot", aspect: $0.aspect ?? 0.56)
         }
-        tintHex = presentation?.tint.flatMap { $0.range(of: "^#[0-9A-Fa-f]{6}$", options: .regularExpression) == nil ? nil : $0 }
-        subtitle = presentation?.subtitle
     }
 }
 

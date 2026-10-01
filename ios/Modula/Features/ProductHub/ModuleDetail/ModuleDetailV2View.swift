@@ -2,8 +2,8 @@ import SwiftUI
 
 /// App Store–style module page: hero cover, icon, live Install/Open/Update state,
 /// stats strip, screenshots, description, What's New, ratings, privacy, permissions and
-/// information. Server listing data wins; the bundled manifest supplies artwork and
-/// placeholders cover anything missing.
+/// information. Listing data (and artwork) comes from the registry only; neutral
+/// placeholders cover anything missing. Bundled module code never supplies artwork.
 struct ModuleDetailV2View: View {
     let moduleID: String
     let section: ModuleDetailSection
@@ -181,7 +181,7 @@ struct ModuleDetailV2View: View {
                 Text(product.name)
                     .font(.title2.bold())
                     .accessibilityAddTraits(.isHeader)
-                Text(art.subtitle ?? listing?.category ?? product.productKind.capitalized)
+                Text(listing?.category ?? product.productKind.capitalized)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -231,8 +231,7 @@ struct ModuleDetailV2View: View {
     }
 
     private var brand: Color {
-        if app.appearance.moduleBranding != .preferUserAccent, let tint = app.moduleArtwork(moduleID).tintHex { return Color(hex: tint) }
-        return app.appearance.accent.color
+        app.appearance.accent.color
     }
 
     private func lifecycleNotice(_ message: String) -> some View {
@@ -354,6 +353,8 @@ struct ModuleDetailV2View: View {
                 }
                 .frame(maxWidth: .infinity, minHeight: 120)
                 .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("module.screenshots")
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 12) {
