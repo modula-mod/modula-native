@@ -264,24 +264,24 @@ enum StoryProgressEvent: Equatable {
 }
 
 /// Request-size contract for inline story media. `POST /v1/stories` only accepts the
-/// photo as base64 inside JSON, so the whole body must fit the Greenfield API's own
-/// JSON limit (`MODULA_REQUEST_BODY_LIMIT_BYTES`, 4 MiB) and the edge nginx limit
-/// for that route (being raised from 1m). Raise `maximumBodyBytes` when the server
-/// limits go up; everything else derives from it.
+/// photo as base64 inside JSON, so the whole body must fit the Greenfield JSON body
+/// limit and the edge nginx limit (both being raised to 25 MiB on prod and N1).
+/// `maximumBodyBytes` is the single tunable; everything else derives from it.
 enum StoryUploadBudget {
-    /// Single tunable: largest JSON body we will send (~3.8 MB, under the 4 MiB API limit).
-    static let maximumBodyBytes = 3_800_000
-    /// Full-screen quality target on Pro iPhones; never sent below `minimumLongEdge`
-    /// unless a pathological image cannot otherwise meet the budget.
+    /// Largest JSON body we will send: 20 MB (≈14.7 MB raw JPEG), under the 25 MiB limit.
+    static let maximumBodyBytes = 20_000_000
+    /// Full-screen quality on Pro iPhones. Sources at least this large are sent at
+    /// this long edge; resolution only drops if quality alone can't meet the budget.
     static let targetLongEdge: CGFloat = 3072
-    static let minimumLongEdge: CGFloat = 2048
+    static let minimumLongEdge: CGFloat = 3072
     static let preferredQuality: CGFloat = 0.9
+    /// Large inline bodies on mobile data need far longer than the default 20s.
+    static let requestTimeout: TimeInterval = 120
     /// JSON keys, numbers, visibility and punctuation.
     static let envelopeOverheadBytes = 1_024
 
     /// Largest raw JPEG that base64-encodes (4/3) into the remaining body budget,
-    /// allowing ~2% for `JSONEncoder` escaping `/` inside the base64 text
-    /// (≈2.79 MB raw for a 3.8 MB body).
+    /// allowing ~2% for `JSONEncoder` escaping `/` inside the base64 text.
     static func imageByteBudget(captionByteCount: Int) -> Int {
         let available = maximumBodyBytes - envelopeOverheadBytes - captionByteCount * 2
         return max(0, Int(Double(available) * 0.75 / 1.02))
@@ -316,7 +316,8 @@ struct StoryBackendRepository: Sendable {
         let value: JSONValue = try await client.authenticatedJSON(
             "POST",
             path: StoryBackendCapabilities.Paths.create,
-            body: body
+            body: body,
+            timeout: StoryUploadBudget.requestTimeout
         )
         guard let group = StoryPayloadDecoder.group(value) else { throw APIError.invalidResponse }
         return group

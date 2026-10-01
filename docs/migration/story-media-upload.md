@@ -1,7 +1,7 @@
 # Story media upload: proxy limit and the server change still needed
 
 Status: client fix on `fix/story-upload-login-redesign`. nginx is being raised
-(4m for `POST /v1/stories`, 101m for attachment PUTs); the API change below is
+(25 MiB JSON body on prod and N1, 101m for attachment PUTs); the API change below is
 **not** done.
 
 ## Root cause (verified 2026-10-01)
@@ -28,21 +28,20 @@ Status: client fix on `fix/story-upload-login-redesign`. nginx is being raised
 
 ## Client behaviour (this branch)
 
-- Stories are prepared at full-screen quality: long edge up to 3072px, JPEG q0.9
-  (`StoryUploadBudget.targetLongEdge` / `preferredQuality`).
+- Stories are prepared at full-screen quality: long edge 3072px (when the source is
+  that large), JPEG q0.9 (`StoryUploadBudget.targetLongEdge` / `preferredQuality`).
 - `StoryBackendRepository.uploadableBody` fits the JPEG to a byte budget derived
-  from one constant, `StoryUploadBudget.maximumBodyBytes` (3,800,000 B JSON body,
-  under the API's 4 MiB `MODULA_REQUEST_BODY_LIMIT_BYTES`; ≈2.79 MB raw JPEG).
-  `MediaPreparation.jpegFitting` lowers quality first (0.9 → 0.72) at 3072px, then
-  steps the long edge down (×0.84) to a 2048px floor (quality to 0.6 there); only a
-  pathological image drops to a 1440px last resort. The encoded JSON size is checked
-  before sending; small photos are sent unchanged. Raise `maximumBodyBytes` when the
-  server limits go up.
+  from one constant, `StoryUploadBudget.maximumBodyBytes` (20,000,000 B JSON body,
+  ≈14.7 MB raw JPEG; server limits are being raised to 25 MiB). Over budget only,
+  `MediaPreparation.jpegFitting` lowers quality first (0.9 → 0.6) at 3072px; only
+  if that still doesn't fit does it fall back to 2048px, then 1440px. The encoded
+  JSON size is checked before sending; anything already within budget is sent as is.
+- Story POSTs use a 120 s request timeout (`StoryUploadBudget.requestTimeout`)
+  instead of the 20 s default.
 - `GreenfieldClient.decodeEnvelope` maps non-JSON 413/429/5xx to
   `PAYLOAD_TOO_LARGE` / `RATE_LIMITED` / `SERVER_UNAVAILABLE` with user-facing
   copy, and logs them (`digital.modula.app.native`, category `network`).
-- Requires the edge limit for `POST /v1/stories` to be ≥ 4 MiB (being raised to
-  4m on both hosts; N1 accepted a 3.17 MB body on 2026-10-01).
+- Requires the edge and API limits for `POST /v1/stories` to be ≥ 20 MB.
 
 ## Known server issues
 
@@ -60,6 +59,6 @@ Status: client fix on `fix/story-upload-login-redesign`. nginx is being raised
    send full-quality images.
 2. In nginx, raise the body limit for the upload content route only, e.g.
    `location ~ ^/v1/attachments/uploads/[^/]+/content$ { client_max_body_size 100m; proxy_request_buffering off; proxy_read_timeout 300s; proxy_send_timeout 300s; proxy_pass … }`
-   on both `api.modula.digital` and `native-n1.modula.digital`. `POST /v1/stories` needs ≥ 4m while it is inline base64; other JSON routes can stay at `1m`.
+   on both `api.modula.digital` and `native-n1.modula.digital`. `POST /v1/stories` needs ≥ 20 MB while it is inline base64; other JSON routes can stay at `1m`.
 3. Deploy the attachments routes to N1 (currently 404) so acceptance tests cover
    the same path as production.

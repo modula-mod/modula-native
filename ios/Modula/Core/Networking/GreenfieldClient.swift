@@ -203,8 +203,8 @@ actor GreenfieldClient {
     }
 
     /// Authenticated JSON fetch used by Activity and other native features.
-    func authenticatedJSON(_ method: String, path: String, body: JSONValue? = nil) async throws -> JSONValue {
-        try await authenticated(method, path: path, body: body)
+    func authenticatedJSON(_ method: String, path: String, body: JSONValue? = nil, timeout: TimeInterval = 20) async throws -> JSONValue {
+        try await authenticated(method, path: path, body: body, timeout: timeout)
     }
 
     /// Public JSON fetch (no bearer). Used by Discover/Search when signed out.
@@ -295,10 +295,12 @@ actor GreenfieldClient {
         return request
     }
 
-    private func authenticated<T: Decodable & Sendable>(_ method: String, path: String, body: JSONValue? = nil) async throws -> T {
+    private func authenticated<T: Decodable & Sendable>(
+        _ method: String, path: String, body: JSONValue? = nil, timeout: TimeInterval = 20
+    ) async throws -> T {
         let generation = epoch
         let bearer = try await accessToken()
-        let result: T = try await send(method, path: path, body: body, bearer: bearer)
+        let result: T = try await send(method, path: path, body: body, bearer: bearer, timeout: timeout)
         guard generation == epoch else { throw APIError.accountChanged }
         return result
     }
@@ -327,13 +329,15 @@ actor GreenfieldClient {
         }
     }
 
-    private func send<T: Decodable & Sendable>(_ method: String, path: String, body: JSONValue? = nil, bearer: String? = nil) async throws -> T {
+    private func send<T: Decodable & Sendable>(
+        _ method: String, path: String, body: JSONValue? = nil, bearer: String? = nil, timeout: TimeInterval = 20
+    ) async throws -> T {
         guard let baseURL, baseURL.scheme == "https", baseURL.user == nil, baseURL.password == nil,
               path.hasPrefix("/v1/"), !path.contains(".."), let url = URL(string: path, relativeTo: baseURL)?.absoluteURL,
               url.host == baseURL.host else { throw APIError.unconfigured }
         var request = URLRequest(url: url)
         request.httpMethod = method
-        request.timeoutInterval = 20
+        request.timeoutInterval = timeout
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if body != nil { request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
         request.setValue("ModulaNative/0.1.0 (iOS)", forHTTPHeaderField: "User-Agent")

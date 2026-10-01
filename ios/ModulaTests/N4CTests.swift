@@ -626,15 +626,17 @@ final class GreenfieldNonJSONErrorTests: XCTestCase {
 }
 
 final class StoryUploadBudgetTests: XCTestCase {
-    func testBudgetDerivesFromSingleBodyConstantUnderAPILimit() {
-        XCTAssertEqual(StoryUploadBudget.maximumBodyBytes, 3_800_000)
-        XCTAssertLessThan(StoryUploadBudget.maximumBodyBytes, 4_194_304, "Greenfield JSON body limit")
+    func testBudgetDerivesFromSingleBodyConstantUnderServerLimit() {
+        XCTAssertEqual(StoryUploadBudget.maximumBodyBytes, 20_000_000)
+        XCTAssertLessThan(StoryUploadBudget.maximumBodyBytes, 25 * 1_048_576, "server JSON/edge body limit")
         let budget = StoryUploadBudget.imageByteBudget(captionByteCount: 0)
-        XCTAssertGreaterThan(budget, 2_700_000)
+        XCTAssertGreaterThan(budget, 14_000_000)
         XCTAssertLessThan(Double(budget) * 4 / 3 * 1.02, Double(StoryUploadBudget.maximumBodyBytes))
         XCTAssertLessThan(StoryUploadBudget.imageByteBudget(captionByteCount: 2_000), budget)
-        XCTAssertGreaterThanOrEqual(StoryUploadBudget.targetLongEdge, 2560)
-        XCTAssertEqual(StoryUploadBudget.minimumLongEdge, 2048)
+        XCTAssertEqual(StoryUploadBudget.targetLongEdge, 3072)
+        XCTAssertEqual(StoryUploadBudget.minimumLongEdge, 3072)
+        XCTAssertEqual(StoryUploadBudget.preferredQuality, 0.9)
+        XCTAssertEqual(StoryUploadBudget.requestTimeout, 120)
     }
 
     func testLargePreparedPhotoKeepsFullScreenResolutionWithinBudget() async throws {
@@ -653,7 +655,8 @@ final class StoryUploadBudgetTests: XCTestCase {
         let data = try XCTUnwrap(body["base64"]?.string.flatMap { Data(base64Encoded: $0) })
         let decoded = try XCTUnwrap(CGImageSourceCreateWithData(data as CFData, nil))
         let image = try XCTUnwrap(CGImageSourceCreateImageAtIndex(decoded, 0, nil))
-        XCTAssertGreaterThanOrEqual(max(image.width, image.height), 2048, "never squeeze stories below 2048px")
+        XCTAssertEqual(max(image.width, image.height), 3072, "full-screen long edge is kept")
+        XCTAssertEqual(data, prepared.data, "q0.9 3072px fits the budget, so it is sent unchanged")
         XCTAssertEqual(body["width"]?.number, Double(image.width))
         XCTAssertEqual(body["height"]?.number, Double(image.height))
         XCTAssertNil((CGImageSourceCopyPropertiesAtIndex(decoded, 0, nil) as? [CFString: Any])?[kCGImagePropertyGPSDictionary])
@@ -668,6 +671,10 @@ final class StoryUploadBudgetTests: XCTestCase {
         let fitted = try MediaPreparation.jpegFittingSync(source, maxBytes: full.data.count - 1)
         XCTAssertEqual(max(fitted.width, fitted.height), 3072)
         XCTAssertLessThan(fitted.data.count, full.data.count)
+        // Only when 3072px at the lowest quality can't fit does resolution drop.
+        let squeezed = try MediaPreparation.jpegFittingSync(source, maxBytes: 1_500_000)
+        XCTAssertLessThan(max(squeezed.width, squeezed.height), 3072)
+        XCTAssertLessThanOrEqual(squeezed.data.count, 1_500_000)
     }
 
     func testSmallPhotoIsSentUnchanged() async throws {

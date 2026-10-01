@@ -68,7 +68,7 @@ enum MediaPreparation {
     /// Quality is stepped down first (0.9 → 0.72) at the largest allowed size; only then
     /// is the long edge reduced (×0.84 per step) toward `minPixel`. At `minPixel` the
     /// ladder extends to 0.6, and only a pathological image falls back below `minPixel`
-    /// (to a 1440px last resort). Never upscales; applies EXIF orientation.
+    /// (2048px, then 1440px last resorts). Never upscales; applies EXIF orientation.
     static func jpegFitting(
         _ data: Data,
         maxBytes: Int,
@@ -82,7 +82,7 @@ enum MediaPreparation {
 
     nonisolated static let fittingQualityLadder: [CGFloat] = [0.9, 0.86, 0.82, 0.78, 0.75, 0.72]
     nonisolated static let floorQualityLadder: [CGFloat] = [0.68, 0.64, 0.6]
-    nonisolated static let lastResortLongEdge: CGFloat = 1440
+    nonisolated static let lastResortLongEdges: [CGFloat] = [2048, 1440]
 
     nonisolated static func jpegFittingSync(
         _ data: Data,
@@ -129,8 +129,8 @@ enum MediaPreparation {
                 return fitted
             }
         }
-        if floor > lastResortLongEdge, let fitted = try attempt(lastResortLongEdge, fittingQualityLadder + floorQualityLadder) {
-            return fitted
+        for pixel in lastResortLongEdges where pixel < floor {
+            if let fitted = try attempt(pixel, fittingQualityLadder + floorQualityLadder) { return fitted }
         }
         throw MediaPreparationError.exceedsByteBudget
     }
