@@ -395,7 +395,7 @@ struct PostModuleChip: View {
             .foregroundStyle(app.appearance.accent.color)
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(app.appearance.accent.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .background(app.appearance.accent.color.opacity(0.12), in: RoundedRectangle(cornerRadius: ModulaRadius.small, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Module \(module.name ?? module.id)")

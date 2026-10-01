@@ -142,7 +142,7 @@ struct ModulaPost: Identifiable, Hashable, Sendable {
     var isMediaFirst: Bool { content.first?.isMediaFirst == true }
     var presentationStyle: PostPresentationStyle { ModulaPostLayoutPolicy.resolve(self).style }
     var hasAttachments: Bool { !content.isEmpty }
-    var shareURL: URL { URL(string: "https://modula.digital/post/\(id)")! }
+    var shareURL: URL { (URL(string: "https://modula.digital/post") ?? URL(fileURLWithPath: "/")).appending(path: id) }
 }
 
 enum ModulaPostMapper {

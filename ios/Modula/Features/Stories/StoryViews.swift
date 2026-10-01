@@ -11,6 +11,8 @@ struct StoryRing: View {
     /// `.own` shows a "+" only when there is nothing posted yet; an own ring with live
     /// stories is drawn as an active (thick) ring instead.
     var showsAddBadge = true
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let emphasised = state == .unseen || (state == .own && !showsAddBadge)
@@ -26,7 +28,8 @@ struct StoryRing: View {
                         .foregroundStyle(.white)
                         .frame(width: size * 0.34, height: size * 0.34)
                         .background(accent, in: Circle())
-                        .overlay(Circle().stroke(Color(.systemBackground), lineWidth: 2))
+                        // Cut-out stroke matches the actual canvas (Dim/OLED aware).
+                        .overlay(Circle().stroke(ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas, lineWidth: 2))
                         .accessibilityHidden(true)
                 }
             }
@@ -558,7 +561,7 @@ struct StoryCreateView: View {
                             .lineLimit(1...3)
                             .textFieldStyle(.plain)
                             .padding(14)
-                            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous))
 
                         Button {
                             Task { await publish() }

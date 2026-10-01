@@ -496,7 +496,7 @@ struct ProfileMediaEditorRow: View {
                 }
             }
             .frame(width: 96, height: 56)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: ModulaRadius.small, style: .continuous))
         }
     }
 }

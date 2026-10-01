@@ -353,7 +353,7 @@ struct PostShareSheet: View {
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous))
 
                 Button {
                     UIPasteboard.general.string = post.shareURL.absoluteString

@@ -260,7 +260,7 @@ struct ProfileAvatarPocket: View {
                 HapticEngine.shared.play(.lightImpact)
             } label: {
                 ZStack {
-                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: avatarSize)
+                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: avatarSize, name: profile.displayName)
                         .overlay(
                             Circle()
                                 .strokeBorder(canvas, lineWidth: ring)

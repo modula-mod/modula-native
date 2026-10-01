@@ -27,14 +27,9 @@ struct ActivityScreen: View {
         }
         .overlay(alignment: .bottom) {
             if let message = app.activity.actionError {
-                Label(message, systemImage: "exclamationmark.triangle")
-                    .font(.footnote.weight(.semibold))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(.regularMaterial, in: Capsule())
-                    .padding(.bottom, 12)
-                    .onTapGesture { app.activity.clearActionError() }
-                    .accessibilityIdentifier("activity.banner")
+                ModulaErrorBanner(message: message, identifier: "activity.banner") {
+                    app.activity.clearActionError()
+                }
             }
         }
     }

@@ -77,3 +77,37 @@ extension View {
         }
     }
 }
+
+
+/// Dismissible action-error banner shared by Home / Discover / Activity.
+/// Has a real 44pt close button and is announced to VoiceOver on appear.
+struct ModulaErrorBanner: View {
+    let message: String
+    var identifier: String
+    var onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: ModulaSpacing.xs) {
+            Label(message, systemImage: "exclamationmark.triangle")
+                .font(.footnote.weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(.footnote.weight(.bold))
+                    .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss")
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 2)
+        .background(.regularMaterial, in: Capsule())
+        .padding(.horizontal, ModulaSpacing.md)
+        .padding(.bottom, 12)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(identifier)
+        .onAppear { AccessibilityNotification.Announcement(message).post() }
+        .onChange(of: message) { _, next in AccessibilityNotification.Announcement(next).post() }
+    }
+}

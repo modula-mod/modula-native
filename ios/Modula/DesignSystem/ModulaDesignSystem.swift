@@ -335,6 +335,8 @@ struct ModulaAvatar: View {
     var initials: String
     var url: URL? = nil
     var size = 44.0
+    /// Person's name for VoiceOver ("Ada Lovelace, profile photo").
+    var name: String? = nil
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
@@ -357,7 +359,8 @@ struct ModulaAvatar: View {
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
-        .accessibilityLabel("Profile avatar")
+        .accessibilityLabel(name.map { "\($0), profile photo" } ?? "Profile photo")
+        .accessibilityAddTraits(.isImage)
     }
 
     private var initialsView: some View {

@@ -107,14 +107,9 @@ struct HomeView: View {
         }
         .overlay(alignment: .bottom) {
             if let message = app.home.actionError {
-                Label(message, systemImage: "exclamationmark.triangle")
-                    .font(.footnote.weight(.semibold))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(.regularMaterial, in: Capsule())
-                    .padding(.bottom, 12)
-                    .onTapGesture { app.home.clearActionError() }
-                    .accessibilityIdentifier("home.banner")
+                ModulaErrorBanner(message: message, identifier: "home.banner") {
+                    app.home.clearActionError()
+                }
             }
         }
         .sheet(item: $commentsPost) { post in

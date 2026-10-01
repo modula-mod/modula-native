@@ -230,13 +230,15 @@ struct ConversationRow: View {
 struct ConversationAvatar: View {
     let participant: ConversationParticipant?
     var unread = false
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        ModulaAvatar(initials: participant?.initials ?? "?", url: participant?.avatarURL, size: 48)
+        ModulaAvatar(initials: participant?.initials ?? "?", url: participant?.avatarURL, size: 48, name: participant?.displayName)
             .overlay(alignment: .bottomTrailing) {
                 if unread {
                     ModulaNotificationDot(tone: .accent, size: 10)
-                        .overlay(Circle().stroke(Color(.systemBackground), lineWidth: 2))
+                        .overlay(Circle().stroke(ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas, lineWidth: 2))
                         .accessibilityHidden(true)
                 }
             }
