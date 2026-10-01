@@ -453,6 +453,7 @@ final class ProfileStore {
     func rememberScroll(identity: ProfileIdentity, handleHint: String?, section: ProfileSection, offset: CGFloat) {
         let key = sessionKey(identity, handleHint: handleHint)
         var state = sessions[key] ?? ProfileSessionState()
+        if let previous = state.scrollOffsets[section], abs(previous - offset) < 1 { return }
         state.scrollOffsets[section] = offset
         sessions[key] = state
     }

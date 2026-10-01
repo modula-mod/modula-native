@@ -18,6 +18,8 @@ struct ProfileView: View {
     @State private var showsShareSheet = false
     @State private var showsModulaCode = false
     @State private var followBusy = false
+    /// People-list rows with a follow/unfollow request in flight.
+    @State private var followBusyIDs: Set<String> = []
     @State private var copiedBanner = false
     @State private var activityShare: ActivityShareItem?
 
@@ -198,14 +200,18 @@ struct ProfileView: View {
                 geometry.contentOffset.y
             } action: { _, newOffset in
                 headerProgress = ModulaScrollProgress.progress(offsetY: max(0, newOffset), collapseDistance: 96)
-                if let handle = profile?.handle ?? accountHandle {
-                    app.profile.rememberScroll(
-                        identity: identity,
-                        handleHint: handle,
-                        section: section,
-                        offset: newOffset
-                    )
-                }
+            }
+            // Save the scroll position once scrolling settles rather than on
+            // every frame: each write mutated the shared ProfileStore and
+            // invalidated every view observing it.
+            .onScrollPhaseChange { _, newPhase, context in
+                guard newPhase == .idle, let handle = profile?.handle ?? accountHandle else { return }
+                app.profile.rememberScroll(
+                    identity: identity,
+                    handleHint: handle,
+                    section: section,
+                    offset: context.geometry.contentOffset.y
+                )
             }
             .refreshable { await refreshCurrent() }
 
@@ -595,6 +601,7 @@ struct ProfileView: View {
                     ForEach(collection.items) { person in
                         ProfilePeopleRow(
                             person: person,
+                            followBusy: followBusyIDs.contains(person.routeID),
                             showsFollow: !isSameAsViewer(person),
                             onOpen: { openPerson(person) },
                             onFollow: {
@@ -938,6 +945,10 @@ struct ProfileView: View {
     }
 
     private func toggleFollow(_ person: ModulaProfile) async {
+        guard !followBusyIDs.contains(person.routeID) else { return }
+        followBusyIDs.insert(person.routeID)
+        defer { followBusyIDs.remove(person.routeID) }
+        HapticEngine.shared.play(.selection)
         app.profile.seed(person)
         let personIdentity = ProfileIdentity.handle(person.handle)
         if person.isFollowing {
