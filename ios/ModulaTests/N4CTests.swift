@@ -988,3 +988,25 @@ final class ModuleHostAvailabilityTests: XCTestCase {
         XCTAssertEqual(ModuleRuntimeController.unavailableReason(for: "expo", in: manifests), "Vault Notes uses a runtime this app doesn’t support.")
     }
 }
+
+final class StoryViewerSegmentTests: XCTestCase {
+    /// Viewer opened on a partial group (1 item); hydration brings 3. The bar must show
+    /// 3 segments and keep the item being watched, with its progress.
+    func testEngineResizesWhenTheGroupGainsItemsAndKeepsTheCurrentItem() {
+        let engine = StoryProgressEngine(count: 1)
+        _ = engine.tick(1)
+        XCTAssertEqual(engine.segmentCount, 1)
+        engine.resize(count: 3, keepingIndex: 2) // the watched item is now third
+        XCTAssertEqual(engine.segmentCount, 3)
+        XCTAssertEqual(engine.index, 2)
+        XCTAssertEqual(engine.progress, 0, accuracy: 0.0001)
+        _ = engine.tick(1)
+        let progress = engine.progress
+        engine.resize(count: 4, keepingIndex: 2)
+        XCTAssertEqual(engine.segmentCount, 4)
+        XCTAssertEqual(engine.progress, progress, accuracy: 0.0001, "same item keeps its progress")
+        XCTAssertEqual(engine.next(), .advanced, "the new trailing item is reachable")
+        engine.resize(count: 1, keepingIndex: nil)
+        XCTAssertEqual(engine.index, 0, "shrinking clamps the index")
+    }
+}

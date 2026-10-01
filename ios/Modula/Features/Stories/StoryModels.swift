@@ -210,7 +210,7 @@ enum StoryGrouping {
 
 @Observable
 final class StoryProgressEngine {
-    let durations: [TimeInterval]
+    private(set) var durations: [TimeInterval]
     private(set) var index = 0
     private(set) var progress: Double = 0
     private(set) var isPaused = false
@@ -265,6 +265,18 @@ final class StoryProgressEngine {
     func reset(to newIndex: Int = 0) {
         index = min(max(newIndex, 0), durations.count - 1)
         progress = 0
+    }
+
+    /// The group gained or lost items while the viewer is open (e.g. hydration after the
+    /// viewer opened on a partial group). Keep the current item and its progress when it
+    /// still exists, otherwise clamp; the segment bar then matches the real item count.
+    func resize(count: Int, duration: TimeInterval = 5, keepingIndex newIndex: Int? = nil) {
+        let count = max(count, 1)
+        guard count != durations.count || (newIndex != nil && newIndex != index) else { return }
+        let keepsProgress = newIndex == nil || newIndex == index
+        durations = Array(repeating: max(duration, 0.5), count: count)
+        index = min(max(newIndex ?? index, 0), count - 1)
+        if !keepsProgress { progress = 0 }
     }
 }
 

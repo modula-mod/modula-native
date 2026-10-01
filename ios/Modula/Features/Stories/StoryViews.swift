@@ -265,6 +265,12 @@ struct StoryViewer: View {
             if event == .advanced { HapticEngine.shared.play(.selection) }
             if event == .finished { app.navigation.close() }
         }
+        .onChange(of: group.items.map(\.id)) { _, ids in
+            // Hydration can grow the group after the viewer opened; keep the bar in sync
+            // and stay on the item being watched.
+            let current = currentItem?.id ?? initialID
+            engine.resize(count: ids.count, keepingIndex: ids.firstIndex(of: current))
+        }
         .onChange(of: scenePhase) { _, phase in
             engine.isAppActive = phase == .active
             if phase != .active { engine.pause() } else if !holding { engine.resume() }
