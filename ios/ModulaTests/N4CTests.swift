@@ -973,3 +973,18 @@ final class ProductHubInstalledStateTests: XCTestCase {
         XCTAssertTrue(store.installedIDs.isEmpty, "Signed out must not show another account's modules as installed")
     }
 }
+
+final class ModuleHostAvailabilityTests: XCTestCase {
+    private func manifest(_ id: String, runtime: String = "react-native", bridge: String = "0.1.0") throws -> ModuleManifest {
+        let json = #"{"id":"\#(id)","name":"Vault Notes","version":"1.0.0","runtime":"\#(runtime)","entry":"vault","permissions":[],"minHostVersion":"0.1.0","minBridgeVersion":"\#(bridge)"}"#
+        return try JSONDecoder().decode(ModuleManifest.self, from: Data(json.utf8))
+    }
+
+    func testUnavailableModulesExplainWhyInsteadOfABareState() throws {
+        let manifests = [try manifest("vault"), try manifest("future", bridge: "0.9.0"), try manifest("expo", runtime: "expo")]
+        XCTAssertNil(ModuleRuntimeController.unavailableReason(for: "vault", in: manifests))
+        XCTAssertEqual(ModuleRuntimeController.unavailableReason(for: "missing", in: manifests), "This module isn’t included in this version of Modula.")
+        XCTAssertEqual(ModuleRuntimeController.unavailableReason(for: "future", in: manifests), "Vault Notes needs a newer version of Modula. Update the app to open it.")
+        XCTAssertEqual(ModuleRuntimeController.unavailableReason(for: "expo", in: manifests), "Vault Notes uses a runtime this app doesn’t support.")
+    }
+}
