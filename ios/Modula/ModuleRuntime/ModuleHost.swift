@@ -20,6 +20,8 @@ struct ModuleHost: View {
                           moduleBranding: app.appearance.moduleBranding.rawValue, reduceMotion: reduceMotion,
                           textScale: textScale * app.appearance.textSize.scale)
     }
+    private var palette: ModulaPalette { ModulaPalette.resolve(app.appearance, scheme: scheme) }
+
     var body: some View {
         VStack(spacing: 0) {
             if let session {
@@ -33,9 +35,18 @@ struct ModuleHost: View {
                         Button("Close") { app.navigation.close() }
                     }
                     .accessibilityIdentifier("module.host.failed")
+                } else if !session.isValid {
+                    stateView(
+                        title: "Session ended",
+                        symbol: "clock.arrow.circlepath",
+                        message: "\(session.manifest.name) was closed for your security. Reopen it to continue.",
+                        retryTitle: "Reopen",
+                        showsProductHub: false
+                    )
                 } else {
                     ReactNativeContainer(session: session, runtime: app.runtime)
                         .id(session.id)
+                        .background(palette.canvas)
                         .overlay {
                             if session.state == .loadingModule || session.state == .startingRuntime {
                                 ModuleOpeningOverlay(name: session.manifest.name, accent: app.appearance.accent.color, reduceMotion: reduceMotion)
@@ -55,6 +66,7 @@ struct ModuleHost: View {
                 .accessibilityIdentifier("module.host.unavailable")
             }
         }
+        .background(palette.canvas.ignoresSafeArea())
         .modulaSoftScrollEdge()
         .navigationTitle(session?.manifest.name ?? "Module")
         .navigationBarTitleDisplayMode(.inline)
@@ -75,6 +87,43 @@ struct ModuleHost: View {
         .onChange(of: appearance) { _, value in if let session { app.runtime.update(value, session: session) } }
         .onDisappear { if let session { app.runtime.unmount(session) } }
     }
+    private func loadingCover(name: String) -> some View {
+        ZStack {
+            palette.canvas
+            VStack(spacing: ModulaSpacing.sm) {
+                ProgressView()
+                Text("Opening \(name)…")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Opening \(name)")
+        .accessibilityAddTraits(.updatesFrequently)
+    }
+
+    private func stateView(title: String, symbol: String, message: String, retryTitle: String = "Retry", showsProductHub: Bool) -> some View {
+        ContentUnavailableView {
+            Label(title, systemImage: symbol)
+        } description: {
+            Text(message)
+        } actions: {
+            Button(retryTitle) { retry() }
+                .buttonStyle(.borderedProminent)
+                .tint(app.appearance.accent.color)
+                .frame(minHeight: ModulaLayout.minimumTouch)
+            if showsProductHub {
+                Button("View in Product Hub") {
+                    app.navigation.push(.productHub(.module(moduleID, .overview)))
+                }
+                .frame(minHeight: ModulaLayout.minimumTouch)
+            }
+            Button("Close") { app.navigation.close() }
+                .frame(minHeight: ModulaLayout.minimumTouch)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
     private func retry() {
         if let session { app.runtime.unmount(session) }
         session = app.runtime.prepare(moduleID: moduleID, environment: appearance, initialLocalPath: initialLocalPath)

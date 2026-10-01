@@ -52,7 +52,7 @@ struct HelpSettingsHost: View {
         case .contact:
             SettingsDesignedUnavailableCanvas(
                 title: "Contact",
-                subtitle: "Support channels when verified.",
+                subtitle: "Ways to get help.",
                 symbol: "envelope",
                 tiles: [
                     ("Email", "Write in", "envelope"),
@@ -187,7 +187,7 @@ struct FocusSettingsHost: View {
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Focus", subtitle: "How Modula behaves when iOS Focus is on.", symbol: "moon.stars")
                 FocusAdaptationGraphic(dimActivity: dimActivity, hideBadges: hideBadges, allowMentions: allowMentions)
-                Form {
+                SettingsToggleCard {
                     Toggle("Hide tab badges during Focus", isOn: $hideBadges)
                         .settingsAnchor("focus.hideBadges")
                     Toggle("Dim Activity list", isOn: $dimActivity)
@@ -195,8 +195,6 @@ struct FocusSettingsHost: View {
                     Toggle("Still allow @mentions", isOn: $allowMentions)
                         .settingsAnchor("focus.mentions")
                 }
-                .scrollDisabled(true)
-                .frame(minHeight: 160)
                 SettingsAPIFootnote(text: "Local Focus adaptations. iOS Focus configuration stays in system Settings — this does not duplicate Quiet Hours delivery.")
             }
             .navigationTitle("Focus")
@@ -225,7 +223,7 @@ struct PasskeysSettingsHost: View {
                 ],
                 previewRows: [
                     ("This iPhone", "Platform authenticator", "iphone"),
-                    ("Remove passkey", "Revoke on Greenfield", "trash")
+                    ("Remove passkey", "Stop using a passkey", "trash")
                 ],
                 apiNote: "Passkey registration/assertion endpoints are not verified in this native client. UI is design-only."
             )
@@ -247,17 +245,19 @@ struct TranslateSettingsHost: View {
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Translate", subtitle: "On-device translation hints for posts.", symbol: "character.book.closed")
                 SettingsSceneGraphic(style: .ribbon)
-                Form {
+                SettingsToggleCard {
                     Toggle("Auto-detect language", isOn: $autoDetect)
                     Toggle("Show Translate on posts", isOn: $showButton)
-                    Picker("Target language", selection: $target) {
-                        Text("System").tag("system")
-                        Text("English").tag("en")
-                        Text("Keep original").tag("original")
+                    LabeledContent("Target language") {
+                        Picker("Target language", selection: $target) {
+                            Text("System").tag("system")
+                            Text("English").tag("en")
+                            Text("Keep original").tag("original")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
                     }
                 }
-                .scrollDisabled(true)
-                .frame(minHeight: 180)
                 SettingsAPIFootnote(text: "Prefs are local. Does not invent a translation API or claim Apple Translate integration until wired.")
             }
             .navigationTitle("Translate")
@@ -349,20 +349,26 @@ struct TimeUnitsSettingsHost: View {
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Time & Units", subtitle: "Clocks and measurement on this device.", symbol: "clock")
                 SettingsSceneGraphic(style: .orbit)
-                Form {
+                SettingsToggleCard {
                     Toggle("24-hour time", isOn: $use24h)
                     Toggle("Relative timestamps", isOn: $relative)
-                    Picker("Distance", selection: $distance) {
-                        Text("Metric").tag("metric")
-                        Text("Imperial").tag("imperial")
+                    LabeledContent("Distance") {
+                        Picker("Distance", selection: $distance) {
+                            Text("Metric").tag("metric")
+                            Text("Imperial").tag("imperial")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
                     }
-                    Picker("Temperature", selection: $temperature) {
-                        Text("Celsius").tag("c")
-                        Text("Fahrenheit").tag("f")
+                    LabeledContent("Temperature") {
+                        Picker("Temperature", selection: $temperature) {
+                            Text("Celsius").tag("c")
+                            Text("Fahrenheit").tag("f")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
                     }
                 }
-                .scrollDisabled(true)
-                .frame(minHeight: 240)
                 SettingsAPIFootnote(text: "Device-local formatting prefs. Does not change Appearance typography or system Region.")
             }
             .navigationTitle("Time & Units")
@@ -385,13 +391,11 @@ struct KeyboardSettingsHost: View {
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Keyboard", subtitle: "Typing shortcuts inside Modula.", symbol: "keyboard")
                 SettingsSceneGraphic(style: .pulse)
-                Form {
+                SettingsToggleCard {
                     Toggle("Swipe between composer tools", isOn: $swipe)
                     Toggle("Double-space for period", isOn: $periodShortcut)
                     Toggle("Caps Lock mapping", isOn: $capsLock)
                 }
-                .scrollDisabled(true)
-                .frame(minHeight: 160)
                 SettingsAPIFootnote(text: "Local composer behaviour. System keyboards remain in iOS Settings.")
             }
             .navigationTitle("Keyboard")

@@ -65,10 +65,10 @@ struct FirstRunView: View {
                 .padding(14)
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .accessibilityIdentifier("firstrun.username")
-            Text("Username is assigned by Greenfield at registration. Changing it is unavailable until that contract is verified.")
+            Text("Your username was set when you signed up and can’t be changed yet.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            Text("Profile photo upload uses the Profile editor after setup. First-run does not invent a media pipeline.")
+            Text("You can add a profile photo from your profile after setup.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }

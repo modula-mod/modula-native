@@ -52,6 +52,17 @@ final class NavigationCoordinator {
         }
         paths[selectedTab, default: []].append(route)
     }
+    /// Routes requested by a running module. Detail destinations (profile,
+    /// post) are pushed on the current stack so Back returns to the module
+    /// instead of replacing another tab's root (which also tore the module
+    /// down). Top-level destinations keep the regular `open` behaviour.
+    func openFromModule(_ route: AppRoute) {
+        switch route {
+        case .profile, .post: push(route)
+        default: open(route)
+        }
+    }
+
     func replaceContext(with route: AppRoute) {
         guard let tab = route.tab else { return }
         selectedTab = tab

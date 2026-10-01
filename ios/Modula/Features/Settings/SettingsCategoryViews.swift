@@ -194,7 +194,7 @@ struct NotificationSettingsHost: View {
                     ("Digest", "Daily summary", "calendar")
                 ],
                 apiNote: SettingsRegistry.destination(for: .notifications(.social))?.unavailableReason
-                    ?? "Preference contract unverified."
+                    ?? "This setting isn’t available yet."
             )
         case .modules:
             SettingsDesignedUnavailableCanvas(
@@ -212,7 +212,7 @@ struct NotificationSettingsHost: View {
                     ("Quiet", "Collapse into digest", "moon")
                 ],
                 apiNote: SettingsRegistry.destination(for: .notifications(.modules))?.unavailableReason
-                    ?? "No verified module-notification preference contract."
+                    ?? "Module notification settings aren’t available yet."
             )
         case .quietHours:
             SettingsDesignedUnavailableCanvas(
@@ -330,8 +330,8 @@ struct PrivacySecurityHost: View {
             .accessibilityIdentifier("settings.privacy-security")
         case .privacy:
             Form {
-                Text("Profile visibility is enforced by Greenfield. Native never shows email or phone on Profile.")
-                Text("Account privacy controls that lack a verified persistence contract are omitted rather than faked.")
+                Text("Your email and phone number are never shown on your profile.")
+                Text("More privacy controls are coming soon.")
                     .foregroundStyle(.secondary)
             }
             .modulaSoftScrollEdge()
@@ -379,7 +379,7 @@ struct PrivacySecurityHost: View {
                     ("Unblock", "Restore access", "arrow.uturn.backward")
                 ],
                 apiNote: SettingsRegistry.destination(for: .privacy(.blocked))?.unavailableReason
-                    ?? "Verified block-list endpoint not available in native DTOs this run."
+                    ?? "Your blocked accounts list isn’t available yet."
             )
         case .appLock:
             AppLockSettingsView()
@@ -446,7 +446,7 @@ struct AppLockSettingsView: View {
                     confirmSignOutReset = true
                 }
             } footer: {
-                Text("Greenfield has no verified re-auth reset for a local App Lock PIN this run. Signing out clears the local lock. Unsynced drafts on this device are kept unless you discard them.")
+                Text("Forgot your passcode? Sign out to remove App Lock from this device, then sign back in. Drafts on this device are kept unless you discard them.")
             }
         }
         .modulaSoftScrollEdge()
@@ -875,7 +875,7 @@ struct UpdateSettingsHost: View {
                 Text("Unstable channels are meaningful for internal and TestFlight builds only.")
                     .foregroundStyle(.secondary)
             case .versionLock:
-                Text("Version Lock applies to module catalogue versions Modula controls, not the App Store binary. No module auto-update policy contract is verified this run, so there is no toggle that pretends to pin the iOS app.")
+                Text("Version Lock applies to modules, not to the Modula app itself. App updates are managed by the App Store.")
                     .foregroundStyle(.secondary)
             }
         }

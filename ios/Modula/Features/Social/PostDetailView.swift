@@ -467,11 +467,11 @@ struct PostPeopleListView: View {
         case .likes:
             return app.postActions.capabilities.likesList
                 ? "People who liked this post."
-                : "Like identities aren't available from Greenfield yet."
+                : "Who liked this isn’t available yet."
         case .reactions:
             return app.postActions.capabilities.reactionsList
                 ? "People grouped by reaction."
-                : "Reaction breakdown isn't available from Greenfield yet."
+                : "A breakdown of reactions isn’t available yet."
         case .shares:
             return app.postActions.capabilities.sharesList
                 ? "People who shared this post."

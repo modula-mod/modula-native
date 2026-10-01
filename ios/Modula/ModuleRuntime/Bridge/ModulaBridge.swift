@@ -55,7 +55,7 @@ import UIKit
             guard let route = Self.route(params), let navigation else {
                 completion(Self.reply(error: "INVALID_ROUTE")); return
             }
-            navigation.open(route)
+            navigation.openFromModule(route)
         default:
             runtime.reject("UNSUPPORTED_ACTION")
             completion(Self.reply(error: "UNSUPPORTED_ACTION")); return

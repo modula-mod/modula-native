@@ -210,6 +210,7 @@ struct StoryViewer: View {
     let initialID: StoryID
     @Environment(AppEnvironment.self) private var app
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("settings.personalisation.storyAutoAdvance") private var storyAutoAdvance = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var engine: StoryProgressEngine
     @State private var holding = false
@@ -289,6 +290,7 @@ struct StoryViewer: View {
             let current = currentItem?.id ?? initialID
             engine.resize(count: ids.count, keepingIndex: ids.firstIndex(of: current))
         }
+        .onAppear { engine.autoAdvance = storyAutoAdvance }
         .onChange(of: scenePhase) { _, phase in
             engine.isAppActive = phase == .active
             if phase != .active { engine.pause() } else if !holding { engine.resume() }
@@ -311,7 +313,7 @@ struct StoryViewer: View {
     /// Never consume a story while its protected media is still loading.
     /// Videos keep explicit Previous/Next navigation until playback finishes.
     private var progressActive: Bool {
-        !engine.isPaused && engine.isAppActive && loadedItemID == currentItem?.id && currentItem?.kind != .video
+        !engine.isPaused && engine.isAppActive && !engine.isHoldingAtEnd && loadedItemID == currentItem?.id && currentItem?.kind != .video
     }
 
     private func advanceProgress(by delta: TimeInterval) {

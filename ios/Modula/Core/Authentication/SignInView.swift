@@ -400,7 +400,7 @@ struct RegisterPlaceholderView: View {
     var body: some View {
         Form {
             Section {
-                Text("Account registration uses Greenfield’s verified email flow. Complete it on a supported surface, then return here to sign in.")
+                Text("Create your account with your email address, then come back here to sign in.")
                     .font(.body)
                     .foregroundStyle(.secondary)
             }
@@ -432,7 +432,7 @@ struct ForgotPasswordView: View {
                     .autocorrectionDisabled()
                     .accessibilityIdentifier("auth.forgot.email")
             } footer: {
-                Text("If an account exists for this email, Greenfield sends reset instructions.")
+                Text("If an account exists for this email, we’ll send reset instructions.")
             }
             Section {
                 Button {

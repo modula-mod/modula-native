@@ -290,7 +290,7 @@ struct NodusChatView: View {
             ContentUnavailableView(
                 "Nodus model not installed",
                 systemImage: "brain.head.profile",
-                description: Text("A verified experimental developer bundle was not found. Chats, Knowledge, and Memory remain available.")
+                description: Text("This experimental feature isn’t installed. Chats, Knowledge and Memory are still available.")
             )
             .accessibilityIdentifier("nodus.chat.model-not-installed")
         } else if model.availability != .available && model.messages.isEmpty {

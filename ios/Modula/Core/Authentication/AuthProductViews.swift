@@ -152,7 +152,7 @@ struct VerifyEmailView: View {
     @State private var resending = false
 
     var body: some View {
-        AuthChrome(title: "Verify email", subtitle: "Enter the code or token Greenfield sent you.") {
+        AuthChrome(title: "Verify email", subtitle: "Enter the code we emailed you.") {
             VStack(alignment: .leading, spacing: 14) {
                 TextField("Verification code", text: $code)
                     .keyboardType(.numberPad)

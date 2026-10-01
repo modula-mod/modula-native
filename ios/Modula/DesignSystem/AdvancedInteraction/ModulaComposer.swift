@@ -140,6 +140,9 @@ struct ModulaComposer: View {
     var onAttachment: (() -> Void)?
     /// Optional: when set, the send button becomes a mic while the field is empty.
     var onDictate: (() -> Void)? = nil
+    /// Return sends instead of inserting a new line (Settings → Chats → Composer).
+    var returnSends = false
+    var spellCheck = true
     var onSend: () -> Void
 
     @FocusState private var focused: Bool
@@ -171,10 +174,22 @@ struct ModulaComposer: View {
                     }
                 }
                 ModulaComposerTextField(prompt: prompt, text: $text, enabled: enabled, focused: $focused)
+                    .autocorrectionDisabled(!spellCheck)
+                    .submitLabel(returnSends ? .send : .return)
                 ModulaComposerTrailingButton(canSend: state.canSend, sending: sending, onDictate: onDictate) {
                     onSend()
                     HapticEngine.shared.play(.actionConfirmed)
                 }
+            }
+        }
+        .onChange(of: text) { _, value in
+            // A vertical TextField inserts "\n" for Return (software and
+            // hardware keyboards); treat a trailing newline as Send.
+            guard returnSends, value.hasSuffix("\n") else { return }
+            text = String(value.dropLast())
+            if state.canSend {
+                onSend()
+                HapticEngine.shared.play(.actionConfirmed)
             }
         }
         .onChange(of: focused) { _, value in externalFocus?.wrappedValue = value }

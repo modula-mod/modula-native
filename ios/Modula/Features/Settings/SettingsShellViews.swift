@@ -52,7 +52,7 @@ struct PersonalisationSettingsHost: View {
                     Toggle("Suggested people", isOn: $suggestedPeople)
                     Toggle("Suggested modules", isOn: $moduleSuggestions)
                 } footer: {
-                    Text("Local display preferences. Discovery ranking APIs are not claimed here.")
+                    Text("Saved on this device. Changes what’s shown to you here.")
                 }
             }
             .modulaSoftScrollEdge()
@@ -63,7 +63,7 @@ struct PersonalisationSettingsHost: View {
                 Section {
                     Toggle("Auto-advance stories", isOn: $storyAutoAdvance)
                 } footer: {
-                    Text("Controls local Story viewer behaviour. Does not invent a Story preference endpoint.")
+                    Text("Saved on this device.")
                 }
             }
             .modulaSoftScrollEdge()
@@ -96,7 +96,7 @@ struct PersonalisationSettingsHost: View {
 struct LanguageSettingsHost: View {
     let route: LanguageSettingsRoute
     @Environment(AppEnvironment.self) private var app
-    @AppStorage("settings.language.appOverride") private var appOverride = "system"
+    @Environment(\.openURL) private var openURL
     @AppStorage("settings.language.translationHints") private var translationHints = true
 
     var body: some View {
@@ -108,20 +108,22 @@ struct LanguageSettingsHost: View {
                     subtitle: "Display language for Modula on this device.",
                     symbol: "globe"
                 )
+                // The in-app override was never applied anywhere. iOS already
+                // offers a per-app language picker, so link to it instead.
                 SettingsGroup(title: "App language") {
                     VStack(spacing: 0) {
-                        languageRow("System", "Follow iOS language", "system")
-                        SettingsDivider()
-                        languageRow("English", "English (UK)", "en-GB")
-                        SettingsDivider()
-                        languageRow("English (US)", "English (United States)", "en-US")
+                        SettingsNavigationRow(
+                            title: "App Language",
+                            subtitle: "\(currentLanguageName) · Change in iOS Settings",
+                            symbol: "globe"
+                        ) {
+                            if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                        }
                     }
                 }
-                Form {
+                SettingsToggleCard {
                     Toggle("Show translation hints", isOn: $translationHints)
                 }
-                .scrollDisabled(true)
-                .frame(minHeight: 72)
                 SettingsGroup(title: "Region") {
                     VStack(spacing: 0) {
                         SettingsNavigationRow(title: "Translate", subtitle: "Translation hints", symbol: "character.book.closed") {
@@ -141,25 +143,9 @@ struct LanguageSettingsHost: View {
         }
     }
 
-    private func languageRow(_ title: String, _ subtitle: String, _ tag: String) -> some View {
-        Button {
-            appOverride = tag
-            HapticEngine.shared.play(.selection)
-        } label: {
-            HStack(spacing: 13) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.body.weight(.medium)).foregroundStyle(.primary)
-                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
-                }
-                Spacer()
-                if appOverride == tag {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Color.accentColor)
-                }
-            }
-            .padding(.vertical, 8)
-        }
-        .buttonStyle(.plain)
+    private var currentLanguageName: String {
+        let code = Bundle.main.preferredLocalizations.first ?? Locale.current.identifier
+        return Locale.current.localizedString(forIdentifier: code) ?? code
     }
 }
 
@@ -275,13 +261,11 @@ struct FeedSettingsHost: View {
                         feedMode("Modules", "Module activity", "modules", "shippingbox")
                     }
                 }
-                Form {
+                SettingsToggleCard {
                     Toggle("Media only by default", isOn: $mediaOnly)
                     Toggle("Hide module posts by default", isOn: $hideModulePosts)
                     Toggle("Show reply threads", isOn: $showReplies)
                 }
-                .scrollDisabled(true)
-                .frame(minHeight: 160)
                 SettingsAPIFootnote(text: "Stored on device. Does not invent a feed-preferences PATCH. Home Feeds sheet can still override per session.")
             }
             .navigationTitle("Feed")
@@ -328,7 +312,7 @@ struct BatterySettingsHost: View {
                     symbol: "battery.100.bolt"
                 )
                 BatteryDataGraphic(dataSaver: dataSaver, pauseAutoplay: pauseAutoplay)
-                Form {
+                SettingsToggleCard {
                     Toggle("Data saver", isOn: $dataSaver)
                         .settingsAnchor("battery.dataSaver")
                     Toggle("Pause autoplay in Low Power Mode", isOn: $pauseAutoplay)
@@ -336,8 +320,6 @@ struct BatterySettingsHost: View {
                     Toggle("Extra motion reduction", isOn: $reduceMotionExtra)
                         .settingsAnchor("battery.motion")
                 }
-                .scrollDisabled(true)
-                .frame(minHeight: 160)
                 SettingsAPIFootnote(text: "Local heuristics only. iOS Low Power Mode remains the system authority; Modula does not override Focus or cellular settings.")
             }
             .navigationTitle("Battery & Data")
@@ -399,7 +381,7 @@ struct SafetySettingsHost: View {
         case .muted:
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Muted", subtitle: "Quiet words and accounts on this device.", symbol: "speaker.slash")
-                ContentUnavailableView("Nothing muted yet", systemImage: "speaker.slash", description: Text("Muted lists will appear here when persistence is verified."))
+                ContentUnavailableView("Nothing muted yet", systemImage: "speaker.slash", description: Text("Accounts you mute will appear here."))
                     .frame(minHeight: 160)
                 SettingsAPIFootnote(text: "No verified mute-list settings contract is wired for this screen.")
             }
@@ -408,12 +390,10 @@ struct SafetySettingsHost: View {
         case .sensitive:
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Sensitive content", subtitle: "Warnings before opening media.", symbol: "eye.trianglebadge.exclamationmark")
-                Form {
+                SettingsToggleCard {
                     Toggle("Warn before sensitive media", isOn: .constant(true))
                         .disabled(true)
                 }
-                .scrollDisabled(true)
-                .frame(minHeight: 72)
                 SettingsAPIFootnote(text: "Toggle is illustrative until a verified sensitive-media preference exists. Left disabled so it cannot fake server state.")
             }
             .navigationTitle("Sensitive content")
@@ -444,7 +424,7 @@ struct ConnectorsSettingsHost: View {
                 ("GitHub", "Developer links", "chevron.left.forwardslash.chevron.right")
             ],
             apiNote: SettingsRegistry.destination(for: .connectors(.root))?.unavailableReason
-                ?? "No verified Greenfield OAuth connector contract is wired in this native client."
+                ?? "Connected apps aren’t available yet."
         )
         .navigationTitle("Connectors")
     }
@@ -470,7 +450,7 @@ struct IntegrationsSettingsHost: View {
                 ("Developer", "API keys", "key")
             ],
             apiNote: SettingsRegistry.destination(for: .integrations(.root))?.unavailableReason
-                ?? "No verified integration catalog is present."
+                ?? "Integrations aren’t available yet."
         )
         .navigationTitle("Integrations")
     }
@@ -510,7 +490,7 @@ struct MonetisationSettingsHost: View {
                     }
                 }
                 SettingsAPIFootnote(text: SettingsRegistry.destination(for: .monetisation(.root))?.unavailableReason
-                    ?? "No verified billing contract. Native will not invent prices.")
+                    ?? "Plans and pricing aren’t available yet.")
             }
             .navigationTitle("Monetisation")
             .navigationBarTitleDisplayMode(.inline)
@@ -555,7 +535,7 @@ struct MonetisationSettingsHost: View {
         case .invoices:
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Invoices", subtitle: "Billing history.", symbol: "doc.richtext")
-                ContentUnavailableView("No invoices", systemImage: "doc", description: Text("History appears when StoreKit / Greenfield billing is verified."))
+                ContentUnavailableView("No invoices", systemImage: "doc", description: Text("Your invoices will appear here."))
                     .frame(minHeight: 160)
                 SettingsAPIFootnote(text: "Invoice list is empty on purpose — no sample rows.")
             }
@@ -627,7 +607,7 @@ struct ChatsSettingsHost: View {
                 Section {
                     Toggle("Show read receipts (display)", isOn: $readReceiptsDisplay)
                 } footer: {
-                    Text("Display preference only. Sending/hiding receipts requires a verified messaging privacy contract.")
+                    Text("Only changes what you see. It doesn’t change what others see.")
                 }
             }
             .modulaSoftScrollEdge()

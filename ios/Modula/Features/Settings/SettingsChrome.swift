@@ -76,10 +76,21 @@ private struct SettingsHeroSparkles: View {
 }
 
 /// Honest capability footnote shown under designed UI when Greenfield is unverified.
+/// Implementation notes for developers (API status, backend names, "this
+/// run" etc.). They read as internal jargon to people, so they are only
+/// rendered in DEBUG builds.
 struct SettingsAPIFootnote: View {
     var text: String
 
     var body: some View {
+        #if DEBUG
+        footnote
+        #else
+        EmptyView()
+        #endif
+    }
+
+    private var footnote: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "info.circle")
                 .foregroundStyle(.secondary)
@@ -90,7 +101,7 @@ struct SettingsAPIFootnote: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous))
         .accessibilityIdentifier("settings.api.footnote")
     }
 }
@@ -180,7 +191,7 @@ struct SettingsDesignedUnavailableCanvas: View {
                     }
                 }
 
-                SettingsGroup(title: "Coming surface", subtitle: "Designed UI — actions stay inactive until a verified contract exists.") {
+                SettingsGroup(title: "Coming surface", subtitle: "Coming soon. These options aren’t active yet.") {
                     VStack(spacing: 0) {
                         ForEach(Array(previewRows.enumerated()), id: \.offset) { index, row in
                             SettingsPreviewRow(
@@ -211,6 +222,7 @@ struct SettingsDesignedUnavailableCanvas: View {
 struct SettingsScrollCanvas<Content: View>: View {
     @ViewBuilder var content: Content
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -233,7 +245,7 @@ struct SettingsScrollCanvas<Content: View>: View {
 
     private func scroll(to anchor: String?, proxy: ScrollViewProxy) {
         guard let anchor else { return }
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+        withAnimation(ModulaMotion.animation(.navigation, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
             proxy.scrollTo(anchor, anchor: .center)
         }
     }

@@ -538,6 +538,8 @@ struct MessageComposer: View {
     var showsAttachments: Bool
     var largeText: Bool
     var onSend: () -> Void
+    @AppStorage("settings.chats.enterToSend") private var enterToSend = false
+    @AppStorage("settings.chats.spellCheck") private var spellCheck = true
 
     var body: some View {
         ModulaComposer(
@@ -545,6 +547,8 @@ struct MessageComposer: View {
             prompt: "Add a message...",
             enabled: canSend,
             showsAttachmentButton: showsAttachments,
+            returnSends: enterToSend,
+            spellCheck: spellCheck,
             onSend: onSend
         )
         .padding(.horizontal, ModulaLayout.contentInset)

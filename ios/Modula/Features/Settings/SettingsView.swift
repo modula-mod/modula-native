@@ -16,6 +16,25 @@ struct SettingsGroup<Content: View>: View {
     }
 }
 
+/// Card of toggle / picker rows. Replaces `Form {}.scrollDisabled(true)
+/// .frame(minHeight:)` nested inside a ScrollView, which clipped rows at
+/// large text sizes and drew a second grouped background.
+struct SettingsToggleCard<Content: View>: View {
+    @ViewBuilder var content: Content
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        ModulaCard {
+            VStack(alignment: .leading, spacing: ModulaSpacing.xxs) {
+                content
+                    .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch, alignment: .leading)
+            }
+        }
+        .toggleStyle(.switch)
+        .tint(app.appearance.accent.color)
+    }
+}
+
 struct SettingsDivider: View {
     var body: some View { Divider().padding(.leading, 43) }
 }
@@ -691,7 +710,7 @@ struct AppearanceSettingsView: View {
                         }
                     }
                 }
-                Text("Appearance preferences are stored on this device. Account synchronization is future-capable but is not claimed in N2.")
+                Text("Appearance preferences are saved on this device.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

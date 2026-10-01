@@ -24,7 +24,7 @@ struct ProfileEditView: View {
                 modulesSection
                 presentationSection
 
-                Text("Pronouns, location, website, links, headline, and profile accent stay capability-gated when Greenfield does not persist them.")
+                Text("Some fields, like pronouns, location and links, aren’t available to edit yet.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -150,7 +150,7 @@ struct ProfileEditView: View {
                     .accessibilityIdentifier("profile.edit.headline")
             }
             if !app.profile.customization.headlineWritable {
-                Text("Headline is stored when Greenfield provides it. Editing waits on a write contract.")
+                Text("Editing your headline isn’t available yet.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
