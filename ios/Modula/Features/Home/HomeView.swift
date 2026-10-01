@@ -250,6 +250,23 @@ struct HomeView: View {
                         .padding(.vertical, 12)
                         .accessibilityIdentifier("home.loading-more")
                 }
+                if state.loadState == .loaded, let message = state.loadMoreError {
+                    VStack(spacing: 8) {
+                        Text(message)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        Button("Retry") {
+                            HapticEngine.shared.play(.selection)
+                            Task { await app.home.loadMore(mode) }
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityLabel("Retry loading more posts")
+                        .accessibilityIdentifier("home.load-more-retry")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                }
             }
         }
     }

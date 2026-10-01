@@ -24,6 +24,9 @@ struct HomeModeState: Equatable {
     var rankingVersion: String?
     var scrollAnchor: String?
     var newerAvailable = false
+    /// Set when the next page failed. The list end stays visible so the user can retry —
+    /// the row `onAppear` that normally pages won't fire again for rows already on screen.
+    var loadMoreError: String?
 }
 
 extension HomeMode {

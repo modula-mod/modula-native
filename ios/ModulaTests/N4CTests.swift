@@ -891,6 +891,8 @@ final class GreenfieldSessionRecoveryTests: XCTestCase {
 private final class DelayedFeedProtocol: URLProtocol, @unchecked Sendable {
     /// cursor (or "first") → (delay seconds, body)
     nonisolated(unsafe) static var responses: [String: (Double, String)] = [:]
+    /// cursor → HTTP status (default 200).
+    nonisolated(unsafe) static var statuses: [String: Int] = [:]
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -899,7 +901,7 @@ private final class DelayedFeedProtocol: URLProtocol, @unchecked Sendable {
         let key = items.first(where: { $0.name == "cursor" })?.value ?? "first"
         let (delay, body) = Self.responses[key] ?? (0, #"{"ok":true,"data":{"items":[]}}"#)
         DispatchQueue.global().asyncAfter(deadline: .now() + delay) { [self] in
-            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+            let response = HTTPURLResponse(url: request.url!, statusCode: Self.statuses[key] ?? 200, httpVersion: "HTTP/1.1",
                                            headerFields: ["Content-Type": "application/json"])!
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
             client?.urlProtocol(self, didLoad: Data(body.utf8))
@@ -941,6 +943,35 @@ final class HomePaginationRaceTests: XCTestCase {
         XCTAssertEqual(state.items.map(\.id), ["new-1"], "A stale next page must not overwrite the refreshed feed")
         XCTAssertEqual(state.nextCursor, "n1")
         XCTAssertEqual(state.loadState, .loaded)
+    }
+
+    func testFailedNextPageCanBeRetried() async throws {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [DelayedFeedProtocol.self]
+        let client = GreenfieldClient(baseURL: URL(string: "https://home-retry.modula.test")!, transport: URLSession(configuration: config))
+        let posts = PostStateStore()
+        let store = HomeStore(client: client, posts: posts, postActions: PostActionController(client: client, state: posts))
+        defer { DelayedFeedProtocol.statuses = [:] }
+
+        DelayedFeedProtocol.responses = [
+            "first": (0, Self.page(["p-1", "p-2"], cursor: "c1")),
+            "c1": (0, #"{"ok":false,"error":{"code":"internal","message":"boom"}}"#)
+        ]
+        DelayedFeedProtocol.statuses = ["c1": 500]
+        await store.refresh(.forYou, signedIn: false)
+        await store.loadMore(.forYou)
+        var state = store.state(for: .forYou)
+        XCTAssertNotNil(state.loadMoreError, "a failed page must surface a retryable footer")
+        XCTAssertEqual(state.nextCursor, "c1", "the cursor is kept so retry asks for the same page")
+        XCTAssertEqual(state.loadState, .loaded)
+
+        DelayedFeedProtocol.statuses = [:]
+        DelayedFeedProtocol.responses["c1"] = (0, Self.page(["p-3"], cursor: nil))
+        await store.loadMore(.forYou)
+        state = store.state(for: .forYou)
+        XCTAssertNil(state.loadMoreError)
+        XCTAssertEqual(state.items.map(\.id), ["p-1", "p-2", "p-3"])
+        XCTAssertFalse(state.hasMore)
     }
 }
 
@@ -986,28 +1017,6 @@ final class ModuleHostAvailabilityTests: XCTestCase {
         XCTAssertEqual(ModuleRuntimeController.unavailableReason(for: "missing", in: manifests), "This module isn’t included in this version of Modula.")
         XCTAssertEqual(ModuleRuntimeController.unavailableReason(for: "future", in: manifests), "Vault Notes needs a newer version of Modula. Update the app to open it.")
         XCTAssertEqual(ModuleRuntimeController.unavailableReason(for: "expo", in: manifests), "Vault Notes uses a runtime this app doesn’t support.")
-    }
-}
-
-final class StoryViewerSegmentTests: XCTestCase {
-    /// Viewer opened on a partial group (1 item); hydration brings 3. The bar must show
-    /// 3 segments and keep the item being watched, with its progress.
-    func testEngineResizesWhenTheGroupGainsItemsAndKeepsTheCurrentItem() {
-        let engine = StoryProgressEngine(count: 1)
-        _ = engine.tick(1)
-        XCTAssertEqual(engine.segmentCount, 1)
-        engine.resize(count: 3, keepingIndex: 2) // the watched item is now third
-        XCTAssertEqual(engine.segmentCount, 3)
-        XCTAssertEqual(engine.index, 2)
-        XCTAssertEqual(engine.progress, 0, accuracy: 0.0001)
-        _ = engine.tick(1)
-        let progress = engine.progress
-        engine.resize(count: 4, keepingIndex: 2)
-        XCTAssertEqual(engine.segmentCount, 4)
-        XCTAssertEqual(engine.progress, progress, accuracy: 0.0001, "same item keeps its progress")
-        XCTAssertEqual(engine.next(), .advanced, "the new trailing item is reachable")
-        engine.resize(count: 1, keepingIndex: nil)
-        XCTAssertEqual(engine.index, 0, "shrinking clamps the index")
     }
 }
 

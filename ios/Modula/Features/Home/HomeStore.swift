@@ -77,6 +77,7 @@ final class HomeStore {
         let hasContent = !state.items.isEmpty
         state.loadState = hasContent ? .refreshing : .loading
         state.lastError = nil
+        state.loadMoreError = nil
         state.newerAvailable = false
         modes[mode] = state
         do {
@@ -151,6 +152,7 @@ final class HomeStore {
         guard state.hasMore || state.nextCursor != nil else { return }
         guard let cursor = state.nextCursor, state.loadState == .loaded else { return }
         state.loadState = .loadingMore
+        state.loadMoreError = nil
         modes[mode] = state
         let generation = generations[mode, default: 0]
         do {
@@ -170,8 +172,8 @@ final class HomeStore {
             guard generation == generations[mode, default: 0] else { return }
             state = self.state(for: mode)
             state.loadState = .loaded
+            state.loadMoreError = (error as? APIError)?.userFacingMessage ?? "Could not load more."
             modes[mode] = state
-            actionError = (error as? APIError)?.userFacingMessage ?? "Could not load more."
         }
     }
 
