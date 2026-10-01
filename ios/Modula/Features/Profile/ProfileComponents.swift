@@ -260,7 +260,7 @@ struct ProfileAvatarPocket: View {
                 HapticEngine.shared.play(.lightImpact)
             } label: {
                 ZStack {
-                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: avatarSize)
+                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: avatarSize, name: profile.displayName)
                         .overlay(
                             Circle()
                                 .strokeBorder(canvas, lineWidth: ring)
@@ -743,8 +743,16 @@ struct ProfilePeopleRow: View {
                 Button(action: onFollow) {
                     Text(person.followState.title)
                         .font(.caption.weight(.semibold))
+                        .opacity(followBusy ? 0 : 1)
+                        .overlay {
+                            if followBusy {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .tint(person.isFollowing ? Color.secondary : Color.white)
+                            }
+                        }
                         .padding(.horizontal, 12)
-                        .frame(minHeight: 44)
+                        .frame(minHeight: ModulaLayout.minimumTouch)
                         .foregroundStyle(person.isFollowing ? Color.secondary : Color.white)
                         .background(
                             Capsule().fill(person.isFollowing ? Color.primary.opacity(0.08) : app.appearance.accent.color)
@@ -752,7 +760,8 @@ struct ProfilePeopleRow: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(followBusy)
-                .accessibilityLabel(person.followState.title)
+                .accessibilityLabel("\(person.followState.title), \(person.displayName)")
+                .accessibilityValue(followBusy ? "Updating" : "")
                 .accessibilityIdentifier("profile.follow.\(person.routeID)")
             }
         }

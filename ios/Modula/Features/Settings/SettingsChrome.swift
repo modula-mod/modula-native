@@ -76,10 +76,16 @@ private struct SettingsHeroSparkles: View {
 }
 
 /// Honest capability footnote shown under designed UI when Greenfield is unverified.
+/// Honest capability footnote ("saved on this device", "not available
+/// yet"). Copy must be plain language — no backend names or internal terms.
 struct SettingsAPIFootnote: View {
     var text: String
 
     var body: some View {
+        footnote
+    }
+
+    private var footnote: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "info.circle")
                 .foregroundStyle(.secondary)
@@ -90,7 +96,7 @@ struct SettingsAPIFootnote: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous))
         .accessibilityIdentifier("settings.api.footnote")
     }
 }
@@ -133,7 +139,7 @@ struct SettingsPreviewRow: View {
         HStack(spacing: 13) {
             Image(systemName: symbol)
                 .frame(width: 28)
-                .foregroundStyle(enabled ? Color.accentColor : Color.secondary)
+                .foregroundStyle(enabled ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.secondary))
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.body.weight(.medium))
                 Text(subtitle).font(.caption).foregroundStyle(.secondary)
@@ -180,7 +186,7 @@ struct SettingsDesignedUnavailableCanvas: View {
                     }
                 }
 
-                SettingsGroup(title: "Coming surface", subtitle: "Designed UI — actions stay inactive until a verified contract exists.") {
+                SettingsGroup(title: "Coming surface", subtitle: "Coming soon. These options aren’t active yet.") {
                     VStack(spacing: 0) {
                         ForEach(Array(previewRows.enumerated()), id: \.offset) { index, row in
                             SettingsPreviewRow(
@@ -211,6 +217,7 @@ struct SettingsDesignedUnavailableCanvas: View {
 struct SettingsScrollCanvas<Content: View>: View {
     @ViewBuilder var content: Content
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -233,7 +240,7 @@ struct SettingsScrollCanvas<Content: View>: View {
 
     private func scroll(to anchor: String?, proxy: ScrollViewProxy) {
         guard let anchor else { return }
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+        withAnimation(ModulaMotion.animation(.navigation, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
             proxy.scrollTo(anchor, anchor: .center)
         }
     }
@@ -572,4 +579,25 @@ struct SettingsBadgesGraphic: View {
             }
         }
     }
+}
+
+
+/// Human-readable label for a raw enum value ("reduceMotion" -> "Reduce
+/// Motion", "oled" -> "OLED") instead of `rawValue.capitalized`.
+func settingsDisplayTitle(_ raw: String) -> String {
+    let special: [String: String] = ["oled": "OLED", "ui": "UI", "ai": "AI", "id": "ID"]
+    if let match = special[raw.lowercased()] { return match }
+    var words: [String] = []
+    var current = ""
+    for character in raw {
+        if character == "_" || character == "-" || character == " " {
+            if !current.isEmpty { words.append(current); current = "" }
+        } else if character.isUppercase, !current.isEmpty {
+            words.append(current); current = String(character)
+        } else {
+            current.append(character)
+        }
+    }
+    if !current.isEmpty { words.append(current) }
+    return words.map { special[$0.lowercased()] ?? ($0.prefix(1).uppercased() + $0.dropFirst()) }.joined(separator: " ")
 }

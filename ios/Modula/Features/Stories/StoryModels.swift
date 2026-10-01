@@ -215,6 +215,12 @@ final class StoryProgressEngine {
     private(set) var progress: Double = 0
     private(set) var isPaused = false
     var isAppActive = true
+    /// Settings → Personalisation → Stories → "Auto-advance stories".
+    /// When off, a finished segment holds on its last frame until the
+    /// viewer taps Next.
+    var autoAdvance = true
+
+    var isHoldingAtEnd: Bool { !autoAdvance && progress >= 1 }
 
     init(count: Int, duration: TimeInterval = 5) {
         self.durations = Array(repeating: max(duration, 0.5), count: max(count, 1))
@@ -231,6 +237,10 @@ final class StoryProgressEngine {
         let duration = durations[index]
         progress += delta / duration
         if progress >= 1 {
+            guard autoAdvance else {
+                progress = 1
+                return .none
+            }
             progress = 0
             if index + 1 < durations.count {
                 index += 1

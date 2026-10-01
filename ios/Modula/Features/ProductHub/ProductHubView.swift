@@ -558,7 +558,7 @@ struct ProductHubView: View {
             }
             ProductShelf(
                 title: query.isEmpty ? "From Modula" : "Results",
-                subtitle: query.isEmpty ? "Products returned by Greenfield" : nil,
+                subtitle: query.isEmpty ? "Available modules" : nil,
                 products: visible,
                 installedIDs: app.catalogue.installedIDs,
                 action: open
@@ -622,7 +622,7 @@ struct ModuleDetailView: View {
             } else if app.catalogue.loading {
                 ModulaLoadingState(title: "Loading module…")
             } else {
-                ModulaErrorState(message: "Greenfield has no catalogue record for this module.") {
+                ModulaErrorState(message: "This module couldn’t be found.") {
                     Task { await app.catalogue.load() }
                 }
             }
@@ -632,7 +632,7 @@ struct ModuleDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
-                ShareLink(item: URL(string: "https://modula.digital/module/\(moduleID)")!) {
+                ShareLink(item: ModulaShareLink.module(moduleID)) {
                     Image(systemName: "square.and.arrow.up")
                 }
                 Menu {
@@ -668,17 +668,17 @@ struct ModuleDetailView: View {
                     }
                 }
             case .permissions:
-                truthCard("Permissions", "Greenfield exposes no product-level permission declaration in the current catalogue response. No permissions are being inferred from the native launcher manifest.", "hand.raised")
+                truthCard("Permissions", "This module hasn’t listed any permissions.", "hand.raised")
             case .privacy:
-                truthCard("Privacy", "A product privacy disclosure is not present in the current catalogue response.", "lock.shield")
+                truthCard("Privacy", "The publisher hasn’t provided privacy details yet.", "lock.shield")
             case .compatibility:
                 truthCard("Compatibility", product.platforms.isEmpty ? "No platform compatibility is declared." : "Declared platforms: \(product.platforms.joined(separator: ", ")).", "checkmark.seal")
             case .whatsNew, .versionHistory:
-                truthCard("Release information", product.latestVersion.map { "Latest catalogue version: \($0). Release notes are not available in this response." } ?? "No published release is available.", "clock.arrow.circlepath")
+                truthCard("Release information", product.latestVersion.map { "Latest version: \($0). No release notes yet." } ?? "No published release is available.", "clock.arrow.circlepath")
             case .screenshots:
-                truthCard("Screenshots", "No approved screenshots are published in the current catalogue response.", "photo.on.rectangle")
+                truthCard("Screenshots", "This module doesn’t have screenshots yet.", "photo.on.rectangle")
             default:
-                truthCard(sectionTitle, "This route is valid. Greenfield does not currently provide content for this section.", "info.circle")
+                truthCard(sectionTitle, "Nothing here yet.", "info.circle")
             }
         }
     }

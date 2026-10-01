@@ -6,46 +6,38 @@ struct AppLockView: View {
     @State private var digits = ""
     @State private var busy = false
 
+    @State private var confirmsForgot = false
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// Tighter layout on short screens (iPhone SE) and at accessibility text sizes.
+    private var compact: Bool {
+        verticalSizeClass == .compact || dynamicTypeSize.isAccessibilitySize
+    }
+
     var body: some View {
-        VStack(spacing: 28) {
-            Spacer()
-            Image(systemName: "lock.fill")
-                .font(.system(size: 44, weight: .semibold))
-                .accessibilityHidden(true)
-            Text("Modula is locked")
-                .font(.title.bold())
-            Text("Enter your 6-digit Modula passcode.")
-                .foregroundStyle(.secondary)
-            PasscodeDots(filled: digits.count)
-                .accessibilityLabel("Passcode, \(digits.count) of 6 digits entered")
-            PasscodeKeypad(value: $digits, disabled: busy || app.appLock.remainingCooldown() > .seconds(0)) { complete in
-                attempt(complete)
-            }
-            if app.appLock.canUseBiometrics {
-                Button {
-                    Task { await biometric() }
-                } label: {
-                    Label(app.appLock.biometricAvailability.kind.unlockLabel, systemImage: app.appLock.biometricAvailability.kind.systemImage)
+        GeometryReader { proxy in
+            ScrollView {
+                // TimelineView ticks once a second so the cooldown countdown
+                // updates and the keypad re-enables by itself when it ends.
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    content(cooldown: app.appLock.remainingCooldown())
                 }
-                .accessibilityIdentifier("applock.biometrics")
+                .padding(compact ? ModulaSpacing.md : ModulaSpacing.lg)
+                .frame(maxWidth: .infinity, minHeight: proxy.size.height)
             }
-            if let error = app.appLock.lastError {
-                Text(error)
-                    .font(.footnote)
-                    .foregroundStyle(.red)
-                    .accessibilityIdentifier("applock.error")
-            }
-            Button("Forgot Passcode?") {
-                app.navigation.open(.settings(.privacy(.appLock)))
-            }
-            .font(.footnote)
-            .accessibilityIdentifier("applock.forgot")
-            Spacer()
+            .scrollBounceBehavior(.basedOnSize)
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .modulaCanvas()
         .accessibilityIdentifier("applock.lock")
+        .confirmationDialog("Forgot your passcode?", isPresented: $confirmsForgot, titleVisibility: .visible) {
+            Button("Sign Out and Reset App Lock", role: .destructive) {
+                Task { await app.performSignOut(resetAppLock: true) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Sign out to remove App Lock from this device, then sign back in. Drafts on this device are kept.")
+        }
         .task {
             if app.appLock.canUseBiometrics {
                 _ = await app.appLock.unlockWithBiometrics()
@@ -53,6 +45,62 @@ struct AppLockView: View {
                     app.refreshLaunchState()
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func content(cooldown: Duration) -> some View {
+        let coolingDown = cooldown > .seconds(0)
+        VStack(spacing: compact ? ModulaSpacing.md : 28) {
+            Spacer(minLength: 0)
+            Image(systemName: "lock.fill")
+                .font(.system(size: compact ? 32 : 44, weight: .semibold))
+                .accessibilityHidden(true)
+            Text("Modula is locked")
+                .font(.title.bold())
+                .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
+            Text("Enter your 6-digit Modula passcode.")
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            PasscodeDots(filled: digits.count)
+                .accessibilityLabel("Passcode, \(digits.count) of 6 digits entered")
+            PasscodeKeypad(value: $digits, disabled: busy || coolingDown, keySize: compact ? 60 : 72) { complete in
+                attempt(complete)
+            }
+            .opacity(coolingDown ? 0.45 : 1)
+            if app.appLock.canUseBiometrics {
+                Button {
+                    Task { await biometric() }
+                } label: {
+                    Label(app.appLock.biometricAvailability.kind.unlockLabel, systemImage: app.appLock.biometricAvailability.kind.systemImage)
+                        .frame(minHeight: ModulaLayout.minimumTouch)
+                }
+                .accessibilityIdentifier("applock.biometrics")
+            }
+            if coolingDown {
+                let seconds = Int((Double(cooldown.components.seconds) + Double(cooldown.components.attoseconds) / 1e18).rounded(.up))
+                Text("Too many attempts. Try again in \(seconds) \(seconds == 1 ? "second" : "seconds").")
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+                    .monospacedDigit()
+                    .accessibilityIdentifier("applock.cooldown")
+            } else if let error = app.appLock.lastError {
+                Text(error)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+                    .accessibilityIdentifier("applock.error")
+            }
+            Button("Forgot Passcode?") {
+                // The lock covers Settings, so offer the reset right here.
+                confirmsForgot = true
+            }
+            .font(.footnote)
+            .frame(minHeight: ModulaLayout.minimumTouch)
+            .accessibilityIdentifier("applock.forgot")
+            Spacer(minLength: 0)
         }
     }
 
@@ -100,6 +148,7 @@ struct PasscodeDots: View {
 struct PasscodeKeypad: View {
     @Binding var value: String
     var disabled: Bool = false
+    var keySize: CGFloat = 72
     var onComplete: (String) -> Void
 
     private let rows: [[String]] = [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], ["", "0", "delete"]]
@@ -121,14 +170,14 @@ struct PasscodeKeypad: View {
     @ViewBuilder
     private func keyButton(_ key: String) -> some View {
         if key.isEmpty {
-            Color.clear.frame(width: 72, height: 72)
+            Color.clear.frame(width: keySize, height: keySize)
         } else if key == "delete" {
             Button {
                 if !value.isEmpty { value.removeLast() }
             } label: {
                 Image(systemName: "delete.left")
                     .font(.title2)
-                    .frame(width: 72, height: 72)
+                    .frame(width: keySize, height: keySize)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Delete")
@@ -142,7 +191,7 @@ struct PasscodeKeypad: View {
             } label: {
                 Text(key)
                     .font(.title.weight(.semibold))
-                    .frame(width: 72, height: 72)
+                    .frame(width: keySize, height: keySize)
                     .background(.thinMaterial, in: Circle())
             }
             .buttonStyle(.plain)

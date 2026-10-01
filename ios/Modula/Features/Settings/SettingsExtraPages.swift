@@ -28,7 +28,7 @@ struct HelpSettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Help content is UI-first. No invented ticket IDs or uptime percentages.")
+                SettingsAPIFootnote(text: "Help articles and contact options are being prepared.")
             }
             .navigationTitle("Help")
             .navigationBarTitleDisplayMode(.inline)
@@ -45,14 +45,14 @@ struct HelpSettingsHost: View {
                         SettingsPreviewRow(title: "Privacy", subtitle: "App Lock and biometrics", symbol: "lock.shield", enabled: false)
                     }
                 }
-                SettingsAPIFootnote(text: "Article bodies are not fetched — catalogue/CMS help is unverified this run.")
+                SettingsAPIFootnote(text: "Full articles aren’t available in the app yet.")
             }
             .navigationTitle("Guides")
             .navigationBarTitleDisplayMode(.inline)
         case .contact:
             SettingsDesignedUnavailableCanvas(
                 title: "Contact",
-                subtitle: "Support channels when verified.",
+                subtitle: "Ways to get help.",
                 symbol: "envelope",
                 tiles: [
                     ("Email", "Write in", "envelope"),
@@ -64,7 +64,7 @@ struct HelpSettingsHost: View {
                     ("Open a case", "Starts a thread", "plus.bubble"),
                     ("Attach logs", "Developer diagnostics", "doc")
                 ],
-                apiNote: "No verified support-ticket endpoint is wired. UI stays non-submitting."
+                apiNote: "Sending support requests from the app isn’t available yet."
             )
         case .status:
             SettingsScrollCanvas {
@@ -74,7 +74,7 @@ struct HelpSettingsHost: View {
                     SettingsStatChip(label: "API", value: "—", symbol: "server.rack")
                     SettingsStatChip(label: "Realtime", value: "—", symbol: "antenna.radiowaves.left.and.right")
                 }
-                SettingsAPIFootnote(text: "Status chips stay blank — no fabricated uptime or incident copy.")
+                SettingsAPIFootnote(text: "Live service status isn’t available in the app yet.")
             }
             .navigationTitle("Status")
             .navigationBarTitleDisplayMode(.inline)
@@ -86,6 +86,7 @@ struct HelpSettingsHost: View {
 
 struct WhatsNewSettingsHost: View {
     let route: WhatsNewSettingsRoute
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         switch route {
@@ -101,7 +102,7 @@ struct WhatsNewSettingsHost: View {
                     }
                     .padding(.vertical, 8)
                 }
-                SettingsAPIFootnote(text: "Highlights are local release notes for this native checkout — not App Store What’s New scraped from the store.")
+                SettingsAPIFootnote(text: "Highlights from this version of Modula.")
             }
             .navigationTitle("What’s New")
             .navigationBarTitleDisplayMode(.inline)
@@ -110,7 +111,8 @@ struct WhatsNewSettingsHost: View {
 
     private func bullet(_ text: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.accentColor)
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(app.appearance.accent.color)
+                .accessibilityHidden(true)
             Text(text).font(.subheadline).fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -141,7 +143,7 @@ struct CreatorSettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Creator Studio product routes exist elsewhere; these are settings defaults only. Insights stay honest when APIs are missing.")
+                SettingsAPIFootnote(text: "These are defaults for new posts. Insights appear only when real data is available.")
             }
             .navigationTitle("Creator")
             .navigationBarTitleDisplayMode(.inline)
@@ -165,7 +167,7 @@ struct CreatorSettingsHost: View {
                     SettingsStatChip(label: "Views", value: "—", symbol: "eye")
                     SettingsStatChip(label: "Follows", value: "—", symbol: "person.badge.plus")
                 }
-                SettingsAPIFootnote(text: "No fabricated analytics. Values stay em dashes until a verified insights contract exists.")
+                SettingsAPIFootnote(text: "Insights show a dash until real data is available.")
             }
             .navigationTitle("Insights")
             .navigationBarTitleDisplayMode(.inline)
@@ -187,7 +189,7 @@ struct FocusSettingsHost: View {
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Focus", subtitle: "How Modula behaves when iOS Focus is on.", symbol: "moon.stars")
                 FocusAdaptationGraphic(dimActivity: dimActivity, hideBadges: hideBadges, allowMentions: allowMentions)
-                Form {
+                SettingsToggleCard {
                     Toggle("Hide tab badges during Focus", isOn: $hideBadges)
                         .settingsAnchor("focus.hideBadges")
                     Toggle("Dim Activity list", isOn: $dimActivity)
@@ -195,9 +197,7 @@ struct FocusSettingsHost: View {
                     Toggle("Still allow @mentions", isOn: $allowMentions)
                         .settingsAnchor("focus.mentions")
                 }
-                .scrollDisabled(true)
-                .frame(minHeight: 160)
-                SettingsAPIFootnote(text: "Local Focus adaptations. iOS Focus configuration stays in system Settings — this does not duplicate Quiet Hours delivery.")
+                SettingsAPIFootnote(text: "Saved on this device. Set up Focus modes in iOS Settings.")
             }
             .navigationTitle("Focus")
             .navigationBarTitleDisplayMode(.inline)
@@ -225,9 +225,9 @@ struct PasskeysSettingsHost: View {
                 ],
                 previewRows: [
                     ("This iPhone", "Platform authenticator", "iphone"),
-                    ("Remove passkey", "Revoke on Greenfield", "trash")
+                    ("Remove passkey", "Stop using a passkey", "trash")
                 ],
-                apiNote: "Passkey registration/assertion endpoints are not verified in this native client. UI is design-only."
+                apiNote: "Passkeys aren’t available yet."
             )
         }
     }
@@ -247,18 +247,20 @@ struct TranslateSettingsHost: View {
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Translate", subtitle: "On-device translation hints for posts.", symbol: "character.book.closed")
                 SettingsSceneGraphic(style: .ribbon)
-                Form {
+                SettingsToggleCard {
                     Toggle("Auto-detect language", isOn: $autoDetect)
                     Toggle("Show Translate on posts", isOn: $showButton)
-                    Picker("Target language", selection: $target) {
-                        Text("System").tag("system")
-                        Text("English").tag("en")
-                        Text("Keep original").tag("original")
+                    LabeledContent("Target language") {
+                        Picker("Target language", selection: $target) {
+                            Text("System").tag("system")
+                            Text("English").tag("en")
+                            Text("Keep original").tag("original")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
                     }
                 }
-                .scrollDisabled(true)
-                .frame(minHeight: 180)
-                SettingsAPIFootnote(text: "Prefs are local. Does not invent a translation API or claim Apple Translate integration until wired.")
+                SettingsAPIFootnote(text: "Saved on this device. Translation itself isn’t available yet.")
             }
             .navigationTitle("Translate")
             .navigationBarTitleDisplayMode(.inline)
@@ -298,7 +300,7 @@ struct QRCodeSettingsHost: View {
                         SettingsPreviewRow(title: "Scan", subtitle: "Camera scanner", symbol: "qrcode.viewfinder", enabled: false)
                     }
                 }
-                SettingsAPIFootnote(text: "Profile QR already lives on Profile share. Dedicated scanner route is not verified — Scan stays inactive.")
+                SettingsAPIFootnote(text: "Share your code from your profile. Scanning codes isn’t available yet.")
             }
             .navigationTitle("Modula Code")
             .navigationBarTitleDisplayMode(.inline)
@@ -328,7 +330,7 @@ struct FamilySettingsHost: View {
                     ("Invite", "Send a family invite", "paperplane"),
                     ("Leave family", "Remove this account", "rectangle.portrait.and.arrow.right")
                 ],
-                apiNote: "No verified Family Sharing / parental contract in native. Distinct from Monetisation plans."
+                apiNote: "Family controls aren’t available yet."
             )
         }
     }
@@ -349,21 +351,27 @@ struct TimeUnitsSettingsHost: View {
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Time & Units", subtitle: "Clocks and measurement on this device.", symbol: "clock")
                 SettingsSceneGraphic(style: .orbit)
-                Form {
+                SettingsToggleCard {
                     Toggle("24-hour time", isOn: $use24h)
                     Toggle("Relative timestamps", isOn: $relative)
-                    Picker("Distance", selection: $distance) {
-                        Text("Metric").tag("metric")
-                        Text("Imperial").tag("imperial")
+                    LabeledContent("Distance") {
+                        Picker("Distance", selection: $distance) {
+                            Text("Metric").tag("metric")
+                            Text("Imperial").tag("imperial")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
                     }
-                    Picker("Temperature", selection: $temperature) {
-                        Text("Celsius").tag("c")
-                        Text("Fahrenheit").tag("f")
+                    LabeledContent("Temperature") {
+                        Picker("Temperature", selection: $temperature) {
+                            Text("Celsius").tag("c")
+                            Text("Fahrenheit").tag("f")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
                     }
                 }
-                .scrollDisabled(true)
-                .frame(minHeight: 240)
-                SettingsAPIFootnote(text: "Device-local formatting prefs. Does not change Appearance typography or system Region.")
+                SettingsAPIFootnote(text: "Saved on this device. Doesn’t change your iOS region settings.")
             }
             .navigationTitle("Time & Units")
             .navigationBarTitleDisplayMode(.inline)
@@ -385,14 +393,12 @@ struct KeyboardSettingsHost: View {
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Keyboard", subtitle: "Typing shortcuts inside Modula.", symbol: "keyboard")
                 SettingsSceneGraphic(style: .pulse)
-                Form {
+                SettingsToggleCard {
                     Toggle("Swipe between composer tools", isOn: $swipe)
                     Toggle("Double-space for period", isOn: $periodShortcut)
                     Toggle("Caps Lock mapping", isOn: $capsLock)
                 }
-                .scrollDisabled(true)
-                .frame(minHeight: 160)
-                SettingsAPIFootnote(text: "Local composer behaviour. System keyboards remain in iOS Settings.")
+                SettingsAPIFootnote(text: "Saved on this device. Keyboards are managed in iOS Settings.")
             }
             .navigationTitle("Keyboard")
             .navigationBarTitleDisplayMode(.inline)

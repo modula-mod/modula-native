@@ -9,6 +9,10 @@ struct HomeView: View {
     @Environment(\.shellChromeMetrics) private var shellChromeMetrics
     @State private var videoCoordinator = FeedVideoCoordinator()
     @State private var commentsPost: SocialPost?
+    /// True once the story tray has scrolled under the navigation bar; the
+    /// tray then "folds" into a small avatar stack beside the title.
+    @State private var storyTrayFolded = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let state = app.home.state(for: mode)
@@ -54,6 +58,15 @@ struct HomeView: View {
                 }
             }
             .modulaSoftScrollEdge()
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                // Bool output keeps this cheap: the action only runs when the
+                // fold state flips, not on every scrolled frame.
+                geometry.contentOffset.y + geometry.contentInsets.top > 150
+            } action: { _, folded in
+                withAnimation(ModulaMotion.animation(.reveal, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
+                    storyTrayFolded = folded
+                }
+            }
             .modulaShellPullActions {
                 await app.home.refresh(mode, signedIn: app.auth.isSignedIn)
                 await app.stories.refresh()
@@ -71,6 +84,11 @@ struct HomeView: View {
         .navigationBarTitleDisplayMode(.large)
         .modulaSidebarTrigger()
         .toolbar {
+            if storyTrayFolded, showsStoryTray, !foldedStoryGroups.isEmpty {
+                ToolbarItem(placement: .principal) {
+                    foldedStoryTray
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Create", systemImage: "plus") {
                     app.navigation.open(.compose(.post))
@@ -107,14 +125,9 @@ struct HomeView: View {
         }
         .overlay(alignment: .bottom) {
             if let message = app.home.actionError {
-                Label(message, systemImage: "exclamationmark.triangle")
-                    .font(.footnote.weight(.semibold))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(.regularMaterial, in: Capsule())
-                    .padding(.bottom, 12)
-                    .onTapGesture { app.home.clearActionError() }
-                    .accessibilityIdentifier("home.banner")
+                ModulaErrorBanner(message: message, identifier: "home.banner") {
+                    app.home.clearActionError()
+                }
             }
         }
         .sheet(item: $commentsPost) { post in
@@ -220,9 +233,7 @@ struct HomeView: View {
                             UIPasteboard.general.string = resolved.shareURL.absoluteString
                             Task { await app.postActions.recordShare(resolved) }
                             HapticEngine.shared.play(.lightImpact)
-                        },
-                        onMore: {
-                            HapticEngine.shared.play(.contextOpen)
+                            app.navigation.flash("Link copied", symbol: "link")
                         },
                         onContextAction: { action in
                             handlePostContext(action, post: resolved)
@@ -363,6 +374,49 @@ struct HomeView: View {
         app.auth.isSignedIn || !app.stories.trayGroups.isEmpty
     }
 
+    /// Up to three people with stories (unseen first) for the folded tray.
+    private var foldedStoryGroups: [StoryGroup] {
+        let real = app.stories.trayGroups.filter { !$0.isComposerPlaceholder }
+        let unseen = real.filter { $0.ring == .unseen }
+        return Array((unseen.isEmpty ? real : unseen).prefix(3))
+    }
+
+    private var foldedStoryTray: some View {
+        let groups = foldedStoryGroups
+        let unseenCount = app.stories.trayGroups.filter { !$0.isComposerPlaceholder && $0.ring == .unseen }.count
+        return Button {
+            guard let first = groups.first else { return }
+            Task { await openStory(first) }
+        } label: {
+            HStack(spacing: ModulaSpacing.xs) {
+                Text("Modula")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                HStack(spacing: -8) {
+                    ForEach(groups) { group in
+                        ModulaAvatar(initials: group.author.initials, url: group.author.avatarURL, size: 24)
+                            .padding(1.5)
+                            .background(
+                                Circle().strokeBorder(
+                                    group.ring == .unseen ? app.appearance.accent.color : Color.secondary.opacity(0.4),
+                                    lineWidth: 1.5
+                                )
+                            )
+                    }
+                }
+            }
+            .frame(minHeight: ModulaLayout.minimumTouch)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .transition(reduceMotion ? .opacity : .scale(scale: 0.8, anchor: .top).combined(with: .opacity))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(unseenCount > 0 ? "Stories, \(unseenCount) new" : "Stories")
+        .accessibilityHint("Opens the first story")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("home.stories.folded")
+    }
+
     private func openStory(_ group: StoryGroup) async {
         if let route = await app.stories.destination(for: group) {
             app.navigation.push(route)
@@ -393,6 +447,7 @@ struct HomeView: View {
         case "copy-link":
             UIPasteboard.general.string = post.shareURL.absoluteString
             HapticEngine.shared.play(.lightImpact)
+            app.navigation.flash("Link copied", symbol: "link")
         case "share":
             app.navigation.presented = .universalShare(.post(
                 id: post.id,

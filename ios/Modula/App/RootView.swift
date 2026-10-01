@@ -7,6 +7,7 @@ struct RootView: View {
     @Environment(\.colorSchemeContrast) private var systemContrast
     @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var routeTransitions
     var body: some View {
         @Bindable var navigation = app.navigation
         @Bindable var appearance = app.appearance
@@ -148,6 +149,7 @@ struct RootView: View {
                     RouteView(route: navigation.root(for: tab))
                         .navigationDestination(for: AppRoute.self) { RouteView(route: $0) }
                 }
+                .environment(\.routeTransitionNamespace, routeTransitions)
                 .modulaSoftScrollEdge()
                 .tabItem {
                     if tab == .profile {
@@ -303,22 +305,7 @@ private struct PresentationView: View {
     }
 
     private func shareURL(for route: AppRoute) -> URL {
-        switch route {
-        case .profile(let id, _):
-            return URL(string: "https://modula.digital/profile/\(id)")!
-        case .me:
-            return URL(string: "https://modula.digital/me")!
-        case .post(let id, _):
-            return URL(string: "https://modula.digital/post/\(id)")!
-        case .stories(.story(let id)):
-            return URL(string: "https://modula.digital/stories/\(id)")!
-        case .reels(.reel(let id)):
-            return URL(string: "https://modula.digital/reels/\(id)")!
-        case .messages(.conversation(let id)):
-            return URL(string: "https://modula.digital/messages/\(id)")!
-        default:
-            return URL(string: "https://modula.digital")!
-        }
+        ModulaShareLink.url(for: route)
     }
 }
 

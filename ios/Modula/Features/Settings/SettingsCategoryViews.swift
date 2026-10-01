@@ -170,7 +170,7 @@ struct NotificationSettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Push status is live from iOS. Social / modules / quiet-hours stay capability-honest until preference contracts are verified.")
+                SettingsAPIFootnote(text: "Notification permission comes from iOS. More notification options are coming.")
             }
             .modulaSoftScrollEdge()
             .navigationTitle("Notifications")
@@ -194,7 +194,7 @@ struct NotificationSettingsHost: View {
                     ("Digest", "Daily summary", "calendar")
                 ],
                 apiNote: SettingsRegistry.destination(for: .notifications(.social))?.unavailableReason
-                    ?? "Preference contract unverified."
+                    ?? "This setting isn’t available yet."
             )
         case .modules:
             SettingsDesignedUnavailableCanvas(
@@ -212,7 +212,7 @@ struct NotificationSettingsHost: View {
                     ("Quiet", "Collapse into digest", "moon")
                 ],
                 apiNote: SettingsRegistry.destination(for: .notifications(.modules))?.unavailableReason
-                    ?? "No verified module-notification preference contract."
+                    ?? "Module notification settings aren’t available yet."
             )
         case .quietHours:
             SettingsDesignedUnavailableCanvas(
@@ -330,8 +330,8 @@ struct PrivacySecurityHost: View {
             .accessibilityIdentifier("settings.privacy-security")
         case .privacy:
             Form {
-                Text("Profile visibility is enforced by Greenfield. Native never shows email or phone on Profile.")
-                Text("Account privacy controls that lack a verified persistence contract are omitted rather than faked.")
+                Text("Your email and phone number are never shown on your profile.")
+                Text("More privacy controls are coming soon.")
                     .foregroundStyle(.secondary)
             }
             .modulaSoftScrollEdge()
@@ -379,7 +379,7 @@ struct PrivacySecurityHost: View {
                     ("Unblock", "Restore access", "arrow.uturn.backward")
                 ],
                 apiNote: SettingsRegistry.destination(for: .privacy(.blocked))?.unavailableReason
-                    ?? "Verified block-list endpoint not available in native DTOs this run."
+                    ?? "Your blocked accounts list isn’t available yet."
             )
         case .appLock:
             AppLockSettingsView()
@@ -424,9 +424,11 @@ struct AppLockSettingsView: View {
                             Spacer()
                             if lock.settings.interval == interval {
                                 Image(systemName: "checkmark")
+                                    .foregroundStyle(app.appearance.accent.color)
                             }
                         }
                     }
+                    .accessibilityAddTraits(lock.settings.interval == interval ? .isSelected : [])
                 }
             }
             Section {
@@ -446,7 +448,7 @@ struct AppLockSettingsView: View {
                     confirmSignOutReset = true
                 }
             } footer: {
-                Text("Greenfield has no verified re-auth reset for a local App Lock PIN this run. Signing out clears the local lock. Unsynced drafts on this device are kept unless you discard them.")
+                Text("Forgot your passcode? Sign out to remove App Lock from this device, then sign back in. Drafts on this device are kept unless you discard them.")
             }
         }
         .modulaSoftScrollEdge()
@@ -492,7 +494,7 @@ struct BiometricsSettingsView: View {
             Text("Biometric unlock falls back to your Modula passcode. Failed biometric attempts never open Home.")
                 .foregroundStyle(.secondary)
         }
-        .modulaSoftScrollEdge()
+        .modulaCanvas()
         .navigationTitle("Face ID & Biometrics")
         .accessibilityIdentifier("settings.privacy-security.biometrics")
     }
@@ -628,29 +630,31 @@ private struct InstalledModuleSettings: View {
                     ForEach(manifest.permissions, id: \.self) { permission in
                         VStack(alignment: .leading) {
                             Text(permission).font(.headline)
-                            Text("Declared by the module manifest. HostBridge enforces this grant; there is no decorative toggle.")
+                            Text("This module asked for this access. Modula only allows what’s listed here.")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
                     }
                 } else {
-                    Text("No HostBridge permissions are declared for this module.")
+                    Text("This module doesn’t ask for any special access.")
                         .foregroundStyle(.secondary)
                 }
             case .data:
-                Text("Offline module data is owned by the module runtime. Clearing cache does not delete it.")
+                Text("Data saved by this module isn’t removed when you clear the cache.")
                     .foregroundStyle(.secondary)
             case .updates:
-                LabeledContent("Catalogue version", value: product?.latestVersion ?? "Not published")
+                LabeledContent("Installed version", value: manifest?.version ?? "Not installed")
+                LabeledContent("Latest version", value: product?.latestVersion ?? "Not published")
             case .diagnostics:
                 LabeledContent("Runtime", value: manifest?.runtime ?? "—")
                 LabeledContent("Bridge", value: ModuleRuntimeController.bridgeVersion)
             case .about:
-                Text(product?.description ?? "No catalogue description.")
+                Text(product?.description ?? "No description yet.")
             }
         }
         .modulaSoftScrollEdge()
-        .navigationTitle(section.rawValue.capitalized)
+        .modulaCanvas()
+        .navigationTitle(settingsDisplayTitle(section.rawValue))
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
@@ -671,6 +675,8 @@ struct DataStorageHost: View {
     @Environment(AppEnvironment.self) private var app
     @State private var usage: StorageUsageSnapshot?
     @State private var cleared = false
+    @State private var confirmingClearCache = false
+    @State private var clearingCache = false
 
     var body: some View {
         switch route {
@@ -726,15 +732,31 @@ struct DataStorageHost: View {
             }
             .modulaSoftScrollEdge()
             .navigationTitle("Storage")
-            .task { usage = StorageUsageSnapshot.measure() }
+            // Walking the cache folders can take a while; measure off the main thread.
+            .task { usage = await Task.detached(priority: .utility) { StorageUsageSnapshot.measure() }.value }
         case .cache:
             Form {
                 Text("Clears URLCache and temporary files only. Account session, drafts and offline module data are kept.")
                     .foregroundStyle(.secondary)
                 Button("Clear Cache", role: .destructive) {
-                    StorageUsageSnapshot.clearCache()
-                    cleared = true
-                    HapticEngine.shared.play(.confirmation)
+                    confirmingClearCache = true
+                    HapticEngine.shared.play(.warning)
+                }
+                .disabled(clearingCache)
+                .confirmationDialog("Clear cache?", isPresented: $confirmingClearCache, titleVisibility: .visible) {
+                    Button("Clear Cache", role: .destructive) {
+                        clearingCache = true
+                        Task {
+                            // File deletion off the main thread.
+                            await Task.detached(priority: .userInitiated) { StorageUsageSnapshot.clearCache() }.value
+                            clearingCache = false
+                            cleared = true
+                            HapticEngine.shared.play(.confirmation)
+                            AccessibilityNotification.Announcement("Cache cleared").post()
+                        }
+                    }
+                } message: {
+                    Text("Images and temporary files will download again when needed.")
                 }
                 if cleared {
                     Text("Cache cleared.")
@@ -743,7 +765,7 @@ struct DataStorageHost: View {
             .modulaSoftScrollEdge()
             .navigationTitle("Cache")
         case .downloads:
-            ContentUnavailableView("No downloaded content", systemImage: "arrow.down.to.line", description: Text("This build has no downloads subsystem."))
+            ContentUnavailableView("No downloaded content", systemImage: "arrow.down.to.line", description: Text("Downloaded content will appear here."))
                 .modulaSoftScrollEdge()
                 .navigationTitle("Downloads")
         case .backup, .export:
@@ -753,7 +775,7 @@ struct DataStorageHost: View {
     }
 }
 
-struct StorageUsageSnapshot {
+struct StorageUsageSnapshot: Sendable {
     var caches: String
     var temporary: String
     var applicationSupport: String
@@ -832,7 +854,7 @@ struct AccessibilitySettingsHost: View {
             }
         }
         .modulaSoftScrollEdge()
-        .navigationTitle(route == .root ? "Accessibility" : route.rawValue.capitalized)
+        .navigationTitle(route == .root ? "Accessibility" : settingsDisplayTitle(route.rawValue))
     }
 }
 
@@ -875,7 +897,7 @@ struct UpdateSettingsHost: View {
                 Text("Unstable channels are meaningful for internal and TestFlight builds only.")
                     .foregroundStyle(.secondary)
             case .versionLock:
-                Text("Version Lock applies to module catalogue versions Modula controls, not the App Store binary. No module auto-update policy contract is verified this run, so there is no toggle that pretends to pin the iOS app.")
+                Text("Version Lock applies to modules, not to the Modula app itself. App updates are managed by the App Store.")
                     .foregroundStyle(.secondary)
             }
         }
@@ -1006,7 +1028,7 @@ struct AboutSettingsHost: View {
             }
         }
         .modulaSoftScrollEdge()
-        .navigationTitle(route == .root ? "About" : route.rawValue.capitalized)
+        .navigationTitle(route == .root ? "About" : settingsDisplayTitle(route.rawValue))
         .accessibilityIdentifier("settings.about")
     }
 }

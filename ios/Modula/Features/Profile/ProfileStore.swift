@@ -344,6 +344,21 @@ final class ProfileStore {
         }
     }
 
+    /// Mute by profile id without requiring a loaded profile session
+    /// (e.g. "Mute Author" from a post).
+    @discardableResult
+    func mute(profileID: ProfileID) async -> Bool {
+        do {
+            try await repository.mute(profileID: profileID)
+            HapticEngine.shared.play(.mediumImpact)
+            return true
+        } catch {
+            actionError = "Could not mute this profile."
+            HapticEngine.shared.play(.failure)
+            return false
+        }
+    }
+
     func report(identity: ProfileIdentity, handleHint: String?, category: String, details: String? = nil) async {
         let key = sessionKey(identity, handleHint: handleHint)
         guard let profile = sessions[key]?.profile else { return }
@@ -406,9 +421,39 @@ final class ProfileStore {
         }
     }
 
+    /// First-run display-name persistence. Uses the same `updateMe` contract as
+    /// the profile editor so version tokens and caches stay consistent.
+    /// Returns a user-facing error message, or `nil` on success.
+    func saveDisplayName(_ name: String, accountHandle: String?) async -> String? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "Display name is required." }
+        do {
+            let base: ModulaProfile
+            if let own = ownProfile {
+                base = own
+            } else {
+                base = try await repository.profile(.me, handleHint: accountHandle)
+            }
+            guard base.displayName != trimmed else {
+                applyOwn(base)
+                return nil
+            }
+            var draft = ProfileEditDraft.from(base)
+            draft.displayName = trimmed
+            let profile = try await repository.updateMe(draft)
+            applyOwn(profile)
+            return nil
+        } catch let api as APIError {
+            return api.userFacingMessage
+        } catch {
+            return "Could not save your display name."
+        }
+    }
+
     func rememberScroll(identity: ProfileIdentity, handleHint: String?, section: ProfileSection, offset: CGFloat) {
         let key = sessionKey(identity, handleHint: handleHint)
         var state = sessions[key] ?? ProfileSessionState()
+        if let previous = state.scrollOffsets[section], abs(previous - offset) < 1 { return }
         state.scrollOffsets[section] = offset
         sessions[key] = state
     }

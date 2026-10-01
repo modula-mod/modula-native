@@ -27,6 +27,18 @@ final class NavigationCoordinator {
         sidebarPresented = false
     }
 
+    /// Short visible + VoiceOver confirmation (e.g. "Link copied").
+    /// Uses the shell banner slot so features never build ad-hoc toasts.
+    func flash(_ message: String, symbol: String = "checkmark.circle") {
+        let next = ModulaBanner(message: message, symbol: symbol)
+        banner = next
+        AccessibilityNotification.Announcement(message).post()
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            if self?.banner?.id == next.id { self?.banner = nil }
+        }
+    }
+
     func presentSidebar() { sidebarPresented = true }
     func dismissSidebar() { sidebarPresented = false }
     func open(path: String) -> Bool {
@@ -40,6 +52,17 @@ final class NavigationCoordinator {
         }
         paths[selectedTab, default: []].append(route)
     }
+    /// Routes requested by a running module. Detail destinations (profile,
+    /// post) are pushed on the current stack so Back returns to the module
+    /// instead of replacing another tab's root (which also tore the module
+    /// down). Top-level destinations keep the regular `open` behaviour.
+    func openFromModule(_ route: AppRoute) {
+        switch route {
+        case .profile, .post: push(route)
+        default: open(route)
+        }
+    }
+
     func replaceContext(with route: AppRoute) {
         guard let tab = route.tab else { return }
         selectedTab = tab

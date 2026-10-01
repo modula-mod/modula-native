@@ -6,10 +6,17 @@ struct OnboardingView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var step: OnboardingStep = .world
     @State private var floatPhase: Bool = false
+    /// Upward drag on the final step (negative = up). Swiping far enough
+    /// starts account creation; the buttons stay as the fallback.
+    @State private var finaleLift: CGFloat = 0
+    @State private var finaleHintPulse = 0
+    /// Scales with Dynamic Type (including accessibility sizes) instead of a fixed point size.
+    @ScaledMetric(relativeTo: .largeTitle) private var titleSize: CGFloat = 40
 
     var body: some View {
         ZStack {
             OnboardingHeroScene(floatPhase: floatPhase)
+            heroScrim
             VStack(spacing: 0) {
                 topBar
                 ScrollView {
@@ -26,13 +33,19 @@ struct OnboardingView: View {
                 }
                 .modulaSoftScrollEdge()
                 .scrollBounceBehavior(.basedOnSize)
+                if isFinale {
+                    finaleHandle
+                }
                 cta
                     .padding(.horizontal, 24)
                     .padding(.bottom, 28)
                     .frame(maxWidth: 560)
                     .frame(maxWidth: .infinity)
             }
+            .offset(y: reduceMotion ? 0 : finaleLift * 0.4)
+            .opacity(1 - Double(min(1, -finaleLift / 400)))
         }
+        .simultaneousGesture(finaleGesture, including: isFinale ? .all : .subviews)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("onboarding.root")
         .onAppear {
@@ -41,6 +54,30 @@ struct OnboardingView: View {
                 floatPhase = true
             }
         }
+    }
+
+    /// Keeps white copy legible over bright hero frames without dimming the
+    /// whole scene: a light top band for the controls and a deeper bottom
+    /// band behind the title, body and calls to action.
+    private var heroScrim: some View {
+        VStack(spacing: 0) {
+            LinearGradient(colors: [.black.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: 140)
+            Spacer(minLength: 0)
+            LinearGradient(
+                stops: [
+                    .init(color: .clear, location: 0),
+                    .init(color: .black.opacity(0.45), location: 0.35),
+                    .init(color: .black.opacity(0.7), location: 1)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(maxHeight: .infinity)
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     private var topBar: some View {
@@ -85,12 +122,14 @@ struct OnboardingView: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(step.title)
-                .font(.system(size: dynamicTypeSize.isAccessibilitySize ? 34 : 40, weight: .bold, design: app.appearance.fontDesign))
+                .font(.system(size: titleSize, weight: .bold, design: app.appearance.fontDesign))
+                .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 0.8 : 1)
+                .accessibilityAddTraits(.isHeader)
                 .foregroundStyle(.white)
                 .fixedSize(horizontal: false, vertical: true)
             Text(step.body)
                 .font(.body)
-                .foregroundStyle(.white.opacity(0.86))
+                .foregroundStyle(.white.opacity(0.94))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .combine)
@@ -110,14 +149,13 @@ struct OnboardingView: View {
                             .font(.headline)
                     }
                     Spacer(minLength: 0)
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.55))
+                    // Informational rows: no chevron, because they don't navigate.
                 }
                 .foregroundStyle(.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
-                .modulaMaterial(.control, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .modulaMaterial(.control, in: RoundedRectangle(cornerRadius: ModulaRadius.medium + 2, style: .continuous))
+                .accessibilityElement(children: .combine)
             }
         }
         .accessibilityElement(children: .contain)
@@ -173,6 +211,51 @@ struct OnboardingView: View {
             }
         }
         .padding(.top, 4)
+    }
+
+    private var isFinale: Bool { step.next == nil }
+
+    /// Swipe-up affordance on the last step. Hidden from VoiceOver because the
+    /// Create Account button right below does the same thing.
+    private var finaleHandle: some View {
+        VStack(spacing: 2) {
+            Image(systemName: "chevron.up")
+                .font(.system(size: 17, weight: .bold))
+                .symbolEffect(.bounce.up, options: .nonRepeating, value: finaleHintPulse)
+            Text("Swipe up to get started")
+                .font(.footnote.weight(.semibold))
+        }
+        .foregroundStyle(.white.opacity(0.85))
+        .padding(.bottom, ModulaSpacing.sm)
+        .accessibilityHidden(true)
+        .task(id: step) {
+            // A gentle nudge every few seconds; still under Reduce Motion.
+            guard !reduceMotion else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2.5))
+                finaleHintPulse += 1
+            }
+        }
+    }
+
+    private var finaleGesture: some Gesture {
+        DragGesture(minimumDistance: 16)
+            .onChanged { value in
+                let up = min(0, value.translation.height)
+                // Rubber-band so the screen resists slightly as it lifts.
+                finaleLift = -pow(-up, 0.85)
+            }
+            .onEnded { value in
+                let committed = value.translation.height < -110 || value.predictedEndTranslation.height < -260
+                if committed {
+                    finishOnboarding(openRegister: true)
+                    finaleLift = 0
+                } else {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8)) {
+                        finaleLift = 0
+                    }
+                }
+            }
     }
 
     private func advance(to next: OnboardingStep) {

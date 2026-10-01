@@ -473,7 +473,7 @@ private struct NodusLibraryEditor: View {
                     } label: {
                         Image(systemName: item)
                             .frame(width: 36, height: 36)
-                            .background(symbol == item ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.12), in: Circle())
+                            .background(symbol == item ? AnyShapeStyle(TintShapeStyle().opacity(0.18)) : AnyShapeStyle(Color.secondary.opacity(0.12)), in: Circle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(item)

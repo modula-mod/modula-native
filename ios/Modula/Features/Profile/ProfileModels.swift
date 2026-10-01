@@ -199,7 +199,7 @@ struct ModulaProfile: Identifiable, Hashable, Sendable {
     var isVerified: Bool { identityClaims.contains(where: \.verified) }
     var followState: ProfileFollowState { .init(isFollowing: isFollowing) }
     var shareURL: URL {
-        URL(string: "https://modula.digital/profile/\(routeID)")!
+        ModulaShareLink.profile(routeID)
     }
 
     var publicLinks: [ProfileLink] {

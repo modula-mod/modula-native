@@ -64,7 +64,7 @@ private struct AccountRootView: View {
                             app.navigation.open(.settings(.account(.email)))
                         }
                         SettingsDivider()
-                        SettingsNavigationRow(title: "Password", subtitle: "Reset through Greenfield", symbol: "key") {
+                        SettingsNavigationRow(title: "Password", subtitle: "Reset by email", symbol: "key") {
                             app.navigation.open(.settings(.account(.password)))
                         }
                         SettingsDivider()
@@ -171,7 +171,7 @@ private struct AccountPasswordView: View {
     var body: some View {
         Form {
             Section {
-                Text("Greenfield resets passwords through email, not an in-app current-password form. Your password is never stored on this device.")
+                Text("We’ll email you a link to reset your password. Your password is never stored on this device.")
                     .foregroundStyle(.secondary)
             }
             Section {
@@ -203,7 +203,7 @@ private struct AccountSessionsView: View {
                 } else if let error {
                     Text(error).foregroundStyle(.secondary)
                 } else if sessions.isEmpty {
-                    Text("No additional sessions were returned by Greenfield.")
+                    Text("No other signed-in devices.")
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(sessions) { session in

@@ -203,12 +203,6 @@ struct CreationStudioView: View {
                             )
                         }
                     }
-                    if let error = store.publishError {
-                        Text(error)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .accessibilityIdentifier("compose.publish.error")
-                    }
                     if store.draft.state == .failed {
                         HStack {
                             Button("Retry") { startPublishing(store) }
@@ -226,6 +220,19 @@ struct CreationStudioView: View {
                 .padding(.bottom, 24)
             }
             .modulaSoftScrollEdge()
+            // Pinned above the tool dock so a failed publish is always visible,
+            // instead of sitting at the bottom of a long draft in grey text.
+            if let error = store.publishError {
+                ModulaErrorBanner(message: error, identifier: "compose.publish.error") {
+                    store.publishError = nil
+                }
+                .padding(.top, ModulaSpacing.xs)
+                .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                .onAppear {
+                    HapticEngine.shared.play(.failure)
+                    AccessibilityNotification.Announcement(error).post()
+                }
+            }
             CreationToolDock(
                 kind: store.draft.kind,
                 capabilities: store.capabilities,

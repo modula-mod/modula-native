@@ -70,24 +70,62 @@ struct ModulaComposerSendButton: View {
     var sending: Bool
     var action: () -> Void
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: action) {
             Group {
                 if sending {
                     ProgressView().controlSize(.small)
+                        .transition(.opacity)
                 } else {
                     Image(systemName: "arrow.up")
                         .font(.body.weight(.bold))
+                        .transition(.opacity)
                 }
             }
             .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
             .foregroundStyle(enabled ? Color.white : Color.secondary)
             .background(enabled ? app.appearance.accent.color : Color.primary.opacity(0.06), in: Circle())
+            // Subtle "wake up" when there is something to send.
+            .scaleEffect(enabled || reduceMotion ? 1 : 0.92)
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
+        .animation(ModulaMotion.animation(.morph, personality: app.appearance.motion, reduceMotion: reduceMotion), value: enabled)
+        .animation(ModulaMotion.animation(.instantFeedback, personality: app.appearance.motion, reduceMotion: reduceMotion), value: sending)
         .accessibilityLabel(sending ? "Sending" : "Send")
+    }
+}
+
+/// Trailing composer control that swaps between dictation (empty field)
+/// and send (has content), like Messages. Only used when a caller
+/// provides a dictation handler.
+struct ModulaComposerTrailingButton: View {
+    var canSend: Bool
+    var sending: Bool
+    var onDictate: (() -> Void)?
+    var onSend: () -> Void
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var showsMic: Bool { onDictate != nil && !canSend && !sending }
+
+    var body: some View {
+        ZStack {
+            if showsMic, let onDictate {
+                ModulaComposerAccessoryButton(title: "Dictate", systemImage: "mic", action: onDictate)
+                    .transition(swap)
+            } else {
+                ModulaComposerSendButton(enabled: canSend, sending: sending, action: onSend)
+                    .transition(swap)
+            }
+        }
+        .animation(reduceMotion ? .easeOut(duration: 0.12) : .snappy(duration: 0.18), value: showsMic)
+    }
+
+    private var swap: AnyTransition {
+        reduceMotion ? .opacity : .scale(scale: 0.6).combined(with: .opacity)
     }
 }
 
@@ -100,6 +138,11 @@ struct ModulaComposer: View {
     var showsAttachmentButton = true
     var externalFocus: Binding<Bool>?
     var onAttachment: (() -> Void)?
+    /// Optional: when set, the send button becomes a mic while the field is empty.
+    var onDictate: (() -> Void)? = nil
+    /// Return sends instead of inserting a new line (Settings → Chats → Composer).
+    var returnSends = false
+    var spellCheck = true
     var onSend: () -> Void
 
     @FocusState private var focused: Bool
@@ -131,10 +174,22 @@ struct ModulaComposer: View {
                     }
                 }
                 ModulaComposerTextField(prompt: prompt, text: $text, enabled: enabled, focused: $focused)
-                ModulaComposerSendButton(enabled: state.canSend, sending: sending) {
+                    .autocorrectionDisabled(!spellCheck)
+                    .submitLabel(returnSends ? .send : .return)
+                ModulaComposerTrailingButton(canSend: state.canSend, sending: sending, onDictate: onDictate) {
                     onSend()
                     HapticEngine.shared.play(.actionConfirmed)
                 }
+            }
+        }
+        .onChange(of: text) { _, value in
+            // A vertical TextField inserts "\n" for Return (software and
+            // hardware keyboards); treat a trailing newline as Send.
+            guard returnSends, value.hasSuffix("\n") else { return }
+            text = String(value.dropLast())
+            if state.canSend {
+                onSend()
+                HapticEngine.shared.play(.actionConfirmed)
             }
         }
         .onChange(of: focused) { _, value in externalFocus?.wrappedValue = value }

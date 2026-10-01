@@ -32,7 +32,7 @@ struct ModuleDetailV2View: View {
             } else if app.catalogue.loading || !app.catalogue.loaded {
                 ModulaLoadingState(title: "Loading module…")
             } else {
-                ModulaErrorState(message: "Greenfield has no catalogue record for this module.") {
+                ModulaErrorState(message: "This module couldn’t be found.") {
                     Task { await app.catalogue.load() }
                 }
             }
@@ -47,7 +47,7 @@ struct ModuleDetailV2View: View {
         .modulaImmersiveSystemNavigation()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                ShareLink(item: URL(string: "https://modula.digital/product-hub/module/\(moduleID)")!) {
+                ShareLink(item: ModulaShareLink.module(moduleID)) {
                     Image(systemName: "square.and.arrow.up")
                 }
                 .accessibilityLabel("Share")

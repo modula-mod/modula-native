@@ -162,7 +162,8 @@ struct ModulaSheet<Content: View>: View {
 
     private var backgroundStyle: AnyShapeStyle {
         switch background {
-        case .automatic: AnyShapeStyle(.background)
+        // Follow the app palette (Dim/OLED) instead of the system background.
+        case .automatic: AnyShapeStyle(ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas)
         case .material: AnyShapeStyle(.regularMaterial)
         case .opaque: AnyShapeStyle(ModulaPalette.resolve(app.appearance, scheme: colorScheme).surface)
         }

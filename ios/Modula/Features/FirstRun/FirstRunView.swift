@@ -9,6 +9,11 @@ struct FirstRunView: View {
     @State private var handle = ""
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
     @State private var notificationMessage: String?
+    @State private var busy = false
+    @State private var errorMessage: String?
+    /// True once the notification prompt has resolved so the result stays on
+    /// screen and the user finishes with an explicit tap.
+    @State private var notificationsResolved = false
 
     var body: some View {
         NavigationStack {
@@ -22,6 +27,12 @@ struct FirstRunView: View {
                     case .profile: profileStep
                     case .modules: modulesStep
                     case .notifications: notificationsStep
+                    }
+                    if let errorMessage {
+                        Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .accessibilityIdentifier("firstrun.error")
                     }
                     actions
                 }
@@ -54,10 +65,10 @@ struct FirstRunView: View {
                 .padding(14)
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .accessibilityIdentifier("firstrun.username")
-            Text("Username is assigned by Greenfield at registration. Changing it is unavailable until that contract is verified.")
+            Text("Your username was set when you signed up and can’t be changed yet.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            Text("Profile photo upload uses the Profile editor after setup. First-run does not invent a media pipeline.")
+            Text("You can add a profile photo from your profile after setup.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
@@ -78,7 +89,7 @@ struct FirstRunView: View {
                 }
                 .accessibilityElement(children: .combine)
             } else {
-                Text("No genuine installable starter modules are in the current catalogue response.")
+                Text("There are no starter modules to install right now. You can add modules later from Product Hub.")
                     .foregroundStyle(.secondary)
             }
         }
@@ -100,19 +111,30 @@ struct FirstRunView: View {
 
     @ViewBuilder
     private var actions: some View {
-        Button(primaryTitle) {
+        Button {
             Task { await advance() }
+        } label: {
+            HStack(spacing: 8) {
+                if busy { ProgressView().controlSize(.small) }
+                Text(primaryTitle)
+            }
+            .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
         }
         .buttonStyle(.borderedProminent)
+        .tint(app.appearance.accent.color)
+        .disabled(busy)
         .frame(maxWidth: .infinity, minHeight: 48)
         .accessibilityIdentifier("firstrun.continue")
 
         if step != .profile {
             Button("Back") {
                 if let previous = FirstRunStep(rawValue: step.rawValue - 1) {
+                    errorMessage = nil
                     step = previous
                 }
             }
+            .frame(minHeight: ModulaLayout.minimumTouch)
+            .disabled(busy)
         }
     }
 
@@ -121,7 +143,7 @@ struct FirstRunView: View {
         case .profile: "Continue"
         case .modules: "Continue"
         case .notifications:
-            notificationStatus == .notDetermined ? "Enable Notifications" : "Finish"
+            notificationStatus == .notDetermined && !notificationsResolved ? "Enable Notifications" : "Finish"
         }
     }
 
@@ -150,27 +172,51 @@ struct FirstRunView: View {
     }
 
     private func advance() async {
+        guard !busy else { return }
+        errorMessage = nil
         switch step {
         case .profile:
+            busy = true
+            let failure = await app.profile.saveDisplayName(displayName, accountHandle: app.auth.account?.primaryHandle)
+            busy = false
+            if let failure {
+                errorMessage = failure
+                HapticEngine.shared.play(.failure)
+                AccessibilityNotification.Announcement(failure).post()
+                return
+            }
             HapticEngine.shared.play(.navigation)
             step = .modules
         case .modules:
             HapticEngine.shared.play(.navigation)
             step = .notifications
         case .notifications:
-            if notificationStatus == .notDetermined {
+            if notificationStatus == .notDetermined && !notificationsResolved {
+                busy = true
                 let granted = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])
+                busy = false
                 refreshNotificationStatus()
-                notificationMessage = (granted == true)
+                let message = (granted == true)
                     ? "Notifications are allowed."
                     : "You can enable notifications later in iOS Settings."
+                notificationMessage = message
+                notificationsResolved = true
+                AccessibilityNotification.Announcement(message).post()
+                // Keep the result visible; the button now reads "Finish".
+                return
             }
             finish()
         }
     }
 
     private func finish() {
-        guard let accountID = app.auth.account?.accountId else { return }
+        guard let accountID = app.auth.account?.accountId else {
+            let message = "Your session ended. Sign in again to finish setup."
+            errorMessage = message
+            HapticEngine.shared.play(.failure)
+            AccessibilityNotification.Announcement(message).post()
+            return
+        }
         app.gate.completeFirstRun(accountID: accountID)
         app.refreshLaunchState()
         app.navigation.home()

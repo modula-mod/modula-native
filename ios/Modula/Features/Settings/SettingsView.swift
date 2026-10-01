@@ -16,6 +16,25 @@ struct SettingsGroup<Content: View>: View {
     }
 }
 
+/// Card of toggle / picker rows. Replaces `Form {}.scrollDisabled(true)
+/// .frame(minHeight:)` nested inside a ScrollView, which clipped rows at
+/// large text sizes and drew a second grouped background.
+struct SettingsToggleCard<Content: View>: View {
+    @ViewBuilder var content: Content
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        ModulaCard {
+            VStack(alignment: .leading, spacing: ModulaSpacing.xxs) {
+                content
+                    .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch, alignment: .leading)
+            }
+        }
+        .toggleStyle(.switch)
+        .tint(app.appearance.accent.color)
+    }
+}
+
 struct SettingsDivider: View {
     var body: some View { Divider().padding(.leading, 43) }
 }
@@ -691,7 +710,7 @@ struct AppearanceSettingsView: View {
                         }
                     }
                 }
-                Text("Appearance preferences are stored on this device. Account synchronization is future-capable but is not claimed in N2.")
+                Text("Appearance preferences are saved on this device.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -726,9 +745,10 @@ struct AppearancePreviewView: View {
             VStack(alignment: .leading, spacing: 12 * app.appearance.density.spacingScale) {
                 HStack {
                     ModulaAvatar(initials: "M")
+                        .accessibilityHidden(true)
                     VStack(alignment: .leading) {
                         ModulaText(text: "Modula Preview", role: .headline)
-                        Text("Native design contract v1").font(.caption).foregroundStyle(.secondary)
+                        Text("How your choices look").font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
                     ModulaBadge(title: "Live", symbol: "sparkles")
@@ -825,17 +845,17 @@ struct ComponentCatalogView: View {
                 catalog("Live Appearance") {
                     VStack(spacing: 12) {
                         Picker("Theme", selection: $appearance.theme) {
-                            ForEach(AppearanceStore.Theme.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
+                            ForEach(AppearanceStore.Theme.allCases, id: \.self) { Text(settingsDisplayTitle($0.rawValue)).tag($0) }
                         }.pickerStyle(.segmented)
                         Picker("Dark Style", selection: $appearance.darkStyle) {
-                            ForEach(AppearanceStore.DarkStyle.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
+                            ForEach(AppearanceStore.DarkStyle.allCases, id: \.self) { Text(settingsDisplayTitle($0.rawValue)).tag($0) }
                         }.pickerStyle(.segmented)
                         HStack {
                             Picker("Accent", selection: $appearance.accent) { ForEach(AppearanceStore.Accent.allCases) { Text($0.title).tag($0) } }
-                            Picker("Font", selection: $appearance.fontFamily) { ForEach(AppearanceStore.FontFamily.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) } }
+                            Picker("Font", selection: $appearance.fontFamily) { ForEach(AppearanceStore.FontFamily.allCases, id: \.self) { Text(settingsDisplayTitle($0.rawValue)).tag($0) } }
                         }
                         Picker("Density", selection: $appearance.density) {
-                            ForEach(AppearanceStore.Density.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
+                            ForEach(AppearanceStore.Density.allCases, id: \.self) { Text(settingsDisplayTitle($0.rawValue)).tag($0) }
                         }.pickerStyle(.segmented)
                     }
                 }

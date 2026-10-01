@@ -32,7 +32,7 @@ struct CameraSettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Capture prefs are local. Permission state is owned by iOS Settings — Modula does not invent a camera API matrix.")
+                SettingsAPIFootnote(text: "Saved on this device. Camera access is managed in iOS Settings.")
             }
             .navigationTitle("Camera")
             .navigationBarTitleDisplayMode(.inline)
@@ -67,7 +67,7 @@ struct CameraSettingsHost: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(app.appearance.accent.color)
-                SettingsAPIFootnote(text: "Native reads authorization through system APIs only; no fabricated grant state.")
+                SettingsAPIFootnote(text: "Shows the access you’ve given Modula in iOS Settings.")
             }
             .navigationTitle("Permissions")
             .navigationBarTitleDisplayMode(.inline)
@@ -90,15 +90,13 @@ struct GesturesSettingsHost: View {
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Gestures", subtitle: "Touch shortcuts for browsing and chat.", symbol: "hand.draw")
                 SettingsSceneGraphic(style: .orbit)
-                Form {
+                SettingsToggleCard {
                     Toggle("Edge swipe to go back", isOn: $edgeBack)
                     Toggle("Double-tap to like", isOn: $doubleTapLike)
                     Toggle("Swipe to reply in chats", isOn: $swipeReply)
                     Toggle("Shake to undo compose", isOn: $shakeUndo)
                 }
-                .scrollDisabled(true)
-                .frame(minHeight: 220)
-                SettingsAPIFootnote(text: "Local interaction prefs. Does not change Edge Picker geometry — that stays under Appearance → Edge Picker.")
+                SettingsAPIFootnote(text: "Saved on this device. Edge Picker options are in Appearance.")
             }
             .navigationTitle("Gestures")
             .navigationBarTitleDisplayMode(.inline)
@@ -111,7 +109,6 @@ struct GesturesSettingsHost: View {
 struct FinderSettingsHost: View {
     let route: FinderSettingsRoute
     @Environment(AppEnvironment.self) private var app
-    @AppStorage("settings.finder.saveHistory") private var saveHistory = true
     @AppStorage("settings.finder.includeModules") private var includeModules = true
     @AppStorage("settings.finder.peopleFirst") private var peopleFirst = false
 
@@ -121,22 +118,14 @@ struct FinderSettingsHost: View {
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Search", subtitle: "How lookup behaves on this device.", symbol: "magnifyingglass")
                 SettingsSceneGraphic(style: .constellation)
-                Form {
-                    Toggle("Save recent searches", isOn: $saveHistory)
+                // Search doesn't keep a recent-searches history yet, so the
+                // "Save recent searches" toggle and "Clear" row were removed
+                // rather than shown as controls that do nothing.
+                SettingsToggleCard {
                     Toggle("Include modules in results", isOn: $includeModules)
                     Toggle("Prefer people first", isOn: $peopleFirst)
                 }
-                .scrollDisabled(true)
-                .frame(minHeight: 160)
-                SettingsGroup(title: "History") {
-                    VStack(spacing: 0) {
-                        SettingsNavigationRow(title: "Clear recent searches", subtitle: "Removes local history", symbol: "trash") {
-                            UserDefaults.standard.removeObject(forKey: "settings.finder.history.cache")
-                            HapticEngine.shared.play(.confirmation)
-                        }
-                    }
-                }
-                SettingsAPIFootnote(text: "History is device-local. Discover scope chips remain on Discover — this page does not open Appearance or Discover routes.")
+                SettingsAPIFootnote(text: "Saved on this device.")
             }
             .navigationTitle("Search")
             .navigationBarTitleDisplayMode(.inline)
@@ -159,7 +148,7 @@ struct SharingSettingsHost: View {
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Sharing", subtitle: "Defaults for the share sheet.", symbol: "square.and.arrow.up")
                 SharingFlowGraphic(preferSheet: preferNative, copyAsLink: copyAsLink)
-                Form {
+                SettingsToggleCard {
                     Toggle("Include @handle in share text", isOn: $includeHandle)
                         .settingsAnchor("sharing.handle")
                     Toggle("Prefer system share sheet", isOn: $preferNative)
@@ -167,9 +156,7 @@ struct SharingSettingsHost: View {
                     Toggle("Copy link instead of opening sheet", isOn: $copyAsLink)
                         .settingsAnchor("sharing.link")
                 }
-                .scrollDisabled(true)
-                .frame(minHeight: 160)
-                SettingsAPIFootnote(text: "Local share defaults. Universal-link entitlements remain infrastructure work; no invented share analytics.")
+                SettingsAPIFootnote(text: "Saved on this device.")
             }
             .navigationTitle("Sharing")
             .navigationBarTitleDisplayMode(.inline)
@@ -201,15 +188,15 @@ struct LocationSettingsHost: View {
                     ("Nearby", "Local discovery", "binoculars"),
                     ("Clear history", "Forget places", "trash")
                 ],
-                apiNote: "No verified location-preference contract in native settings this run. Open iOS Settings for system authorization. UI is designed ahead of wiring."
+                apiNote: "Location features aren’t available yet. Location access is managed in iOS Settings."
             )
         case .map:
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Map posts", subtitle: "Place attachments on posts.", symbol: "map")
                 SettingsSceneGraphic(style: .constellation)
-                ContentUnavailableView("Map attach unavailable", systemImage: "map", description: Text("Place pickers stay off until a verified location attach contract exists."))
+                ContentUnavailableView("Adding places isn’t available yet", systemImage: "map", description: Text("You’ll be able to add a location to posts in a future update."))
                     .frame(minHeight: 160)
-                SettingsAPIFootnote(text: "No fabricated nearby places or coordinates.")
+                SettingsAPIFootnote(text: "Nearby places will appear here when location features are available.")
             }
             .navigationTitle("Map posts")
             .navigationBarTitleDisplayMode(.inline)
@@ -234,7 +221,7 @@ struct WidgetsSettingsHost: View {
                     widgetPreview("Module", "shippingbox")
                     widgetPreview("Compose", "plus")
                 }
-                SettingsAPIFootnote(text: "WidgetKit targets are not shipping in this build. Previews are illustrative — not installable widgets.")
+                SettingsAPIFootnote(text: "Widgets aren’t available yet. These are previews only.")
             }
             .navigationTitle("Widgets")
             .navigationBarTitleDisplayMode(.inline)
@@ -253,7 +240,7 @@ struct WidgetsSettingsHost: View {
                     ("Following stack", "Latest posts", "person.2"),
                     ("Unread activity", "Counts", "bell.badge")
                 ],
-                apiNote: "Gallery is design-only until Widget extensions land."
+                apiNote: "Widgets aren’t available yet."
             )
         }
     }
@@ -262,7 +249,7 @@ struct WidgetsSettingsHost: View {
         VStack(alignment: .leading, spacing: 12) {
             Image(systemName: symbol)
                 .font(.title2)
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(.tint)
             Text(title)
                 .font(.subheadline.weight(.semibold))
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -289,14 +276,12 @@ struct LabsSettingsHost: View {
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Labs", subtitle: "Optional experiments on this device — not the Features registry.", symbol: "flask")
                 SettingsSceneGraphic(style: .pulse)
-                Form {
+                SettingsToggleCard {
                     Toggle("Experimental chrome sketches", isOn: $experimentalChrome)
                     Toggle("Debug overlays", isOn: $debugOverlays)
                     Toggle("Verbose local logging", isOn: $verboseLogging)
                 }
-                .scrollDisabled(true)
-                .frame(minHeight: 160)
-                SettingsAPIFootnote(text: "Labs toggles are local only. Typed FeatureFlagRegistry remains under Features. Developer diagnostics stay under Developer.")
+                SettingsAPIFootnote(text: "Experimental options, saved on this device. They may change or go away.")
             }
             .navigationTitle("Labs")
             .navigationBarTitleDisplayMode(.inline)
@@ -318,19 +303,17 @@ struct PhotosSettingsHost: View {
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Photos", subtitle: "Library access and save behaviour.", symbol: "photo.on.rectangle")
                 SettingsSceneGraphic(style: .filmstrip)
-                Form {
+                SettingsToggleCard {
                     Toggle("Offer to save Stories to Photos", isOn: $autoSaveStories)
                     Toggle("Explain Limited Library", isOn: $limitedHint)
                 }
-                .scrollDisabled(true)
-                .frame(minHeight: 120)
                 Button("Open iOS Photos access") {
                     if let url = URL(string: UIApplication.openSettingsURLString) {
                         UIApplication.shared.open(url)
                     }
                 }
                 .buttonStyle(.bordered)
-                SettingsAPIFootnote(text: "Authorization is system-owned. These toggles only affect Modula prompts on this device.")
+                SettingsAPIFootnote(text: "Photo access is managed in iOS Settings. These options only change Modula’s prompts.")
             }
             .navigationTitle("Photos")
             .navigationBarTitleDisplayMode(.inline)
@@ -353,15 +336,13 @@ struct NetworkSettingsHost: View {
                 SettingsHeroBanner(title: "Network", subtitle: "Upload and preload behaviour on this device.", symbol: "network")
                 SettingsSceneGraphic(style: .meter)
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    SettingsStatChip(label: "API host", value: "Greenfield", symbol: "server.rack")
+                    SettingsStatChip(label: "Server", value: "Modula", symbol: "server.rack")
                     SettingsStatChip(label: "Preload", value: preload ? "On" : "Off", symbol: "arrow.down.circle")
                 }
-                Form {
+                SettingsToggleCard {
                     Toggle("Prefer Wi‑Fi for large uploads", isOn: $preferWiFi)
                     Toggle("Preload media on Wi‑Fi", isOn: $preload)
                 }
-                .scrollDisabled(true)
-                .frame(minHeight: 120)
                 SettingsGroup(title: "Related") {
                     VStack(spacing: 0) {
                         SettingsNavigationRow(title: "Battery & Data", subtitle: "Data saver", symbol: "battery.100.bolt") {
@@ -369,7 +350,7 @@ struct NetworkSettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Does not print secrets or raw base URLs. Developer → Network remains the diagnostics surface.")
+                SettingsAPIFootnote(text: "Saved on this device.")
             }
             .navigationTitle("Network")
             .navigationBarTitleDisplayMode(.inline)
@@ -390,13 +371,11 @@ struct DigestsSettingsHost: View {
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Digests", subtitle: "Email and push summaries when delivery exists.", symbol: "envelope.open")
                 SettingsSceneGraphic(style: .waves)
-                Form {
+                SettingsToggleCard {
                     Toggle("Weekly recap (when available)", isOn: $weekly)
                     Toggle("Morning brief (when available)", isOn: $morning)
                 }
-                .scrollDisabled(true)
-                .frame(minHeight: 120)
-                SettingsAPIFootnote(text: "Toggles are stored locally as intent. No digest dispatcher is claimed — delivery stays off until Greenfield verifies it.")
+                SettingsAPIFootnote(text: "Your choice is saved, but digests aren’t being sent yet.")
             }
             .navigationTitle("Digests")
             .navigationBarTitleDisplayMode(.inline)

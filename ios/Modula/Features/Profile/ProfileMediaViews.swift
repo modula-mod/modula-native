@@ -235,11 +235,17 @@ private struct ProfileMediaCropper: View {
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
     @State private var saving = false
+    /// The on-screen crop viewport. Save uses exactly this size so the
+    /// saved crop matches the preview (previously UIScreen bounds were used).
+    @State private var viewport: CGSize = .zero
+
+    private static let minScale: CGFloat = 1
+    private static let maxScale: CGFloat = 4
 
     var body: some View {
         NavigationStack {
             GeometryReader { proxy in
-                let viewport = viewportSize(in: proxy.size)
+                let viewport = viewportSize(in: proxy.size, containerWidth: proxy.size.width)
                 ZStack {
                     Color.black.ignoresSafeArea()
                     imageLayer(viewport: viewport)
@@ -261,10 +267,17 @@ private struct ProfileMediaCropper: View {
                         Text(session.kind == .avatar ? "Drag and pinch to frame your photo." : "Drag and pinch to reposition the cover.")
                             .font(.footnote)
                             .foregroundStyle(.white.opacity(0.78))
+                            .padding(.bottom, 8)
+                        zoomControls
                             .padding(.bottom, 18)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .onAppear { self.viewport = viewport }
+                .onChange(of: viewport) { _, next in
+                    self.viewport = next
+                    clampOffset()
+                }
             }
             .navigationTitle(session.kind.cropTitle)
             .navigationBarTitleDisplayMode(.inline)
@@ -297,26 +310,64 @@ private struct ProfileMediaCropper: View {
             .gesture(dragGesture)
             .simultaneousGesture(pinchGesture)
             .onTapGesture(count: 2) {
-                guard !reduceMotion else { return }
-                withAnimation(.easeOut(duration: 0.2)) {
-                    if scale > 1.05 {
-                        scale = 1
-                        lastScale = 1
-                        offset = .zero
-                        lastOffset = .zero
-                    } else {
-                        scale = 2
-                        lastScale = 2
-                    }
+                // Zoom stays available under Reduce Motion; it just isn't animated.
+                setScale(scale > 1.05 ? 1 : 2)
+            }
+            // The gesture surface itself is replaced by the adjustable crop
+            // element below for VoiceOver / Switch Control.
+            .accessibilityElement()
+            .accessibilityLabel(session.kind == .avatar ? "Photo crop" : "Cover crop")
+            .accessibilityValue("Zoom \(Int((scale * 100).rounded())) percent")
+            .accessibilityHint("Swipe up or down to zoom. Use actions to move the image.")
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: setScale(scale + 0.25)
+                case .decrement: setScale(scale - 0.25)
+                @unknown default: break
                 }
             }
-            .accessibilityHidden(true)
+            .accessibilityActions {
+                Button("Move Left") { nudge(dx: -24, dy: 0) }
+                Button("Move Right") { nudge(dx: 24, dy: 0) }
+                Button("Move Up") { nudge(dx: 0, dy: -24) }
+                Button("Move Down") { nudge(dx: 0, dy: 24) }
+                Button("Reset") { setScale(1); nudge(dx: -offset.width, dy: -offset.height) }
+            }
+    }
+
+    private var zoomControls: some View {
+        HStack(spacing: ModulaSpacing.md) {
+            Button { setScale(scale - 0.25) } label: {
+                Image(systemName: "minus.magnifyingglass")
+                    .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
+            }
+            .disabled(scale <= Self.minScale + 0.001)
+            .accessibilityLabel("Zoom Out")
+            Button { setScale(1); nudge(dx: -offset.width, dy: -offset.height) } label: {
+                Image(systemName: "arrow.counterclockwise")
+                    .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
+            }
+            .disabled(scale <= Self.minScale + 0.001 && offset == .zero)
+            .accessibilityLabel("Reset Crop")
+            Button { setScale(scale + 0.25) } label: {
+                Image(systemName: "plus.magnifyingglass")
+                    .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
+            }
+            .disabled(scale >= Self.maxScale - 0.001)
+            .accessibilityLabel("Zoom In")
+        }
+        .font(.body.weight(.semibold))
+        .foregroundStyle(.white)
+        .buttonStyle(.plain)
+        .padding(.horizontal, ModulaSpacing.xs)
+        .background(.white.opacity(0.14), in: Capsule())
+        .disabled(saving)
     }
 
     private var dragGesture: some Gesture {
         DragGesture()
             .onChanged { value in
-                offset = CGSize(width: lastOffset.width + value.translation.width, height: lastOffset.height + value.translation.height)
+                offset = clamped(CGSize(width: lastOffset.width + value.translation.width, height: lastOffset.height + value.translation.height), scale: scale)
             }
             .onEnded { _ in
                 lastOffset = offset
@@ -326,27 +377,64 @@ private struct ProfileMediaCropper: View {
     private var pinchGesture: some Gesture {
         MagnificationGesture()
             .onChanged { value in
-                guard !reduceMotion else { return }
-                scale = min(max(lastScale * value, 1), 4)
+                scale = min(max(lastScale * value, Self.minScale), Self.maxScale)
+                offset = clamped(lastOffset, scale: scale)
             }
             .onEnded { _ in
                 lastScale = scale
+                lastOffset = offset
             }
     }
 
-    private func viewportSize(in size: CGSize) -> CGSize {
-        let aspect = cropAspect
+    private func setScale(_ next: CGFloat) {
+        let target = min(max(next, Self.minScale), Self.maxScale)
+        let animation: Animation? = reduceMotion ? nil : ModulaMotion.animation(.morph, personality: app.appearance.motion, reduceMotion: false)
+        withAnimation(animation) {
+            scale = target
+            lastScale = target
+            offset = clamped(offset, scale: target)
+            lastOffset = offset
+        }
+        HapticEngine.shared.play(.selection)
+    }
+
+    private func nudge(dx: CGFloat, dy: CGFloat) {
+        offset = clamped(CGSize(width: offset.width + dx, height: offset.height + dy), scale: scale)
+        lastOffset = offset
+    }
+
+    private func clampOffset() {
+        offset = clamped(offset, scale: scale)
+        lastOffset = offset
+    }
+
+    /// Keeps the image covering the whole viewport (no empty edges in the
+    /// saved crop): |offset| <= (displayed - viewport) / 2 on each axis.
+    private func clamped(_ proposed: CGSize, scale: CGFloat) -> CGSize {
+        guard viewport.width > 0, viewport.height > 0 else { return proposed }
+        let fill = fillScale(viewport: viewport)
+        let size = session.image.size
+        let maxX = max(0, (size.width * fill * scale - viewport.width) / 2)
+        let maxY = max(0, (size.height * fill * scale - viewport.height) / 2)
+        return CGSize(
+            width: min(max(proposed.width, -maxX), maxX),
+            height: min(max(proposed.height, -maxY), maxY)
+        )
+    }
+
+    private func viewportSize(in size: CGSize, containerWidth: CGFloat) -> CGSize {
+        let aspect = cropAspect(containerWidth: containerWidth)
         let width = min(size.width, size.height * aspect)
         let height = width / aspect
         return CGSize(width: width, height: min(height, size.height))
     }
 
-    private var cropAspect: CGFloat {
+    private func cropAspect(containerWidth: CGFloat) -> CGFloat {
         switch session.kind {
         case .avatar:
             return 1
         case .cover:
-            let width = UIScreen.main.bounds.width
+            let width = max(containerWidth, 1)
             let height = ProfileFullBleedMetrics.coverHeight(
                 sizeClass: nil,
                 safeAreaTop: ProfileFullBleedMetrics.windowSafeAreaTop,
@@ -367,8 +455,11 @@ private struct ProfileMediaCropper: View {
         defer { saving = false }
         app.profile.setMediaError(nil)
         let imageSize = session.image.size
-        let screen = UIScreen.main.bounds.size
-        let viewport = viewportSize(in: screen)
+        guard viewport.width > 0, viewport.height > 0 else {
+            app.profile.setMediaError("Couldn't crop that photo.")
+            return
+        }
+        let offset = clamped(self.offset, scale: scale)
         let fill = fillScale(viewport: viewport)
         let displayed = CGSize(width: imageSize.width * fill * scale, height: imageSize.height * fill * scale)
         let origin = CGPoint(
@@ -496,7 +587,7 @@ struct ProfileMediaEditorRow: View {
                 }
             }
             .frame(width: 96, height: 56)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: ModulaRadius.small, style: .continuous))
         }
     }
 }

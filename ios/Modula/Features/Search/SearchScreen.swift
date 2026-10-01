@@ -6,6 +6,7 @@ struct SearchScreen: View {
     @State private var query: String
     @State private var chromeScope: ChromeScope
     @State private var searchTask: Task<Void, Never>?
+    @State private var dismissedError: String?
 
     private enum ChromeScope: Hashable, CaseIterable {
         case all, people, posts, modules, topics
@@ -91,13 +92,11 @@ struct SearchScreen: View {
         .onDisappear { searchTask?.cancel() }
         .accessibilityIdentifier("search.root")
         .overlay(alignment: .bottom) {
-            if let message = app.discover.search.lastError ?? app.discover.actionError {
-                Label(message, systemImage: "exclamationmark.triangle")
-                    .font(.footnote.weight(.semibold))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(.regularMaterial, in: Capsule())
-                    .padding(.bottom, 12)
+            if let message = app.discover.search.lastError ?? app.discover.actionError, message != dismissedError {
+                ModulaErrorBanner(message: message, identifier: "search.banner") {
+                    dismissedError = message
+                    app.discover.clearActionError()
+                }
             }
         }
     }
@@ -161,7 +160,9 @@ struct SearchScreen: View {
             DiscoverPostCard(post: post) { open(hit) }
         } else if hit.entityType == "topic", let topic = hit.topic {
             DiscoverTopicCard(topic: topic) {
-                HapticEngine.shared.play(.selection)
+                // Open a search for the topic instead of a haptic-only tap.
+                app.navigation.push(.search(.root(topic.query)))
+                HapticEngine.shared.play(.navigation)
             }
         } else if (hit.entityType == "module" || hit.entityType == "module-release"),
                   let id = hit.moduleID,

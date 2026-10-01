@@ -15,32 +15,31 @@ struct NodusMemoryView: View {
         List {
             if let status { Section { Text(status).font(.footnote).foregroundStyle(.secondary) } }
             if !snapshot.suggestions.isEmpty {
-                Section("Suggested Memories") {
-                    ForEach(snapshot.suggestions) { suggestion in
-                        VStack(alignment: .leading, spacing: 7) {
-                            Text(suggestion.text)
-                            Text("Suggested · confirmation required").font(.caption).foregroundStyle(.secondary)
-                            HStack {
-                                Button("Add") { Task { _ = try? await app.nodusMemoryStore.approveSuggestion(id: suggestion.id); await refresh() } }
-                                    .buttonStyle(.bordered).controlSize(.small)
-                                Button("Edit & Add") {
-                                    editing = NodusMemoryItem(
-                                        id: suggestion.id, scope: suggestion.scope,
-                                        conversationID: suggestion.conversationID, kind: suggestion.kind,
-                                        text: suggestion.text, source: .suggestion,
-                                        createdAt: suggestion.createdAt, updatedAt: suggestion.createdAt,
-                                        confirmedAt: suggestion.createdAt, active: true,
-                                        sensitivity: suggestion.sensitivity
-                                    )
-                                }
-                                .buttonStyle(.bordered).controlSize(.small)
-                                Button("Reject", role: .destructive) {
-                                    Task { try? await app.nodusMemoryStore.rejectSuggestion(id: suggestion.id); await refresh() }
-                                }
-                                .buttonStyle(.bordered).controlSize(.small)
-                            }
+                Section {
+                    NodusSuggestionCardStack(
+                        suggestions: snapshot.suggestions,
+                        onAdd: { suggestion in
+                            Task { _ = try? await app.nodusMemoryStore.approveSuggestion(id: suggestion.id); await refresh() }
+                        },
+                        onEdit: { suggestion in
+                            editing = NodusMemoryItem(
+                                id: suggestion.id, scope: suggestion.scope,
+                                conversationID: suggestion.conversationID, kind: suggestion.kind,
+                                text: suggestion.text, source: .suggestion,
+                                createdAt: suggestion.createdAt, updatedAt: suggestion.createdAt,
+                                confirmedAt: suggestion.createdAt, active: true,
+                                sensitivity: suggestion.sensitivity
+                            )
+                        },
+                        onReject: { suggestion in
+                            Task { try? await app.nodusMemoryStore.rejectSuggestion(id: suggestion.id); await refresh() }
                         }
-                    }
+                    )
+                    .listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
+                } header: {
+                    Text("Suggested Memories")
+                } footer: {
+                    Text("Swipe right to add, left to reject. Nothing is saved until you confirm.")
                 }
             }
             Section("Memory") {
@@ -189,6 +188,118 @@ private struct NodusMemoryEditor: View {
         }
         .onAppear {
             if let item { text = item.text; kind = item.kind; scope = item.scope }
+        }
+    }
+}
+/// Tinder-style stack for pending memory suggestions: swipe right to add,
+/// left to reject. Buttons and VoiceOver actions do the same thing, and
+/// Reduce Motion removes the fling/tilt.
+private struct NodusSuggestionCardStack: View {
+    let suggestions: [NodusMemorySuggestion]
+    var onAdd: (NodusMemorySuggestion) -> Void
+    var onEdit: (NodusMemorySuggestion) -> Void
+    var onReject: (NodusMemorySuggestion) -> Void
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var drag: CGSize = .zero
+    @State private var leaving: UUID?
+
+    private let commitDistance: CGFloat = 110
+
+    var body: some View {
+        let visible = Array(suggestions.filter { $0.id != leaving }.prefix(3))
+        ZStack {
+            ForEach(Array(visible.enumerated().reversed()), id: \.element.id) { index, suggestion in
+                card(suggestion, isTop: index == 0)
+                    .scaleEffect(index == 0 ? 1 : 1 - CGFloat(index) * 0.04, anchor: .bottom)
+                    .offset(y: CGFloat(index) * 8)
+                    .offset(index == 0 ? drag : .zero)
+                    .rotationEffect(.degrees(index == 0 && !reduceMotion ? Double(drag.width / 22) : 0))
+                    .allowsHitTesting(index == 0)
+                    .accessibilityHidden(index != 0)
+                    .zIndex(Double(visible.count - index))
+            }
+        }
+        .padding(.bottom, CGFloat(max(0, visible.count - 1)) * 8)
+        .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.82), value: suggestions.map(\.id))
+    }
+
+    private func card(_ suggestion: NodusMemorySuggestion, isTop: Bool) -> some View {
+        let progress = min(1, abs(drag.width) / commitDistance)
+        return VStack(alignment: .leading, spacing: ModulaSpacing.sm) {
+            HStack {
+                Text("Suggested")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if isTop, drag.width != 0 {
+                    Label(drag.width > 0 ? "Add" : "Reject", systemImage: drag.width > 0 ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(drag.width > 0 ? app.appearance.accent.color : .red)
+                        .opacity(progress)
+                }
+            }
+            Text(suggestion.text)
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: ModulaSpacing.xs) {
+                Button("Reject", role: .destructive) { fling(suggestion, add: false) }
+                Spacer()
+                Button("Edit & Add") { onEdit(suggestion) }
+                Button("Add") { fling(suggestion, add: true) }
+                    .buttonStyle(.borderedProminent)
+                    .tint(app.appearance.accent.color)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(ModulaSpacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.08))
+        )
+        .shadow(color: .black.opacity(isTop ? 0.08 : 0.03), radius: 8, y: 3)
+        .gesture(swipe(suggestion), including: isTop ? .all : .subviews)
+        .accessibilityElement(children: .contain)
+        .accessibilityAction(named: "Add") { fling(suggestion, add: true) }
+        .accessibilityAction(named: "Reject") { fling(suggestion, add: false) }
+    }
+
+    private func swipe(_ suggestion: NodusMemorySuggestion) -> some Gesture {
+        DragGesture(minimumDistance: 14)
+            .onChanged { value in
+                drag = CGSize(width: value.translation.width, height: value.translation.height * 0.15)
+            }
+            .onEnded { value in
+                let distance = value.translation.width
+                let predicted = value.predictedEndTranslation.width
+                if abs(distance) > commitDistance || abs(predicted) > commitDistance * 2.2 {
+                    fling(suggestion, add: distance > 0)
+                } else {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.75)) { drag = .zero }
+                }
+            }
+    }
+
+    private func fling(_ suggestion: NodusMemorySuggestion, add: Bool) {
+        HapticEngine.shared.play(add ? .confirmation : .selection)
+        let finish = {
+            leaving = suggestion.id
+            drag = .zero
+            add ? onAdd(suggestion) : onReject(suggestion)
+        }
+        if reduceMotion {
+            finish()
+        } else {
+            withAnimation(.easeIn(duration: 0.18)) {
+                drag = CGSize(width: add ? 480 : -480, height: drag.height)
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(180))
+                finish()
+            }
         }
     }
 }

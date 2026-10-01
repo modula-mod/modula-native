@@ -251,7 +251,7 @@ struct SocialPost: Identifiable, Hashable, Sendable {
     }
 
     var shareURL: URL {
-        URL(string: "https://modula.digital/post/\(id)")!
+        ModulaShareLink.post(id)
     }
 
     var voiceOverSummary: String {

@@ -3,13 +3,14 @@ import SwiftUI
 struct SavedView: View {
     var section: SavedSection = .root
     @Environment(AppEnvironment.self) private var app
+    @State private var videoCoordinator = FeedVideoCoordinator()
 
     var body: some View {
         Group {
             if app.saved.backendListOpen {
                 ModulaEmptyState(
                     title: "Saved",
-                    message: "Saving posts works. Listing saved posts waits on a Greenfield contract.",
+                    message: "Posts you save are kept, but showing them here isn’t available yet.",
                     symbol: "bookmark"
                 )
             } else if !app.saved.loaded && app.saved.posts.isEmpty {
@@ -61,14 +62,16 @@ struct SavedView: View {
                                 },
                                 onSave: {
                                     Task { await app.saved.unsave(postID: resolved.id, postActions: app.postActions) }
-                                }
+                                },
+                                // Same single-active-video policy as Home, so saved
+                                // videos don't all autoplay at once.
+                                videoCoordinator: videoCoordinator
                             )
                                 .contextMenu {
                                     Button("Unsave", systemImage: "bookmark.slash", role: .destructive) {
                                         Task { await app.saved.unsave(postID: post.id, postActions: app.postActions) }
                                     }
                                 }
-                                .accessibilityElement(children: .combine)
                         }
                         if app.saved.hasMore {
                             ProgressView()

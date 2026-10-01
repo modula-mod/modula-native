@@ -148,7 +148,7 @@ struct HomeFeedsSheet: View {
                     }
                 ))
                 .accessibilityIdentifier("home.feeds.hide-modules")
-                Text("Applies to posts already loaded in this feed. It does not change Greenfield ranking.")
+                Text("Applies to posts already loaded in this feed. It doesn’t change what Modula recommends.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

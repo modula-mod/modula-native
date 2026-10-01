@@ -47,8 +47,8 @@ struct ReactionPeopleView: View {
                 .font(.subheadline.weight(.semibold))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(selected ? Color.accentColor.opacity(0.2) : Color.primary.opacity(0.06), in: Capsule())
-                .overlay(Capsule().stroke(selected ? Color.accentColor : Color.clear, lineWidth: 1.5))
+                .background(selected ? AnyShapeStyle(TintShapeStyle().opacity(0.2)) : AnyShapeStyle(Color.primary.opacity(0.06)), in: Capsule())
+                .overlay(Capsule().stroke(selected ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.clear), lineWidth: 1.5))
         }
         .buttonStyle(.plain)
     }

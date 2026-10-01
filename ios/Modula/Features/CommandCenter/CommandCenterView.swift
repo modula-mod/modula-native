@@ -8,6 +8,8 @@ struct CommandCenterView: View {
     @FocusState private var queryFocused: Bool
     @State private var query = ""
     @State private var selectedIndex = 0
+    /// Shown inline (the sheet would cover a shell banner) when a command can't run.
+    @State private var notice: String?
 
     private var capabilities: CommandCapabilitySnapshot {
         app.commandCapabilities()
@@ -65,6 +67,17 @@ struct CommandCenterView: View {
                     .padding(.top, 12)
                     .padding(.bottom, 8)
 
+                if let notice {
+                    Label(notice, systemImage: "info.circle")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, ModulaSpacing.md)
+                        .padding(.bottom, ModulaSpacing.xs)
+                        .transition(.opacity)
+                        .accessibilityIdentifier("command.notice")
+                }
+
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: sectionSpacing, pinnedViews: []) {
@@ -104,7 +117,8 @@ struct CommandCenterView: View {
                         .keyboardShortcut(.escape, modifiers: [])
                 }
             }
-            .background(Color(.systemBackground))
+            .modulaCanvas()
+            .tint(app.appearance.accent.color)
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Command Center")
             .accessibilityIdentifier("command.center")
@@ -113,8 +127,9 @@ struct CommandCenterView: View {
                 HapticEngine.shared.play(.contextOpen)
             }
             .onChange(of: query) { _, _ in
+                // No haptic per keystroke: typing already has keyboard feedback.
                 selectedIndex = 0
-                HapticEngine.shared.play(.selection)
+                notice = nil
             }
             .onKeyPress(.upArrow) {
                 moveSelection(-1)
@@ -168,6 +183,9 @@ struct CommandCenterView: View {
             app.navigation.requestAuthentication(returningTo: route)
         case .unavailable, .unsupported:
             HapticEngine.shared.play(.failure)
+            let message = "“\(command.title)” isn’t available right now."
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { notice = message }
+            AccessibilityNotification.Announcement(message).post()
         }
     }
 }
@@ -211,6 +229,7 @@ struct CommandSectionView<Content: View>: View {
 }
 
 struct CommandRow: View {
+    @Environment(AppEnvironment.self) private var app
     let command: ModulaCommand
     var selected = false
     var action: () -> Void
@@ -242,7 +261,7 @@ struct CommandRow: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 10)
             .frame(minHeight: 44)
-            .background(selected ? Color.accentColor.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .background(selected ? app.appearance.accent.color.opacity(0.14) : Color.clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

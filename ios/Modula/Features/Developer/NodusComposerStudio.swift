@@ -727,11 +727,11 @@ struct NodusMessageSwipe<Content: View>: View {
         ZStack {
             HStack {
                 Image(systemName: "arrowshape.turn.up.left.fill")
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(.tint)
                     .opacity(min(max(offset / 70, 0), 1))
                 Spacer()
                 Image(systemName: "arrow.triangle.branch")
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(.tint)
                     .opacity(min(max(-offset / 70, 0), 1))
             }
             .padding(.horizontal, 8)
@@ -949,13 +949,13 @@ struct NodusSystemInfoSheet: View {
 
     private func stat(_ title: String, _ value: Int, _ symbol: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Image(systemName: symbol).foregroundStyle(Color.accentColor)
+            Image(systemName: symbol).foregroundStyle(.tint)
             Text("\(value)").font(.title2.weight(.semibold))
             Text(title).font(.caption).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(TintShapeStyle().opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
@@ -1344,7 +1344,7 @@ struct NodusSkillsSheet: View {
                                 Spacer()
                                 Image(systemName: on ? "checkmark.circle.fill" : "circle")
                                     .font(.title3)
-                                    .foregroundStyle(on ? Color.accentColor : Color.secondary)
+                                    .foregroundStyle(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.secondary))
                                     .contentTransition(.symbolEffect(.replace))
                             }
                         }
@@ -1387,7 +1387,7 @@ struct NodusPersonaSheet: View {
                                 Spacer()
                                 if selected {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(Color.accentColor)
+                                        .foregroundStyle(.tint)
                                         .transition(.scale.combined(with: .opacity))
                                 }
                             }

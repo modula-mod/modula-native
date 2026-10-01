@@ -335,6 +335,8 @@ struct ModulaAvatar: View {
     var initials: String
     var url: URL? = nil
     var size = 44.0
+    /// Person's name for VoiceOver ("Ada Lovelace, profile photo").
+    var name: String? = nil
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
@@ -357,7 +359,8 @@ struct ModulaAvatar: View {
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
-        .accessibilityLabel("Profile avatar")
+        .accessibilityLabel(name.map { "\($0), profile photo" } ?? "Profile photo")
+        .accessibilityAddTraits(.isImage)
     }
 
     private var initialsView: some View {
@@ -425,6 +428,7 @@ final class ProfileTabBarAvatarHook: UIView {
     var avatar: UIImage? {
         didSet { applySoon() }
     }
+    private weak var cachedBar: UITabBar?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -448,53 +452,18 @@ final class ProfileTabBarAvatarHook: UIView {
     }
 
     func apply() {
-        guard let avatar else { return }
+        guard let avatar, let bar = TabBarIntrospection.tabBar(near: self, cached: &cachedBar) else { return }
         let prepared = avatar.withRenderingMode(.alwaysOriginal)
-        for bar in allTabBars() {
-            if let item = profileItem(in: bar) {
-                item.image = prepared
-                item.selectedImage = prepared
-            }
-            if let host = profileIconView(in: bar) {
-                pinOverlay(on: host, image: prepared)
-            }
+        // Logical index (not title or visual position) so this works in RTL
+        // layouts and every localization.
+        if let item = TabBarIntrospection.item(for: .profile, in: bar) {
+            item.image = prepared
+            item.selectedImage = prepared
         }
-    }
-
-    private func profileItem(in bar: UITabBar) -> UITabBarItem? {
-        bar.items?.first(where: { $0.title?.caseInsensitiveCompare("Profile") == .orderedSame })
-            ?? bar.items?.last
-    }
-
-    private func profileIconView(in bar: UITabBar) -> UIView? {
-        if let labeled = firstView(in: bar, matching: { $0.accessibilityLabel?.caseInsensitiveCompare("Profile") == .orderedSame }) {
-            if let icon = preferredIconView(in: labeled) { return icon }
-            return labeled
+        if let button = TabBarIntrospection.button(for: .profile, in: bar) {
+            let host = TabBarIntrospection.preferredIconView(in: button) ?? button
+            pinOverlay(on: host, image: prepared)
         }
-        let buttons = tabButtons(in: bar)
-        guard let button = buttons.last else { return nil }
-        return preferredIconView(in: button) ?? button
-    }
-
-    private func tabButtons(in bar: UITabBar) -> [UIView] {
-        bar.subviews
-            .filter { view in
-                let name = String(describing: type(of: view))
-                return name.localizedCaseInsensitiveContains("tabbarbutton")
-                    || name.localizedCaseInsensitiveContains("tabbutton")
-                    || (view is UIControl && view.frame.width > 20)
-            }
-            .sorted { $0.frame.minX < $1.frame.minX }
-    }
-
-    private func preferredIconView(in root: UIView) -> UIView? {
-        var images: [UIImageView] = []
-        walk(root) { view in
-            guard let imageView = view as? UIImageView else { return }
-            let width = imageView.bounds.width
-            if width >= 12, width <= 56 { images.append(imageView) }
-        }
-        return images.min(by: { abs($0.bounds.width - 26) < abs($1.bounds.width - 26) })
     }
 
     private func pinOverlay(on host: UIView, image: UIImage) {
@@ -525,33 +494,72 @@ final class ProfileTabBarAvatarHook: UIView {
         host.superview?.subviews.compactMap { $0 as? ProfileTabAvatarOverlay }.first
             ?? host.subviews.compactMap { $0 as? ProfileTabAvatarOverlay }.first
     }
+}
 
-    private func allTabBars() -> [UITabBar] {
-        var found: [UITabBar] = []
-        var seen = Set<ObjectIdentifier>()
-        func add(_ bar: UITabBar) {
-            let id = ObjectIdentifier(bar)
-            guard !seen.contains(id) else { return }
-            seen.insert(id)
-            found.append(bar)
+/// Shared, RTL- and localization-safe lookup for the system `UITabBar`.
+/// Tabs are matched by their logical index in `AppTab.allCases`, never by
+/// English titles or left-to-right screen position. The bar is cached weakly
+/// so repeated SwiftUI updates do not walk every window.
+@MainActor
+enum TabBarIntrospection {
+    static func tabBar(near view: UIView, cached: inout UITabBar?) -> UITabBar? {
+        if let bar = cached, bar.window != nil, bar.window === view.window || view.window == nil {
+            return bar
         }
-        if let window {
-            walk(window) { view in
-                if let bar = view as? UITabBar { add(bar) }
+        cached = nil
+        guard let window = view.window else { return nil }
+        if let bar = firstTabBar(in: window) {
+            cached = bar
+            return bar
+        }
+        // The tab bar can live in a sibling window of the same scene (e.g. while
+        // a sheet hosts the hook). Search only that scene, not every scene.
+        for other in window.windowScene?.windows ?? [] where other !== window {
+            if let bar = firstTabBar(in: other) {
+                cached = bar
+                return bar
             }
         }
-        for scene in UIApplication.shared.connectedScenes {
-            guard let windowScene = scene as? UIWindowScene else { continue }
-            for window in windowScene.windows {
-                walk(window) { view in
-                    if let bar = view as? UITabBar { add(bar) }
-                }
-            }
-        }
-        return found
+        return nil
     }
 
-    private func firstView(in root: UIView, matching: (UIView) -> Bool) -> UIView? {
+    static func item(for tab: AppTab, in bar: UITabBar) -> UITabBarItem? {
+        guard let items = bar.items, items.count == AppTab.allCases.count,
+              let index = AppTab.allCases.firstIndex(of: tab) else { return nil }
+        return items[index]
+    }
+
+    static func button(for tab: AppTab, in bar: UITabBar) -> UIView? {
+        let buttons = logicalTabButtons(in: bar)
+        guard buttons.count == AppTab.allCases.count,
+              let index = AppTab.allCases.firstIndex(of: tab) else { return nil }
+        return buttons[index]
+    }
+
+    /// Tab buttons in logical (leading → trailing) order for the bar's layout direction.
+    static func logicalTabButtons(in bar: UITabBar) -> [UIView] {
+        let visual = bar.subviews
+            .filter { view in
+                let name = String(describing: type(of: view))
+                return name.localizedCaseInsensitiveContains("tabbarbutton")
+                    || name.localizedCaseInsensitiveContains("tabbutton")
+                    || (view is UIControl && view.frame.width > 20)
+            }
+            .sorted { $0.frame.minX < $1.frame.minX }
+        return bar.effectiveUserInterfaceLayoutDirection == .rightToLeft ? visual.reversed() : visual
+    }
+
+    static func preferredIconView(in root: UIView) -> UIImageView? {
+        var images: [UIImageView] = []
+        walk(root) { view in
+            guard let imageView = view as? UIImageView, !(view is ProfileTabAvatarOverlay) else { return }
+            let width = imageView.bounds.width
+            if width >= 12, width <= 56 { images.append(imageView) }
+        }
+        return images.min(by: { abs($0.bounds.width - 26) < abs($1.bounds.width - 26) })
+    }
+
+    static func firstView(in root: UIView, matching: (UIView) -> Bool) -> UIView? {
         if matching(root) { return root }
         for child in root.subviews {
             if let found = firstView(in: child, matching: matching) { return found }
@@ -559,7 +567,11 @@ final class ProfileTabBarAvatarHook: UIView {
         return nil
     }
 
-    private func walk(_ root: UIView, visit: (UIView) -> Void) {
+    private static func firstTabBar(in root: UIView) -> UITabBar? {
+        firstView(in: root, matching: { $0 is UITabBar }) as? UITabBar
+    }
+
+    private static func walk(_ root: UIView, visit: (UIView) -> Void) {
         visit(root)
         for child in root.subviews { walk(child, visit: visit) }
     }
@@ -588,6 +600,7 @@ final class TabBarIconMotionHook: UIView {
     var selectedTab: AppTab = .home
     var reduceMotion = false
     private var bouncedTab: AppTab?
+    private weak var cachedBar: UITabBar?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -604,6 +617,8 @@ final class TabBarIconMotionHook: UIView {
     }
 
     func applySelection(_ tab: AppTab) {
+        // Only schedule work when the selection actually changed.
+        guard tab != selectedTab || bouncedTab != tab else { return }
         selectedTab = tab
         applySoon()
     }
@@ -619,30 +634,23 @@ final class TabBarIconMotionHook: UIView {
             bouncedTab = selectedTab
             return
         }
-        guard bouncedTab != selectedTab else { return }
-        var bounced = false
-        let tabs = AppTab.allCases
-        for bar in allTabBars() {
-            let buttons = tabButtons(in: bar)
-            for (index, button) in buttons.enumerated() {
-                guard tabs.indices.contains(index) else { continue }
-                let tab = tabs[index]
-                guard tab == selectedTab else { continue }
-                if tab == .profile {
-                    bounceProfile(in: button)
-                    bounced = true
-                } else if let imageView = preferredIconView(in: button) {
-                    imageView.addSymbolEffect(.bounce, options: .nonRepeating, animated: true)
-                    bounced = true
-                }
-            }
+        guard bouncedTab != selectedTab,
+              let bar = TabBarIntrospection.tabBar(near: self, cached: &cachedBar),
+              let button = TabBarIntrospection.button(for: selectedTab, in: bar) else { return }
+        if selectedTab == .profile {
+            bounceProfile(in: button)
+        } else if let imageView = TabBarIntrospection.preferredIconView(in: button) {
+            imageView.addSymbolEffect(.bounce, options: .nonRepeating, animated: true)
+        } else {
+            return
         }
-        if bounced { bouncedTab = selectedTab }
+        bouncedTab = selectedTab
     }
 
     private func bounceProfile(in button: UIView) {
-        let overlay = firstView(in: button, matching: { $0 is ProfileTabAvatarOverlay })
-            ?? preferredIconView(in: button)
+        let overlay = TabBarIntrospection.firstView(in: button, matching: { $0 is ProfileTabAvatarOverlay })
+            ?? button.superview.flatMap { parent in parent.subviews.first(where: { $0 is ProfileTabAvatarOverlay && $0.frame.intersects(button.frame) }) }
+            ?? TabBarIntrospection.preferredIconView(in: button)
         guard let overlay else { return }
         overlay.layer.removeAnimation(forKey: "modula.tab.bounce")
         let pop = CASpringAnimation(keyPath: "transform.scale")
@@ -653,65 +661,6 @@ final class TabBarIconMotionHook: UIView {
         pop.mass = 0.7
         pop.duration = pop.settlingDuration
         overlay.layer.add(pop, forKey: "modula.tab.bounce")
-    }
-
-    private func allTabBars() -> [UITabBar] {
-        var found: [UITabBar] = []
-        var seen = Set<ObjectIdentifier>()
-        func add(_ bar: UITabBar) {
-            let id = ObjectIdentifier(bar)
-            guard !seen.contains(id) else { return }
-            seen.insert(id)
-            found.append(bar)
-        }
-        if let window {
-            walk(window) { view in
-                if let bar = view as? UITabBar { add(bar) }
-            }
-        }
-        for scene in UIApplication.shared.connectedScenes {
-            guard let windowScene = scene as? UIWindowScene else { continue }
-            for window in windowScene.windows {
-                walk(window) { view in
-                    if let bar = view as? UITabBar { add(bar) }
-                }
-            }
-        }
-        return found
-    }
-
-    private func tabButtons(in bar: UITabBar) -> [UIView] {
-        bar.subviews
-            .filter { view in
-                let name = String(describing: type(of: view))
-                return name.localizedCaseInsensitiveContains("tabbarbutton")
-                    || name.localizedCaseInsensitiveContains("tabbutton")
-                    || (view is UIControl && view.frame.width > 20)
-            }
-            .sorted { $0.frame.minX < $1.frame.minX }
-    }
-
-    private func preferredIconView(in root: UIView) -> UIImageView? {
-        var images: [UIImageView] = []
-        walk(root) { view in
-            guard let imageView = view as? UIImageView, !(view is ProfileTabAvatarOverlay) else { return }
-            let width = imageView.bounds.width
-            if width >= 12, width <= 56 { images.append(imageView) }
-        }
-        return images.min(by: { abs($0.bounds.width - 26) < abs($1.bounds.width - 26) })
-    }
-
-    private func firstView(in root: UIView, matching: (UIView) -> Bool) -> UIView? {
-        if matching(root) { return root }
-        for child in root.subviews {
-            if let found = firstView(in: child, matching: matching) { return found }
-        }
-        return nil
-    }
-
-    private func walk(_ root: UIView, visit: (UIView) -> Void) {
-        visit(root)
-        for child in root.subviews { walk(child, visit: visit) }
     }
 }
 
@@ -911,7 +860,18 @@ struct ModulaSection<Content: View>: View { var title: String; @ViewBuilder var 
 struct ModulaSearchField: View { @Binding var text: String; var prompt = "Search"; var body: some View { TextField(prompt, text: $text).textFieldStyle(.plain).padding(.horizontal, 14).frame(minHeight: 44).background(.thinMaterial, in: Capsule()).accessibilityLabel(prompt) } }
 struct ModulaMetric: View { var value: String; var label: String; var body: some View { VStack(alignment: .leading, spacing: 2) { Text(value).font(.title3.bold()); Text(label).font(.caption).foregroundStyle(.secondary) }.accessibilityElement(children: .combine) } }
 struct ModulaMetricPicker<Value: Hashable, Content: View>: View { @Binding var selection: Value; var values: [Value]; @ViewBuilder var label: (Value) -> Content; var body: some View { Picker("Selection", selection: $selection) { ForEach(values, id: \.self) { label($0).tag($0) } }.pickerStyle(.segmented) } }
-struct ModulaChip: View { var title: String; var selected = false; var action: () -> Void; var body: some View { Button(title, action: action).buttonStyle(.bordered).buttonBorderShape(.capsule).tint(selected ? .accentColor : .secondary).frame(minHeight: 44) } }
+struct ModulaChip: View {
+    var title: String; var selected = false; var action: () -> Void
+    @Environment(AppEnvironment.self) private var app
+    var body: some View {
+        Button(title, action: action)
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
+            .tint(selected ? app.appearance.accent.color : .secondary)
+            .frame(minHeight: ModulaLayout.minimumTouch)
+            .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
 struct ModulaToolbar<Content: View>: View { @ViewBuilder var content: Content; var body: some View { HStack(spacing: 8) { content }.padding(6).background(.regularMaterial, in: Capsule()) } }
 struct ModulaTopBar: View { var title: String; var trailing: (() -> Void)?; var body: some View { HStack { Text(title).font(.largeTitle.bold()); Spacer(); if let trailing { ModulaIconButton(title: "Settings", symbol: "gearshape", action: trailing) } }.padding(.horizontal, ModulaLayout.contentInset) } }
 struct ModulaMenu<Content: View>: View { var title: String; @ViewBuilder var content: Content; var body: some View { Menu(title, content: { content }) } }

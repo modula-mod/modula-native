@@ -200,6 +200,42 @@ private struct EdgePickerSideKey: EnvironmentKey {
     static let defaultValue: EdgePickerSide = .right
 }
 
+private struct RouteTransitionNamespaceKey: EnvironmentKey {
+    static let defaultValue: Namespace.ID? = nil
+}
+
+extension EnvironmentValues {
+    /// Shared per navigation stack so a list row can be the zoom source for
+    /// the route it pushes (e.g. inbox avatar → conversation).
+    var routeTransitionNamespace: Namespace.ID? {
+        get { self[RouteTransitionNamespaceKey.self] }
+        set { self[RouteTransitionNamespaceKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// Marks this view as the zoom source for `id`. No-op without a namespace.
+    @ViewBuilder
+    func modulaZoomSource(id: some Hashable, namespace: Namespace.ID?) -> some View {
+        if let namespace {
+            matchedTransitionSource(id: id, in: namespace)
+        } else {
+            self
+        }
+    }
+
+    /// Zooms this pushed screen out of its matching source. Falls back to the
+    /// standard push when Reduce Motion is on or there is no namespace.
+    @ViewBuilder
+    func modulaZoomDestination(id: some Hashable, namespace: Namespace.ID?, reduceMotion: Bool) -> some View {
+        if let namespace, !reduceMotion {
+            navigationTransition(.zoom(sourceID: id, in: namespace))
+        } else {
+            self
+        }
+    }
+}
+
 private struct ShellChromeMetricsKey: EnvironmentKey {
     static let defaultValue = ShellChromeMetrics(
         bottomBarHeight: 0,

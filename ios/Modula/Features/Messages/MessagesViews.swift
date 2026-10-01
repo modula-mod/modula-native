@@ -4,6 +4,8 @@ import UIKit
 struct MessagesRootView: View {
     let route: MessagesRoute
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.routeTransitionNamespace) private var routeTransitions
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Group {
@@ -18,6 +20,7 @@ struct MessagesRootView: View {
                 NewConversationView()
             case .conversation(let id):
                 ConversationView(conversationID: id)
+                    .modulaZoomDestination(id: "conversation.\(id)", namespace: routeTransitions, reduceMotion: reduceMotion)
             }
         }
         .modulaCanvas()
@@ -172,10 +175,12 @@ struct MessagesScopePicker: View {
 struct ConversationRow: View {
     let conversation: Conversation
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.routeTransitionNamespace) private var routeTransitions
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             ConversationAvatar(participant: conversation.participants.first, unread: conversation.isUnread)
+                .modulaZoomSource(id: "conversation.\(conversation.id)", namespace: routeTransitions)
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(conversation.title)
@@ -216,23 +221,29 @@ struct ConversationRow: View {
         return parts.joined(separator: ", ")
     }
 
-    static func relative(_ date: Date) -> String {
+    @MainActor private static let relativeFormatter: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: date, relativeTo: Date())
+        return formatter
+    }()
+
+    @MainActor static func relative(_ date: Date) -> String {
+        relativeFormatter.localizedString(for: date, relativeTo: Date())
     }
 }
 
 struct ConversationAvatar: View {
     let participant: ConversationParticipant?
     var unread = false
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        ModulaAvatar(initials: participant?.initials ?? "?", url: participant?.avatarURL, size: 48)
+        ModulaAvatar(initials: participant?.initials ?? "?", url: participant?.avatarURL, size: 48, name: participant?.displayName)
             .overlay(alignment: .bottomTrailing) {
                 if unread {
                     ModulaNotificationDot(tone: .accent, size: 10)
-                        .overlay(Circle().stroke(Color(.systemBackground), lineWidth: 2))
+                        .overlay(Circle().stroke(ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas, lineWidth: 2))
                         .accessibilityHidden(true)
                 }
             }
@@ -252,6 +263,7 @@ struct ConversationView: View {
     let conversationID: ConversationID
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -307,18 +319,44 @@ struct ConversationView: View {
                 symbol: "text.bubble"
             )
         default:
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 10) {
-                    ForEach(items) { message in
-                        MessageBubble(message: message) { action in
-                            handle(action, message: message)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(items.enumerated()), id: \.element.id) { index, message in
+                            let position = MessageGroupPosition.resolve(index: index, in: items)
+                            MessageBubble(message: message, position: position) { action in
+                                handle(action, message: message)
+                            }
+                            // Tight spacing inside a run of messages, roomier between senders.
+                            .padding(.top, index == 0 ? 0 : (position.startsGroup ? 10 : 2))
+                            .id(message.id)
+                            // New bubbles rise in from the composer; plain fade under Reduce Motion.
+                            .transition(reduceMotion
+                                ? .opacity
+                                : .move(edge: .bottom).combined(with: .opacity))
                         }
                     }
+                    .padding(.horizontal, ModulaLayout.contentInset)
+                    .padding(.vertical, 12)
                 }
-                .padding(.horizontal, ModulaLayout.contentInset)
-                .padding(.vertical, 12)
+                // Chats open on the newest message and stay pinned there.
+                .defaultScrollAnchor(.bottom)
+                .scrollDismissesKeyboard(.interactively)
+                .modulaSoftScrollEdge()
+                .onChange(of: items.count) { _, _ in
+                    scrollToLatest(items, proxy: proxy)
+                }
+                .onChange(of: items.last?.id) { _, _ in
+                    scrollToLatest(items, proxy: proxy)
+                }
             }
-            .modulaSoftScrollEdge()
+        }
+    }
+
+    private func scrollToLatest(_ items: [Message], proxy: ScrollViewProxy) {
+        guard let last = items.last?.id else { return }
+        withAnimation(ModulaMotion.animation(.contentTransition, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
+            proxy.scrollTo(last, anchor: .bottom)
         }
     }
 
@@ -363,26 +401,72 @@ struct ConversationView: View {
     }
 }
 
+/// Position of a bubble inside a run of consecutive messages from the
+/// same sender (within a few minutes). Drives corner shape, spacing and
+/// whether the incoming avatar is shown (only on the last bubble).
+enum MessageGroupPosition: Sendable {
+    case single, first, middle, last
+
+    var startsGroup: Bool { self == .single || self == .first }
+    var endsGroup: Bool { self == .single || self == .last }
+
+    static func resolve(index: Int, in items: [Message]) -> MessageGroupPosition {
+        func joined(_ a: Message, _ b: Message) -> Bool {
+            a.sender.id == b.sender.id
+                && a.isOwn == b.isOwn
+                && abs(b.sentAt.timeIntervalSince(a.sentAt)) < 5 * 60
+        }
+        let current = items[index]
+        let joinsPrevious = index > 0 && joined(items[index - 1], current)
+        let joinsNext = index + 1 < items.count && joined(current, items[index + 1])
+        switch (joinsPrevious, joinsNext) {
+        case (false, false): return .single
+        case (false, true): return .first
+        case (true, true): return .middle
+        case (true, false): return .last
+        }
+    }
+}
+
 struct MessageBubble: View {
     let message: Message
+    var position: MessageGroupPosition = .single
     var onAction: (ModulaContextAction) -> Void
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
 
+    private static let avatarSize = 28.0
+
     var body: some View {
-        HStack {
-            if message.isOwn { Spacer(minLength: 48) }
+        HStack(alignment: .bottom, spacing: 8) {
+            if message.isOwn {
+                Spacer(minLength: 48)
+            } else {
+                // Avatar only on the last bubble of an incoming run; keep the
+                // gutter elsewhere so the run stays aligned.
+                Group {
+                    if position.endsGroup {
+                        ModulaAvatar(initials: message.sender.initials, url: message.sender.avatarURL, size: Self.avatarSize)
+                    } else {
+                        Color.clear
+                    }
+                }
+                .frame(width: Self.avatarSize, height: Self.avatarSize)
+                .accessibilityHidden(true)
+            }
             VStack(alignment: message.isOwn ? .trailing : .leading, spacing: 6) {
                 Text(message.body.text)
                     .font(.body)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(bubbleFill, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .background(bubbleFill, in: bubbleShape)
                     .foregroundStyle(message.isOwn ? Color.white : Color.primary)
                 HStack(spacing: 8) {
                     if message.delivery == .failed {
                         Button("Retry") { onAction(.init(id: "retry", title: "Retry")) }
                             .font(.caption.weight(.semibold))
+                            .frame(minHeight: ModulaLayout.minimumTouch)
+                            .contentShape(Rectangle())
                     } else if app.messaging.capabilities.readReceipts, message.isOwn, message.delivery == .read {
                         Text("Read")
                             .font(.caption2)
@@ -395,7 +479,37 @@ struct MessageBubble: View {
         .modulaContextMenu(actions: actions, onSelect: onAction)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint(message.delivery == .failed ? "Not sent. Swipe up or down for Retry." : "")
+        .accessibilityActions {
+            if message.delivery == .failed {
+                Button("Retry") { onAction(.init(id: "retry", title: "Retry")) }
+            }
+            Button("Copy") { onAction(.init(id: "copy", title: "Copy")) }
+        }
         .accessibilityIdentifier("messages.bubble.\(message.id)")
+    }
+
+    /// Large outer corners, tighter corners where bubbles of a run meet.
+    private var bubbleShape: UnevenRoundedRectangle {
+        let large = 18.0, tight = 6.0
+        let topJoin = !position.startsGroup
+        let bottomJoin = !position.endsGroup
+        if message.isOwn {
+            return UnevenRoundedRectangle(
+                topLeadingRadius: large,
+                bottomLeadingRadius: large,
+                bottomTrailingRadius: bottomJoin ? tight : large,
+                topTrailingRadius: topJoin ? tight : large,
+                style: .continuous
+            )
+        }
+        return UnevenRoundedRectangle(
+            topLeadingRadius: topJoin ? tight : large,
+            bottomLeadingRadius: bottomJoin ? tight : large,
+            bottomTrailingRadius: large,
+            topTrailingRadius: large,
+            style: .continuous
+        )
     }
 
     private var bubbleFill: Color {
@@ -429,6 +543,8 @@ struct MessageComposer: View {
     var showsAttachments: Bool
     var largeText: Bool
     var onSend: () -> Void
+    @AppStorage("settings.chats.enterToSend") private var enterToSend = false
+    @AppStorage("settings.chats.spellCheck") private var spellCheck = true
 
     var body: some View {
         ModulaComposer(
@@ -436,6 +552,8 @@ struct MessageComposer: View {
             prompt: "Add a message...",
             enabled: canSend,
             showsAttachmentButton: showsAttachments,
+            returnSends: enterToSend,
+            spellCheck: spellCheck,
             onSend: onSend
         )
         .padding(.horizontal, ModulaLayout.contentInset)

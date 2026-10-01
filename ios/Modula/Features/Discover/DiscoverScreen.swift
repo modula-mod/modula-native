@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DiscoverScreen: View {
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var section: DiscoverRoute {
         if case .discover(let route) = app.navigation.root(for: .discover) {
@@ -56,14 +57,9 @@ struct DiscoverScreen: View {
         }
         .overlay(alignment: .bottom) {
             if let message = app.discover.actionError {
-                Label(message, systemImage: "exclamationmark.triangle")
-                    .font(.footnote.weight(.semibold))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(.regularMaterial, in: Capsule())
-                    .padding(.bottom, 12)
-                    .onTapGesture { app.discover.clearActionError() }
-                    .accessibilityIdentifier("discover.banner")
+                ModulaErrorBanner(message: message, identifier: "discover.banner") {
+                    app.discover.clearActionError()
+                }
             }
         }
         .task(id: section) {
@@ -170,11 +166,19 @@ struct DiscoverScreen: View {
         }
     }
 
+    /// Two columns normally; one column at accessibility text sizes so
+    /// topic titles are not truncated to a couple of letters.
+    private var topicColumns: [GridItem] {
+        dynamicTypeSize.isAccessibilitySize
+            ? [GridItem(.flexible())]
+            : [GridItem(.flexible()), GridItem(.flexible())]
+    }
+
     @ViewBuilder private var topicsContent: some View {
         let state = app.discover.topics
         switch state.loadState {
         case .loading where state.items.isEmpty:
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            LazyVGrid(columns: topicColumns, spacing: 12) {
                 ForEach(0..<4, id: \.self) { _ in DiscoverSkeleton(kind: .topic) }
             }
         case .failed(let message) where state.items.isEmpty:
@@ -184,7 +188,7 @@ struct DiscoverScreen: View {
             ModulaEmptyState(title: "Nothing trending here yet.", message: "Check back soon.", symbol: "number")
                 .padding(.top, 28)
         default:
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            LazyVGrid(columns: topicColumns, spacing: 12) {
                 ForEach(Array(state.items.enumerated()), id: \.element.id) { item in
                     DiscoverTopicCard(topic: item.element, rank: item.offset + 1) { openTopic(item.element) }
                         .frame(maxWidth: .infinity)
@@ -239,14 +243,14 @@ struct DiscoverScreen: View {
                 if !state.featured.isEmpty, !app.discover.modules.filter.isActive {
                     ProductShelf(
                         title: "Featured",
-                        subtitle: "Featured",
+                        subtitle: "Picked by the Modula team",
                         products: state.featured,
                         installedIDs: app.catalogue.installedIDs,
                         action: openModule
                     )
                 }
                 ProductShelf(
-                    title: state.featured.isEmpty ? "From Modula" : "Catalogue",
+                    title: state.featured.isEmpty ? "From Modula" : "All Modules",
                     products: items,
                     installedIDs: app.catalogue.installedIDs,
                     action: openModule

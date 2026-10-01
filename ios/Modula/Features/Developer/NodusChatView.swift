@@ -49,8 +49,6 @@ struct NodusChatView: View {
     @State private var showingPrompts = false
     @State private var showingThinkBudget = false
     @State private var connectorFollowUp: NodusConnectorFollowUp?
-    @State private var bottomPull: CGFloat = 0
-    @State private var armedNewChat = false
     @State private var copiedMessageID: UUID?
     @State private var sendTick = 0
     @State private var welcomeAppeared = false
@@ -59,8 +57,8 @@ struct NodusChatView: View {
     @State private var showingPersona = false
     @State private var showingCustomise = false
     @State private var showingRemote = false
-    @State private var handleDragging = false
     @State private var creatingChat = false
+    @State private var confirmingDelete = false
     @StateObject private var pathMonitor = NodusPathMonitor()
     @State private var speaker = AVSpeechSynthesizer()
     @StateObject private var dictation = NodusDictation()
@@ -68,6 +66,15 @@ struct NodusChatView: View {
 
     init(presentation: NodusChatPresentation = .developerWorkspace) {
         self.presentation = presentation
+    }
+
+    /// AppearanceStore accent (not the asset-catalog accent) so curated accents apply.
+    private var accent: Color { app.appearance.accent.color }
+
+    /// All chat motion goes through ModulaMotion so the Motion personality and
+    /// iOS Reduce Motion are respected.
+    private func motion(_ role: ModulaMotion.Role) -> Animation? {
+        ModulaMotion.animation(role, personality: app.appearance.motion, reduceMotion: reduceMotion)
     }
 
     var body: some View {
@@ -78,7 +85,7 @@ struct NodusChatView: View {
             composer
         }
         .overlay(alignment: .bottom) { photoStage }
-        .animation(.spring(duration: 0.42, bounce: 0.18), value: expandedPhoto)
+        .animation(motion(.morph), value: expandedPhoto)
         .modulaCanvas()
         .navigationTitle(model.activeConversation?.title ?? "Nodus")
         .navigationBarTitleDisplayMode(.inline)
@@ -98,7 +105,7 @@ struct NodusChatView: View {
                     Button("Clear", systemImage: "eraser") { model.clear() }
                         .disabled(model.messages.isEmpty)
                     Button("Delete Chat", systemImage: "trash", role: .destructive) {
-                        Task { await model.deleteActive() }
+                        confirmingDelete = true
                     }
                 } label: { Image(systemName: "ellipsis.circle") }
                 .accessibilityLabel("Chat actions")
@@ -123,6 +130,19 @@ struct NodusChatView: View {
             await model.configure(using: app)
         }
         .onDisappear { model.cancel() }
+        .confirmationDialog(
+            "Delete this chat?",
+            isPresented: $confirmingDelete,
+            titleVisibility: .visible
+        ) {
+            Button("Delete Chat", role: .destructive) {
+                Task { await model.deleteActive() }
+                HapticEngine.shared.play(.warning)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Its messages are removed from this iPhone. This can’t be undone.")
+        }
         .sheet(isPresented: $showingConversations) {
             NodusLibraryBrowser(model: model)
         }
@@ -226,7 +246,7 @@ struct NodusChatView: View {
                         .transition(.scale(scale: 0.8).combined(with: .opacity))
                 }
             }
-            .animation(.spring(duration: 0.42, bounce: 0.28), value: model.isGenerating)
+            .animation(motion(.morph), value: model.isGenerating)
             VStack(alignment: .leading, spacing: 2) {
                 Text(presentation.showsDeveloperDiagnostics ? (model.modelIdentity?.displayName ?? "Nodus R7 Experimental") : "Nodus")
                     .font(.headline)
@@ -270,7 +290,7 @@ struct NodusChatView: View {
             ContentUnavailableView(
                 "Nodus model not installed",
                 systemImage: "brain.head.profile",
-                description: Text("A verified experimental developer bundle was not found. Chats, Knowledge, and Memory remain available.")
+                description: Text("This experimental feature isn’t installed. Chats, Knowledge and Memory are still available.")
             )
             .accessibilityIdentifier("nodus.chat.model-not-installed")
         } else if model.availability != .available && model.messages.isEmpty {
@@ -297,15 +317,9 @@ struct NodusChatView: View {
                         newChatHandle
                     }
                     .padding()
-                    .animation(.spring(duration: 0.42, bounce: 0.22), value: model.messages.map(\.id))
+                    .animation(motion(.morph), value: model.messages.map(\.id))
                 }
-                .onScrollGeometryChange(for: CGFloat.self) { geo in
-                    let overflow = geo.contentSize.height - geo.containerSize.height
-                    guard overflow > 24 else { return 0 }
-                    return max(0, geo.contentOffset.y + geo.containerSize.height - geo.contentSize.height)
-                } action: { previous, pull in
-                    noteBottomPull(previous: previous, pull: pull)
-                }
+                .scrollDismissesKeyboard(.interactively)
                 .onChange(of: model.messages.count) { _, _ in
                     if let last = model.messages.last { proxy.scrollTo(last.id, anchor: .bottom) }
                 }
@@ -335,7 +349,7 @@ struct NodusChatView: View {
                     let geometryID = "message-\(message.id.uuidString)"
                     let open = expandedPhoto == geometryID
                     Button {
-                        withAnimation(.spring(duration: 0.42, bounce: 0.2)) { expandedPhoto = geometryID }
+                        withAnimation(motion(.morph)) { expandedPhoto = geometryID }
                     } label: {
                         Image(uiImage: image)
                             .resizable()
@@ -546,7 +560,7 @@ struct NodusChatView: View {
                 if showingCamera {
                     NodusInlineCamera(onCapture: { image in
                         let item = NodusComposerAttachment(title: "Photo", image: image)
-                        withAnimation(.spring(duration: 0.42, bounce: 0.22)) {
+                        withAnimation(motion(.morph)) {
                             attachments.append(item)
                             showingCamera = false
                             expandedPhoto = "draft-\(item.id.uuidString)"
@@ -574,7 +588,8 @@ struct NodusChatView: View {
                     Button { showingChatSettings = true } label: {
                         Image(systemName: "slider.horizontal.3")
                             .font(.body.weight(.semibold))
-                            .frame(width: 34, height: 34)
+                            .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Chat settings")
@@ -592,8 +607,9 @@ struct NodusChatView: View {
                         Image(systemName: dictation.isListening ? "waveform" : "mic")
                             .font(.body.weight(.semibold))
                             .contentTransition(.symbolEffect(.replace))
-                            .frame(width: 34, height: 34)
-                            .foregroundStyle(dictation.isListening ? Color.accentColor : Color.primary)
+                            .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
+                            .contentShape(Rectangle())
+                            .foregroundStyle(dictation.isListening ? accent : Color.primary)
                             .symbolEffect(.variableColor.iterative, isActive: dictation.isListening)
                     }
                     .buttonStyle(.plain)
@@ -615,9 +631,9 @@ struct NodusChatView: View {
                 RoundedRectangle(cornerRadius: composerCorner, style: .continuous)
                     .strokeBorder(app.appearance.accent.color.opacity(composerFocused && !model.isGenerating ? 0.32 : 0), lineWidth: 1)
             }
-            .scaleEffect(composerFocused ? 1.015 : 1, anchor: .bottom)
-            .animation(.spring(duration: 0.42, bounce: 0.18), value: composerCorner)
-            .animation(.spring(duration: 0.35, bounce: 0.2), value: composerFocused)
+            .scaleEffect(composerFocused && !reduceMotion ? 1.015 : 1, anchor: .bottom)
+            .animation(motion(.morph), value: composerCorner)
+            .animation(motion(.morph), value: composerFocused)
             .animation(.easeInOut(duration: 0.35), value: model.isGenerating)
         }
         .padding(.horizontal, 12)
@@ -642,7 +658,7 @@ struct NodusChatView: View {
                                 namespace: photoMorph,
                                 geometryID: geometryID,
                                 onOpen: {
-                                    withAnimation(.spring(duration: 0.42, bounce: 0.2)) { expandedPhoto = geometryID }
+                                    withAnimation(motion(.morph)) { expandedPhoto = geometryID }
                                 },
                                 onRemove: { removeAttachment(item) }
                             )
@@ -658,7 +674,7 @@ struct NodusChatView: View {
                             }
                             .padding(.horizontal, 8)
                             .padding(.vertical, 6)
-                            .background(Color.accentColor.opacity(0.12), in: Capsule())
+                            .background(accent.opacity(0.12), in: Capsule())
                         }
                     }
                 }
@@ -705,62 +721,41 @@ struct NodusChatView: View {
         attachments.removeAll { $0.id == item.id }
     }
 
+    /// Explicit New Chat control. The previous scroll over-pull trigger
+    /// could start a chat accidentally while reading the bottom of a reply.
     private var newChatHandle: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "plus.bubble")
-                .font(.title2.weight(.semibold))
-                .symbolEffect(.bounce, value: bottomPull > 64)
-                .rotationEffect(.degrees(Double(min(bottomPull, 90)) / 8))
-            Text(bottomPull > 64 ? "Release for a new chat" : "Pull up for a new chat")
-                .font(.subheadline.weight(.semibold))
-                .contentTransition(.opacity)
-            Text("The new chat stays on this iPhone.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .foregroundStyle(bottomPull > 64 ? Color.accentColor : Color.primary)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 18)
-        .background(Color.accentColor.opacity(min(bottomPull / 140, 0.18)))
-        .modulaChrome(in: RoundedRectangle(cornerRadius: 22, style: .continuous), opaque: false)
-        .scaleEffect(1 + min(bottomPull, 90) / 700)
-        .padding(.top, 6)
-        .animation(.spring(duration: 0.28, bounce: 0.2), value: bottomPull > 64)
-        .highPriorityGesture(newChatDrag)
-        .accessibilityLabel("Pull up for a new chat")
-        .accessibilityAction(named: "New chat") { beginNewChat() }
-    }
-
-    private var newChatDrag: some Gesture {
-        DragGesture(minimumDistance: 8)
-            .onChanged { value in
-                handleDragging = true
-                let up = max(0, -value.translation.height)
-                bottomPull = up
-                armedNewChat = up > 64
-            }
-            .onEnded { value in
-                let up = max(0, -value.translation.height)
-                if up > 64 { beginNewChat() }
-                withAnimation(.spring(duration: 0.35, bounce: 0.22)) {
-                    bottomPull = 0
-                    armedNewChat = false
-                    handleDragging = false
-                }
-            }
-    }
-
-    private func noteBottomPull(previous: CGFloat, pull: CGFloat) {
-        guard !handleDragging else { return }
-        bottomPull = pull
-        if armedNewChat, pull < 16, previous >= 16 {
-            armedNewChat = false
+        Button {
             beginNewChat()
-        } else if pull < 16 {
-            armedNewChat = false
-        } else if pull > 64 {
-            armedNewChat = true
+            HapticEngine.shared.play(.navigation)
+        } label: {
+            HStack(spacing: 10) {
+                if creatingChat {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: "plus.bubble")
+                        .font(.title3.weight(.semibold))
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("New chat")
+                        .font(.subheadline.weight(.semibold))
+                    Text("The new chat stays on this iPhone.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(accent)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
+            .modulaChrome(in: RoundedRectangle(cornerRadius: ModulaRadius.large, style: .continuous), opaque: false)
+            .contentShape(RoundedRectangle(cornerRadius: ModulaRadius.large, style: .continuous))
         }
+        .buttonStyle(NodusPressStyle())
+        .disabled(creatingChat || model.isGenerating)
+        .padding(.top, 6)
+        .accessibilityLabel("New chat")
+        .accessibilityIdentifier("nodus.chat.new-chat")
     }
 
     private func beginNewChat() {
@@ -866,7 +861,7 @@ struct NodusChatView: View {
                 .font(.caption.weight(.medium))
                 .padding(.horizontal, 9)
                 .padding(.vertical, 5)
-                .background(Color.accentColor.opacity(0.14), in: Capsule())
+                .background(accent.opacity(0.14), in: Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -917,6 +912,8 @@ struct NodusChatView: View {
                 .font(.body.weight(.semibold))
                 .frame(width: 34, height: 34)
                 .modulaChrome(in: Circle(), opaque: false)
+                .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
+                .contentShape(Circle())
         }
         .accessibilityLabel("Add context")
         .accessibilityIdentifier("nodus.chat.add-context")
@@ -952,10 +949,12 @@ struct NodusChatView: View {
         } label: {
             Image(systemName: model.isGenerating ? "stop.fill" : "arrow.up")
                 .font(.headline)
-                .foregroundStyle(ready ? Color.accentColor : Color.secondary)
+                .foregroundStyle(ready ? accent : Color.secondary)
                 .frame(width: 36, height: 36)
                 .modulaChrome(in: Circle(), opaque: false)
                 .contentTransition(.symbolEffect(.replace))
+                .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .disabled(!model.isGenerating && !model.canSend && attachments.isEmpty)
@@ -974,10 +973,12 @@ struct NodusChatView: View {
         .font(.subheadline.weight(.medium))
         .padding(.horizontal, title == nil ? 0 : 9)
         .frame(minWidth: 34, minHeight: 34)
-        .background(selected ? Color.accentColor.opacity(0.16) : Color.clear, in: Capsule())
-        .foregroundStyle(selected ? Color.accentColor : Color.primary)
+        .background(selected ? accent.opacity(0.16) : Color.clear, in: Capsule())
+        .frame(minWidth: ModulaLayout.minimumTouch, minHeight: ModulaLayout.minimumTouch)
+        .contentShape(Capsule())
+        .foregroundStyle(selected ? accent : Color.primary)
         .symbolEffect(.bounce, value: selected)
-        .animation(.spring(duration: 0.32, bounce: 0.35), value: selected)
+        .animation(motion(.morph), value: selected)
         .accessibilityLabel(symbol == "brain" ? "Think" : "Search")
         .accessibilityValue(selected ? "On" : "Off")
     }
@@ -996,7 +997,7 @@ struct NodusChatView: View {
         guard !question.isEmpty else { return }
         let images = attachments.compactMap { $0.image?.jpegData(compressionQuality: 0.82) }
         model.input = question
-        withAnimation(.spring(duration: 0.35, bounce: 0.16)) {
+        withAnimation(motion(.morph)) {
             attachments.removeAll()
             expandedPhoto = nil
             showingCamera = false
@@ -1017,7 +1018,7 @@ struct NodusChatView: View {
                 symbol: copiedMessageID == message.id ? "checkmark" : "doc.on.doc"
             ) {
                 UIPasteboard.general.string = message.text
-                withAnimation(.spring(duration: 0.28, bounce: 0.45)) { copiedMessageID = message.id }
+                withAnimation(motion(.morph)) { copiedMessageID = message.id }
                 Task {
                     try? await Task.sleep(for: .milliseconds(1200))
                     if copiedMessageID == message.id { copiedMessageID = nil }
@@ -1070,7 +1071,7 @@ struct NodusChatView: View {
         defer { photoItem = nil }
         guard let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) else { return }
         let attachment = NodusComposerAttachment(title: "Photo", image: image)
-        withAnimation(.spring(duration: 0.42, bounce: 0.22)) {
+        withAnimation(motion(.morph)) {
             attachments.append(attachment)
             expandedPhoto = "draft-\(attachment.id.uuidString)"
         }
@@ -1087,7 +1088,7 @@ struct NodusChatView: View {
         }
         let image = UIImage(contentsOfFile: source.path)
         let attachment = NodusComposerAttachment(title: name, image: image, note: note)
-        withAnimation(.spring(duration: 0.42, bounce: 0.22)) {
+        withAnimation(motion(.morph)) {
             attachments.append(attachment)
             if image != nil { expandedPhoto = "draft-\(attachment.id.uuidString)" }
         }
@@ -1115,7 +1116,7 @@ struct NodusChatView: View {
                         }
                     }
                     .buttonStyle(.bordered).controlSize(.mini)
-                    .tint(model.ratings[message.id] == rating ? Color.accentColor : nil)
+                    .tint(model.ratings[message.id] == rating ? accent : nil)
                     .accessibilityIdentifier("nodus.chat.rating.\(rating.rawValue)")
                 }
             }
@@ -1178,7 +1179,7 @@ struct NodusChatView: View {
                 }
                 .opacity(welcomeAppeared || reduceMotion ? 1 : 0)
                 .offset(y: welcomeAppeared || reduceMotion ? 0 : 10)
-                .animation(.spring(duration: 0.5, bounce: 0.22), value: welcomeAppeared)
+                .animation(motion(.morph), value: welcomeAppeared)
                 HStack(spacing: 8) {
                     welcomeChip("Marketplace", symbol: "storefront") { showingPrompts = true }
                     welcomeChip("Knowledge", symbol: "books.vertical") { showingKnowledge = true }
@@ -1213,7 +1214,7 @@ struct NodusChatView: View {
                         .buttonStyle(.plain)
                         .opacity(welcomeAppeared || reduceMotion ? 1 : 0)
                         .offset(y: welcomeAppeared || reduceMotion ? 0 : 14)
-                        .animation(.spring(duration: 0.48, bounce: 0.18).delay(reduceMotion ? 0 : 0.05 * Double(index + 1)), value: welcomeAppeared)
+                        .animation(motion(.reveal)?.delay(reduceMotion ? 0 : 0.05 * Double(index + 1)), value: welcomeAppeared)
                     }
                 }
             }
@@ -1222,7 +1223,7 @@ struct NodusChatView: View {
         }
         .onAppear {
             if reduceMotion { welcomeAppeared = true }
-            else { withAnimation(.spring(duration: 0.5, bounce: 0.22)) { welcomeAppeared = true } }
+            else { withAnimation(motion(.morph)) { welcomeAppeared = true } }
         }
         .accessibilityIdentifier("nodus.chat.empty")
     }
@@ -1251,11 +1252,13 @@ struct NodusChatView: View {
 
 
 private struct NodusPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1)
             .opacity(configuration.isPressed ? 0.82 : 1)
-            .animation(.spring(duration: 0.22, bounce: 0.4), value: configuration.isPressed)
+            .animation(reduceMotion ? nil : .spring(duration: 0.22, bounce: 0.4), value: configuration.isPressed)
     }
 }
 

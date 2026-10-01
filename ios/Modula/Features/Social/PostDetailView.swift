@@ -316,10 +316,13 @@ struct PostDetailView: View {
             app.postActions.hideLocally(post)
             dismiss()
         case "mute-author":
-            // Mute uses Profile graph APIs when available; otherwise no-op with honest messaging.
+            // Actually mute (was: opened the author's profile).
             if let author = post.author {
-                app.navigation.push(.profile(author.routeID, .overview))
-                HapticEngine.shared.play(.navigation)
+                Task {
+                    if await app.profile.mute(profileID: author.id) {
+                        app.navigation.flash("Muted \(author.displayName)", symbol: "speaker.slash")
+                    }
+                }
             }
         default:
             break
@@ -353,7 +356,7 @@ struct PostShareSheet: View {
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous))
 
                 Button {
                     UIPasteboard.general.string = post.shareURL.absoluteString
@@ -467,11 +470,11 @@ struct PostPeopleListView: View {
         case .likes:
             return app.postActions.capabilities.likesList
                 ? "People who liked this post."
-                : "Like identities aren't available from Greenfield yet."
+                : "Who liked this isn’t available yet."
         case .reactions:
             return app.postActions.capabilities.reactionsList
                 ? "People grouped by reaction."
-                : "Reaction breakdown isn't available from Greenfield yet."
+                : "A breakdown of reactions isn’t available yet."
         case .shares:
             return app.postActions.capabilities.sharesList
                 ? "People who shared this post."

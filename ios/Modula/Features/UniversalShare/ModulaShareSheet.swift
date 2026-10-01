@@ -332,7 +332,7 @@ struct PeoplePickerRow: View {
                 Spacer()
                 if selected {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(.tint)
                 }
             }
         }

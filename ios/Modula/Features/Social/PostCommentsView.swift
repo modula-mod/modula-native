@@ -221,7 +221,7 @@ struct PostCommentsView: View {
                             } label: {
                                 HStack(spacing: 8) {
                                     Rectangle().frame(width: 20, height: 1)
-                                    Text("View \(comment.replyCount) replies")
+                                    Text("View ^[\(comment.replyCount) reply](inflect: true)")
                                     if store.loadingReplies.contains(comment.id) { ProgressView().controlSize(.mini) }
                                 }
                                 .font(.caption.weight(.semibold))
@@ -256,7 +256,7 @@ struct PostCommentsView: View {
                 Color.clear.frame(width: 28)
             }
             if let author = comment.author {
-                Button { app.navigation.push(.profile(author.routeID, .overview)) } label: {
+                Button { openProfile(author.routeID) } label: {
                     ModulaAvatar(initials: author.initials, url: author.avatarURL, size: 32)
                 }
                 .buttonStyle(.plain)
@@ -271,9 +271,9 @@ struct PostCommentsView: View {
                         .font(.subheadline.weight(.semibold))
                     Text(ActivityRelativeTime.string(from: comment.createdAt))
                         .font(.caption)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                     if comment.isEdited {
-                        Text("Edited").font(.caption2).foregroundStyle(.tertiary)
+                        Text("Edited").font(.caption2).foregroundStyle(.secondary)
                     }
                     }
                     VStack(alignment: .leading, spacing: 2) {
@@ -286,7 +286,7 @@ struct PostCommentsView: View {
                     .lineSpacing(3)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if comment.likeCount > 0 {
-                    Text("\(comment.likeCount) likes")
+                    Text("^[\(comment.likeCount) like](inflect: true)")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -378,6 +378,15 @@ struct PostCommentsView: View {
         .accessibilityIdentifier("post.comment.bar")
     }
 
+    /// The sheet sits above the presenting stack, so pushing alone would land
+    /// the profile *behind* the comments. Push on the underlying stack and
+    /// dismiss the sheet in the same transaction so the profile is revealed.
+    private func openProfile(_ id: String) {
+        app.navigation.push(.profile(id, .overview))
+        HapticEngine.shared.play(.navigation)
+        if isSheet { onClose?() }
+    }
+
     private func handleCommentAction(_ action: ModulaContextAction, comment: SocialComment, store: PostCommentsStore) {
         switch action.id {
         case "copy":
@@ -404,10 +413,21 @@ struct PostCommentsView: View {
 struct PostCommentsSheet: View {
     let postID: SocialPostID
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var selectedDetent: ModulaSheetDetent = .medium
 
+    /// The 30% compact detent leaves no room for header + composer on small
+    /// phones (iPhone SE/mini) or at accessibility text sizes; drop it there.
+    private var detents: [ModulaSheetDetent] {
+        let screenHeight = UIScreen.main.bounds.height
+        if screenHeight < 750 || dynamicTypeSize.isAccessibilitySize {
+            return [.medium, .large]
+        }
+        return [.compact, .medium, .large]
+    }
+
     var body: some View {
-        ModulaSheet(detents: [.compact, .medium, .large], selectedDetent: $selectedDetent) {
+        ModulaSheet(detents: detents, selectedDetent: $selectedDetent) {
             PostCommentsView(postID: postID, isSheet: true, onClose: { dismiss() })
         }
     }

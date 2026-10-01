@@ -4,6 +4,7 @@ struct CollectionsView: View {
     @Environment(AppEnvironment.self) private var app
     @State private var showCreate = false
     @State private var newName = ""
+    @State private var pendingDelete: ModulaCollection?
 
     var body: some View {
         List {
@@ -29,7 +30,7 @@ struct CollectionsView: View {
             } footer: {
                 Text(app.collections.capabilities.serverCollections
                      ? "Collections sync with your account."
-                     : "Stored on this iPhone. Not synced to Greenfield.")
+                     : "Saved on this iPhone only.")
             }
         }
         .modulaSoftScrollEdge()
@@ -73,52 +74,143 @@ struct CollectionsView: View {
             }
             .presentationDetents([.medium])
         }
+        .confirmationDialog(
+            pendingDelete.map { "Delete “\($0.name)”?" } ?? "Delete collection?",
+            isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Delete Collection", role: .destructive) {
+                if let collection = pendingDelete { app.collections.delete(id: collection.id) }
+                pendingDelete = nil
+            }
+            Button("Cancel", role: .cancel) { pendingDelete = nil }
+        } message: {
+            Text("The saved posts themselves aren’t deleted.")
+        }
+        .modulaCanvas()
         .accessibilityIdentifier("collections.root")
     }
 
+    /// Swipe-to-delete asks first; deleting a collection can't be undone.
     private func delete(at offsets: IndexSet) {
         let deletable = app.collections.userCollections
-        for index in offsets {
-            guard index < deletable.count else { continue }
-            app.collections.delete(id: deletable[index].id)
-            HapticEngine.shared.play(.warning)
-        }
+        guard let index = offsets.first, index < deletable.count else { return }
+        pendingDelete = deletable[index]
+        HapticEngine.shared.play(.warning)
     }
 }
 
 struct CollectionDetailView: View {
     let collectionID: String
     @Environment(AppEnvironment.self) private var app
+    @State private var posts: [SocialPostID: SocialPost] = [:]
+    @State private var unavailable: Set<SocialPostID> = []
 
     var body: some View {
         Group {
             if let collection = app.collections.collections.first(where: { $0.id == collectionID }) {
                 List {
                     Section {
-                        Text(collection.storage == .local ? "Stored on this iPhone" : "Synced")
+                        Text(collection.storage == .local ? "Saved on this iPhone only." : "Synced with your account.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
-                    Section("Items") {
+                    Section("Posts") {
                         if collection.itemIDs.isEmpty {
-                            Text("No items yet")
+                            Text("No posts yet. Save a post to this collection from its … menu.")
                                 .foregroundStyle(.secondary)
                         } else {
+                            // Render the saved posts instead of their raw IDs.
                             ForEach(collection.itemIDs, id: \.self) { id in
-                                Text(id)
-                                    .font(.body.monospaced())
+                                row(for: id)
+                            }
+                            .onDelete { offsets in
+                                for index in offsets where collection.itemIDs.indices.contains(index) {
+                                    app.collections.remove(postID: collection.itemIDs[index], from: collection.id)
+                                }
+                                HapticEngine.shared.play(.warning)
                             }
                         }
                     }
                 }
                 .modulaSoftScrollEdge()
+                .modulaCanvas()
                 .navigationTitle(collection.name)
-                .accessibilityLabel("\(collection.name), \(collection.itemCount) saved items")
+                .task(id: collection.itemIDs) { await loadPosts(collection.itemIDs) }
             } else {
                 ModulaEmptyState(title: "Collection", message: "This collection is no longer available.", symbol: "rectangle.stack")
             }
         }
         .accessibilityIdentifier("collections.detail")
+    }
+
+    @ViewBuilder
+    private func row(for id: SocialPostID) -> some View {
+        if let post = posts[id] {
+            let resolved = app.posts.resolved(post)
+            Button {
+                app.navigation.push(.post(resolved.id, .root))
+                HapticEngine.shared.play(.navigation)
+            } label: {
+                HStack(alignment: .top, spacing: ModulaSpacing.sm) {
+                    if let author = resolved.author {
+                        ModulaAvatar(initials: author.initials, url: author.avatarURL, size: 36)
+                            .accessibilityHidden(true)
+                    }
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 6) {
+                            Text(resolved.author?.displayName ?? "Post")
+                                .font(.subheadline.weight(.semibold))
+                                .lineLimit(1)
+                            Text(ActivityRelativeTime.string(from: resolved.createdAt))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        if let text = resolved.text, !text.isEmpty {
+                            Text(text)
+                                .font(.subheadline)
+                                .foregroundStyle(.primary)
+                                .lineLimit(3)
+                        } else if !resolved.media.isEmpty {
+                            Label("Photo or video", systemImage: "photo")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+                .frame(minHeight: ModulaLayout.minimumTouch)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityHint("Opens the post")
+            .accessibilityIdentifier("collections.post.\(id)")
+        } else if unavailable.contains(id) {
+            Label("This post is no longer available", systemImage: "exclamationmark.bubble")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .frame(minHeight: ModulaLayout.minimumTouch)
+        } else {
+            HStack(spacing: ModulaSpacing.xs) {
+                ProgressView()
+                Text("Loading post…").font(.subheadline).foregroundStyle(.secondary)
+            }
+            .frame(minHeight: ModulaLayout.minimumTouch)
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private func loadPosts(_ ids: [SocialPostID]) async {
+        for id in ids where posts[id] == nil && !unavailable.contains(id) {
+            guard !Task.isCancelled else { return }
+            do {
+                posts[id] = try await app.postActions.loadPost(id: id)
+            } catch {
+                if Task.isCancelled { return }
+                unavailable.insert(id)
+            }
+        }
     }
 }
 

@@ -1,10 +1,18 @@
 import SwiftUI
 
 struct ActivityRelativeTime {
-    static func string(from date: Date, now: Date = Date()) -> String {
+    /// Cached: building a RelativeDateTimeFormatter per row is expensive in
+    /// long feeds. Formatting is read-only after configuration.
+    private nonisolated(unsafe) static let formatter: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: date, relativeTo: now)
+        return formatter
+    }()
+
+    static func string(from date: Date, now: Date = Date()) -> String {
+        // Avoid "in 0 sec" / tiny future values from clock skew.
+        if abs(now.timeIntervalSince(date)) < 45 { return String(localized: "now") }
+        return formatter.localizedString(for: min(date, now), relativeTo: now)
     }
 }
 
@@ -21,12 +29,14 @@ struct ActivityUnreadIndicator: View {
 struct ActivityActorStack: View {
     let actors: [ActivityActor]
     var size: CGFloat = 40
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(spacing: -10) {
             ForEach(Array(actors.prefix(3).enumerated()), id: \.element.id) { index, actor in
                 ModulaAvatar(initials: actor.initials, size: size)
-                    .overlay(Circle().stroke(Color.black.opacity(0.35), lineWidth: 1))
+                    .overlay(Circle().stroke(ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas, lineWidth: 1.5))
                     .zIndex(Double(3 - index))
             }
         }
@@ -180,23 +190,30 @@ struct ActivityTimeline: View {
     var onLoadMore: () -> Void
     var hasMore: Bool
     var loadingMore: Bool
+    /// Request row currently accepting/declining; its controls are disabled.
+    var busyEventID: ActivityEventID? = nil
 
     var body: some View {
         LazyVStack(alignment: .leading, spacing: 0) {
             ForEach(sections, id: \.section) { group in
                 ActivitySectionHeader(title: group.section.title)
                 ForEach(group.events) { event in
+                    let busy = busyEventID == event.id
                     Button {
                         onOpen(event)
                     } label: {
                         ActivityRow(
                             event: event,
                             showActions: mode == .requests && event.kind.isRequest,
+                            busy: busy,
                             onAccept: { onAccept(event) },
                             onDecline: { onDecline(event) }
                         )
                     }
                     .buttonStyle(.plain)
+                    .disabled(busy)
+                    .opacity(busy ? 0.6 : 1)
+                    .accessibilityValue(busy ? "Updating" : "")
                     .contextMenu {
                         if !event.isRead {
                             Button("Mark as Read", systemImage: "checkmark.circle") { onMarkRead(event) }

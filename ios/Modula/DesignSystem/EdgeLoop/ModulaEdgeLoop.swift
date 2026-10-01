@@ -212,9 +212,11 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         .accessibilityLabel(selectedAccessibilityLabel)
         .accessibilityValue(accessibilityValueText)
         .accessibilityHint(behavior == .looping
-            ? "Swipe up or down to move through modes. The list loops. Drag required; tapping does not change selection."
-            : "Swipe up or down to move through options. Drag required; tapping does not change selection.")
-        .accessibilityAddTraits(.isButton)
+            ? "Swipe up or down with one finger to change mode. The list loops."
+            : "Swipe up or down with one finger to change option.")
+        // Adjustable (from accessibilityAdjustableAction), not a button: the
+        // picker is scrub-only, so "double-tap to activate" would be misleading.
+        .accessibilityRemoveTraits(.isButton)
         .accessibilityAdjustableAction { direction in
             touchActivity()
             switch direction {
