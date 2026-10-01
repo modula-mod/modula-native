@@ -7,6 +7,7 @@ struct RootView: View {
     @Environment(\.colorSchemeContrast) private var systemContrast
     @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var routeTransitions
     var body: some View {
         @Bindable var navigation = app.navigation
         @Bindable var appearance = app.appearance
@@ -148,6 +149,7 @@ struct RootView: View {
                     RouteView(route: navigation.root(for: tab))
                         .navigationDestination(for: AppRoute.self) { RouteView(route: $0) }
                 }
+                .environment(\.routeTransitionNamespace, routeTransitions)
                 .modulaSoftScrollEdge()
                 .tabItem {
                     if tab == .profile {

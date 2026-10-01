@@ -4,6 +4,8 @@ import UIKit
 struct MessagesRootView: View {
     let route: MessagesRoute
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.routeTransitionNamespace) private var routeTransitions
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Group {
@@ -18,6 +20,7 @@ struct MessagesRootView: View {
                 NewConversationView()
             case .conversation(let id):
                 ConversationView(conversationID: id)
+                    .modulaZoomDestination(id: "conversation.\(id)", namespace: routeTransitions, reduceMotion: reduceMotion)
             }
         }
         .modulaCanvas()
@@ -172,10 +175,12 @@ struct MessagesScopePicker: View {
 struct ConversationRow: View {
     let conversation: Conversation
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.routeTransitionNamespace) private var routeTransitions
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             ConversationAvatar(participant: conversation.participants.first, unread: conversation.isUnread)
+                .modulaZoomSource(id: "conversation.\(conversation.id)", namespace: routeTransitions)
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(conversation.title)
