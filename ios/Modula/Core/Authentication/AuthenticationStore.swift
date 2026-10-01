@@ -80,6 +80,14 @@ final class AuthenticationStore {
         }
     }
 
+    /// The server ended the session (revoked, or refresh rejected). Tokens are already
+    /// cleared by the client; drop the account so the app returns to Sign In.
+    func sessionInvalidated() {
+        guard account != nil else { return }
+        account = nil
+        error = "Your session ended. Sign in again to continue."
+    }
+
     func requestPasswordReset(email: String) async -> Bool {
         guard !busy else { return false }
         busy = true; error = nil

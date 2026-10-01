@@ -114,6 +114,15 @@ final class AppEnvironment {
             }
         }
         ModulaBridge.shared.client = client
+        let sessionClient = client
+        Task { [weak self, weak auth] in
+            await sessionClient.setSessionInvalidationHandler { [weak self, weak auth] in
+                Task { @MainActor in
+                    auth?.sessionInvalidated()
+                    self?.refreshLaunchState()
+                }
+            }
+        }
         ModulaBridge.shared.authenticationInvalidated = { [weak self, weak auth, weak runtime] in
             runtime?.setAccount(nil)
             Task {

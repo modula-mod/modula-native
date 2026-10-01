@@ -127,6 +127,12 @@ actor GreenfieldClient {
     private var refreshTask: Task<SessionTokens, Error>?
     private var epoch = 0
     private var accountID: String?
+    private var sessionInvalidated: (@Sendable () -> Void)?
+
+    /// Called (off the main actor) when the server rejects the session and a refresh
+    /// can't recover it, so the app can leave the signed-in state instead of silently
+    /// carrying a dead token (prod: POST /v1/stories → 401 after the session was revoked).
+    func setSessionInvalidationHandler(_ handler: (@Sendable () -> Void)?) { sessionInvalidated = handler }
 
     /// Non-secret origin label for diagnostics (fixture vs production host).
     var apiOriginHost: String? { baseURL?.host }
@@ -300,15 +306,50 @@ actor GreenfieldClient {
     ) async throws -> T {
         let generation = epoch
         let bearer = try await accessToken()
-        let result: T = try await send(method, path: path, body: body, bearer: bearer, timeout: timeout)
-        guard generation == epoch else { throw APIError.accountChanged }
-        return result
+        do {
+            let result: T = try await send(method, path: path, body: body, bearer: bearer, timeout: timeout)
+            guard generation == epoch else { throw APIError.accountChanged }
+            return result
+        } catch APIError.rejected(401, _) where generation == epoch && tokens != nil {
+            // The access token was rejected although it looked valid locally (revoked
+            // session, clock skew). A 401 means the request wasn't processed, so refresh
+            // once and retry; if the refresh is rejected too, the session is gone.
+            let renewed = try await accessToken(forceRefresh: true, rejected: bearer)
+            do {
+                let result: T = try await send(method, path: path, body: body, bearer: renewed, timeout: timeout)
+                guard generation == epoch else { throw APIError.accountChanged }
+                return result
+            } catch APIError.rejected(401, _) where generation == epoch {
+                invalidateSession()
+                throw APIError.unauthenticated
+            }
+        }
     }
 
-    private func accessToken() async throws -> String {
+    private func invalidateSession() {
+        epoch += 1
+        refreshTask?.cancel(); refreshTask = nil
+        tokens = nil; accountID = nil
+        try? keychain.clear()
+        sessionInvalidated?()
+    }
+
+    /// Only a definitive rejection of the refresh token ends the session. Offline, timeouts
+    /// and 5xx keep the stored tokens so the user stays signed in and can retry.
+    nonisolated static func refreshFailureEndsSession(_ error: Error) -> Bool {
+        switch error {
+        case APIError.rejected(let status, _): return status == 400 || status == 401 || status == 403
+        case APIError.unauthenticated: return true
+        default: return false
+        }
+    }
+
+    private func accessToken(forceRefresh: Bool = false, rejected: String? = nil) async throws -> String {
         if let refreshTask { return try await refreshTask.value.accessToken }
         guard let current = tokens else { throw APIError.unauthenticated }
-        if current.accessValid { return current.accessToken }
+        // Another request may already have rotated the token that was rejected.
+        if forceRefresh, let rejected, current.accessToken != rejected { return current.accessToken }
+        if current.accessValid && !forceRefresh { return current.accessToken }
         let generation = epoch
         let task = Task<SessionTokens, Error> {
             let next: SessionTokens = try await self.send("POST", path: "/v1/sessions/refresh", body: .object(["refreshToken": .string(current.refreshToken)]))
@@ -321,9 +362,9 @@ actor GreenfieldClient {
         defer { if generation == epoch { refreshTask = nil } }
         do { return try await task.value.accessToken }
         catch {
-            if generation == epoch {
-                tokens = nil; accountID = nil
-                try? keychain.clear()
+            if generation == epoch, Self.refreshFailureEndsSession(error) {
+                invalidateSession()
+                throw APIError.unauthenticated
             }
             throw error
         }

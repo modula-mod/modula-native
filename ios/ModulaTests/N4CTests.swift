@@ -769,3 +769,119 @@ final class StoryUploadBudgetTests: XCTestCase {
         XCTAssertEqual(max(fitted.width, fitted.height), 1600, "never upscales")
     }
 }
+
+// MARK: - Session recovery (prod: POST /v1/stories → 401 after the session was revoked)
+
+private final class SessionRouterProtocol: URLProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var handler: ((URLRequest) -> (Int, String))?
+    nonisolated(unsafe) static var log: [String] = []
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let path = request.url?.path ?? ""
+        Self.log.append("\(request.httpMethod ?? "GET") \(path) \(request.value(forHTTPHeaderField: "Authorization") ?? "-")")
+        let (status, body) = Self.handler?(request) ?? (500, "{}")
+        if status == 0 {
+            client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
+            return
+        }
+        let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: "HTTP/1.1",
+                                       headerFields: ["Content-Type": "application/json"])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(body.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
+final class GreenfieldSessionRecoveryTests: XCTestCase {
+    private static func tokens(_ n: Int, accessMinutes: Double = 15) -> String {
+        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let access = f.string(from: Date().addingTimeInterval(accessMinutes * 60))
+        let refresh = f.string(from: Date().addingTimeInterval(30 * 86_400))
+        return #"{"ok":true,"data":{"accessToken":"access-\#(n)","refreshToken":"refresh-\#(n)","sessionId":"s","accessExpiresAt":"\#(access)","refreshExpiresAt":"\#(refresh)"}}"#
+    }
+    private static let me = #"{"ok":true,"data":{"accountId":"acct-1","primaryHandle":"me","status":"active"}}"#
+    private static let unauthorized = #"{"ok":false,"error":{"code":"UNAUTHENTICATED"}}"#
+
+    private func makeClient() -> GreenfieldClient {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [SessionRouterProtocol.self]
+        SessionRouterProtocol.log = []
+        return GreenfieldClient(baseURL: URL(string: "https://session-test-\(UUID().uuidString.prefix(8)).modula.test")!,
+                                transport: URLSession(configuration: config))
+    }
+
+    override func tearDown() {
+        SessionRouterProtocol.handler = nil
+        super.tearDown()
+    }
+
+    func testRejectedAccessTokenRefreshesOnceAndRetries() async throws {
+        let client = makeClient()
+        SessionRouterProtocol.handler = { request in
+            let auth = request.value(forHTTPHeaderField: "Authorization")
+            switch (request.httpMethod ?? "", request.url?.path ?? "") {
+            case ("POST", "/v1/sessions"): return (201, Self.tokens(1))
+            case ("GET", "/v1/accounts/me"): return (200, Self.me)
+            case ("POST", "/v1/sessions/refresh"): return (200, Self.tokens(2))
+            case ("POST", "/v1/stories"):
+                return auth == "Bearer access-2" ? (201, #"{"ok":true,"data":{"groupId":"g"}}"#) : (401, Self.unauthorized)
+            default: return (404, "{}")
+            }
+        }
+        _ = try await client.signIn(email: "a@b.c", password: "pw")
+        let value = try await client.authenticatedJSON("POST", path: "/v1/stories", body: .object([:]))
+        XCTAssertEqual(value["groupId"]?.string, "g")
+        XCTAssertEqual(SessionRouterProtocol.log.filter { $0.hasPrefix("POST /v1/sessions/refresh") }.count, 1)
+        let hasSession = await client.hasSession()
+        XCTAssertTrue(hasSession)
+    }
+
+    func testRevokedSessionSignsOutAndNotifiesInsteadOfLingering() async throws {
+        let client = makeClient()
+        let notified = expectation(description: "session invalidated")
+        await client.setSessionInvalidationHandler { notified.fulfill() }
+        SessionRouterProtocol.handler = { request in
+            switch (request.httpMethod ?? "", request.url?.path ?? "") {
+            case ("POST", "/v1/sessions"): return (201, Self.tokens(1))
+            case ("GET", "/v1/accounts/me"): return (200, Self.me)
+            default: return (401, Self.unauthorized) // revoked: refresh is rejected too
+            }
+        }
+        _ = try await client.signIn(email: "a@b.c", password: "pw")
+        do {
+            _ = try await client.authenticatedJSON("POST", path: "/v1/stories", body: .object([:]))
+            XCTFail("expected unauthenticated")
+        } catch {
+            XCTAssertEqual(error as? APIError, .unauthenticated)
+        }
+        await fulfillment(of: [notified], timeout: 2)
+        let hasSession = await client.hasSession()
+        XCTAssertFalse(hasSession)
+    }
+
+    func testOfflineRefreshKeepsTheSession() async throws {
+        let client = makeClient()
+        var offline = false
+        SessionRouterProtocol.handler = { request in
+            if offline { return (0, "") }
+            switch (request.httpMethod ?? "", request.url?.path ?? "") {
+            case ("POST", "/v1/sessions"): return (201, Self.tokens(1, accessMinutes: 0))
+            case ("GET", "/v1/accounts/me"): return (200, Self.me)
+            default: return (404, "{}")
+            }
+        }
+        _ = try await client.signIn(email: "a@b.c", password: "pw")
+        offline = true
+        do {
+            _ = try await client.authenticatedJSON("GET", path: "/v1/stories/rail")
+            XCTFail("expected a network error")
+        } catch {
+            XCTAssertFalse(GreenfieldClient.refreshFailureEndsSession(error))
+        }
+        let hasSession = await client.hasSession()
+        XCTAssertTrue(hasSession, "Being offline while the access token expires must not sign the user out")
+    }
+}
