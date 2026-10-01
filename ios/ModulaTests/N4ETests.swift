@@ -253,9 +253,8 @@ final class ModuleDetailV2Tests: XCTestCase {
             betaClassification: nil,
             installability: .init(status: "coming-soon", reasonCode: nil, reason: nil)
         )
-        let presentation = ModuleDetailPresentation(product: coming, installed: false, bundled: false, coverURL: nil)
+        let presentation = ModuleDetailPresentation(product: coming, installation: nil, operation: nil, bundled: false, bundledVersion: nil)
         XCTAssertEqual(presentation.primaryAction, .comingSoon)
-        XCTAssertFalse(ModuleInstallMutationCapability.liveInstall)
     }
 
     func testPublisherRoute() {

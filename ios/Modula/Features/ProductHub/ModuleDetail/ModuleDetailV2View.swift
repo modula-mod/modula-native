@@ -1,28 +1,42 @@
 import SwiftUI
 
+/// App Store–style module page: hero cover, icon, live Install/Open/Update state,
+/// stats strip, screenshots, description, What's New, ratings, privacy, permissions and
+/// information. Server listing data wins; the bundled manifest supplies artwork and
+/// placeholders cover anything missing.
 struct ModuleDetailV2View: View {
     let moduleID: String
     let section: ModuleDetailSection
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.colorScheme) private var scheme
     @State private var headerProgress: CGFloat = 0
-    @State private var mediaItem: ModulaMediaViewerItem?
+    @State private var confirmInstall = false
+    @State private var confirmUninstall = false
+    @State private var expandedDescription = false
+    @State private var zoomedShot: ModuleScreenshot?
+    @State private var showAllPermissions = false
 
     private var product: CatalogueProduct? { app.catalogue.product(moduleID) }
-    private var bundled: Bool { app.runtime.manifests.contains { $0.id == moduleID } }
-    private var installed: Bool { app.catalogue.installedIDs.contains(moduleID) || bundled }
     private var manifest: ModuleManifest? { app.runtime.manifests.first { $0.id == moduleID } }
+    private var bundled: Bool { manifest != nil }
+    private var listing: ModuleListing? { app.catalogue.listings[moduleID] }
+    private var installed: Bool { app.catalogue.installedIDs.contains(moduleID) }
 
     var body: some View {
         Group {
             if let product {
                 content(product)
-            } else if app.catalogue.loading {
+            } else if app.catalogue.loading || !app.catalogue.loaded {
                 ModulaLoadingState(title: "Loading module…")
             } else {
                 ModulaErrorState(message: "Greenfield has no catalogue record for this module.") {
                     Task { await app.catalogue.load() }
                 }
             }
+        }
+        .task(id: moduleID) {
+            if !app.catalogue.loaded { await app.catalogue.load() }
+            await app.catalogue.loadListing(moduleID)
         }
         .modulaImmersiveSystemNavigation()
         .toolbar {
@@ -38,9 +52,6 @@ struct ModuleDetailV2View: View {
                         Button("Share", systemImage: "square.and.arrow.up") {
                             app.navigation.presented = .universalShare(.module(id: moduleID, name: product.name, publisher: product.publisherName))
                         }
-                        Button("Version History", systemImage: "clock.arrow.circlepath") {
-                            app.navigation.open(.productHub(.module(moduleID, .versionHistory)))
-                        }
                         if installed {
                             Button("Configure", systemImage: "slider.horizontal.3") {
                                 app.navigation.open(.settings(.modules(.module(moduleID, .general))))
@@ -49,6 +60,9 @@ struct ModuleDetailV2View: View {
                         Button("Publisher", systemImage: "person.crop.square") {
                             app.navigation.open(.productHub(.publisher(product.publisherId)))
                         }
+                        if presentation(product).canUninstall {
+                            Button("Uninstall", systemImage: "trash", role: .destructive) { confirmUninstall = true }
+                        }
                     }
                 } label: {
                     Image(systemName: "ellipsis")
@@ -56,273 +70,556 @@ struct ModuleDetailV2View: View {
                 .accessibilityLabel("More")
             }
         }
-        .fullScreenCover(item: $mediaItem) { item in
-            ModulaMediaViewer(
-                title: item.title,
-                url: item.url,
-                accessibilityDescription: item.accessibilityDescription,
-                onDismiss: { mediaItem = nil }
-            )
+        .confirmationDialog(installTitle, isPresented: $confirmInstall, titleVisibility: .visible) {
+            Button("Install") { Task { await runInstall() } }
+                .accessibilityIdentifier("module.install.confirm")
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(installMessage)
+        }
+        .confirmationDialog("Uninstall \(product?.name ?? "module")?", isPresented: $confirmUninstall, titleVisibility: .visible) {
+            Button("Uninstall", role: .destructive) { Task { await runUninstall() } }
+                .accessibilityIdentifier("module.uninstall.confirm")
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your data is kept on your account, so reinstalling brings it back.")
+        }
+        .sheet(item: $zoomedShot) { shot in
+            ModuleArtImage(source: shot.source, contentMode: .fit) { Color.clear }
+                .padding()
+                .presentationDragIndicator(.visible)
+                .accessibilityLabel(shot.alt)
         }
         .accessibilityIdentifier("module-detail.\(moduleID)")
     }
 
-    private func content(_ product: CatalogueProduct) -> some View {
-        let presentation = ModuleDetailPresentation(
+    private func presentation(_ product: CatalogueProduct) -> ModuleDetailPresentation {
+        ModuleDetailPresentation(
             product: product,
-            installed: app.catalogue.installedIDs.contains(moduleID),
+            installation: app.catalogue.installations[moduleID],
+            operation: app.catalogue.operations[moduleID],
             bundled: bundled,
-            coverURL: product.coverImageURL
+            bundledVersion: manifest?.version,
+            signedIn: app.auth.account != nil
         )
-        return ZStack(alignment: .top) {
+    }
+
+    // MARK: Layout
+
+    private func content(_ product: CatalogueProduct) -> some View {
+        let state = presentation(product)
+        let art = app.moduleArtwork(moduleID)
+        return ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    hero(product, presentation: presentation)
-                    VStack(alignment: .leading, spacing: 20) {
-                        identity(product, presentation: presentation)
-                        primaryAction(presentation)
-                        sectionNavigation
-                        sectionBody(product, presentation: presentation)
+                    hero(product)
+                    VStack(alignment: .leading, spacing: 22) {
+                        header(product, state: state, art: art)
+                        if let message = app.catalogue.lifecycleErrors[moduleID] {
+                            lifecycleNotice(message)
+                        }
+                        stats(product)
+                        Divider()
+                        whatsNew(product).id(ModuleDetailSection.whatsNew)
+                        screenshots(art).id(ModuleDetailSection.screenshots)
+                        about(product)
+                        ratings
+                        privacy.id(ModuleDetailSection.privacy)
+                        permissions.id(ModuleDetailSection.permissions)
+                        information(product, state: state).id(ModuleDetailSection.information)
+                        if state.canUninstall { uninstallButton }
                     }
                     .padding(.horizontal, ModulaLayout.contentInset)
-                    .padding(.top, 56)
-                    .padding(.bottom, 40)
+                    .padding(.top, 18)
+                    .padding(.bottom, 44)
                 }
             }
             .ignoresSafeArea(edges: .top)
             .modulaSoftScrollEdge()
-            .onScrollGeometryChange(for: CGFloat.self) { geometry in
-                geometry.contentOffset.y
-            } action: { _, offset in
-                headerProgress = ModulaScrollProgress.progress(offsetY: max(0, offset), collapseDistance: 120)
+            .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, offset in
+                headerProgress = ModulaScrollProgress.progress(offsetY: max(0, offset), collapseDistance: 140)
             }
-
+            .refreshable {
+                await app.catalogue.load()
+                await app.catalogue.loadListing(moduleID, force: true)
+            }
+            .task(id: section) {
+                guard let anchor = anchor(for: section) else { return }
+                try? await Task.sleep(for: .milliseconds(250))
+                withAnimation { proxy.scrollTo(anchor, anchor: .top) }
+            }
         }
         .modulaCanvas()
-        .modulaSoftScrollEdge()
         .navigationTitle(product.name)
         .accessibilityElement(children: .contain)
     }
 
-    private func hero(_ product: CatalogueProduct, presentation _: ModuleDetailPresentation) -> some View {
-        FullBleedHero(height: 340, scrollProgress: headerProgress) {
+    private func anchor(for section: ModuleDetailSection) -> ModuleDetailSection? {
+        switch section {
+        case .overview: nil
+        case .whatsNew, .versionHistory: .whatsNew
+        case .screenshots: .screenshots
+        case .permissions: .permissions
+        case .privacy: .privacy
+        case .information, .compatibility, .publisher, .support, .configure: .information
+        }
+    }
+
+    private func hero(_ product: CatalogueProduct) -> some View {
+        FullBleedHero(height: 300, scrollProgress: headerProgress) {
             ProductBackdrop(product: product)
         } overlay: {
             EmptyView()
         }
-        .overlay(alignment: .bottomLeading) {
-            ArtworkPocket(size: 92) {
-                ProductArtwork(product: product, size: 92)
-            }
-            .accessibilityLabel("\(product.name) artwork")
-        }
-        .accessibilitySortPriority(100)
+        .accessibilityHidden(true)
     }
 
-    private func identity(_ product: CatalogueProduct, presentation: ModuleDetailPresentation) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(product.name)
-                .font(.largeTitle.bold())
-            Button {
-                app.navigation.open(.productHub(.publisher(product.publisherId)))
-            } label: {
-                PublisherLabel(name: product.publisherName)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Publisher \(product.publisherName)")
-            Text(product.description)
-                .foregroundStyle(.secondary)
-            FlowLayout(spacing: 8) {
-                ForEach(presentation.tags, id: \.self) { tag in
-                    ProductBadge(title: tag)
+    private func header(_ product: CatalogueProduct, state: ModuleDetailPresentation, art: ModuleArtwork) -> some View {
+        HStack(alignment: .top, spacing: 16) {
+            ProductArtwork(product: product, size: 108)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(product.name)
+                    .font(.title2.bold())
+                    .accessibilityAddTraits(.isHeader)
+                Text(art.subtitle ?? listing?.category ?? product.productKind.capitalized)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                Button {
+                    app.navigation.open(.productHub(.publisher(product.publisherId)))
+                } label: {
+                    PublisherLabel(name: listing?.publisherName ?? product.publisherName)
                 }
-                if bundled { ModulaBadge(title: "Bundled", symbol: "iphone") }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Developer \(listing?.publisherName ?? product.publisherName)")
+                Spacer(minLength: 8)
+                HStack(spacing: 10) {
+                    primaryButton(state)
+                    if state.primaryAction == .update {
+                        Button("Open") { open() }
+                            .font(.subheadline.weight(.semibold))
+                            .accessibilityIdentifier("module.open")
+                    }
+                    Spacer(minLength: 0)
+                }
             }
-            ProductMetadata(product: product)
         }
         .accessibilitySortPriority(90)
     }
 
-    private func primaryAction(_ presentation: ModuleDetailPresentation) -> some View {
-        let action = presentation.primaryAction
-        let brand = moduleBrandColor
+    private func primaryButton(_ state: ModuleDetailPresentation) -> some View {
+        let action = state.primaryAction
         return Button {
             perform(action)
         } label: {
-            Text(action.title)
-                .font(.headline)
-                .frame(maxWidth: .infinity, minHeight: 52)
-        }
-        .buttonStyle(.borderedProminent)
-        .tint(brand)
-        .disabled(!action.isEnabled)
-        .accessibilityLabel(action.title)
-        .accessibilityIdentifier("module.primary")
-        .accessibilitySortPriority(80)
-    }
-
-    private var moduleBrandColor: Color {
-        switch app.appearance.moduleBranding {
-        case .preferUserAccent:
-            return app.appearance.accent.color
-        case .moduleIdentity, .blend:
-            return app.appearance.accent.color
-        }
-    }
-
-    private var sectionNavigation: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(ModuleDetailSection.allCases, id: \.self) { item in
-                    Button {
-                        app.navigation.replaceTop(with: .productHub(.module(moduleID, item)))
-                    } label: {
-                        Text(sectionTitle(item))
-                            .font(.subheadline.weight(.semibold))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(section == item ? app.appearance.accent.color.opacity(0.18) : Color.primary.opacity(0.06), in: Capsule())
+                if action.isBusy { ProgressView().controlSize(.small).tint(.white) }
+                Text(action == .open || action == .install || action == .update ? action.title.uppercased() : action.title)
+                    .font(.subheadline.weight(.bold))
+            }
+            .padding(.horizontal, 20)
+            .frame(minWidth: 84, minHeight: 34)
+            .foregroundStyle(action.isEnabled || action.isBusy ? Color.white : Color.secondary)
+            .background(action.isEnabled || action.isBusy ? brand : Color.primary.opacity(0.08), in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(!action.isEnabled)
+        .animation(.snappy, value: action)
+        .accessibilityLabel(action.title)
+        .accessibilityHint(action == .install ? "Installs to your Modula account" : "")
+        .accessibilityIdentifier("module.primary")
+    }
+
+    private var brand: Color {
+        if app.appearance.moduleBranding != .preferUserAccent, let tint = app.moduleArtwork(moduleID).tintHex { return Color(hex: tint) }
+        return app.appearance.accent.color
+    }
+
+    private func lifecycleNotice(_ message: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            Text(message).font(.subheadline)
+            Spacer(minLength: 0)
+            Button {
+                app.catalogue.lifecycleErrors[moduleID] = nil
+            } label: { Image(systemName: "xmark").font(.caption.bold()) }
+            .accessibilityLabel("Dismiss")
+        }
+        .padding(12)
+        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("module.lifecycle-error")
+    }
+
+    // MARK: Stats
+
+    private struct Stat: Identifiable { let id: String; let caption: String; let value: String; let detail: String; var symbol: String? = nil }
+
+    private func statItems(_ product: CatalogueProduct) -> [Stat] {
+        var items: [Stat] = []
+        if let listing, listing.ratingCount > 0, let average = listing.ratingAverage {
+            items.append(Stat(id: "rating", caption: "\(listing.ratingCount) RATINGS", value: String(format: "%.1f", average), detail: stars(average)))
+        } else {
+            items.append(Stat(id: "rating", caption: "RATINGS", value: "—", detail: "Not enough ratings"))
+        }
+        if let age = listing?.ageRating { items.append(Stat(id: "age", caption: "AGE", value: age, detail: "Years Old")) }
+        if let rank = listing?.chartRank, let category = listing?.chartCategory {
+            items.append(Stat(id: "chart", caption: "CHART", value: "#\(rank)", detail: category))
+        } else if let category = listing?.category {
+            items.append(Stat(id: "category", caption: "CATEGORY", value: "", detail: category, symbol: "square.grid.2x2"))
+        }
+        items.append(Stat(id: "developer", caption: "DEVELOPER", value: "", detail: listing?.publisherName ?? product.publisherName, symbol: "person.crop.square"))
+        items.append(Stat(id: "size", caption: "SIZE", value: listing?.sizeBytes.map(Self.size) ?? "—", detail: listing?.sizeBytes == nil ? "Not published" : "MB"))
+        if let count = listing?.installCount { items.append(Stat(id: "installs", caption: "INSTALLS", value: "\(count)", detail: count == 1 ? "Account" : "Accounts")) }
+        items.append(Stat(id: "version", caption: "VERSION", value: product.latestVersion ?? manifest?.version ?? "—", detail: "Latest"))
+        return items
+    }
+
+    private func stats(_ product: CatalogueProduct) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 0) {
+                ForEach(Array(statItems(product).enumerated()), id: \.element.id) { index, item in
+                    if index > 0 { Divider().frame(height: 40) }
+                    VStack(spacing: 5) {
+                        Text(item.caption).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+                        if let symbol = item.symbol {
+                            Image(systemName: symbol).font(.title3.weight(.semibold)).foregroundStyle(.secondary)
+                        } else {
+                            Text(item.value).font(.title3.weight(.bold)).foregroundStyle(.secondary)
+                        }
+                        Text(item.detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(section == item ? .isSelected : [])
+                    .frame(minWidth: 96)
+                    .padding(.horizontal, 6)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(item.caption.capitalized): \(item.value) \(item.detail)")
                 }
             }
         }
-        .accessibilitySortPriority(70)
+        .accessibilityIdentifier("module.stats")
+    }
+
+    private func stars(_ value: Double) -> String {
+        let full = Int(value.rounded())
+        return String(repeating: "★", count: max(0, min(5, full))) + String(repeating: "☆", count: max(0, 5 - full))
+    }
+
+    private static func size(_ bytes: Int) -> String {
+        String(format: bytes >= 10_000_000 ? "%.0f" : "%.1f", Double(bytes) / 1_000_000)
+    }
+
+    // MARK: Sections
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title).font(.title3.bold()).accessibilityAddTraits(.isHeader)
+    }
+
+    private func whatsNew(_ product: CatalogueProduct) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle("What’s New")
+            HStack {
+                Text("Version \(product.latestVersion ?? manifest?.version ?? "—")")
+                Spacer()
+                if let date = listing?.publishedAt { Text(date, format: .dateTime.day().month(.abbreviated).year()) }
+            }
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            let notes = listing?.releaseNotes ?? []
+            if notes.isEmpty {
+                Text(listing == nil && !app.catalogue.listingFailed.contains(moduleID) ? "Loading release notes…" : "No release notes were published for this version.")
+                    .foregroundStyle(.secondary)
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(notes.enumerated()), id: \.offset) { _, note in
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text("•").foregroundStyle(.secondary)
+                            Text(note)
+                        }
+                    }
+                }
+                .font(.subheadline)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder
-    private func sectionBody(_ product: CatalogueProduct, presentation: ModuleDetailPresentation) -> some View {
-        switch section {
-        case .overview:
-            overview(product)
-        case .whatsNew:
-            truthful("What’s New", product.latestVersion.map { "Latest catalogue version: \($0). No release notes were provided." } ?? "No release notes provided.", "sparkles")
-        case .screenshots:
-            EmptyView()
-        case .permissions:
-            permissions
-        case .privacy:
-            truthful("Privacy", "A product privacy disclosure is not present in the current catalogue response. Native will not invent a privacy grade.", "lock.shield")
-        case .compatibility:
-            truthful("Compatibility", compatibilityText(product), "checkmark.seal")
-        case .information:
-            information(product)
-        case .versionHistory:
-            truthful("Version History", product.latestVersion.map { "Current version \($0). Additional catalogue releases were not included in this response." } ?? "No published release is available.", "clock.arrow.circlepath")
-        case .publisher:
-            Button("Open publisher") {
-                app.navigation.open(.productHub(.publisher(product.publisherId)))
-            }
-        case .support:
-            truthful("Support", "Support contact is available on the publisher page when Greenfield provides it.", "questionmark.circle")
-        case .configure:
-            if installed {
-                Button("Module settings") {
-                    app.navigation.open(.settings(.modules(.module(moduleID, .general))))
+    private func screenshots(_ art: ModuleArtwork) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle("Preview")
+            if art.screenshots.isEmpty {
+                HStack(spacing: 10) {
+                    Image(systemName: "photo.on.rectangle").foregroundStyle(.secondary)
+                    Text("No screenshots have been published yet.").foregroundStyle(.secondary)
                 }
+                .frame(maxWidth: .infinity, minHeight: 120)
+                .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             } else {
-                truthful("Configure", "Configure appears after the module is installed.", "slider.horizontal.3")
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 12) {
+                        ForEach(art.screenshots) { shot in
+                            Button { zoomedShot = shot } label: {
+                                ModuleArtImage(source: shot.source) {
+                                    Rectangle().fill(Color.primary.opacity(0.06))
+                                }
+                                .frame(width: 220, height: 220 / max(0.3, min(shot.aspect, 2)))
+                                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.primary.opacity(0.08)))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(shot.alt)
+                            .accessibilityHint("Shows the screenshot larger")
+                        }
+                    }
+                    .scrollTargetLayout()
+                }
+                .scrollTargetBehavior(.viewAligned)
+                .accessibilityIdentifier("module.screenshots")
             }
         }
     }
 
-    private func overview(_ product: CatalogueProduct) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
+    private func about(_ product: CatalogueProduct) -> some View {
+        let text = listing?.description ?? product.description
+        return VStack(alignment: .leading, spacing: 8) {
+            sectionTitle("About")
+            Text(text)
+                .lineLimit(expandedDescription ? nil : 3)
+            if text.count > 140 {
+                Button(expandedDescription ? "less" : "more") { withAnimation { expandedDescription.toggle() } }
+                    .font(.subheadline.weight(.semibold))
+            }
+        }
+    }
+
+    private var ratings: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle("Ratings & Reviews")
+            if let listing, listing.ratingCount > 0, let average = listing.ratingAverage {
+                HStack(alignment: .lastTextBaseline, spacing: 12) {
+                    Text(String(format: "%.1f", average)).font(.system(size: 52, weight: .bold, design: .rounded))
+                    VStack(alignment: .leading) {
+                        Text(stars(average)).foregroundStyle(.orange)
+                        Text("\(listing.ratingCount) ratings").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Rated \(String(format: "%.1f", average)) out of 5 from \(listing.ratingCount) ratings")
+            } else {
+                Text("This module hasn’t received enough ratings yet.").foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var privacy: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle("App Privacy")
             ModulaCard {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("About").font(.headline)
-                    Text(product.description)
+                VStack(alignment: .leading, spacing: 10) {
+                    Label(listing?.privacy ?? "Not declared", systemImage: "hand.raised.fill").font(.headline)
+                    Text(listing?.privacy == nil
+                         ? "The developer hasn’t published a privacy declaration for this module."
+                         : "Module data is stored with your Modula account and is not shared with other modules unless you allow it.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    if let listing {
+                        Divider()
+                        feature("Syncs across devices", listing.syncSupport)
+                        feature("Works offline", listing.offlineSupport)
+                        feature("In-module purchases", listing.inAppPurchases)
+                    }
                 }
             }
-            permissionsPreview
         }
-        .accessibilitySortPriority(60)
+    }
+
+    @ViewBuilder
+    private func feature(_ title: String, _ value: Bool?) -> some View {
+        if let value {
+            HStack {
+                Text(title)
+                Spacer()
+                Image(systemName: value ? "checkmark.circle.fill" : "minus.circle").foregroundStyle(value ? Color.green : Color.secondary)
+            }
+            .font(.subheadline)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(title): \(value ? "Yes" : "No")")
+        }
     }
 
     private var permissions: some View {
-        let records = ModuleHostPermissions.records(from: manifest)
-        return VStack(alignment: .leading, spacing: 12) {
-            if records.isEmpty {
-                Text("Greenfield exposes no product-level permission declaration in the current catalogue response. Native is not inferring permissions from the module name.")
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(records) { record in
-                    ModulaCard {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(record.capability).font(.headline)
-                            Text(record.purpose).foregroundStyle(.secondary)
-                            Text(record.state).font(.caption).foregroundStyle(.secondary)
+        let server = listing?.permissions ?? []
+        let host = ModuleHostPermissions.records(from: manifest)
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                sectionTitle("Permissions")
+                Spacer()
+                if let listing, listing.highRiskCount > 0 {
+                    Text("\(listing.highRiskCount) high risk").font(.caption.weight(.semibold)).foregroundStyle(.red)
+                }
+            }
+            if server.isEmpty && host.isEmpty {
+                Text("This module declares no permissions.").foregroundStyle(.secondary)
+            }
+            if !server.isEmpty {
+                ModulaCard {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(showAllPermissions ? server : Array(server.prefix(4))) { permission in
+                            HStack(alignment: .top, spacing: 10) {
+                                Image(systemName: riskSymbol(permission.risk)).foregroundStyle(riskColor(permission.risk)).frame(width: 22)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(permission.reason.isEmpty ? permission.permission : permission.reason).font(.subheadline)
+                                    Text("\(permission.permission) · \(permission.risk.capitalized) risk").font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                            .accessibilityElement(children: .combine)
+                        }
+                        if server.count > 4 {
+                            Button(showAllPermissions ? "Show fewer" : "Show all \(server.count) permissions") {
+                                withAnimation { showAllPermissions.toggle() }
+                            }
+                            .font(.subheadline.weight(.semibold))
+                            .accessibilityIdentifier("module.permissions.toggle")
+                        }
+                    }
+                }
+            }
+            if !host.isEmpty {
+                DisclosureGroup("On this device (\(host.count) host actions)") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(host) { record in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(record.capability).font(.subheadline.monospaced())
+                                Text(record.purpose).font(.caption).foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .padding(.top, 8)
+                }
+                .font(.subheadline)
+            }
+        }
+    }
+
+    private func riskSymbol(_ risk: String) -> String {
+        switch risk { case "high", "restricted": "exclamationmark.shield.fill"; case "medium": "shield.lefthalf.filled"; default: "checkmark.shield" }
+    }
+
+    private func riskColor(_ risk: String) -> Color {
+        switch risk { case "high", "restricted": .red; case "medium": .orange; default: .green }
+    }
+
+    private func information(_ product: CatalogueProduct, state: ModuleDetailPresentation) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle("Information")
+            ModulaCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    info("Provider", listing?.publisherName ?? product.publisherName)
+                    info("Size", listing?.sizeBytes.map { "\(Self.size($0)) MB" } ?? "Not published")
+                    if let category = listing?.category { info("Category", category) }
+                    info("Compatibility", compatibility(product))
+                    if let age = listing?.ageRating { info("Age Rating", age) }
+                    info("Version", product.latestVersion ?? "—")
+                    if let installed = state.installation?.version, state.installed { info("Installed", installed) }
+                    if let trust = listing?.trust { info("Trust", trust == "firstParty" ? "First party" : trust.capitalized) }
+                    info("Module ID", product.moduleId)
+                    if let website = listing?.publisherWebsite {
+                        Link(destination: website) { Label("Developer Website", systemImage: "safari") }
+                    }
+                    if installed {
+                        Button { app.navigation.open(.settings(.modules(.module(moduleID, .general)))) } label: {
+                            Label("Module Settings", systemImage: "slider.horizontal.3")
                         }
                     }
                 }
             }
         }
-        .accessibilitySortPriority(50)
     }
 
-    private var permissionsPreview: some View {
-        let records = ModuleHostPermissions.records(from: manifest)
-        return Group {
-            if !records.isEmpty {
-                ModulaSection(title: "Permissions") {
-                    ForEach(records.prefix(3)) { record in
-                        ModulaListRow(title: record.capability, subtitle: record.purpose, symbol: "hand.raised") {
-                            app.navigation.open(.productHub(.module(moduleID, .permissions)))
-                        }
-                    }
-                }
-            }
+    private func info(_ label: String, _ value: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(label).foregroundStyle(.secondary)
+            Spacer(minLength: 12)
+            Text(value).multilineTextAlignment(.trailing)
         }
+        .font(.subheadline)
+        .accessibilityElement(children: .combine)
     }
 
-    private func information(_ product: CatalogueProduct) -> some View {
-        ModulaCard {
-            VStack(alignment: .leading, spacing: 8) {
-                LabeledContent("Module ID", value: product.moduleId)
-                LabeledContent("Publisher", value: product.publisherName)
-                LabeledContent("Status", value: product.status.capitalized)
-                LabeledContent("Kind", value: product.productKind)
-            }
-        }
+    private func compatibility(_ product: CatalogueProduct) -> String {
+        let platforms = (listing?.platforms.isEmpty == false ? listing!.platforms : product.platforms)
+        let names = platforms.contains { $0.lowercased() == "ios" } ? "Works on this iPhone" : "Not declared for iOS"
+        let host = listing?.minimumHostVersion ?? manifest?.minHostVersion
+        return host.map { "\(names) · Modula \($0)+" } ?? names
     }
 
-    private func truthful(_ title: String, _ text: String, _ symbol: String) -> some View {
-        ModulaCard {
-            VStack(alignment: .leading, spacing: 8) {
-                Label(title, systemImage: symbol).font(.headline)
-                Text(text).foregroundStyle(.secondary)
-            }
+    private var uninstallButton: some View {
+        Button(role: .destructive) { confirmUninstall = true } label: {
+            Label("Uninstall \(product?.name ?? "Module")", systemImage: "trash")
+                .frame(maxWidth: .infinity, minHeight: 44)
         }
+        .buttonStyle(.bordered)
+        .tint(.red)
+        .accessibilityIdentifier("module.uninstall")
     }
 
-    private func compatibilityText(_ product: CatalogueProduct) -> String {
-        if product.platforms.isEmpty {
-            return "No platform compatibility is declared."
-        }
-        let platforms = product.platforms.map { $0.lowercased() == "ios" ? "iOS" : $0.capitalized }.joined(separator: ", ")
-        let host = manifest.map { "Requires Modula \($0.minHostVersion) and HostBridge \($0.minBridgeVersion)." } ?? "Required Modula version is not declared in the catalogue response."
-        return "Declared platforms: \(platforms). \(host)"
+    // MARK: Actions
+
+    private var installTitle: String { "Install \(product?.name ?? "module")?" }
+
+    private var installMessage: String {
+        let permissions = listing?.permissions ?? []
+        guard !permissions.isEmpty else { return "It will be added to your Modula account." }
+        let high = listing?.highRiskCount ?? 0
+        return "It will be added to your Modula account with \(permissions.count) permissions" + (high > 0 ? " (\(high) high risk)." : ".") + " You can review them under Permissions."
     }
 
     private func perform(_ action: ModulePrimaryAction) {
         switch action {
         case .open:
-            HapticEngine.shared.play(.confirmation)
-            app.navigation.open(.module(moduleID, localPath: nil))
-        case .install, .update:
-            app.navigation.banner = ModulaBanner(
-                message: "Module install isn’t available until Greenfield install is verified.",
-                symbol: "exclamationmark.triangle"
-            )
-            HapticEngine.shared.play(.warning)
+            open()
+        case .install:
+            if listing == nil { Task { await app.catalogue.loadListing(moduleID) } }
+            confirmInstall = true
+        case .update:
+            Task {
+                if await app.catalogue.update(moduleID) {
+                    HapticEngine.shared.play(.success)
+                    app.navigation.banner = ModulaBanner(message: "\(product?.name ?? "Module") updated", symbol: "checkmark.circle")
+                } else {
+                    HapticEngine.shared.play(.failure)
+                }
+            }
+        case .signIn:
+            app.navigation.open(.auth(.login))
         default:
             break
         }
     }
 
-    private func sectionTitle(_ section: ModuleDetailSection) -> String {
-        section.rawValue.replacingOccurrences(of: "-", with: " ").capitalized
+    private func open() {
+        HapticEngine.shared.play(.confirmation)
+        app.navigation.open(.module(moduleID, localPath: nil))
+    }
+
+    private func runInstall() async {
+        let granted = (listing?.permissions ?? []).map(\.permission)
+        if await app.catalogue.install(moduleID, permissions: granted) {
+            HapticEngine.shared.play(.success)
+            app.navigation.banner = ModulaBanner(message: "\(product?.name ?? "Module") installed", symbol: "checkmark.circle")
+        } else {
+            HapticEngine.shared.play(.failure)
+        }
+    }
+
+    private func runUninstall() async {
+        if await app.catalogue.uninstall(moduleID) {
+            HapticEngine.shared.play(.success)
+            app.navigation.banner = ModulaBanner(message: "\(product?.name ?? "Module") removed", symbol: "trash")
+        } else {
+            HapticEngine.shared.play(.failure)
+        }
     }
 }
 

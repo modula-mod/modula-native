@@ -200,6 +200,64 @@ actor GreenfieldClient {
         })
     }
 
+    /// Installations with their lifecycle status and version (`GET /v1/modules/installed`).
+    func installedModules() async throws -> [ModuleInstallation] {
+        let value: JSONValue = try await authenticated("GET", path: "/v1/modules/installed")
+        return Self.installations(from: value)
+    }
+
+    nonisolated static func installations(from value: JSONValue) -> [ModuleInstallation] {
+        let items = value.array ?? value["items"]?.array ?? []
+        return items.compactMap { item in
+            guard let id = item["moduleId"]?.string ?? item["module_id"]?.string ?? item["productId"]?.string else { return nil }
+            return ModuleInstallation(moduleId: id, status: item["status"]?.string ?? "enabled", version: item["version"]?.string)
+        }
+    }
+
+    /// Public store listing for one module (`GET /v1/registry/modules/:id`).
+    func moduleListing(_ moduleID: String) async throws -> ModuleListing {
+        guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
+        let value: JSONValue = try await send("GET", path: "/v1/registry/modules/\(path)")
+        guard let listing = ModuleListing(json: value) else { throw APIError.invalidResponse }
+        return listing
+    }
+
+    /// Lifecycle mutations. All are idempotent on the server via `idempotencyKey`, so the
+    /// single 401-refresh retry in `authenticated` cannot double-apply them.
+    func installModule(_ moduleID: String, version: String?, approvedPermissions: [String], idempotencyKey: String) async throws -> String? {
+        guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
+        var body: [String: JSONValue] = ["platform": .string("ios"), "idempotencyKey": .string(idempotencyKey)]
+        if let version { body["version"] = .string(version) }
+        if !approvedPermissions.isEmpty { body["approvedPermissions"] = .array(approvedPermissions.map(JSONValue.string)) }
+        let value: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/install", body: .object(body))
+        return value["status"]?.string
+    }
+
+    func enableModule(_ moduleID: String, idempotencyKey: String) async throws {
+        guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
+        let _: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/enable", body: .object(["idempotencyKey": .string(idempotencyKey)]))
+    }
+
+    func updateModule(_ moduleID: String, version: String, approvedPermissionIncrease: Bool, idempotencyKey: String) async throws {
+        guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
+        let _: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/update", body: .object([
+            "version": .string(version), "approvedPermissionIncrease": .bool(approvedPermissionIncrease), "idempotencyKey": .string(idempotencyKey),
+        ]))
+    }
+
+    /// Uninstall keeps the account's module data so a reinstall restores it.
+    func uninstallModule(_ moduleID: String, idempotencyKey: String) async throws {
+        guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
+        let _: JSONValue = try await authenticated("DELETE", path: "/v1/modules/\(path)/install", body: .object([
+            "choice": .string("keepData"), "idempotencyKey": .string(idempotencyKey),
+        ]))
+    }
+
+    /// Module ids are reverse-DNS; anything else never reaches a URL path.
+    nonisolated static func modulePath(_ moduleID: String) -> String? {
+        moduleID.range(of: "^[a-z][a-z0-9.-]{1,127}$", options: .regularExpression) == nil ? nil : moduleID
+    }
+
     func moduleRequest(method: String, path: String, body: JSONValue?, expectedAccountID: String) async throws -> JSONValue {
         guard accountID == expectedAccountID else { throw APIError.accountChanged }
         let generation = epoch

@@ -690,6 +690,70 @@ final class VaultRuntimeUITests: XCTestCase {
         add(attachment)
     }
 
+    /// Product Hub store page end to end against n1: icons and cover in the list, rich
+    /// detail page, uninstall (data kept), reinstall with permission confirmation, open
+    /// into the renderer. Leaves Vault installed.
+    func testStoreDetailInstallOpenUninstallLifecycle() throws {
+        let app = try launchSignedInApp()
+        openProductHub(app)
+        XCTAssertTrue(app.descendants(matching: .any)["artwork.digital.modula.vault-notes"].firstMatch.waitForExistence(timeout: 15))
+        attachVaultScreenshot(app, name: "D-hub-list")
+        let card = app.buttons["product.digital.modula.vault-notes"].firstMatch
+        if card.waitForExistence(timeout: 5) { card.tap() } else { app.buttons["product-hub.featured"].firstMatch.tap() }
+
+        let primary = app.buttons["module.primary"].firstMatch
+        XCTAssertTrue(primary.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["module.stats"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["What’s New"].waitForExistence(timeout: 10))
+        attachVaultScreenshot(app, name: "D-detail-top")
+
+        // Make sure we start installed (a previous failed run may have left it removed).
+        if primary.label == "Install" {
+            primary.tap()
+            app.buttons["module.install.confirm"].firstMatch.tap()
+            XCTAssertTrue(waitForLabel(primary, "Open", timeout: 60))
+        }
+        XCTAssertEqual(primary.label, "Open")
+
+        app.swipeUp()
+        XCTAssertTrue(app.descendants(matching: .any)["module.screenshots"].firstMatch.waitForExistence(timeout: 5))
+        attachVaultScreenshot(app, name: "D-detail-screenshots")
+        app.swipeUp()
+        attachVaultScreenshot(app, name: "D-detail-privacy-permissions")
+        let uninstall = app.buttons["module.uninstall"].firstMatch
+        for _ in 0..<4 where !uninstall.isHittable { app.swipeUp() }
+        attachVaultScreenshot(app, name: "D-detail-information")
+        uninstall.tap()
+        let confirmUninstall = app.buttons["module.uninstall.confirm"].firstMatch
+        XCTAssertTrue(confirmUninstall.waitForExistence(timeout: 5))
+        confirmUninstall.tap()
+
+        for _ in 0..<8 where !primary.isHittable { app.swipeDown() }
+        XCTAssertTrue(waitForLabel(primary, "Install", timeout: 60),
+                      "Uninstall should settle; error: \(app.descendants(matching: .any)["module.lifecycle-error"].firstMatch.label)")
+        attachVaultScreenshot(app, name: "D-detail-not-installed")
+
+        primary.tap()
+        let confirmInstall = app.buttons["module.install.confirm"].firstMatch
+        XCTAssertTrue(confirmInstall.waitForExistence(timeout: 5))
+        Thread.sleep(forTimeInterval: 1)
+        attachVaultScreenshot(app, name: "D-install-confirm")
+        confirmInstall.tap()
+        XCTAssertTrue(waitForLabel(primary, "Open", timeout: 60),
+                      "Install should settle; error: \(app.descendants(matching: .any)["module.lifecycle-error"].firstMatch.label)")
+        attachVaultScreenshot(app, name: "D-detail-reinstalled")
+
+        primary.tap()
+        XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 25), "Reinstalled module opens with its kept data")
+        XCTAssertTrue(noteButton(app, title: "N1 Fixture 1").waitForExistence(timeout: 5), "keepData uninstall preserves notes")
+        attachVaultScreenshot(app, name: "D-opened-after-reinstall")
+    }
+
+    private func waitForLabel(_ element: XCUIElement, _ label: String, timeout: TimeInterval) -> Bool {
+        let predicate = NSPredicate(format: "label == %@", label)
+        return XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: element)], timeout: timeout) == .completed
+    }
+
     func testTenOpenCloseCyclesReuseOneRuntime() throws {
         let app = try launchSignedInApp()
         openProductHub(app)

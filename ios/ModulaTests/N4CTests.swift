@@ -1,4 +1,5 @@
 import ImageIO
+import UIKit
 import XCTest
 @testable import Modula
 
@@ -1070,5 +1071,189 @@ final class HomeStoryTrayTests: XCTestCase {
                        "the header + is Home's only create control")
         XCTAssertEqual(StoryStore.homeTrayGroups([ownLive, friendGroup]).map(\.id), ["g-own", "g-f"],
                        "a live own story stays in the tray")
+    }
+}
+
+// MARK: - Product Hub: store listing, install state and lifecycle (Phase D)
+
+private func bodyJSON(_ request: URLRequest) -> JSONValue? {
+    var data = request.httpBody
+    if data == nil, let stream = request.httpBodyStream {
+        stream.open(); defer { stream.close() }
+        var buffer = Data(); var chunk = [UInt8](repeating: 0, count: 4096)
+        while stream.hasBytesAvailable { let n = stream.read(&chunk, maxLength: chunk.count); if n <= 0 { break }; buffer.append(chunk, count: n) }
+        data = buffer
+    }
+    return data.flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) }
+}
+
+final class ModuleStoreTests: XCTestCase {
+    private static let vault = CatalogueProduct(
+        moduleId: "digital.modula.vault-notes", productKind: "module", name: "Vault Notes", description: "Notes",
+        publisherId: "modula", publisherName: "Modula", latestVersion: "1.7.0", status: "published", installable: true,
+        platforms: ["ios"], betaClassification: nil, installability: .init(status: "available", reasonCode: nil, reason: nil))
+
+    private func state(_ status: String?, version: String? = "1.7.0", op: ModuleOperation? = nil, bundled: Bool = true,
+                       bundledVersion: String? = "1.7.0", signedIn: Bool = true, product: CatalogueProduct = vault) -> ModulePrimaryAction {
+        ModuleDetailPresentation(product: product,
+                                 installation: status.map { ModuleInstallation(moduleId: product.moduleId, status: $0, version: version) },
+                                 operation: op, bundled: bundled, bundledVersion: bundledVersion, signedIn: signedIn).primaryAction
+    }
+
+    func testPrimaryActionFollowsServerInstallState() {
+        XCTAssertEqual(state(nil), .install, "Bundled code alone is not an installation")
+        XCTAssertEqual(state(nil, signedIn: false), .signIn)
+        XCTAssertEqual(state("enabled"), .open)
+        XCTAssertEqual(state("installing"), .installing)
+        XCTAssertEqual(state("uninstalling"), .uninstalling)
+        XCTAssertEqual(state("removed"), .install)
+        XCTAssertEqual(state("uninstalled"), .install, "Legacy 'uninstalled' rows are not installs")
+        XCTAssertEqual(state("enabled", version: "1.6.0"), .update)
+        XCTAssertEqual(state("enabled", version: "1.6.0", bundledVersion: "1.6.0"), .open, "No update offered without bundled code for it")
+        XCTAssertEqual(state(nil, op: .installing), .installing)
+        XCTAssertEqual(state(nil, bundled: false), .unavailable)
+        XCTAssertTrue(ModuleVersion.isOlder("1.9.2", than: "1.10.0"))
+        XCTAssertFalse(ModuleVersion.isOlder("1.7.0", than: "1.7"))
+    }
+
+    func testListingDecodesMarketplaceAndToleratesMissingFields() throws {
+        let json = #"""
+        {"moduleId":"digital.modula.vault-notes","name":"Vault Notes","description":"D","latestVersion":"1.7.0","trust":"firstParty",
+         "publisher":{"displayName":"Modula","website":"https://modula.digital"},
+         "permissions":[{"permission":"functions:register","risk":"high","reason":"Actions"},{"permission":"events:subscribe","risk":"medium","reason":"Events"}],
+         "compatibility":{"platforms":["ios"],"minimumModulaHostVersion":"0.1.0"},
+         "marketplace":{"category":{"state":"declared","value":"Productivity"},"ageRating":{"state":"declared","value":"4+"},
+           "syncSupport":{"state":"declared","value":true},"privacy":{"state":"undeclared","value":"x"},
+           "previews":[{"id":"p1","type":"image","source":"https://cdn.modula.digital/a.png","width":1170,"height":2532},{"id":"bad","type":"image","source":"http://insecure/a.png"}],
+           "rating":{"average":4.5,"count":12},"installations":{"count":3},"chart":{"rank":1,"category":"Productivity"},
+           "release":{"publishedAt":"2026-08-24T00:00:00.000Z","sizeBytes":4200000,"notes":["One","Two"]},
+           "icon":"https://cdn.modula.digital/icon.png"}}
+        """#
+        let value = try JSONDecoder().decode(JSONValue.self, from: Data(json.utf8))
+        let listing = try XCTUnwrap(ModuleListing(json: value))
+        XCTAssertEqual(listing.category, "Productivity")
+        XCTAssertNil(listing.privacy, "Undeclared values are not shown as facts")
+        XCTAssertEqual(listing.highRiskCount, 1)
+        XCTAssertEqual(listing.previews.map(\.id), ["p1"], "Only https previews are loaded")
+        XCTAssertEqual(listing.ratingCount, 12)
+        XCTAssertEqual(listing.sizeBytes, 4_200_000)
+        XCTAssertEqual(listing.releaseNotes, ["One", "Two"])
+        XCTAssertNotNil(listing.publishedAt)
+        XCTAssertEqual(listing.iconURL?.host, "cdn.modula.digital")
+        let minimal = try XCTUnwrap(ModuleListing(json: .object(["moduleId": .string("x.y")])))
+        XCTAssertEqual(minimal.permissions, [])
+        XCTAssertNil(ModuleListing(json: .object([:])))
+    }
+
+    func testArtworkPrefersServerThenManifestThenPlaceholder() throws {
+        let presentation = ModulePresentation(subtitle: "S", tint: "#1F8A84", icon: "asset:VaultNotesIcon", cover: "javascript:alert(1)",
+                                              screenshots: [.init(source: "asset:VaultNotesShot1", alt: "List"), .init(source: "ftp://x", alt: nil)])
+        let local = ModuleArtwork(listing: nil, presentation: presentation)
+        XCTAssertEqual(local.icon, .asset("VaultNotesIcon"))
+        XCTAssertNil(local.cover, "Unsupported schemes fall back to the placeholder")
+        XCTAssertEqual(local.screenshots.map(\.alt), ["List"])
+        XCTAssertNil(ModuleArtwork(listing: nil, presentation: ModulePresentation(subtitle: nil, tint: "red", icon: nil, cover: nil, screenshots: nil)).tintHex)
+        let none = ModuleArtwork(listing: nil, presentation: nil)
+        XCTAssertNil(none.icon); XCTAssertTrue(none.screenshots.isEmpty)
+        XCTAssertNil(ModuleArtSource("asset:../../etc"), "Asset names are restricted")
+    }
+
+    func testBundledManifestsDecodeWithPresentation() throws {
+        let url = try XCTUnwrap(Bundle.main.url(forResource: "manifests", withExtension: "json"))
+        let manifests = try JSONDecoder().decode([ModuleManifest].self, from: Data(contentsOf: url))
+        let vault = try XCTUnwrap(manifests.first { $0.id == "digital.modula.vault-notes" })
+        XCTAssertEqual(vault.presentation?.icon, "asset:VaultNotesIcon")
+        XCTAssertNotNil(UIImage(named: "VaultNotesIcon"))
+        XCTAssertNotNil(UIImage(named: "VaultNotesCover"))
+        XCTAssertEqual(vault.presentation?.screenshots?.compactMap { ModuleArtSource($0.source) }.count, 3)
+        for shot in vault.presentation?.screenshots ?? [] {
+            if case .asset(let name) = ModuleArtSource(shot.source) { XCTAssertNotNil(UIImage(named: name), name) }
+        }
+        let legacy = #"[{"id":"a.b","name":"A","version":"1.0.0","runtime":"react-native","entry":"x","permissions":[],"minHostVersion":"0.1.0","minBridgeVersion":"0.1.0"}]"#
+        XCTAssertNil(try JSONDecoder().decode([ModuleManifest].self, from: Data(legacy.utf8)).first?.presentation)
+    }
+
+    @MainActor
+    func testInstallEnablesAndUninstallSettlesAgainstServer() async throws {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [SessionRouterProtocol.self]
+        SessionRouterProtocol.log = []
+        defer { SessionRouterProtocol.handler = nil }
+        let client = GreenfieldClient(baseURL: URL(string: "https://store-test-\(UUID().uuidString.prefix(8)).modula.test")!,
+                                      transport: URLSession(configuration: config))
+        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let tokens = #"{"ok":true,"data":{"accessToken":"a","refreshToken":"r","sessionId":"s","accessExpiresAt":"\#(f.string(from: Date().addingTimeInterval(900)))","refreshExpiresAt":"\#(f.string(from: Date().addingTimeInterval(86_400)))"}}"#
+        let lock = NSLock()
+        nonisolated(unsafe) var status: String? = nil
+        nonisolated(unsafe) var polls = 0
+        nonisolated(unsafe) var installBody: JSONValue?
+        nonisolated(unsafe) var uninstallBody: JSONValue?
+        SessionRouterProtocol.handler = { request in
+            lock.lock(); defer { lock.unlock() }
+            switch (request.httpMethod ?? "", request.url?.path ?? "") {
+            case ("POST", "/v1/sessions"): return (201, tokens)
+            case ("GET", "/v1/accounts/me"): return (200, #"{"ok":true,"data":{"accountId":"acct-1","primaryHandle":"me","status":"active"}}"#)
+            case ("POST", "/v1/modules/digital.modula.vault-notes/install"):
+                installBody = bodyJSON(request); status = "installing"; polls = 0
+                return (202, #"{"ok":true,"data":{"installationId":"i1","status":"installing"}}"#)
+            case ("POST", "/v1/modules/digital.modula.vault-notes/enable"):
+                status = "enabled"; return (202, #"{"ok":true,"data":{"status":"enabling"}}"#)
+            case ("DELETE", "/v1/modules/digital.modula.vault-notes/install"):
+                uninstallBody = bodyJSON(request); status = "uninstalling"; polls = 0
+                return (202, #"{"ok":true,"data":{"status":"uninstalling"}}"#)
+            case ("GET", "/v1/modules/installed"):
+                polls += 1
+                if status == "installing", polls >= 2 { status = "installedDisabled" }
+                if status == "uninstalling", polls >= 2 { status = "removed" }
+                let items = status == nil || status == "removed" ? "[]" : #"[{"installationId":"i1","moduleId":"digital.modula.vault-notes","status":"\#(status!)","version":"1.7.0"}]"#
+                return (200, #"{"ok":true,"data":{"items":\#(items)}}"#)
+            default: return (404, #"{"ok":false,"error":{"code":"NOT_FOUND"}}"#)
+            }
+        }
+        _ = try await client.signIn(email: "a@b.c", password: "pw")
+        let store = ProductHubStore(client: client)
+        store.settlePollInterval = .milliseconds(5)
+
+        let installed = await store.install("digital.modula.vault-notes", permissions: ["functions:register"])
+        XCTAssertTrue(installed, store.lifecycleErrors.description)
+        XCTAssertEqual(store.installations["digital.modula.vault-notes"]?.status, "enabled")
+        XCTAssertTrue(store.installedIDs.contains("digital.modula.vault-notes"))
+        XCTAssertNil(store.operations["digital.modula.vault-notes"])
+        XCTAssertEqual(installBody?["platform"]?.string, "ios")
+        XCTAssertEqual(installBody?["approvedPermissions"]?.array?.compactMap(\.string), ["functions:register"])
+        XCTAssertTrue(installBody?["idempotencyKey"]?.string?.hasPrefix("ios-install-") == true)
+        XCTAssertEqual(SessionRouterProtocol.log.filter { $0.hasPrefix("POST /v1/modules/digital.modula.vault-notes/enable") }.count, 1,
+                       "A disabled installation is enabled exactly once")
+
+        let removed = await store.uninstall("digital.modula.vault-notes")
+        XCTAssertTrue(removed)
+        XCTAssertEqual(uninstallBody?["choice"]?.string, "keepData")
+        XCTAssertFalse(store.installedIDs.contains("digital.modula.vault-notes"))
+    }
+
+    @MainActor
+    func testInstallFailureSurfacesMessageAndClearsOperation() async throws {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [SessionRouterProtocol.self]
+        defer { SessionRouterProtocol.handler = nil }
+        let client = GreenfieldClient(baseURL: URL(string: "https://store-fail-\(UUID().uuidString.prefix(8)).modula.test")!,
+                                      transport: URLSession(configuration: config))
+        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let tokens = #"{"ok":true,"data":{"accessToken":"a","refreshToken":"r","sessionId":"s","accessExpiresAt":"\#(f.string(from: Date().addingTimeInterval(900)))","refreshExpiresAt":"\#(f.string(from: Date().addingTimeInterval(86_400)))"}}"#
+        SessionRouterProtocol.handler = { request in
+            switch (request.httpMethod ?? "", request.url?.path ?? "") {
+            case ("POST", "/v1/sessions"): return (201, tokens)
+            case ("GET", "/v1/accounts/me"): return (200, #"{"ok":true,"data":{"accountId":"acct-1","primaryHandle":"me","status":"active"}}"#)
+            case ("POST", "/v1/modules/digital.modula.vault-notes/install"): return (403, #"{"ok":false,"error":{"code":"CAPABILITY_DISABLED"}}"#)
+            case ("GET", "/v1/modules/installed"): return (200, #"{"ok":true,"data":{"items":[]}}"#)
+            default: return (404, #"{"ok":false,"error":{"code":"NOT_FOUND"}}"#)
+            }
+        }
+        _ = try await client.signIn(email: "a@b.c", password: "pw")
+        let store = ProductHubStore(client: client)
+        let ok = await store.install("digital.modula.vault-notes", permissions: [])
+        XCTAssertFalse(ok)
+        XCTAssertNil(store.operations["digital.modula.vault-notes"])
+        XCTAssertNotNil(store.lifecycleErrors["digital.modula.vault-notes"])
     }
 }
