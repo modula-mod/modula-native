@@ -90,6 +90,8 @@
 		A50100000000000000000012 /* ReactionPeopleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000012 /* ReactionPeopleView.swift */; };
 		A50100000000000000000013 /* ProfileFullBleedChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000013 /* ProfileFullBleedChrome.swift */; };
 		A50100000000000000000014 /* ModuleDetailModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000014 /* ModuleDetailModels.swift */; };
+		V50100000000000000000002 /* ModuleVersionsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = V40100000000000000000002 /* ModuleVersionsSection.swift */; };
+		V50100000000000000000001 /* ModuleVersions.swift in Sources */ = {isa = PBXBuildFile; fileRef = V40100000000000000000001 /* ModuleVersions.swift */; };
 		A50100000000000000000015 /* ModuleDetailV2View.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000015 /* ModuleDetailV2View.swift */; };
 		A50100000000000000000016 /* PublisherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000016 /* PublisherView.swift */; };
 		A50100000000000000000017 /* N4ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000017 /* N4ETests.swift */; };
@@ -277,6 +279,7 @@
 		N50100000000000000000010 /* ProfilePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000010 /* ProfilePresentation.swift */; };
 		N50100000000000000000011 /* ProfileCustomizationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000011 /* ProfileCustomizationViews.swift */; };
 		N50100000000000000000012 /* N4CTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000012 /* N4CTests.swift */; };
+		V50100000000000000000003 /* ModuleVersionSwitchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = V40100000000000000000003 /* ModuleVersionSwitchTests.swift */; };
 		S50100000000000000000001 /* SettingsVisualSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = S40100000000000000000001 /* SettingsVisualSystem.swift */; };
 /* End PBXBuildFile section */
 
@@ -383,6 +386,8 @@
 		A40100000000000000000012 /* ReactionPeopleView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactionPeopleView.swift; path = Features/Social/Reactions/ReactionPeopleView.swift; sourceTree = "<group>"; };
 		A40100000000000000000013 /* ProfileFullBleedChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileFullBleedChrome.swift; path = Features/Profile/FullBleed/ProfileFullBleedChrome.swift; sourceTree = "<group>"; };
 		A40100000000000000000014 /* ModuleDetailModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleDetailModels.swift; path = Features/ProductHub/ModuleDetail/ModuleDetailModels.swift; sourceTree = "<group>"; };
+		V40100000000000000000002 /* ModuleVersionsSection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleVersionsSection.swift; path = Features/ProductHub/ModuleDetail/ModuleVersionsSection.swift; sourceTree = "<group>"; };
+		V40100000000000000000001 /* ModuleVersions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleVersions.swift; path = Features/ProductHub/ModuleDetail/ModuleVersions.swift; sourceTree = "<group>"; };
 		A40100000000000000000015 /* ModuleDetailV2View.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleDetailV2View.swift; path = Features/ProductHub/ModuleDetail/ModuleDetailV2View.swift; sourceTree = "<group>"; };
 		A40100000000000000000016 /* PublisherView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PublisherView.swift; path = Features/ProductHub/Publisher/PublisherView.swift; sourceTree = "<group>"; };
 		A40100000000000000000017 /* N4ETests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4ETests.swift; sourceTree = "<group>"; };
@@ -572,6 +577,7 @@
 		N40100000000000000000010 /* ProfilePresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfilePresentation.swift; path = Features/Profile/Customization/ProfilePresentation.swift; sourceTree = "<group>"; };
 		N40100000000000000000011 /* ProfileCustomizationViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileCustomizationViews.swift; path = Features/Profile/Customization/ProfileCustomizationViews.swift; sourceTree = "<group>"; };
 		N40100000000000000000012 /* N4CTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4CTests.swift; sourceTree = "<group>"; };
+		V40100000000000000000003 /* ModuleVersionSwitchTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModuleVersionSwitchTests.swift; sourceTree = "<group>"; };
 		S40100000000000000000001 /* SettingsVisualSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsVisualSystem.swift; path = Features/Settings/SettingsVisualSystem.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -629,6 +635,7 @@
 			children = (
 				A03100000000000000000007 /* POST03Tests.swift */,
 				N40100000000000000000012 /* N4CTests.swift */,
+				V40100000000000000000003 /* ModuleVersionSwitchTests.swift */,
 				D40100000000000000000018 /* N4DTests.swift */,
 				A40100000000000000000017 /* N4ETests.swift */,
 				C4010000000000000000000C /* N4FTests.swift */,
@@ -788,6 +795,8 @@
 				A40100000000000000000010 /* AuthProductViews.swift */,
 				A40100000000000000000013 /* ProfileFullBleedChrome.swift */,
 				A40100000000000000000014 /* ModuleDetailModels.swift */,
+				V40100000000000000000002 /* ModuleVersionsSection.swift */,
+				V40100000000000000000001 /* ModuleVersions.swift */,
 				A40100000000000000000015 /* ModuleDetailV2View.swift */,
 				A40100000000000000000016 /* PublisherView.swift */,
 				F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */,
@@ -1221,6 +1230,7 @@
 				E40100000000000000000009 /* HomeFeedTests.swift in Sources */,
 				E40100000000000000000019 /* PostSystemTests.swift in Sources */,
 				N50100000000000000000012 /* N4CTests.swift in Sources */,
+				V50100000000000000000003 /* ModuleVersionSwitchTests.swift in Sources */,
 				F10100000000000000000006 /* ProfileTests.swift in Sources */,
 				D50100000000000000000018 /* N4DTests.swift in Sources */,
 				A50100000000000000000017 /* N4ETests.swift in Sources */,
@@ -1266,6 +1276,8 @@
 				A50100000000000000000012 /* ReactionPeopleView.swift in Sources */,
 				A50100000000000000000013 /* ProfileFullBleedChrome.swift in Sources */,
 				A50100000000000000000014 /* ModuleDetailModels.swift in Sources */,
+				V50100000000000000000002 /* ModuleVersionsSection.swift in Sources */,
+				V50100000000000000000001 /* ModuleVersions.swift in Sources */,
 				A50100000000000000000015 /* ModuleDetailV2View.swift in Sources */,
 				A50100000000000000000016 /* PublisherView.swift in Sources */,
 				470E5C0C13B495ADACC3BDC8 /* ModulaApp.swift in Sources */,
