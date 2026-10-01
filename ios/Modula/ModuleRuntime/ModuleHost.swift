@@ -87,21 +87,6 @@ struct ModuleHost: View {
         .onChange(of: appearance) { _, value in if let session { app.runtime.update(value, session: session) } }
         .onDisappear { if let session { app.runtime.unmount(session) } }
     }
-    private func loadingCover(name: String) -> some View {
-        ZStack {
-            palette.canvas
-            VStack(spacing: ModulaSpacing.sm) {
-                ProgressView()
-                Text("Opening \(name)…")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Opening \(name)")
-        .accessibilityAddTraits(.updatesFrequently)
-    }
-
     private func stateView(title: String, symbol: String, message: String, retryTitle: String = "Retry", showsProductHub: Bool) -> some View {
         ContentUnavailableView {
             Label(title, systemImage: symbol)
