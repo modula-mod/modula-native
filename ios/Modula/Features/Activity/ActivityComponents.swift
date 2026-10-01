@@ -180,23 +180,30 @@ struct ActivityTimeline: View {
     var onLoadMore: () -> Void
     var hasMore: Bool
     var loadingMore: Bool
+    /// Request row currently accepting/declining; its controls are disabled.
+    var busyEventID: ActivityEventID? = nil
 
     var body: some View {
         LazyVStack(alignment: .leading, spacing: 0) {
             ForEach(sections, id: \.section) { group in
                 ActivitySectionHeader(title: group.section.title)
                 ForEach(group.events) { event in
+                    let busy = busyEventID == event.id
                     Button {
                         onOpen(event)
                     } label: {
                         ActivityRow(
                             event: event,
                             showActions: mode == .requests && event.kind.isRequest,
+                            busy: busy,
                             onAccept: { onAccept(event) },
                             onDecline: { onDecline(event) }
                         )
                     }
                     .buttonStyle(.plain)
+                    .disabled(busy)
+                    .opacity(busy ? 0.6 : 1)
+                    .accessibilityValue(busy ? "Updating" : "")
                     .contextMenu {
                         if !event.isRead {
                             Button("Mark as Read", systemImage: "checkmark.circle") { onMarkRead(event) }

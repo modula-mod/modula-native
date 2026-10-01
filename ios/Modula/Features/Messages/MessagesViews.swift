@@ -216,10 +216,14 @@ struct ConversationRow: View {
         return parts.joined(separator: ", ")
     }
 
-    static func relative(_ date: Date) -> String {
+    @MainActor private static let relativeFormatter: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: date, relativeTo: Date())
+        return formatter
+    }()
+
+    @MainActor static func relative(_ date: Date) -> String {
+        relativeFormatter.localizedString(for: date, relativeTo: Date())
     }
 }
 
@@ -252,6 +256,7 @@ struct ConversationView: View {
     let conversationID: ConversationID
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -307,18 +312,37 @@ struct ConversationView: View {
                 symbol: "text.bubble"
             )
         default:
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 10) {
-                    ForEach(items) { message in
-                        MessageBubble(message: message) { action in
-                            handle(action, message: message)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 10) {
+                        ForEach(items) { message in
+                            MessageBubble(message: message) { action in
+                                handle(action, message: message)
+                            }
+                            .id(message.id)
                         }
                     }
+                    .padding(.horizontal, ModulaLayout.contentInset)
+                    .padding(.vertical, 12)
                 }
-                .padding(.horizontal, ModulaLayout.contentInset)
-                .padding(.vertical, 12)
+                // Chats open on the newest message and stay pinned there.
+                .defaultScrollAnchor(.bottom)
+                .scrollDismissesKeyboard(.interactively)
+                .modulaSoftScrollEdge()
+                .onChange(of: items.count) { _, _ in
+                    scrollToLatest(items, proxy: proxy)
+                }
+                .onChange(of: items.last?.id) { _, _ in
+                    scrollToLatest(items, proxy: proxy)
+                }
             }
-            .modulaSoftScrollEdge()
+        }
+    }
+
+    private func scrollToLatest(_ items: [Message], proxy: ScrollViewProxy) {
+        guard let last = items.last?.id else { return }
+        withAnimation(ModulaMotion.animation(.contentTransition, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
+            proxy.scrollTo(last, anchor: .bottom)
         }
     }
 
@@ -383,6 +407,8 @@ struct MessageBubble: View {
                     if message.delivery == .failed {
                         Button("Retry") { onAction(.init(id: "retry", title: "Retry")) }
                             .font(.caption.weight(.semibold))
+                            .frame(minHeight: ModulaLayout.minimumTouch)
+                            .contentShape(Rectangle())
                     } else if app.messaging.capabilities.readReceipts, message.isOwn, message.delivery == .read {
                         Text("Read")
                             .font(.caption2)
@@ -395,6 +421,13 @@ struct MessageBubble: View {
         .modulaContextMenu(actions: actions, onSelect: onAction)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint(message.delivery == .failed ? "Not sent. Swipe up or down for Retry." : "")
+        .accessibilityActions {
+            if message.delivery == .failed {
+                Button("Retry") { onAction(.init(id: "retry", title: "Retry")) }
+            }
+            Button("Copy") { onAction(.init(id: "copy", title: "Copy")) }
+        }
         .accessibilityIdentifier("messages.bubble.\(message.id)")
     }
 

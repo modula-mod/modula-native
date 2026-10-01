@@ -86,6 +86,7 @@ struct ActivityScreen: View {
                             Task { await app.activity.markRead(event, mode: mode) }
                         },
                         onAccept: { event in
+                            guard requestBusyID == nil else { return }
                             Task {
                                 requestBusyID = event.id
                                 await app.activity.accept(event)
@@ -93,6 +94,7 @@ struct ActivityScreen: View {
                             }
                         },
                         onDecline: { event in
+                            guard requestBusyID == nil else { return }
                             Task {
                                 requestBusyID = event.id
                                 await app.activity.decline(event)
@@ -103,7 +105,8 @@ struct ActivityScreen: View {
                             Task { await app.activity.loadMore(mode) }
                         },
                         hasMore: state.nextCursor != nil,
-                        loadingMore: state.loadState == .loadingMore
+                        loadingMore: state.loadState == .loadingMore,
+                        busyEventID: requestBusyID
                     )
                 }
             }

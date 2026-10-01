@@ -256,7 +256,7 @@ struct PostCommentsView: View {
                 Color.clear.frame(width: 28)
             }
             if let author = comment.author {
-                Button { app.navigation.push(.profile(author.routeID, .overview)) } label: {
+                Button { openProfile(author.routeID) } label: {
                     ModulaAvatar(initials: author.initials, url: author.avatarURL, size: 32)
                 }
                 .buttonStyle(.plain)
@@ -376,6 +376,15 @@ struct PostCommentsView: View {
                 }
         )
         .accessibilityIdentifier("post.comment.bar")
+    }
+
+    /// The sheet sits above the presenting stack, so pushing alone would land
+    /// the profile *behind* the comments. Push on the underlying stack and
+    /// dismiss the sheet in the same transaction so the profile is revealed.
+    private func openProfile(_ id: String) {
+        app.navigation.push(.profile(id, .overview))
+        HapticEngine.shared.play(.navigation)
+        if isSheet { onClose?() }
     }
 
     private func handleCommentAction(_ action: ModulaContextAction, comment: SocialComment, store: PostCommentsStore) {

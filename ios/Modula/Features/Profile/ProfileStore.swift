@@ -406,6 +406,35 @@ final class ProfileStore {
         }
     }
 
+    /// First-run display-name persistence. Uses the same `updateMe` contract as
+    /// the profile editor so version tokens and caches stay consistent.
+    /// Returns a user-facing error message, or `nil` on success.
+    func saveDisplayName(_ name: String, accountHandle: String?) async -> String? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "Display name is required." }
+        do {
+            let base: ModulaProfile
+            if let own = ownProfile {
+                base = own
+            } else {
+                base = try await repository.profile(.me, handleHint: accountHandle)
+            }
+            guard base.displayName != trimmed else {
+                applyOwn(base)
+                return nil
+            }
+            var draft = ProfileEditDraft.from(base)
+            draft.displayName = trimmed
+            let profile = try await repository.updateMe(draft)
+            applyOwn(profile)
+            return nil
+        } catch let api as APIError {
+            return api.userFacingMessage
+        } catch {
+            return "Could not save your display name."
+        }
+    }
+
     func rememberScroll(identity: ProfileIdentity, handleHint: String?, section: ProfileSection, offset: CGFloat) {
         let key = sessionKey(identity, handleHint: handleHint)
         var state = sessions[key] ?? ProfileSessionState()
