@@ -267,6 +267,9 @@ struct ModulaVideoSurface: View {
     var height: CGFloat? = 280
     var cornerRadius: CGFloat = ModulaRadius.small
     var allowsPlayback = true
+    /// Extra top inset for the expand control when the surface sits under
+    /// overlaid chrome (e.g. the Reels top bar).
+    var controlsTopInset: CGFloat = 0
     @State private var controller = ModulaVideoPlaybackController()
     @State private var download = AttachmentDownloadModel()
     @State private var decodedPoster: UIImage?
@@ -318,6 +321,7 @@ struct ModulaVideoSurface: View {
             }
             .accessibilityLabel("Open full-screen video")
             .padding(ModulaSpacing.xs)
+            .padding(.top, controlsTopInset)
         }
         .background {
             GeometryReader { geometry in

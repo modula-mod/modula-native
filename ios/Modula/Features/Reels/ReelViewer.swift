@@ -26,6 +26,9 @@ struct ReelFeedView: View {
     @State private var videoCoordinator = FeedVideoCoordinator()
     @State private var showsComments = false
     @State private var expandedVideo: ModulaAttachment?
+    /// Bottom edge of the top bar in screen space, so page controls
+    /// (full-screen button) are laid out below it instead of under it.
+    @State private var topBarBottom: CGFloat = 0
 
     var body: some View {
         Group {
@@ -51,7 +54,8 @@ struct ReelFeedView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black.ignoresSafeArea())
-        .preferredColorScheme(.dark)
+        // Dark only inside Reels. `.preferredColorScheme` would flip the
+        // whole window (and every other tab) to dark while Reels is open.
         .environment(\.colorScheme, .dark)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
@@ -73,7 +77,27 @@ struct ReelFeedView: View {
             .foregroundStyle(.white)
             .padding(.horizontal, 12)
             .background(.black.opacity(0.55))
+            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: { topBarBottom = $0 }
         }
+        // The navigation bar is hidden, which also removes the system
+        // swipe-back. Restore it with a leading-edge drag (VoiceOver users
+        // keep the Back button and the escape gesture).
+        .overlay(alignment: .leading) {
+            Color.clear
+                .frame(width: 22)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 12)
+                        .onEnded { value in
+                            if value.translation.width > 80, abs(value.translation.height) < 120 {
+                                HapticEngine.shared.play(.navigation)
+                                app.navigation.close()
+                            }
+                        }
+                )
+                .accessibilityHidden(true)
+        }
+        .accessibilityAction(.escape) { app.navigation.close() }
         .sheet(isPresented: $showsComments) {
             if let reel = current, reel.postID != nil {
                 PostCommentsSheet(postID: reel.postID ?? reel.id)
@@ -100,6 +124,7 @@ struct ReelFeedView: View {
                         isActive: app.reels.activeID == reel.id && !showsComments && expandedVideo == nil && scenePhase == .active,
                         coordinator: videoCoordinator,
                         reduceMotion: reduceMotion,
+                        controlsTopInset: topBarBottom,
                         onComment: {
                             guard reel.postID != nil else { return }
                             showsComments = true
@@ -137,6 +162,7 @@ struct ReelPageView: View {
     var isActive: Bool
     var coordinator: FeedVideoCoordinator
     var reduceMotion: Bool
+    var controlsTopInset: CGFloat = 0
     var onComment: () -> Void
     var onExpand: () -> Void
     @Environment(AppEnvironment.self) private var app
@@ -146,12 +172,13 @@ struct ReelPageView: View {
             poster
             if let attachment = reel.attachment, app.reels.capabilities.videoPlayback {
                 ModulaVideoSurface(attachment: attachment, coordinator: coordinator, onExpand: onExpand,
-                                   height: nil, cornerRadius: 0, allowsPlayback: isActive)
+                                   height: nil, cornerRadius: 0, allowsPlayback: isActive,
+                                   controlsTopInset: controlsTopInset)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             LinearGradient(colors: [.clear, .clear, .black.opacity(0.82)], startPoint: .top, endPoint: .bottom)
                 .allowsHitTesting(false)
-            ReelOverlay(reel: resolved, onComment: onComment)
+            ReelOverlay(reel: resolved, shareRoute: shareRoute, onComment: onComment)
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .padding(.bottom, 48)
         }
@@ -166,6 +193,13 @@ struct ReelPageView: View {
 
     private var resolved: SocialPost {
         app.posts.resolved(reel.asSocialPost())
+    }
+
+    /// Share the backing post when there is one; otherwise the reel itself
+    /// (a reel id is not a post id).
+    private var shareRoute: AppRoute {
+        if let postID = reel.postID { return .post(postID, .root) }
+        return .reels(.reel(reel.id))
     }
 
     private var poster: some View {
@@ -194,6 +228,7 @@ struct ReelPageView: View {
 
 struct ReelOverlay: View {
     let reel: SocialPost
+    var shareRoute: AppRoute
     var onComment: () -> Void
     @Environment(AppEnvironment.self) private var app
 
@@ -231,7 +266,7 @@ struct ReelOverlay: View {
                 onComment: onComment,
                 onSave: { Task { await app.postActions.toggleSave(reel) } },
                 onShare: {
-                    app.navigation.presented = .share(.post(reel.id, .root))
+                    app.navigation.presented = .share(shareRoute)
                 }
             )
             .padding(.trailing, 10)
