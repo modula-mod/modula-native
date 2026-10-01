@@ -170,7 +170,7 @@ struct NotificationSettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Push status is live from iOS. Social / modules / quiet-hours stay capability-honest until preference contracts are verified.")
+                SettingsAPIFootnote(text: "Notification permission comes from iOS. More notification options are coming.")
             }
             .modulaSoftScrollEdge()
             .navigationTitle("Notifications")

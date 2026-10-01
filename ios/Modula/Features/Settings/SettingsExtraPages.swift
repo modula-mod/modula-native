@@ -28,7 +28,7 @@ struct HelpSettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Help content is UI-first. No invented ticket IDs or uptime percentages.")
+                SettingsAPIFootnote(text: "Help articles and contact options are being prepared.")
             }
             .navigationTitle("Help")
             .navigationBarTitleDisplayMode(.inline)
@@ -45,7 +45,7 @@ struct HelpSettingsHost: View {
                         SettingsPreviewRow(title: "Privacy", subtitle: "App Lock and biometrics", symbol: "lock.shield", enabled: false)
                     }
                 }
-                SettingsAPIFootnote(text: "Article bodies are not fetched — catalogue/CMS help is unverified this run.")
+                SettingsAPIFootnote(text: "Full articles aren’t available in the app yet.")
             }
             .navigationTitle("Guides")
             .navigationBarTitleDisplayMode(.inline)
@@ -64,7 +64,7 @@ struct HelpSettingsHost: View {
                     ("Open a case", "Starts a thread", "plus.bubble"),
                     ("Attach logs", "Developer diagnostics", "doc")
                 ],
-                apiNote: "No verified support-ticket endpoint is wired. UI stays non-submitting."
+                apiNote: "Sending support requests from the app isn’t available yet."
             )
         case .status:
             SettingsScrollCanvas {
@@ -74,7 +74,7 @@ struct HelpSettingsHost: View {
                     SettingsStatChip(label: "API", value: "—", symbol: "server.rack")
                     SettingsStatChip(label: "Realtime", value: "—", symbol: "antenna.radiowaves.left.and.right")
                 }
-                SettingsAPIFootnote(text: "Status chips stay blank — no fabricated uptime or incident copy.")
+                SettingsAPIFootnote(text: "Live service status isn’t available in the app yet.")
             }
             .navigationTitle("Status")
             .navigationBarTitleDisplayMode(.inline)
@@ -102,7 +102,7 @@ struct WhatsNewSettingsHost: View {
                     }
                     .padding(.vertical, 8)
                 }
-                SettingsAPIFootnote(text: "Highlights are local release notes for this native checkout — not App Store What’s New scraped from the store.")
+                SettingsAPIFootnote(text: "Highlights from this version of Modula.")
             }
             .navigationTitle("What’s New")
             .navigationBarTitleDisplayMode(.inline)
@@ -143,7 +143,7 @@ struct CreatorSettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Creator Studio product routes exist elsewhere; these are settings defaults only. Insights stay honest when APIs are missing.")
+                SettingsAPIFootnote(text: "These are defaults for new posts. Insights appear only when real data is available.")
             }
             .navigationTitle("Creator")
             .navigationBarTitleDisplayMode(.inline)
@@ -167,7 +167,7 @@ struct CreatorSettingsHost: View {
                     SettingsStatChip(label: "Views", value: "—", symbol: "eye")
                     SettingsStatChip(label: "Follows", value: "—", symbol: "person.badge.plus")
                 }
-                SettingsAPIFootnote(text: "No fabricated analytics. Values stay em dashes until a verified insights contract exists.")
+                SettingsAPIFootnote(text: "Insights show a dash until real data is available.")
             }
             .navigationTitle("Insights")
             .navigationBarTitleDisplayMode(.inline)
@@ -197,7 +197,7 @@ struct FocusSettingsHost: View {
                     Toggle("Still allow @mentions", isOn: $allowMentions)
                         .settingsAnchor("focus.mentions")
                 }
-                SettingsAPIFootnote(text: "Local Focus adaptations. iOS Focus configuration stays in system Settings — this does not duplicate Quiet Hours delivery.")
+                SettingsAPIFootnote(text: "Saved on this device. Set up Focus modes in iOS Settings.")
             }
             .navigationTitle("Focus")
             .navigationBarTitleDisplayMode(.inline)
@@ -227,7 +227,7 @@ struct PasskeysSettingsHost: View {
                     ("This iPhone", "Platform authenticator", "iphone"),
                     ("Remove passkey", "Stop using a passkey", "trash")
                 ],
-                apiNote: "Passkey registration/assertion endpoints are not verified in this native client. UI is design-only."
+                apiNote: "Passkeys aren’t available yet."
             )
         }
     }
@@ -260,7 +260,7 @@ struct TranslateSettingsHost: View {
                         .pickerStyle(.menu)
                     }
                 }
-                SettingsAPIFootnote(text: "Prefs are local. Does not invent a translation API or claim Apple Translate integration until wired.")
+                SettingsAPIFootnote(text: "Saved on this device. Translation itself isn’t available yet.")
             }
             .navigationTitle("Translate")
             .navigationBarTitleDisplayMode(.inline)
@@ -300,7 +300,7 @@ struct QRCodeSettingsHost: View {
                         SettingsPreviewRow(title: "Scan", subtitle: "Camera scanner", symbol: "qrcode.viewfinder", enabled: false)
                     }
                 }
-                SettingsAPIFootnote(text: "Profile QR already lives on Profile share. Dedicated scanner route is not verified — Scan stays inactive.")
+                SettingsAPIFootnote(text: "Share your code from your profile. Scanning codes isn’t available yet.")
             }
             .navigationTitle("Modula Code")
             .navigationBarTitleDisplayMode(.inline)
@@ -330,7 +330,7 @@ struct FamilySettingsHost: View {
                     ("Invite", "Send a family invite", "paperplane"),
                     ("Leave family", "Remove this account", "rectangle.portrait.and.arrow.right")
                 ],
-                apiNote: "No verified Family Sharing / parental contract in native. Distinct from Monetisation plans."
+                apiNote: "Family controls aren’t available yet."
             )
         }
     }
@@ -371,7 +371,7 @@ struct TimeUnitsSettingsHost: View {
                         .pickerStyle(.menu)
                     }
                 }
-                SettingsAPIFootnote(text: "Device-local formatting prefs. Does not change Appearance typography or system Region.")
+                SettingsAPIFootnote(text: "Saved on this device. Doesn’t change your iOS region settings.")
             }
             .navigationTitle("Time & Units")
             .navigationBarTitleDisplayMode(.inline)
@@ -398,7 +398,7 @@ struct KeyboardSettingsHost: View {
                     Toggle("Double-space for period", isOn: $periodShortcut)
                     Toggle("Caps Lock mapping", isOn: $capsLock)
                 }
-                SettingsAPIFootnote(text: "Local composer behaviour. System keyboards remain in iOS Settings.")
+                SettingsAPIFootnote(text: "Saved on this device. Keyboards are managed in iOS Settings.")
             }
             .navigationTitle("Keyboard")
             .navigationBarTitleDisplayMode(.inline)

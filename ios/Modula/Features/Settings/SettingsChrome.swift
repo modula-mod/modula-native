@@ -76,18 +76,13 @@ private struct SettingsHeroSparkles: View {
 }
 
 /// Honest capability footnote shown under designed UI when Greenfield is unverified.
-/// Implementation notes for developers (API status, backend names, "this
-/// run" etc.). They read as internal jargon to people, so they are only
-/// rendered in DEBUG builds.
+/// Honest capability footnote ("saved on this device", "not available
+/// yet"). Copy must be plain language — no backend names or internal terms.
 struct SettingsAPIFootnote: View {
     var text: String
 
     var body: some View {
-        #if DEBUG
         footnote
-        #else
-        EmptyView()
-        #endif
     }
 
     private var footnote: some View {

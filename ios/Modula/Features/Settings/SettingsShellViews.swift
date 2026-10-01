@@ -41,7 +41,7 @@ struct PersonalisationSettingsHost: View {
                         ) { app.navigation.open(.settings(.personalisation(.captions))) }
                     }
                 }
-                SettingsAPIFootnote(text: "These preferences are stored on this device only. Ranking signals are not synced to Greenfield yet — Appearance / Edge Picker live under Appearance.")
+                SettingsAPIFootnote(text: "Saved on this device only. Theme and Edge Picker options are in Appearance.")
             }
             .navigationTitle("Personalisation")
             .navigationBarTitleDisplayMode(.inline)
@@ -135,7 +135,7 @@ struct LanguageSettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Override is device-local. Server-side locale / translation endpoints are not verified in this client.")
+                SettingsAPIFootnote(text: "Modula uses the language you choose for it in iOS Settings.")
             }
             .navigationTitle("Language")
             .navigationBarTitleDisplayMode(.inline)
@@ -194,7 +194,7 @@ struct MediaSettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Preferences are local. Adaptive bitrate / CDN policies are owned by Greenfield media and are not mutated here.")
+                SettingsAPIFootnote(text: "Saved on this device.")
             }
             .navigationTitle("Media")
             .navigationBarTitleDisplayMode(.inline)
@@ -227,7 +227,7 @@ struct MediaSettingsHost: View {
                     description: Text("Downloaded media will appear here.")
                 )
                 .frame(minHeight: 180)
-                SettingsAPIFootnote(text: "A downloads subsystem is not present. UI is ready for when offline media lands.")
+                SettingsAPIFootnote(text: "Downloading media for offline use isn’t available yet.")
             }
             .navigationTitle("Downloads")
             .navigationBarTitleDisplayMode(.inline)
@@ -267,7 +267,7 @@ struct FeedSettingsHost: View {
                     Toggle("Hide module posts by default", isOn: $hideModulePosts)
                     Toggle("Show reply threads", isOn: $showReplies)
                 }
-                SettingsAPIFootnote(text: "Stored on device. Does not invent a feed-preferences PATCH. Home Feeds sheet can still override per session.")
+                SettingsAPIFootnote(text: "Saved on this device. You can still change feeds from Home.")
             }
             .navigationTitle("Feed")
             .navigationBarTitleDisplayMode(.inline)
@@ -324,7 +324,7 @@ struct BatterySettingsHost: View {
                     Toggle("Extra motion reduction", isOn: $reduceMotionExtra)
                         .settingsAnchor("battery.motion")
                 }
-                SettingsAPIFootnote(text: "Local heuristics only. iOS Low Power Mode remains the system authority; Modula does not override Focus or cellular settings.")
+                SettingsAPIFootnote(text: "Saved on this device. Low Power Mode and cellular data are managed in iOS Settings.")
             }
             .navigationTitle("Battery & Data")
             .navigationBarTitleDisplayMode(.inline)
@@ -360,7 +360,7 @@ struct SafetySettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Block/mute mutations exist on posts in Greenfield inventory, but a verified settings-owned safety preference surface is not fully wired. UI is designed ahead of that contract.")
+                SettingsAPIFootnote(text: "You can block or mute people from their posts and profiles. More safety settings are coming.")
             }
             .navigationTitle("Safety")
             .navigationBarTitleDisplayMode(.inline)
@@ -380,14 +380,14 @@ struct SafetySettingsHost: View {
                     ("Harassment", "Targeted abuse", "hand.raised"),
                     ("Illegal content", "Against the law", "scalemass")
                 ],
-                apiNote: "Report reason enums and endpoints need VPS verification before these rows become actionable."
+                apiNote: "Reporting from Settings isn’t available yet. You can report a post or profile from its menu."
             )
         case .muted:
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Muted", subtitle: "Quiet words and accounts on this device.", symbol: "speaker.slash")
                 ContentUnavailableView("Nothing muted yet", systemImage: "speaker.slash", description: Text("Accounts you mute will appear here."))
                     .frame(minHeight: 160)
-                SettingsAPIFootnote(text: "No verified mute-list settings contract is wired for this screen.")
+                SettingsAPIFootnote(text: "Managing muted accounts here isn’t available yet.")
             }
             .navigationTitle("Muted")
             .navigationBarTitleDisplayMode(.inline)
@@ -398,7 +398,7 @@ struct SafetySettingsHost: View {
                     Toggle("Warn before sensitive media", isOn: .constant(true))
                         .disabled(true)
                 }
-                SettingsAPIFootnote(text: "Toggle is illustrative until a verified sensitive-media preference exists. Left disabled so it cannot fake server state.")
+                SettingsAPIFootnote(text: "This option isn’t available yet.")
             }
             .navigationTitle("Sensitive content")
             .navigationBarTitleDisplayMode(.inline)
@@ -513,7 +513,7 @@ struct MonetisationSettingsHost: View {
                     ("Compare", "Feature matrix", "tablecells"),
                     ("Restore", "App Store purchases", "arrow.clockwise")
                 ],
-                apiNote: "Plan names and prices are illustrative placeholders only — not offered for purchase."
+                apiNote: "Plans shown are examples and can’t be purchased yet."
             )
         case .payouts:
             SettingsScrollCanvas {
@@ -532,7 +532,7 @@ struct MonetisationSettingsHost: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 8)
                 }
-                SettingsAPIFootnote(text: "Balance is blank until a verified payouts API exists. No fabricated currency amounts.")
+                SettingsAPIFootnote(text: "Your balance will appear here when payouts are available.")
             }
             .navigationTitle("Payouts")
             .navigationBarTitleDisplayMode(.inline)
@@ -541,7 +541,7 @@ struct MonetisationSettingsHost: View {
                 SettingsHeroBanner(title: "Invoices", subtitle: "Billing history.", symbol: "doc.richtext")
                 ContentUnavailableView("No invoices", systemImage: "doc", description: Text("Your invoices will appear here."))
                     .frame(minHeight: 160)
-                SettingsAPIFootnote(text: "Invoice list is empty on purpose — no sample rows.")
+                SettingsAPIFootnote(text: "Your invoices will appear here.")
             }
             .navigationTitle("Invoices")
             .navigationBarTitleDisplayMode(.inline)
@@ -585,7 +585,7 @@ struct ChatsSettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Device-local defaults only. Does not invent Greenfield messaging preference PATCH routes.")
+                SettingsAPIFootnote(text: "Saved on this device.")
             }
             .navigationTitle("Chats")
             .navigationBarTitleDisplayMode(.inline)
@@ -654,7 +654,7 @@ struct AudioSettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Device-local. System volume and Focus modes remain with iOS.")
+                SettingsAPIFootnote(text: "Saved on this device. Volume and Focus are managed by iOS.")
             }
             .navigationTitle("Audio")
             .navigationBarTitleDisplayMode(.inline)

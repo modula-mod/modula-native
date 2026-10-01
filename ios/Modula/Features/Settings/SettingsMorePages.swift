@@ -32,7 +32,7 @@ struct CameraSettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Capture prefs are local. Permission state is owned by iOS Settings — Modula does not invent a camera API matrix.")
+                SettingsAPIFootnote(text: "Saved on this device. Camera access is managed in iOS Settings.")
             }
             .navigationTitle("Camera")
             .navigationBarTitleDisplayMode(.inline)
@@ -67,7 +67,7 @@ struct CameraSettingsHost: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(app.appearance.accent.color)
-                SettingsAPIFootnote(text: "Native reads authorization through system APIs only; no fabricated grant state.")
+                SettingsAPIFootnote(text: "Shows the access you’ve given Modula in iOS Settings.")
             }
             .navigationTitle("Permissions")
             .navigationBarTitleDisplayMode(.inline)
@@ -96,7 +96,7 @@ struct GesturesSettingsHost: View {
                     Toggle("Swipe to reply in chats", isOn: $swipeReply)
                     Toggle("Shake to undo compose", isOn: $shakeUndo)
                 }
-                SettingsAPIFootnote(text: "Local interaction prefs. Does not change Edge Picker geometry — that stays under Appearance → Edge Picker.")
+                SettingsAPIFootnote(text: "Saved on this device. Edge Picker options are in Appearance.")
             }
             .navigationTitle("Gestures")
             .navigationBarTitleDisplayMode(.inline)
@@ -125,7 +125,7 @@ struct FinderSettingsHost: View {
                     Toggle("Include modules in results", isOn: $includeModules)
                     Toggle("Prefer people first", isOn: $peopleFirst)
                 }
-                SettingsAPIFootnote(text: "History is device-local. Discover scope chips remain on Discover — this page does not open Appearance or Discover routes.")
+                SettingsAPIFootnote(text: "Saved on this device.")
             }
             .navigationTitle("Search")
             .navigationBarTitleDisplayMode(.inline)
@@ -156,7 +156,7 @@ struct SharingSettingsHost: View {
                     Toggle("Copy link instead of opening sheet", isOn: $copyAsLink)
                         .settingsAnchor("sharing.link")
                 }
-                SettingsAPIFootnote(text: "Local share defaults. Universal-link entitlements remain infrastructure work; no invented share analytics.")
+                SettingsAPIFootnote(text: "Saved on this device.")
             }
             .navigationTitle("Sharing")
             .navigationBarTitleDisplayMode(.inline)
@@ -188,7 +188,7 @@ struct LocationSettingsHost: View {
                     ("Nearby", "Local discovery", "binoculars"),
                     ("Clear history", "Forget places", "trash")
                 ],
-                apiNote: "No verified location-preference contract in native settings this run. Open iOS Settings for system authorization. UI is designed ahead of wiring."
+                apiNote: "Location features aren’t available yet. Location access is managed in iOS Settings."
             )
         case .map:
             SettingsScrollCanvas {
@@ -196,7 +196,7 @@ struct LocationSettingsHost: View {
                 SettingsSceneGraphic(style: .constellation)
                 ContentUnavailableView("Adding places isn’t available yet", systemImage: "map", description: Text("You’ll be able to add a location to posts in a future update."))
                     .frame(minHeight: 160)
-                SettingsAPIFootnote(text: "No fabricated nearby places or coordinates.")
+                SettingsAPIFootnote(text: "Nearby places will appear here when location features are available.")
             }
             .navigationTitle("Map posts")
             .navigationBarTitleDisplayMode(.inline)
@@ -221,7 +221,7 @@ struct WidgetsSettingsHost: View {
                     widgetPreview("Module", "shippingbox")
                     widgetPreview("Compose", "plus")
                 }
-                SettingsAPIFootnote(text: "WidgetKit targets are not shipping in this build. Previews are illustrative — not installable widgets.")
+                SettingsAPIFootnote(text: "Widgets aren’t available yet. These are previews only.")
             }
             .navigationTitle("Widgets")
             .navigationBarTitleDisplayMode(.inline)
@@ -240,7 +240,7 @@ struct WidgetsSettingsHost: View {
                     ("Following stack", "Latest posts", "person.2"),
                     ("Unread activity", "Counts", "bell.badge")
                 ],
-                apiNote: "Gallery is design-only until Widget extensions land."
+                apiNote: "Widgets aren’t available yet."
             )
         }
     }
@@ -281,7 +281,7 @@ struct LabsSettingsHost: View {
                     Toggle("Debug overlays", isOn: $debugOverlays)
                     Toggle("Verbose local logging", isOn: $verboseLogging)
                 }
-                SettingsAPIFootnote(text: "Labs toggles are local only. Typed FeatureFlagRegistry remains under Features. Developer diagnostics stay under Developer.")
+                SettingsAPIFootnote(text: "Experimental options, saved on this device. They may change or go away.")
             }
             .navigationTitle("Labs")
             .navigationBarTitleDisplayMode(.inline)
@@ -313,7 +313,7 @@ struct PhotosSettingsHost: View {
                     }
                 }
                 .buttonStyle(.bordered)
-                SettingsAPIFootnote(text: "Authorization is system-owned. These toggles only affect Modula prompts on this device.")
+                SettingsAPIFootnote(text: "Photo access is managed in iOS Settings. These options only change Modula’s prompts.")
             }
             .navigationTitle("Photos")
             .navigationBarTitleDisplayMode(.inline)
@@ -350,7 +350,7 @@ struct NetworkSettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Does not print secrets or raw base URLs. Developer → Network remains the diagnostics surface.")
+                SettingsAPIFootnote(text: "Saved on this device.")
             }
             .navigationTitle("Network")
             .navigationBarTitleDisplayMode(.inline)
@@ -375,7 +375,7 @@ struct DigestsSettingsHost: View {
                     Toggle("Weekly recap (when available)", isOn: $weekly)
                     Toggle("Morning brief (when available)", isOn: $morning)
                 }
-                SettingsAPIFootnote(text: "Toggles are stored locally as intent. No digest dispatcher is claimed — delivery stays off until Greenfield verifies it.")
+                SettingsAPIFootnote(text: "Your choice is saved, but digests aren’t being sent yet.")
             }
             .navigationTitle("Digests")
             .navigationBarTitleDisplayMode(.inline)
