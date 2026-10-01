@@ -595,8 +595,8 @@ final class VaultRuntimeUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["active"].waitForExistence(timeout: 8))
 
         app.buttons["Open my native Profile"].tap()
-        XCTAssertTrue(app.navigationBars["Profile"].waitForExistence(timeout: 8))
-        app.buttons["tab.modules"].tap()
+        assertNativeProfileVisible(app)
+        selectTab(app, "Modules")
         XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 20))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Runtime: 1'")).firstMatch.exists)
         app.buttons["Close"].firstMatch.tap()
@@ -607,6 +607,87 @@ final class VaultRuntimeUITests: XCTestCase {
         XCTAssertFalse(noteButton(app, title: editedTitle).exists)
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Runtime: 1'")).firstMatch.exists)
         app.buttons["Close"].firstMatch.tap()
+    }
+
+    /// Rich editing, search, sort and the unsaved-changes guard against real n1 records.
+    func testVaultRichEditingSearchSortAndDiscardGuard() throws {
+        let app = try launchSignedInApp()
+        openProductHub(app)
+        openVault(app)
+        XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 20))
+        attachVaultScreenshot(app, name: "vault-list")
+
+        let title = "VaultRich-\(UUID().uuidString.prefix(6))"
+        app.buttons["New Note"].tap()
+        pasteText(title, into: textInput(app, label: "Note title"), app: app)
+        pasteText("Intro paragraph for the rich note.", into: textInput(app, label: "Note content"), app: app)
+        app.buttons["Checklist"].tap()
+        let item = labelled(app, "Checklist item 1")
+        XCTAssertTrue(item.waitForExistence(timeout: 5), "Inserting a checklist switches to block editing")
+        pasteText("Ship the renderer", into: item, app: app)
+        app.buttons["Heading"].tap()
+        let heading = labelled(app, "Heading")
+        XCTAssertTrue(heading.waitForExistence(timeout: 5))
+        pasteText("Next steps", into: heading, app: app)
+        XCTAssertTrue(app.staticTexts["Unsaved changes"].exists)
+        app.buttons["Save note"].tap()
+        XCTAssertTrue(app.staticTexts["Saved"].waitForExistence(timeout: 20))
+        attachVaultScreenshot(app, name: "vault-rich-editor")
+
+        // Unsaved edits ask before leaving.
+        let titleField = textInput(app, label: "Note title")
+        titleField.tap()
+        titleField.typeText(" draft")
+        app.buttons["Notes"].tap()
+        XCTAssertTrue(app.alerts["Discard changes?"].waitForExistence(timeout: 5))
+        app.alerts.buttons["Discard"].tap()
+        XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 20))
+
+        // Search narrows the list on the server; sort switches order.
+        let search = app.descendants(matching: .any)["vault.search"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        pasteText(title, into: search, app: app)
+        XCTAssertTrue(app.buttons[title].waitForExistence(timeout: 15))
+        XCTAssertFalse(app.buttons["N1 Fixture 1"].waitForExistence(timeout: 2), "Search filters other notes out")
+        attachVaultScreenshot(app, name: "vault-search")
+        app.buttons["Clear search"].firstMatch.tap()
+        pasteText("zz-no-such-note-\(UUID().uuidString.prefix(4))", into: search, app: app)
+        XCTAssertTrue(app.staticTexts["No matching notes"].waitForExistence(timeout: 15))
+        attachVaultScreenshot(app, name: "vault-no-results")
+        app.buttons["Clear search"].firstMatch.tap()
+        // Sort options are RN tabs (role tab), not buttons.
+        let byTitle = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "A–Z")).firstMatch
+        XCTAssertTrue(byTitle.waitForExistence(timeout: 5))
+        byTitle.tap()
+        expectation(for: NSPredicate(format: "isSelected == true"), evaluatedWith: byTitle)
+        waitForExpectations(timeout: 5)
+        XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 15))
+        attachVaultScreenshot(app, name: "vault-sorted-az")
+
+        // Reopen: structure survived the round trip; then clean up.
+        pasteText(title, into: search, app: app)
+        XCTAssertTrue(app.buttons[title].waitForExistence(timeout: 15))
+        app.buttons[title].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["vault.blocks"].waitForExistence(timeout: 10))
+        XCTAssertTrue(labelled(app, "Checklist item 1").waitForExistence(timeout: 5))
+        attachVaultScreenshot(app, name: "vault-rich-reopened")
+        app.buttons["Move to Trash"].tap()
+        XCTAssertTrue(app.alerts.buttons["Move to Trash"].waitForExistence(timeout: 5))
+        app.alerts.buttons["Move to Trash"].tap()
+        XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 20))
+        app.buttons["Close"].firstMatch.tap()
+    }
+
+    private func labelled(_ app: XCUIApplication, _ label: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ AND (elementType == %d OR elementType == %d)",
+            label, XCUIElement.ElementType.textField.rawValue, XCUIElement.ElementType.textView.rawValue)).firstMatch
+    }
+
+    private func attachVaultScreenshot(_ app: XCUIApplication, name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     func testTenOpenCloseCyclesReuseOneRuntime() throws {
@@ -783,8 +864,8 @@ final class PhysicalN1AcceptanceTests: XCTestCase {
         app.activate()
         XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 20))
         app.buttons["Open my native Profile"].tap()
-        XCTAssertTrue(app.navigationBars["Profile"].waitForExistence(timeout: 10))
-        app.buttons["tab.modules"].tap()
+        assertNativeProfileVisible(app)
+        selectTab(app, "Modules")
         app.buttons["Close"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Product Hub"].waitForExistence(timeout: 10)
             || app.descendants(matching: .any)["product-hub"].waitForExistence(timeout: 5))
@@ -1079,6 +1160,16 @@ private func openProductHubFromShell(_ app: XCUIApplication) {
             || app.navigationBars["Product Hub"].waitForExistence(timeout: 8),
         "Product Hub did not appear"
     )
+}
+
+/// The own profile is a full-bleed tab root (no "Profile" navigation bar since the
+/// shell redesign); accept either the legacy bar or the profile's own controls.
+@MainActor
+private func assertNativeProfileVisible(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+    let shown = app.navigationBars["Profile"].waitForExistence(timeout: 8)
+        || app.descendants(matching: .any)["profile.share"].waitForExistence(timeout: 4)
+        || app.descendants(matching: .any)["accessory.share"].waitForExistence(timeout: 2)
+    XCTAssertTrue(shown, "Native Profile did not open", file: file, line: line)
 }
 
 @MainActor
