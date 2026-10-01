@@ -139,7 +139,7 @@ struct SettingsPreviewRow: View {
         HStack(spacing: 13) {
             Image(systemName: symbol)
                 .frame(width: 28)
-                .foregroundStyle(enabled ? Color.accentColor : Color.secondary)
+                .foregroundStyle(enabled ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.secondary))
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.body.weight(.medium))
                 Text(subtitle).font(.caption).foregroundStyle(.secondary)

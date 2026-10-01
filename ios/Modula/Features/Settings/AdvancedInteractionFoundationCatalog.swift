@@ -46,7 +46,7 @@ struct ContextCatalogPage: View {
                     Text("Latest action: \(latestAction)").font(.caption).foregroundStyle(.secondary)
                     Text("Long-press this source")
                         .frame(maxWidth: .infinity, minHeight: 88)
-                        .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
+                        .background(TintShapeStyle().opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
                         .modulaContextMenu(actions: actions) { latestAction = $0.title }
                 }
                 CatalogLabSection(title: "Context Menu + Preview") {
@@ -73,7 +73,7 @@ struct ContextCatalogPage: View {
                     ) {
                         Label("Edge source", systemImage: "hand.tap")
                             .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
-                            .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+                            .background(TintShapeStyle().opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
                     } preview: {
                         Text("A deliberately longer preview verifies wrapping, Dynamic Type, bottom-edge placement, and bounded actions without clipping.")
                             .fixedSize(horizontal: false, vertical: true)
@@ -219,7 +219,7 @@ struct SheetsCatalogPage: View {
                 .font(.headline)
                 .padding(.horizontal, 16)
                 .frame(minHeight: ModulaLayout.minimumTouch)
-                .background(Color.accentColor, in: Capsule())
+                .background(.tint, in: Capsule())
                 .foregroundStyle(.white)
         } sheet: {
             SheetCatalogContent(scrollable: scrollable)

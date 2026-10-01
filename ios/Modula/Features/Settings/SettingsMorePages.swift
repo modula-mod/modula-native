@@ -249,7 +249,7 @@ struct WidgetsSettingsHost: View {
         VStack(alignment: .leading, spacing: 12) {
             Image(systemName: symbol)
                 .font(.title2)
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(.tint)
             Text(title)
                 .font(.subheadline.weight(.semibold))
             RoundedRectangle(cornerRadius: 8, style: .continuous)
