@@ -16,15 +16,19 @@ export function normalizeNoteRows(items: unknown, existing: NoteRow[] = []): Not
     seen.add(row.record_id);
     const data = row.data && typeof row.data === 'object' ? row.data as Partial<NoteRow['data']> : {};
     const title = typeof data.title === 'string' && data.title.trim() ? data.title : 'Untitled note';
+    const stamp = (value: unknown) => typeof value === 'string' && value.length <= 40 ? value : undefined;
     result.push({
       record_id: row.record_id,
       revision: typeof row.revision === 'number' ? row.revision : 0,
+      updated_at: stamp((row as {updated_at?: unknown}).updated_at),
+      created_at: stamp((row as {created_at?: unknown}).created_at),
       data: {
         ...(data as NoteRow['data']),
         title,
         plainTextProjection: typeof data.plainTextProjection === 'string' ? data.plainTextProjection : '',
         archived: data.archived === true,
         pinned: data.pinned === true,
+        favourite: data.favourite === true,
         tagIds: Array.isArray(data.tagIds) ? data.tagIds : [],
       },
     });
