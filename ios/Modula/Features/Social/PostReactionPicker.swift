@@ -9,9 +9,9 @@ struct PostReactionPicker: View {
 
     private var candidates: [SocialReaction] {
         if multiEnabled {
-            return ReactionKind.allCases.map(\.socialReaction)
+            return SocialReaction.allCases
         }
-        return SocialReaction.networkSupported
+        return [.like]
     }
 
     var body: some View {
@@ -21,9 +21,9 @@ struct PostReactionPicker: View {
             },
             selectedID: current,
             compact: true,
-            maximumVisibleItems: 6,
+            maximumVisibleItems: 8,
             onSelect: onSelect,
-            onOverflow: multiEnabled ? {} : nil
+            onOverflow: nil
         )
         .accessibilityIdentifier("post.reaction.picker")
     }

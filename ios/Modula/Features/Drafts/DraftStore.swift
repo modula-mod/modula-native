@@ -169,6 +169,7 @@ final class DraftStore {
         let previous = stories
         stories.removeAll { $0.id == id }
         guard persist() else { stories = previous; return }
+        if let media = previous.first(where: { $0.id == id })?.media { mediaStore.remove(media) }
         ModulaLog.app.info("draft.discard kind=story count=\(self.stories.count, privacy: .public)")
     }
 
@@ -304,7 +305,8 @@ final class DraftStore {
 
     private func cleanupMedia() {
         guard let accountID else { return }
-        let referenced = Set(posts.flatMap { $0.media.map(\.id) + $0.mediaReferences })
+        let referenced = Set((posts + Array(pendingPosts.values)).flatMap { $0.media.map(\.id) + $0.mediaReferences }
+            + stories.flatMap { $0.mediaAssetIDs + ($0.media.map { [$0.id] } ?? []) })
         mediaStore.cleanupOrphans(referenced: referenced, accountID: accountID)
     }
 

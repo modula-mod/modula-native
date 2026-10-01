@@ -247,9 +247,9 @@ struct ShellChromePolicy: Equatable {
                 hidesForKeyboard: true
             )
         case .post:
-            // Pushed post detail keeps stack semantics — not a sixth root destination.
+            // A focused conversation owns the bottom composer, not global shell chrome.
             Self(
-                bottomBarVisible: true,
+                bottomBarVisible: false,
                 contextRailVisible: false,
                 shellAccessoryVisible: false,
                 topBarStyle: .standard,

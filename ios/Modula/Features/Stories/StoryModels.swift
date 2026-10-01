@@ -283,7 +283,7 @@ struct StoryBackendRepository: Sendable {
         return group
     }
 
-    func create(image: PreparedImage, caption: String?) async throws -> StoryGroup {
+    func create(image: PreparedImage, caption: String?, visibility: String = "public") async throws -> StoryGroup {
         guard capabilities.create else { throw APIError.unavailable("Story publishing isn’t available.") }
         var body: [String: JSONValue] = [
             "mediaKind": .string("image"),
@@ -292,6 +292,7 @@ struct StoryBackendRepository: Sendable {
             "width": .number(Double(image.width)),
             "height": .number(Double(image.height))
         ]
+        body["visibility"] = .string(visibility)
         if let caption, !caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             body["caption"] = .string(caption)
         }
@@ -382,10 +383,10 @@ final class StoryStore {
         return item.map { .stories(.story($0.id)) }
     }
 
-    func publish(image: PreparedImage, caption: String?) async -> Bool {
+    func publish(image: PreparedImage, caption: String?, visibility: String = "public") async -> Bool {
         guard capabilities.create else { return false }
         do {
-            let group = try await repository.create(image: image, caption: caption)
+            let group = try await repository.create(image: image, caption: caption, visibility: visibility)
             upsert(group)
             actionError = nil
             return true

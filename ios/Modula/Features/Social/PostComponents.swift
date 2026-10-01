@@ -40,7 +40,7 @@ struct PostCard: View {
                 onMore: onMore
             )
 
-            postBody(post)
+            if !post.hasMedia { postBody(post) }
 
             PostCanonicalContent(
                 source: post,
@@ -69,6 +69,8 @@ struct PostCard: View {
                 }
             }
 
+            if post.hasMedia { postBody(post) }
+
             if !usesRail {
                 PostActions(
                     post: post,
@@ -80,7 +82,6 @@ struct PostCard: View {
                 )
             }
 
-            PostMetadata(post: post)
             if layout.prefersActionRail {
                 PostCommentPrompt(post: post, onComment: onComment)
             }
@@ -115,6 +116,7 @@ struct PostCard: View {
             .buttonStyle(.plain)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityHint("Opens the full post")
+            .accessibilityIdentifier("post.open.\(post.id)")
         }
     }
 }
@@ -145,11 +147,11 @@ struct PostHeader: View {
                 Button(action: onOpenAuthor) {
                     HStack(spacing: 10) {
                         if let author = post.author {
-                            ModulaAvatar(initials: author.initials, url: author.avatarURL, size: 36)
-                            VStack(alignment: .leading, spacing: 1) {
+                            ModulaAvatar(initials: author.initials, url: author.avatarURL, size: 40)
+                            VStack(alignment: .leading, spacing: 3) {
                                 Text(author.displayName)
                                     .font(.subheadline.weight(.semibold))
-                                    .lineLimit(1)
+                                    .lineLimit(2)
                                 Text(headerContext(author: author))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -173,7 +175,7 @@ struct PostHeader: View {
     }
 
     private func headerContext(author: SocialAuthor) -> String {
-        let origin = post.feed.flatMap { $0.isEmpty ? nil : $0 } ?? "@\(author.handle)"
+        let origin = "@\(author.handle)"
         let time = ActivityRelativeTime.string(from: post.createdAt)
         return post.isEdited ? "\(origin) · \(time) · Edited" : "\(origin) · \(time)"
     }
@@ -220,7 +222,7 @@ private struct PostCommentPrompt: View {
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 10)
-            .frame(minHeight: 42)
+            .frame(minHeight: 48)
             .background(Color.primary.opacity(0.045), in: Capsule())
             .contentShape(Capsule())
         }
@@ -233,6 +235,7 @@ private struct PostCommentPrompt: View {
 
 struct PostBody: View {
     let post: SocialPost
+    var allowsCollapse = true
     @State private var expanded = false
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -242,14 +245,20 @@ struct PostBody: View {
     var body: some View {
         if let text = post.text, !text.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                Text(displayedText(text))
+                Text(PostTextLinks.attributed(displayedText(text)))
                     .font(bodyFont)
                     .foregroundStyle(.primary)
                     .lineSpacing(4)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityLabel(text)
-                if text.count > collapseThreshold {
+                    .tint(app.appearance.accent.color)
+                    .environment(\.openURL, OpenURLAction { url in
+                        guard let route = PostTextLinks.route(for: url) else { return .systemAction }
+                        app.navigation.push(route)
+                        return .handled
+                    })
+                if allowsCollapse && text.count > collapseThreshold {
                     Button(expanded ? "Show less" : "Show more") {
                         withAnimation(ModulaMotion.animation(.reveal, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
                             expanded.toggle()
@@ -264,13 +273,49 @@ struct PostBody: View {
     }
 
     private func displayedText(_ text: String) -> String {
-        guard !expanded, text.count > collapseThreshold else { return text }
+        guard allowsCollapse, !expanded, text.count > collapseThreshold else { return text }
         let index = text.index(text.startIndex, offsetBy: collapseThreshold)
         return String(text[..<index]) + "…"
     }
 
     private var bodyFont: Font {
         .system(.body, design: app.appearance.fontDesign)
+    }
+}
+
+/// Interactive social text uses canonical Search/Profile routes, not a new feed.
+enum PostTextLinks {
+    static func attributed(_ text: String) -> AttributedString {
+        guard let regex = try? NSRegularExpression(pattern: #"(?<![\p{L}\p{N}_/@])(?:#[\p{L}\p{N}_]{1,64}|@[\p{L}\p{N}_]+(?:\.[\p{L}\p{N}_]+)*)"#) else {
+            return AttributedString(text)
+        }
+        var result = AttributedString()
+        var cursor = text.startIndex
+        for match in regex.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
+            guard let range = Range(match.range, in: text) else { continue }
+            result.append(AttributedString(String(text[cursor..<range.lowerBound])))
+            var token = AttributedString(String(text[range]))
+            var url = URLComponents()
+            url.scheme = "modula"
+            url.host = text[range].first == "#" ? "hashtag" : "mention"
+            url.queryItems = [URLQueryItem(name: "value", value: String(text[range].dropFirst()))]
+            token.link = url.url
+            result.append(token)
+            cursor = range.upperBound
+        }
+        result.append(AttributedString(String(text[cursor...])))
+        return result
+    }
+
+    static func route(for url: URL) -> AppRoute? {
+        guard url.scheme == "modula",
+              let value = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "value" })?.value,
+              !value.isEmpty else { return nil }
+        switch url.host {
+        case "hashtag": return .search(.section(.posts, "#\(value)"))
+        case "mention": return .profile(value, .overview)
+        default: return nil
+        }
     }
 }
 
@@ -313,6 +358,7 @@ struct PostActions: View {
     var onRepost: () -> Void
     var onSave: () -> Void
     var onReactLongPress: (() -> Void)? = nil
+    var onShare: (() -> Void)? = nil
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @State private var showsReactionPicker = false
@@ -343,12 +389,22 @@ struct PostActions: View {
                 Image(systemName: post.saved ? "bookmark.fill" : "bookmark")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(post.saved ? app.appearance.accent.color : .secondary)
-                    .frame(width: 44, height: 36)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(post.saved ? "Unsave" : "Save")
             .accessibilityIdentifier("home.action.save.\(post.id)")
+            if let onShare {
+                Button(action: onShare) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Share post")
+            }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Post actions")
@@ -371,10 +427,10 @@ struct PostActions: View {
 
     private var likeControl: some View {
         actionButton(
-            title: "Like",
+            title: post.viewerReaction?.accessibilityName ?? "Like",
             symbol: likeSymbol,
-            count: post.likeCount,
-            active: post.liked,
+            count: max(post.reactionCount, post.likeCount),
+            active: post.liked || post.viewerReaction != nil,
             filled: post.liked || post.viewerReaction != nil,
             action: onLike
         )
@@ -414,7 +470,7 @@ struct PostActions: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: symbol)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 18, weight: .medium))
                     .symbolVariant(filled ? .fill : .none)
                 if count > 0 {
                     Text(Self.formatCount(count))
@@ -424,7 +480,7 @@ struct PostActions: View {
             }
             .foregroundStyle(active ? app.appearance.accent.color : .secondary)
             .opacity(differentiateWithoutColor && active ? 1 : 1)
-            .frame(minWidth: 44, minHeight: 36)
+            .frame(minWidth: 44, minHeight: 44)
             .padding(.horizontal, 4)
             .contentShape(Rectangle())
             .overlay(alignment: .bottom) {
@@ -486,7 +542,7 @@ enum PostRendererRegistry {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityHint("Opens the full post")
             } else {
-                PostBody(post: post)
+                PostBody(post: post, allowsCollapse: presentation != .detail)
             }
             PostCanonicalContent(
                 source: post,

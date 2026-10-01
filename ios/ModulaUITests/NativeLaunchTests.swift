@@ -1274,6 +1274,51 @@ final class N3BDiscoverUITests: XCTestCase {
 
 @MainActor
 final class N3CHomeUITests: XCTestCase {
+    func testConversationUsesContinuousDetailAndPinnedComposer() throws {
+        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--reset-appearance", "--ui-dark"])
+        let comment = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "home.action.comment.")).firstMatch
+        XCTAssertTrue(comment.waitForExistence(timeout: 12))
+        comment.tap()
+        XCTAssertTrue(app.buttons["Close comments"].waitForExistence(timeout: 6))
+        XCTAssertTrue(app.textFields["Add a comment…"].exists)
+        let message = "A clearer conversation, with room for the content."
+        app.textFields["Add a comment…"].tap()
+        app.textFields["Add a comment…"].typeText(message)
+        app.buttons["Send"].tap()
+        XCTAssertTrue(app.staticTexts[message].firstMatch.waitForExistence(timeout: 10))
+        attachScreenshot(app, name: "post05-comments-dark")
+        app.buttons["Close comments"].tap()
+        let open = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "post.open.")).firstMatch
+        XCTAssertTrue(open.waitForExistence(timeout: 5))
+        open.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["native.post"].firstMatch.waitForExistence(timeout: 6))
+        XCTAssertTrue(app.textFields["Add a comment…"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts[message].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.tabBars.firstMatch.isHittable)
+        XCTAssertEqual(app.scrollViews.count, 1)
+        attachScreenshot(app, name: "post05-continuous-detail-dark")
+    }
+
+    func testSocialEntriesOpenStoryComposerAndReels() throws {
+        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--reset-appearance", "--ui-light"])
+        let create = app.buttons["Create story"].firstMatch
+        XCTAssertTrue(create.waitForExistence(timeout: 8))
+        create.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["story.create"].firstMatch.waitForExistence(timeout: 6))
+        XCTAssertTrue(app.buttons["Add a photo"].exists)
+        XCTAssertTrue(app.staticTexts["Available for 24 hours"].exists)
+        attachScreenshot(app, name: "post05-story-composer")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        let reels = app.buttons["home.open-reels"].firstMatch
+        XCTAssertTrue(reels.waitForExistence(timeout: 5))
+        reels.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["reels.feed"].firstMatch.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["Post a video"].exists)
+        attachScreenshot(app, name: "post05-reels-entry")
+        app.buttons["Back"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["native.home"].firstMatch.waitForExistence(timeout: 5))
+    }
+
     func testHomeFeedLandmarksAndTools() throws {
         let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--reset-appearance"])
 

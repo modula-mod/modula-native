@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Vertical action rail for media-rich posts. Drag down (rail hit-region only) morphs into context actions.
 /// Semantically distinct from `ModulaEdgeLoop` — this controls a content object, not screen context.
@@ -15,16 +16,19 @@ struct PostActionRail: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var morphProgress: CGFloat = 0
     @State private var showsContext = false
+    @State private var showsReactions = false
+
+    private var contextActions: [ModulaContextAction] {
+        PostContextActions.railContextActions(saved: post.saved, capabilities: app.postActions.capabilities)
+            .filter { onContextAction != nil || ["share", "copy-link", "save", "save-collection"].contains($0.id) }
+    }
 
     var body: some View {
         VStack(spacing: 8) {
             if showsContext {
-                ForEach(PostContextActions.railContextActions(
-                    saved: post.saved,
-                    capabilities: app.postActions.capabilities
-                )) { action in
+                ForEach(contextActions) { action in
                     Button {
-                        onContextAction?(action)
+                        perform(action)
                         dismissContext()
                     } label: {
                         Image(systemName: action.systemImage ?? "ellipsis")
@@ -36,17 +40,17 @@ struct PostActionRail: View {
                 }
             } else {
                 railButton(
-                    title: "Like",
-                    symbol: post.liked ? "heart.fill" : "heart",
+                    title: post.viewerReaction?.accessibilityName ?? "Like",
+                    symbol: post.viewerReaction?.systemImage ?? "heart",
                     count: ModulaCountFormat.compact(max(post.reactionCount, post.likeCount)),
-                    active: post.liked,
+                    active: post.viewerReaction != nil,
                     action: onLike
                 )
                 .simultaneousGesture(
                     LongPressGesture(minimumDuration: PostGestureThresholds.longPressDuration)
                         .onEnded { _ in
                             HapticEngine.shared.play(.contextOpen)
-                            onReactLongPress?()
+                            if let onReactLongPress { onReactLongPress() } else { showsReactions = true }
                         }
                 )
                 railButton(
@@ -80,6 +84,33 @@ struct PostActionRail: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Post action rail")
         .accessibilityIdentifier("post.action.rail.\(post.id)")
+        .accessibilityAction(named: "Choose reaction") { showsReactions = true }
+        .accessibilityAction(named: "More actions") { showsContext = true }
+        .contextMenu {
+            ForEach(contextActions) { action in
+                Button(action.title, systemImage: action.systemImage ?? "ellipsis") { perform(action) }
+            }
+        }
+        .popover(isPresented: $showsReactions) {
+            PostReactionPicker(current: post.viewerReaction, multiEnabled: app.postActions.capabilities.multiReactions,
+                onSelect: { reaction in
+                    showsReactions = false
+                    Task { await app.postActions.setReaction(post, reaction: reaction) }
+                }, onCancel: { showsReactions = false })
+                .padding(8)
+                .presentationCompactAdaptation(.popover)
+        }
+    }
+
+    private func perform(_ action: ModulaContextAction) {
+        if let onContextAction { onContextAction(action); return }
+        switch action.id {
+        case "share": onShare()
+        case "copy-link": UIPasteboard.general.string = post.shareURL.absoluteString
+        case "save": onSave()
+        case "save-collection": app.navigation.presented = .collectionPicker(postID: post.id)
+        default: break
+        }
     }
 
     private func railButton(title: String, symbol: String, count: String?, active: Bool, action: @escaping () -> Void) -> some View {

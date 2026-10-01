@@ -23,8 +23,9 @@ struct ReelFeedView: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
-    @State private var playback = ModulaVideoPlaybackController()
+    @State private var videoCoordinator = FeedVideoCoordinator()
     @State private var showsComments = false
+    @State private var expandedVideo: ModulaAttachment?
 
     var body: some View {
         Group {
@@ -38,31 +39,48 @@ struct ReelFeedView: View {
                 ModulaErrorState(message: message) {
                     Task { await app.reels.refresh() }
                 }
-                .modulaCanvas()
             case _ where app.reels.items.isEmpty:
                 ModulaEmptyState(
                     title: "Reels",
                     message: "Short-form video will appear here when it’s available.",
                     symbol: "play.rectangle"
                 )
-                .modulaCanvas()
             default:
                 paging
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black.ignoresSafeArea())
+        .preferredColorScheme(.dark)
+        .environment(\.colorScheme, .dark)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             if let focusID { app.reels.activate(focusID) }
             else if let restored = app.reels.restoredID { app.reels.activate(restored) }
         }
-        .onChange(of: scenePhase) { _, phase in
-            if phase != .active { playback.pause() }
+        .safeAreaInset(edge: .top) {
+            HStack(spacing: 12) {
+                Button { app.navigation.close() } label: {
+                    Image(systemName: "chevron.left").frame(width: 44, height: 44)
+                }.accessibilityLabel("Back")
+                Text("Reels").font(.title2.weight(.bold))
+                Spacer()
+                Button { app.navigation.open(.compose(.video)) } label: {
+                    Image(systemName: "video.badge.plus").frame(width: 44, height: 44)
+                }.accessibilityLabel("Post a video")
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12)
+            .background(.black.opacity(0.55))
         }
         .sheet(isPresented: $showsComments) {
             if let reel = current, reel.postID != nil {
-                PostCommentsView(postID: reel.postID ?? reel.id)
+                PostCommentsSheet(postID: reel.postID ?? reel.id)
             }
+        }
+        .fullScreenCover(item: $expandedVideo) { attachment in
+            AttachmentViewerRouter(attachment: attachment, onDismiss: { expandedVideo = nil })
         }
         .accessibilityIdentifier("reels.feed")
         .accessibilityValue(RouteSerializer.serialize(focusID.map { .reels(.reel($0)) } ?? .reels(.feed)))
@@ -79,13 +97,14 @@ struct ReelFeedView: View {
                 ForEach(app.reels.items) { reel in
                     ReelPageView(
                         reel: reel,
-                        isActive: app.reels.activeID == reel.id,
-                        playback: playback,
+                        isActive: app.reels.activeID == reel.id && !showsComments && expandedVideo == nil && scenePhase == .active,
+                        coordinator: videoCoordinator,
                         reduceMotion: reduceMotion,
                         onComment: {
                             guard reel.postID != nil else { return }
                             showsComments = true
-                        }
+                        },
+                        onExpand: { expandedVideo = reel.attachment }
                     )
                     .containerRelativeFrame(.vertical)
                     .id(reel.id)
@@ -116,43 +135,29 @@ struct ReelFeedView: View {
 struct ReelPageView: View {
     let reel: Reel
     var isActive: Bool
-    var playback: ModulaVideoPlaybackController
+    var coordinator: FeedVideoCoordinator
     var reduceMotion: Bool
     var onComment: () -> Void
+    var onExpand: () -> Void
     @Environment(AppEnvironment.self) private var app
-    @State private var flashPaused = false
 
     var body: some View {
         ZStack {
             poster
-            if isActive, let media = reel.media, media.canPlayVideo, app.reels.capabilities.videoPlayback {
-                ModulaVideoPlayer(resource: media, isActive: isActive, controller: playback)
+            if let attachment = reel.attachment, app.reels.capabilities.videoPlayback {
+                ModulaVideoSurface(attachment: attachment, coordinator: coordinator, onExpand: onExpand,
+                                   height: nil, cornerRadius: 0, allowsPlayback: isActive)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            LinearGradient(colors: [.clear, .clear, .black.opacity(0.82)], startPoint: .top, endPoint: .bottom)
+                .allowsHitTesting(false)
             ReelOverlay(reel: resolved, onComment: onComment)
-            if flashPaused {
-                Image(systemName: playback.state == .playing ? "play.fill" : "pause.fill")
-                    .font(.system(size: 44, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(22)
-                    .background(.black.opacity(0.4), in: Circle())
-            }
+                .frame(maxHeight: .infinity, alignment: .bottom)
+                .padding(.bottom, 48)
         }
         .contentShape(Rectangle())
-        .onTapGesture {
-            if app.reels.capabilities.videoPlayback {
-                playback.toggle()
-                flash()
-            }
-        }
-        .onLongPressGesture(minimumDuration: 0.25, pressing: { pressing in
-            if pressing { playback.pause() } else if isActive { playback.play() }
-        }, perform: {})
-        .onChange(of: isActive) { _, active in
-            if !active { playback.pause() }
-        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityAction(named: playback.state == .playing ? "Pause" : "Play") { playback.toggle() }
         .accessibilityAction(named: "Open creator") {
             app.navigation.push(.profile(reel.creator.routeID, .overview))
         }
@@ -175,14 +180,6 @@ struct ReelPageView: View {
             }
         }
         .ignoresSafeArea()
-    }
-
-    private func flash() {
-        flashPaused = true
-        Task {
-            try? await Task.sleep(for: .milliseconds(400))
-            flashPaused = false
-        }
     }
 
     private var accessibilityLabel: String {
@@ -252,7 +249,7 @@ struct DiscoverReelsShelf: View {
             Text("Reels")
                 .font(.headline)
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
+                LazyHStack(spacing: 12) {
                     ForEach(reels) { reel in
                         Button {
                             onOpen(reel)
@@ -261,7 +258,18 @@ struct DiscoverReelsShelf: View {
                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                                     .fill(Color(hex: reel.posterColor ?? "#222222"))
                                     .frame(width: 132, height: 196)
+                                if let url = reel.media?.posterURL {
+                                    ModulaRemoteImage(url: url, cacheKey: "reel-poster:\(reel.id)", maximumPixelSize: 480) { phase in
+                                        if case .success(let image) = phase {
+                                            Image(uiImage: image).resizable().scaledToFill()
+                                        }
+                                    }
+                                    .frame(width: 132, height: 196).clipped()
+                                }
+                                LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom)
+                                    .frame(width: 132, height: 196)
                                 VStack(alignment: .leading, spacing: 4) {
+                                    Image(systemName: "play.fill").font(.title3).padding(.bottom, 12)
                                     Text(reel.creator.displayName)
                                         .font(.caption.weight(.semibold))
                                     if let caption = reel.caption {
@@ -271,6 +279,7 @@ struct DiscoverReelsShelf: View {
                                 .foregroundStyle(.white)
                                 .padding(10)
                             }
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Reel by \(reel.creator.displayName)")

@@ -9,6 +9,7 @@ final class PostActionController {
     private var likeGeneration: [SocialPostID: UInt64] = [:]
     private var saveGeneration: [SocialPostID: UInt64] = [:]
     private var savesInFlight: Set<SocialPostID> = []
+    private var reactionsInFlight: Set<SocialPostID> = []
     private var repostGeneration: [SocialPostID: UInt64] = [:]
     private(set) var lastError: String?
     let capabilities: PostBackendCapabilities
@@ -39,6 +40,11 @@ final class PostActionController {
 
     func toggleLike(_ post: SocialPost) async {
         guard capabilities.like else { return }
+        if capabilities.multiReactions {
+            let current = state.resolved(post)
+            await setReaction(current, reaction: current.viewerReaction == nil && !current.liked ? .like : nil)
+            return
+        }
         let current = state.resolved(post)
         let nextLiked = !current.liked
         let snapshot = current.engagement
@@ -77,6 +83,29 @@ final class PostActionController {
     /// Commits a reaction. With like-only HTTP, non-like values are rejected unless multiReactions is enabled.
     func setReaction(_ post: SocialPost, reaction: SocialReaction?) async {
         let current = state.resolved(post)
+        if capabilities.multiReactions {
+            guard reactionsInFlight.insert(post.id).inserted else { return }
+            defer { reactionsInFlight.remove(post.id) }
+            // The server toggles repeated values; selecting the current value is a no-op.
+            guard (current.viewerReaction ?? (current.liked ? .like : nil)) != reaction else { return }
+            state.upsert(current)
+            do {
+                let response = try await repository.setReaction(postID: post.id, reaction: reaction)
+                state.applyEngagement(postID: post.id) {
+                    $0.viewerReaction = response["viewerReaction"]?.string.flatMap(SocialReaction.init(rawValue:))
+                    $0.liked = $0.viewerReaction == .like
+                    $0.likeCount = response["byType"]?["like"]?.int ?? 0
+                    $0.reactionCount = response["total"]?.int ?? 0
+                    $0.reactionSummary = ReactionSummary.decode(from: response)
+                }
+                lastError = nil
+                HapticEngine.shared.play(.confirmation)
+            } catch {
+                lastError = (error as? APIError)?.userFacingMessage ?? "Couldn’t save reaction."
+                HapticEngine.shared.play(.failure)
+            }
+            return
+        }
         if let reaction, !capabilities.multiReactions, reaction != .like {
             lastError = "That reaction is not available yet."
             HapticEngine.shared.play(.warning)

@@ -84,9 +84,10 @@ enum PostContextActions {
         if capabilities.save {
             items.append(.init(
                 id: "save",
-                title: saved ? "Unsave" : "Add to Collection",
+                title: saved ? "Unsave" : "Save",
                 systemImage: "bookmark"
             ))
+            items.append(.init(id: "save-collection", title: "Add to Collection", systemImage: "rectangle.stack.badge.plus"))
         }
         if capabilities.notInterested {
             items.append(.init(id: "not-interested", title: "Not Interested", systemImage: "eye.slash"))

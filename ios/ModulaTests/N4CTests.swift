@@ -312,6 +312,30 @@ final class StoryDomainTests: XCTestCase {
 
 @MainActor
 final class ReelDomainTests: XCTestCase {
+    func testCanonicalVideoPostPowersReelPlaybackAndEngagement() throws {
+        let payload: JSONValue = .object(["post": .object([
+            "id": .string("video-post"), "createdAt": .string("2026-09-30T12:00:00Z"),
+            "author": .object(["id": .string("author"), "handle": .string("author"), "displayName": .string("Author")]),
+            "kind": .string("media"), "text": .string("A real video #modula"), "saved": .bool(true),
+            "content": .array([.object([
+                "id": .string("block"), "type": .string("video"), "order": .number(0),
+                "attachment": .object([
+                    "id": .string("attachment"), "kind": .string("video"), "status": .string("ready"),
+                    "mimeType": .string("video/mp4"), "filename": .string("video.mp4"),
+                    "originalURL": .string("https://api.modula.digital/v1/attachments/attachment/content"),
+                    "duration": .number(12)
+                ])
+            ])])
+        ])])
+        let reel = try XCTUnwrap(ReelPayloadDecoder.reel(payload))
+        XCTAssertEqual(reel.postID, "video-post")
+        XCTAssertEqual(reel.attachment?.id, "attachment")
+        XCTAssertEqual(reel.attachment?.mimeType, "video/mp4")
+        XCTAssertTrue(reel.media?.canPlayVideo == true)
+        XCTAssertTrue(reel.asSocialPost().saved)
+        XCTAssertEqual(reel.asSocialPost().media.first?.duration, 12)
+    }
+
     func testSeedDecodingWithoutFakeVideo() {
         let payload: JSONValue = .object([
             "reels": .array([
@@ -364,7 +388,7 @@ final class ReelDomainTests: XCTestCase {
         XCTAssertEqual(store.index(of: "reel-2"), 1)
         #endif
         XCTAssertTrue(ReelBackendCapabilities.production.seedList)
-        XCTAssertFalse(ReelBackendCapabilities.production.videoPlayback)
+        XCTAssertTrue(ReelBackendCapabilities.production.videoPlayback)
         XCTAssertFalse(ReelBackendCapabilities.production.audioAttribution)
     }
 
