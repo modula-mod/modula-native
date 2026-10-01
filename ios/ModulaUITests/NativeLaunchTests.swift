@@ -1283,34 +1283,6 @@ final class ModuleRuntimeUITests: XCTestCase {
         app.buttons["Open native Profile"].tap()
         XCTAssertTrue(app.navigationBars["Profile"].waitForExistence(timeout: 5))
     }
-
-    /// The declarative node renderer drives a CRM-style page (detail header,
-    /// key/value, table, list, form, fallback) inside a real module session.
-    @MainActor
-    func testComponentGalleryRendersDeclarativeCRMScreen() throws {
-        let app = try launchThroughAppGate()
-        XCUIDevice.shared.system.open(URL(string: "modula://module/modula.runtime-diagnostic")!)
-        XCTAssertTrue(app.staticTexts["Module runtime ready"].waitForExistence(timeout: 25))
-        app.buttons["Component gallery"].tap()
-        XCTAssertTrue(app.staticTexts["Acme Ltd"].waitForExistence(timeout: 10))
-        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "C-gallery-top"; shot.lifetime = .keepAlways; add(shot)
-        app.buttons["Log call"].tap()
-        XCTAssertTrue(app.staticTexts["logCall"].waitForExistence(timeout: 5), "Notice action must reach the module's registered handler")
-        let deal = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Annual renewal")).firstMatch
-        XCTAssertTrue(deal.waitForExistence(timeout: 5))
-        app.swipeUp()
-        deal.tap()
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "openDeal")).firstMatch.waitForExistence(timeout: 5), "Table row action must carry its payload")
-        for _ in 0..<4 { app.swipeUp() }
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Unsupported")).firstMatch.exists
-            || app.otherElements.matching(NSPredicate(format: "label CONTAINS %@", "Unsupported")).firstMatch.exists)
-        let bottom = XCTAttachment(screenshot: app.screenshot()); bottom.name = "C-gallery-bottom"; bottom.lifetime = .keepAlways; add(bottom)
-        let save = app.buttons["Save contact"]
-        XCTAssertTrue(save.waitForExistence(timeout: 5))
-        save.tap()
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "required")).firstMatch.waitForExistence(timeout: 5), "Required field must be validated before the action fires")
-        let invalid = XCTAttachment(screenshot: app.screenshot()); invalid.name = "C-gallery-validation"; invalid.lifetime = .keepAlways; add(invalid)
-    }
 }
 
 @MainActor

@@ -3,7 +3,7 @@ import {Pressable, ScrollView, StyleSheet, Switch, TextInput, View} from 'react-
 import type {ModuleTheme} from './theme';
 import {ModuleButton, ThemedText} from './components';
 import {Badge, SegmentedControl, type Tone} from './kit';
-import {columnWidths, validateForm, type Column, type FieldSpec} from './nodes';
+import {columnWidths, validateForm, type Column, type FieldSpec} from './forms';
 
 /** Grouped content with an optional header and footer (iOS inset-grouped feel). */
 export function Section({theme, title, footer, children}: {theme: ModuleTheme; title?: string; footer?: string; children: ReactNode}) {
