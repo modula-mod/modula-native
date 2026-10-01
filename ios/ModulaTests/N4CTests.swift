@@ -309,6 +309,78 @@ final class StoryDomainTests: XCTestCase {
         XCTAssertEqual(group?.items.first?.media?.url?.lastPathComponent, "item-1.jpg")
         XCTAssertFalse(group?.items.first?.seen ?? true)
     }
+
+    /// Prod regression: `GET /v1/stories/rail` returns the owner's real group as a summary
+    /// (`itemCount` > 0, no `items`). It must not be mistaken for the "add:" composer tile.
+    func testOwnRailSummaryWithItemsIsALiveStoryNotTheComposer() {
+        let value: JSONValue = .object(["items": .array([.object([
+            "groupId": .string("66ca2bf3-edfc-4c14-9ab6-307401d8ea47"),
+            "ownerActorId": .string("actor-1"),
+            "ownerProfileId": .string("profile-1"),
+            "displayName": .string("Andrei"),
+            "handle": .string("modula_orgggg"),
+            "ringState": .string("owner"),
+            "itemCount": .number(4),
+            "unviewedCount": .number(4),
+            "expiresAt": .string("2026-10-02T12:43:59.850Z"),
+            "isOwner": .bool(true)
+        ])])])
+        let own = StoryPayloadDecoder.rail(from: value)[0]
+        XCTAssertTrue(own.isOwn)
+        XCTAssertEqual(own.itemCount, 4)
+        XCTAssertTrue(own.hasStories)
+        XCTAssertFalse(own.isComposerPlaceholder, "A posted story must open the viewer, not the composer")
+        XCTAssertTrue(own.needsHydration)
+    }
+
+    /// The exact envelope shape `POST /v1/stories` returns (201, `ok/data/meta`, null fields).
+    func testCreateResponseEnvelopeDecodesToOwnGroup() throws {
+        let body = """
+        {"ok":true,"data":{"groupId":"g-1","ownerActorId":"actor-1","ownerProfileId":"profile-1",
+        "displayName":"Andrei","handle":"modula_orgggg","avatarUrl":null,"visibility":"public",
+        "expiresAt":"2026-10-02T12:43:59.850Z","isOwner":true,"items":[
+        {"itemId":"i-1","groupId":"g-1","mediaKind":"image","mediaUrl":"https://api.modula.digital/v1/media/stories/i-1.jpg",
+        "caption":null,"status":"ready","durationMs":5000,"viewed":false,"createdAt":"2026-10-01T12:42:32.745Z"},
+        {"itemId":"i-2","groupId":"g-1","mediaKind":"image","mediaUrl":"https://api.modula.digital/v1/media/stories/i-2.jpg",
+        "caption":"Hi","status":"ready","durationMs":5000,"viewed":false,"createdAt":"2026-10-01T12:43:59.850Z"}]},
+        "meta":{"requestId":"req-1","serverTime":"2026-10-01T12:43:59.900Z"}}
+        """
+        let url = try XCTUnwrap(URL(string: "https://api.modula.digital/v1/stories"))
+        let response = try XCTUnwrap(HTTPURLResponse(url: url, statusCode: 201, httpVersion: nil, headerFields: ["Content-Type": "application/json"]))
+        let value: JSONValue = try GreenfieldClient.decodeEnvelope(Data(body.utf8), response: response, method: "POST", path: "/v1/stories")
+        let group = try XCTUnwrap(StoryPayloadDecoder.group(value))
+        XCTAssertEqual(group.id, "g-1")
+        XCTAssertTrue(group.isOwn)
+        XCTAssertEqual(group.items.map(\.id), ["i-1", "i-2"])
+        XCTAssertEqual(group.items.first?.media?.url?.host, "api.modula.digital")
+        XCTAssertNil(group.items.first?.text)
+        XCTAssertFalse(group.isComposerPlaceholder)
+        XCTAssertFalse(group.needsHydration)
+    }
+
+    /// After Share the store holds the full group; the follow-up rail refresh must keep it.
+    func testRailRefreshKeepsPublishedItemsAndRehydratesWhenCountGrows() {
+        let me = ConversationParticipant(id: "profile-1", handle: "me", displayName: "Me", avatarURL: nil)
+        let item = StoryItem(id: "i-1", author: me, createdAt: Date(), expiresAt: nil, kind: .image, media: nil,
+                             text: nil, background: nil, seen: false, isOwn: true, viewerCount: nil)
+        let published = StoryGroup(id: "g-1", author: me, items: [item], isOwn: true, reportedRing: .own, itemCount: 1)
+        let summary = StoryGroup(id: "g-1", author: me, items: [], isOwn: true, reportedRing: .own, itemCount: 1)
+
+        let merged = StoryStore.merge(rail: [summary], previous: [published])
+        XCTAssertEqual(merged.first?.items.map(\.id), ["i-1"])
+        XCTAssertFalse(merged.first?.isComposerPlaceholder ?? true)
+        XCTAssertFalse(merged.first?.needsHydration ?? true)
+
+        var grown = summary
+        grown.itemCount = 2
+        let refreshed = StoryStore.merge(rail: [grown], previous: [published])
+        XCTAssertTrue(refreshed.first?.items.isEmpty ?? false, "Stale items are dropped when the rail reports more")
+        XCTAssertTrue(refreshed.first?.needsHydration ?? false)
+        XCTAssertFalse(refreshed.first?.isComposerPlaceholder ?? true)
+
+        let placeholder = StoryGroup(id: "add:actor-1", author: me, items: [], isOwn: true, reportedRing: .own, itemCount: 0)
+        XCTAssertTrue(StoryStore.merge(rail: [placeholder], previous: [published]).first?.isComposerPlaceholder ?? false)
+    }
 }
 
 @MainActor

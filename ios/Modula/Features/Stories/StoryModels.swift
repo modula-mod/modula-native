@@ -52,6 +52,10 @@ struct StoryGroup: Identifiable, Hashable, Sendable {
     var items: [StoryItem]
     var isOwn: Bool
     var reportedRing: StoryRingState? = nil
+    /// Item count reported by the rail. `GET /v1/stories/rail` returns summaries only
+    /// (`items` stay empty until the group is hydrated), so this is how a rail entry
+    /// says "this author has live stories".
+    var itemCount: Int? = nil
 
     var ring: StoryRingState {
         if let reportedRing { return reportedRing }
@@ -60,7 +64,12 @@ struct StoryGroup: Identifiable, Hashable, Sendable {
     }
 
     var representative: StoryItem? { items.first }
-    var isComposerPlaceholder: Bool { id.hasPrefix("add:") || (isOwn && items.isEmpty) }
+    var hasStories: Bool { !items.isEmpty || (itemCount ?? 0) > 0 }
+    /// Only the server's `add:` entry (or an own entry with nothing in it) opens the composer.
+    /// An own rail summary with `itemCount > 0` is a real story even though `items` is empty.
+    var isComposerPlaceholder: Bool { id.hasPrefix("add:") || (isOwn && !hasStories) }
+    /// The rail summary promises more items than are loaded, so the group must be fetched.
+    var needsHydration: Bool { items.isEmpty || items.count < (itemCount ?? 0) }
 }
 
 struct StoryBackendCapabilities: Sendable, Equatable {
@@ -108,7 +117,8 @@ enum StoryPayloadDecoder {
             author: author,
             items: [],
             isOwn: isOwn,
-            reportedRing: ringState(value["ringState"]?.string, isOwn: isOwn)
+            reportedRing: ringState(value["ringState"]?.string, isOwn: isOwn),
+            itemCount: value["itemCount"]?.int
         )
     }
 
@@ -124,7 +134,8 @@ enum StoryPayloadDecoder {
             author: author,
             items: items,
             isOwn: isOwn,
-            reportedRing: ringState(value["ringState"]?.string, isOwn: isOwn)
+            reportedRing: ringState(value["ringState"]?.string, isOwn: isOwn),
+            itemCount: items.count
         )
     }
 
@@ -416,12 +427,26 @@ final class StoryStore {
         }
         loadState = groups.isEmpty ? .loading : .refreshing
         do {
-            groups = try await repository.rail()
+            groups = Self.merge(rail: try await repository.rail(), previous: groups)
             loadState = .loaded
             actionError = nil
         } catch {
             loadState = groups.isEmpty ? .failed("Stories aren’t available.") : .loaded
             actionError = "Stories aren’t available."
+        }
+    }
+
+    /// The rail carries summaries only. Keep items we already hydrated (e.g. the group
+    /// returned by a successful publish) when the rail still reports the same count, so a
+    /// refresh right after Share doesn't turn "Your story" back into an empty composer tile.
+    static func merge(rail: [StoryGroup], previous: [StoryGroup]) -> [StoryGroup] {
+        let loaded = Dictionary(previous.filter { !$0.items.isEmpty }.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return rail.map { entry in
+            guard entry.items.isEmpty, let known = loaded[entry.id],
+                  entry.itemCount == nil || entry.itemCount == known.items.count else { return entry }
+            var merged = entry
+            merged.items = known.items
+            return merged
         }
     }
 
@@ -445,7 +470,7 @@ final class StoryStore {
         if group.isComposerPlaceholder {
             return capabilities.create ? .stories(.create) : nil
         }
-        let loaded = group.items.isEmpty ? await hydrate(groupID: group.id) : group
+        let loaded = group.needsHydration ? await hydrate(groupID: group.id) : group
         guard let loaded else { return nil }
         let item = loaded.items.first(where: { !$0.seen }) ?? loaded.items.first
         return item.map { .stories(.story($0.id)) }

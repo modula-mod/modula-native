@@ -8,15 +8,19 @@ struct StoryRing: View {
     let state: StoryRingState
     var size: CGFloat = 64
     var accent: Color
+    /// `.own` shows a "+" only when there is nothing posted yet; an own ring with live
+    /// stories is drawn as an active (thick) ring instead.
+    var showsAddBadge = true
 
     var body: some View {
-        let line = state == .unseen ? max(2.5, size * 0.045) : max(1.5, size * 0.03)
+        let emphasised = state == .unseen || (state == .own && !showsAddBadge)
+        let line = emphasised ? max(2.5, size * 0.045) : max(1.5, size * 0.03)
         Circle()
             .strokeBorder(style: StrokeStyle(lineWidth: line, dash: state == .seen ? [4, 3] : []))
             .foregroundStyle(ringColor)
             .frame(width: size + line * 2, height: size + line * 2)
             .overlay(alignment: .bottomTrailing) {
-                if state == .own {
+                if state == .own && showsAddBadge {
                     Image(systemName: "plus")
                         .font(.system(size: size * 0.22, weight: .bold))
                         .foregroundStyle(.white)
@@ -33,7 +37,7 @@ struct StoryRing: View {
         switch state {
         case .unseen: accent
         case .seen: Color.primary.opacity(0.28)
-        case .own: accent.opacity(0.85)
+        case .own: showsAddBadge ? accent.opacity(0.85) : accent
         }
     }
 }
@@ -45,7 +49,7 @@ struct StoryAvatar: View {
 
     var body: some View {
         ZStack {
-            StoryRing(state: group.ring, size: size, accent: accent)
+            StoryRing(state: group.ring, size: size, accent: accent, showsAddBadge: group.isComposerPlaceholder)
             ModulaAvatar(initials: group.author.initials, url: group.author.avatarURL, size: size)
         }
         .frame(width: size + 10, height: size + 10)
@@ -58,7 +62,7 @@ struct StoryAvatar: View {
         switch group.ring {
         case .unseen: availability = "Unseen story"
         case .seen: availability = "Seen story"
-        case .own: availability = "Your story"
+        case .own: availability = group.isComposerPlaceholder ? "Add to your story" : "Your story"
         }
         return "\(group.author.displayName), \(availability)"
     }
@@ -98,6 +102,8 @@ struct StoryTray: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Your story")
+                    .accessibilityValue("empty")
+                    .accessibilityIdentifier("home.story.own")
                 }
                 ForEach(groups) { group in
                     Button {
@@ -113,6 +119,8 @@ struct StoryTray: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityValue(group.isOwn ? (group.isComposerPlaceholder ? "empty" : "active") : "")
+                    .accessibilityIdentifier(group.isOwn ? "home.story.own" : "home.story.\(group.id)")
                 }
             }
             .padding(.vertical, compact ? 2 : 4)

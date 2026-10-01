@@ -1426,6 +1426,20 @@ final class N3CHomeUITests: XCTestCase {
         waitForExpectations(timeout: 90)
         XCTAssertTrue(app.descendants(matching: .any)["native.home"].firstMatch.waitForExistence(timeout: 10))
         attachScreenshot(app, name: "story-large-photo-posted")
+
+        // The posted story must surface as a live own story, before and after a rail refresh.
+        let own = app.descendants(matching: .any)["home.story.own"].firstMatch
+        XCTAssertTrue(own.waitForExistence(timeout: 8))
+        XCTAssertEqual(own.value as? String, "active", "Own story tile must not fall back to the empty composer tile")
+        app.swipeDown()
+        app.swipeDown()
+        sleep(3)
+        XCTAssertEqual(own.value as? String, "active", "Rail refresh must keep the posted story visible")
+        own.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["story.viewer"].firstMatch.waitForExistence(timeout: 10),
+                      "Tapping your story opens the viewer, not the composer")
+        XCTAssertFalse(app.descendants(matching: .any)["story.create"].firstMatch.exists)
+        attachScreenshot(app, name: "story-large-photo-viewer")
     }
 
     func testHomeFeedLandmarksAndTools() throws {
