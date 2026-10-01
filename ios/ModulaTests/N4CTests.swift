@@ -1010,3 +1010,42 @@ final class StoryViewerSegmentTests: XCTestCase {
         XCTAssertEqual(engine.index, 0, "shrinking clamps the index")
     }
 }
+
+final class StoryViewerSegmentTests: XCTestCase {
+    /// Viewer opened on a partial group (1 item); hydration brings 3. The bar must show
+    /// 3 segments and keep the item being watched, with its progress.
+    func testEngineResizesWhenTheGroupGainsItemsAndKeepsTheCurrentItem() {
+        let engine = StoryProgressEngine(count: 1)
+        _ = engine.tick(1)
+        XCTAssertEqual(engine.segmentCount, 1)
+        engine.resize(count: 3, keepingIndex: 2) // the watched item is now third
+        XCTAssertEqual(engine.segmentCount, 3)
+        XCTAssertEqual(engine.index, 2)
+        XCTAssertEqual(engine.progress, 0, accuracy: 0.0001)
+        _ = engine.tick(1)
+        let progress = engine.progress
+        engine.resize(count: 4, keepingIndex: 2)
+        XCTAssertEqual(engine.segmentCount, 4)
+        XCTAssertEqual(engine.progress, progress, accuracy: 0.0001, "same item keeps its progress")
+        XCTAssertEqual(engine.next(), .advanced, "the new trailing item is reachable")
+        engine.resize(count: 1, keepingIndex: nil)
+        XCTAssertEqual(engine.index, 0, "shrinking clamps the index")
+    }
+}
+
+final class StoryViewerFailedMediaTests: XCTestCase {
+    private func item(_ id: String, kind: StoryKind = .image) -> StoryItem {
+        StoryItem(id: id, author: MessagingFixtures.me, createdAt: Date(), expiresAt: nil, kind: kind, media: nil,
+                  text: nil, background: nil, seen: false, isOwn: false, viewerCount: nil)
+    }
+
+    func testTapNavigationStaysAvailableWhenTheImageFailed() {
+        let story = item("s1")
+        XCTAssertFalse(StoryViewerGate.allowsTapNavigation(item: story, loadedID: nil, failedID: nil), "still loading")
+        XCTAssertTrue(StoryViewerGate.allowsTapNavigation(item: story, loadedID: "s1", failedID: nil))
+        XCTAssertTrue(StoryViewerGate.allowsTapNavigation(item: story, loadedID: nil, failedID: "s1"),
+                      "a failed image must not trap the viewer")
+        XCTAssertFalse(StoryViewerGate.allowsTapNavigation(item: story, loadedID: nil, failedID: "other"))
+        XCTAssertFalse(StoryViewerGate.allowsTapNavigation(item: item("v", kind: .video), loadedID: "v", failedID: "v"))
+    }
+}

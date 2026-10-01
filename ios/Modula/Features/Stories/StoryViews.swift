@@ -211,6 +211,7 @@ struct StoryViewer: View {
     @State private var engine: StoryProgressEngine
     @State private var holding = false
     @State private var loadedItemID: StoryID?
+    @State private var failedItemID: StoryID?
     @State private var retryID = 0
     @State private var videoCoordinator = FeedVideoCoordinator()
     @State private var expandedVideo: ModulaAttachment?
@@ -237,7 +238,17 @@ struct StoryViewer: View {
                     .contentShape(Rectangle())
                     .onTapGesture { handle(engine.next()); if !reduceMotion { HapticEngine.shared.play(.selection) } }
             }
-            .allowsHitTesting(loadedItemID == item?.id && item?.kind != .video)
+            .allowsHitTesting(StoryViewerGate.allowsTapNavigation(item: item, loadedID: loadedItemID, failedID: failedItemID))
+            if let item, failedItemID == item.id {
+                VStack(spacing: 12) {
+                    Image(systemName: "photo.badge.exclamationmark").font(.largeTitle).accessibilityHidden(true)
+                    Text("Couldn’t load this story")
+                    Button("Retry") { failedItemID = nil; retryID += 1 }.buttonStyle(.bordered)
+                }
+                .foregroundStyle(.white)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("story.failed")
+            }
             chrome(item)
         }
         .statusBarHidden(true)
@@ -308,12 +319,8 @@ struct StoryViewer: View {
                         case .loading:
                             ProgressView("Loading story…").tint(.white).foregroundStyle(.white)
                         case .failure:
-                            VStack(spacing: 12) {
-                                Image(systemName: "photo.badge.exclamationmark").font(.largeTitle)
-                                Text("Couldn’t load this story")
-                                Button("Retry") { retryID += 1 }.buttonStyle(.bordered)
-                            }
-                            .foregroundStyle(.white)
+                            // The message + Retry are drawn above the tap zones (see body).
+                            Color.clear.onAppear { failedItemID = item.id }
                         }
                     }
                 } else {
@@ -411,6 +418,16 @@ struct StoryViewer: View {
     private func reply(_ item: StoryItem) {
         guard app.stories.capabilities.reply, app.messaging.capabilities.send else { return }
         app.navigation.open(.messages(.new))
+    }
+}
+
+enum StoryViewerGate {
+    /// Tap zones are live once the item rendered, and also when its media failed:
+    /// a broken image must not trap the viewer (previously only the small Previous/Next
+    /// buttons worked). Videos keep explicit navigation until playback finishes.
+    static func allowsTapNavigation(item: StoryItem?, loadedID: StoryID?, failedID: StoryID?) -> Bool {
+        guard let item, item.kind != .video else { return false }
+        return loadedID == item.id || failedID == item.id
     }
 }
 
