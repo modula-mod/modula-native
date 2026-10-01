@@ -742,9 +742,6 @@ struct ProfileView: View {
             onShare: {
                 activityShare = ActivityShareItem(url: resolved.shareURL)
             },
-            onMore: {
-                HapticEngine.shared.play(.contextOpen)
-            },
             onContextAction: { handlePostContextAction($0, post: resolved) },
             onOpenMedia: { _ in
                 app.navigation.open(.post(resolved.id, .root))
@@ -1108,6 +1105,7 @@ struct ProfileView: View {
         case "copy-link":
             UIPasteboard.general.string = post.shareURL.absoluteString
             HapticEngine.shared.play(.confirmation)
+            app.navigation.flash("Link copied", symbol: "link")
         case "share":
             app.navigation.presented = .universalShare(.post(
                 id: post.id,

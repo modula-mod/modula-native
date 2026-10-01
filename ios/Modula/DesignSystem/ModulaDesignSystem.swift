@@ -857,7 +857,18 @@ struct ModulaSection<Content: View>: View { var title: String; @ViewBuilder var 
 struct ModulaSearchField: View { @Binding var text: String; var prompt = "Search"; var body: some View { TextField(prompt, text: $text).textFieldStyle(.plain).padding(.horizontal, 14).frame(minHeight: 44).background(.thinMaterial, in: Capsule()).accessibilityLabel(prompt) } }
 struct ModulaMetric: View { var value: String; var label: String; var body: some View { VStack(alignment: .leading, spacing: 2) { Text(value).font(.title3.bold()); Text(label).font(.caption).foregroundStyle(.secondary) }.accessibilityElement(children: .combine) } }
 struct ModulaMetricPicker<Value: Hashable, Content: View>: View { @Binding var selection: Value; var values: [Value]; @ViewBuilder var label: (Value) -> Content; var body: some View { Picker("Selection", selection: $selection) { ForEach(values, id: \.self) { label($0).tag($0) } }.pickerStyle(.segmented) } }
-struct ModulaChip: View { var title: String; var selected = false; var action: () -> Void; var body: some View { Button(title, action: action).buttonStyle(.bordered).buttonBorderShape(.capsule).tint(selected ? .accentColor : .secondary).frame(minHeight: 44) } }
+struct ModulaChip: View {
+    var title: String; var selected = false; var action: () -> Void
+    @Environment(AppEnvironment.self) private var app
+    var body: some View {
+        Button(title, action: action)
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
+            .tint(selected ? app.appearance.accent.color : .secondary)
+            .frame(minHeight: ModulaLayout.minimumTouch)
+            .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
 struct ModulaToolbar<Content: View>: View { @ViewBuilder var content: Content; var body: some View { HStack(spacing: 8) { content }.padding(6).background(.regularMaterial, in: Capsule()) } }
 struct ModulaTopBar: View { var title: String; var trailing: (() -> Void)?; var body: some View { HStack { Text(title).font(.largeTitle.bold()); Spacer(); if let trailing { ModulaIconButton(title: "Settings", symbol: "gearshape", action: trailing) } }.padding(.horizontal, ModulaLayout.contentInset) } }
 struct ModulaMenu<Content: View>: View { var title: String; @ViewBuilder var content: Content; var body: some View { Menu(title, content: { content }) } }

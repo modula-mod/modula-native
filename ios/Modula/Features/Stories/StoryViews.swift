@@ -268,13 +268,17 @@ struct StoryViewer: View {
             holding = pressing
             if pressing { engine.pause() } else { engine.resume() }
         }, perform: {})
-        .onReceive(Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()) { _ in
-            // Never consume a story while its protected media is still loading.
-            // Videos keep explicit Previous/Next navigation until playback finishes.
-            guard loadedItemID == currentItem?.id, currentItem?.kind != .video else { return }
-            let event = engine.tick(0.05)
-            if event == .advanced { HapticEngine.shared.play(.selection) }
-            if event == .finished { app.navigation.close() }
+        .background {
+            // Display-linked progress instead of a free-running 20 Hz Timer:
+            // the timeline is paused (no wakeups) while held, backgrounded,
+            // loading, or showing video.
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !progressActive)) { context in
+                Color.clear
+                    .onChange(of: context.date) { previous, now in
+                        advanceProgress(by: now.timeIntervalSince(previous))
+                    }
+            }
+            .accessibilityHidden(true)
         }
         .onChange(of: group.items.map(\.id)) { _, ids in
             // Hydration can grow the group after the viewer opened; keep the bar in sync
@@ -299,6 +303,20 @@ struct StoryViewer: View {
                 Button("Reply") { reply(item) }
             }
         }
+    }
+
+    /// Never consume a story while its protected media is still loading.
+    /// Videos keep explicit Previous/Next navigation until playback finishes.
+    private var progressActive: Bool {
+        !engine.isPaused && engine.isAppActive && loadedItemID == currentItem?.id && currentItem?.kind != .video
+    }
+
+    private func advanceProgress(by delta: TimeInterval) {
+        guard progressActive else { return }
+        // Clamp so a long frame gap (e.g. after unpausing) never skips a story.
+        let event = engine.tick(min(max(delta, 0), 0.1))
+        if event == .advanced { HapticEngine.shared.play(.selection) }
+        if event == .finished { app.navigation.close() }
     }
 
     private var currentItem: StoryItem? {
@@ -347,7 +365,7 @@ struct StoryViewer: View {
             Color(hex: item.background ?? "#111111")
             Text(item.text ?? item.author.displayName)
                 .font(.title.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(StoryTextContrast.prefersDarkText(hex: item.background ?? "#111111") ? Color.black : Color.white)
                 .multilineTextAlignment(.center)
                 .padding(28)
         }
@@ -362,6 +380,7 @@ struct StoryViewer: View {
 
     private func chrome(_ item: StoryItem?) -> some View {
         VStack(spacing: 12) {
+            // (Scrims below keep white chrome legible over light media.)
             StoryProgressBar(count: engine.segmentCount, index: engine.index, progress: engine.progress)
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
@@ -370,7 +389,7 @@ struct StoryViewer: View {
                     ModulaAvatar(initials: item.author.initials, url: item.author.avatarURL, size: 36)
                     VStack(alignment: .leading) {
                         Text(item.author.displayName).font(.headline).foregroundStyle(.white)
-                        Text(ConversationRow.relative(item.createdAt)).font(.caption).foregroundStyle(.white.opacity(0.7))
+                        Text(ConversationRow.relative(item.createdAt)).font(.caption).foregroundStyle(.white.opacity(0.85))
                     }
                 }
                 Spacer()
@@ -406,7 +425,19 @@ struct StoryViewer: View {
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(.white)
             .padding(16)
-            .opacity(0.9)
+            .frame(minHeight: ModulaLayout.minimumTouch)
+        }
+        .background(alignment: .top) {
+            LinearGradient(colors: [.black.opacity(0.5), .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: 140)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+        }
+        .background(alignment: .bottom) {
+            LinearGradient(colors: [.clear, .black.opacity(0.45)], startPoint: .top, endPoint: .bottom)
+                .frame(height: 120)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
         }
     }
 
@@ -715,3 +746,20 @@ enum StoryUITestPhoto {
     .padding()
 }
 #endif
+
+/// Picks dark or light text for a story background colour (WCAG relative luminance).
+enum StoryTextContrast {
+    static func prefersDarkText(hex: String) -> Bool {
+        var value = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.hasPrefix("#") { value.removeFirst() }
+        if value.count == 3 { value = value.map { "\($0)\($0)" }.joined() }
+        guard value.count >= 6, let rgb = UInt64(value.prefix(6), radix: 16) else { return false }
+        func channel(_ shift: UInt64) -> Double {
+            let c = Double((rgb >> shift) & 0xFF) / 255
+            return c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
+        }
+        let luminance = 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0)
+        // Contrast vs white = 1.05 / (L + 0.05); vs black = (L + 0.05) / 0.05.
+        return (luminance + 0.05) / 0.05 > 1.05 / (luminance + 0.05)
+    }
+}

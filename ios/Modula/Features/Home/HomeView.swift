@@ -220,9 +220,7 @@ struct HomeView: View {
                             UIPasteboard.general.string = resolved.shareURL.absoluteString
                             Task { await app.postActions.recordShare(resolved) }
                             HapticEngine.shared.play(.lightImpact)
-                        },
-                        onMore: {
-                            HapticEngine.shared.play(.contextOpen)
+                            app.navigation.flash("Link copied", symbol: "link")
                         },
                         onContextAction: { action in
                             handlePostContext(action, post: resolved)
@@ -393,6 +391,7 @@ struct HomeView: View {
         case "copy-link":
             UIPasteboard.general.string = post.shareURL.absoluteString
             HapticEngine.shared.play(.lightImpact)
+            app.navigation.flash("Link copied", symbol: "link")
         case "share":
             app.navigation.presented = .universalShare(.post(
                 id: post.id,

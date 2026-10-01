@@ -43,7 +43,9 @@ struct PostCard: View {
                 post: post,
                 showsCompactAuthor: showsCompactAuthor,
                 onOpenAuthor: onOpenAuthor,
-                onMore: onMore
+                onMore: onMore,
+                menuActions: onContextAction == nil ? [] : menuActions(for: post),
+                onSelectAction: onContextAction
             )
 
             if !post.hasMedia { postBody(post) }
@@ -102,27 +104,42 @@ struct PostCard: View {
         .accessibilityAction(named: "Save", onSave)
         .accessibilityAction(named: "Share") { onShare?() ?? onRepost() }
         .accessibilityAction(named: "Open Author", onOpenAuthor)
-        .accessibilityAction(named: "More Actions") { onMore?() }
+        .accessibilityActions {
+            // Expose every real menu action to VoiceOver instead of a single
+            // "More Actions" entry that only played a haptic.
+            if let onContextAction {
+                ForEach(menuActions(for: post).filter(\.isInteractive)) { action in
+                    Button(action.resolvedAccessibilityLabel) { onContextAction(action) }
+                }
+            }
+        }
         .modulaContextMenu(
-            actions: PostContextActions.menu(
-                isOwn: isOwnPost,
-                saved: post.saved,
-                capabilities: app.postActions.capabilities
-            ),
+            actions: menuActions(for: post),
             onSelect: { onContextAction?($0) }
         )
     }
 
+    private func menuActions(for post: SocialPost) -> [ModulaContextAction] {
+        PostContextActions.menu(
+            isOwn: isOwnPost,
+            saved: post.saved,
+            capabilities: app.postActions.capabilities
+        )
+    }
+
+    /// The body is tappable to open the post, but is *not* wrapped in a
+    /// Button so inline links and "Show more" keep their own hit testing.
     @ViewBuilder
     private func postBody(_ post: SocialPost) -> some View {
         if post.text?.isEmpty == false {
-            Button(action: onOpenPost) {
-                PostBody(post: post)
-            }
-            .buttonStyle(.plain)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityHint("Opens the full post")
-            .accessibilityIdentifier("post.open.\(post.id)")
+            PostBody(post: post)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onOpenPost)
+                .accessibilityElement(children: .contain)
+                .accessibilityAction(named: "Open Post", onOpenPost)
+                .accessibilityHint("Opens the full post")
+                .accessibilityIdentifier("post.open.\(post.id)")
         }
     }
 }
@@ -132,6 +149,9 @@ struct PostHeader: View {
     var showsCompactAuthor: Bool = false
     var onOpenAuthor: () -> Void
     var onMore: (() -> Void)? = nil
+    /// When provided, the "…" control is a native Menu of these actions.
+    var menuActions: [ModulaContextAction] = []
+    var onSelectAction: ((ModulaContextAction) -> Void)? = nil
 
     var body: some View {
         if showsCompactAuthor {
@@ -188,7 +208,33 @@ struct PostHeader: View {
 
     @ViewBuilder
     private var moreButton: some View {
-        if let onMore {
+        if let onSelectAction, !menuActions.isEmpty {
+            Menu {
+                ForEach(menuActions) { action in
+                    Button(role: action.role == .destructive ? .destructive : nil) {
+                        onSelectAction(action)
+                    } label: {
+                        if let symbol = action.systemImage {
+                            Label(action.title, systemImage: symbol)
+                        } else {
+                            Text(action.title)
+                        }
+                    }
+                    .disabled(!action.isInteractive)
+                    .accessibilityLabel(action.resolvedAccessibilityLabel)
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: PostGestureThresholds.minimumHitTarget, height: PostGestureThresholds.minimumHitTarget)
+                    .contentShape(Rectangle())
+            }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .accessibilityLabel("More actions")
+            .accessibilityIdentifier("post.more.\(post.id)")
+        } else if let onMore {
             Button(action: onMore) {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 14, weight: .semibold))

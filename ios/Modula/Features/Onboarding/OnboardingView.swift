@@ -6,10 +6,13 @@ struct OnboardingView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var step: OnboardingStep = .world
     @State private var floatPhase: Bool = false
+    /// Scales with Dynamic Type (including accessibility sizes) instead of a fixed point size.
+    @ScaledMetric(relativeTo: .largeTitle) private var titleSize: CGFloat = 40
 
     var body: some View {
         ZStack {
             OnboardingHeroScene(floatPhase: floatPhase)
+            heroScrim
             VStack(spacing: 0) {
                 topBar
                 ScrollView {
@@ -41,6 +44,30 @@ struct OnboardingView: View {
                 floatPhase = true
             }
         }
+    }
+
+    /// Keeps white copy legible over bright hero frames without dimming the
+    /// whole scene: a light top band for the controls and a deeper bottom
+    /// band behind the title, body and calls to action.
+    private var heroScrim: some View {
+        VStack(spacing: 0) {
+            LinearGradient(colors: [.black.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: 140)
+            Spacer(minLength: 0)
+            LinearGradient(
+                stops: [
+                    .init(color: .clear, location: 0),
+                    .init(color: .black.opacity(0.45), location: 0.35),
+                    .init(color: .black.opacity(0.7), location: 1)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(maxHeight: .infinity)
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     private var topBar: some View {
@@ -85,12 +112,14 @@ struct OnboardingView: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(step.title)
-                .font(.system(size: dynamicTypeSize.isAccessibilitySize ? 34 : 40, weight: .bold, design: app.appearance.fontDesign))
+                .font(.system(size: titleSize, weight: .bold, design: app.appearance.fontDesign))
+                .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 0.8 : 1)
+                .accessibilityAddTraits(.isHeader)
                 .foregroundStyle(.white)
                 .fixedSize(horizontal: false, vertical: true)
             Text(step.body)
                 .font(.body)
-                .foregroundStyle(.white.opacity(0.86))
+                .foregroundStyle(.white.opacity(0.94))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .combine)
@@ -110,14 +139,13 @@ struct OnboardingView: View {
                             .font(.headline)
                     }
                     Spacer(minLength: 0)
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.55))
+                    // Informational rows: no chevron, because they don't navigate.
                 }
                 .foregroundStyle(.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
-                .modulaMaterial(.control, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .modulaMaterial(.control, in: RoundedRectangle(cornerRadius: ModulaRadius.medium + 2, style: .continuous))
+                .accessibilityElement(children: .combine)
             }
         }
         .accessibilityElement(children: .contain)

@@ -39,6 +39,9 @@ struct RegisterView: View {
     @State private var error: String?
     @State private var diagnostic: String?
     @State private var busy = false
+    @FocusState private var focus: Field?
+
+    private enum Field: Hashable { case email, handle, displayName, password }
 
     var body: some View {
         AuthChrome(title: "Create Account", subtitle: "Use a unique username and a password you don’t reuse.") {
@@ -46,15 +49,29 @@ struct RegisterView: View {
                 field("Email", text: $email, contentType: .emailAddress, identifier: "auth.register.email")
                     .keyboardType(.emailAddress)
                     .textInputAutocapitalization(.never)
+                    .focused($focus, equals: .email)
+                    .submitLabel(.next)
+                    .onSubmit { focus = .handle }
                 field("Username", text: $handle, contentType: .username, identifier: "auth.register.handle")
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                    .focused($focus, equals: .handle)
+                    .submitLabel(.next)
+                    .onSubmit { focus = .displayName }
                 field("Display name", text: $displayName, contentType: .name, identifier: "auth.register.display-name")
+                    .focused($focus, equals: .displayName)
+                    .submitLabel(.next)
+                    .onSubmit { focus = .password }
                 SecureField("Password", text: $password)
                     .textContentType(.newPassword)
                     .padding(14)
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: ModulaRadius.small + 4, style: .continuous))
                     .accessibilityIdentifier("auth.register.password")
+                    .accessibilityHint("At least 8 characters.")
+                    .focused($focus, equals: .password)
+                    .submitLabel(.go)
+                    .onSubmit { if canSubmit { Task { await submit() } } }
+                AuthPasswordRequirement(password: password)
                 Toggle("I agree to the Modula terms", isOn: $acceptedTerms)
                 if let error {
                     Text(error).foregroundStyle(.red).accessibilityIdentifier("auth.register.error")
@@ -64,18 +81,9 @@ struct RegisterView: View {
                     }
                     #endif
                 }
-                Button {
+                AuthPrimaryButton(title: "Create Account", busy: busy, enabled: canSubmit) {
                     Task { await submit() }
-                } label: {
-                    HStack {
-                        Spacer()
-                        if busy { ProgressView() } else { Text("Create Account") }
-                        Spacer()
-                    }
-                    .frame(minHeight: 48)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(!canSubmit)
                 Button("Already have an account? Sign In") {
                     app.navigation.open(.auth(.login))
                 }
@@ -98,6 +106,8 @@ struct RegisterView: View {
     }
 
     private func submit() async {
+        guard !busy else { return }
+        focus = nil
         busy = true
         error = nil
         diagnostic = nil
@@ -139,6 +149,7 @@ struct VerifyEmailView: View {
     @State private var error: String?
     @State private var busy = false
     @State private var sent = false
+    @State private var resending = false
 
     var body: some View {
         AuthChrome(title: "Verify email", subtitle: "Enter the code or token Greenfield sent you.") {
@@ -160,15 +171,19 @@ struct VerifyEmailView: View {
                 if let error {
                     Text(error).foregroundStyle(.red)
                 }
-                Button("Verify") {
+                AuthPrimaryButton(title: "Verify", busy: busy, enabled: !(code.isEmpty && token.isEmpty) && !busy) {
                     Task { await verify() }
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(code.isEmpty && token.isEmpty)
-                Button("Resend code") {
+                Button {
                     Task { await resend() }
+                } label: {
+                    HStack(spacing: 8) {
+                        if resending { ProgressView().controlSize(.small) }
+                        Text("Resend code")
+                    }
+                    .frame(minHeight: ModulaLayout.minimumTouch)
                 }
-                .disabled(email.isEmpty)
+                .disabled(email.isEmpty || resending)
                 if sent {
                     Text("If that email is registered, a new code is on its way.")
                         .foregroundStyle(.secondary)
@@ -180,6 +195,8 @@ struct VerifyEmailView: View {
     }
 
     private func verify() async {
+        guard !busy else { return }
+        error = nil
         busy = true
         defer { busy = false }
         do {
@@ -196,6 +213,10 @@ struct VerifyEmailView: View {
     }
 
     private func resend() async {
+        guard !resending else { return }
+        resending = true
+        defer { resending = false }
+        error = nil
         do {
             try await app.client.resendVerification(email: email)
             sent = true
@@ -215,6 +236,10 @@ struct ResetPasswordView: View {
     @State private var confirm = ""
     @State private var error: String?
     @State private var done = false
+    @State private var busy = false
+    @FocusState private var focus: Field?
+
+    private enum Field: Hashable { case token, password, confirm }
 
     var body: some View {
         AuthChrome(title: "Reset password", subtitle: "Use the token from your reset email. The new password is never stored on device.") {
@@ -223,30 +248,54 @@ struct ResetPasswordView: View {
                     .textInputAutocapitalization(.never)
                     .padding(14)
                     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .focused($focus, equals: .token)
+                    .submitLabel(.next)
+                    .onSubmit { focus = .password }
                 SecureField("New password", text: $password)
                     .textContentType(.newPassword)
                     .padding(14)
                     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .focused($focus, equals: .password)
+                    .submitLabel(.next)
+                    .onSubmit { focus = .confirm }
                 SecureField("Confirm password", text: $confirm)
+                    .textContentType(.newPassword)
                     .padding(14)
                     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .focused($focus, equals: .confirm)
+                    .submitLabel(.go)
+                    .onSubmit { if canSubmit { Task { await submit() } } }
+                AuthPasswordRequirement(password: password)
+                if !confirm.isEmpty, password != confirm {
+                    Label("Passwords don’t match.", systemImage: "exclamationmark.circle")
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                        .accessibilityIdentifier("auth.reset.mismatch")
+                }
                 if let error { Text(error).foregroundStyle(.red) }
                 if done {
                     Text("Password updated. Sign in with your new password.")
                         .foregroundStyle(.secondary)
                 }
-                Button("Update Password") {
+                AuthPrimaryButton(title: "Update Password", busy: busy, enabled: canSubmit) {
                     Task { await submit() }
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(token.isEmpty || password.count < 8 || password != confirm)
                 Button("Back to Sign In") { app.navigation.open(.auth(.login)) }
             }
         }
         .accessibilityIdentifier("auth.reset")
     }
 
+    private var canSubmit: Bool {
+        !token.isEmpty && password.count >= 8 && password == confirm && !busy
+    }
+
     private func submit() async {
+        guard !busy else { return }
+        focus = nil
+        busy = true
+        error = nil
+        defer { busy = false }
         do {
             try await app.client.resetPassword(token: token, newPassword: password)
             password = ""
@@ -260,5 +309,47 @@ struct ResetPasswordView: View {
             self.error = "Unable to reset the password."
             HapticEngine.shared.play(.failure)
         }
+    }
+}
+
+/// Live 8+ character requirement shown under new-password fields.
+struct AuthPasswordRequirement: View {
+    let password: String
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        let met = password.count >= 8
+        Label("At least 8 characters", systemImage: met ? "checkmark.circle.fill" : "circle")
+            .font(.footnote)
+            .foregroundStyle(met ? app.appearance.accent.color : Color.secondary)
+            .accessibilityLabel(met ? "Password meets the 8 character minimum" : "Password needs at least 8 characters")
+    }
+}
+
+/// Primary auth action with an inline busy state and repeat-tap protection.
+struct AuthPrimaryButton: View {
+    let title: String
+    let busy: Bool
+    let enabled: Bool
+    let action: () -> Void
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        Button {
+            guard !busy else { return }
+            action()
+        } label: {
+            HStack {
+                Spacer()
+                if busy { ProgressView() } else { Text(title) }
+                Spacer()
+            }
+            .frame(minHeight: 48)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(app.appearance.accent.color)
+        .disabled(!enabled || busy)
+        .accessibilityLabel(title)
+        .accessibilityValue(busy ? "In progress" : "")
     }
 }

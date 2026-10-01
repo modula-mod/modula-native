@@ -60,7 +60,7 @@ struct ActivityScreen: View {
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: 8) {
                 if let unread = state.unreadCount, unread > 0 {
-                    Text("\(unread) unread")
+                    Text("^[\(unread) unread item](inflect: true)")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(app.appearance.accent.color)
                         .padding(.top, 4)
@@ -210,6 +210,8 @@ struct ActivitySummarySheet: View {
 struct ActivityFilterSheet: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dismiss) private var dismiss
+    /// Row being applied; blocks repeat taps and shows inline progress.
+    @State private var applying: String?
 
     var body: some View {
         let mode: ActivityMode = {
@@ -219,28 +221,25 @@ struct ActivityFilterSheet: View {
         let current = app.activity.state(for: mode).filter
         List {
             Section("Status") {
-                filterRow(title: "All in \(mode.rawValue.capitalized)", symbol: "bell", selected: current == nil) {
-                    Task {
-                        await app.activity.setFilter(nil, mode: mode, signedIn: app.auth.isSignedIn)
-                        dismiss()
-                    }
+                filterRow(id: "all", title: Self.allTitle(for: mode), symbol: "bell", selected: current == nil) {
+                    apply(nil, id: "all")
                 }
-                filterRow(title: ActivityFilter.unread.title, symbol: ActivityFilter.unread.symbol, selected: current == .unread) {
-                    apply(.unread)
+                filterRow(id: ActivityFilter.unread.rawValue, title: ActivityFilter.unread.title, symbol: ActivityFilter.unread.symbol, selected: current == .unread) {
+                    apply(.unread, id: ActivityFilter.unread.rawValue)
                 }
             }
             Section("Types") {
                 ForEach([ActivityFilter.following, .mentions, .reactions, .comments, .requests, .modules, .system]) { filter in
-                    filterRow(title: filter.title, symbol: filter.symbol, selected: current == filter) {
-                        apply(filter)
+                    filterRow(id: filter.rawValue, title: filter.title, symbol: filter.symbol, selected: current == filter) {
+                        apply(filter, id: filter.rawValue)
                     }
                     .accessibilityIdentifier("activity.filter.\(filter.rawValue)")
                 }
             }
             Section("Broader") {
                 ForEach([ActivityFilter.people, .posts]) { filter in
-                    filterRow(title: filter.title, symbol: filter.symbol, selected: current == filter) {
-                        apply(filter)
+                    filterRow(id: filter.rawValue, title: filter.title, symbol: filter.symbol, selected: current == filter) {
+                        apply(filter, id: filter.rawValue)
                     }
                     .accessibilityIdentifier("activity.filter.\(filter.rawValue)")
                 }
@@ -256,26 +255,47 @@ struct ActivityFilterSheet: View {
         .accessibilityIdentifier("activity.filter")
     }
 
-    private func apply(_ filter: ActivityFilter) {
+    /// User-facing mode names (never raw enum values).
+    static func allTitle(for mode: ActivityMode) -> String {
+        switch mode {
+        case .all: "All Activity"
+        case .mentions: "All Mentions"
+        case .requests: "All Requests"
+        }
+    }
+
+    private func apply(_ filter: ActivityFilter?, id: String) {
+        guard applying == nil else { return }
         let mode: ActivityMode = {
             if case .activity(let mode) = app.navigation.currentRoute { return mode }
             return .all
         }()
+        applying = id
         Task {
             await app.activity.setFilter(filter, mode: mode, signedIn: app.auth.isSignedIn)
             HapticEngine.shared.play(.selection)
+            applying = nil
             dismiss()
         }
     }
 
-    private func filterRow(title: String, symbol: String, selected: Bool, action: @escaping () -> Void) -> some View {
+    private func filterRow(id: String, title: String, symbol: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack {
                 Label(title, systemImage: symbol)
                 Spacer()
-                if selected { Image(systemName: "checkmark") }
+                if applying == id {
+                    ProgressView().controlSize(.small)
+                } else if selected {
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(app.appearance.accent.color)
+                }
             }
+            .frame(minHeight: ModulaLayout.minimumTouch)
+            .contentShape(Rectangle())
         }
+        .disabled(applying != nil)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
