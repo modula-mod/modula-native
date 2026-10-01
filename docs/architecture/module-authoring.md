@@ -1,131 +1,38 @@
-# Module authoring contract
+# Native host conformance (modules)
 
-This page is for people writing a Modula module (Vault Notes today, a CRM tomorrow).
-It covers what a module declares, what it can call, and which UI building blocks it
-gets. Runtime internals are in [module-runtime.md](module-runtime.md), and the bridge
-wire format is in [host-bridge.md](host-bridge.md).
+This repository is a **host**, not a module standard. It does not define how modules
+are authored, declared, presented in the store, or rendered. The source of truth is the
+[modula-product-standard](https://github.com/modula-mod/modula-product-standard)
+repository:
 
-## 1. Manifest
+- `MPS-1.0.md` — the product contract (identity, assets, frontend, backend, storage,
+  permissions, privacy, release, provenance).
+- `docs/frontend/*` — the `modula.frontend.1.0` artifact: routes, views, components,
+  actions, data binding, theming, accessibility, assets and native capabilities.
+- `docs/provenance.md` — how a release is verified.
 
-Manifests live in `runtime/src/registry/manifests.json`. The file ships both in the JS
-bundle and as an app resource that Swift reads (`ModuleManifest` in
-`ios/Modula/ModuleRuntime/ModuleSession.swift`). It is typed by `ModuleManifest` in
-`packages/module-contracts/src/index.ts`.
+## What the iOS host must do
 
-| Field | Required | Meaning |
-| --- | --- | --- |
-| `id` | yes | Reverse-DNS id, `^[a-z][a-z0-9.-]+$`. It must match the server registry id. |
-| `name`, `version` | yes | Display name and semver of the bundled code. |
-| `runtime` | yes | Always `react-native`. |
-| `entry` | yes | Key in the `entries` map in `runtime/src/registry/ModuleRegistry.ts`. |
-| `permissions` | yes | The host actions the module may call (see §2). Anything not listed here is rejected natively. |
-| `collections` | for data | Record collections the module owns, e.g. `["note"]` or `["contact","deal"]`. Requests for any other collection are rejected. |
-| `minHostVersion`, `minBridgeVersion` | yes | `validateManifest` refuses to mount the module when these are not met. |
-| `presentation` | no | Store artwork and copy (`subtitle`, `tint`, `icon`, `cover`, `screenshots`). See §5. |
+- Accept modules only through the verified chain: GitHub release → Modula Registry →
+  Product Hub → declarative runtime. `modula.product.json` is the canonical declaration;
+  the host never invents manifest fields or reads store copy/artwork from bundled code.
+- Load store artwork (icon, cover, screenshots) only from registry URLs. When a source
+  is missing, show a neutral placeholder (initial or SF Symbol), never bundled
+  module-specific art.
+- Render module UI with the generic declarative host implementing the standard host
+  components for `modula.frontend.1.0`. The host does not define its own UI node
+  vocabulary. Reusable pieces in `runtime/src/ui` (theme, hooks, `kit.tsx`,
+  `records.tsx`, accessible components) exist to back those standard components.
+- Keep the shell boundary: the native shell owns navigation, presentation, appearance,
+  lifecycle, verification and failure isolation; the module owns its routes, views,
+  actions and bindings (see `MPS-1.0.md`, "Frontend boundary").
 
-Unknown fields are ignored, so new fields can be added in a backwards-compatible way.
+## Temporary exceptions
 
-## 2. Host actions (`host.request`)
+- The hand-built Vault Notes surface (`runtime/src/modules/vault/*`) is a **temporary
+  fallback** until the generic declarative host renders the verified Vault Notes 1.7.0
+  frontend. Do not extend it; remove it once the declarative path is in place.
+- `runtime/src/registry/manifests.json` is the existing bundled runtime registry for
+  development modules. It is not an MPS declaration and must not grow new schema.
 
-The module's only capability surface is `host.request(action, params)` from
-`@modula/module-sdk`. The native side checks every action against the manifest.
-
-- `navigation.open {route: 'profile'|..., ...}`: opens an allow-listed native route.
-- `haptics.selection`.
-- `diagnostics.ready`, `diagnostics.dataReady`, `diagnostics.fail`: lifecycle signals that the host uses for loading and crash UI.
-- `backend.records.list {collection, cursor?, limit?, query?, sort?: 'updatedAt'|'createdAt'|'title', direction?: 'asc'|'desc'}`
-- `backend.records.get | create | update | delete {collection, id?, data?}`
-
-Records are scoped to the signed-in user, the installation and the collection by the
-server. Modules never see tokens or URLs. Parameters are strictly validated and
-percent-encoded natively (`ModuleBackendRequest`), and unknown values are rejected
-rather than passed through.
-
-The module receives a `ModuleContext` (`moduleID`, `userID`, and `environment`:
-appearance, accent, density, font, contrast, motion). It also receives the lifecycle
-(`active`, `inactive`, `background`).
-
-## 3. UI building blocks
-
-Everything is themed from `moduleTheme(context.environment)` (`runtime/src/ui/theme.ts`),
-so modules automatically follow light/dark/OLED, accent, density, font, higher contrast
-and reduce-motion settings. Don't hard-code colours.
-
-| Layer | File | Use it for |
-| --- | --- | --- |
-| Primitives | `ui/components.tsx` | `ThemedText`, `ModuleButton`, `ModuleCard`, `LoadingRow`, `ModuleFallback` (error/empty with action), `DocumentBlocks`. |
-| Kit | `ui/kit.tsx` | `Badge`, `SearchField`, `SegmentedControl`, `RecordRow`, `SkeletonRows`, `InlineNotice`, `ToggleRow`, `Toolbar`. |
-| Records | `ui/records.tsx` | `Section`, `DetailHeader`, `KeyValueList`, `DataTable`, `FormField`, `SpecForm`. |
-| Rich text | `ui/blocks.ts` + `DocumentBlocks` | Notes-style documents (heading, paragraph, list, quote, code, checklist, divider). They are normalised and capped at `MAX_RENDERED_BLOCKS`. |
-| Declarative | `ui/nodes.ts` + `ui/NodeRenderer.tsx` | Whole screens described as data (below). |
-| Hooks | `ui/hooks.ts` | `useDebounced` (search), `useAlive` (ignore late async results after unmount). |
-
-### Declarative nodes
-
-`NodeRenderer({theme, nodes, actions})` renders a closed vocabulary. The node types are
-`stack`, `section`, `heading`, `text`, `badge`, `notice`, `button`, `keyValue`, `list`,
-`table`, `form`, `empty`, and `unsupported`. Interactive nodes reference an action **by
-name** (`{action: 'openDeal', payload: {id}}`). Only names registered in `actions` work,
-and payloads are scalar.
-
-`normalizeNodes` is the trust boundary, so screens can safely come from server data:
-- It never throws.
-- It caps size and depth (`NODE_LIMITS`).
-- It drops unknown properties.
-- It renders unknown node types as a visible "Unsupported: x" placeholder instead of crashing.
-
-The other built-in behaviours:
-- **Forms** are validated (`validateForm`) before the action fires.
-- **Tables** size their columns from content (`columnWidths`) and scroll horizontally.
-- **Accessibility:** each table or list row is one accessible element ("Deal: Annual renewal, Stage: Proposal, …"). Headings use the header role, and form inputs carry labels.
-- **Performance:** long lists in custom screens should use `FlatList` with `RecordRow`, as Vault does. The node renderer is memoised and bounded.
-
-The reference screen is `runtime/src/modules/gallery/crmSample.ts`. Runtime Diagnostic →
-"Component gallery" renders it on device.
-
-## 4. Building a CRM module
-
-1. **Manifest:** `id: "digital.modula.crm"`, `entry: "crm"`, `collections: ["contact","deal","activity"]`, plus the `backend.records.*`, `navigation.open` and `haptics.selection` permissions and `diagnostics.*`.
-2. **Code:** add `runtime/src/modules/crm/`:
-   - `model.ts`: pure mapping from record rows to view models, plus tests in `runtime/tests/`.
-   - `Crm.tsx`: a small in-module router (list → detail → form), like Vault's `screen` state.
-   - Register `crm: Crm` in `ModuleRegistry.ts`.
-3. **Screens:**
-   - Lists: `SearchField` + `SegmentedControl` + `FlatList` of `RecordRow`, with `SkeletonRows`, an empty `ModuleFallback` and a load-more `InlineNotice`. Pass `query`, `sort` and `direction` to `backend.records.list`, and page with `cursor`.
-   - Detail: `DetailHeader` + `KeyValueList` + `DataTable` of related deals, or the same thing as `NodeRenderer` nodes.
-   - Forms: `SpecForm` with `FieldSpec[]`. Save with `backend.records.create`/`update`, and keep the record schema in `data`.
-4. **Server:** register the module and its collections in the greenfield registry, along with the release (version, permissions with reasons, release notes, size) and marketplace artwork. Without that it can't be installed. The client doesn't need native changes for a new module beyond the bundled code.
-5. **Tests:** pure model tests (`npm test`), `npm run typecheck`, `python3 scripts/verify-boundaries.py`, and a UI test that opens it through Product Hub.
-
-## 5. Store presentation
-
-Product Hub builds the detail page from the server registry
-(`GET /v1/registry/modules/:id`). That covers description, version, publisher,
-permissions, rating, installs, release notes, size and previews. It merges in the
-optional manifest `presentation` block for artwork:
-
-```json
-"presentation": {
-  "subtitle": "Private notes, beautifully kept",
-  "tint": "#1F8A84",
-  "icon": "asset:VaultNotesIcon",
-  "cover": "asset:VaultNotesCover",
-  "screenshots": [{"source": "asset:VaultNotesShot1", "alt": "Notes list"}]
-}
-```
-
-- `asset:` sources resolve to images in `ios/Modula/Assets.xcassets`. Names are restricted to `[A-Za-z0-9_-]` segments. Vault's artwork is generated by `scripts/module-art/vault_notes_art.py`.
-- `https:` sources load remotely.
-- Server `marketplace.previews` take precedence over manifest screenshots.
-- Missing artwork falls back to a generated, tinted placeholder.
-
-Install state always comes from the server (`GET /v1/modules/installed`). Only an
-`enabled` installation can be opened, and bundled code alone never counts as installed.
-Product Hub drives the lifecycle through these endpoints, each with an idempotency key:
-
-- `POST /v1/modules/:id/install`, sent with the permissions shown in the confirmation.
-- `POST /v1/modules/:id/enable`, if the installation settles as disabled.
-- `POST /v1/modules/:id/update`.
-- `DELETE /v1/modules/:id/install` with `choice: keepData`.
-
-After each call it polls until the state settles (`ProductHubStore.install`, `update`, `uninstall`).
+When this note and the standard disagree, the standard wins; update this note.
