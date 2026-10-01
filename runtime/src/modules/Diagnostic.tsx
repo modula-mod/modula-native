@@ -1,5 +1,9 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, {useState, useEffect, useMemo, useRef} from 'react';
 import {View, Text, Button, ScrollView} from 'react-native';
+import {moduleTheme} from '../ui/theme';
+import {ModuleButton, ThemedText} from '../ui/components';
+import {NodeRenderer} from '../ui/NodeRenderer';
+import {CRM_ACTIONS, crmAccountScreen} from './gallery/crmSample';
 import type {HostAction} from '@modula/module-contracts';
 import type {Host, ModuleContext} from '@modula/module-sdk';
 
@@ -8,7 +12,19 @@ export function Diagnostic({context, host, lifecycle}: {context: ModuleContext; 
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const [result, setResult] = useState('Ready');
   const [crash, setCrash] = useState(false);
+  const [gallery, setGallery] = useState(false);
+  const theme = useMemo(() => moduleTheme(context.environment), [context.environment]);
+  const galleryActions = useMemo(() => Object.fromEntries(CRM_ACTIONS.map(name => [name, (action: string, payload?: Record<string, unknown>) => {
+    setResult(`${action}${payload && Object.keys(payload).length ? ` ${JSON.stringify(payload)}` : ''}`);
+    void host.request('haptics.selection').catch(() => {});
+  }])), [host]);
   if (crash) throw new Error('Intentional diagnostic render failure');
+  if (gallery) return <ScrollView style={{flex: 1, backgroundColor: theme.colors.canvas}} contentContainerStyle={{padding: theme.spacing.lg, gap: theme.spacing.md}}
+    keyboardShouldPersistTaps="handled" testID="diagnostic.gallery">
+    <View style={{alignSelf: 'flex-start'}}><ModuleButton theme={theme} title="Back to diagnostics" variant="secondary" onPress={() => setGallery(false)}/></View>
+    <ThemedText theme={theme} role="caption" secondary accessibilityRole="alert" testID="diagnostic.galleryResult">{result}</ThemedText>
+    <NodeRenderer theme={theme} nodes={crmAccountScreen} actions={galleryActions} testID="diagnostic.nodes"/>
+  </ScrollView>;
   async function request(action: HostAction, params = {}) {
     try { await host.request(action, params); if (alive.current) setResult('Native action accepted'); }
     catch { if (alive.current) setResult('Invalid action safely rejected'); }
@@ -24,6 +40,7 @@ export function Diagnostic({context, host, lifecycle}: {context: ModuleContext; 
       <Button title="Native haptic" onPress={() => void request('haptics.selection')}/>
       <Button title="Reject invalid action" onPress={() => void request('navigation.open', {route: 'platform.takeOwnership'})}/>
       <Button title="Throw module error" onPress={() => setCrash(true)}/>
+      <Button title="Component gallery" onPress={() => { setResult('Ready'); setGallery(true); }}/>
     </View>
     <Text accessibilityRole="alert" style={{color: dark ? '#fff' : '#111'}}>{result}</Text>
   </ScrollView>;
