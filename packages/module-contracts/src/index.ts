@@ -3,6 +3,12 @@ export type ModuleManifest = {
   id: string; name: string; version: string; runtime: 'react-native'; entry: string;
   permissions: string[]; minHostVersion: string; minBridgeVersion: string;
   collections?: string[];
+  /** Optional store artwork and copy. Sources are `asset:<name>` (bundled) or `https://…`. */
+  presentation?: ModulePresentation;
+};
+export type ModulePresentation = {
+  subtitle?: string; tint?: string; icon?: string; cover?: string;
+  screenshots?: {source: string; alt?: string}[];
 };
 export type ModuleEnvironment = {
   designContractVersion?: 1;

@@ -12,7 +12,11 @@
       "diagnostics.fail"
     ],
     "minHostVersion": "0.1.0",
-    "minBridgeVersion": "0.1.0"
+    "minBridgeVersion": "0.1.0",
+    "presentation": {
+      "subtitle": "Runtime health checks and component gallery",
+      "tint": "#4B4F7A"
+    }
   },
   {
     "id": "digital.modula.vault-notes",
@@ -36,6 +40,26 @@
       "note"
     ],
     "minHostVersion": "0.1.0",
-    "minBridgeVersion": "0.1.0"
+    "minBridgeVersion": "0.1.0",
+    "presentation": {
+      "subtitle": "Private notes, beautifully kept",
+      "tint": "#1F8A84",
+      "icon": "asset:VaultNotesIcon",
+      "cover": "asset:VaultNotesCover",
+      "screenshots": [
+        {
+          "source": "asset:VaultNotesShot1",
+          "alt": "Your notes, with search and sorting"
+        },
+        {
+          "source": "asset:VaultNotesShot2",
+          "alt": "Rich editor with checklists, headings and quotes"
+        },
+        {
+          "source": "asset:VaultNotesShot3",
+          "alt": "A saved rich note"
+        }
+      ]
+    }
   }
 ]
