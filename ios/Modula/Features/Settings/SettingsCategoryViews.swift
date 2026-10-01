@@ -494,7 +494,7 @@ struct BiometricsSettingsView: View {
             Text("Biometric unlock falls back to your Modula passcode. Failed biometric attempts never open Home.")
                 .foregroundStyle(.secondary)
         }
-        .modulaSoftScrollEdge()
+        .modulaCanvas()
         .navigationTitle("Face ID & Biometrics")
         .accessibilityIdentifier("settings.privacy-security.biometrics")
     }

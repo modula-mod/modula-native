@@ -190,7 +190,7 @@ struct IntelligenceModelsSettingsView: View {
                                 HStack(spacing: 13) {
                                     Image(systemName: row.executionKind == .local ? "iphone" : "cloud")
                                         .frame(width: 28)
-                                        .foregroundStyle(.tint)
+                                        .foregroundStyle(app.appearance.accent.color)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(displayName(for: row.id))
                                             .font(.body.weight(.medium))
@@ -244,7 +244,7 @@ struct IntelligenceModelsSettingsView: View {
         switch id {
         case NodusIntelligenceProvider.providerID: "Nodus"
         case AppleSystemIntelligenceProvider.providerID: "Apple System"
-        default: id
+        default: intelligenceReadableName(id)
         }
     }
 
@@ -312,23 +312,29 @@ struct IntelligencePrivacySettingsView: View {
         Form {
             Section {
                 LabeledContent("Default policy", value: "Local only")
-                Text("Requests use fail-closed local-only privacy. Remote providers are never selected as a silent fallback.")
+                Text("Requests stay on this device. If on-device processing isn’t available, Modula won’t quietly send them elsewhere.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
-            Section("Remote gate") {
-                LabeledContent("Remote intelligence permitted", value: remotePermitted ? "Yes" : "No")
-                Text("This gate is owned by the native intelligence service. Product settings do not invent a remote model picker.")
+            Section("Off-device processing") {
+                LabeledContent("Allowed", value: remotePermitted ? "Yes" : "No")
+                Text("This is set by Modula’s intelligence service. There’s no option here to choose a remote model.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
-            Section("Policies") {
+            Section("Privacy levels") {
                 ForEach(IntelligencePrivacy.allCases, id: \.self) { policy in
-                    LabeledContent(policyTitle(policy), value: policy.rawValue)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(policyTitle(policy))
+                        Text(policyDetail(policy))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityElement(children: .combine)
                 }
             }
         }
-        .modulaSoftScrollEdge()
+        .modulaCanvas()
         .navigationTitle("Privacy")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -344,6 +350,20 @@ struct IntelligencePrivacySettingsView: View {
         case .allowRemote: "Allow remote"
         }
     }
+
+    private func policyDetail(_ policy: IntelligencePrivacy) -> String {
+        switch policy {
+        case .localOnly: "Only ever runs on this device."
+        case .preferLocal: "Runs on this device when it can."
+        case .allowRemote: "May use a remote service when allowed."
+        }
+    }
+}
+
+/// Turns ids like "nodus.knowledge_search" into "Knowledge Search".
+func intelligenceReadableName(_ id: String) -> String {
+    let last = id.split(separator: ".").last.map(String.init) ?? id
+    return settingsDisplayTitle(last)
 }
 
 private struct IntelligenceToolRow: Identifiable {
@@ -378,7 +398,7 @@ struct IntelligenceToolsSettingsView: View {
                                 HStack(spacing: 13) {
                                     Image(systemName: "wrench.and.screwdriver")
                                         .frame(width: 28)
-                                        .foregroundStyle(.tint)
+                                        .foregroundStyle(app.appearance.accent.color)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(row.title)
                                             .font(.body.weight(.medium))
@@ -408,8 +428,8 @@ struct IntelligenceToolsSettingsView: View {
             rows = tools.map {
                 IntelligenceToolRow(
                     id: $0.id,
-                    title: $0.id,
-                    detail: $0.requiredPermission.map { "Requires \($0)" } ?? "No extra permission"
+                    title: intelligenceReadableName($0.id),
+                    detail: $0.requiredPermission.map { "Needs \(intelligenceReadableName($0)) permission" } ?? "No extra permission"
                 )
             }
             loaded = true
