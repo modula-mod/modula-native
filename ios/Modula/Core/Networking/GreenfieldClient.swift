@@ -23,6 +23,12 @@ enum APIError: Error, LocalizedError, Equatable {
         case .rejected(_, "RATE_LIMITED"), .rejected(_, "TOO_MANY_REQUESTS"):
             "Too many attempts. Try again shortly."
         case .rejected(_, "VALIDATION_FAILED"): "Check the details you entered and try again."
+        case .rejected(413, _), .rejected(_, "PAYLOAD_TOO_LARGE"):
+            "That file is too large to upload. Try a smaller photo."
+        case .rejected(_, "SERVER_UNAVAILABLE"):
+            "Modula is having trouble right now. Try again in a moment."
+        case .rejected(let status, _) where status >= 500:
+            "Modula is having trouble right now. Try again in a moment."
         case .rejected: "Unable to complete the request. Try again."
         }
     }
@@ -241,15 +247,7 @@ actor GreenfieldClient {
             transfer.cancel()
         }
         guard generation == epoch else { throw APIError.accountChanged }
-        guard let http = response as? HTTPURLResponse, data.count < 8_000_000 else { throw APIError.invalidResponse }
-        let envelope = try JSONDecoder().decode(Envelope<JSONValue>.self, from: data)
-        guard (200..<300).contains(http.statusCode), envelope.ok else {
-            let rawCode = envelope.error?.code ?? "REQUEST_FAILED"
-            let safeCode = rawCode.range(of: "^[A-Z0-9_]{1,80}$", options: .regularExpression) != nil ? rawCode : "REQUEST_FAILED"
-            throw APIError.rejected(http.statusCode, safeCode)
-        }
-        guard let value = envelope.data else { throw APIError.invalidResponse }
-        return value
+        return try Self.decodeEnvelope(data, response: response, method: "PUT", path: path)
     }
 
     /// Loads media through the same authenticated session as JSON requests. Greenfield
@@ -332,15 +330,53 @@ actor GreenfieldClient {
         if let bearer { request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
         request.httpBody = try body.map { try JSONEncoder().encode($0) }
         let (data, response) = try await transport.data(for: request)
+        return try Self.decodeEnvelope(data, response: response, method: method, path: path)
+    }
+
+    /// Decodes a Greenfield envelope. Responses that are not envelopes (for example the
+    /// nginx HTML 413 page in front of both hosts, or an HTML 502/503 from the edge) are
+    /// mapped by status to safe `APIError` codes instead of surfacing a decoding error,
+    /// and are logged without the body (which may echo request data).
+    nonisolated static func decodeEnvelope<T: Decodable>(
+        _ data: Data,
+        response: URLResponse,
+        method: String,
+        path: String
+    ) throws -> T {
         guard let http = response as? HTTPURLResponse, data.count < 8_000_000 else { throw APIError.invalidResponse }
-        let envelope = try JSONDecoder().decode(Envelope<T>.self, from: data)
+        let envelope: Envelope<T>
+        do {
+            envelope = try JSONDecoder().decode(Envelope<T>.self, from: data)
+        } catch {
+            let mapped = nonEnvelopeError(status: http.statusCode)
+            let contentType = http.value(forHTTPHeaderField: "Content-Type") ?? "unknown"
+            ModulaLog.network.error(
+                "Greenfield \(method, privacy: .public) \(path, privacy: .public) returned a non-envelope \(http.statusCode, privacy: .public) response (\(contentType, privacy: .public), \(data.count, privacy: .public) bytes) → \(mapped.diagnosticDescription, privacy: .public)"
+            )
+            throw mapped
+        }
         guard (200..<300).contains(http.statusCode), envelope.ok else {
             let rawCode = envelope.error?.code ?? "REQUEST_FAILED"
             let safeCode = rawCode.range(of: "^[A-Z0-9_]{1,80}$", options: .regularExpression) != nil ? rawCode : "REQUEST_FAILED"
+            if http.statusCode >= 500 || http.statusCode == 413 {
+                ModulaLog.network.error(
+                    "Greenfield \(method, privacy: .public) \(path, privacy: .public) failed \(http.statusCode, privacy: .public) \(safeCode, privacy: .public)"
+                )
+            }
             throw APIError.rejected(http.statusCode, safeCode)
         }
         guard let value = envelope.data else { throw APIError.invalidResponse }
         return value
+    }
+
+    /// Status-only mapping for bodies that are not Greenfield JSON.
+    nonisolated static func nonEnvelopeError(status: Int) -> APIError {
+        switch status {
+        case 413: .rejected(413, "PAYLOAD_TOO_LARGE")
+        case 429: .rejected(429, "RATE_LIMITED")
+        case 500...599: .rejected(status, "SERVER_UNAVAILABLE")
+        default: .invalidResponse
+        }
     }
 }
 
