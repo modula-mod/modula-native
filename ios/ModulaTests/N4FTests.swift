@@ -185,6 +185,28 @@ final class CreationValidationTests: XCTestCase {
         let content = CreationPayloadEncoder.postBody(from: draft)["content"]?.array
         XCTAssertEqual(content?.map { $0["attachmentId"]?.string }, ["att-pdf", "att-image"])
         XCTAssertEqual(content?.map { $0["type"]?.string }, ["pdf", "image"])
+        XCTAssertEqual(content?.first?["caption"]?.string, "Architecture")
+    }
+
+    /// Prod 09:14: two images uploaded (ready, never attached) then `POST /v1/posts` → 400.
+    /// The server's `normalizeContentInput` rejects any non-string `caption`, including null.
+    func testPhotoWithoutAltTextOmitsCaptionInsteadOfSendingNull() {
+        var draft = CreationDraft.fresh(kind: .photo, accountID: "acct", audience: .everyone)
+        draft.media = ["", "   "].enumerated().map { index, alt in
+            CreationMedia(
+                id: "local-\(index)", kind: .image, filename: "image.bin", altText: alt,
+                pixelWidth: 100, pixelHeight: 80, byteCount: 30, duration: nil, sensitive: false,
+                mimeType: "image/png", originalFilename: "Photo.png",
+                remoteAttachmentID: "51dd3245-6754-4926-ada4-b36a8a39e78\(index)", uploadState: .ready
+            )
+        }
+        let content = CreationPayloadEncoder.postBody(from: draft)["content"]?.array ?? []
+        XCTAssertEqual(content.count, 2)
+        for item in content {
+            guard case .object(let fields) = item else { return XCTFail("content item must be an object") }
+            XCTAssertNil(fields["caption"], "caption must be omitted, never null")
+            XCTAssertEqual(Set(fields.keys), ["type", "attachmentId"])
+        }
     }
 
     func testMentionsAndTopicsAreExtractedNotInvented() {
