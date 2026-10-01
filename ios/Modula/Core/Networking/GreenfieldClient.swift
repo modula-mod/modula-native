@@ -222,6 +222,16 @@ actor GreenfieldClient {
 
     func hasSession() -> Bool { tokens != nil }
 
+    #if DEBUG
+    /// UITest-only: forget the local session without contacting the server.
+    func discardLocalSession() {
+        epoch += 1
+        refreshTask?.cancel(); refreshTask = nil
+        tokens = nil; accountID = nil
+        try? keychain.clear()
+    }
+    #endif
+
     func authenticatedUpload(
         path: String,
         fileURL: URL,

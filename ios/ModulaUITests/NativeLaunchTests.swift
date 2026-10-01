@@ -1273,6 +1273,81 @@ final class N3BDiscoverUITests: XCTestCase {
 }
 
 @MainActor
+final class SignInUITests: XCTestCase {
+    /// Real Sign In surface against the N1 fixture: landmarks, disabled → enabled CTA,
+    /// show/hide password, inline server error, then manual email/password sign-in.
+    func testSignInStatesErrorAndManualSignIn() throws {
+        let fixture = try requireN1FixtureOrSkip()
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--uitest-n1-api", "--uitest-skip-first-run", "--uitest-signed-out", "--reset-appearance", "--ui-light"
+        ]
+        app.launch()
+        let login = app.descendants(matching: .any)["auth.login"].firstMatch
+        let deadline = Date().addingTimeInterval(20)
+        while !login.exists && Date() < deadline {
+            let skip = app.descendants(matching: .any)["onboarding.skip"]
+            if skip.exists { skip.tap() }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        XCTAssertTrue(login.waitForExistence(timeout: 5), "Sign In did not appear")
+
+        let email = app.descendants(matching: .any)["auth.email"].firstMatch
+        let password = app.secureTextFields["auth.password"].firstMatch
+        let signIn = app.buttons["auth.sign-in"].firstMatch
+        XCTAssertTrue(email.waitForExistence(timeout: 5))
+        XCTAssertTrue(password.exists)
+        XCTAssertTrue(signIn.exists)
+        XCTAssertFalse(signIn.isEnabled, "Sign In must be disabled until both fields are filled")
+        XCTAssertTrue(app.buttons["auth.forgot-password"].exists)
+        XCTAssertTrue(app.buttons["auth.create-account"].exists)
+        attachScreenshot(app, name: "signin-empty-light")
+
+        pasteText(fixture.email, into: email, app: app)
+        pasteText("definitely-not-the-password", into: password, app: app)
+        XCTAssertTrue(signIn.isEnabled)
+
+        let toggle = app.buttons["auth.password.visibility"].firstMatch
+        XCTAssertTrue(toggle.exists)
+        XCTAssertEqual(toggle.label, "Show password")
+        toggle.tap()
+        XCTAssertTrue(app.textFields["auth.password"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertEqual(app.buttons["auth.password.visibility"].firstMatch.label, "Hide password")
+        attachScreenshot(app, name: "signin-filled-revealed-light")
+        let hide = app.buttons["Hide password"].firstMatch
+        expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: hide)
+        waitForExpectations(timeout: 5)
+        hide.tap()
+        XCTAssertTrue(app.secureTextFields["auth.password"].firstMatch.waitForExistence(timeout: 3))
+
+        signIn.tap()
+        let error = app.descendants(matching: .any)["auth.error"].firstMatch
+        XCTAssertTrue(error.waitForExistence(timeout: 20), "Wrong password should show an inline error")
+        XCTAssertFalse(app.descendants(matching: .any)["native.home"].exists)
+        attachScreenshot(app, name: "signin-error-light")
+
+        // Password is cleared after a failed attempt; enter the real one by hand.
+        pasteText(fixture.password, into: app.secureTextFields["auth.password"].firstMatch, app: app)
+        XCTAssertFalse(error.exists, "Editing should clear the stale error")
+        signIn.tap()
+        let home = app.descendants(matching: .any)["native.home"].firstMatch
+        let firstRun = app.descendants(matching: .any)["firstrun.root"].firstMatch
+        let signedIn = Date().addingTimeInterval(30)
+        while !(home.exists || firstRun.exists) && Date() < signedIn {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        }
+        XCTAssertTrue(home.exists || firstRun.exists, "Manual sign-in did not reach the shell")
+    }
+
+    private func attachScreenshot(_ app: XCUIApplication, name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}
+
+@MainActor
 final class N3CHomeUITests: XCTestCase {
     func testConversationUsesContinuousDetailAndPinnedComposer() throws {
         let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--reset-appearance", "--ui-dark"])

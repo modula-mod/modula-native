@@ -205,6 +205,14 @@ final class AppEnvironment {
 
     func bootstrapLaunch() async {
         gate.beginBoot()
+        #if DEBUG
+        // UITest-only: start signed out against the isolated N1 fixture so the real
+        // Sign In surface is exercised. Never applies to production hosts.
+        if ProcessInfo.processInfo.arguments.contains("--uitest-signed-out"),
+           GreenfieldEnvironmentLabel.isIsolatedFixture(host: await client.apiOriginHost) {
+            await client.discardLocalSession()
+        }
+        #endif
         await auth.restore()
         drafts.setAccountID(auth.account?.accountId)
         #if DEBUG
