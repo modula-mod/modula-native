@@ -943,3 +943,33 @@ final class HomePaginationRaceTests: XCTestCase {
         XCTAssertEqual(state.loadState, .loaded)
     }
 }
+
+@MainActor
+final class ProductHubInstalledStateTests: XCTestCase {
+    func testSigningOutClearsThePreviousAccountsInstalledModules() async throws {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [SessionRouterProtocol.self]
+        let client = GreenfieldClient(baseURL: URL(string: "https://hub-\(UUID().uuidString.prefix(8)).modula.test")!,
+                                      transport: URLSession(configuration: config))
+        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let tokens = #"{"ok":true,"data":{"accessToken":"a","refreshToken":"r","sessionId":"s","accessExpiresAt":"\#(f.string(from: Date().addingTimeInterval(900)))","refreshExpiresAt":"\#(f.string(from: Date().addingTimeInterval(86_400)))"}}"#
+        SessionRouterProtocol.handler = { request in
+            switch (request.httpMethod ?? "", request.url?.path ?? "") {
+            case ("POST", "/v1/sessions"): return (201, tokens)
+            case ("GET", "/v1/accounts/me"): return (200, #"{"ok":true,"data":{"accountId":"acct","primaryHandle":"me","status":"active"}}"#)
+            case ("GET", "/v1/registry/products"): return (200, #"{"ok":true,"data":{"items":[]}}"#)
+            case ("GET", "/v1/modules/installed"): return (200, #"{"ok":true,"data":{"items":[{"moduleId":"digital.modula.vault-notes"}]}}"#)
+            case ("DELETE", "/v1/sessions/current"): return (200, #"{"ok":true,"data":{"revoked":true}}"#)
+            default: return (404, "{}")
+            }
+        }
+        defer { SessionRouterProtocol.handler = nil }
+        let store = ProductHubStore(client: client)
+        _ = try await client.signIn(email: "a@b.c", password: "pw")
+        await store.load()
+        XCTAssertEqual(store.installedIDs, ["digital.modula.vault-notes"])
+        try await client.signOut()
+        await store.load()
+        XCTAssertTrue(store.installedIDs.isEmpty, "Signed out must not show another account's modules as installed")
+    }
+}

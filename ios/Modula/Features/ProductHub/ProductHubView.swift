@@ -20,13 +20,28 @@ final class ProductHubStore {
         do {
             products = try await client.catalogue()
             loaded = true
-            if let installed = try? await client.installedModuleIDs() { installedIDs = installed }
+            installedIDs = await Self.installedIDs(client: client, previous: installedIDs)
         } catch {
             self.error = "Product catalogue is unavailable. Pull to refresh."
         }
     }
 
     func product(_ id: String) -> CatalogueProduct? { products.first { $0.moduleId == id } }
+
+    /// Installed modules belong to the signed-in account. Signed out (or the session was
+    /// rejected) means nothing is installed; a transient failure keeps the last known set.
+    /// Previously a failed fetch always kept the old set, so after signing out (or into
+    /// another account) the hub still showed the previous account's modules as "Open".
+    static func installedIDs(client: GreenfieldClient, previous: Set<String>) async -> Set<String> {
+        guard await client.hasSession() else { return [] }
+        do {
+            return try await client.installedModuleIDs()
+        } catch APIError.unauthenticated, APIError.rejected(401, _), APIError.rejected(403, _), APIError.accountChanged {
+            return []
+        } catch {
+            return previous
+        }
+    }
 }
 
 private struct VaultFoldMark: Shape {
