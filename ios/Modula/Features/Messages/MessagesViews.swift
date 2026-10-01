@@ -316,12 +316,19 @@ struct ConversationView: View {
         default:
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 10) {
-                        ForEach(items) { message in
-                            MessageBubble(message: message) { action in
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(items.enumerated()), id: \.element.id) { index, message in
+                            let position = MessageGroupPosition.resolve(index: index, in: items)
+                            MessageBubble(message: message, position: position) { action in
                                 handle(action, message: message)
                             }
+                            // Tight spacing inside a run of messages, roomier between senders.
+                            .padding(.top, index == 0 ? 0 : (position.startsGroup ? 10 : 2))
                             .id(message.id)
+                            // New bubbles rise in from the composer; plain fade under Reduce Motion.
+                            .transition(reduceMotion
+                                ? .opacity
+                                : .move(edge: .bottom).combined(with: .opacity))
                         }
                     }
                     .padding(.horizontal, ModulaLayout.contentInset)
@@ -389,21 +396,65 @@ struct ConversationView: View {
     }
 }
 
+/// Position of a bubble inside a run of consecutive messages from the
+/// same sender (within a few minutes). Drives corner shape, spacing and
+/// whether the incoming avatar is shown (only on the last bubble).
+enum MessageGroupPosition: Sendable {
+    case single, first, middle, last
+
+    var startsGroup: Bool { self == .single || self == .first }
+    var endsGroup: Bool { self == .single || self == .last }
+
+    static func resolve(index: Int, in items: [Message]) -> MessageGroupPosition {
+        func joined(_ a: Message, _ b: Message) -> Bool {
+            a.sender.id == b.sender.id
+                && a.isOwn == b.isOwn
+                && abs(b.sentAt.timeIntervalSince(a.sentAt)) < 5 * 60
+        }
+        let current = items[index]
+        let joinsPrevious = index > 0 && joined(items[index - 1], current)
+        let joinsNext = index + 1 < items.count && joined(current, items[index + 1])
+        switch (joinsPrevious, joinsNext) {
+        case (false, false): return .single
+        case (false, true): return .first
+        case (true, true): return .middle
+        case (true, false): return .last
+        }
+    }
+}
+
 struct MessageBubble: View {
     let message: Message
+    var position: MessageGroupPosition = .single
     var onAction: (ModulaContextAction) -> Void
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
 
+    private static let avatarSize = 28.0
+
     var body: some View {
-        HStack {
-            if message.isOwn { Spacer(minLength: 48) }
+        HStack(alignment: .bottom, spacing: 8) {
+            if message.isOwn {
+                Spacer(minLength: 48)
+            } else {
+                // Avatar only on the last bubble of an incoming run; keep the
+                // gutter elsewhere so the run stays aligned.
+                Group {
+                    if position.endsGroup {
+                        ModulaAvatar(initials: message.sender.initials, url: message.sender.avatarURL, size: Self.avatarSize)
+                    } else {
+                        Color.clear
+                    }
+                }
+                .frame(width: Self.avatarSize, height: Self.avatarSize)
+                .accessibilityHidden(true)
+            }
             VStack(alignment: message.isOwn ? .trailing : .leading, spacing: 6) {
                 Text(message.body.text)
                     .font(.body)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(bubbleFill, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .background(bubbleFill, in: bubbleShape)
                     .foregroundStyle(message.isOwn ? Color.white : Color.primary)
                 HStack(spacing: 8) {
                     if message.delivery == .failed {
@@ -431,6 +482,29 @@ struct MessageBubble: View {
             Button("Copy") { onAction(.init(id: "copy", title: "Copy")) }
         }
         .accessibilityIdentifier("messages.bubble.\(message.id)")
+    }
+
+    /// Large outer corners, tighter corners where bubbles of a run meet.
+    private var bubbleShape: UnevenRoundedRectangle {
+        let large = 18.0, tight = 6.0
+        let topJoin = !position.startsGroup
+        let bottomJoin = !position.endsGroup
+        if message.isOwn {
+            return UnevenRoundedRectangle(
+                topLeadingRadius: large,
+                bottomLeadingRadius: large,
+                bottomTrailingRadius: bottomJoin ? tight : large,
+                topTrailingRadius: topJoin ? tight : large,
+                style: .continuous
+            )
+        }
+        return UnevenRoundedRectangle(
+            topLeadingRadius: topJoin ? tight : large,
+            bottomLeadingRadius: bottomJoin ? tight : large,
+            bottomTrailingRadius: large,
+            topTrailingRadius: large,
+            style: .continuous
+        )
     }
 
     private var bubbleFill: Color {

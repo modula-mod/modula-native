@@ -333,22 +333,41 @@ struct AuthPrimaryButton: View {
     let enabled: Bool
     let action: () -> Void
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private static let height = 48.0
+
+    /// Full-width pill that contracts into a circular loader while busy.
+    /// Under Reduce Motion the width stays fixed and only the content fades.
     var body: some View {
+        let contracted = busy && !reduceMotion
         Button {
             guard !busy else { return }
             action()
         } label: {
-            HStack {
-                Spacer()
-                if busy { ProgressView() } else { Text(title) }
-                Spacer()
+            ZStack {
+                if busy {
+                    ProgressView()
+                        .tint(.white)
+                        .transition(.opacity)
+                } else {
+                    Text(title)
+                        .font(.headline)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .transition(.opacity)
+                }
             }
-            .frame(minHeight: 48)
+            .foregroundStyle(.white)
+            .frame(maxWidth: contracted ? Self.height : .infinity)
+            .frame(minHeight: Self.height)
+            .background(app.appearance.accent.color.opacity(enabled || busy ? 1 : 0.4), in: Capsule())
+            .contentShape(Capsule())
+            .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.borderedProminent)
-        .tint(app.appearance.accent.color)
+        .buttonStyle(.plain)
         .disabled(!enabled || busy)
+        .animation(ModulaMotion.animation(.morph, personality: app.appearance.motion, reduceMotion: reduceMotion), value: busy)
         .accessibilityLabel(title)
         .accessibilityValue(busy ? "In progress" : "")
     }
