@@ -1,6 +1,8 @@
 import PhotosUI
 import SwiftUI
+import ImageIO
 import UIKit
+import UniformTypeIdentifiers
 
 struct StoryRing: View {
     let state: StoryRingState
@@ -472,6 +474,8 @@ struct StoryCreateView: View {
                             }
                         }
                         .accessibilityLabel("Add a photo")
+                        .accessibilityValue(photoAccessibilityValue)
+                        .accessibilityIdentifier("story.create.photo")
                         .disabled(busy)
 
                         HStack {
@@ -530,7 +534,12 @@ struct StoryCreateView: View {
         .onChange(of: pickerItem) { _, item in
             Task { await load(item) }
         }
-        .task { await restoreDraft() }
+        .task {
+            await restoreDraft()
+            #if DEBUG
+            await injectUITestPhotoIfRequested()
+            #endif
+        }
         .onChange(of: caption) { _, _ in saveDraft() }
         .onChange(of: visibility) { _, _ in saveDraft() }
         .onDisappear { if !published { saveDraft(); app.drafts.flush() } }
@@ -548,8 +557,23 @@ struct StoryCreateView: View {
         .accessibilityValue(RouteSerializer.serialize(.stories(.create)))
     }
 
+    private var photoAccessibilityValue: String {
+        guard let prepared else { return "No photo selected" }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--uitest-story-large-photo") {
+            return "Photo selected, \(prepared.data.count) bytes"
+        }
+        #endif
+        return "Photo selected"
+    }
+
     private func load(_ item: PhotosPickerItem?) async {
         guard let item, let data = try? await item.loadTransferable(type: Data.self) else { return }
+        await load(data: data)
+    }
+
+    private func load(data: Data) async {
+        app.stories.setActionError(nil)
         do {
             let image = try await MediaPreparation.jpegStrippingMetadata(data)
             guard let accountID = app.auth.account?.accountId else { return }
@@ -574,6 +598,19 @@ struct StoryCreateView: View {
             HapticEngine.shared.play(.success)
         }
     }
+
+    #if DEBUG
+    /// UI-test hook: `--uitest-story-large-photo` feeds a generated, detail-heavy photo
+    /// (well over 1 MB once prepared) through the same path as the Photos picker.
+    /// Only honoured against the isolated N1 fixture host, never production.
+    private func injectUITestPhotoIfRequested() async {
+        guard ProcessInfo.processInfo.arguments.contains("--uitest-story-large-photo"), prepared == nil else { return }
+        guard GreenfieldEnvironmentLabel.isIsolatedFixture(host: await app.client.apiOriginHost) else { return }
+        let data = await Task.detached(priority: .userInitiated) { StoryUITestPhoto.detailedJPEG() }.value
+        guard let data else { return }
+        await load(data: data)
+    }
+    #endif
 
     private func saveDraft() {
         guard restored, !published else { return }
@@ -601,6 +638,39 @@ struct StoryCreateView: View {
 }
 
 #if DEBUG
+enum StoryUITestPhoto {
+    /// Gradient plus deterministic grain: compresses like a real high-detail photo,
+    /// so the prepared 2048px JPEG lands well above the 1 MiB proxy limit.
+    nonisolated static func detailedJPEG(width: Int = 1536, height: Int = 2048) -> Data? {
+        let bytesPerRow = width * 4
+        var pixels = [UInt8](repeating: 255, count: bytesPerRow * height)
+        var seed: UInt32 = 0x9E37_79B9
+        for y in 0..<height {
+            for x in 0..<width {
+                seed = seed &* 1_664_525 &+ 1_013_904_223
+                let grain = Int(seed >> 24) - 128
+                let offset = y * bytesPerRow + x * 4
+                pixels[offset] = UInt8(clamping: 54 + x * 120 / width + grain / 2)
+                pixels[offset + 1] = UInt8(clamping: 156 - y * 90 / height + grain / 2)
+                pixels[offset + 2] = UInt8(clamping: 170 + (x + y) * 60 / (width + height) + grain / 2)
+            }
+        }
+        let output = NSMutableData()
+        let made: Bool = pixels.withUnsafeMutableBytes { buffer in
+            guard let context = CGContext(
+                data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: bytesPerRow,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+            ), let image = context.makeImage(),
+                let destination = CGImageDestinationCreateWithData(output, UTType.jpeg.identifier as CFString, 1, nil) else {
+                return false
+            }
+            CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: 0.95] as CFDictionary)
+            return CGImageDestinationFinalize(destination)
+        }
+        return made ? output as Data : nil
+    }
+}
+
 #Preview("Story rings") {
     HStack {
         StoryRing(state: .unseen, accent: .teal)

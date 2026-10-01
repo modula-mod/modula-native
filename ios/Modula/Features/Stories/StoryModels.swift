@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import OSLog
 
 typealias StoryID = String
 
@@ -261,6 +262,25 @@ enum StoryProgressEvent: Equatable {
     case finished
 }
 
+/// Request-size contract for inline story media. Both Greenfield edges
+/// (`ops/nginx/api.modula.digital.conf`, `scripts/n1/nginx-native-n1.conf`) set
+/// `client_max_body_size 1m` (1,048,576 B); prod accepted a 1,013,426 B body and
+/// rejected 1,066,758 B with an HTML 413.
+enum StoryUploadBudget {
+    static let proxyBodyLimitBytes = 1_048_576
+    /// Keep ~48 KiB of headroom under the proxy limit.
+    static let maximumBodyBytes = 1_000_000
+    /// JSON keys, numbers, visibility and punctuation.
+    static let envelopeOverheadBytes = 1_024
+
+    /// Largest raw image that base64-encodes (4/3) into the remaining body budget,
+    /// allowing ~2% for `JSONEncoder` escaping `/` inside the base64 text.
+    static func imageByteBudget(captionByteCount: Int) -> Int {
+        let available = maximumBodyBytes - envelopeOverheadBytes - captionByteCount * 2
+        return max(0, Int(Double(available) * 0.75 / 1.02))
+    }
+}
+
 struct StoryBackendRepository: Sendable {
     let capabilities: StoryBackendCapabilities
     private let client: GreenfieldClient
@@ -285,24 +305,59 @@ struct StoryBackendRepository: Sendable {
 
     func create(image: PreparedImage, caption: String?, visibility: String = "public") async throws -> StoryGroup {
         guard capabilities.create else { throw APIError.unavailable("Story publishing isn’t available.") }
+        let body = try await Self.uploadableBody(image: image, caption: caption, visibility: visibility)
+        let value: JSONValue = try await client.authenticatedJSON(
+            "POST",
+            path: StoryBackendCapabilities.Paths.create,
+            body: body
+        )
+        guard let group = StoryPayloadDecoder.group(value) else { throw APIError.invalidResponse }
+        return group
+    }
+
+    /// Greenfield's `POST /v1/stories` only accepts the media inline as base64 (there is
+    /// no attachment/upload reference for stories), and nginx in front of every host caps
+    /// request bodies at 1 MiB. Fit the JPEG to a byte budget and verify the *encoded*
+    /// JSON size (base64 is 4/3 and `JSONEncoder` escapes `/`) before sending, so the
+    /// request never reaches the proxy's HTML 413.
+    static func uploadableBody(image: PreparedImage, caption: String?, visibility: String) async throws -> JSONValue {
+        let trimmedCaption = caption?.trimmingCharacters(in: .whitespacesAndNewlines)
+        var budget = StoryUploadBudget.imageByteBudget(captionByteCount: trimmedCaption?.utf8.count ?? 0)
+        for _ in 0..<4 {
+            let fitted: PreparedImage
+            if image.data.count <= budget {
+                fitted = image
+            } else {
+                fitted = try await MediaPreparation.jpegFitting(image.data, maxBytes: budget)
+            }
+            let body = requestBody(image: fitted, caption: trimmedCaption, visibility: visibility)
+            let encodedSize = try JSONEncoder().encode(body).count
+            if encodedSize <= StoryUploadBudget.maximumBodyBytes {
+                if fitted.data.count != image.data.count {
+                    ModulaLog.network.notice(
+                        "story media fitted \(image.data.count, privacy: .public)B \(image.width, privacy: .public)px → \(fitted.data.count, privacy: .public)B \(fitted.width, privacy: .public)x\(fitted.height, privacy: .public); body \(encodedSize, privacy: .public)B"
+                    )
+                }
+                return body
+            }
+            budget = Int(Double(budget) * 0.9)
+        }
+        throw APIError.rejected(413, "PAYLOAD_TOO_LARGE")
+    }
+
+    static func requestBody(image: PreparedImage, caption: String?, visibility: String) -> JSONValue {
         var body: [String: JSONValue] = [
             "mediaKind": .string("image"),
             "base64": .string(image.data.base64EncodedString()),
             "contentType": .string(image.mimeType),
             "width": .number(Double(image.width)),
-            "height": .number(Double(image.height))
+            "height": .number(Double(image.height)),
+            "visibility": .string(visibility)
         ]
-        body["visibility"] = .string(visibility)
-        if let caption, !caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if let caption, !caption.isEmpty {
             body["caption"] = .string(caption)
         }
-        let value: JSONValue = try await client.authenticatedJSON(
-            "POST",
-            path: StoryBackendCapabilities.Paths.create,
-            body: .object(body)
-        )
-        guard let group = StoryPayloadDecoder.group(value) else { throw APIError.invalidResponse }
-        return group
+        return .object(body)
     }
 
     func markViewed(itemID: StoryID) async throws {
@@ -391,10 +446,22 @@ final class StoryStore {
             actionError = nil
             return true
         } catch let api as APIError {
+            ModulaLog.network.error("story publish failed: \(api.diagnosticDescription, privacy: .public)")
             actionError = api.userFacingMessage
             return false
+        } catch MediaPreparationError.exceedsByteBudget {
+            ModulaLog.network.error("story publish failed: media could not meet the upload budget")
+            actionError = "This photo is too detailed to share as a story. Try a different photo."
+            return false
+        } catch let url as URLError {
+            ModulaLog.network.error("story publish failed: URLError \(url.code.rawValue, privacy: .public)")
+            actionError = url.code == .timedOut
+                ? "Sharing took too long. Check your connection and try again."
+                : "Couldn’t reach Modula. Check your connection and try again."
+            return false
         } catch {
-            actionError = "Couldn’t share your story."
+            ModulaLog.network.error("story publish failed: \(String(describing: type(of: error)), privacy: .public)")
+            actionError = "Couldn’t share your story. Try again."
             return false
         }
     }

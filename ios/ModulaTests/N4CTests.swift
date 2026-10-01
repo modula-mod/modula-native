@@ -1,3 +1,4 @@
+import ImageIO
 import XCTest
 @testable import Modula
 
@@ -522,5 +523,157 @@ final class MessagingCapabilityHonestyTests: XCTestCase {
         XCTAssertTrue(StoryBackendCapabilities.production.create)
         XCTAssertTrue(ReelBackendCapabilities.production.seedList)
         XCTAssertFalse(ReelBackendCapabilities.production.rankedFeed)
+    }
+}
+
+// MARK: - Story upload budget and non-JSON HTTP errors
+
+private final class StubHTTPProtocol: URLProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var status = 200
+    nonisolated(unsafe) static var contentType = "application/json"
+    nonisolated(unsafe) static var body = Data()
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let response = HTTPURLResponse(
+            url: request.url!, statusCode: Self.status, httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": Self.contentType]
+        )!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Self.body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
+final class GreenfieldNonJSONErrorTests: XCTestCase {
+    private let nginx413 = Data("""
+    <html>
+    <head><title>413 Request Entity Too Large</title></head>
+    <body>
+    <center><h1>413 Request Entity Too Large</h1></center>
+    <hr><center>nginx</center>
+    </body>
+    </html>
+    """.utf8)
+
+    private func response(_ status: Int, type: String = "text/html; charset=utf-8") -> HTTPURLResponse {
+        HTTPURLResponse(url: URL(string: "https://native-n1.modula.digital/v1/stories")!, statusCode: status,
+                        httpVersion: "HTTP/1.1", headerFields: ["Content-Type": type])!
+    }
+
+    func testNginxHTML413MapsToPayloadTooLarge() {
+        XCTAssertThrowsError(
+            try GreenfieldClient.decodeEnvelope(nginx413, response: response(413), method: "POST", path: "/v1/stories") as JSONValue
+        ) { error in
+            XCTAssertEqual(error as? APIError, .rejected(413, "PAYLOAD_TOO_LARGE"))
+            XCTAssertEqual((error as? APIError)?.userFacingMessage, "That file is too large to upload. Try a smaller photo.")
+        }
+    }
+
+    func testHTML5xxMapsToServerUnavailable() {
+        for status in [500, 502, 503, 504] {
+            XCTAssertThrowsError(
+                try GreenfieldClient.decodeEnvelope(Data("<html>Bad Gateway</html>".utf8), response: response(status),
+                                                    method: "GET", path: "/v1/stories/rail") as JSONValue
+            ) { error in
+                XCTAssertEqual(error as? APIError, .rejected(status, "SERVER_UNAVAILABLE"))
+                XCTAssertEqual((error as? APIError)?.userFacingMessage, "Modula is having trouble right now. Try again in a moment.")
+            }
+        }
+    }
+
+    func testNonJSON429AndOtherStatuses() {
+        XCTAssertEqual(GreenfieldClient.nonEnvelopeError(status: 429), .rejected(429, "RATE_LIMITED"))
+        XCTAssertEqual(GreenfieldClient.nonEnvelopeError(status: 200), .invalidResponse)
+        XCTAssertEqual(GreenfieldClient.nonEnvelopeError(status: 404), .invalidResponse)
+    }
+
+    func testJSONEnvelopeErrorsKeepServerCode() {
+        let body = Data(#"{"ok":false,"error":{"code":"VALIDATION_FAILED","message":"x"}}"#.utf8)
+        XCTAssertThrowsError(
+            try GreenfieldClient.decodeEnvelope(body, response: response(400, type: "application/json"),
+                                                method: "POST", path: "/v1/stories") as JSONValue
+        ) { error in
+            XCTAssertEqual(error as? APIError, .rejected(400, "VALIDATION_FAILED"))
+        }
+        let json5xx = Data(#"{"ok":false,"error":{"code":"SERVER_ERROR"}}"#.utf8)
+        XCTAssertEqual(
+            APIError.rejected(500, "SERVER_ERROR").userFacingMessage,
+            "Modula is having trouble right now. Try again in a moment."
+        )
+        XCTAssertThrowsError(
+            try GreenfieldClient.decodeEnvelope(json5xx, response: response(500, type: "application/json"),
+                                                method: "POST", path: "/v1/stories") as JSONValue
+        )
+    }
+
+    func testClientSurfacesProxy413AsAPIError() async {
+        StubHTTPProtocol.status = 413
+        StubHTTPProtocol.contentType = "text/html"
+        StubHTTPProtocol.body = nginx413
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubHTTPProtocol.self]
+        let client = GreenfieldClient(baseURL: URL(string: "https://stub.modula.invalid"), transport: URLSession(configuration: configuration))
+        do {
+            _ = try await client.publicJSON("POST", path: "/v1/stories", body: .object([:]))
+            XCTFail("Expected a 413 rejection")
+        } catch {
+            XCTAssertEqual(error as? APIError, .rejected(413, "PAYLOAD_TOO_LARGE"))
+        }
+    }
+}
+
+final class StoryUploadBudgetTests: XCTestCase {
+    func testBudgetStaysUnderProxyLimit() {
+        let budget = StoryUploadBudget.imageByteBudget(captionByteCount: 0)
+        XCTAssertGreaterThan(budget, 600_000)
+        XCTAssertLessThan(Double(budget) * 4 / 3, Double(StoryUploadBudget.maximumBodyBytes))
+        XCTAssertLessThan(StoryUploadBudget.maximumBodyBytes, StoryUploadBudget.proxyBodyLimitBytes)
+        XCTAssertLessThan(StoryUploadBudget.imageByteBudget(captionByteCount: 2_000), budget)
+    }
+
+    func testLargePreparedPhotoIsFittedUnderTheProxyLimit() async throws {
+        let source = try XCTUnwrap(StoryUITestPhoto.detailedJPEG())
+        // The composer's preparation step alone produces a body nginx rejects.
+        let prepared = try MediaPreparation.jpegStrippingMetadataSync(source, maxPixel: 2048, quality: 0.86)
+        XCTAssertGreaterThan(prepared.data.count, 1_048_576, "fixture must reproduce the >1 MiB story")
+        let naive = try JSONEncoder().encode(StoryBackendRepository.requestBody(image: prepared, caption: nil, visibility: "public"))
+        XCTAssertGreaterThan(naive.count, StoryUploadBudget.proxyBodyLimitBytes)
+
+        let body = try await StoryBackendRepository.uploadableBody(image: prepared, caption: "Golden hour", visibility: "public")
+        let encoded = try JSONEncoder().encode(body)
+        XCTAssertLessThanOrEqual(encoded.count, StoryUploadBudget.maximumBodyBytes)
+        XCTAssertEqual(body["contentType"]?.string, "image/jpeg")
+        XCTAssertEqual(body["caption"]?.string, "Golden hour")
+        XCTAssertEqual(body["visibility"]?.string, "public")
+        let data = try XCTUnwrap(body["base64"]?.string.flatMap { Data(base64Encoded: $0) })
+        let source2 = try XCTUnwrap(CGImageSourceCreateWithData(data as CFData, nil))
+        let image = try XCTUnwrap(CGImageSourceCreateImageAtIndex(source2, 0, nil))
+        XCTAssertGreaterThanOrEqual(max(image.width, image.height), 720)
+        XCTAssertEqual(body["width"]?.number, Double(image.width))
+        XCTAssertEqual(body["height"]?.number, Double(image.height))
+        XCTAssertNil((CGImageSourceCopyPropertiesAtIndex(source2, 0, nil) as? [CFString: Any])?[kCGImagePropertyGPSDictionary])
+    }
+
+    func testSmallPhotoIsSentUnchanged() async throws {
+        let small = try MediaPreparation.jpegStrippingMetadataSync(
+            try XCTUnwrap(StoryUITestPhoto.detailedJPEG(width: 200, height: 300)), maxPixel: 2048, quality: 0.86
+        )
+        let body = try await StoryBackendRepository.uploadableBody(image: small, caption: "  ", visibility: "followers")
+        XCTAssertEqual(body["base64"]?.string, small.data.base64EncodedString())
+        XCTAssertNil(body["caption"])
+        XCTAssertEqual(body["visibility"]?.string, "followers")
+    }
+
+    func testFittingReportsImpossibleBudget() throws {
+        let source = try XCTUnwrap(StoryUITestPhoto.detailedJPEG(width: 1200, height: 1600))
+        XCTAssertThrowsError(try MediaPreparation.jpegFittingSync(source, maxBytes: 2_000)) { error in
+            XCTAssertEqual(error as? MediaPreparationError, .exceedsByteBudget)
+        }
+        let fitted = try MediaPreparation.jpegFittingSync(source, maxBytes: 400_000)
+        XCTAssertLessThanOrEqual(fitted.data.count, 400_000)
+        XCTAssertLessThanOrEqual(max(fitted.width, fitted.height), 1600)
     }
 }

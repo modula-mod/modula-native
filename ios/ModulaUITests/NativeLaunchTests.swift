@@ -1319,6 +1319,40 @@ final class N3CHomeUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["native.home"].firstMatch.waitForExistence(timeout: 5))
     }
 
+    /// Regression for stories over nginx's 1 MiB body limit: injects a >1 MB prepared
+    /// photo (DEBUG hook, N1 fixture host only) and shares it to the N1 test server.
+    func testLargeStoryPhotoSharesToN1Fixture() throws {
+        let app = try launchThroughAppGate(arguments: [
+            "--runtime-unavailable", "--reset-appearance", "--ui-light", "--uitest-story-large-photo"
+        ])
+        let create = app.buttons["Create story"].firstMatch
+        XCTAssertTrue(create.waitForExistence(timeout: 8))
+        create.tap()
+        let composer = app.descendants(matching: .any)["story.create"].firstMatch
+        XCTAssertTrue(composer.waitForExistence(timeout: 6))
+        let photo = app.descendants(matching: .any)["story.create.photo"].firstMatch
+        XCTAssertTrue(photo.waitForExistence(timeout: 6))
+        let selected = NSPredicate(format: "value BEGINSWITH %@", "Photo selected")
+        expectation(for: selected, evaluatedWith: photo)
+        waitForExpectations(timeout: 30)
+        let digits = (photo.value as? String)?.components(separatedBy: CharacterSet.decimalDigits.inverted).joined() ?? ""
+        XCTAssertGreaterThan(Int(digits) ?? 0, 1_048_576, "Injected story photo must exceed the 1 MiB proxy limit")
+        let caption = app.textFields["Add a caption"].firstMatch
+        if caption.waitForExistence(timeout: 3) {
+            caption.tap()
+            caption.typeText("N1 large photo regression")
+        }
+        let share = app.buttons["story.create.share"].firstMatch
+        XCTAssertTrue(share.waitForExistence(timeout: 5))
+        XCTAssertTrue(share.isEnabled)
+        attachScreenshot(app, name: "story-large-photo-ready")
+        share.tap()
+        expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: composer)
+        waitForExpectations(timeout: 90)
+        XCTAssertTrue(app.descendants(matching: .any)["native.home"].firstMatch.waitForExistence(timeout: 10))
+        attachScreenshot(app, name: "story-large-photo-posted")
+    }
+
     func testHomeFeedLandmarksAndTools() throws {
         let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--reset-appearance"])
 
