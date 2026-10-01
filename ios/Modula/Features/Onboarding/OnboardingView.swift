@@ -6,6 +6,10 @@ struct OnboardingView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var step: OnboardingStep = .world
     @State private var floatPhase: Bool = false
+    /// Upward drag on the final step (negative = up). Swiping far enough
+    /// starts account creation; the buttons stay as the fallback.
+    @State private var finaleLift: CGFloat = 0
+    @State private var finaleHintPulse = 0
     /// Scales with Dynamic Type (including accessibility sizes) instead of a fixed point size.
     @ScaledMetric(relativeTo: .largeTitle) private var titleSize: CGFloat = 40
 
@@ -29,13 +33,19 @@ struct OnboardingView: View {
                 }
                 .modulaSoftScrollEdge()
                 .scrollBounceBehavior(.basedOnSize)
+                if isFinale {
+                    finaleHandle
+                }
                 cta
                     .padding(.horizontal, 24)
                     .padding(.bottom, 28)
                     .frame(maxWidth: 560)
                     .frame(maxWidth: .infinity)
             }
+            .offset(y: reduceMotion ? 0 : finaleLift * 0.4)
+            .opacity(1 - Double(min(1, -finaleLift / 400)))
         }
+        .simultaneousGesture(finaleGesture, including: isFinale ? .all : .subviews)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("onboarding.root")
         .onAppear {
@@ -201,6 +211,51 @@ struct OnboardingView: View {
             }
         }
         .padding(.top, 4)
+    }
+
+    private var isFinale: Bool { step.next == nil }
+
+    /// Swipe-up affordance on the last step. Hidden from VoiceOver because the
+    /// Create Account button right below does the same thing.
+    private var finaleHandle: some View {
+        VStack(spacing: 2) {
+            Image(systemName: "chevron.up")
+                .font(.system(size: 17, weight: .bold))
+                .symbolEffect(.bounce.up, options: .nonRepeating, value: finaleHintPulse)
+            Text("Swipe up to get started")
+                .font(.footnote.weight(.semibold))
+        }
+        .foregroundStyle(.white.opacity(0.85))
+        .padding(.bottom, ModulaSpacing.sm)
+        .accessibilityHidden(true)
+        .task(id: step) {
+            // A gentle nudge every few seconds; still under Reduce Motion.
+            guard !reduceMotion else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2.5))
+                finaleHintPulse += 1
+            }
+        }
+    }
+
+    private var finaleGesture: some Gesture {
+        DragGesture(minimumDistance: 16)
+            .onChanged { value in
+                let up = min(0, value.translation.height)
+                // Rubber-band so the screen resists slightly as it lifts.
+                finaleLift = -pow(-up, 0.85)
+            }
+            .onEnded { value in
+                let committed = value.translation.height < -110 || value.predictedEndTranslation.height < -260
+                if committed {
+                    finishOnboarding(openRegister: true)
+                    finaleLift = 0
+                } else {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8)) {
+                        finaleLift = 0
+                    }
+                }
+            }
     }
 
     private func advance(to next: OnboardingStep) {
