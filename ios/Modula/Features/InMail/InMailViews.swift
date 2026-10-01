@@ -282,7 +282,9 @@ struct InMailComposer: View {
             }
         }
         .onAppear {
-            if let persisted = app.drafts.inMailDraft(),
+            let resumeID = app.drafts.pendingResumeID.flatMap { id in app.drafts.inMailDraft(id: id) != nil ? id : nil }
+            app.drafts.pendingResumeID = resumeID == nil ? app.drafts.pendingResumeID : nil
+            if let persisted = app.drafts.inMailDraft(id: resumeID ?? "inmail-primary"),
                mail.draft.toHandle.isEmpty,
                mail.draft.subject.isEmpty,
                mail.draft.body.isEmpty {

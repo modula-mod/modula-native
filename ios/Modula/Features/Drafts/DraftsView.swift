@@ -29,6 +29,7 @@ struct DraftsView: View {
             }
         }
         .modulaSoftScrollEdge()
+        .modulaCanvas()
         .navigationTitle("Drafts")
         .accessibilityIdentifier("drafts.root")
         .confirmationDialog(
@@ -59,13 +60,18 @@ struct DraftsView: View {
             app.drafts.pendingResumeID = id
             app.navigation.presented = .composer(.post)
         case .inMail:
+            // Resume this exact draft (not always the primary one).
+            app.drafts.pendingResumeID = id
             app.navigation.open(.messages(.inMail(.compose)))
         case .story:
             if app.stories.capabilities.create {
+                app.drafts.pendingResumeID = id
                 app.navigation.open(.stories(.create))
+            } else {
+                // Was a silent no-op.
+                app.navigation.flash("Stories can’t be published yet. Your draft is kept.", symbol: "exclamationmark.circle")
             }
         }
-        _ = id
     }
 }
 
@@ -89,7 +95,8 @@ struct DraftRow: View {
                         .font(.body)
                         .lineLimit(2)
                         .foregroundStyle(.primary)
-                    Text(lastEdited, style: .relative)
+                    // "5 minutes ago" rather than a bare, ticking "5 min".
+                    Text(lastEdited.formatted(.relative(presentation: .named)))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

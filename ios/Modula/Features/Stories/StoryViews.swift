@@ -509,7 +509,7 @@ struct StoryCreateView: View {
     @State private var visibility = "public"
     @State private var published = false
     @State private var restored = false
-    private let draftID = "story-primary"
+    @State private var draftID = "story-primary"
 
     var body: some View {
         Group {
@@ -612,12 +612,9 @@ struct StoryCreateView: View {
         .onDisappear { if !published { saveDraft(); app.drafts.flush() } }
         .overlay(alignment: .bottom) {
             if let message = app.stories.actionError ?? app.drafts.saveError {
-                Label(message, systemImage: "exclamationmark.triangle")
-                    .font(.footnote.weight(.semibold))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(.regularMaterial, in: Capsule())
-                    .padding(.bottom, 12)
+                ModulaErrorBanner(message: message, identifier: "story.create.error") {
+                    app.stories.setActionError(nil)
+                }
             }
         }
         .accessibilityIdentifier("story.create")
@@ -635,7 +632,11 @@ struct StoryCreateView: View {
     }
 
     private func load(_ item: PhotosPickerItem?) async {
-        guard let item, let data = try? await item.loadTransferable(type: Data.self) else { return }
+        guard let item else { return }
+        guard let data = try? await item.loadTransferable(type: Data.self) else {
+            app.stories.setActionError("Couldn’t open that photo. Try another one.")
+            return
+        }
         await load(data: data)
     }
 
@@ -645,7 +646,10 @@ struct StoryCreateView: View {
             let image = try await MediaPreparation.jpegStrippingMetadata(
                 data, maxPixel: StoryUploadBudget.targetLongEdge, quality: StoryUploadBudget.preferredQuality
             )
-            guard let accountID = app.auth.account?.accountId else { return }
+            guard let accountID = app.auth.account?.accountId else {
+                app.stories.setActionError("Sign in again to save this story as a draft.")
+                return
+            }
             let media = try app.draftMedia.importJPEG(image.data, accountID: accountID, width: image.width, height: image.height)
             prepared = image
             preview = UIImage(data: image.data)
@@ -690,6 +694,10 @@ struct StoryCreateView: View {
     private func restoreDraft() async {
         guard !restored else { return }
         defer { restored = true }
+        if let resume = app.drafts.pendingResumeID, app.drafts.stories.contains(where: { $0.id == resume }) {
+            draftID = resume
+            app.drafts.pendingResumeID = nil
+        }
         guard let saved = app.drafts.stories.first(where: { $0.id == draftID }) else { return }
         caption = saved.caption
         visibility = saved.visibility == "followers" ? "followers" : "public"
