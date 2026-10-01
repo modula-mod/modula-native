@@ -13,6 +13,10 @@ final class HomeStore {
     ]
     private(set) var actionError: String?
     var isOfflineHint = false
+    /// Bumped by every refresh. A page that was requested under an older generation is
+    /// dropped instead of overwriting the refreshed list (pull-to-refresh while the
+    /// next page is still loading used to resurrect the stale feed).
+    private var generations: [HomeMode: Int] = [:]
     private(set) var displayOptions: [String: HomeFeedDisplayOptions] = [:]
     private let displayOptionsKey = "modula.native.home.feed-display.v1"
 
@@ -66,6 +70,8 @@ final class HomeStore {
             isOfflineHint = false
             return
         }
+        generations[mode, default: 0] += 1
+        let generation = generations[mode, default: 0]
         var state = self.state(for: mode)
         let previousFirstID = state.items.first?.id
         let hasContent = !state.items.isEmpty
@@ -75,6 +81,7 @@ final class HomeStore {
         modes[mode] = state
         do {
             let page = try await repository.refresh(mode: mode)
+            guard generation == generations[mode, default: 0] else { return }
             postActions.ingest(page.items)
             if hasContent, let previousFirstID, let freshFirst = page.items.first?.id, freshFirst != previousFirstID {
                 state.newerAvailable = true
@@ -90,6 +97,7 @@ final class HomeStore {
             actionError = nil
             isOfflineHint = false
         } catch let api as APIError {
+            guard generation == generations[mode, default: 0] else { return }
             if hasContent {
                 state.loadState = .loaded
                 state.lastError = api.userFacingMessage
@@ -114,6 +122,7 @@ final class HomeStore {
             }
             if api == .unauthenticated { isOfflineHint = false }
         } catch {
+            guard generation == generations[mode, default: 0] else { return }
             let message = "Unable to load home feed."
             if hasContent {
                 state.loadState = .loaded
@@ -143,8 +152,12 @@ final class HomeStore {
         guard let cursor = state.nextCursor, state.loadState == .loaded else { return }
         state.loadState = .loadingMore
         modes[mode] = state
+        let generation = generations[mode, default: 0]
         do {
             let page = try await repository.page(mode: mode, cursor: cursor)
+            // A refresh started meanwhile owns the list now; drop this stale page.
+            guard generation == generations[mode, default: 0] else { return }
+            state = self.state(for: mode)
             postActions.ingest(page.items)
             let existing = Set(state.items.map(\.id))
             state.items.append(contentsOf: page.items.filter { !existing.contains($0.id) }.map(posts.resolved))
@@ -154,6 +167,8 @@ final class HomeStore {
             state.loadState = .loaded
             modes[mode] = state
         } catch {
+            guard generation == generations[mode, default: 0] else { return }
+            state = self.state(for: mode)
             state.loadState = .loaded
             modes[mode] = state
             actionError = (error as? APIError)?.userFacingMessage ?? "Could not load more."

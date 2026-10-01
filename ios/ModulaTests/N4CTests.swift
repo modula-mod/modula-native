@@ -885,3 +885,61 @@ final class GreenfieldSessionRecoveryTests: XCTestCase {
         XCTAssertTrue(hasSession, "Being offline while the access token expires must not sign the user out")
     }
 }
+
+// MARK: - Home pagination vs refresh race
+
+private final class DelayedFeedProtocol: URLProtocol, @unchecked Sendable {
+    /// cursor (or "first") → (delay seconds, body)
+    nonisolated(unsafe) static var responses: [String: (Double, String)] = [:]
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let items = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let key = items.first(where: { $0.name == "cursor" })?.value ?? "first"
+        let (delay, body) = Self.responses[key] ?? (0, #"{"ok":true,"data":{"items":[]}}"#)
+        DispatchQueue.global().asyncAfter(deadline: .now() + delay) { [self] in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                                           headerFields: ["Content-Type": "application/json"])!
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: Data(body.utf8))
+            client?.urlProtocolDidFinishLoading(self)
+        }
+    }
+    override func stopLoading() {}
+}
+
+@MainActor
+final class HomePaginationRaceTests: XCTestCase {
+    private static func page(_ ids: [String], cursor: String?) -> String {
+        let posts = ids.map { #"{"id":"\#($0)","createdAt":"2026-10-01T12:00:00.000Z","kind":"text","text":"\#($0)","author":{"id":"a","handle":"a","displayName":"A"}}"# }
+        let next = cursor.map { #","nextCursor":"\#($0)","hasMore":true"# } ?? #","hasMore":false"#
+        return #"{"ok":true,"data":{"items":[\#(posts.joined(separator: ","))]\#(next)}}"#
+    }
+
+    func testRefreshDuringLoadMoreKeepsTheRefreshedFeed() async throws {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [DelayedFeedProtocol.self]
+        let client = GreenfieldClient(baseURL: URL(string: "https://home-race.modula.test")!, transport: URLSession(configuration: config))
+        let posts = PostStateStore()
+        let store = HomeStore(client: client, posts: posts, postActions: PostActionController(client: client, state: posts))
+
+        DelayedFeedProtocol.responses = ["first": (0, Self.page(["old-1", "old-2"], cursor: "c1"))]
+        await store.refresh(.forYou, signedIn: false)
+        XCTAssertEqual(store.state(for: .forYou).items.map(\.id), ["old-1", "old-2"])
+
+        DelayedFeedProtocol.responses = [
+            "c1": (0.6, Self.page(["old-3"], cursor: "c2")),
+            "first": (0, Self.page(["new-1"], cursor: "n1"))
+        ]
+        let more = Task { await store.loadMore(.forYou) }
+        try await Task.sleep(for: .milliseconds(100))
+        await store.refresh(.forYou, signedIn: false)
+        await more.value
+
+        let state = store.state(for: .forYou)
+        XCTAssertEqual(state.items.map(\.id), ["new-1"], "A stale next page must not overwrite the refreshed feed")
+        XCTAssertEqual(state.nextCursor, "n1")
+        XCTAssertEqual(state.loadState, .loaded)
+    }
+}
