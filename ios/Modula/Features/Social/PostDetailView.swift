@@ -19,8 +19,8 @@ struct PostDetailView: View {
     @State private var showsMoreMenu = false
 
     private var isOwn: Bool {
-        guard let authorID = post?.author?.id else { return false }
-        return authorID == app.auth.account?.accountId
+        guard let handle = post?.author?.handle, let own = app.auth.account?.primaryHandle else { return false }
+        return handle.caseInsensitiveCompare(own) == .orderedSame
     }
 
     var body: some View {
@@ -40,6 +40,7 @@ struct PostDetailView: View {
         }
         .modulaCanvas()
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
         .task(id: postID) { await load() }
         .sheet(isPresented: $showsCommentsSheet) {
             PostCommentsSheet(postID: postID)
@@ -77,22 +78,20 @@ struct PostDetailView: View {
 
     @ViewBuilder
     private var rootDestination: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
+        Group {
                 if isLoading && post == nil {
                     skeleton
                 } else if let loadError, post == nil {
                     unavailable(loadError)
                 } else if let base = post {
                     let resolved = app.posts.resolved(base)
-                    detailChrome(resolved)
-                    engagementSummary(resolved)
-                    PostCommentsView(postID: postID, isSheet: false)
-                        .frame(minHeight: 280)
+                    PostCommentsView(postID: postID, header: AnyView(
+                        VStack(alignment: .leading, spacing: 20) {
+                            detailChrome(resolved)
+                            Divider().opacity(0.45)
+                        }
+                    ))
                 }
-            }
-            .padding(.horizontal, ModulaLayout.contentInset)
-            .padding(.bottom, shellChromeMetrics.contentBottomInset)
         }
         .modulaSoftScrollEdge()
         .navigationTitle(navigationTitle)
@@ -142,8 +141,7 @@ struct PostDetailView: View {
         VStack(alignment: .leading, spacing: 14) {
             PostHeader(
                 post: post,
-                onOpenAuthor: { openAuthor(post) },
-                onMore: { showsMoreMenu = true }
+                onOpenAuthor: { openAuthor(post) }
             )
             PostRendererRegistry.content(
                 for: post,
@@ -159,19 +157,9 @@ struct PostDetailView: View {
                 onLike: { Task { await app.postActions.toggleLike(post) } },
                 onComment: { showsCommentsSheet = true },
                 onRepost: { Task { await app.postActions.toggleRepost(post) } },
-                onSave: { Task { await app.postActions.toggleSave(post) } }
+                onSave: { Task { await app.postActions.toggleSave(post) } },
+                onShare: { showsShareSheet = true }
             )
-            if post.hasMedia {
-                // Compact share affordance for media detail (rail morph available from feed cards).
-                Button {
-                    showsShareSheet = true
-                } label: {
-                    Label("Share", systemImage: "square.and.arrow.up")
-                        .font(.subheadline.weight(.semibold))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Share")
-            }
         }
         .confirmationDialog("Post actions", isPresented: $showsMoreMenu, titleVisibility: .hidden) {
             ForEach(PostContextActions.menu(

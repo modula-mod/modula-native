@@ -101,6 +101,12 @@ struct ModulaPostLayoutPolicy: Equatable, Sendable {
     let prefersActionRail: Bool
     let feedAttachmentLimit: Int
 
+    /// Short landscape surfaces cannot contain a five-action vertical rail.
+    static func canOverlayActionRail(aspectRatio: Double?) -> Bool {
+        guard let aspectRatio, aspectRatio.isFinite, aspectRatio > 0 else { return false }
+        return aspectRatio <= 1
+    }
+
     static func resolve(_ post: ModulaPost) -> Self {
         guard post.content.count <= 1 else {
             return .init(style: .mixed, prefersActionRail: false, feedAttachmentLimit: 2)

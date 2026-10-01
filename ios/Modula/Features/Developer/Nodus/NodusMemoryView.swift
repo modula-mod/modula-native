@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 #if DEBUG
 struct NodusMemoryView: View {
@@ -42,32 +43,19 @@ struct NodusMemoryView: View {
                     }
                 }
             }
-            Section("Confirmed Memory") {
-                if filteredItems.isEmpty {
+            Section("Memory") {
+                if activeItems.isEmpty {
                     Text("No stored Memory").foregroundStyle(.secondary)
                 }
-                ForEach(filteredItems) { item in
-                    VStack(alignment: .leading, spacing: 5) {
-                        HStack {
-                            Text(item.text).foregroundStyle(item.active ? .primary : .secondary)
-                            Spacer()
-                            Toggle("Active", isOn: Binding(
-                                get: { item.active },
-                                set: { value in Task { try? await app.nodusMemoryStore.setActive(id: item.id, active: value); await refresh() } }
-                            ))
-                            .labelsHidden()
-                        }
-                        Text("\(item.kind.displayName) · \(item.scope.rawValue.capitalized) · \(item.sensitivity.rawValue)")
-                            .font(.caption).foregroundStyle(.secondary)
-                        HStack {
-                            Button("Edit") { editing = item }.font(.caption)
-                            Button("Delete", role: .destructive) {
-                                Task { try? await app.nodusMemoryStore.delete(id: item.id); await refresh() }
-                            }
-                            .font(.caption)
-                        }
+                ForEach(activeItems) { item in
+                    memoryRow(item)
+                }
+            }
+            if !archivedItems.isEmpty {
+                Section("Archived") {
+                    ForEach(archivedItems) { item in
+                        memoryRow(item)
                     }
-                    .padding(.vertical, 2)
                 }
             }
             Section {
@@ -117,10 +105,52 @@ struct NodusMemoryView: View {
         .accessibilityIdentifier("nodus.memory")
     }
 
-    private var filteredItems: [NodusMemoryItem] {
+    private var matchingItems: [NodusMemoryItem] {
         let clean = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return snapshot.items.filter { clean.isEmpty || $0.text.lowercased().contains(clean) }
             .sorted { $0.updatedAt > $1.updatedAt }
+    }
+
+    private var activeItems: [NodusMemoryItem] { matchingItems.filter(\.active) }
+    private var archivedItems: [NodusMemoryItem] { matchingItems.filter { !$0.active } }
+
+    private func memoryRow(_ item: NodusMemoryItem) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(item.text).foregroundStyle(item.active ? .primary : .secondary)
+            Text("\(item.kind.displayName) · \(item.scope.rawValue.capitalized) · \(item.active ? "Active" : "Archived")")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 2)
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button("Delete", systemImage: "trash", role: .destructive) {
+                Task { try? await app.nodusMemoryStore.delete(id: item.id); await refresh() }
+            }
+            if item.active {
+                Button("Archive", systemImage: "archivebox") {
+                    Task { try? await app.nodusMemoryStore.setActive(id: item.id, active: false); await refresh() }
+                }
+                .tint(.indigo)
+            }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            if !item.active {
+                Button("Restore", systemImage: "arrow.uturn.backward") {
+                    Task { try? await app.nodusMemoryStore.setActive(id: item.id, active: true); await refresh() }
+                }
+                .tint(.green)
+            }
+        }
+        .contextMenu {
+            Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = item.text }
+            Button("Edit", systemImage: "pencil") { editing = item }
+            Button(item.active ? "Archive" : "Restore", systemImage: item.active ? "archivebox" : "arrow.uturn.backward") {
+                Task { try? await app.nodusMemoryStore.setActive(id: item.id, active: !item.active); await refresh() }
+            }
+            Button("Delete", systemImage: "trash", role: .destructive) {
+                Task { try? await app.nodusMemoryStore.delete(id: item.id); await refresh() }
+            }
+        }
+        .accessibilityIdentifier("nodus.memory.item")
     }
 
     private func refresh() async { snapshot = await app.nodusMemoryStore.snapshot() }

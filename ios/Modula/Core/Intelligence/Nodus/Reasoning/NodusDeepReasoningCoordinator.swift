@@ -43,6 +43,22 @@ struct NodusDeepReasoningCoordinator: Sendable {
         let draft = try await generate(prompt, budget.maximumOutputTokens)
         guard budget.maximumInferencePasses > 1 else { return (draft.0, draft.1, 1) }
 
+        if budget.maximumInferencePasses == 2 {
+            try Task.checkCancellation()
+            await progress(.reviewing)
+            let revisionPrompt = """
+            Revise the draft against the supplied evidence. Return only the corrected answer. Do not mention this revision or reveal private reasoning.
+
+            ORIGINAL CONTEXT:
+            \(prompt)
+
+            DRAFT:
+            \(draft.0.answer)
+            """
+            let revised = try await generate(revisionPrompt, budget.maximumOutputTokens)
+            return (revised.0, revised.1, 2)
+        }
+
         try Task.checkCancellation()
         await progress(.reviewing)
         let critiquePrompt = """

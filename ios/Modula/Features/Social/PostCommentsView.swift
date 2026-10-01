@@ -16,6 +16,9 @@ final class PostCommentsStore {
     private(set) var isSending = false
     var draft = ""
     var composerError: String?
+    var replyingTo: SocialComment?
+    private(set) var loadingReplies: Set<SocialCommentID> = []
+    private(set) var expandedReplies: Set<SocialCommentID> = []
 
     init(client: GreenfieldClient, postState: PostStateStore, postID: SocialPostID, capabilities: PostBackendCapabilities = .production) {
         self.repository = GreenfieldPostRepository(client: client, capabilities: capabilities)
@@ -63,9 +66,12 @@ final class PostCommentsStore {
         isSending = true
         composerError = nil
         do {
-            let comment = try await repository.createComment(postID: postID, text: text, parentID: parentID)
+            let parent = parentID ?? replyingTo.map { $0.parentID ?? $0.id }
+            let comment = try await repository.createComment(postID: postID, text: text, parentID: parent)
             items.insert(comment, at: 0)
+            if let parent { expandedReplies.insert(parent) }
             draft = ""
+            replyingTo = nil
             postState.adjustReplyCount(postID: postID, delta: 1)
             isSending = false
             HapticEngine.shared.play(.success)
@@ -76,6 +82,20 @@ final class PostCommentsStore {
             isSending = false
             HapticEngine.shared.play(.failure)
             return false
+        }
+    }
+
+    func loadReplies(for comment: SocialComment) async {
+        guard loadingReplies.insert(comment.id).inserted else { return }
+        defer { loadingReplies.remove(comment.id) }
+        do {
+            let replies = try await repository.replies(commentID: comment.id, postID: postID)
+            items.removeAll { $0.parentID == comment.id }
+            items.append(contentsOf: replies)
+            expandedReplies.insert(comment.id)
+            composerError = nil
+        } catch {
+            composerError = (error as? APIError)?.userFacingMessage ?? "Couldn’t load replies. Try again."
         }
     }
 
@@ -96,6 +116,8 @@ struct PostCommentsView: View {
     let postID: SocialPostID
     var isSheet: Bool = false
     var onClose: (() -> Void)? = nil
+    // Detail supplies its identity/content here so conversation shares one scroll surface.
+    var header: AnyView? = nil
 
     @Environment(AppEnvironment.self) private var app
     @State private var store: PostCommentsStore?
@@ -104,16 +126,22 @@ struct PostCommentsView: View {
     var body: some View {
         VStack(spacing: 0) {
             if isSheet {
-                Capsule()
-                    .fill(Color.primary.opacity(0.2))
-                    .frame(width: 36, height: 5)
-                    .padding(.top, 8)
-                    .padding(.bottom, 4)
-                    .accessibilityHidden(true)
+                conversationHeader
             }
-            content
-            composer
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 20) {
+                    if let header { header }
+                    if !isSheet { conversationHeader }
+                    content
+                }
+                .padding(.horizontal, ModulaLayout.contentInset)
+                .padding(.top, isSheet ? 12 : 16)
+                .padding(.bottom, 24)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .modulaSoftScrollEdge()
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) { composer }
         .modulaCanvas()
         .task(id: postID) {
             let created = PostCommentsStore(
@@ -126,6 +154,27 @@ struct PostCommentsView: View {
             await created.load()
         }
         .accessibilityIdentifier(isSheet ? "post.comments.sheet" : "post.comments")
+    }
+
+    private var conversationHeader: some View {
+        HStack(spacing: 8) {
+            Text("Comments").font(.headline)
+            Spacer()
+            if let onClose {
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 44, height: 44)
+                        .background(Color.primary.opacity(0.05), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close comments")
+            }
+        }
+        .padding(.horizontal, isSheet ? ModulaLayout.contentInset : 0)
+        .padding(.top, isSheet ? 20 : 8)
+        .padding(.bottom, isSheet ? 8 : 0)
     }
 
     @ViewBuilder
@@ -148,23 +197,40 @@ struct PostCommentsView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .accessibilityIdentifier("post.comments.error")
             } else if store.items.isEmpty {
-                ContentUnavailableView("No comments yet", systemImage: "bubble.right", description: Text("Start the discussion."))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "bubble.left.and.bubble.right")
+                        .font(.title3).foregroundStyle(app.appearance.accent.color)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Start the conversation").font(.subheadline.weight(.semibold))
+                        Text("Be the first to leave a comment.").font(.subheadline).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 16)
             } else {
-                List {
+                LazyVStack(alignment: .leading, spacing: 18) {
                     ForEach(roots(store.items)) { comment in
                         commentRow(comment, store: store)
                         let replies = store.items.filter { $0.parentID == comment.id }
-                        if !replies.isEmpty {
-                            ForEach(replies.prefix(3)) { reply in
+                        if store.expandedReplies.contains(comment.id) {
+                            ForEach(replies) { reply in
                                 commentRow(reply, store: store, indented: true)
                             }
-                            if comment.replyCount > replies.count {
-                                Text("View \(comment.replyCount) replies")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(app.appearance.accent.color)
-                                    .padding(.leading, 44)
+                        } else if comment.replyCount > 0 {
+                            Button {
+                                Task { await store.loadReplies(for: comment) }
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Rectangle().frame(width: 20, height: 1)
+                                    Text("View \(comment.replyCount) replies")
+                                    if store.loadingReplies.contains(comment.id) { ProgressView().controlSize(.mini) }
+                                }
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(app.appearance.accent.color)
+                                .padding(.leading, 42)
+                                .frame(minHeight: 44)
                             }
+                            .buttonStyle(.plain)
+                            .disabled(store.loadingReplies.contains(comment.id))
                         }
                     }
                     if store.hasMore {
@@ -174,8 +240,6 @@ struct PostCommentsView: View {
                         .disabled(store.isLoadingMore)
                     }
                 }
-                .listStyle(.plain)
-                .modulaSoftScrollEdge()
             }
         } else {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -192,12 +256,17 @@ struct PostCommentsView: View {
                 Color.clear.frame(width: 28)
             }
             if let author = comment.author {
-                ModulaAvatar(initials: author.initials, url: author.avatarURL, size: 32)
+                Button { app.navigation.push(.profile(author.routeID, .overview)) } label: {
+                    ModulaAvatar(initials: author.initials, url: author.avatarURL, size: 32)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Open \(author.displayName)’s profile")
             } else {
                 Circle().fill(Color.primary.opacity(0.08)).frame(width: 32, height: 32)
             }
             VStack(alignment: .leading, spacing: 4) {
-                HStack {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
                     Text(comment.author?.displayName ?? "Someone")
                         .font(.subheadline.weight(.semibold))
                     Text(ActivityRelativeTime.string(from: comment.createdAt))
@@ -206,23 +275,35 @@ struct PostCommentsView: View {
                     if comment.isEdited {
                         Text("Edited").font(.caption2).foregroundStyle(.tertiary)
                     }
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(comment.author?.displayName ?? "Someone").font(.subheadline.weight(.semibold))
+                        Text(ActivityRelativeTime.string(from: comment.createdAt)).font(.caption).foregroundStyle(.secondary)
+                    }
                 }
                 Text(comment.text)
                     .font(.body)
+                    .lineSpacing(3)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if comment.likeCount > 0 {
                     Text("\(comment.likeCount) likes")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+                Button("Reply") {
+                    store.replyingTo = comment
+                    composerFocused = true
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(minHeight: 44, alignment: .leading)
             }
         }
         .padding(.vertical, 4)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(comment.voiceOverSummary)
+        .accessibilityElement(children: .contain)
         .modulaContextMenu(
             actions: PostContextActions.commentMenu(
-                isOwn: comment.author?.id == app.auth.account?.accountId,
+                isOwn: comment.author?.handle.caseInsensitiveCompare(app.auth.account?.primaryHandle ?? "") == .orderedSame,
                 capabilities: app.postActions.capabilities
             ),
             onSelect: { handleCommentAction($0, comment: comment, store: store) }
@@ -231,7 +312,20 @@ struct PostCommentsView: View {
 
     private var composer: some View {
         VStack(spacing: 0) {
-            Divider().opacity(0.4)
+            if let reply = store?.replyingTo {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Replying to \(reply.author?.displayName ?? "comment")").font(.caption.weight(.semibold))
+                        Text(reply.text).font(.caption).lineLimit(1).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button { store?.replyingTo = nil } label: {
+                        Image(systemName: "xmark.circle.fill").frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("Cancel reply")
+                }
+                .padding(.horizontal, 16)
+            }
             if let error = store?.composerError {
                 Text(error)
                     .font(.caption)
@@ -244,7 +338,7 @@ struct PostCommentsView: View {
                 if let account = app.auth.account {
                     ModulaAvatar(
                         initials: String(account.displayName?.prefix(2) ?? account.primaryHandle.prefix(2)).uppercased(),
-                        url: nil,
+                        url: app.profile.ownProfile?.avatarURL,
                         size: 32
                     )
                 }
@@ -267,8 +361,8 @@ struct PostCommentsView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(.bar)
         }
+        .background(.bar)
         .gesture(
             DragGesture(minimumDistance: PostGestureThresholds.dragActivationDistance)
                 .onEnded { value in
@@ -291,6 +385,16 @@ struct PostCommentsView: View {
             HapticEngine.shared.play(.lightImpact)
         case "delete":
             Task { await store.delete(comment) }
+        case "mute-author":
+            guard let author = comment.author else { return }
+            Task {
+                do {
+                    try await GreenfieldProfileRepository(client: app.client).mute(profileID: author.id)
+                    HapticEngine.shared.play(.confirmation)
+                } catch {
+                    store.composerError = (error as? APIError)?.userFacingMessage ?? "Couldn’t mute this author."
+                }
+            }
         default:
             break
         }
@@ -300,9 +404,10 @@ struct PostCommentsView: View {
 struct PostCommentsSheet: View {
     let postID: SocialPostID
     @Environment(\.dismiss) private var dismiss
+    @State private var selectedDetent: ModulaSheetDetent = .medium
 
     var body: some View {
-        ModulaSheet(detents: [.compact, .medium, .large]) {
+        ModulaSheet(detents: [.compact, .medium, .large], selectedDetent: $selectedDetent) {
             PostCommentsView(postID: postID, isSheet: true, onClose: { dismiss() })
         }
     }

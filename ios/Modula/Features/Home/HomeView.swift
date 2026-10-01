@@ -5,6 +5,7 @@ struct HomeView: View {
     let mode: HomeMode
     @Environment(AppEnvironment.self) private var app
     @Environment(\.trailingInteractionInset) private var trailingInteractionInset
+    @Environment(\.leadingInteractionInset) private var leadingInteractionInset
     @Environment(\.shellChromeMetrics) private var shellChromeMetrics
     @State private var videoCoordinator = FeedVideoCoordinator()
     @State private var commentsPost: SocialPost?
@@ -17,6 +18,22 @@ struct HomeView: View {
                     LazyVStack(alignment: .leading, spacing: 14) {
                         modeCaption
                         if showsStoryTray {
+                            HStack {
+                                Text("Stories").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                Button { app.navigation.push(.stories(.create)) } label: {
+                                    Image(systemName: "plus.circle").frame(width: 44, height: 44)
+                                }
+                                .tint(app.appearance.accent.color)
+                                .accessibilityLabel("Create story")
+                                Spacer()
+                                Button { app.navigation.push(.reels(.feed)) } label: {
+                                    Label("Watch Reels", systemImage: "play.rectangle")
+                                        .font(.caption.weight(.semibold))
+                                        .frame(minHeight: 44)
+                                }
+                                .tint(app.appearance.accent.color)
+                                .accessibilityIdentifier("home.open-reels")
+                            }
                             StoryTray(groups: app.stories.trayGroups, compact: true) { group in
                                 Task { await openStory(group) }
                             } onCreate: {
@@ -30,7 +47,7 @@ struct HomeView: View {
                         }
                         feedContent(state)
                     }
-                    .padding(.leading, ModulaLayout.contentInset)
+                    .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
                     .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
                     .padding(.top, 4)
                     .padding(.bottom, shellChromeMetrics.contentBottomInset)

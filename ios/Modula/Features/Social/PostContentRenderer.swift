@@ -264,6 +264,9 @@ struct ModulaVideoSurface: View {
     let attachment: ModulaAttachment
     var coordinator: FeedVideoCoordinator?
     var onExpand: () -> Void
+    var height: CGFloat? = 280
+    var cornerRadius: CGFloat = ModulaRadius.small
+    var allowsPlayback = true
     @State private var controller = ModulaVideoPlaybackController()
     @State private var download = AttachmentDownloadModel()
     @State private var decodedPoster: UIImage?
@@ -281,12 +284,12 @@ struct ModulaVideoSurface: View {
                     dimensions: attachment.dimensions.map { MediaDimensions(width: Int($0.width), height: Int($0.height)) },
                     duration: attachment.duration
                 ),
-                isActive: coordinator?.activeVideoID == attachment.id || coordinator == nil,
+                isActive: allowsPlayback && (coordinator?.activeVideoID == attachment.id || coordinator == nil),
                 controller: controller,
                 fallbackPoster: decodedPoster
             )
-            .frame(maxWidth: .infinity).frame(height: 280)
-            .clipShape(RoundedRectangle(cornerRadius: ModulaRadius.small, style: .continuous))
+            .frame(maxWidth: .infinity).frame(height: height)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
 
             switch download.state {
             case .failed:

@@ -67,8 +67,8 @@ enum SocialReaction: String, Hashable, Sendable, CaseIterable {
         }
     }
 
-    /// Reactions the current like-toggle HTTP surface can commit.
-    static var networkSupported: [SocialReaction] { [.like] }
+    /// Semantic values accepted by Greenfield's reaction endpoint.
+    static var networkSupported: [SocialReaction] { allCases }
 }
 
 enum PostVisibility: String, Hashable, Sendable {

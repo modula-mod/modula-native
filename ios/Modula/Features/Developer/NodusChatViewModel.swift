@@ -1,5 +1,7 @@
 import Foundation
 import Observation
+import SwiftUI
+import UIKit
 
 enum NodusDeveloperRating: String, Sendable, Equatable, Codable, CaseIterable {
     case good
@@ -99,9 +101,20 @@ final class NodusChatViewModel {
     private(set) var verificationStatus: String?
     private(set) var evaluationStatus: String?
     private(set) var progressText: String?
+    private(set) var progressStage: NodusReasoningStage?
     private(set) var ratings: [UUID: NodusDeveloperRating] = [:]
+    private(set) var attachmentImages: [UUID: UIImage] = [:]
+    private(set) var reactions: [UUID: [String]] = [:]
+    private(set) var library = NodusLibrarySnapshot()
     private var generationTask: Task<Void, Never>?
     private var conversationStore: NodusConversationStore?
+    private let attachmentFiles = PrivateFileStore(domain: .nodusConversations)
+    private let reactionKey = "nodus.chat.reactions.v1"
+
+    var thinkStep: NodusThinkStep {
+        let stored = activeConversation.flatMap { library.placement(for: $0.id)?.thinkSteps } ?? 0
+        return NodusThinkStep.resolve(stored: stored, mode: activeConversation?.reasoningMode ?? .standard)
+    }
 
     var canSend: Bool {
         availability == .available
@@ -119,6 +132,9 @@ final class NodusChatViewModel {
             setActive(created)
             conversations = await app.nodusConversationStore.all()
         }
+        loadReactions()
+        hydrateImages()
+        await reloadLibrary()
         await refresh(using: app.intelligence)
     }
 
@@ -129,10 +145,217 @@ final class NodusChatViewModel {
         modelIdentity = snapshot.nodusModelIdentity
     }
 
-    func newConversation() async {
+    func newConversation(projectID: UUID? = nil, folderID: UUID? = nil) async {
         guard let conversationStore, let created = try? await conversationStore.create() else { return }
+        if projectID != nil || folderID != nil {
+            library = (try? await conversationStore.place(conversationID: created.id, projectID: projectID, folderID: folderID)) ?? library
+        }
         conversations = await conversationStore.all()
         setActive(created)
+    }
+
+    func duplicate(_ conversation: NodusConversation) async {
+        guard let conversationStore else { return }
+        let copy = NodusConversation(
+            title: "\(conversation.title) copy",
+            modelID: conversation.modelID,
+            modelStage: conversation.modelStage,
+            reasoningMode: conversation.reasoningMode,
+            searchEnabled: conversation.searchEnabled,
+            attachedKnowledgeCollectionIDs: conversation.attachedKnowledgeCollectionIDs,
+            memoryEnabled: conversation.memoryEnabled,
+            messages: conversation.messages
+        )
+        try? await conversationStore.upsert(copy)
+        if let placement = library.placement(for: conversation.id) {
+            library = (try? await conversationStore.place(conversationID: copy.id, projectID: placement.projectID, folderID: placement.folderID)) ?? library
+            if !placement.note.isEmpty {
+                library = (try? await conversationStore.setChatNote(id: copy.id, note: placement.note)) ?? library
+            }
+        }
+        conversations = await conversationStore.all()
+        setActive(copy)
+    }
+
+    func placeActive(projectID: UUID?, folderID: UUID?) async {
+        guard let id = activeConversation?.id else { return }
+        await place(id, projectID: projectID, folderID: folderID)
+    }
+
+    func place(_ conversationID: UUID, projectID: UUID?, folderID: UUID?) async {
+        guard let conversationStore else { return }
+        library = (try? await conversationStore.place(conversationID: conversationID, projectID: projectID, folderID: folderID)) ?? library
+    }
+
+    func createProject(name: String, symbol: String, brief: String) async {
+        guard let conversationStore else { return }
+        library = (try? await conversationStore.createProject(name: name, symbol: symbol, brief: brief)) ?? library
+    }
+
+    func updateProject(_ project: NodusProject, name: String, symbol: String, brief: String) async {
+        guard let conversationStore else { return }
+        library = (try? await conversationStore.updateProject(id: project.id, name: name, symbol: symbol, brief: brief)) ?? library
+    }
+
+    func setProjectArchived(_ project: NodusProject, archived: Bool) async {
+        guard let conversationStore else { return }
+        library = (try? await conversationStore.setProjectArchived(id: project.id, archived: archived)) ?? library
+    }
+
+    func deleteProject(_ project: NodusProject) async {
+        guard let conversationStore else { return }
+        library = (try? await conversationStore.deleteProject(id: project.id)) ?? library
+    }
+
+    func createFolder(name: String, projectID: UUID?) async {
+        guard let conversationStore else { return }
+        library = (try? await conversationStore.createFolder(name: name, projectID: projectID)) ?? library
+    }
+
+    func renameFolder(_ folder: NodusFolder, name: String) async {
+        guard let conversationStore else { return }
+        library = (try? await conversationStore.renameFolder(id: folder.id, name: name)) ?? library
+    }
+
+    func deleteFolder(_ folder: NodusFolder) async {
+        guard let conversationStore else { return }
+        library = (try? await conversationStore.deleteFolder(id: folder.id)) ?? library
+    }
+
+    func setArchived(_ conversation: NodusConversation, archived: Bool) async {
+        guard let conversationStore else { return }
+        library = (try? await conversationStore.setChatArchived(id: conversation.id, archived: archived)) ?? library
+    }
+
+    func setFavorite(_ conversation: NodusConversation, favorite: Bool) async {
+        guard let conversationStore else { return }
+        library = (try? await conversationStore.setChatFavorite(id: conversation.id, favorite: favorite)) ?? library
+    }
+
+    func setImportant(_ conversation: NodusConversation, important: Bool) async {
+        guard let conversationStore else { return }
+        library = (try? await conversationStore.setChatFlags(id: conversation.id, important: important)) ?? library
+    }
+
+    func setColor(_ conversation: NodusConversation, color: String) async {
+        guard let conversationStore else { return }
+        library = (try? await conversationStore.setChatFlags(id: conversation.id, color: color)) ?? library
+    }
+
+    func setInstructions(_ conversation: NodusConversation, instructions: String) async {
+        guard let conversationStore else { return }
+        library = (try? await conversationStore.setChatFlags(id: conversation.id, instructions: instructions)) ?? library
+    }
+
+    func setPersona(_ text: String) async {
+        guard let id = activeConversation?.id, let conversationStore else { return }
+        library = (try? await conversationStore.setChatFlags(id: id, persona: text)) ?? library
+    }
+
+    func toggleSkill(_ skill: NodusSkill) async {
+        guard let id = activeConversation?.id, let conversationStore else { return }
+        var enabled = NodusSkill.enabled(in: library.placement(for: id)?.skillIDs ?? "")
+        if let index = enabled.firstIndex(of: skill) {
+            enabled.remove(at: index)
+        } else {
+            enabled.append(skill)
+        }
+        library = (try? await conversationStore.setChatFlags(id: id, skillIDs: NodusSkill.stored(from: enabled))) ?? library
+    }
+
+    var activePersona: String {
+        activeConversation.flatMap { library.placement(for: $0.id)?.persona } ?? ""
+    }
+
+    var activeSkills: [NodusSkill] {
+        let stored = activeConversation.flatMap { library.placement(for: $0.id)?.skillIDs } ?? ""
+        return NodusSkill.enabled(in: stored)
+    }
+
+    var messageDensity: String {
+        let stored = activeConversation.flatMap { library.placement(for: $0.id)?.messageDensity } ?? ""
+        return stored == "compact" ? "compact" : "comfortable"
+    }
+
+    var showMessageTimes: Bool {
+        activeConversation.flatMap { library.placement(for: $0.id)?.showTimes } == true
+    }
+
+    var messageTextSize: String {
+        let stored = activeConversation.flatMap { library.placement(for: $0.id)?.textSize } ?? ""
+        return ["small", "regular", "large"].contains(stored) ? stored : "regular"
+    }
+
+    var messageFont: Font {
+        switch messageTextSize {
+        case "small": messageDensity == "compact" ? .caption : .subheadline
+        case "large": messageDensity == "compact" ? .body : .title3
+        default: messageDensity == "compact" ? .subheadline : .body
+        }
+    }
+
+    func setMessageDensity(_ density: String) async {
+        guard let id = activeConversation?.id, let conversationStore else { return }
+        library = (try? await conversationStore.setChatFlags(id: id, messageDensity: density)) ?? library
+    }
+
+    func setShowTimes(_ show: Bool) async {
+        guard let id = activeConversation?.id, let conversationStore else { return }
+        library = (try? await conversationStore.setChatFlags(id: id, showTimes: show)) ?? library
+    }
+
+    func setMessageTextSize(_ size: String) async {
+        guard let id = activeConversation?.id, let conversationStore else { return }
+        library = (try? await conversationStore.setChatFlags(id: id, textSize: size)) ?? library
+    }
+
+    func savePrompt(title: String, body: String, projectID: UUID?, id: UUID? = nil) async {
+        guard let conversationStore else { return }
+        library = (try? await conversationStore.savePrompt(title: title, body: body, projectID: projectID, id: id)) ?? library
+    }
+
+    func deletePrompt(id: UUID) async {
+        guard let conversationStore else { return }
+        library = (try? await conversationStore.deletePrompt(id: id)) ?? library
+    }
+
+    func fork(_ conversation: NodusConversation, through messageID: UUID? = nil) async {
+        guard let conversationStore else { return }
+        let kept: [NodusMessage]
+        if let messageID, let index = conversation.messages.firstIndex(where: { $0.id == messageID }) {
+            kept = Array(conversation.messages[...index])
+        } else {
+            kept = conversation.messages
+        }
+        let copy = NodusConversation(
+            title: "Fork of \(conversation.title)",
+            modelID: conversation.modelID,
+            modelStage: conversation.modelStage,
+            reasoningMode: conversation.reasoningMode,
+            searchEnabled: conversation.searchEnabled,
+            attachedKnowledgeCollectionIDs: conversation.attachedKnowledgeCollectionIDs,
+            memoryEnabled: conversation.memoryEnabled,
+            messages: kept
+        )
+        try? await conversationStore.upsert(copy)
+        let source = library.placement(for: conversation.id)
+        library = (try? await conversationStore.setChatFlags(
+            id: copy.id,
+            forkedFrom: conversation.id,
+            copy: source
+        )) ?? library
+        conversations = await conversationStore.all()
+        setActive(copy)
+    }
+
+    func setNote(_ conversation: NodusConversation, note: String) async {
+        guard let conversationStore else { return }
+        library = (try? await conversationStore.setChatNote(id: conversation.id, note: note)) ?? library
+    }
+
+    private func reloadLibrary() async {
+        guard let conversationStore else { return }
+        library = await conversationStore.librarySnapshot()
     }
 
     func select(_ conversation: NodusConversation) { setActive(conversation) }
@@ -141,6 +364,26 @@ final class NodusChatViewModel {
         guard let id = activeConversation?.id, let conversationStore else { return }
         try? await conversationStore.rename(id: id, title: title)
         await reloadActive(id: id)
+    }
+
+    func setPinned(_ conversation: NodusConversation, pinned: Bool) async {
+        guard let conversationStore else { return }
+        var copy = conversation
+        copy.pinned = pinned
+        copy.updatedAt = Date()
+        try? await conversationStore.upsert(copy)
+        conversations = await conversationStore.all()
+        if activeConversation?.id == conversation.id { setActive(copy) }
+    }
+
+    func delete(_ conversation: NodusConversation) async {
+        if conversation.id == activeConversation?.id {
+            await deleteActive()
+            return
+        }
+        guard let conversationStore else { return }
+        try? await conversationStore.delete(id: conversation.id)
+        conversations = await conversationStore.all()
     }
 
     func deleteActive() async {
@@ -161,10 +404,16 @@ final class NodusChatViewModel {
     }
 
     func setReasoningMode(_ mode: NodusReasoningMode) async {
+        await setThinkSteps(mode == .deep ? NodusThinkStep.deep.rawValue : NodusThinkStep.standard.rawValue)
+    }
+
+    func setThinkSteps(_ steps: Int) async {
         guard var conversation = activeConversation, let conversationStore else { return }
-        conversation.reasoningMode = mode
+        let step = NodusThinkStep.resolve(stored: steps, mode: conversation.reasoningMode)
+        conversation.reasoningMode = step.reasoningMode
         conversation.updatedAt = Date()
         try? await conversationStore.upsert(conversation)
+        library = (try? await conversationStore.setChatFlags(id: conversation.id, thinkSteps: step.rawValue)) ?? library
         setActive(conversation)
     }
 
@@ -192,7 +441,19 @@ final class NodusChatViewModel {
         setActive(conversation)
     }
 
-    func send(using app: AppEnvironment) {
+    func toggleReaction(_ symbol: String, on messageID: UUID) {
+        var current = reactions[messageID] ?? []
+        if let index = current.firstIndex(of: symbol) {
+            current.remove(at: index)
+        } else {
+            current.append(symbol)
+        }
+        reactions[messageID] = current.isEmpty ? nil : current
+        let stored = Dictionary(uniqueKeysWithValues: reactions.map { ($0.key.uuidString, $0.value) })
+        UserDefaults.standard.set(stored, forKey: reactionKey)
+    }
+
+    func send(using app: AppEnvironment, imageData: [Data] = []) {
         guard canSend, let conversation = activeConversation else { return }
         let question = input.trimmingCharacters(in: .whitespacesAndNewlines)
         input = ""
@@ -200,21 +461,31 @@ final class NodusChatViewModel {
         verificationStatus = nil
         evaluationStatus = nil
         progressText = NodusReasoningStage.classifying.displayName
+        progressStage = .classifying
         isGenerating = true
         messages.append(NodusMessage(role: .user, text: question))
         if loadState == .unloaded { loadState = .loading }
         let engine = app.makeNodusConversationEngine()
+        let projectBrief = library.instructions(for: conversation.id)
         generationTask = Task { [weak self] in
             guard let self else { return }
             do {
                 let result = try await engine.send(
                     question: question,
                     conversationID: conversation.id,
+                    projectBrief: projectBrief,
                     progress: { stage in
-                        await MainActor.run { [weak self] in self?.progressText = stage.displayName }
+                        await MainActor.run { [weak self] in
+                            self?.progressText = stage.displayName
+                            self?.progressStage = stage
+                        }
                     }
                 )
                 setActive(result.conversation)
+                if !imageData.isEmpty,
+                   let userID = result.conversation.messages.last(where: { $0.role == .user && $0.text == question })?.id {
+                    store(imageData, for: userID)
+                }
                 conversations = await app.nodusConversationStore.all()
             } catch let error as NodusSearchError {
                 errorMessage = error.localizedDescription
@@ -230,6 +501,7 @@ final class NodusChatViewModel {
             }
             isGenerating = false
             progressText = nil
+            progressStage = nil
             generationTask = nil
             await refresh(using: app.intelligence)
         }
@@ -284,6 +556,7 @@ final class NodusChatViewModel {
         generationTask = nil
         isGenerating = false
         progressText = nil
+        progressStage = nil
     }
 
     func clear() {
@@ -384,6 +657,33 @@ final class NodusChatViewModel {
     private func setActive(_ conversation: NodusConversation) {
         activeConversation = conversation
         messages = conversation.messages
+        hydrateImages()
+    }
+
+    private func loadReactions() {
+        let stored = UserDefaults.standard.dictionary(forKey: reactionKey) as? [String: [String]] ?? [:]
+        reactions = Dictionary(uniqueKeysWithValues: stored.compactMap { key, value in
+            UUID(uuidString: key).map { ($0, value) }
+        })
+    }
+
+    private func hydrateImages() {
+        for message in messages {
+            let filename = "attachment-\(message.id.uuidString).jpg"
+            guard attachmentImages[message.id] == nil,
+                  let data = try? attachmentFiles.loadData(filename: filename),
+                  let image = UIImage(data: data) else { continue }
+            attachmentImages[message.id] = image
+        }
+    }
+
+    private func store(_ payloads: [Data], for messageID: UUID) {
+        guard let first = payloads.first else { return }
+        let filename = "attachment-\(messageID.uuidString).jpg"
+        try? attachmentFiles.saveData(first, filename: filename)
+        if let image = UIImage(data: first) {
+            attachmentImages[messageID] = image
+        }
     }
 
     private func reloadActive(id: UUID) async {

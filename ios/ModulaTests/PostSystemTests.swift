@@ -2,6 +2,15 @@ import XCTest
 @testable import Modula
 
 final class PostSystemTests: XCTestCase {
+    func testMediaRailRequiresEnoughVerticalSpace() {
+        XCTAssertTrue(ModulaPostLayoutPolicy.canOverlayActionRail(aspectRatio: 0.75))
+        XCTAssertTrue(ModulaPostLayoutPolicy.canOverlayActionRail(aspectRatio: 1))
+        XCTAssertFalse(ModulaPostLayoutPolicy.canOverlayActionRail(aspectRatio: 16.0 / 9))
+        XCTAssertFalse(ModulaPostLayoutPolicy.canOverlayActionRail(aspectRatio: nil))
+        XCTAssertFalse(ModulaPostLayoutPolicy.canOverlayActionRail(aspectRatio: .nan))
+        XCTAssertFalse(ModulaPostLayoutPolicy.canOverlayActionRail(aspectRatio: 0))
+    }
+
     func testPostSectionRoutesRoundTrip() {
         let id = "post-abc"
         for section in PostSection.allCases {
@@ -22,10 +31,10 @@ final class PostSystemTests: XCTestCase {
         XCTAssertTrue(policy.showsBack)
         XCTAssertFalse(policy.contextRailVisible)
         XCTAssertFalse(policy.shellAccessoryVisible)
-        XCTAssertTrue(policy.bottomBarVisible)
+        XCTAssertFalse(policy.bottomBarVisible)
         let metrics = ShellChromeMetrics.resolve(policy: policy)
-        XCTAssertEqual(metrics.occupiedBottomHeight, 49)
-        XCTAssertEqual(metrics.contentBottomInset, 16)
+        XCTAssertEqual(metrics.occupiedBottomHeight, 0)
+        XCTAssertEqual(metrics.contentBottomInset, 8)
     }
 
     @MainActor
@@ -223,8 +232,8 @@ final class PostSystemTests: XCTestCase {
         XCTAssertEqual(page.items[0].author?.id, "actor-gaia")
         XCTAssertNil(page.items[0].parentID)
         XCTAssertEqual(page.items[0].replyCount, 1)
-        XCTAssertFalse(PostBackendCapabilities.production.commentReplies)
-        XCTAssertFalse(PostBackendCapabilities.production.commentsDelete)
+        XCTAssertTrue(PostBackendCapabilities.production.commentReplies)
+        XCTAssertTrue(PostBackendCapabilities.production.commentsDelete)
         XCTAssertTrue(PostBackendCapabilities.production.commentsList)
     }
 
@@ -286,9 +295,18 @@ final class PostSystemTests: XCTestCase {
         XCTAssertGreaterThan(PostGestureThresholds.railMorphThreshold, PostGestureThresholds.dragActivationDistance)
     }
 
-    func testReactionNetworkSupportIsLikeOnly() {
-        XCTAssertEqual(SocialReaction.networkSupported, [.like])
-        XCTAssertFalse(PostBackendCapabilities.production.multiReactions)
+    func testReactionNetworkSupportMatchesGreenfieldVocabulary() {
+        XCTAssertEqual(Set(SocialReaction.networkSupported.map(\.rawValue)), ["like", "love", "laugh", "fire", "celebrate", "insightful", "support", "curious"])
+        XCTAssertTrue(PostBackendCapabilities.production.multiReactions)
+    }
+
+    func testSocialTextLinksUseCanonicalRoutesWithoutLinkingEmailAddresses() throws {
+        let attributed = PostTextLinks.attributed("Hello @andrei.modula, #travel. someone@example.com")
+        let urls = attributed.runs.compactMap(\.link)
+        XCTAssertEqual(urls.count, 2)
+        XCTAssertEqual(PostTextLinks.route(for: urls[0]), .profile("andrei.modula", .overview))
+        XCTAssertEqual(PostTextLinks.route(for: urls[1]), .search(.section(.posts, "#travel")))
+        XCTAssertNil(PostTextLinks.route(for: URL(string: "https://example.com")!))
     }
 
     func testVoiceOverSummaryIncludesEngagement() {

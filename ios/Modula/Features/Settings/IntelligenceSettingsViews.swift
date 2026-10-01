@@ -22,46 +22,135 @@ struct IntelligenceSettingsHost: View {
 
 struct IntelligenceSettingsRootView: View {
     @Environment(AppEnvironment.self) private var app
+    @State private var library = NodusLibrarySnapshot()
+    @State private var memory = NodusMemorySnapshot()
+    @State private var knowledge = NodusKnowledgeSnapshot()
+    @State private var providerLine = "Checking on-device providers"
+    @State private var promptTitle = ""
+    @State private var promptBody = ""
 
     var body: some View {
         SettingsScrollCanvas {
             SettingsHeroBanner(
                 title: "Intelligence",
-                subtitle: "On-device Swift. Fail-closed. No remote fallback from these screens.",
+                subtitle: providerLine,
                 symbol: "brain"
             )
             SettingsSceneGraphic(style: .orbit)
+            SettingsGroup(title: "Chat") {
+                VStack(spacing: 0) {
+                    SettingsNavigationRow(title: "Open Nodus", subtitle: "Local chat, projects, and prompts", symbol: "bubble.left.and.bubble.right") {
+                        PresentationCoordinator.present(.intelligenceChat, in: app.navigation)
+                    }
+                    SettingsDivider()
+                    labeled("Projects", value: "\(library.projects.filter { !$0.archived }.count)")
+                    SettingsDivider()
+                    labeled("Folders", value: "\(library.folders.count)")
+                    SettingsDivider()
+                    labeled("Saved prompts", value: "\(library.prompts.count)")
+                    SettingsDivider()
+                    labeled("Important chats", value: "\(library.placements.filter(\.important).count)")
+                }
+            }
+            SettingsGroup(title: "Saved prompts", subtitle: "Inserted into the composer. Stored on this iPhone.") {
+                VStack(alignment: .leading, spacing: 10) {
+                    if library.prompts.isEmpty {
+                        Text("No saved prompts yet.").font(.subheadline).foregroundStyle(.secondary)
+                    }
+                    ForEach(library.prompts) { prompt in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(prompt.title).font(.body.weight(.medium))
+                            Text(prompt.body).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contextMenu {
+                            Button("Delete", role: .destructive) {
+                                Task { library = (try? await app.nodusConversationStore.deletePrompt(id: prompt.id)) ?? library }
+                            }
+                        }
+                    }
+                    TextField("Title", text: $promptTitle)
+                    TextField("Prompt", text: $promptBody, axis: .vertical).lineLimit(2 ... 5)
+                    Button("Save prompt") {
+                        Task {
+                            library = (try? await app.nodusConversationStore.savePrompt(title: promptTitle, body: promptBody, projectID: nil)) ?? library
+                            promptTitle = ""
+                            promptBody = ""
+                        }
+                    }
+                    .disabled(promptBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                .padding(12)
+            }
+            SettingsGroup(title: "Memory", subtitle: "Confirmed local memory. Not model training.") {
+                VStack(spacing: 0) {
+                    labeled("Active", value: "\(memory.items.filter(\.active).count)")
+                    SettingsDivider()
+                    labeled("Archived", value: "\(memory.items.filter { !$0.active }.count)")
+                    if memory.items.isEmpty {
+                        Text("No stored memory.").font(.subheadline).foregroundStyle(.secondary).padding(12)
+                    } else {
+                        ForEach(memory.items.prefix(6)) { item in
+                            SettingsDivider()
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.text).font(.subheadline).lineLimit(2)
+                                Text(item.active ? item.kind.displayName : "Archived").font(.caption).foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                        }
+                    }
+                }
+            }
             SettingsGroup(title: "Open") {
                 VStack(spacing: 0) {
-                    SettingsNavigationRow(
-                        title: "Models",
-                        subtitle: "Registered providers on this device",
-                        symbol: "cpu"
-                    ) { app.navigation.open(.settings(.intelligence(.models))) }
+                    SettingsNavigationRow(title: "Models", subtitle: "Registered providers on this device", symbol: "cpu") {
+                        app.navigation.open(.settings(.intelligence(.models)))
+                    }
                     SettingsDivider()
-                    SettingsNavigationRow(
-                        title: "Knowledge",
-                        subtitle: "Local knowledge surfaces",
-                        symbol: "books.vertical"
-                    ) { app.navigation.open(.settings(.intelligence(.knowledge))) }
+                    SettingsNavigationRow(title: "Knowledge", subtitle: "\(knowledge.collections.count) collections on this iPhone", symbol: "books.vertical") {
+                        app.navigation.open(.settings(.intelligence(.knowledge)))
+                    }
                     SettingsDivider()
-                    SettingsNavigationRow(
-                        title: "Privacy",
-                        subtitle: "Local-only policy",
-                        symbol: "hand.raised.fill"
-                    ) { app.navigation.open(.settings(.intelligence(.privacy))) }
+                    SettingsNavigationRow(title: "Privacy", subtitle: "Local-only policy", symbol: "hand.raised.fill") {
+                        app.navigation.open(.settings(.intelligence(.privacy)))
+                    }
                     SettingsDivider()
-                    SettingsNavigationRow(
-                        title: "Tools",
-                        subtitle: "Registered tool descriptors",
-                        symbol: "wrench.and.screwdriver"
-                    ) { app.navigation.open(.settings(.intelligence(.tools))) }
+                    SettingsNavigationRow(title: "Tools", subtitle: "Registered tool descriptors", symbol: "wrench.and.screwdriver") {
+                        app.navigation.open(.settings(.intelligence(.tools)))
+                    }
                 }
             }
         }
         .navigationTitle("Intelligence")
         .navigationBarTitleDisplayMode(.inline)
+        .task { await refresh() }
         .accessibilityIdentifier("settings.intelligence")
+    }
+
+    private func labeled(_ title: String, value: String) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            Text(value).foregroundStyle(.secondary)
+        }
+        .font(.body)
+        .padding(.horizontal, 12)
+        .frame(minHeight: 44)
+    }
+
+    private func refresh() async {
+        library = await app.nodusConversationStore.librarySnapshot()
+        memory = await app.nodusMemoryStore.snapshot()
+        knowledge = await app.nodusKnowledgeStore.snapshot()
+        let providers = await app.intelligence.providers.allProviders()
+        var nodusLabel = "Nodus not registered"
+        for provider in providers where provider.id == NodusIntelligenceProvider.providerID {
+            let availability = await provider.availability()
+            nodusLabel = availability == .available ? "Nodus available" : availability.displayName
+        }
+        providerLine = "On-device · \(nodusLabel). Fail-closed."
     }
 }
 
@@ -170,15 +259,47 @@ struct IntelligenceModelsSettingsView: View {
 }
 
 struct IntelligenceKnowledgeSettingsView: View {
+    @Environment(AppEnvironment.self) private var app
+    @State private var snapshot = NodusKnowledgeSnapshot()
+
     var body: some View {
-        ContentUnavailableView {
-            Label("No local knowledge index", systemImage: "books.vertical")
-        } description: {
-            Text("Knowledge corpora are not exposed as a product surface yet. Native will not invent catalogue entries.")
+        SettingsScrollCanvas {
+            SettingsHeroBanner(
+                title: "Knowledge",
+                subtitle: "Collections stored on this iPhone. System collections are read-only.",
+                symbol: "books.vertical"
+            )
+            if snapshot.collections.isEmpty {
+                ContentUnavailableView(
+                    "No local knowledge",
+                    systemImage: "books.vertical",
+                    description: Text("Nothing has been saved into Knowledge yet.")
+                )
+            } else {
+                ForEach(snapshot.collections) { collection in
+                    let items = snapshot.items.filter { $0.collectionID == collection.id }
+                    SettingsGroup(title: collection.name, subtitle: collection.isReadOnly ? "System · read-only" : "On this iPhone") {
+                        VStack(alignment: .leading, spacing: 0) {
+                            if items.isEmpty {
+                                Text("No documents in this collection.").font(.subheadline).foregroundStyle(.secondary).padding(12)
+                            }
+                            ForEach(items) { item in
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.title).font(.body.weight(.medium))
+                                    Text(item.sourceName).font(.caption).foregroundStyle(.secondary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 10)
+                            }
+                        }
+                    }
+                }
+            }
         }
-        .modulaSoftScrollEdge()
         .navigationTitle("Knowledge")
         .navigationBarTitleDisplayMode(.inline)
+        .task { snapshot = await app.nodusKnowledgeStore.snapshot() }
         .accessibilityIdentifier("settings.intelligence.knowledge")
     }
 }

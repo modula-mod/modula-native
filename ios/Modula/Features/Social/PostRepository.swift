@@ -50,6 +50,19 @@ actor GreenfieldPostRepository: PostRepository {
         )
     }
 
+    func setReaction(postID: SocialPostID, reaction: SocialReaction?) async throws -> JSONValue {
+        try await client.authenticatedJSON(
+            reaction == nil ? "DELETE" : "PUT",
+            path: "/v1/posts/\(Self.pathEscaped(postID))/reaction",
+            body: reaction.map { .object(["type": .string($0.rawValue)]) }
+        )
+    }
+
+    func replies(commentID: SocialCommentID, postID: SocialPostID) async throws -> [SocialComment] {
+        let value = try await client.json("GET", path: "/v1/comments/\(Self.pathEscaped(commentID))/replies")
+        return SocialPayloadDecoder.commentPage(from: value, postID: postID).items
+    }
+
     func save(postID: SocialPostID) async throws {
         let _: JSONValue = try await client.authenticatedJSON(
             "POST",
@@ -107,14 +120,12 @@ actor GreenfieldPostRepository: PostRepository {
         guard capabilities.commentsCreate else {
             throw APIError.unavailable("Commenting is not available yet.")
         }
-        var body: [String: JSONValue] = ["text": .string(text)]
-        if let parentID {
-            body["parentId"] = .string(parentID)
-            body["parent_comment_id"] = .string(parentID)
-        }
+        let body: [String: JSONValue] = ["text": .string(text)]
+        let path = parentID.map { "/v1/comments/\(Self.pathEscaped($0))/replies" }
+            ?? PostBackendCapabilities.CommentPaths.create(postID: postID)
         let value: JSONValue = try await client.authenticatedJSON(
             "POST",
-            path: PostBackendCapabilities.CommentPaths.create(postID: postID),
+            path: path,
             body: .object(body)
         )
         let payload = value["comment"] ?? value

@@ -47,7 +47,7 @@ struct ProfileCover: View {
                     ModulaRemoteImage(
                         url: coverURL,
                         cacheKey: "cover:\(coverURL.path)",
-                        maximumPixelSize: 2_400,
+                        maximumPixelSize: max(width, coverHeight) * UIScreen.main.scale,
                         retryID: retryID
                     ) { phase in
                         switch phase {
@@ -209,6 +209,9 @@ enum ProfileIdentityMetrics {
     static func carveRadius(avatarSize: CGFloat) -> CGFloat {
         (avatarSize / 2) + 8
     }
+
+    static func overlap(avatarSize: CGFloat) -> CGFloat { avatarSize / 2 }
+    static func contentHeight(avatarSize: CGFloat) -> CGFloat { avatarSize - overlap(avatarSize: avatarSize) }
 }
 
 /// Circular carve under the cover so the avatar sits in a canvas-coloured pocket (Light + OLED).
@@ -231,26 +234,18 @@ struct ProfileAvatarPocket: View {
     private var ring: CGFloat { 5 }
     private var carveRadius: CGFloat { ProfileIdentityMetrics.carveRadius(avatarSize: avatarSize) }
     /// How much of the avatar sits above the content surface (intersection geometry).
-    private var intersection: CGFloat { avatarSize * 0.42 }
+    private var intersection: CGFloat { ProfileIdentityMetrics.overlap(avatarSize: avatarSize) }
 
     var body: some View {
         let inset = ModulaLayout.contentInset
-        ZStack(alignment: .bottomLeading) {
-            canvas
-                .frame(height: intersection)
-                .mask(
-                    AvatarPocketCarve(avatarCenterX: inset + avatarSize / 2, avatarRadius: carveRadius)
-                        .fill(style: FillStyle(eoFill: true))
-                )
-
-            avatarBadge
-                .padding(.leading, inset)
-                // Align avatar center with carve center on the content edge.
-                .alignmentGuide(.bottom) { dims in dims.height - intersection }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: avatarSize - intersection + intersection)
-        .padding(.bottom, avatarSize - intersection)
+        Color.clear
+            .frame(height: ProfileIdentityMetrics.contentHeight(avatarSize: avatarSize))
+            .overlay(alignment: .topLeading) {
+                avatarBadge
+                    .frame(width: avatarSize, height: avatarSize)
+                    .offset(y: -intersection)
+                    .padding(.leading, inset)
+            }
         .accessibilityElement(children: .contain)
     }
 
@@ -265,13 +260,6 @@ struct ProfileAvatarPocket: View {
                 HapticEngine.shared.play(.lightImpact)
             } label: {
                 ZStack {
-                    // Soft accent glow behind the pocket (mockup neon ring).
-                    Circle()
-                        .fill(app.appearance.accent.color.opacity(scheme == .dark ? 0.35 : 0.28))
-                        .frame(width: avatarSize + 18, height: avatarSize + 18)
-                        .blur(radius: 10)
-                        .opacity(storyRing == nil ? 1 : 0.55)
-
                     ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: avatarSize)
                         .overlay(
                             Circle()
@@ -293,7 +281,7 @@ struct ProfileAvatarPocket: View {
                                 )
                                 .padding(-1.5)
                         )
-                        .shadow(color: app.appearance.accent.color.opacity(0.35), radius: 12, y: 2)
+                        .shadow(color: .black.opacity(0.12), radius: 5, y: 2)
 
                     if let storyRing {
                         StoryRing(state: storyRing, size: avatarSize, accent: app.appearance.accent.color)
@@ -345,6 +333,7 @@ struct ProfileIdentityBlock: View {
     let profile: ModulaProfile
     @Environment(AppEnvironment.self) private var app
     @Environment(\.profileAccentColor) private var profileAccent
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var bioExpanded = false
 
     private var bioIsLong: Bool { profile.bio.count > 160 || profile.bio.contains("\n") }
@@ -369,18 +358,10 @@ struct ProfileIdentityBlock: View {
                     .accessibilityIdentifier("profile.headline")
             }
 
-            HStack(spacing: 6) {
-                Text("@\(profile.handle)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                if let pronouns = profile.pronouns, !pronouns.isEmpty {
-                    Text("·")
-                        .foregroundStyle(.tertiary)
-                    Text(pronouns)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-            }
+            Text("@\(profile.handle)" + (profile.pronouns.flatMap { $0.isEmpty ? nil : " · \($0)" } ?? ""))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
             if !profile.bio.isEmpty {
                 Text(profile.bio)
@@ -391,7 +372,7 @@ struct ProfileIdentityBlock: View {
 
                 if bioIsLong {
                     Button(bioExpanded ? "Less" : "More") {
-                        withAnimation(.easeOut(duration: 0.2)) { bioExpanded.toggle() }
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { bioExpanded.toggle() }
                         HapticEngine.shared.play(.selection)
                     }
                     .font(.subheadline.weight(.semibold))
@@ -402,7 +383,7 @@ struct ProfileIdentityBlock: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("profile.identity")
     }
 }
@@ -421,35 +402,14 @@ struct ProfileActionsRow: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(spacing: 6) {
-                    metricRow
-                }
-            } else {
-                metricRow
-            }
-        }
+        metricRow
         .padding(.vertical, 8)
-        .padding(.horizontal, 4)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.clear)
-                .modulaChrome(
-                    in: RoundedRectangle(cornerRadius: 18, style: .continuous),
-                    opaque: app.appearance.contrastTransparency == .reduceTransparency
-                )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.primary.opacity(app.appearance.contrastTransparency == .higherContrast ? 0.16 : 0.06), lineWidth: 1)
-        )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("profile.metrics")
     }
 
     private var metricRow: some View {
-        HStack(spacing: 0) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: dynamicTypeSize.isAccessibilitySize ? 2 : (showsModules ? 4 : 3)), spacing: 12) {
             metric(
                 value: profile.postCount,
                 label: "Posts",
@@ -457,7 +417,6 @@ struct ProfileActionsRow: View {
                 accessibilityNoun: "posts",
                 action: onPosts
             )
-            separator
             metric(
                 value: profile.followerCount,
                 label: "Followers",
@@ -465,7 +424,6 @@ struct ProfileActionsRow: View {
                 accessibilityNoun: "followers",
                 action: onFollowers
             )
-            separator
             metric(
                 value: profile.followingCount,
                 label: "Following",
@@ -474,7 +432,6 @@ struct ProfileActionsRow: View {
                 action: onFollowing
             )
             if showsModules, let onModules {
-                separator
                 metric(
                     value: profile.moduleCount,
                     label: "Modules",

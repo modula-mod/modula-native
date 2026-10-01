@@ -205,6 +205,8 @@ struct StoryDraft: Codable, Equatable, Hashable, DraftRecord {
     var mediaAssetIDs: [String]
     var caption: String
     var lastEdited: Date
+    var media: CreationMedia? = nil
+    var visibility: String? = nil
 
     var preview: String {
         let captionTrim = caption.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -213,7 +215,7 @@ struct StoryDraft: Codable, Equatable, Hashable, DraftRecord {
     }
 
     var hasContent: Bool {
-        !mediaAssetIDs.isEmpty || !caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        media != nil || !mediaAssetIDs.isEmpty || !caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
 

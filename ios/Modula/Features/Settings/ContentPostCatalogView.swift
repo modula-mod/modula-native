@@ -108,6 +108,9 @@ private struct ContentPostCatalogPage: View {
     @State private var commentText = "A thoughtful reply"
     @State private var pickedDraft: ModulaAttachment?
     @State private var pickerMessage: String?
+    @State private var railSaved = false
+    @State private var railLiked = false
+    @State private var railNotice = "Local interaction preview · no network mutations"
 
     var body: some View {
         ScrollView {
@@ -206,7 +209,26 @@ private struct ContentPostCatalogPage: View {
                 onOpenModule: { _ in }
             )
         case .actionRail:
-            fixtureActions
+            ZStack(alignment: .trailing) {
+                LinearGradient(colors: [app.appearance.accent.color.opacity(0.65), .black], startPoint: .topLeading, endPoint: .bottomTrailing)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Content first").font(.title2.bold())
+                    Text(railNotice).font(.footnote).foregroundStyle(.white.opacity(0.8))
+                    Spacer()
+                    Text("A shared production rail. Tap More or drag down for context.").font(.subheadline)
+                }
+                .foregroundStyle(.white)
+                .padding(20)
+                .padding(.trailing, 64)
+                PostActionRail(post: railPreviewPost,
+                    onLike: { railLiked.toggle() }, onComment: { commentsPresented = true },
+                    onSave: { railSaved.toggle() }, onShare: { railNotice = "Share selected · preview only" },
+                    onReactLongPress: { railNotice = "Reaction selected · preview only" },
+                    onContextAction: { railNotice = "\($0.title) selected · preview only" })
+                    .padding(.trailing, 12)
+            }
+            .frame(height: 380)
+            .clipShape(RoundedRectangle(cornerRadius: 24))
         case .metadata:
             ViewThatFits {
                 HStack { metadataChips }
@@ -374,6 +396,15 @@ private struct ContentPostCatalogPage: View {
             Spacer()
             Image(systemName: "ellipsis")
         }
+    }
+
+    private var railPreviewPost: SocialPost {
+        SocialPost(id: "catalog-action-rail", author: nil, createdAt: Date(timeIntervalSince1970: 0),
+            editedAt: nil, feed: nil, text: nil, kind: .media, visibility: .private, audience: nil,
+            media: [], link: nil, module: nil, glowColour: nil,
+            engagement: .init(liked: railLiked, saved: railSaved, reposted: false,
+                viewerReaction: railLiked ? .like : nil, likeCount: railLiked ? 1 : 0,
+                replyCount: 0, repostCount: 0, quoteCount: 0, reactionCount: railLiked ? 1 : 0))
     }
 
     private var fixtureActions: some View {

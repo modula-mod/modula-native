@@ -41,8 +41,8 @@ enum ProfileFullBleedMetrics {
     /// Cinematic full-bleed cover. Includes status-bar / Dynamic Island inset so media
     /// truly reaches the physical top edge under `.ignoresSafeArea(edges: .top)`.
     static func coverHeight(sizeClass: UserInterfaceSizeClass?, safeAreaTop: CGFloat, accessibility: Bool) -> CGFloat {
-        let base: CGFloat = sizeClass == .regular ? 372 : 338
-        let adjusted = accessibility ? max(260, base - 28) : base
+        let base: CGFloat = sizeClass == .regular ? 280 : 236
+        let adjusted = accessibility ? base - 28 : base
         return adjusted + max(0, safeAreaTop)
     }
 

@@ -7,7 +7,9 @@ struct ProfileView: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.openURL) private var openURL
     @Environment(\.trailingInteractionInset) private var trailingInteractionInset
+    @Environment(\.leadingInteractionInset) private var leadingInteractionInset
     @Environment(\.shellChromeMetrics) private var shellChromeMetrics
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var headerProgress: CGFloat = 0
     @State private var confirmsBlock = false
     @State private var confirmsReport = false
@@ -370,6 +372,8 @@ struct ProfileView: View {
                 linksPreview(profile)
             }
             .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.leading, leadingInteractionInset)
+            .padding(.trailing, trailingInteractionInset)
             .padding(.top, 8)
         }
     }
@@ -380,8 +384,8 @@ struct ProfileView: View {
                 coverURL: profile.coverURL,
                 coverColour: profile.coverColour,
                 scrollProgress: headerProgress,
-                pocketCenterX: ModulaLayout.contentInset + ProfileIdentityMetrics.avatarSize(sizeClass: nil) / 2,
-                pocketRadius: ProfileIdentityMetrics.carveRadius(avatarSize: ProfileIdentityMetrics.avatarSize(sizeClass: nil)),
+                pocketCenterX: ModulaLayout.contentInset + ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass) / 2,
+                pocketRadius: ProfileIdentityMetrics.carveRadius(avatarSize: ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass)),
                 onTap: { openCoverViewer(profile) },
                 contextActions: ProfileContextActions.coverMenu(isOwn: isOwnProfile, hasCover: profile.coverURL != nil),
                 onContextAction: { handleContextAction($0, profile: profile) }
@@ -399,6 +403,8 @@ struct ProfileView: View {
             )
             ProfileIdentityBlock(profile: profile)
                 .padding(.horizontal, ModulaLayout.contentInset)
+                .padding(.leading, leadingInteractionInset)
+                .padding(.trailing, trailingInteractionInset)
                 .padding(.top, 4)
         }
         .padding(.top, 0)
@@ -527,6 +533,7 @@ struct ProfileView: View {
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.trailing, trailingInteractionInset)
+            .padding(.leading, leadingInteractionInset)
             .padding(.top, embedded ? 0 : 8)
         }
     }
@@ -654,8 +661,8 @@ struct ProfileView: View {
                 coverURL: profile.coverURL,
                 coverColour: profile.coverColour,
                 scrollProgress: headerProgress,
-                pocketCenterX: ModulaLayout.contentInset + ProfileIdentityMetrics.avatarSize(sizeClass: nil) / 2,
-                pocketRadius: ProfileIdentityMetrics.carveRadius(avatarSize: ProfileIdentityMetrics.avatarSize(sizeClass: nil)),
+                pocketCenterX: ModulaLayout.contentInset + ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass) / 2,
+                pocketRadius: ProfileIdentityMetrics.carveRadius(avatarSize: ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass)),
                 onTap: { openCoverViewer(profile) },
                 contextActions: ProfileContextActions.coverMenu(isOwn: isOwnProfile, hasCover: profile.coverURL != nil),
                 onContextAction: { handleContextAction($0, profile: profile) }
@@ -686,6 +693,8 @@ struct ProfileView: View {
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.top, 4)
+            .padding(.leading, leadingInteractionInset)
+            .padding(.trailing, trailingInteractionInset)
             .padding(.bottom, 12)
         }
     }

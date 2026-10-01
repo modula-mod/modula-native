@@ -69,6 +69,7 @@ struct ModulaComposerSendButton: View {
     var enabled: Bool
     var sending: Bool
     var action: () -> Void
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         Button(action: action) {
@@ -81,9 +82,10 @@ struct ModulaComposerSendButton: View {
                 }
             }
             .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
+            .foregroundStyle(enabled ? Color.white : Color.secondary)
+            .background(enabled ? app.appearance.accent.color : Color.primary.opacity(0.06), in: Circle())
         }
-        .buttonStyle(.borderedProminent)
-        .buttonBorderShape(.circle)
+        .buttonStyle(.plain)
         .disabled(!enabled)
         .accessibilityLabel(sending ? "Sending" : "Send")
     }

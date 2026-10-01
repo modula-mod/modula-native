@@ -7,13 +7,13 @@ struct PostBackendCapabilities: Sendable, Equatable {
     var repost = true
     var shareReceipt = false
     /// Multi-value reaction HTTP beyond like toggle.
-    var multiReactions = false
+    var multiReactions = true
     var commentsList = true
     var commentsCreate = true
-    /// DELETE `/v1/comments/:id` was not live-verified this closeout.
-    var commentsDelete = false
-    /// List returns top-level rows only (`parent_comment_id` null). Do not offer a reply composer.
-    var commentReplies = false
+    /// Supported by the authenticated comment ownership contract.
+    var commentsDelete = true
+    /// Root listing and the dedicated replies endpoint are separate collections.
+    var commentReplies = true
     var editOwnPost = false
     var deleteOwnPost = false
     var likesList = false

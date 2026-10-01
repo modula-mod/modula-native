@@ -205,6 +205,27 @@ final class CommandRecentsTests: XCTestCase {
 
 @MainActor
 final class CollectionsDraftsShareTests: XCTestCase {
+    func testStoryPhotoAndAudienceSurviveReloadAndPostDraftCleanup() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let files = PrivateFileStore(domain: .drafts, rootURL: root)
+        let media = DraftMediaStore(fileStore: PrivateFileStore(domain: .draftMedia, rootURL: root))
+        let store = DraftStore(fileStore: files, mediaStore: media)
+        store.setAccountID("story-owner")
+        let photo = try media.importJPEG(Data([0xff, 0xd8, 0xff]), accountID: "story-owner", width: 1, height: 1)
+        store.upsertStory(StoryDraft(id: "story-primary", mediaAssetIDs: [photo.id], caption: "A moment",
+            lastEdited: Date(), media: photo, visibility: "followers"), debounce: false)
+        store.upsertPost(PostDraft(id: "temporary-post", text: "Discard", mediaReferences: [], lastEdited: Date()), debounce: false)
+        store.discardPost(id: "temporary-post")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: media.fileURL(photo).path))
+        let reloaded = DraftStore(fileStore: files, mediaStore: media)
+        reloaded.setAccountID("story-owner")
+        XCTAssertEqual(reloaded.stories.first?.media, photo)
+        XCTAssertEqual(reloaded.stories.first?.visibility, "followers")
+        reloaded.discardStory(id: "story-primary")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: media.fileURL(photo).path))
+    }
+
     func testComposerCloseCannotResavePublishedOrDiscardedDraft() {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

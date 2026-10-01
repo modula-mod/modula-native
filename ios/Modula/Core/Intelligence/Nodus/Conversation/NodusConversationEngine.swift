@@ -31,6 +31,7 @@ actor NodusConversationEngine {
     func send(
         question: String,
         conversationID: UUID,
+        projectBrief: String? = nil,
         progress: @escaping @Sendable (NodusReasoningStage) async -> Void = { _ in }
     ) async throws -> NodusConversationEngineResult {
         let clean = question.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -90,11 +91,14 @@ actor NodusConversationEngine {
             try Task.checkCancellation()
         }
 
-        let budget = conversation.reasoningMode == .deep ? NodusContextBudget.deep : .standard
-        let reasoningMode = conversation.reasoningMode
+        let storedSteps = await conversations.librarySnapshot().placement(for: conversation.id)?.thinkSteps ?? 0
+        let thinkStep = NodusThinkStep.resolve(stored: storedSteps, mode: conversation.reasoningMode)
+        let budget = NodusContextBudget.forThinkSteps(thinkStep.rawValue)
+        let reasoningMode = thinkStep.reasoningMode
         let prompt = NodusContextBuilder.build(
             question: clean, conversation: conversation, memory: memories,
-            knowledge: knowledgeMatches, search: web, budget: budget
+            knowledge: knowledgeMatches, search: web, budget: budget,
+            projectBrief: projectBrief
         )
         let generationStart = ContinuousClock.now
         let generated = try await deepCoordinator.run(

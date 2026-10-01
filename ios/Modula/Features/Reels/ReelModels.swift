@@ -18,6 +18,13 @@ struct Reel: Identifiable, Hashable, Sendable {
     let posterColor: String?
     let engagement: PostEngagement
     let createdAt: Date
+    var canonicalPost: SocialPost? = nil
+
+    var attachment: ModulaAttachment? {
+        if let media = canonicalPost?.media.first(where: \.isVideo) { return ModulaPostMapper.attachment(media) }
+        guard let media else { return nil }
+        return ModulaAttachment(id: media.id, kind: .video, remoteURL: media.url, thumbnailURL: media.posterURL, duration: media.duration)
+    }
 
     var durationLabel: String? {
         guard let duration = media?.duration else { return nil }
@@ -25,7 +32,8 @@ struct Reel: Identifiable, Hashable, Sendable {
     }
 
     func asSocialPost() -> SocialPost {
-        SocialPost(
+        if let canonicalPost { return canonicalPost }
+        return SocialPost(
             id: postID ?? id,
             author: creator,
             createdAt: createdAt,
@@ -54,10 +62,10 @@ struct ReelPage: Sendable, Equatable {
 struct ReelBackendCapabilities: Sendable, Equatable {
     var seedList = true
     var rankedFeed = false
-    var videoPlayback = false
+    var videoPlayback = true
     var audioAttribution = false
-    var captions = false
-    var commentsViaPost = false
+    var captions = true
+    var commentsViaPost = true
     var create = false
 
     static let production = ReelBackendCapabilities()
@@ -78,6 +86,18 @@ enum ReelPayloadDecoder {
     }
 
     static func reel(_ value: JSONValue) -> Reel? {
+        if let payload = value["post"], let post = SocialPayloadDecoder.post(payload),
+           let author = post.author, let video = post.media.first(where: \.isVideo), video.url != nil {
+            return Reel(
+                id: post.id, postID: post.id, creator: author,
+                media: MediaResource(id: video.id, kind: .video, url: video.url,
+                                     posterURL: video.thumbnailURL ?? video.previewURL, altText: video.altText,
+                                     dimensions: video.width.flatMap { w in video.height.map { MediaDimensions(width: w, height: $0) } },
+                                     duration: video.duration),
+                caption: post.text, audio: nil, posterColor: post.glowColour,
+                engagement: post.engagement, createdAt: post.createdAt, canonicalPost: post
+            )
+        }
         let id = value["id"]?.string
         guard let id else { return nil }
         let authorValue = value["author"]
@@ -137,7 +157,7 @@ actor GreenfieldReelRepository {
         guard capabilities.seedList || capabilities.rankedFeed else {
             throw APIError.unavailable("Couldn't load this reel.")
         }
-        let value: JSONValue = try await client.publicJSON("GET", path: ReelBackendCapabilities.Paths.seed)
+        let value: JSONValue = try await client.json("GET", path: ReelBackendCapabilities.Paths.seed)
         let page = ReelPayloadDecoder.page(from: value)
         memory = page
         return page
@@ -176,7 +196,7 @@ final class ReelStore {
             let page = try await repository.feed()
             items = page.items
             loadState = .loaded
-            if activeID == nil { activeID = page.items.first?.id }
+            if !page.items.contains(where: { $0.id == activeID }) { activeID = page.items.first?.id }
         } catch {
             if let cached = await repository.cached(), !cached.items.isEmpty {
                 items = cached.items

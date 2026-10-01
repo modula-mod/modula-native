@@ -1274,6 +1274,51 @@ final class N3BDiscoverUITests: XCTestCase {
 
 @MainActor
 final class N3CHomeUITests: XCTestCase {
+    func testConversationUsesContinuousDetailAndPinnedComposer() throws {
+        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--reset-appearance", "--ui-dark"])
+        let comment = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "home.action.comment.")).firstMatch
+        XCTAssertTrue(comment.waitForExistence(timeout: 12))
+        comment.tap()
+        XCTAssertTrue(app.buttons["Close comments"].waitForExistence(timeout: 6))
+        XCTAssertTrue(app.textFields["Add a comment…"].exists)
+        let message = "A clearer conversation, with room for the content."
+        app.textFields["Add a comment…"].tap()
+        app.textFields["Add a comment…"].typeText(message)
+        app.buttons["Send"].tap()
+        XCTAssertTrue(app.staticTexts[message].firstMatch.waitForExistence(timeout: 10))
+        attachScreenshot(app, name: "post05-comments-dark")
+        app.buttons["Close comments"].tap()
+        let open = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "post.open.")).firstMatch
+        XCTAssertTrue(open.waitForExistence(timeout: 5))
+        open.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["native.post"].firstMatch.waitForExistence(timeout: 6))
+        XCTAssertTrue(app.textFields["Add a comment…"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts[message].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.tabBars.firstMatch.isHittable)
+        XCTAssertEqual(app.scrollViews.count, 1)
+        attachScreenshot(app, name: "post05-continuous-detail-dark")
+    }
+
+    func testSocialEntriesOpenStoryComposerAndReels() throws {
+        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--reset-appearance", "--ui-light"])
+        let create = app.buttons["Create story"].firstMatch
+        XCTAssertTrue(create.waitForExistence(timeout: 8))
+        create.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["story.create"].firstMatch.waitForExistence(timeout: 6))
+        XCTAssertTrue(app.buttons["Add a photo"].exists)
+        XCTAssertTrue(app.staticTexts["Available for 24 hours"].exists)
+        attachScreenshot(app, name: "post05-story-composer")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        let reels = app.buttons["home.open-reels"].firstMatch
+        XCTAssertTrue(reels.waitForExistence(timeout: 5))
+        reels.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["reels.feed"].firstMatch.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["Post a video"].exists)
+        attachScreenshot(app, name: "post05-reels-entry")
+        app.buttons["Back"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["native.home"].firstMatch.waitForExistence(timeout: 5))
+    }
+
     func testHomeFeedLandmarksAndTools() throws {
         let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--reset-appearance"])
 
@@ -1348,6 +1393,22 @@ final class N3CHomeUITests: XCTestCase {
 
 @MainActor
 final class N3DProfileUITests: XCTestCase {
+    func testProfileHeroKeepsIdentityAndMetricsInFirstViewport() throws {
+        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--reset-appearance", "--ui-light"])
+        selectTab(app, "Profile")
+        let identity = app.descendants(matching: .any)["profile.identity"].firstMatch
+        XCTAssertTrue(identity.waitForExistence(timeout: 10))
+        let avatar = app.buttons["profile.avatar"].firstMatch
+        let metrics = app.descendants(matching: .any)["profile.metrics"].firstMatch
+        XCTAssertTrue(avatar.exists)
+        XCTAssertTrue(metrics.exists)
+        XCTAssertLessThan(avatar.frame.minY, identity.frame.minY)
+        XCTAssertLessThan(identity.frame.minY - avatar.frame.maxY, 40)
+        XCTAssertLessThan(metrics.frame.maxY, app.frame.maxY - 80)
+        XCTAssertLessThanOrEqual(metrics.frame.maxX, app.frame.maxX - 40, "Metrics must clear the Edge Picker")
+        attachScreenshot(app, name: "post05-compact-profile-light")
+    }
+
     func testOwnProfileRailAndEditEntry() throws {
         let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--reset-appearance"])
 
@@ -1537,6 +1598,23 @@ final class MCAT02CatalogUITests: XCTestCase {
 
 @MainActor
 final class POST03CatalogUITests: XCTestCase {
+    func testProductionRailHasLabelledContextActions() throws {
+        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--reset-appearance", "--ui-light"])
+        try openContentCatalog(app)
+        openPage("Media Action Rail", app: app)
+        let more = app.buttons["More actions"].firstMatch
+        XCTAssertTrue(more.waitForExistence(timeout: 6))
+        more.tap()
+        XCTAssertTrue(app.buttons["Copy Link"].firstMatch.waitForExistence(timeout: 4))
+        XCTAssertTrue(app.buttons["Close post actions"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "post05-labelled-media-context-light"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        app.buttons["Copy Link"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Copy Link selected · preview only"].exists)
+    }
+
     func testContentPostCatalogPagesAndFullInteractionOpen() throws {
         let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--reset-appearance", "--ui-light"])
         try openContentCatalog(app)

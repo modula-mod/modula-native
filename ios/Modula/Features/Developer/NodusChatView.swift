@@ -1,6 +1,15 @@
+import AVFoundation
+import Network
+import PhotosUI
 import SwiftUI
+import UIKit
+import UniformTypeIdentifiers
 
 #if DEBUG
+private enum NodusConnectorFollowUp {
+    case knowledge, memory, library
+}
+
 enum NodusChatPresentation: Equatable {
     case developerWorkspace
     case accessorySheet
@@ -13,6 +22,7 @@ struct NodusChatView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var model = NodusChatViewModel()
     @FocusState private var composerFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showingConversations = false
     @State private var showingKnowledge = false
     @State private var showingRename = false
@@ -22,6 +32,38 @@ struct NodusChatView: View {
     @State private var correctionRating: NodusDeveloperRating = .wrong
     @State private var correctionText = ""
     @State private var savingCitation: NodusCitation?
+    @State private var attachments: [NodusComposerAttachment] = []
+    @State private var showingCamera = false
+    @State private var showingPhotos = false
+    @State private var showingFiles = false
+    @State private var showingPlugins = false
+    @State private var showingMemory = false
+    @State private var showingChatSettings = false
+    @State private var photoItem: PhotosPickerItem?
+    @State private var pluginQuery = ""
+    @Namespace private var photoMorph
+    @State private var expandedPhoto: String?
+    @State private var showingModels = false
+    @State private var showingSystemInfo = false
+    @State private var showingConnectors = false
+    @State private var showingPrompts = false
+    @State private var showingThinkBudget = false
+    @State private var connectorFollowUp: NodusConnectorFollowUp?
+    @State private var bottomPull: CGFloat = 0
+    @State private var armedNewChat = false
+    @State private var copiedMessageID: UUID?
+    @State private var sendTick = 0
+    @State private var welcomeAppeared = false
+    @State private var showingSkills = false
+    @State private var showingFunctions = false
+    @State private var showingPersona = false
+    @State private var showingCustomise = false
+    @State private var showingRemote = false
+    @State private var handleDragging = false
+    @State private var creatingChat = false
+    @StateObject private var pathMonitor = NodusPathMonitor()
+    @State private var speaker = AVSpeechSynthesizer()
+    @StateObject private var dictation = NodusDictation()
     let presentation: NodusChatPresentation
 
     init(presentation: NodusChatPresentation = .developerWorkspace) {
@@ -35,6 +77,8 @@ struct NodusChatView: View {
             conversation
             composer
         }
+        .overlay(alignment: .bottom) { photoStage }
+        .animation(.spring(duration: 0.42, bounce: 0.18), value: expandedPhoto)
         .modulaCanvas()
         .navigationTitle(model.activeConversation?.title ?? "Nodus")
         .navigationBarTitleDisplayMode(.inline)
@@ -65,18 +109,92 @@ struct NodusChatView: View {
                     }
                     .accessibilityLabel("Export Nodus evaluations")
                 } else {
-                    Button("Close") { dismiss() }
-                        .accessibilityIdentifier("intelligence.chat.close")
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.body.weight(.semibold))
+                    }
+                    .accessibilityLabel("Close")
+                    .accessibilityIdentifier("intelligence.chat.close")
                 }
             }
         }
-        .task { await model.configure(using: app) }
+        .task {
+            pathMonitor.start()
+            await model.configure(using: app)
+        }
         .onDisappear { model.cancel() }
         .sheet(isPresented: $showingConversations) {
-            NodusConversationListSheet(model: model)
+            NodusLibraryBrowser(model: model)
         }
         .sheet(isPresented: $showingKnowledge) {
             NodusKnowledgeAttachmentSheet(model: model)
+        }
+        .sheet(isPresented: $showingPlugins) {
+            NodusPluginSheet(
+                query: $pluginQuery,
+                memoryOn: model.activeConversation?.memoryEnabled == true,
+                onSelect: handlePlugin
+            )
+        }
+        .sheet(isPresented: $showingMemory) {
+            NavigationStack { NodusMemoryView() }
+        }
+        .sheet(isPresented: $showingChatSettings) {
+            NodusChatSettingsSheet(model: model)
+        }
+        .sheet(isPresented: $showingModels) {
+            NodusModelSheet(identity: model.modelIdentity, availability: model.availability)
+        }
+        .sheet(isPresented: $showingSystemInfo) {
+            NodusSystemInfoSheet(
+                chats: model.conversations.count,
+                projects: model.library.projects.count,
+                folders: model.library.folders.count,
+                prompts: model.library.prompts.count,
+                personas: model.library.placements.filter { !$0.persona.isEmpty }.count,
+                skills: model.library.placements.filter { !$0.skillIDs.isEmpty }.count
+            )
+        }
+        .sheet(isPresented: $showingConnectors, onDismiss: followConnector) {
+            NodusConnectorsSheet(model: model, draftCount: attachments.count, onLibrary: {
+                connectorFollowUp = .library
+                showingConnectors = false
+            }, onKnowledge: {
+                connectorFollowUp = .knowledge
+                showingConnectors = false
+            }, onMemory: {
+                connectorFollowUp = .memory
+                showingConnectors = false
+            })
+        }
+        .sheet(isPresented: $showingPrompts) {
+            NodusMarketplaceSheet(model: model)
+        }
+        .sheet(isPresented: $showingSkills) { NodusSkillsSheet(model: model) }
+        .sheet(isPresented: $showingPersona) { NodusPersonaSheet(model: model) }
+        .sheet(isPresented: $showingCustomise) { NodusCustomiseSheet(model: model) }
+        .sheet(isPresented: $showingRemote) {
+            NodusRemoteSheet(
+                pathStatus: pathMonitor.status,
+                interfaceName: pathMonitor.interfaceName,
+                searchOn: model.activeConversation?.searchEnabled == true,
+                webCitations: model.messages.reduce(0) { $0 + $1.citations.filter { $0.kind == .web }.count }
+            )
+        }
+        .sheet(isPresented: $showingFunctions) {
+            NodusFunctionsSheet(lastReply: model.messages.last(where: { $0.role == .nodus })?.text) { function in
+                perform(function)
+            }
+        }
+        .photosPicker(isPresented: $showingPhotos, selection: $photoItem, matching: .images)
+        .fileImporter(isPresented: $showingFiles, allowedContentTypes: [.image, .text, .plainText, .pdf, .data], allowsMultipleSelection: false) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                Task { await importFile(url) }
+            }
+        }
+        .onChange(of: photoItem) { _, item in
+            guard let item else { return }
+            Task { await importPhoto(item) }
         }
         .sheet(item: $correctionTarget) { message in
             correctionSheet(message)
@@ -98,14 +216,26 @@ struct NodusChatView: View {
     }
 
     private var statusHeader: some View {
-        HStack(spacing: 10) {
-            Image(systemName: presentation.showsDeveloperDiagnostics ? "brain" : "sparkles")
-                .foregroundStyle(Color.accentColor)
+        HStack(spacing: 12) {
+            ZStack {
+                if model.isGenerating {
+                    NodusThinkingOrb(stage: model.progressStage, reduceMotion: reduceMotion, size: 36)
+                        .transition(.scale(scale: 0.6).combined(with: .opacity))
+                } else {
+                    NodusStudioGlyph(symbol: presentation.showsDeveloperDiagnostics ? "brain" : "sparkles", size: 36)
+                        .transition(.scale(scale: 0.8).combined(with: .opacity))
+                }
+            }
+            .animation(.spring(duration: 0.42, bounce: 0.28), value: model.isGenerating)
             VStack(alignment: .leading, spacing: 2) {
                 Text(presentation.showsDeveloperDiagnostics ? (model.modelIdentity?.displayName ?? "Nodus R7 Experimental") : "Nodus")
                     .font(.headline)
                     .accessibilityIdentifier("nodus.chat.screen")
-                Text(statusText).font(.caption).foregroundStyle(.secondary)
+                Text(statusText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .contentTransition(.opacity)
+                    .animation(.easeInOut(duration: 0.25), value: statusText)
             }
             Spacer()
             if presentation.showsDeveloperDiagnostics {
@@ -116,6 +246,13 @@ struct NodusChatView: View {
                 }
                 .font(.caption.weight(.medium))
             } else {
+                if model.activeConversation.flatMap({ model.library.placement(for: $0.id)?.important }) == true {
+                    Image(systemName: "flag.fill")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.orange)
+                        .symbolEffect(.bounce, value: model.messages.count)
+                        .accessibilityLabel("Important")
+                }
                 Text("Experimental")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.orange)
@@ -144,31 +281,30 @@ struct NodusChatView: View {
             )
             .accessibilityIdentifier("nodus.chat.unavailable")
         } else if model.messages.isEmpty {
-            ContentUnavailableView {
-                Label("Local Intelligence", systemImage: "brain")
-            } description: {
-                Text("Start a local conversation. Think, Search, Knowledge, and Memory are independently controlled.")
-            }
-            .accessibilityIdentifier("nodus.chat.empty")
+            welcome
         } else {
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 12) {
+                    LazyVStack(spacing: model.messageDensity == "compact" ? 8 : 12) {
                         ForEach(model.messages) { message in
                             messageBubble(message).id(message.id)
                         }
                         if model.isGenerating {
-                            HStack(spacing: 8) {
-                                ProgressView().controlSize(.small)
-                                Text(model.progressText ?? "Thinking…")
-                                    .font(.footnote).foregroundStyle(.secondary)
-                                Spacer()
-                            }
-                            .padding(.horizontal)
-                            .accessibilityIdentifier("nodus.chat.generating")
+                            NodusThinkingRow(text: model.progressText ?? "Thinking", stage: model.progressStage)
+                                .padding(.horizontal)
+                                .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .leading)))
                         }
+                        newChatHandle
                     }
                     .padding()
+                    .animation(.spring(duration: 0.42, bounce: 0.22), value: model.messages.map(\.id))
+                }
+                .onScrollGeometryChange(for: CGFloat.self) { geo in
+                    let overflow = geo.contentSize.height - geo.containerSize.height
+                    guard overflow > 24 else { return 0 }
+                    return max(0, geo.contentOffset.y + geo.containerSize.height - geo.contentSize.height)
+                } action: { previous, pull in
+                    noteBottomPull(previous: previous, pull: pull)
                 }
                 .onChange(of: model.messages.count) { _, _ in
                     if let last = model.messages.last { proxy.scrollTo(last.id, anchor: .bottom) }
@@ -178,10 +314,55 @@ struct NodusChatView: View {
     }
 
     private func messageBubble(_ message: NodusMessage) -> some View {
+        NodusMessageSwipe(
+            onReply: { reply(to: message) },
+            onFork: {
+                if let conversation = model.activeConversation {
+                    Task { await model.fork(conversation, through: message.id) }
+                }
+            },
+            onLove: { model.toggleReaction(NodusReaction.heart.rawValue, on: message.id) }
+        ) {
+            messageContents(message)
+        }
+    }
+
+    private func messageContents(_ message: NodusMessage) -> some View {
         HStack {
             if message.role == .user { Spacer(minLength: 44) }
-            VStack(alignment: .leading, spacing: 9) {
-                Text(message.text).textSelection(.enabled)
+            VStack(alignment: .leading, spacing: model.messageDensity == "compact" ? 6 : 9) {
+                if let image = model.attachmentImages[message.id] {
+                    let geometryID = "message-\(message.id.uuidString)"
+                    let open = expandedPhoto == geometryID
+                    Button {
+                        withAnimation(.spring(duration: 0.42, bounce: 0.2)) { expandedPhoto = geometryID }
+                    } label: {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 112, height: 84)
+                            .clipShape(RoundedRectangle(cornerRadius: open ? 22 : 14, style: .continuous))
+                            .matchedGeometryEffect(id: geometryID, in: photoMorph, isSource: !open)
+                    }
+                    .buttonStyle(.plain)
+                    .opacity(open ? 0 : 1)
+                    .accessibilityLabel("Attached photo preview")
+                    .accessibilityIdentifier("nodus.chat.photo.message")
+                }
+                Text(message.text)
+                    .font(model.messageFont)
+                    .textSelection(.enabled)
+                if model.showMessageTimes {
+                    Text(message.createdAt, style: .time)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                if let symbols = model.reactions[message.id], !symbols.isEmpty {
+                    NodusMessageReactions(symbols: symbols)
+                }
+                if message.role == .nodus, message.id == latestNodusID, !model.isGenerating {
+                    messageActions(message)
+                }
                 if let answer = message.answer {
                     responseBadges(message, answer: answer)
                     if !message.citations.isEmpty { sourceList(message.citations) }
@@ -208,15 +389,75 @@ struct NodusChatView: View {
                     }
                 }
             }
-            .padding(12)
+            .padding(model.messageDensity == "compact" ? 8 : 12)
             .background {
-                if message.role == .user || presentation.showsDeveloperDiagnostics {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(message.role == .user ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.11))
+                if message.role == .user {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(chatTint.color(accent: app.appearance.accent.color).opacity(0.22))
+                } else if presentation.showsDeveloperDiagnostics {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(Color.secondary.opacity(0.11))
+                }
+            }
+            .modifier(NodusReplyGlass(enabled: message.role == .nodus && !presentation.showsDeveloperDiagnostics && message.id == latestNodusID))
+            .background {
+                if message.role == .nodus, !presentation.showsDeveloperDiagnostics, message.id != latestNodusID {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(.ultraThinMaterial)
                 }
             }
             if message.role == .nodus { Spacer(minLength: 44) }
         }
+        .contextMenu {
+            Button("Reply", systemImage: "arrowshape.turn.up.left") { reply(to: message) }
+            Menu("Message", systemImage: "text.bubble") {
+                Button("Copy", systemImage: "doc.on.doc") {
+                    UIPasteboard.general.string = message.text
+                }
+                Button("Fork from here", systemImage: "arrow.triangle.branch") {
+                    if let conversation = model.activeConversation {
+                        Task { await model.fork(conversation, through: message.id) }
+                    }
+                }
+                ShareLink(item: message.text) { Label("Share", systemImage: "square.and.arrow.up") }
+                if message.role == .nodus {
+                    Button("Again", systemImage: "arrow.clockwise") { regenerate() }
+                }
+            }
+            Menu("React", systemImage: "face.smiling") {
+                ForEach(NodusReaction.allCases, id: \.rawValue) { reaction in
+                    Button(reaction.title, systemImage: reaction.rawValue) {
+                        model.toggleReaction(reaction.rawValue, on: message.id)
+                    }
+                }
+            }
+            if message.role == .nodus {
+                Menu("Remember", systemImage: "memorychip") {
+                    Button("All Conversations") {
+                        Task { await model.remember(message, scope: .global, using: app.nodusMemoryStore) }
+                    }
+                    Button("This Conversation") {
+                        Task { await model.remember(message, scope: .conversation, using: app.nodusMemoryStore) }
+                    }
+                }
+            }
+            if let conversation = model.activeConversation {
+                Menu("This chat", systemImage: "bubble.left.and.bubble.right") {
+                    let placement = model.library.placement(for: conversation.id)
+                    Button(placement?.important == true ? "Unmark Important" : "Mark Important", systemImage: "flag") {
+                        Task { await model.setImportant(conversation, important: placement?.important != true) }
+                    }
+                    Button(placement?.favorite == true ? "Unfavorite" : "Favorite", systemImage: "star") {
+                        Task { await model.setFavorite(conversation, favorite: placement?.favorite != true) }
+                    }
+                    Button(conversation.pinned ? "Unpin" : "Pin", systemImage: "pin") {
+                        Task { await model.setPinned(conversation, pinned: !conversation.pinned) }
+                    }
+                    Button("Chat settings", systemImage: "slider.horizontal.3") { showingChatSettings = true }
+                }
+            }
+        }
+        .transition(.scale(scale: 0.94, anchor: message.role == .user ? .bottomTrailing : .bottomLeading).combined(with: .opacity))
     }
 
     private func responseBadges(_ message: NodusMessage, answer: NodusAnswer) -> some View {
@@ -289,61 +530,306 @@ struct NodusChatView: View {
         .font(.caption)
     }
 
+    private var composerCorner: CGFloat {
+        showingCamera || expandedPhoto != nil ? 22 : 28
+    }
+
     private var composer: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let status = model.errorMessage ?? model.verificationStatus ?? model.evaluationStatus {
+            if let status = model.errorMessage ?? model.verificationStatus ?? model.evaluationStatus ?? dictation.status {
                 Text(status).font(.caption).foregroundStyle(.secondary)
+                    .accessibilityIdentifier("nodus.chat.composer-status")
             }
             VStack(alignment: .leading, spacing: 8) {
                 activeContextChips
+                attachmentStrip
+                if showingCamera {
+                    NodusInlineCamera(onCapture: { image in
+                        let item = NodusComposerAttachment(title: "Photo", image: image)
+                        withAnimation(.spring(duration: 0.42, bounce: 0.22)) {
+                            attachments.append(item)
+                            showingCamera = false
+                            expandedPhoto = "draft-\(item.id.uuidString)"
+                        }
+                    }, onClose: { showingCamera = false })
+                    .transition(.scale(scale: 0.92, anchor: .bottom).combined(with: .opacity))
+                    .gesture(
+                        DragGesture(minimumDistance: 24)
+                            .onEnded { value in
+                                if value.translation.height > 70 { showingCamera = false }
+                            }
+                    )
+                }
                 TextField("Ask Nodus…", text: $model.input, axis: .vertical)
                     .lineLimit(1 ... 6)
                     .textFieldStyle(.plain)
                     .focused($composerFocused)
                     .submitLabel(.send)
-                    .onSubmit { if model.canSend { model.send(using: app) } }
+                    .onSubmit { submitComposer() }
                     .disabled(model.availability != .available || model.isGenerating)
                     .accessibilityIdentifier("nodus.chat.input")
 
                 HStack(spacing: 8) {
                     composerMenu
-                    modeButton(
-                        model.activeConversation?.reasoningMode == .deep ? "Think" : nil,
-                        symbol: "brain",
-                        selected: model.activeConversation?.reasoningMode == .deep
-                    ) {
-                        Task {
-                            await model.setReasoningMode(model.activeConversation?.reasoningMode == .deep ? .standard : .deep)
-                        }
+                    Button { showingChatSettings = true } label: {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.body.weight(.semibold))
+                            .frame(width: 34, height: 34)
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Chat settings")
+                    .accessibilityIdentifier("nodus.chat.settings")
+                    thinkControl
                     modeButton(
                         model.activeConversation?.searchEnabled == true ? "Search" : nil,
                         symbol: "network",
                         selected: model.activeConversation?.searchEnabled == true
                     ) { toggleSearch() }
                     Spacer(minLength: 4)
+                    Button {
+                        dictation.toggle(current: { model.input }, apply: { model.input = $0 })
+                    } label: {
+                        Image(systemName: dictation.isListening ? "waveform" : "mic")
+                            .font(.body.weight(.semibold))
+                            .contentTransition(.symbolEffect(.replace))
+                            .frame(width: 34, height: 34)
+                            .foregroundStyle(dictation.isListening ? Color.accentColor : Color.primary)
+                            .symbolEffect(.variableColor.iterative, isActive: dictation.isListening)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(dictation.isListening ? "Stop dictation" : "Dictate")
+                    .accessibilityIdentifier("nodus.chat.dictate")
                     sendButton
                 }
             }
             .padding(.horizontal, 12)
             .padding(.top, 12)
             .padding(.bottom, 9)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 25, style: .continuous))
+            .modulaChrome(in: RoundedRectangle(cornerRadius: composerCorner, style: .continuous), opaque: false)
             .overlay {
-                RoundedRectangle(cornerRadius: 25, style: .continuous)
-                    .stroke(Color.secondary.opacity(0.18), lineWidth: 0.5)
+                NodusComposerPulse(
+                    active: model.isGenerating,
+                    corner: composerCorner,
+                    color: app.appearance.accent.color
+                )
+                RoundedRectangle(cornerRadius: composerCorner, style: .continuous)
+                    .strokeBorder(app.appearance.accent.color.opacity(composerFocused && !model.isGenerating ? 0.32 : 0), lineWidth: 1)
             }
+            .scaleEffect(composerFocused ? 1.015 : 1, anchor: .bottom)
+            .animation(.spring(duration: 0.42, bounce: 0.18), value: composerCorner)
+            .animation(.spring(duration: 0.35, bounce: 0.2), value: composerFocused)
+            .animation(.easeInOut(duration: 0.35), value: model.isGenerating)
         }
         .padding(.horizontal, 12)
         .padding(.top, 8)
         .padding(.bottom, 10)
+        .sensoryFeedback(.impact(weight: .light, intensity: 0.7), trigger: sendTick)
+        .sensoryFeedback(.selection, trigger: model.thinkStep)
+    }
+
+    @ViewBuilder
+    private var attachmentStrip: some View {
+        if !attachments.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(attachments) { item in
+                        if let image = item.image {
+                            let geometryID = "draft-\(item.id.uuidString)"
+                            NodusPhotoThumb(
+                                image: image,
+                                title: item.title,
+                                open: expandedPhoto == geometryID,
+                                namespace: photoMorph,
+                                geometryID: geometryID,
+                                onOpen: {
+                                    withAnimation(.spring(duration: 0.42, bounce: 0.2)) { expandedPhoto = geometryID }
+                                },
+                                onRemove: { removeAttachment(item) }
+                            )
+                        } else {
+                            HStack(spacing: 6) {
+                                Image(systemName: "doc")
+                                Text(item.title).font(.caption.weight(.medium)).lineLimit(1)
+                                Button { removeAttachment(item) } label: {
+                                    Image(systemName: "xmark").font(.caption2.weight(.bold))
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Remove \(item.title)")
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 6)
+                            .background(Color.accentColor.opacity(0.12), in: Capsule())
+                        }
+                    }
+                }
+            }
+            Text("Tap a photo to preview. Swipe it away to remove. Nodus reads your words, not the picture.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var photoStage: some View {
+        if let expandedPhoto, let image = photo(for: expandedPhoto) {
+            NodusPhotoStage(
+                image: image.image,
+                title: image.title,
+                namespace: photoMorph,
+                geometryID: expandedPhoto,
+                onClose: { self.expandedPhoto = nil }
+            )
+            .padding(.horizontal, 16)
+            .padding(.bottom, 18)
+            .transition(.opacity)
+        }
+    }
+
+    private func photo(for geometryID: String) -> (image: UIImage, title: String)? {
+        if geometryID.hasPrefix("draft-"),
+           let id = UUID(uuidString: String(geometryID.dropFirst("draft-".count))),
+           let item = attachments.first(where: { $0.id == id }),
+           let image = item.image {
+            return (image, item.title)
+        }
+        if geometryID.hasPrefix("message-"),
+           let id = UUID(uuidString: String(geometryID.dropFirst("message-".count))),
+           let image = model.attachmentImages[id] {
+            return (image, "Photo")
+        }
+        return nil
+    }
+
+    private func removeAttachment(_ item: NodusComposerAttachment) {
+        if expandedPhoto == "draft-\(item.id.uuidString)" { expandedPhoto = nil }
+        attachments.removeAll { $0.id == item.id }
+    }
+
+    private var newChatHandle: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "plus.bubble")
+                .font(.title2.weight(.semibold))
+                .symbolEffect(.bounce, value: bottomPull > 64)
+                .rotationEffect(.degrees(Double(min(bottomPull, 90)) / 8))
+            Text(bottomPull > 64 ? "Release for a new chat" : "Pull up for a new chat")
+                .font(.subheadline.weight(.semibold))
+                .contentTransition(.opacity)
+            Text("The new chat stays on this iPhone.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .foregroundStyle(bottomPull > 64 ? Color.accentColor : Color.primary)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 18)
+        .background(Color.accentColor.opacity(min(bottomPull / 140, 0.18)))
+        .modulaChrome(in: RoundedRectangle(cornerRadius: 22, style: .continuous), opaque: false)
+        .scaleEffect(1 + min(bottomPull, 90) / 700)
+        .padding(.top, 6)
+        .animation(.spring(duration: 0.28, bounce: 0.2), value: bottomPull > 64)
+        .highPriorityGesture(newChatDrag)
+        .accessibilityLabel("Pull up for a new chat")
+        .accessibilityAction(named: "New chat") { beginNewChat() }
+    }
+
+    private var newChatDrag: some Gesture {
+        DragGesture(minimumDistance: 8)
+            .onChanged { value in
+                handleDragging = true
+                let up = max(0, -value.translation.height)
+                bottomPull = up
+                armedNewChat = up > 64
+            }
+            .onEnded { value in
+                let up = max(0, -value.translation.height)
+                if up > 64 { beginNewChat() }
+                withAnimation(.spring(duration: 0.35, bounce: 0.22)) {
+                    bottomPull = 0
+                    armedNewChat = false
+                    handleDragging = false
+                }
+            }
+    }
+
+    private func noteBottomPull(previous: CGFloat, pull: CGFloat) {
+        guard !handleDragging else { return }
+        bottomPull = pull
+        if armedNewChat, pull < 16, previous >= 16 {
+            armedNewChat = false
+            beginNewChat()
+        } else if pull < 16 {
+            armedNewChat = false
+        } else if pull > 64 {
+            armedNewChat = true
+        }
+    }
+
+    private func beginNewChat() {
+        guard !creatingChat, !model.isGenerating else { return }
+        creatingChat = true
+        Task {
+            await model.newConversation()
+            composerFocused = true
+            creatingChat = false
+        }
+    }
+
+    private func perform(_ function: NodusChatFunction) {
+        switch function {
+        case .speak:
+            if let text = model.messages.last(where: { $0.role == .nodus })?.text {
+                speak(text)
+            }
+        case .note:
+            if let conversation = model.activeConversation, let text = model.messages.last(where: { $0.role == .nodus })?.text {
+                Task { await model.setNote(conversation, note: text) }
+            }
+        case .prompt:
+            if let text = model.messages.last(where: { $0.role == .nodus })?.text {
+                let projectID = model.activeConversation.flatMap { model.library.project(for: $0.id)?.id }
+                Task { await model.savePrompt(title: "From chat", body: text, projectID: projectID) }
+            }
+        case .time:
+            let stamp = Date.now.formatted(date: .abbreviated, time: .shortened)
+            let current = model.input.trimmingCharacters(in: .whitespacesAndNewlines)
+            model.input = current.isEmpty ? stamp : current + "\n" + stamp
+            composerFocused = true
+        }
+    }
+
+    private func speak(_ text: String) {
+        if speaker.isSpeaking {
+            speaker.stopSpeaking(at: .immediate)
+            return
+        }
+        let utterance = AVSpeechUtterance(string: String(text.prefix(900)))
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+        speaker.speak(utterance)
+    }
+
+    private func followConnector() {
+        let next = connectorFollowUp
+        connectorFollowUp = nil
+        switch next {
+        case .knowledge: showingKnowledge = true
+        case .memory: showingMemory = true
+        case .library: showingConversations = true
+        case nil: break
+        }
+    }
+
+    private func reply(to message: NodusMessage) {
+        let quoted = message.text.split(separator: "\n").prefix(4).joined(separator: "\n")
+        model.input = "“\(quoted)”\n"
+        composerFocused = true
     }
 
     @ViewBuilder
     private var activeContextChips: some View {
         let knowledgeCount = model.activeConversation?.attachedKnowledgeCollectionIDs.count ?? 0
         let memoryEnabled = model.activeConversation?.memoryEnabled == true
-        if knowledgeCount > 0 || memoryEnabled {
+        let project = model.activeConversation.flatMap { model.library.project(for: $0.id) }
+        let folder = model.activeConversation.flatMap { model.library.folder(for: $0.id) }
+        if knowledgeCount > 0 || memoryEnabled || project != nil || folder != nil || !model.activePersona.isEmpty || !model.activeSkills.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 7) {
                     if knowledgeCount > 0 {
@@ -355,6 +841,18 @@ struct NodusChatView: View {
                         contextChip("Memory", symbol: "memorychip") {
                             Task { await model.setMemoryEnabled(false) }
                         }
+                    }
+                    if let project {
+                        contextChip(project.name, symbol: project.symbol) { showingConversations = true }
+                    }
+                    if let folder {
+                        contextChip(folder.name, symbol: "folder") { showingConversations = true }
+                    }
+                    if !model.activePersona.isEmpty {
+                        contextChip("Persona", symbol: "person") { showingPersona = true }
+                    }
+                    if !model.activeSkills.isEmpty {
+                        contextChip("Skills · \(model.activeSkills.count)", symbol: "wand.and.stars") { showingSkills = true }
                     }
                 }
             }
@@ -375,10 +873,8 @@ struct NodusChatView: View {
 
     private var composerMenu: some View {
         Menu {
-            Button("New Chat", systemImage: "plus.bubble") {
-                Task { await model.newConversation(); composerFocused = true }
-            }
             Button("Knowledge", systemImage: "books.vertical") { showingKnowledge = true }
+            Button("Browse Memory", systemImage: "memorychip") { showingMemory = true }
             Button(
                 model.activeConversation?.memoryEnabled == true ? "Turn Memory Off" : "Turn Memory On",
                 systemImage: "memorychip"
@@ -389,27 +885,80 @@ struct NodusChatView: View {
                 model.activeConversation?.searchEnabled == true ? "Turn Search Off" : "Turn Search On",
                 systemImage: "network"
             ) { toggleSearch() }
+            Divider()
+            Menu("Attach", systemImage: "paperclip") {
+                Button("Camera", systemImage: "camera") { showingCamera = true }
+                Button("Photos", systemImage: "photo") { showingPhotos = true }
+                Button("Files", systemImage: "doc") { showingFiles = true }
+            }
+            Menu("Library", systemImage: "square.stack.3d.up") {
+                Button("Projects", systemImage: "square.stack.3d.up") { showingConversations = true }
+                Button("Folders", systemImage: "folder") { showingConversations = true }
+                Button("New Chat", systemImage: "plus.bubble") {
+                    Task { await model.newConversation(); composerFocused = true }
+                }
+                Button("Chat Settings", systemImage: "slider.horizontal.3") { showingChatSettings = true }
+            }
+            Menu("Info", systemImage: "info.circle") {
+                Button("Models", systemImage: "brain") { showingModels = true }
+                Button("Attached", systemImage: "link") { showingConnectors = true }
+                Button("Remote", systemImage: "antenna.radiowaves.left.and.right") { showingRemote = true }
+                Button("System Info", systemImage: "info.circle") { showingSystemInfo = true }
+            }
+            Menu("Studio", systemImage: "slider.horizontal.3") {
+                Button("Skills", systemImage: "wand.and.stars") { showingSkills = true }
+                Button("Persona", systemImage: "person") { showingPersona = true }
+                Button("Customise", systemImage: "paintpalette") { showingCustomise = true }
+                Button("Marketplace", systemImage: "storefront") { showingPrompts = true }
+                Button("Reply tools", systemImage: "speaker.wave.2") { showingFunctions = true }
+            }
         } label: {
             Image(systemName: "plus")
                 .font(.body.weight(.semibold))
                 .frame(width: 34, height: 34)
-                .background(Color.secondary.opacity(0.12), in: Circle())
+                .modulaChrome(in: Circle(), opaque: false)
         }
         .accessibilityLabel("Add context")
         .accessibilityIdentifier("nodus.chat.add-context")
     }
 
+    private var thinkControl: some View {
+        modeButton(
+            model.thinkStep == .standard ? nil : model.thinkStep.title,
+            symbol: "brain",
+            selected: model.thinkStep != .standard
+        ) {
+            Task {
+                await model.setReasoningMode(model.thinkStep.reasoningMode == .deep ? .standard : .deep)
+            }
+        }
+        .accessibilityValue(model.thinkStep.reasoningMode == .deep ? "On" : "Off")
+        .accessibilityHint("Hold to set how long Nodus may write, and whether it reviews the draft.")
+        .simultaneousGesture(LongPressGesture(minimumDuration: 0.45).onEnded { _ in
+            showingThinkBudget = true
+        })
+        .popover(isPresented: $showingThinkBudget, attachmentAnchor: .rect(.bounds)) {
+            NodusThinkBudgetPopover(step: model.thinkStep) { steps in
+                Task { await model.setThinkSteps(steps) }
+            }
+            .presentationCompactAdaptation(.popover)
+        }
+    }
+
     private var sendButton: some View {
-        Button {
-            model.isGenerating ? model.cancel() : model.send(using: app)
+        let ready = model.isGenerating || model.canSend || !attachments.isEmpty
+        return Button {
+            model.isGenerating ? model.cancel() : submitComposer()
         } label: {
             Image(systemName: model.isGenerating ? "stop.fill" : "arrow.up")
                 .font(.headline)
+                .foregroundStyle(ready ? Color.accentColor : Color.secondary)
                 .frame(width: 36, height: 36)
-                .background(model.isGenerating || model.canSend ? Color.accentColor : Color.secondary.opacity(0.28), in: Circle())
-                .foregroundStyle(.white)
+                .modulaChrome(in: Circle(), opaque: false)
+                .contentTransition(.symbolEffect(.replace))
         }
-        .disabled(!model.isGenerating && !model.canSend)
+        .buttonStyle(.plain)
+        .disabled(!model.isGenerating && !model.canSend && attachments.isEmpty)
         .accessibilityLabel(model.isGenerating ? "Stop" : "Send")
         .accessibilityIdentifier(model.isGenerating ? "nodus.chat.stop" : "nodus.chat.send")
     }
@@ -427,8 +976,121 @@ struct NodusChatView: View {
         .frame(minWidth: 34, minHeight: 34)
         .background(selected ? Color.accentColor.opacity(0.16) : Color.clear, in: Capsule())
         .foregroundStyle(selected ? Color.accentColor : Color.primary)
+        .symbolEffect(.bounce, value: selected)
+        .animation(.spring(duration: 0.32, bounce: 0.35), value: selected)
         .accessibilityLabel(symbol == "brain" ? "Think" : "Search")
         .accessibilityValue(selected ? "On" : "Off")
+    }
+
+    private func submitComposer() {
+        guard !model.isGenerating else { return }
+        var question = model.input.trimmingCharacters(in: .whitespacesAndNewlines)
+        let notes = attachments.compactMap(\.note).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        if !notes.isEmpty {
+            let block = notes.joined(separator: "\n\n")
+            question = question.isEmpty ? block : question + "\n\n" + block
+        }
+        if question.isEmpty, !attachments.isEmpty {
+            question = "Attached on this iPhone: " + attachments.map(\.title).joined(separator: ", ")
+        }
+        guard !question.isEmpty else { return }
+        let images = attachments.compactMap { $0.image?.jpegData(compressionQuality: 0.82) }
+        model.input = question
+        withAnimation(.spring(duration: 0.35, bounce: 0.16)) {
+            attachments.removeAll()
+            expandedPhoto = nil
+            showingCamera = false
+        }
+        dictation.stop()
+        sendTick += 1
+        model.send(using: app, imageData: images)
+    }
+
+    private var latestNodusID: UUID? {
+        model.messages.last(where: { $0.role == .nodus })?.id
+    }
+
+    private func messageActions(_ message: NodusMessage) -> some View {
+        HStack(spacing: 8) {
+            replyAction(
+                copiedMessageID == message.id ? "Copied" : "Copy",
+                symbol: copiedMessageID == message.id ? "checkmark" : "doc.on.doc"
+            ) {
+                UIPasteboard.general.string = message.text
+                withAnimation(.spring(duration: 0.28, bounce: 0.45)) { copiedMessageID = message.id }
+                Task {
+                    try? await Task.sleep(for: .milliseconds(1200))
+                    if copiedMessageID == message.id { copiedMessageID = nil }
+                }
+            }
+            replyAction("Again", symbol: "arrow.clockwise") { regenerate() }
+            replyAction("Reply", symbol: "arrowshape.turn.up.left") { reply(to: message) }
+        }
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    private func replyAction(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: symbol)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 44)
+                .modulaChrome(in: Capsule(), opaque: false)
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .buttonStyle(NodusPressStyle())
+        .accessibilityLabel(title)
+    }
+
+    private func regenerate() {
+        guard !model.isGenerating, let previous = model.messages.last(where: { $0.role == .user })?.text, !previous.isEmpty else { return }
+        model.input = previous
+        submitComposer()
+    }
+
+    private func handlePlugin(_ plugin: NodusComposerPlugin) {
+        switch plugin {
+        case .knowledge:
+            showingKnowledge = true
+        case .memory:
+            showingMemory = true
+        case .camera:
+            showingCamera = true
+        case .photos:
+            showingPhotos = true
+        case .files:
+            showingFiles = true
+        case .projects, .folders:
+            showingConversations = true
+        }
+    }
+
+    private func importPhoto(_ item: PhotosPickerItem) async {
+        defer { photoItem = nil }
+        guard let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) else { return }
+        let attachment = NodusComposerAttachment(title: "Photo", image: image)
+        withAnimation(.spring(duration: 0.42, bounce: 0.22)) {
+            attachments.append(attachment)
+            expandedPhoto = "draft-\(attachment.id.uuidString)"
+        }
+    }
+
+    private func importFile(_ source: URL) async {
+        let scoped = source.startAccessingSecurityScopedResource()
+        defer { if scoped { source.stopAccessingSecurityScopedResource() } }
+        let name = source.lastPathComponent
+        var note: String?
+        if let data = try? Data(contentsOf: source), let text = String(data: data, encoding: .utf8), !text.isEmpty {
+            let excerpt = String(text.prefix(1500))
+            note = "File note from \(name), kept on this iPhone:\n\(excerpt)"
+        }
+        let image = UIImage(contentsOfFile: source.path)
+        let attachment = NodusComposerAttachment(title: name, image: image, note: note)
+        withAnimation(.spring(duration: 0.42, bounce: 0.22)) {
+            attachments.append(attachment)
+            if image != nil { expandedPhoto = "draft-\(attachment.id.uuidString)" }
+        }
     }
 
     private func toggleSearch() {
@@ -496,58 +1158,180 @@ struct NodusChatView: View {
         GridRow { Text(name); Text(value).textSelection(.enabled) }
     }
 
+    private var chatTint: NodusChatTint {
+        let name = model.activeConversation.flatMap { model.library.placement(for: $0.id)?.color } ?? ""
+        return NodusChatTint(rawValue: name) ?? .accent
+    }
+
+    private var welcome: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 12) {
+                    NodusThinkingOrb(stage: .finalizing, reduceMotion: reduceMotion, size: 56)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Nodus")
+                            .font(.title2.weight(.semibold))
+                        Text("On this iPhone. Hold Think to set the reply budget.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .opacity(welcomeAppeared || reduceMotion ? 1 : 0)
+                .offset(y: welcomeAppeared || reduceMotion ? 0 : 10)
+                .animation(.spring(duration: 0.5, bounce: 0.22), value: welcomeAppeared)
+                HStack(spacing: 8) {
+                    welcomeChip("Marketplace", symbol: "storefront") { showingPrompts = true }
+                    welcomeChip("Knowledge", symbol: "books.vertical") { showingKnowledge = true }
+                    welcomeChip("Memory", symbol: "memorychip") { showingMemory = true }
+                }
+                HStack(spacing: 8) {
+                    welcomeChip("Skills", symbol: "wand.and.stars") { showingSkills = true }
+                    welcomeChip("Persona", symbol: "person") { showingPersona = true }
+                    welcomeChip("Reply tools", symbol: "speaker.wave.2") { showingFunctions = true }
+                }
+                newChatHandle
+                VStack(spacing: 8) {
+                    ForEach(Array(NodusMarketCatalog.featured.enumerated()), id: \.element.id) { index, prompt in
+                        Button {
+                            model.input = prompt.body
+                            composerFocused = true
+                        } label: {
+                            HStack(spacing: 12) {
+                                NodusStudioGlyph(symbol: prompt.symbol)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(prompt.title).foregroundStyle(.primary)
+                                    Text(prompt.summary).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                                }
+                                Spacer()
+                                Image(systemName: "arrow.up.left")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(12)
+                            .modulaChrome(in: RoundedRectangle(cornerRadius: 18, style: .continuous), opaque: false)
+                        }
+                        .buttonStyle(.plain)
+                        .opacity(welcomeAppeared || reduceMotion ? 1 : 0)
+                        .offset(y: welcomeAppeared || reduceMotion ? 0 : 14)
+                        .animation(.spring(duration: 0.48, bounce: 0.18).delay(reduceMotion ? 0 : 0.05 * Double(index + 1)), value: welcomeAppeared)
+                    }
+                }
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .onAppear {
+            if reduceMotion { welcomeAppeared = true }
+            else { withAnimation(.spring(duration: 0.5, bounce: 0.22)) { welcomeAppeared = true } }
+        }
+        .accessibilityIdentifier("nodus.chat.empty")
+    }
+
+    private func welcomeChip(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: symbol)
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .modulaChrome(in: Capsule(), opaque: false)
+        }
+        .buttonStyle(.plain)
+    }
+
     private var statusText: String {
         switch model.availability {
         case .available:
             if model.isGenerating { return model.progressText ?? "Generating locally" }
-            return model.loadState == .loading ? "Loading Nodus…" : "Ready · generation stays local"
+            return model.loadState == .loading ? "Loading Nodus…" : "Ready · \(model.thinkStep.title) · stays local"
         case .modelNotInstalled: return "Model not installed"
         default: return model.availability.displayName
         }
     }
 }
 
-private struct NodusConversationListSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @Bindable var model: NodusChatViewModel
-    @State private var query = ""
+
+private struct NodusPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .opacity(configuration.isPressed ? 0.82 : 1)
+            .animation(.spring(duration: 0.22, bounce: 0.4), value: configuration.isPressed)
+    }
+}
+
+private final class NodusPathMonitor: ObservableObject, @unchecked Sendable {
+    @Published var status = "Checking"
+    @Published var interfaceName = "—"
+    private let monitor = NWPathMonitor()
+    private var started = false
+
+    func start() {
+        guard !started else { return }
+        started = true
+        monitor.pathUpdateHandler = { [weak self] path in
+            let label = Self.describe(path)
+            let interface = Self.interfaceName(for: path)
+            DispatchQueue.main.async {
+                self?.status = label
+                self?.interfaceName = interface
+            }
+        }
+        monitor.start(queue: DispatchQueue(label: "nodus.path"))
+    }
+
+    private static func interfaceName(for path: NWPath) -> String {
+        if path.usesInterfaceType(.wifi) { return "Wi-Fi" }
+        if path.usesInterfaceType(.cellular) { return "Cellular" }
+        if path.usesInterfaceType(.wiredEthernet) { return "Wired" }
+        if path.status != .satisfied { return "None" }
+        return "Other"
+    }
+
+    private static func describe(_ path: NWPath) -> String {
+        switch path.status {
+        case .satisfied:
+            if path.isConstrained { return "Online, constrained" }
+            if path.isExpensive { return "Online, limited" }
+            return "Online"
+        case .unsatisfied:
+            return "Offline"
+        case .requiresConnection:
+            return "Needs a connection"
+        @unknown default:
+            return "Unknown"
+        }
+    }
+}
+
+private struct NodusReplyGlass: ViewModifier {
+    var enabled: Bool
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if enabled {
+            content.modulaChrome(in: RoundedRectangle(cornerRadius: 22, style: .continuous), opaque: false)
+        } else {
+            content
+        }
+    }
+}
+
+private struct NodusComposerPulse: View {
+    var active: Bool
+    var corner: CGFloat
+    var color: Color
 
     var body: some View {
-        NavigationStack {
-            List {
-                Button { Task { await model.newConversation(); dismiss() } } label: {
-                    Label("New Chat", systemImage: "plus.circle.fill")
-                }
-                ForEach(model.conversations) { conversation in
-                    Button {
-                        model.select(conversation)
-                        dismiss()
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text(conversation.title).font(.body.weight(.medium)).lineLimit(1)
-                                Spacer()
-                                Text(conversation.updatedAt, style: .relative).font(.caption2).foregroundStyle(.secondary)
-                            }
-                            Text(conversation.preview).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-                            HStack(spacing: 8) {
-                                if conversation.reasoningMode == .deep { Label("Think", systemImage: "brain") }
-                                if conversation.searchEnabled { Label("Search", systemImage: "network") }
-                                if !conversation.attachedKnowledgeCollectionIDs.isEmpty {
-                                    Label("\(conversation.attachedKnowledgeCollectionIDs.count)", systemImage: "books.vertical")
-                                }
-                            }
-                            .font(.caption2).foregroundStyle(.secondary)
-                        }
-                    }
+        Group {
+            if active {
+                PhaseAnimator([0.22, 0.72]) { phase in
+                    RoundedRectangle(cornerRadius: corner, style: .continuous)
+                        .strokeBorder(color.opacity(phase), lineWidth: 1.2)
+                } animation: { _ in
+                    .easeInOut(duration: 0.9)
                 }
             }
-            .searchable(text: $query, prompt: "Search chats")
-            .onChange(of: query) { _, value in Task { await model.searchConversations(value) } }
-            .navigationTitle("Nodus")
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-            .accessibilityIdentifier("nodus.conversations")
         }
+        .allowsHitTesting(false)
     }
 }
 

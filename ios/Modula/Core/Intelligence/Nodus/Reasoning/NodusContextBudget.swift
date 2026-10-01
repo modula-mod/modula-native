@@ -28,6 +28,80 @@ struct NodusContextBudget: Sendable, Equatable {
         maximumOutputTokens: 512,
         maximumInferencePasses: 3
     )
+
+    static func forThinkSteps(_ steps: Int) -> NodusContextBudget {
+        switch min(max(steps, 1), 5) {
+        case 1:
+            NodusContextBudget(
+                systemCharacters: 1_600,
+                conversationCharacters: 3_600,
+                memoryCharacters: 1_000,
+                knowledgeCharacters: 2_400,
+                searchCharacters: 2_400,
+                maximumOutputTokens: 256,
+                maximumInferencePasses: 1
+            )
+        case 3:
+            NodusContextBudget(
+                systemCharacters: 1_600,
+                conversationCharacters: 6_000,
+                memoryCharacters: 2_000,
+                knowledgeCharacters: 4_800,
+                searchCharacters: 4_800,
+                maximumOutputTokens: 448,
+                maximumInferencePasses: 1
+            )
+        case 4:
+            NodusContextBudget(
+                systemCharacters: 1_600,
+                conversationCharacters: 7_000,
+                memoryCharacters: 2_400,
+                knowledgeCharacters: 6_000,
+                searchCharacters: 6_000,
+                maximumOutputTokens: 512,
+                maximumInferencePasses: 2
+            )
+        case 5:
+            .deep
+        default:
+            .standard
+        }
+    }
+}
+
+enum NodusThinkStep: Int, CaseIterable, Sendable {
+    case short = 1
+    case standard = 2
+    case fuller = 3
+    case review = 4
+    case deep = 5
+
+    static func resolve(stored: Int, mode: NodusReasoningMode) -> NodusThinkStep {
+        if let step = NodusThinkStep(rawValue: stored) { return step }
+        return mode == .deep ? .deep : .standard
+    }
+
+    var reasoningMode: NodusReasoningMode { rawValue >= 4 ? .deep : .standard }
+
+    var title: String {
+        switch self {
+        case .short: "Short"
+        case .standard: "Standard"
+        case .fuller: "Fuller"
+        case .review: "Review"
+        case .deep: "Deep"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .short: "One draft, up to 256 tokens."
+        case .standard: "One draft, up to 384 tokens."
+        case .fuller: "One draft, up to 448 tokens, with more of this chat in context."
+        case .review: "A draft and one revision, up to 512 tokens."
+        case .deep: "A draft, a review, and a final pass, up to 512 tokens."
+        }
+    }
 }
 
 enum NodusContextBuilder {
@@ -44,7 +118,8 @@ enum NodusContextBuilder {
         memory: [NodusMemoryMatch],
         knowledge: [NodusKnowledgeMatch],
         search: NodusSearchResponse?,
-        budget: NodusContextBudget
+        budget: NodusContextBudget,
+        projectBrief: String? = nil
     ) -> String {
         let history = conversation.messages.suffix(30).map {
             "\($0.role == .user ? "User" : "Nodus"): \($0.text)"
@@ -62,11 +137,18 @@ enum NodusContextBuilder {
         }.joined(separator: "\n")
         let searchText = search.map { NodusSearchEvidence.promptBlock($0, characterBudget: budget.searchCharacters) } ?? ""
 
+        let brief = projectBrief?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let projectBlock = brief.isEmpty ? "" : """
+        USER INSTRUCTIONS (written for this project or chat on this iPhone, not retrieved evidence):
+        \(prefix(brief, limit: 800))
+
+        """
+
         return """
         STABLE IDENTITY AND AUTHORITY CONTRACT:
         \(prefix(identity, limit: budget.systemCharacters))
 
-        RECENT CONVERSATION (lower priority than the current request):
+        \(projectBlock)RECENT CONVERSATION (lower priority than the current request):
         \(suffix(history, limit: budget.conversationCharacters))
 
         RELEVANT CONFIRMED MEMORY:

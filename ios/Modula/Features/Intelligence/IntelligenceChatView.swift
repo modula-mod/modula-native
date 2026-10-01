@@ -90,8 +90,12 @@ struct IntelligenceChatView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") { dismiss() }
-                        .accessibilityIdentifier("intelligence.chat.close")
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.body.weight(.semibold))
+                    }
+                    .accessibilityLabel("Close")
+                    .accessibilityIdentifier("intelligence.chat.close")
                 }
             }
             .task { await refreshAvailability() }

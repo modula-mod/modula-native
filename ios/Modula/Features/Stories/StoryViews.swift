@@ -200,6 +200,10 @@ struct StoryViewer: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var engine: StoryProgressEngine
     @State private var holding = false
+    @State private var loadedItemID: StoryID?
+    @State private var retryID = 0
+    @State private var videoCoordinator = FeedVideoCoordinator()
+    @State private var expandedVideo: ModulaAttachment?
 
     init(group: StoryGroup, initialID: StoryID) {
         self.group = group
@@ -223,11 +227,15 @@ struct StoryViewer: View {
                     .contentShape(Rectangle())
                     .onTapGesture { handle(engine.next()); if !reduceMotion { HapticEngine.shared.play(.selection) } }
             }
+            .allowsHitTesting(loadedItemID == item?.id && item?.kind != .video)
             chrome(item)
         }
         .statusBarHidden(true)
         .toolbar(.hidden, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
+        .fullScreenCover(item: $expandedVideo) { attachment in
+            AttachmentViewerRouter(attachment: attachment, onDismiss: { expandedVideo = nil })
+        }
         .simultaneousGesture(
             DragGesture(minimumDistance: 40).onEnded { value in
                 if value.translation.height > 80 {
@@ -240,6 +248,9 @@ struct StoryViewer: View {
             if pressing { engine.pause() } else { engine.resume() }
         }, perform: {})
         .onReceive(Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()) { _ in
+            // Never consume a story while its protected media is still loading.
+            // Videos keep explicit Previous/Next navigation until playback finishes.
+            guard loadedItemID == currentItem?.id, currentItem?.kind != .video else { return }
             let event = engine.tick(0.05)
             if event == .advanced { HapticEngine.shared.play(.selection) }
             if event == .finished { app.navigation.close() }
@@ -247,14 +258,6 @@ struct StoryViewer: View {
         .onChange(of: scenePhase) { _, phase in
             engine.isAppActive = phase == .active
             if phase != .active { engine.pause() } else if !holding { engine.resume() }
-        }
-        .onAppear {
-            app.stories.markSeen(storyID: item?.id ?? initialID)
-        }
-        .onChange(of: engine.index) { _, _ in
-            if let item = currentItem {
-                app.stories.markSeen(storyID: item.id)
-            }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("story.viewer")
@@ -281,10 +284,20 @@ struct StoryViewer: View {
             switch item.kind {
             case .image:
                 if let url = item.media?.url {
-                    AsyncImage(url: url) { phase in
+                    ModulaRemoteImage(url: url, cacheKey: "story:\(item.id)", retryID: retryID) { phase in
                         switch phase {
-                        case .success(let image): image.resizable().scaledToFit()
-                        default: textCard(item)
+                        case .success(let image):
+                            Image(uiImage: image).resizable().scaledToFit()
+                                .onAppear { didDisplay(item) }
+                        case .loading:
+                            ProgressView("Loading story…").tint(.white).foregroundStyle(.white)
+                        case .failure:
+                            VStack(spacing: 12) {
+                                Image(systemName: "photo.badge.exclamationmark").font(.largeTitle)
+                                Text("Couldn’t load this story")
+                                Button("Retry") { retryID += 1 }.buttonStyle(.bordered)
+                            }
+                            .foregroundStyle(.white)
                         }
                     }
                 } else {
@@ -292,7 +305,11 @@ struct StoryViewer: View {
                 }
             case .video:
                 if let media = item.media, media.canPlayVideo {
-                    textCard(item)
+                    let attachment = ModulaAttachment(id: media.id, kind: .video, remoteURL: media.url, thumbnailURL: media.posterURL, duration: media.duration)
+                    if expandedVideo == nil {
+                        ModulaVideoSurface(attachment: attachment, coordinator: videoCoordinator, onExpand: { expandedVideo = attachment })
+                            .onAppear { didDisplay(item) }
+                    }
                 } else {
                     textCard(item)
                 }
@@ -312,6 +329,12 @@ struct StoryViewer: View {
                 .padding(28)
         }
         .ignoresSafeArea()
+        .onAppear { didDisplay(item) }
+    }
+
+    private func didDisplay(_ item: StoryItem) {
+        loadedItemID = item.id
+        app.stories.markSeen(storyID: item.id)
     }
 
     private func chrome(_ item: StoryItem?) -> some View {
@@ -321,6 +344,7 @@ struct StoryViewer: View {
                 .padding(.top, 8)
             HStack {
                 if let item {
+                    ModulaAvatar(initials: item.author.initials, url: item.author.avatarURL, size: 36)
                     VStack(alignment: .leading) {
                         Text(item.author.displayName).font(.headline).foregroundStyle(.white)
                         Text(ConversationRow.relative(item.createdAt)).font(.caption).foregroundStyle(.white.opacity(0.7))
@@ -338,6 +362,15 @@ struct StoryViewer: View {
             }
             .padding(.horizontal, 16)
             Spacer()
+            if let caption = item?.text, item?.kind != .text, !caption.isEmpty {
+                Text(caption)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.black.opacity(0.35))
+            }
             HStack {
                 Button("Previous") { _ = engine.previous() }
                 Spacer()
@@ -403,6 +436,11 @@ struct StoryCreateView: View {
     @State private var prepared: PreparedImage?
     @State private var caption = ""
     @State private var busy = false
+    @State private var draftMedia: CreationMedia?
+    @State private var visibility = "public"
+    @State private var published = false
+    @State private var restored = false
+    private let draftID = "story-primary"
 
     var body: some View {
         Group {
@@ -434,8 +472,23 @@ struct StoryCreateView: View {
                             }
                         }
                         .accessibilityLabel("Add a photo")
+                        .disabled(busy)
+
+                        HStack {
+                            Label("Available for 24 hours", systemImage: "clock")
+                                .font(.caption).foregroundStyle(.secondary)
+                            Spacer()
+                            Picker("Audience", selection: $visibility) {
+                                Text("Everyone").tag("public")
+                                Text("Followers").tag("followers")
+                            }
+                            .pickerStyle(.menu)
+                            .tint(app.appearance.accent.color)
+                            .disabled(busy)
+                        }
 
                         TextField("Add a caption", text: $caption, axis: .vertical)
+                            .disabled(busy)
                             .lineLimit(1...3)
                             .textFieldStyle(.plain)
                             .padding(14)
@@ -473,11 +526,16 @@ struct StoryCreateView: View {
         .modulaCanvas()
         .modulaSoftScrollEdge()
         .navigationTitle("Create story")
+        .toolbar(.hidden, for: .tabBar)
         .onChange(of: pickerItem) { _, item in
             Task { await load(item) }
         }
+        .task { await restoreDraft() }
+        .onChange(of: caption) { _, _ in saveDraft() }
+        .onChange(of: visibility) { _, _ in saveDraft() }
+        .onDisappear { if !published { saveDraft(); app.drafts.flush() } }
         .overlay(alignment: .bottom) {
-            if let message = app.stories.actionError {
+            if let message = app.stories.actionError ?? app.drafts.saveError {
                 Label(message, systemImage: "exclamationmark.triangle")
                     .font(.footnote.weight(.semibold))
                     .padding(.horizontal, 14)
@@ -494,8 +552,12 @@ struct StoryCreateView: View {
         guard let item, let data = try? await item.loadTransferable(type: Data.self) else { return }
         do {
             let image = try await MediaPreparation.jpegStrippingMetadata(data)
+            guard let accountID = app.auth.account?.accountId else { return }
+            let media = try app.draftMedia.importJPEG(image.data, accountID: accountID, width: image.width, height: image.height)
             prepared = image
             preview = UIImage(data: image.data)
+            draftMedia = media
+            saveDraft()
         } catch {
             app.stories.setActionError("Couldn’t prepare that photo.")
         }
@@ -505,9 +567,35 @@ struct StoryCreateView: View {
         guard let prepared else { return }
         busy = true
         defer { busy = false }
-        if await app.stories.publish(image: prepared, caption: caption) {
+        if await app.stories.publish(image: prepared, caption: caption, visibility: visibility) {
+            published = true
+            app.drafts.discardStory(id: draftID)
             app.navigation.close()
             HapticEngine.shared.play(.success)
+        }
+    }
+
+    private func saveDraft() {
+        guard restored, !published else { return }
+        app.drafts.upsertStory(StoryDraft(id: draftID, mediaAssetIDs: draftMedia.map { [$0.id] } ?? [],
+            caption: caption, lastEdited: Date(), media: draftMedia, visibility: visibility), debounce: false)
+    }
+
+    private func restoreDraft() async {
+        guard !restored else { return }
+        defer { restored = true }
+        guard let saved = app.drafts.stories.first(where: { $0.id == draftID }) else { return }
+        caption = saved.caption
+        visibility = saved.visibility == "followers" ? "followers" : "public"
+        draftMedia = saved.media
+        guard let media = saved.media else { return }
+        do {
+            let data = try Data(contentsOf: app.draftMedia.fileURL(media))
+            let image = try await MediaPreparation.jpegStrippingMetadata(data)
+            prepared = image
+            preview = UIImage(data: image.data)
+        } catch {
+            app.stories.setActionError("The draft photo couldn’t be restored. Choose it again to continue.")
         }
     }
 }
