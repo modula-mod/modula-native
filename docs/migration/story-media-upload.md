@@ -1,7 +1,8 @@
 # Story media upload: proxy limit and the server change still needed
 
-Status: client mitigation shipped on `fix/story-upload-login-redesign`; the
-server change below is **not** done.
+Status: client fix on `fix/story-upload-login-redesign`. nginx is being raised
+(4m for `POST /v1/stories`, 101m for attachment PUTs); the API change below is
+**not** done.
 
 ## Root cause (verified 2026-10-01)
 
@@ -25,16 +26,28 @@ server change below is **not** done.
   1 MiB limit (no per-location override), so post attachments over ~1 MiB are
   likely rejected too; not verified against the live edge.
 
-## Client mitigation (this branch)
+## Client behaviour (this branch)
 
-- `StoryBackendRepository.uploadableBody` fits the JPEG to
-  `StoryUploadBudget.imageByteBudget` (~734 KB raw) with
-  `MediaPreparation.jpegFitting` (quality ladder 0.86→0.56, then 20% downscale
-  steps to a 720px floor) and checks the encoded JSON is ≤ 1,000,000 B before
-  sending. Small photos are sent unchanged.
+- Stories are prepared at full-screen quality: long edge up to 3072px, JPEG q0.9
+  (`StoryUploadBudget.targetLongEdge` / `preferredQuality`).
+- `StoryBackendRepository.uploadableBody` fits the JPEG to a byte budget derived
+  from one constant, `StoryUploadBudget.maximumBodyBytes` (3,800,000 B JSON body,
+  under the API's 4 MiB `MODULA_REQUEST_BODY_LIMIT_BYTES`; ≈2.79 MB raw JPEG).
+  `MediaPreparation.jpegFitting` lowers quality first (0.9 → 0.72) at 3072px, then
+  steps the long edge down (×0.84) to a 2048px floor (quality to 0.6 there); only a
+  pathological image drops to a 1440px last resort. The encoded JSON size is checked
+  before sending; small photos are sent unchanged. Raise `maximumBodyBytes` when the
+  server limits go up.
 - `GreenfieldClient.decodeEnvelope` maps non-JSON 413/429/5xx to
   `PAYLOAD_TOO_LARGE` / `RATE_LIMITED` / `SERVER_UNAVAILABLE` with user-facing
   copy, and logs them (`digital.modula.app.native`, category `network`).
+- Requires the edge limit for `POST /v1/stories` to be ≥ 4 MiB (being raised to
+  4m on both hosts; N1 accepted a 3.17 MB body on 2026-10-01).
+
+## Known server issues
+
+- N1's `MODULA_PUBLIC_API_URL` is `https://localhost:44021`, so story `mediaUrl`s
+  from N1 point at localhost and render as broken images in the app.
 
 ## Server change needed (recommended)
 
@@ -47,6 +60,6 @@ server change below is **not** done.
    send full-quality images.
 2. In nginx, raise the body limit for the upload content route only, e.g.
    `location ~ ^/v1/attachments/uploads/[^/]+/content$ { client_max_body_size 100m; proxy_request_buffering off; proxy_read_timeout 300s; proxy_send_timeout 300s; proxy_pass … }`
-   on both `api.modula.digital` and `native-n1.modula.digital`. Keep `1m` for JSON.
+   on both `api.modula.digital` and `native-n1.modula.digital`. `POST /v1/stories` needs ≥ 4m while it is inline base64; other JSON routes can stay at `1m`.
 3. Deploy the attachments routes to N1 (currently 404) so acceptance tests cover
    the same path as production.

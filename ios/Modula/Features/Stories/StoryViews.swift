@@ -575,7 +575,9 @@ struct StoryCreateView: View {
     private func load(data: Data) async {
         app.stories.setActionError(nil)
         do {
-            let image = try await MediaPreparation.jpegStrippingMetadata(data)
+            let image = try await MediaPreparation.jpegStrippingMetadata(
+                data, maxPixel: StoryUploadBudget.targetLongEdge, quality: StoryUploadBudget.preferredQuality
+            )
             guard let accountID = app.auth.account?.accountId else { return }
             let media = try app.draftMedia.importJPEG(image.data, accountID: accountID, width: image.width, height: image.height)
             prepared = image
@@ -628,7 +630,9 @@ struct StoryCreateView: View {
         guard let media = saved.media else { return }
         do {
             let data = try Data(contentsOf: app.draftMedia.fileURL(media))
-            let image = try await MediaPreparation.jpegStrippingMetadata(data)
+            let image = try await MediaPreparation.jpegStrippingMetadata(
+                data, maxPixel: StoryUploadBudget.targetLongEdge, quality: StoryUploadBudget.preferredQuality
+            )
             prepared = image
             preview = UIImage(data: image.data)
         } catch {
@@ -640,8 +644,8 @@ struct StoryCreateView: View {
 #if DEBUG
 enum StoryUITestPhoto {
     /// Gradient plus deterministic grain: compresses like a real high-detail photo,
-    /// so the prepared 2048px JPEG lands well above the 1 MiB proxy limit.
-    nonisolated static func detailedJPEG(width: Int = 1536, height: Int = 2048) -> Data? {
+    /// so the prepared 3072px q0.9 JPEG lands above the story byte budget and must be fitted.
+    nonisolated static func detailedJPEG(width: Int = 2304, height: Int = 3072) -> Data? {
         let bytesPerRow = width * 4
         var pixels = [UInt8](repeating: 255, count: bytesPerRow * height)
         var seed: UInt32 = 0x9E37_79B9

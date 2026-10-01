@@ -626,40 +626,53 @@ final class GreenfieldNonJSONErrorTests: XCTestCase {
 }
 
 final class StoryUploadBudgetTests: XCTestCase {
-    func testBudgetStaysUnderProxyLimit() {
+    func testBudgetDerivesFromSingleBodyConstantUnderAPILimit() {
+        XCTAssertEqual(StoryUploadBudget.maximumBodyBytes, 3_800_000)
+        XCTAssertLessThan(StoryUploadBudget.maximumBodyBytes, 4_194_304, "Greenfield JSON body limit")
         let budget = StoryUploadBudget.imageByteBudget(captionByteCount: 0)
-        XCTAssertGreaterThan(budget, 600_000)
-        XCTAssertLessThan(Double(budget) * 4 / 3, Double(StoryUploadBudget.maximumBodyBytes))
-        XCTAssertLessThan(StoryUploadBudget.maximumBodyBytes, StoryUploadBudget.proxyBodyLimitBytes)
+        XCTAssertGreaterThan(budget, 2_700_000)
+        XCTAssertLessThan(Double(budget) * 4 / 3 * 1.02, Double(StoryUploadBudget.maximumBodyBytes))
         XCTAssertLessThan(StoryUploadBudget.imageByteBudget(captionByteCount: 2_000), budget)
+        XCTAssertGreaterThanOrEqual(StoryUploadBudget.targetLongEdge, 2560)
+        XCTAssertEqual(StoryUploadBudget.minimumLongEdge, 2048)
     }
 
-    func testLargePreparedPhotoIsFittedUnderTheProxyLimit() async throws {
+    func testLargePreparedPhotoKeepsFullScreenResolutionWithinBudget() async throws {
         let source = try XCTUnwrap(StoryUITestPhoto.detailedJPEG())
-        // The composer's preparation step alone produces a body nginx rejects.
-        let prepared = try MediaPreparation.jpegStrippingMetadataSync(source, maxPixel: 2048, quality: 0.86)
-        XCTAssertGreaterThan(prepared.data.count, 1_048_576, "fixture must reproduce the >1 MiB story")
-        let naive = try JSONEncoder().encode(StoryBackendRepository.requestBody(image: prepared, caption: nil, visibility: "public"))
-        XCTAssertGreaterThan(naive.count, StoryUploadBudget.proxyBodyLimitBytes)
+        let prepared = try MediaPreparation.jpegStrippingMetadataSync(
+            source, maxPixel: StoryUploadBudget.targetLongEdge, quality: StoryUploadBudget.preferredQuality
+        )
+        XCTAssertEqual(max(prepared.width, prepared.height), 3072)
+        XCTAssertGreaterThan(prepared.data.count, 1_048_576, "fixture must exceed the old 1 MiB proxy limit")
 
         let body = try await StoryBackendRepository.uploadableBody(image: prepared, caption: "Golden hour", visibility: "public")
         let encoded = try JSONEncoder().encode(body)
         XCTAssertLessThanOrEqual(encoded.count, StoryUploadBudget.maximumBodyBytes)
         XCTAssertEqual(body["contentType"]?.string, "image/jpeg")
         XCTAssertEqual(body["caption"]?.string, "Golden hour")
-        XCTAssertEqual(body["visibility"]?.string, "public")
         let data = try XCTUnwrap(body["base64"]?.string.flatMap { Data(base64Encoded: $0) })
-        let source2 = try XCTUnwrap(CGImageSourceCreateWithData(data as CFData, nil))
-        let image = try XCTUnwrap(CGImageSourceCreateImageAtIndex(source2, 0, nil))
-        XCTAssertGreaterThanOrEqual(max(image.width, image.height), 720)
+        let decoded = try XCTUnwrap(CGImageSourceCreateWithData(data as CFData, nil))
+        let image = try XCTUnwrap(CGImageSourceCreateImageAtIndex(decoded, 0, nil))
+        XCTAssertGreaterThanOrEqual(max(image.width, image.height), 2048, "never squeeze stories below 2048px")
         XCTAssertEqual(body["width"]?.number, Double(image.width))
         XCTAssertEqual(body["height"]?.number, Double(image.height))
-        XCTAssertNil((CGImageSourceCopyPropertiesAtIndex(source2, 0, nil) as? [CFString: Any])?[kCGImagePropertyGPSDictionary])
+        XCTAssertNil((CGImageSourceCopyPropertiesAtIndex(decoded, 0, nil) as? [CFString: Any])?[kCGImagePropertyGPSDictionary])
+        print("story-fit prepared=\(prepared.data.count)B \(prepared.width)x\(prepared.height) sent=\(data.count)B \(image.width)x\(image.height) body=\(encoded.count)B")
+    }
+
+    func testQualityStepsDownBeforeResolution() throws {
+        let source = try XCTUnwrap(StoryUITestPhoto.detailedJPEG())
+        let full = try MediaPreparation.jpegFittingSync(source, maxBytes: .max)
+        XCTAssertEqual(max(full.width, full.height), 3072)
+        // A budget just under the q0.9 size must be met at 3072px by lowering quality.
+        let fitted = try MediaPreparation.jpegFittingSync(source, maxBytes: full.data.count - 1)
+        XCTAssertEqual(max(fitted.width, fitted.height), 3072)
+        XCTAssertLessThan(fitted.data.count, full.data.count)
     }
 
     func testSmallPhotoIsSentUnchanged() async throws {
         let small = try MediaPreparation.jpegStrippingMetadataSync(
-            try XCTUnwrap(StoryUITestPhoto.detailedJPEG(width: 200, height: 300)), maxPixel: 2048, quality: 0.86
+            try XCTUnwrap(StoryUITestPhoto.detailedJPEG(width: 200, height: 300)), maxPixel: 3072, quality: 0.9
         )
         let body = try await StoryBackendRepository.uploadableBody(image: small, caption: "  ", visibility: "followers")
         XCTAssertEqual(body["base64"]?.string, small.data.base64EncodedString())
@@ -672,8 +685,8 @@ final class StoryUploadBudgetTests: XCTestCase {
         XCTAssertThrowsError(try MediaPreparation.jpegFittingSync(source, maxBytes: 2_000)) { error in
             XCTAssertEqual(error as? MediaPreparationError, .exceedsByteBudget)
         }
-        let fitted = try MediaPreparation.jpegFittingSync(source, maxBytes: 400_000)
-        XCTAssertLessThanOrEqual(fitted.data.count, 400_000)
-        XCTAssertLessThanOrEqual(max(fitted.width, fitted.height), 1600)
+        let fitted = try MediaPreparation.jpegFittingSync(source, maxBytes: 1_500_000)
+        XCTAssertLessThanOrEqual(fitted.data.count, 1_500_000)
+        XCTAssertEqual(max(fitted.width, fitted.height), 1600, "never upscales")
     }
 }

@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import Observation
 import OSLog
@@ -262,19 +263,25 @@ enum StoryProgressEvent: Equatable {
     case finished
 }
 
-/// Request-size contract for inline story media. Both Greenfield edges
-/// (`ops/nginx/api.modula.digital.conf`, `scripts/n1/nginx-native-n1.conf`) set
-/// `client_max_body_size 1m` (1,048,576 B); prod accepted a 1,013,426 B body and
-/// rejected 1,066,758 B with an HTML 413.
+/// Request-size contract for inline story media. `POST /v1/stories` only accepts the
+/// photo as base64 inside JSON, so the whole body must fit the Greenfield API's own
+/// JSON limit (`MODULA_REQUEST_BODY_LIMIT_BYTES`, 4 MiB) and the edge nginx limit
+/// for that route (being raised from 1m). Raise `maximumBodyBytes` when the server
+/// limits go up; everything else derives from it.
 enum StoryUploadBudget {
-    static let proxyBodyLimitBytes = 1_048_576
-    /// Keep ~48 KiB of headroom under the proxy limit.
-    static let maximumBodyBytes = 1_000_000
+    /// Single tunable: largest JSON body we will send (~3.8 MB, under the 4 MiB API limit).
+    static let maximumBodyBytes = 3_800_000
+    /// Full-screen quality target on Pro iPhones; never sent below `minimumLongEdge`
+    /// unless a pathological image cannot otherwise meet the budget.
+    static let targetLongEdge: CGFloat = 3072
+    static let minimumLongEdge: CGFloat = 2048
+    static let preferredQuality: CGFloat = 0.9
     /// JSON keys, numbers, visibility and punctuation.
     static let envelopeOverheadBytes = 1_024
 
-    /// Largest raw image that base64-encodes (4/3) into the remaining body budget,
-    /// allowing ~2% for `JSONEncoder` escaping `/` inside the base64 text.
+    /// Largest raw JPEG that base64-encodes (4/3) into the remaining body budget,
+    /// allowing ~2% for `JSONEncoder` escaping `/` inside the base64 text
+    /// (≈2.79 MB raw for a 3.8 MB body).
     static func imageByteBudget(captionByteCount: Int) -> Int {
         let available = maximumBodyBytes - envelopeOverheadBytes - captionByteCount * 2
         return max(0, Int(Double(available) * 0.75 / 1.02))
@@ -316,10 +323,10 @@ struct StoryBackendRepository: Sendable {
     }
 
     /// Greenfield's `POST /v1/stories` only accepts the media inline as base64 (there is
-    /// no attachment/upload reference for stories), and nginx in front of every host caps
-    /// request bodies at 1 MiB. Fit the JPEG to a byte budget and verify the *encoded*
-    /// JSON size (base64 is 4/3 and `JSONEncoder` escapes `/`) before sending, so the
-    /// request never reaches the proxy's HTML 413.
+    /// no attachment/upload reference for stories). Keep full-screen quality (quality is
+    /// lowered before resolution), but fit the JPEG to `StoryUploadBudget` and verify the
+    /// *encoded* JSON size (base64 is 4/3 and `JSONEncoder` escapes `/`) before sending,
+    /// so the request stays under the API/edge body limits instead of failing with a 413.
     static func uploadableBody(image: PreparedImage, caption: String?, visibility: String) async throws -> JSONValue {
         let trimmedCaption = caption?.trimmingCharacters(in: .whitespacesAndNewlines)
         var budget = StoryUploadBudget.imageByteBudget(captionByteCount: trimmedCaption?.utf8.count ?? 0)
@@ -328,14 +335,19 @@ struct StoryBackendRepository: Sendable {
             if image.data.count <= budget {
                 fitted = image
             } else {
-                fitted = try await MediaPreparation.jpegFitting(image.data, maxBytes: budget)
+                fitted = try await MediaPreparation.jpegFitting(
+                    image.data,
+                    maxBytes: budget,
+                    maxPixel: StoryUploadBudget.targetLongEdge,
+                    minPixel: StoryUploadBudget.minimumLongEdge
+                )
             }
             let body = requestBody(image: fitted, caption: trimmedCaption, visibility: visibility)
             let encodedSize = try JSONEncoder().encode(body).count
             if encodedSize <= StoryUploadBudget.maximumBodyBytes {
                 if fitted.data.count != image.data.count {
                     ModulaLog.network.notice(
-                        "story media fitted \(image.data.count, privacy: .public)B \(image.width, privacy: .public)px → \(fitted.data.count, privacy: .public)B \(fitted.width, privacy: .public)x\(fitted.height, privacy: .public); body \(encodedSize, privacy: .public)B"
+                        "story media fitted \(image.data.count, privacy: .public)B \(image.width, privacy: .public)x\(image.height, privacy: .public) → \(fitted.data.count, privacy: .public)B \(fitted.width, privacy: .public)x\(fitted.height, privacy: .public); body \(encodedSize, privacy: .public)B"
                     )
                 }
                 return body
