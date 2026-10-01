@@ -1,5 +1,37 @@
 import Foundation
 
+/// Single source of truth for public share links. Every share surface
+/// (post/profile models, share sheet, Product Hub, Reels) builds URLs here
+/// so the format stays consistent and an odd id can never crash.
+enum ModulaShareLink {
+    static let base = URL(string: "https://modula.digital") ?? URL(fileURLWithPath: "/")
+
+    static func link(_ components: String...) -> URL {
+        components.reduce(base) { $0.appending(path: $1) }
+    }
+
+    static func profile(_ identity: String) -> URL { identity == "me" ? link("me") : link("profile", identity) }
+    static func post(_ id: String) -> URL { link("post", id) }
+    /// Product page (not `/module/:id`, which launches the module runtime).
+    static func module(_ id: String) -> URL { link("product-hub", "module", id) }
+    static func story(_ id: String) -> URL { link("stories", id) }
+    static func reel(_ id: String) -> URL { link("reels", id) }
+    static func conversation(_ id: String) -> URL { link("messages", id) }
+
+    static func url(for route: AppRoute) -> URL {
+        switch route {
+        case .profile(let id, _): profile(id)
+        case .me: link("me")
+        case .post(let id, _): post(id)
+        case .stories(.story(let id)): story(id)
+        case .reels(.reel(let id)): reel(id)
+        case .messages(.conversation(let id)): conversation(id)
+        case .productHub(.module(let id, _)): module(id)
+        default: base
+        }
+    }
+}
+
 /// Unified share payload. Profile / Post / Module / Link share one sheet architecture.
 enum SharePayload: Hashable, Sendable {
     case profile(identity: String, displayName: String?, handle: String?, avatarURL: URL?)
@@ -16,7 +48,7 @@ enum SharePayload: Hashable, Sendable {
         case .module(let id):
             return .module(id: id, name: nil, publisher: nil)
         case .link(let raw):
-            let url = URL(string: raw) ?? URL(string: "https://modula.digital")!
+            let url = URL(string: raw) ?? ModulaShareLink.base
             return .link(url: url, title: nil)
         }
     }
@@ -24,14 +56,11 @@ enum SharePayload: Hashable, Sendable {
     var canonicalURL: URL {
         switch self {
         case .profile(let identity, _, _, _):
-            if identity == "me" {
-                return URL(string: "https://modula.digital/me")!
-            }
-            return URL(string: "https://modula.digital/profile/\(identity)")!
+            return ModulaShareLink.profile(identity)
         case .post(let id, _, _, _):
-            return URL(string: "https://modula.digital/post/\(id)")!
+            return ModulaShareLink.post(id)
         case .module(let id, _, _):
-            return URL(string: "https://modula.digital/product-hub/module/\(id)")!
+            return ModulaShareLink.module(id)
         case .link(let url, _):
             return url
         }

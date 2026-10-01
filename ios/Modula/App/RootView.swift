@@ -303,29 +303,7 @@ private struct PresentationView: View {
     }
 
     private func shareURL(for route: AppRoute) -> URL {
-        // Build with path components so odd IDs can never crash a force unwrap.
-        let base = URL(string: "https://modula.digital") ?? URL(fileURLWithPath: "/")
-        func link(_ section: String, _ id: String? = nil) -> URL {
-            var url = base.appending(path: section)
-            if let id { url = url.appending(path: id) }
-            return url
-        }
-        switch route {
-        case .profile(let id, _):
-            return link("profile", id)
-        case .me:
-            return link("me")
-        case .post(let id, _):
-            return link("post", id)
-        case .stories(.story(let id)):
-            return link("stories", id)
-        case .reels(.reel(let id)):
-            return link("reels", id)
-        case .messages(.conversation(let id)):
-            return link("messages", id)
-        default:
-            return base
-        }
+        ModulaShareLink.url(for: route)
     }
 }
 
