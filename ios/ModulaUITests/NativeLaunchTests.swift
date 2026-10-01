@@ -784,6 +784,92 @@ final class VaultRuntimeUITests: XCTestCase {
         }
     }
 
+    /// Upgrade/downgrade between registry versions. Needs a build whose ModulaAPIURL points
+    /// at a registry with several Vault Notes versions and MODULA_VERSIONS_FIXTURE credentials
+    /// for an account that has Vault Notes installed at an older version (1.6.0).
+    func testModuleVersionsListSwitchConfirmationUpgradeAndDowngrade() throws {
+        guard let path = ProcessInfo.processInfo.environment["MODULA_VERSIONS_FIXTURE"],
+              let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+              let fixture = try? JSONDecoder().decode(N1UITestFixture.self, from: data) else {
+            throw XCTSkip("MODULA_VERSIONS_FIXTURE unavailable; version switching needs a registry fixture account")
+        }
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitest-skip-first-run", "--reset-appearance"]
+        app.launch()
+        // Sign in with the registry fixture account explicitly (the Debug fixture button
+        // would use the N1 credentials instead).
+        let email = app.descendants(matching: .any)["auth.email"]
+        let home = app.descendants(matching: .any)["native.home"]
+        let deadline = Date().addingTimeInterval(45)
+        while Date() < deadline, !home.exists, !email.exists {
+            let skip = app.descendants(matching: .any)["onboarding.skip"]
+            if skip.exists { skip.tap() }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        if email.exists {
+            pasteText(fixture.email, into: email, app: app)
+            pasteText(fixture.password, into: app.descendants(matching: .any)["auth.password"], app: app)
+            app.descendants(matching: .any)["auth.sign-in"].tap()
+        }
+        try awaitShellReady(app, credentials: fixture, timeout: 90)
+        openProductHub(app)
+        let card = app.buttons["product.digital.modula.vault-notes"].firstMatch
+        if card.waitForExistence(timeout: 10) { card.tap() } else { app.buttons["product-hub.featured"].firstMatch.tap() }
+        XCTAssertTrue(app.buttons["module.primary"].firstMatch.waitForExistence(timeout: 15))
+
+        let installed = app.staticTexts["module.versions.installed"].firstMatch
+        for _ in 0..<8 where !(installed.exists && installed.isHittable) { app.swipeUp() }
+        XCTAssertTrue(installed.waitForExistence(timeout: 15))
+        XCTAssertEqual(installed.label, "Installed 1.6.0")
+        let update = app.buttons["module.version.1.7.0.action"].firstMatch
+        XCTAssertTrue(update.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["module.version.1.5.0.action"].firstMatch.exists, "Older releases offer Install this version (Downgrade)")
+        app.swipeUp()
+        let toggle = app.buttons["module.versions.toggle"].firstMatch
+        if toggle.waitForExistence(timeout: 3) { toggle.tap() }
+        for _ in 0..<3 where !app.buttons["module.version.0.2.0.action"].firstMatch.isHittable { app.swipeUp() }
+        Thread.sleep(forTimeInterval: 1)
+        attachVaultScreenshot(app, name: "V-versions-list")
+        app.swipeDown()
+        Thread.sleep(forTimeInterval: 1)
+        attachVaultScreenshot(app, name: "V-versions-list-top")
+
+        // Downgrade to a superseded release: new permissions need consent, older data schema warns.
+        let older = app.buttons["module.version.0.2.0.action"].firstMatch
+        for _ in 0..<3 where !older.isHittable { app.swipeUp() }
+        older.tap()
+        let confirm = app.buttons["module.version-switch.confirm"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 20), app.descendants(matching: .any)["module.version-switch.error"].firstMatch.label)
+        XCTAssertTrue(app.descendants(matching: .any)["module.version-switch.downgrade-warning"].firstMatch.exists)
+        XCTAssertTrue(confirm.label.hasPrefix("Allow & Downgrade"))
+        Thread.sleep(forTimeInterval: 1)
+        attachVaultScreenshot(app, name: "V-confirm-downgrade")
+        app.buttons["module.version-switch.cancel"].firstMatch.tap()
+
+        // Update to the latest release.
+        for _ in 0..<6 where !update.isHittable { app.swipeDown() }
+        update.tap()
+        XCTAssertTrue(confirm.waitForExistence(timeout: 20), app.descendants(matching: .any)["module.version-switch.error"].firstMatch.label)
+        Thread.sleep(forTimeInterval: 1)
+        attachVaultScreenshot(app, name: "V-confirm-update")
+        confirm.tap()
+        XCTAssertTrue(waitForLabel(installed, "Installed 1.7.0", timeout: 60),
+                      "Update should settle; error: \(app.descendants(matching: .any)["module.lifecycle-error"].firstMatch.label)")
+
+        // And back down to 1.5.0 (no schema change, so no acknowledgement needed).
+        let downgrade = app.buttons["module.version.1.5.0.action"].firstMatch
+        for _ in 0..<4 where !downgrade.isHittable { app.swipeUp() }
+        downgrade.tap()
+        XCTAssertTrue(confirm.waitForExistence(timeout: 20))
+        XCTAssertTrue(confirm.label.hasPrefix("Downgrade to 1.5.0"), confirm.label)
+        Thread.sleep(forTimeInterval: 1)
+        attachVaultScreenshot(app, name: "V-confirm-downgrade-plain")
+        confirm.tap()
+        XCTAssertTrue(waitForLabel(installed, "Installed 1.5.0", timeout: 60),
+                      "Downgrade should settle; error: \(app.descendants(matching: .any)["module.lifecycle-error"].firstMatch.label)")
+        attachVaultScreenshot(app, name: "V-after-downgrade")
+    }
+
     private func launchSignedInApp() throws -> XCUIApplication {
         try launchThroughAppGate(arguments: ["--reset-appearance"])
     }

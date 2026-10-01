@@ -15,12 +15,15 @@ struct ModuleDetailV2View: View {
     @State private var expandedDescription = false
     @State private var zoomedShot: ModuleScreenshot?
     @State private var showAllPermissions = false
+    @State private var versionTarget: ModuleVersionOption?
+    @State private var versionPhase: ModuleVersionSwitchSheet.Phase = .loading
 
     private var product: CatalogueProduct? { app.catalogue.product(moduleID) }
     private var manifest: ModuleManifest? { app.runtime.manifests.first { $0.id == moduleID } }
     private var bundled: Bool { manifest != nil }
     private var listing: ModuleListing? { app.catalogue.listings[moduleID] }
     private var installed: Bool { app.catalogue.installedIDs.contains(moduleID) }
+    private var installedVersion: String? { installed ? app.catalogue.installations[moduleID]?.version : nil }
 
     var body: some View {
         Group {
@@ -37,6 +40,9 @@ struct ModuleDetailV2View: View {
         .task(id: moduleID) {
             if !app.catalogue.loaded { await app.catalogue.load() }
             await app.catalogue.loadListing(moduleID)
+        }
+        .task(id: installedVersion) {
+            if installedVersion != nil { await app.catalogue.loadVersions(moduleID) }
         }
         .modulaImmersiveSystemNavigation()
         .toolbar {
@@ -84,6 +90,19 @@ struct ModuleDetailV2View: View {
         } message: {
             Text("Your data is kept on your account, so reinstalling brings it back.")
         }
+        .sheet(item: $versionTarget) { option in
+            ModuleVersionSwitchSheet(
+                moduleName: product?.name ?? "Module",
+                option: option,
+                phase: versionPhase,
+                onConfirm: { preview in
+                    versionTarget = nil
+                    Task { await runVersionSwitch(preview) }
+                },
+                onCancel: { versionTarget = nil }
+            )
+            .task(id: option.version) { await prepareVersionSwitch(option) }
+        }
         .sheet(item: $zoomedShot) { shot in
             ModuleArtImage(source: shot.source, contentMode: .fit) { Color.clear }
                 .padding()
@@ -121,6 +140,9 @@ struct ModuleDetailV2View: View {
                         stats(product)
                         Divider()
                         whatsNew(product).id(ModuleDetailSection.whatsNew)
+                        if installed {
+                            versions(state).id(ModuleDetailSection.versionHistory)
+                        }
                         screenshots(art).id(ModuleDetailSection.screenshots)
                         about(product)
                         ratings
@@ -157,7 +179,8 @@ struct ModuleDetailV2View: View {
     private func anchor(for section: ModuleDetailSection) -> ModuleDetailSection? {
         switch section {
         case .overview: nil
-        case .whatsNew, .versionHistory: .whatsNew
+        case .whatsNew: .whatsNew
+        case .versionHistory: installed ? .versionHistory : .whatsNew
         case .screenshots: .screenshots
         case .permissions: .permissions
         case .privacy: .privacy
@@ -585,7 +608,11 @@ struct ModuleDetailV2View: View {
             confirmInstall = true
         case .update:
             Task {
-                if await app.catalogue.update(moduleID) {
+                // Updates go through the same registry preview + consent sheet as any switch.
+                if app.catalogue.versionLists[moduleID] == nil { await app.catalogue.loadVersions(moduleID) }
+                if let latest = app.catalogue.versionLists[moduleID]?.versions.first(where: { $0.isLatest && $0.direction == .upgrade && $0.switchable }) {
+                    selectVersion(latest)
+                } else if await app.catalogue.update(moduleID) {
                     HapticEngine.shared.play(.success)
                     app.navigation.banner = ModulaBanner(message: "\(product?.name ?? "Module") updated", symbol: "checkmark.circle")
                 } else {
@@ -596,6 +623,48 @@ struct ModuleDetailV2View: View {
             app.navigation.open(.auth(.login))
         default:
             break
+        }
+    }
+
+    // MARK: Versions
+
+    private func versions(_ state: ModuleDetailPresentation) -> some View {
+        ModuleVersionsSection(
+            list: app.catalogue.versionLists[moduleID],
+            failed: app.catalogue.versionsFailed.contains(moduleID),
+            installedVersion: installedVersion,
+            bundledVersion: manifest?.version,
+            busy: app.catalogue.operations[moduleID] != nil,
+            onSelect: selectVersion,
+            onRetry: { Task { await app.catalogue.loadVersions(moduleID) } }
+        )
+    }
+
+    private func selectVersion(_ option: ModuleVersionOption) {
+        HapticEngine.shared.play(.selection)
+        versionPhase = .loading
+        versionTarget = option
+    }
+
+    private func prepareVersionSwitch(_ option: ModuleVersionOption) async {
+        versionPhase = .loading
+        do {
+            versionPhase = .ready(try await app.catalogue.prepareVersionSwitch(moduleID, to: option.version))
+        } catch let error as InstallDescriptorVerificationError {
+            versionPhase = .failed(error.errorDescription ?? "The release failed verification.")
+        } catch {
+            versionPhase = .failed(ProductHubStore.message(error, verb: "check this version"))
+        }
+    }
+
+    private func runVersionSwitch(_ preview: ModuleVersionPreview) async {
+        let name = product?.name ?? "Module"
+        if await app.catalogue.switchVersion(moduleID, preview: preview) {
+            HapticEngine.shared.play(.success)
+            let verb = preview.isDowngrade ? "downgraded" : "updated"
+            app.navigation.banner = ModulaBanner(message: "\(name) \(verb) to \(preview.toVersion)", symbol: "checkmark.circle")
+        } else {
+            HapticEngine.shared.play(.failure)
         }
     }
 

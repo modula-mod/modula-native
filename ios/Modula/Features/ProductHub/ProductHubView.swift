@@ -13,6 +13,9 @@ final class ProductHubStore {
     /// Install / update / uninstall in flight from this device.
     private(set) var operations: [String: ModuleOperation] = [:]
     var lifecycleErrors: [String: String] = [:]
+    /// Registry versions per module, relative to the account's installation.
+    private(set) var versionLists: [String: ModuleVersionList] = [:]
+    private(set) var versionsFailed: Set<String> = []
     private(set) var loading = false
     private(set) var loaded = false
     var error: String?
@@ -110,6 +113,63 @@ final class ProductHubStore {
         }
     }
 
+    /// Loads the registry's versions for a module relative to this account's installation.
+    func loadVersions(_ id: String) async {
+        guard await client.hasSession() else {
+            versionLists[id] = nil
+            return
+        }
+        do {
+            versionLists[id] = try await client.moduleVersions(id)
+            versionsFailed.remove(id)
+        } catch {
+            versionsFailed.insert(id)
+        }
+    }
+
+    /// Fetches the confirmation facts for moving to `version` and verifies the target's
+    /// install descriptor against the public registry before anything is shown or sent.
+    func prepareVersionSwitch(_ id: String, to version: String) async throws -> ModuleVersionPreview {
+        let preview = try await client.previewModuleVersion(id, version: version)
+        guard preview.toVersion == version else { throw InstallDescriptorVerificationError.wrongRelease }
+        let facts = try await client.registryReleaseFacts(id, version: version)
+        try InstallDescriptorVerifier.verify(preview.descriptor, moduleId: id, version: version, registry: facts, registryHost: await client.apiOriginHost)
+        return preview
+    }
+
+    /// Switches the installation to the previewed version (upgrade or downgrade), consenting
+    /// to exactly the new permissions the user saw, then waits for the server to settle.
+    @discardableResult
+    func switchVersion(_ id: String, preview: ModuleVersionPreview) async -> Bool {
+        guard operations[id] == nil else { return false }
+        operations[id] = .updating
+        lifecycleErrors[id] = nil
+        defer { operations[id] = nil }
+        let verb = preview.isDowngrade ? "downgrade" : "update"
+        do {
+            let issued = try await client.switchModuleVersion(
+                id, version: preview.toVersion, approvedPermissions: preview.requiresConsent,
+                acknowledgeDowngradeRisk: preview.dataSchemaOlder, idempotencyKey: Self.key("version", id))
+            // The registry must issue the descriptor the user confirmed, byte for byte.
+            guard let issued, issued.computedSha256 == issued.descriptorSha256,
+                  issued.descriptorSha256 == preview.descriptor.descriptorSha256 else {
+                throw InstallDescriptorVerificationError.digestMismatch
+            }
+            let target = preview.toVersion
+            let settled = try await settle(id) { $0?.isRunnable == true && $0?.version == target }
+            await loadVersions(id)
+            return settled
+        } catch let error as InstallDescriptorVerificationError {
+            lifecycleErrors[id] = error.errorDescription
+            await refreshInstallations()
+            return false
+        } catch {
+            lifecycleErrors[id] = Self.message(error, verb: verb)
+            await refreshInstallations()
+            return false
+        }
+    }
+
     @discardableResult
     func uninstall(_ id: String) async -> Bool {
         guard operations[id] == nil else { return false }
@@ -151,7 +211,7 @@ final class ProductHubStore {
 
     private static func key(_ verb: String, _ id: String) -> String { "ios-\(verb)-\(id)-\(UUID().uuidString)" }
 
-    private static func message(_ error: Error, verb: String) -> String {
+    static func message(_ error: Error, verb: String) -> String {
         switch error {
         case APIError.unauthenticated, APIError.rejected(401, _): "Sign in to Modula to \(verb) modules."
         case APIError.rejected(_, "CAPABILITY_DISABLED"): "Installing modules is turned off on this server."
