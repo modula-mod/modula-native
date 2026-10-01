@@ -34,10 +34,9 @@ struct HomeView: View {
                                 .tint(app.appearance.accent.color)
                                 .accessibilityIdentifier("home.open-reels")
                             }
-                            StoryTray(groups: app.stories.trayGroups, compact: true) { group in
+                            // The header "+" is the single create entry on Home.
+                            StoryTray(groups: StoryStore.homeTrayGroups(app.stories.trayGroups), compact: true) { group in
                                 Task { await openStory(group) }
-                            } onCreate: {
-                                app.navigation.push(.stories(.create))
                             }
                             .padding(.horizontal, -ModulaLayout.contentInset)
                             .padding(.leading, 4)

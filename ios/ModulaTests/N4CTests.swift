@@ -1058,3 +1058,17 @@ final class StoryViewerFailedMediaTests: XCTestCase {
         XCTAssertFalse(StoryViewerGate.allowsTapNavigation(item: item("v", kind: .video), loadedID: "v", failedID: "v"))
     }
 }
+
+final class HomeStoryTrayTests: XCTestCase {
+    func testHomeTrayHasNoSecondCreateEntry() {
+        let me = MessagingFixtures.me
+        let friend = ConversationParticipant(id: "f", handle: "f", displayName: "F", avatarURL: nil)
+        let placeholder = StoryGroup(id: "add:actor-1", author: me, items: [], isOwn: true, reportedRing: .own, itemCount: 0)
+        let ownLive = StoryGroup(id: "g-own", author: me, items: [], isOwn: true, reportedRing: .own, itemCount: 2)
+        let friendGroup = StoryGroup(id: "g-f", author: friend, items: [], isOwn: false, reportedRing: .unseen, itemCount: 1)
+        XCTAssertEqual(StoryStore.homeTrayGroups([placeholder, friendGroup]).map(\.id), ["g-f"],
+                       "the header + is Home's only create control")
+        XCTAssertEqual(StoryStore.homeTrayGroups([ownLive, friendGroup]).map(\.id), ["g-own", "g-f"],
+                       "a live own story stays in the tray")
+    }
+}

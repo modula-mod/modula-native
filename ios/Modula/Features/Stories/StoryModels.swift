@@ -423,6 +423,12 @@ final class StoryStore {
 
     var trayGroups: [StoryGroup] { groups }
 
+    /// Home already has one "Create story" control in the Stories header, so its tray
+    /// shows only real stories — no client composer tile and no server `add:` placeholder.
+    nonisolated static func homeTrayGroups(_ groups: [StoryGroup]) -> [StoryGroup] {
+        groups.filter { !$0.isComposerPlaceholder }
+    }
+
     func loadIfNeeded() async {
         guard capabilities.list else {
             loadState = .loaded
