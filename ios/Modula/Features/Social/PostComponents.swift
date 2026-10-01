@@ -31,7 +31,13 @@ struct PostCard: View {
         let post = resolved
         let canonical = ModulaPostMapper.map(post)
         let layout = ModulaPostLayoutPolicy.resolve(canonical)
+        let media = post.media.first
+        let ratio = media?.aspectRatio.map { Double($0) } ?? media.flatMap { item -> Double? in
+            guard let width = item.width, let height = item.height, height > 0 else { return nil }
+            return Double(width) / Double(height)
+        }
         let usesRail = showsActionRail && layout.prefersActionRail && !dynamicTypeSize.isAccessibilitySize
+            && ModulaPostLayoutPolicy.canOverlayActionRail(aspectRatio: ratio)
         VStack(alignment: .leading, spacing: 10 * app.appearance.density.spacingScale) {
             PostHeader(
                 post: post,

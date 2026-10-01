@@ -284,7 +284,9 @@ final class ModuleDetailV2Tests: XCTestCase {
 final class ProfileFullBleedTests: XCTestCase {
     func testCoverHeightIncludesSafeArea() {
         let height = ProfileFullBleedMetrics.coverHeight(sizeClass: .compact, safeAreaTop: 47, accessibility: false)
-        XCTAssertGreaterThan(height, 300)
+        let withoutSafeArea = ProfileFullBleedMetrics.coverHeight(sizeClass: .compact, safeAreaTop: 0, accessibility: false)
+        XCTAssertEqual(height - withoutSafeArea, 47)
+        XCTAssertLessThan(height, 300, "Compact hero leaves room for identity and content")
     }
 
     func testProfileIdentityFieldsExist() {

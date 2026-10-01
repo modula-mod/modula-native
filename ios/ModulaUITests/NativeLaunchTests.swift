@@ -1393,6 +1393,22 @@ final class N3CHomeUITests: XCTestCase {
 
 @MainActor
 final class N3DProfileUITests: XCTestCase {
+    func testProfileHeroKeepsIdentityAndMetricsInFirstViewport() throws {
+        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--reset-appearance", "--ui-light"])
+        selectTab(app, "Profile")
+        let identity = app.descendants(matching: .any)["profile.identity"].firstMatch
+        XCTAssertTrue(identity.waitForExistence(timeout: 10))
+        let avatar = app.buttons["profile.avatar"].firstMatch
+        let metrics = app.descendants(matching: .any)["profile.metrics"].firstMatch
+        XCTAssertTrue(avatar.exists)
+        XCTAssertTrue(metrics.exists)
+        XCTAssertLessThan(avatar.frame.minY, identity.frame.minY)
+        XCTAssertLessThan(identity.frame.minY - avatar.frame.maxY, 40)
+        XCTAssertLessThan(metrics.frame.maxY, app.frame.maxY - 80)
+        XCTAssertLessThanOrEqual(metrics.frame.maxX, app.frame.maxX - 40, "Metrics must clear the Edge Picker")
+        attachScreenshot(app, name: "post05-compact-profile-light")
+    }
+
     func testOwnProfileRailAndEditEntry() throws {
         let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--reset-appearance"])
 
@@ -1582,6 +1598,23 @@ final class MCAT02CatalogUITests: XCTestCase {
 
 @MainActor
 final class POST03CatalogUITests: XCTestCase {
+    func testProductionRailHasLabelledContextActions() throws {
+        let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--reset-appearance", "--ui-light"])
+        try openContentCatalog(app)
+        openPage("Media Action Rail", app: app)
+        let more = app.buttons["More actions"].firstMatch
+        XCTAssertTrue(more.waitForExistence(timeout: 6))
+        more.tap()
+        XCTAssertTrue(app.buttons["Copy Link"].firstMatch.waitForExistence(timeout: 4))
+        XCTAssertTrue(app.buttons["Close post actions"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "post05-labelled-media-context-light"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        app.buttons["Copy Link"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Copy Link selected · preview only"].exists)
+    }
+
     func testContentPostCatalogPagesAndFullInteractionOpen() throws {
         let app = try launchThroughAppGate(arguments: ["--runtime-unavailable", "--reset-appearance", "--ui-light"])
         try openContentCatalog(app)

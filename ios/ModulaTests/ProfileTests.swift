@@ -2,6 +2,14 @@ import XCTest
 @testable import Modula
 
 final class ProfileTests: XCTestCase {
+    func testHeroReservesOnlyTheVisibleHalfOfTheAvatar() {
+        let size = ProfileIdentityMetrics.avatarSize(sizeClass: .compact)
+        XCTAssertEqual(ProfileIdentityMetrics.overlap(avatarSize: size), 52)
+        XCTAssertEqual(ProfileIdentityMetrics.contentHeight(avatarSize: size), 52)
+        XCTAssertEqual(ProfileFullBleedMetrics.coverHeight(sizeClass: .compact, safeAreaTop: 59, accessibility: false), 295)
+        XCTAssertLessThan(ProfileFullBleedMetrics.coverHeight(sizeClass: .compact, safeAreaTop: 59, accessibility: true), 295)
+    }
+
     func testProfileRoutesRoundTrip() {
         XCTAssertEqual(RouteParser.parse("/me"), .me(.overview))
         XCTAssertEqual(RouteSerializer.serialize(.me(.overview)), "/me")

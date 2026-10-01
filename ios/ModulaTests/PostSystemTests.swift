@@ -2,6 +2,15 @@ import XCTest
 @testable import Modula
 
 final class PostSystemTests: XCTestCase {
+    func testMediaRailRequiresEnoughVerticalSpace() {
+        XCTAssertTrue(ModulaPostLayoutPolicy.canOverlayActionRail(aspectRatio: 0.75))
+        XCTAssertTrue(ModulaPostLayoutPolicy.canOverlayActionRail(aspectRatio: 1))
+        XCTAssertFalse(ModulaPostLayoutPolicy.canOverlayActionRail(aspectRatio: 16.0 / 9))
+        XCTAssertFalse(ModulaPostLayoutPolicy.canOverlayActionRail(aspectRatio: nil))
+        XCTAssertFalse(ModulaPostLayoutPolicy.canOverlayActionRail(aspectRatio: .nan))
+        XCTAssertFalse(ModulaPostLayoutPolicy.canOverlayActionRail(aspectRatio: 0))
+    }
+
     func testPostSectionRoutesRoundTrip() {
         let id = "post-abc"
         for section in PostSection.allCases {

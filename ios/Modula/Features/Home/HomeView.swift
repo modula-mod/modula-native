@@ -5,6 +5,7 @@ struct HomeView: View {
     let mode: HomeMode
     @Environment(AppEnvironment.self) private var app
     @Environment(\.trailingInteractionInset) private var trailingInteractionInset
+    @Environment(\.leadingInteractionInset) private var leadingInteractionInset
     @Environment(\.shellChromeMetrics) private var shellChromeMetrics
     @State private var videoCoordinator = FeedVideoCoordinator()
     @State private var commentsPost: SocialPost?
@@ -46,7 +47,7 @@ struct HomeView: View {
                         }
                         feedContent(state)
                     }
-                    .padding(.leading, ModulaLayout.contentInset)
+                    .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
                     .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
                     .padding(.top, 4)
                     .padding(.bottom, shellChromeMetrics.contentBottomInset)
