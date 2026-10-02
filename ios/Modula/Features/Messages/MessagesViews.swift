@@ -214,7 +214,7 @@ struct ConversationRow: View {
         if let preview = conversation.lastMessage?.body { parts.append(preview) }
         parts.append(Self.relative(conversation.updatedAt))
         if conversation.isUnread {
-            parts.append("\(conversation.unreadCount) unread")
+            parts.append(String(localized: "\(conversation.unreadCount) unread"))
         } else {
             parts.append("Read")
         }

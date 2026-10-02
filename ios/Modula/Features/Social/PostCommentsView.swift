@@ -221,7 +221,7 @@ struct PostCommentsView: View {
                             } label: {
                                 HStack(spacing: 8) {
                                     Rectangle().frame(width: 20, height: 1)
-                                    Text("View ^[\(comment.replyCount) reply](inflect: true)")
+                                    Text("View \(comment.replyCount) replies")
                                     if store.loadingReplies.contains(comment.id) { ProgressView().controlSize(.mini) }
                                 }
                                 .font(.caption.weight(.semibold))
@@ -286,7 +286,7 @@ struct PostCommentsView: View {
                     .lineSpacing(3)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if comment.likeCount > 0 {
-                    Text("^[\(comment.likeCount) like](inflect: true)")
+                    Text("\(comment.likeCount) likes")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }

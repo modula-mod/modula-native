@@ -226,7 +226,7 @@ struct ActivitySummary: Hashable, Sendable {
         }
         let top = counts.sorted { $0.value > $1.value }.prefix(2).map(\.key)
         var highlights: [String] = []
-        if unread > 0 { highlights.append("\(unread) unread") }
+        if unread > 0 { highlights.append(String(localized: "\(unread) unread")) }
         if mentions > 0 { highlights.append("\(mentions) mentions") }
         if pendingRequests > 0 { highlights.append("\(pendingRequests) pending requests") }
         if let first = events.first(where: { $0.preview?.text?.isEmpty == false })?.preview?.text {
