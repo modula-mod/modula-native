@@ -349,7 +349,7 @@ final class GreenfieldBridgeIntegrationTests: XCTestCase {
 
         let invalid = await rawCall(bridge, session, action: "backend.records.get", params: ["collection": "note", "recordID": "missing-note"])
         XCTAssertFalse(invalid.ok)
-        XCTAssertEqual(invalid.error?.code, "BACKEND_REQUEST_FAILED")
+        XCTAssertEqual(invalid.error?.code, "BACKEND_NOT_FOUND", "a missing record maps to a stable code, never backend text")
         let recoveredList = try await call(bridge, session, action: "backend.records.list", params: ["collection": "note"])
         XCTAssertNotNil(recoveredList["items"])
 
