@@ -8,7 +8,6 @@ struct ModuleVersionsSection: View {
     let list: ModuleVersionList?
     let failed: Bool
     let installedVersion: String?
-    let bundledVersion: String?
     let busy: Bool
     let onSelect: (ModuleVersionOption) -> Void
     let onRetry: () -> Void
@@ -44,7 +43,7 @@ struct ModuleVersionsSection: View {
                         if index > 0 { Divider().padding(.vertical, 12) }
                         ModuleVersionRow(
                             option: option,
-                            action: ModuleVersionAction.resolve(option, installed: installedVersion != nil, bundledVersion: bundledVersion, busy: busy),
+                            action: ModuleVersionAction.resolve(option, installed: installedVersion != nil, busy: busy),
                             onSelect: { onSelect(option) }
                         )
                     }

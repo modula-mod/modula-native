@@ -111,13 +111,12 @@ struct ModuleDetailPresentation: Equatable {
         return signedIn ? .install : .signIn
     }
 
-    /// An update is offered only when the server has a newer release than the account's
-    /// installation *and* this app bundles code for it.
+    /// An update is offered when the registry has a newer release than the account's
+    /// installation. Host compatibility is the registry's decision (`ModulaHost.version`),
+    /// not a comparison with the bundled module code's version label.
     var updateAvailable: Bool {
-        guard let current = installation?.version, let latest = product.latestVersion,
-              ModuleVersion.isOlder(current, than: latest) else { return false }
-        guard let bundledVersion else { return false }
-        return !ModuleVersion.isOlder(bundledVersion, than: latest)
+        guard let current = installation?.version, let latest = product.latestVersion else { return false }
+        return ModuleVersion.isOlder(current, than: latest)
     }
 
     var canUninstall: Bool { installed && operation == nil && installation?.isTransitioning == false }
@@ -209,16 +208,24 @@ struct ModuleListing: Equatable, Sendable {
             guard let name = item["permission"]?.string else { return nil }
             return Permission(permission: name, risk: item["risk"]?.string ?? "unknown", reason: item["reason"]?.string ?? "")
         }
-        previews = (market?["previews"]?.array ?? []).prefix(10).enumerated().compactMap { index, item in
+        let presentation = CataloguePresentation.from(json["presentation"])
+        let registryShots = (presentation?.screenshots ?? []).prefix(10).enumerated().compactMap { index, shot -> Preview? in
+            guard let url = shot.source else { return nil }
+            let w = shot.width ?? 0, h = shot.height ?? 0
+            return Preview(id: shot.sha256 ?? "screenshot-\(index)", source: url, alt: shot.alt, aspect: w > 0 && h > 0 ? w / h : nil)
+        }
+        let marketPreviews = (market?["previews"]?.array ?? []).prefix(10).enumerated().compactMap { index, item -> Preview? in
             guard item["type"]?.string ?? "image" == "image", let url = Self.https(item["source"]?.string) else { return nil }
             let w = item["width"]?.number, h = item["height"]?.number
             return Preview(id: item["id"]?.string ?? "preview-\(index)", source: url, alt: item["alt"]?.string,
                            aspect: (w ?? 0) > 0 && (h ?? 0) > 0 ? w! / h! : nil)
         }
+        // Registry presentation (latest published version) wins over legacy marketplace fields.
+        previews = registryShots.isEmpty ? Array(marketPreviews) : Array(registryShots)
         platforms = (json["compatibility"]?["platforms"]?.array ?? []).compactMap(\.string)
         minimumHostVersion = json["compatibility"]?["minimumModulaHostVersion"]?.string
-        iconURL = Self.https(market?["icon"]?.string ?? market?["icon"]?["source"]?.string)
-        coverURL = Self.https(market?["cover"]?.string ?? market?["cover"]?["source"]?.string)
+        iconURL = presentation?.icon?.source ?? Self.https(market?["icon"]?.string ?? market?["icon"]?["source"]?.string)
+        coverURL = presentation?.cover?.source ?? Self.https(market?["cover"]?.string ?? market?["cover"]?["source"]?.string)
     }
 
     /// Only absolute https URLs are loaded remotely.
@@ -263,12 +270,22 @@ struct ModuleArtwork: Equatable, Sendable {
     var cover: ModuleArtSource?
     var screenshots: [ModuleScreenshot]
 
-    init(listing: ModuleListing?) {
-        icon = listing?.iconURL.map(ModuleArtSource.remote)
-        cover = listing?.coverURL.map(ModuleArtSource.remote)
-        screenshots = (listing?.previews ?? []).map {
+    /// The detail listing wins; the catalogue list item's registry presentation (same
+    /// latest published version) fills anything the listing has not loaded yet.
+    init(listing: ModuleListing?, product: CatalogueProduct? = nil) {
+        let presentation = product?.presentation
+        icon = (listing?.iconURL ?? presentation?.icon?.source).map(ModuleArtSource.remote)
+        cover = (listing?.coverURL ?? presentation?.cover?.source).map(ModuleArtSource.remote)
+        let listed = (listing?.previews ?? []).map {
             ModuleScreenshot(id: $0.id, source: .remote($0.source), alt: $0.alt ?? "Screenshot", aspect: $0.aspect ?? 0.56)
         }
+        let fallback = (presentation?.screenshots ?? []).enumerated().compactMap { index, shot -> ModuleScreenshot? in
+            guard let url = shot.source else { return nil }
+            let w = shot.width ?? 0, h = shot.height ?? 0
+            return ModuleScreenshot(id: shot.sha256 ?? "screenshot-\(index)", source: .remote(url), alt: shot.alt ?? "Screenshot",
+                                    aspect: w > 0 && h > 0 ? w / h : 0.56)
+        }
+        screenshots = listed.isEmpty ? fallback : listed
     }
 }
 
