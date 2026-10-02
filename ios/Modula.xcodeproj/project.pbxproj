@@ -281,6 +281,7 @@
 		N50100000000000000000012 /* N4CTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000012 /* N4CTests.swift */; };
 		V50100000000000000000003 /* ModuleVersionSwitchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = V40100000000000000000003 /* ModuleVersionSwitchTests.swift */; };
 		S50100000000000000000001 /* SettingsVisualSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = S40100000000000000000001 /* SettingsVisualSystem.swift */; };
+		Q50100000000000000000005 /* DebugSettingsHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = Q40100000000000000000005 /* DebugSettingsHarness.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -579,6 +580,7 @@
 		N40100000000000000000012 /* N4CTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4CTests.swift; sourceTree = "<group>"; };
 		V40100000000000000000003 /* ModuleVersionSwitchTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModuleVersionSwitchTests.swift; sourceTree = "<group>"; };
 		S40100000000000000000001 /* SettingsVisualSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsVisualSystem.swift; path = Features/Settings/SettingsVisualSystem.swift; sourceTree = "<group>"; };
+		Q40100000000000000000005 /* DebugSettingsHarness.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DebugSettingsHarness.swift; path = App/DebugSettingsHarness.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -809,6 +811,7 @@
 				H40100000000000000000004 /* SettingsMorePages.swift */,
 				H40100000000000000000005 /* SettingsExtraPages.swift */,
 				S40100000000000000000001 /* SettingsVisualSystem.swift */,
+				Q40100000000000000000005 /* DebugSettingsHarness.swift */,
 				DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */,
 				F00100000000000000000001 /* ProfileModels.swift */,
 				F00100000000000000000002 /* ProfileRepository.swift */,
@@ -1332,6 +1335,7 @@
 				H50100000000000000000004 /* SettingsMorePages.swift in Sources */,
 				H50100000000000000000005 /* SettingsExtraPages.swift in Sources */,
 				S50100000000000000000001 /* SettingsVisualSystem.swift in Sources */,
+				Q50100000000000000000005 /* DebugSettingsHarness.swift in Sources */,
 				G50100000000000000000006 /* TypographyPreview.swift in Sources */,
 				E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */,
 				DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */,
