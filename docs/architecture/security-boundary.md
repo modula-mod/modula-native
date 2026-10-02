@@ -8,4 +8,18 @@ Greenfield has module backend token machinery, but a safe client-scoped credenti
 
 Errors and OSLog must exclude secrets and record content. Public endpoint configuration lives in xcconfig. Local signing/environment overrides are ignored by Git. Account changes must revoke module sessions and prevent stale request results from crossing into the next account. Never retry a mutation blindly after ambiguous transport failure. Expected revisions protect edits and deletions.
 
-The accepted JS initial-property schema is exactly `sessionID`, `moduleID`, `bridgeVersion`, semantic `environment`, and limited `userID`. A native unit assertion rejects credential-shaped keys or values. Runtime source has no module `fetch` path, and the Release Hermes bundle scan found no account identifier, access/refresh-token markers, authorization header, or Metro URL. The native URLSession layer adds authorization after ModuleSession, module identity, manifest action, collection, and payload validation.
+The accepted JS root-prop schema (`packages/module-contracts/schemas/module-context.schema.json`) is exactly `surfaceToken`, `moduleID`, `bridgeVersion`, semantic `environment`, `userID` (null unless the module declares and is granted `identity.userID`), the non-identifying `signedIn` flag, `initialPath`, `lifecycle` and `eventSequence`. The native session ID is never exposed; the surface token is bound natively to one module, one account and one surface and is never included in events. A native unit assertion rejects credential-shaped keys or values. Runtime source has no module `fetch` path, and the Release Hermes bundle scan found no account identifier, access/refresh-token markers, authorization header, or Metro URL. The native URLSession layer adds authorization after ModuleSession, module identity, manifest action, collection, and payload validation.
+
+## Module sessions and authentication
+
+A 401 from a module records call does not sign the app out. `GreenfieldClient` refreshes once. If that refresh succeeds, the shell session is valid, and a repeated 401 is treated as a module-scoped rejection (`BACKEND_UNAUTHENTICATED` to the module). The app signs out only when the shell's own session is gone, meaning the refresh was definitively rejected and the client invalidated itself.
+
+## Installation gate when the catalogue isn't loaded (decision, 2026-10-02)
+
+`/module/<id>` requires a runnable installation for the signed-in account. Product Hub supplies it from `GET /v1/modules/installed`. **Decision: if the catalogue hasn't loaded yet (offline or early launch), the host does not block the module.** The surface opens, and Greenfield still refuses every records request for a module that isn't installed or enabled, so no data crosses. Once the catalogue has loaded, a missing or non-runnable installation shows the native `notInstalled` state before any module JavaScript runs. In DEBUG builds the bundled `modula.runtime-diagnostic` developer surface is exempt, because it is not a catalogue product.
+
+## Deferred
+
+- **Per-module JS isolation.** This needs a separate runtime per module or process isolation.
+- **Bundled code digest.** The registry doesn't yet publish a per-platform digest of the iOS-bundled manifest or JS. The host already honours `manifest.bundledManifestSha256` when it is present.
+- **Identity permission mapping.** `identity.userID` has no registry permission mapping yet, so the manifest declaration alone grants it.
