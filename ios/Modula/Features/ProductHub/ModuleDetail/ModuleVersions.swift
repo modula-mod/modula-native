@@ -61,6 +61,9 @@ struct ModuleVersionOption: Equatable, Identifiable, Sendable {
         }
     }
 
+    /// The registry refused this release for this app's host version.
+    var requiresNewerHost: Bool { blockers.contains { $0.code == "HOST_INCOMPATIBLE" } }
+
     /// Plain-language signature/trust state for the row.
     var trustLabel: String {
         if revoked { return "Revoked" }
@@ -108,14 +111,15 @@ enum ModuleVersionAction: Equatable, Sendable {
     case needsNewerApp
     case unavailable(String)
 
-    static func resolve(_ option: ModuleVersionOption, installed: Bool, bundledVersion: String?, busy: Bool) -> ModuleVersionAction {
+    /// Compatibility is the registry's call: it evaluates the release against
+    /// `ModulaHost.version`. "Needs a newer app" appears only when the registry says the
+    /// release requires a newer host (`HOST_INCOMPATIBLE`), never from comparing module
+    /// version numbers on the device.
+    static func resolve(_ option: ModuleVersionOption, installed: Bool, busy: Bool) -> ModuleVersionAction {
         if option.isCurrent { return .installed }
         guard installed else { return .unavailable("Install the module first") }
+        if option.requiresNewerHost { return .needsNewerApp }
         if !option.switchable { return .unavailable(option.blockers.first?.message ?? "Not available") }
-        // The app runs bundled module code; never move an installation past what it ships.
-        if option.direction == .upgrade, let bundledVersion, ModuleVersion.isOlder(bundledVersion, than: option.version) {
-            return .needsNewerApp
-        }
         if busy { return .unavailable("Another change is in progress") }
         if option.direction == .upgrade && option.isLatest { return .update }
         return .installThisVersion(option.direction)

@@ -89,7 +89,48 @@ struct CatalogueProduct: Codable, Sendable, Identifiable, Hashable {
     let platforms: [String]
     let betaClassification: String?
     let installability: Installability?
+    /// Registry art for the latest published version (`presentation` on list items).
+    var presentation: CataloguePresentation? = nil
     struct Installability: Codable, Sendable, Hashable { let status: String; let reasonCode: String?; let reason: String? }
+}
+
+/// Icon, cover and screenshots the registry serves for a product's latest published
+/// version. URLs are registry asset URLs; anything missing means "draw a placeholder".
+struct CataloguePresentation: Codable, Sendable, Hashable {
+    var version: String?
+    var icon: Asset?
+    var cover: Asset?
+    var screenshots: [Asset]?
+    struct Asset: Codable, Sendable, Hashable {
+        var url: String?
+        var sha256: String?
+        var width: Double?
+        var height: Double?
+        var alt: String?
+        var available: Bool?
+        /// Only available https assets are loaded.
+        var source: URL? { available == false ? nil : ModuleListing.https(url) }
+    }
+
+    init(version: String? = nil, icon: Asset? = nil, cover: Asset? = nil, screenshots: [Asset]? = nil) {
+        self.version = version; self.icon = icon; self.cover = cover; self.screenshots = screenshots
+    }
+
+    /// Lenient decode from a raw registry JSON value; nil when absent or malformed.
+    static func from(_ value: JSONValue?) -> CataloguePresentation? {
+        guard let value, value["icon"] != nil || value["cover"] != nil || value["screenshots"] != nil,
+              let data = try? JSONEncoder().encode(value) else { return nil }
+        return try? JSONDecoder().decode(CataloguePresentation.self, from: data)
+    }
+}
+
+/// The Modula host contract this app implements, as the registry evaluates it: the
+/// Product Standard `compatibility.host` / frontend `hostRuntime` range and the adapter
+/// manifest's `minimumModulaHostVersion`. It is NOT the App Store marketing version and
+/// not a module's version. Bump it only when the app gains host APIs; the registry then
+/// blocks (HOST_INCOMPATIBLE) only releases that genuinely require a newer host.
+enum ModulaHost {
+    static let version = "1.0.0"
 }
 
 private struct CataloguePage: Codable, Sendable { let items: [CatalogueProduct] }
@@ -226,7 +267,7 @@ actor GreenfieldClient {
     /// single 401-refresh retry in `authenticated` cannot double-apply them.
     func installModule(_ moduleID: String, version: String?, approvedPermissions: [String], idempotencyKey: String) async throws -> String? {
         guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
-        var body: [String: JSONValue] = ["platform": .string("ios"), "idempotencyKey": .string(idempotencyKey)]
+        var body: [String: JSONValue] = ["platform": .string("ios"), "hostVersion": .string(ModulaHost.version), "idempotencyKey": .string(idempotencyKey)]
         if let version { body["version"] = .string(version) }
         if !approvedPermissions.isEmpty { body["approvedPermissions"] = .array(approvedPermissions.map(JSONValue.string)) }
         let value: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/install", body: .object(body))
@@ -241,7 +282,8 @@ actor GreenfieldClient {
     func updateModule(_ moduleID: String, version: String, approvedPermissionIncrease: Bool, idempotencyKey: String) async throws {
         guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
         let _: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/update", body: .object([
-            "version": .string(version), "approvedPermissionIncrease": .bool(approvedPermissionIncrease), "idempotencyKey": .string(idempotencyKey),
+            "version": .string(version), "platform": .string("ios"), "hostVersion": .string(ModulaHost.version),
+            "approvedPermissionIncrease": .bool(approvedPermissionIncrease), "idempotencyKey": .string(idempotencyKey),
         ]))
     }
 
@@ -249,7 +291,7 @@ actor GreenfieldClient {
     /// (`GET /v1/modules/:id/versions`), gated by registry trust and iOS compatibility.
     func moduleVersions(_ moduleID: String) async throws -> ModuleVersionList {
         guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
-        let value: JSONValue = try await authenticated("GET", path: "/v1/modules/\(path)/versions?platform=ios")
+        let value: JSONValue = try await authenticated("GET", path: "/v1/modules/\(path)/versions?platform=ios&hostVersion=\(ModulaHost.version)")
         guard let list = ModuleVersionList(json: value) else { throw APIError.invalidResponse }
         return list
     }
@@ -259,7 +301,7 @@ actor GreenfieldClient {
     func previewModuleVersion(_ moduleID: String, version: String) async throws -> ModuleVersionPreview {
         guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
         let value: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/version-preview", body: .object([
-            "version": .string(version), "platform": .string("ios"),
+            "version": .string(version), "platform": .string("ios"), "hostVersion": .string(ModulaHost.version),
         ]))
         guard let preview = ModuleVersionPreview(json: value) else { throw APIError.invalidResponse }
         return preview
@@ -281,6 +323,7 @@ actor GreenfieldClient {
         let value: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/update", body: .object([
             "version": .string(version),
             "platform": .string("ios"),
+            "hostVersion": .string(ModulaHost.version),
             "approvedPermissions": .array(approvedPermissions.map(JSONValue.string)),
             "acknowledgeDowngradeRisk": .bool(acknowledgeDowngradeRisk),
             "idempotencyKey": .string(idempotencyKey),

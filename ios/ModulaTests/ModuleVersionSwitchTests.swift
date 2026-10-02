@@ -103,19 +103,25 @@ final class ModuleVersionSwitchTests: XCTestCase {
         let blocked = try Self.option("0.1.0", direction: "downgrade", switchable: false, state: "superseded",
                                       blockers: #"[{"code":"HOST_INCOMPATIBLE","message":"Needs a newer host"}]"#)
 
-        XCTAssertEqual(ModuleVersionAction.resolve(latest, installed: true, bundledVersion: "1.7.0", busy: false), .update)
-        XCTAssertEqual(ModuleVersionAction.resolve(middle, installed: true, bundledVersion: "1.7.0", busy: false), .installThisVersion(.upgrade))
+        XCTAssertEqual(ModuleVersionAction.resolve(latest, installed: true, busy: false), .update)
+        XCTAssertEqual(ModuleVersionAction.resolve(middle, installed: true, busy: false), .installThisVersion(.upgrade))
         XCTAssertEqual(ModuleVersionAction.installThisVersion(.upgrade).badge, "Upgrade")
-        XCTAssertEqual(ModuleVersionAction.resolve(older, installed: true, bundledVersion: "1.7.0", busy: false), .installThisVersion(.downgrade))
+        XCTAssertEqual(ModuleVersionAction.resolve(older, installed: true, busy: false), .installThisVersion(.downgrade))
         XCTAssertEqual(ModuleVersionAction.installThisVersion(.downgrade).badge, "Downgrade")
         XCTAssertEqual(ModuleVersionAction.installThisVersion(.downgrade).title, "Install this version")
-        XCTAssertEqual(ModuleVersionAction.resolve(current, installed: true, bundledVersion: "1.7.0", busy: false), .installed)
-        XCTAssertEqual(ModuleVersionAction.resolve(blocked, installed: true, bundledVersion: "1.7.0", busy: false), .unavailable("Needs a newer host"))
-        XCTAssertEqual(ModuleVersionAction.resolve(latest, installed: true, bundledVersion: "1.6.0", busy: false), .needsNewerApp,
-                       "Never move an installation past the module code the app bundles")
-        XCTAssertEqual(ModuleVersionAction.resolve(older, installed: true, bundledVersion: "1.6.0", busy: false), .installThisVersion(.downgrade))
-        XCTAssertFalse(ModuleVersionAction.resolve(older, installed: true, bundledVersion: nil, busy: true).isEnabled)
-        XCTAssertFalse(ModuleVersionAction.resolve(older, installed: false, bundledVersion: nil, busy: false).isEnabled)
+        XCTAssertEqual(ModuleVersionAction.resolve(current, installed: true, busy: false), .installed)
+        XCTAssertEqual(ModuleVersionAction.resolve(blocked, installed: true, busy: false), .needsNewerApp,
+                       "Only a registry HOST_INCOMPATIBLE blocker means the app is too old")
+        let revoked = try Self.option("1.5.0", direction: "downgrade", switchable: false,
+                                      blockers: #"[{"code":"RELEASE_REVOKED","message":"Revoked"}]"#)
+        XCTAssertEqual(ModuleVersionAction.resolve(revoked, installed: true, busy: false), .unavailable("Revoked"))
+        // A newer module release the registry accepts is an Update, whatever version label
+        // the app's bundled module code carries (Vault Notes 1.8.0 on a 1.7.0 bundle).
+        let vault180 = try Self.option("1.8.0", direction: "upgrade", latest: true)
+        XCTAssertEqual(ModuleVersionAction.resolve(vault180, installed: true, busy: false), .update)
+        XCTAssertNotEqual(ModuleVersionAction.resolve(vault180, installed: true, busy: false), .needsNewerApp)
+        XCTAssertFalse(ModuleVersionAction.resolve(older, installed: true, busy: true).isEnabled)
+        XCTAssertFalse(ModuleVersionAction.resolve(older, installed: false, busy: false).isEnabled)
         XCTAssertEqual(latest.trustLabel, "Signed · Verified")
         XCTAssertEqual(blocked.direction, .downgrade)
         XCTAssertNotNil(latest.publishedAt)
@@ -146,10 +152,12 @@ final class ModuleVersionSwitchTests: XCTestCase {
 private final class VersionRouterProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var handler: ((URLRequest) -> (Int, String))?
     nonisolated(unsafe) static var log: [String] = []
+    nonisolated(unsafe) static var queries: [String] = []
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         Self.log.append("\(request.httpMethod ?? "GET") \(request.url?.path ?? "")")
+        if let query = request.url?.query { Self.queries.append("\(request.url?.path ?? "")?\(query)") }
         let (status, body) = Self.handler?(request) ?? (500, "{}")
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
@@ -198,6 +206,7 @@ final class ModuleVersionSwitchStoreTests: XCTestCase {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [VersionRouterProtocol.self]
         VersionRouterProtocol.log = []
+        VersionRouterProtocol.queries = []
         let client = GreenfieldClient(baseURL: URL(string: "https://\(host)")!, transport: URLSession(configuration: config))
         let descriptor = try Self.descriptorJSON(host: host)
         let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -255,6 +264,9 @@ final class ModuleVersionSwitchStoreTests: XCTestCase {
         XCTAssertEqual(body?["version"]?.string, "1.6.0")
         XCTAssertEqual(body?["approvedPermissions"]?.array?.compactMap(\.string), ["network:fetch"], "Consent covers exactly the permissions shown")
         XCTAssertEqual(body?["acknowledgeDowngradeRisk"]?.bool, true)
+        XCTAssertEqual(body?["hostVersion"]?.string, ModulaHost.version, "The switch reports the host contract version")
+        XCTAssertTrue(VersionRouterProtocol.queries.contains("/v1/modules/\(Self.id)/versions?platform=ios&hostVersion=\(ModulaHost.version)"),
+                      "The versions list is evaluated against this app's host version")
         XCTAssertTrue(body?["idempotencyKey"]?.string?.hasPrefix("ios-version-") == true)
         XCTAssertEqual(store.versionLists[Self.id]?.installedVersion, "1.6.0")
         XCTAssertFalse(VersionRouterProtocol.log.contains { $0.contains("github") })

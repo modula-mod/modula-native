@@ -222,7 +222,8 @@ actor GreenfieldDiscoverRepository: DiscoverRepository {
             installable: value["installable"]?.bool ?? false,
             platforms: (value["platforms"]?.array ?? []).compactMap(\.string),
             betaClassification: value["betaClassification"]?.string,
-            installability: installability
+            installability: installability,
+            presentation: CataloguePresentation.from(value["presentation"])
         )
     }
 }

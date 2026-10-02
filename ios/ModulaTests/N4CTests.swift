@@ -1093,6 +1093,11 @@ final class ModuleStoreTests: XCTestCase {
         publisherId: "modula", publisherName: "Modula", latestVersion: "1.7.0", status: "published", installable: true,
         platforms: ["ios"], betaClassification: nil, installability: .init(status: "available", reasonCode: nil, reason: nil))
 
+    private static let vault180 = CatalogueProduct(
+        moduleId: "digital.modula.vault-notes", productKind: "module", name: "Vault Notes", description: "Notes",
+        publisherId: "modula", publisherName: "Modula", latestVersion: "1.8.0", status: "published", installable: true,
+        platforms: ["ios"], betaClassification: nil, installability: .init(status: "available", reasonCode: nil, reason: nil))
+
     private func state(_ status: String?, version: String? = "1.7.0", op: ModuleOperation? = nil, bundled: Bool = true,
                        bundledVersion: String? = "1.7.0", signedIn: Bool = true, product: CatalogueProduct = vault) -> ModulePrimaryAction {
         ModuleDetailPresentation(product: product,
@@ -1109,7 +1114,9 @@ final class ModuleStoreTests: XCTestCase {
         XCTAssertEqual(state("removed"), .install)
         XCTAssertEqual(state("uninstalled"), .install, "Legacy 'uninstalled' rows are not installs")
         XCTAssertEqual(state("enabled", version: "1.6.0"), .update)
-        XCTAssertEqual(state("enabled", version: "1.6.0", bundledVersion: "1.6.0"), .open, "No update offered without bundled code for it")
+        XCTAssertEqual(state("enabled", version: "1.7.0", product: Self.vault180), .update,
+                       "A newer registry release is offered even when the bundled module code is labelled older")
+        XCTAssertEqual(state("enabled", version: "1.7.0", bundledVersion: "1.6.0"), .open, "Up to date with the registry's latest")
         XCTAssertEqual(state(nil, op: .installing), .installing)
         XCTAssertEqual(state(nil, bundled: false), .unavailable)
         XCTAssertTrue(ModuleVersion.isOlder("1.9.2", than: "1.10.0"))
@@ -1158,6 +1165,38 @@ final class ModuleStoreTests: XCTestCase {
         XCTAssertNil(ModuleArtSource("asset:VaultNotesIcon"), "Bundled asset references are not artwork sources")
         XCTAssertNil(ModuleArtSource("javascript:alert(1)"))
         XCTAssertNotNil(ModuleArtSource("https://cdn.modula.digital/cover.jpg"))
+    }
+
+    func testRegistryPresentationFromLatestVersionDrivesArtwork() throws {
+        let json = #"""
+        {"moduleId":"digital.modula.vault-notes","latestVersion":"1.8.0",
+         "presentation":{"version":"1.8.0",
+           "icon":{"url":"https://api.modula.digital/v1/registry/releases/r%3A1.8.0/assets/icon","sha256":"77bf","width":1024,"height":1024,"available":true},
+           "cover":{"url":"https://api.modula.digital/v1/registry/releases/r%3A1.8.0/assets/cover","sha256":"cef9","width":1600,"height":900,"available":true},
+           "screenshots":[{"url":"https://api.modula.digital/v1/registry/releases/r%3A1.8.0/assets/s1","sha256":"s1","width":1280,"height":720,"alt":"Shot"},
+                          {"url":"http://insecure/s2","sha256":"s2"}]},
+         "marketplace":{"icon":"https://cdn.modula.digital/old-icon.png","cover":"https://cdn.modula.digital/old-cover.png"}}
+        """#
+        let value = try JSONDecoder().decode(JSONValue.self, from: Data(json.utf8))
+        let listing = try XCTUnwrap(ModuleListing(json: value))
+        XCTAssertEqual(listing.iconURL?.lastPathComponent, "icon", "Registry presentation wins over legacy marketplace art")
+        XCTAssertEqual(listing.coverURL?.lastPathComponent, "cover")
+        XCTAssertEqual(listing.previews.map(\.alt), ["Shot"], "Only https screenshots are loaded")
+
+        let product = try XCTUnwrap(GreenfieldDiscoverRepository.decodeProduct(value))
+        XCTAssertEqual(product.presentation?.version, "1.8.0")
+        let fromList = ModuleArtwork(listing: nil, product: product)
+        XCTAssertEqual(fromList.icon, .remote(URL(string: "https://api.modula.digital/v1/registry/releases/r%3A1.8.0/assets/icon")!))
+        XCTAssertEqual(fromList.cover, .remote(URL(string: "https://api.modula.digital/v1/registry/releases/r%3A1.8.0/assets/cover")!))
+        XCTAssertEqual(fromList.screenshots.count, 1)
+
+        let catalogue = try JSONDecoder().decode(CatalogueProduct.self, from: Data(#"""
+        {"moduleId":"m","productKind":"module","name":"M","description":"","publisherId":"p","publisherName":"P","status":"published",
+         "installable":true,"platforms":[],"presentation":{"icon":{"url":"https://api.modula.digital/a/icon","available":false},"cover":null}}
+        """#.utf8))
+        let missing = ModuleArtwork(listing: nil, product: catalogue)
+        XCTAssertNil(missing.icon, "Unavailable assets fall back to the placeholder")
+        XCTAssertNil(missing.cover)
     }
 
     func testBundledManifestsCarryNoInventedPresentationBlock() throws {

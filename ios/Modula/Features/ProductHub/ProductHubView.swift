@@ -226,8 +226,11 @@ final class ProductHubStore {
 extension AppEnvironment {
     /// Store artwork for a module from the registry listing; nil sources mean callers
     /// draw neutral placeholders. Bundled module code never supplies artwork.
-    func moduleArtwork(_ id: String) -> ModuleArtwork {
-        ModuleArtwork(listing: catalogue.listings[id])
+    /// `product` is the caller's list item (e.g. Discover tiles); when it carries
+    /// registry presentation it is used, otherwise the hub catalogue's copy is.
+    func moduleArtwork(_ id: String, product: CatalogueProduct? = nil) -> ModuleArtwork {
+        let item = product?.presentation != nil ? product : catalogue.product(id)
+        return ModuleArtwork(listing: catalogue.listings[id], product: item)
     }
 }
 
@@ -260,7 +263,7 @@ struct ProductArtwork: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        let art = app.moduleArtwork(product.moduleId)
+        let art = app.moduleArtwork(product.moduleId, product: product)
         ModuleArtImage(source: art.icon) { placeholder }
             .frame(width: size, height: size)
             .clipShape(RoundedRectangle(cornerRadius: size * 0.24, style: .continuous))
@@ -294,7 +297,7 @@ struct ProductBackdrop: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        let art = app.moduleArtwork(product.moduleId)
+        let art = app.moduleArtwork(product.moduleId, product: product)
         GeometryReader { proxy in
             ModuleArtImage(source: art.cover) { placeholder(proxy.size) }
                 .frame(width: proxy.size.width, height: proxy.size.height)

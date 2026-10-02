@@ -633,7 +633,6 @@ struct ModuleDetailV2View: View {
             list: app.catalogue.versionLists[moduleID],
             failed: app.catalogue.versionsFailed.contains(moduleID),
             installedVersion: installedVersion,
-            bundledVersion: manifest?.version,
             busy: app.catalogue.operations[moduleID] != nil,
             onSelect: selectVersion,
             onRetry: { Task { await app.catalogue.loadVersions(moduleID) } }
