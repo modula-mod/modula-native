@@ -304,7 +304,7 @@ actor GreenfieldClient {
     func moduleRequest(method: String, path: String, body: JSONValue?, expectedAccountID: String) async throws -> JSONValue {
         guard accountID == expectedAccountID else { throw APIError.accountChanged }
         let generation = epoch
-        let result: JSONValue = try await authenticated(method, path: path, body: body)
+        let result: JSONValue = try await authenticated(method, path: path, body: body, invalidatesOnRepeatedRejection: false)
         guard generation == epoch, accountID == expectedAccountID else { throw APIError.accountChanged }
         return result
     }
@@ -403,7 +403,8 @@ actor GreenfieldClient {
     }
 
     private func authenticated<T: Decodable & Sendable>(
-        _ method: String, path: String, body: JSONValue? = nil, timeout: TimeInterval = 20
+        _ method: String, path: String, body: JSONValue? = nil, timeout: TimeInterval = 20,
+        invalidatesOnRepeatedRejection: Bool = true
     ) async throws -> T {
         let generation = epoch
         let bearer = try await accessToken()
@@ -420,7 +421,11 @@ actor GreenfieldClient {
                 let result: T = try await send(method, path: path, body: body, bearer: renewed, timeout: timeout)
                 guard generation == epoch else { throw APIError.accountChanged }
                 return result
-            } catch APIError.rejected(401, _) where generation == epoch {
+            } catch APIError.rejected(401, let code) where generation == epoch {
+                // The refresh just succeeded, so the shell's own session is valid. For
+                // module-scoped calls a repeated 401 is the module's rejection, not a
+                // reason to sign the whole app out.
+                guard invalidatesOnRepeatedRejection else { throw APIError.rejected(401, code) }
                 invalidateSession()
                 throw APIError.unauthenticated
             }

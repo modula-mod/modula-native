@@ -11,6 +11,7 @@ final class ReactNativeViewController: UIViewController {
     }
     required init?(coder: NSCoder) { nil }
     override func loadView() { view = runtime.makeSurface(session) ?? UIView() }
+    /// Called only on real dismantle (host removed), not on tab switches.
     func stop() {
         if let hosting = view as? RCTSurfaceHostingProxyRootView { hosting.surface.stop() }
         view?.removeFromSuperview()

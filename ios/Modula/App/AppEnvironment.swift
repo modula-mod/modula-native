@@ -131,6 +131,13 @@ final class AppEnvironment {
             }
         }
         ModulaBridge.shared.runtime = runtime
+        runtime.installationGate = { [weak catalogueStore] id in
+            #if DEBUG
+            // The diagnostic surface is a bundled developer tool, never a catalogue product.
+            if id == "modula.runtime-diagnostic" { return .runnable(descriptor: nil) }
+            #endif
+            return catalogueStore?.installGate(for: id) ?? .notInstalled
+        }
         ModulaBridge.shared.navigation = navigation
         let appearanceStore = appearance
         HapticEngine.shared.intensityProvider = { [weak appearanceStore] in appearanceStore?.haptics ?? .standard }

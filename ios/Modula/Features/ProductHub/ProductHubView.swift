@@ -16,6 +16,9 @@ final class ProductHubStore {
     /// Registry versions per module, relative to the account's installation.
     private(set) var versionLists: [String: ModuleVersionList] = [:]
     private(set) var versionsFailed: Set<String> = []
+    /// Install descriptors this device verified against the registry and the server then
+    /// issued byte-for-byte (version switching). The module host re-checks them before load.
+    private(set) var verifiedDescriptors: [String: ModuleInstallDescriptor] = [:]
     private(set) var loading = false
     private(set) var loaded = false
     var error: String?
@@ -43,6 +46,16 @@ final class ProductHubStore {
     }
 
     func product(_ id: String) -> CatalogueProduct? { products.first { $0.moduleId == id } }
+
+    /// Whether `/module/<id>` may open for this account. Before the catalogue has loaded
+    /// (offline launch) the host can't decide and defers to the backend, which still
+    /// rejects records for modules that aren't installed.
+    func installGate(for id: String) -> ModuleInstallGate {
+        guard loaded else { return .runnable(descriptor: nil) }
+        guard let installation = installations[id], installation.isRunnable else { return .notInstalled }
+        let descriptor = verifiedDescriptors[id].flatMap { $0.version == installation.version ? $0 : nil }
+        return .runnable(descriptor: descriptor)
+    }
 
     func loadListing(_ id: String, force: Bool = false) async {
         guard force || listings[id] == nil else { return }
@@ -155,6 +168,7 @@ final class ProductHubStore {
                   issued.descriptorSha256 == preview.descriptor.descriptorSha256 else {
                 throw InstallDescriptorVerificationError.digestMismatch
             }
+            verifiedDescriptors[id] = issued
             let target = preview.toVersion
             let settled = try await settle(id) { $0?.isRunnable == true && $0?.version == target }
             await loadVersions(id)
