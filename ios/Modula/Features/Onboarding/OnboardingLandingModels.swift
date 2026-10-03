@@ -1,86 +1,191 @@
 import CoreGraphics
 import Foundation
 
-/// Content of the signed-out landing screen: a floating cluster of glass bubbles,
-/// each one a real part of Modula (its modules and shell surfaces).
+/// Content and motion model for the signed-out landing screen.
 ///
-/// Layout is authored on a 390 × 460 pt design canvas and scaled to fit, so the
-/// cluster keeps its composition on every iPhone and at every text size.
+/// Bubbles are emitted from the central "+" bubble and fly up and out of the top of
+/// the screen in a continuous stream. The emitter is *stateless*: every particle is a
+/// pure function of its spawn index and a seed, and its on-screen state is a pure
+/// function of time. Rendering a frame allocates nothing and the stream is fully
+/// deterministic, which keeps it testable and lets Reduce Motion show one frozen frame.
 enum OnboardingLanding {
     static let headline = "A new kind of app, built from modules that get things done"
     static let continueTitle = "Let’s go"
-    static let canvasSize = CGSize(width: 390, height: 460)
 
-    enum Content: Hashable, Sendable {
-        /// SF Symbol on a tinted sphere.
-        case symbol(String)
-        /// The central "add a module" bubble.
-        case add
-        /// Empty glass droplet for depth.
+    // MARK: Modules shown in the bubbles
+
+    struct Module: Identifiable, Hashable, Sendable {
+        let id: String
+        let title: String
+        let symbol: String
+        /// Main sphere tint and a second hue for the mesh fill.
+        let tint: String
+        let glow: String
+    }
+
+    static let modules: [Module] = [
+        Module(id: "vault-notes", title: "Vault Notes", symbol: "note.text", tint: "#2A9AA8", glow: "#9BF1E6"),
+        Module(id: "tasks", title: "Tasks", symbol: "checklist", tint: "#2FA866", glow: "#C8F7A1"),
+        Module(id: "crm", title: "CRM", symbol: "person.2.fill", tint: "#4A5CF0", glow: "#B7A8FF"),
+        Module(id: "camera-director", title: "Camera Director", symbol: "camera.aperture", tint: "#EE7A2A", glow: "#FFD28A"),
+        Module(id: "nodus", title: "Nodus intelligence", symbol: "sparkles", tint: "#8A55F2", glow: "#FFA8E8"),
+        Module(id: "messages", title: "Messages", symbol: "bubble.left.and.bubble.right.fill", tint: "#2479F2", glow: "#8FE3FF"),
+        Module(id: "profile", title: "Profile", symbol: "person.crop.circle.fill", tint: "#2CB39C", glow: "#B4FFD8"),
+        Module(id: "games", title: "Games", symbol: "gamecontroller.fill", tint: "#E8405F", glow: "#FFB38A"),
+        Module(id: "places", title: "Places", symbol: "mappin.and.ellipse", tint: "#D9A21C", glow: "#FFF3A0"),
+        Module(id: "links", title: "Links", symbol: "link", tint: "#1FA9BE", glow: "#A9C8FF"),
+        Module(id: "music", title: "Music", symbol: "music.note", tint: "#E0457B", glow: "#FFC2E0"),
+        Module(id: "files", title: "Files", symbol: "folder.fill", tint: "#3C7BD8", glow: "#BFE1FF"),
+    ]
+
+    /// Spoken summary of the stream (it is one accessibility element).
+    static var accessibilitySummary: String {
+        "Modula modules flowing out of the add button: " + modules.map(\.title).joined(separator: ", ")
+    }
+
+    // MARK: Emitter
+
+    enum Kind: Hashable, Sendable {
+        case module(Int)
         case droplet
     }
 
-    struct Bubble: Identifiable, Hashable, Sendable {
-        let id: String
-        /// VoiceOver name. `nil` for decorative droplets.
-        let title: String?
-        let content: Content
-        /// Hex tint of the inner sphere.
-        let tint: String
-        /// Centre on the design canvas.
-        let center: CGPoint
-        let diameter: CGFloat
-        /// 0 (far) … 1 (near). Drives drift amplitude, drag parallax and shadow.
-        let depth: CGFloat
-        /// Phase offset so bubbles never drift in lockstep.
-        let phase: Double
-
-        var isDecorative: Bool { title == nil }
+    /// Immutable spawn properties of one particle.
+    struct Particle: Hashable, Sendable {
+        let index: Int
+        let spawnTime: Double
+        let lifetime: Double
+        let kind: Kind
+        /// Full-grown diameter on a 390 pt wide reference screen.
+        let diameter: Double
+        /// 0 (far: small, slow, soft) … 1 (near).
+        let depth: Double
+        /// Birth offset from the + centre, in reference points.
+        let birthOffset: CGSize
+        /// Final horizontal travel (signed), in reference points.
+        let drift: Double
+        let swayAmplitude: Double
+        let swayFrequency: Double
+        let swayPhase: Double
     }
 
-    static let bubbles: [Bubble] = [
-        Bubble(id: "add", title: "Add a module", content: .add, tint: "#369CAA", center: CGPoint(x: 195, y: 338), diameter: 108, depth: 1.0, phase: 0),
-        Bubble(id: "vault-notes", title: "Vault Notes", content: .symbol("note.text"), tint: "#369CAA", center: CGPoint(x: 100, y: 238), diameter: 94, depth: 0.85, phase: 1.1),
-        Bubble(id: "tasks", title: "Tasks", content: .symbol("checklist"), tint: "#30B26B", center: CGPoint(x: 292, y: 244), diameter: 88, depth: 0.8, phase: 2.3),
-        Bubble(id: "nodus", title: "Nodus intelligence", content: .symbol("sparkles"), tint: "#9B6BFF", center: CGPoint(x: 198, y: 172), diameter: 72, depth: 0.6, phase: 3.7),
-        Bubble(id: "crm", title: "CRM", content: .symbol("person.2.fill"), tint: "#4F6BFF", center: CGPoint(x: 74, y: 118), diameter: 80, depth: 0.55, phase: 4.4),
-        Bubble(id: "camera-director", title: "Camera Director", content: .symbol("camera.aperture"), tint: "#F28A2E", center: CGPoint(x: 306, y: 112), diameter: 92, depth: 0.7, phase: 5.2),
-        Bubble(id: "profile", title: "Profile", content: .symbol("person.crop.circle.fill"), tint: "#3FBFA8", center: CGPoint(x: 190, y: 64), diameter: 64, depth: 0.4, phase: 0.6),
-        Bubble(id: "messages", title: "Messages", content: .symbol("bubble.left.and.bubble.right.fill"), tint: "#2F8CFF", center: CGPoint(x: 60, y: 338), diameter: 64, depth: 0.65, phase: 2.9),
-        Bubble(id: "games", title: "Games", content: .symbol("gamecontroller.fill"), tint: "#F04A6A", center: CGPoint(x: 330, y: 350), diameter: 62, depth: 0.6, phase: 4.9),
-        Bubble(id: "places", title: "Places", content: .symbol("mappin.and.ellipse"), tint: "#E9B526", center: CGPoint(x: 92, y: 30), diameter: 46, depth: 0.3, phase: 1.8),
-        Bubble(id: "links", title: "Links", content: .symbol("link"), tint: "#2FB7C9", center: CGPoint(x: 300, y: 22), diameter: 44, depth: 0.3, phase: 3.3),
-        Bubble(id: "drop-1", title: nil, content: .droplet, tint: "#FFFFFF", center: CGPoint(x: 148, y: 118), diameter: 22, depth: 0.25, phase: 0.9),
-        Bubble(id: "drop-2", title: nil, content: .droplet, tint: "#FFFFFF", center: CGPoint(x: 252, y: 176), diameter: 18, depth: 0.2, phase: 2.1),
-        Bubble(id: "drop-3", title: nil, content: .droplet, tint: "#FFFFFF", center: CGPoint(x: 28, y: 216), diameter: 26, depth: 0.35, phase: 3.9),
-        Bubble(id: "drop-4", title: nil, content: .droplet, tint: "#FFFFFF", center: CGPoint(x: 358, y: 210), diameter: 20, depth: 0.3, phase: 5.6),
-        Bubble(id: "drop-5", title: nil, content: .droplet, tint: "#FFFFFF", center: CGPoint(x: 128, y: 418), diameter: 18, depth: 0.45, phase: 4.2),
-        Bubble(id: "drop-6", title: nil, content: .droplet, tint: "#FFFFFF", center: CGPoint(x: 272, y: 430), diameter: 14, depth: 0.4, phase: 1.4),
-    ]
-
-    /// Spoken summary of the cluster (it is one accessibility element).
-    static var accessibilitySummary: String {
-        let names = bubbles.filter { !$0.isDecorative && $0.content != .add }.compactMap(\.title)
-        return "Modula modules: " + names.joined(separator: ", ")
+    /// Per-frame state of one particle, relative to the + centre (reference points, y up is negative).
+    struct ParticleState: Equatable, Sendable {
+        var position: CGPoint
+        var scale: Double
+        var opacity: Double
+        var blur: Double
     }
 
-    /// Gentle drift for a bubble at time `t` (seconds). Amplitude grows with depth.
-    static func drift(for bubble: Bubble, at t: Double) -> CGSize {
-        let amplitude = 3 + 5 * Double(bubble.depth)
-        let speed = 0.32 + 0.12 * Double(1 - bubble.depth)
-        return CGSize(
-            width: amplitude * 0.7 * sin(t * speed * 0.8 + bubble.phase * 1.7),
-            height: amplitude * sin(t * speed + bubble.phase)
-        )
-    }
+    struct Emitter: Sendable {
+        var seed: UInt64 = 0x6D6F_6475_6C61 // "modula"
+        /// Mean time between spawns (seconds).
+        var interval: Double = 0.24
+        var minLifetime: Double = 6.0
+        var maxLifetime: Double = 9.6
+        /// Distance from the + centre to just past the top edge (reference points).
+        var rise: Double = 560
+        /// Fraction of particles that are tiny empty droplets.
+        var dropletShare: Double = 0.3
 
-    /// Drag parallax: nearer bubbles follow the finger more. Rubber-banded.
-    static func parallax(for bubble: Bubble, translation: CGSize) -> CGSize {
-        func band(_ value: CGFloat) -> CGFloat {
-            let limit: CGFloat = 60
-            return limit * tanh(value / (limit * 2.2))
+        /// Smallest scale at birth.
+        static let birthScale = 0.2
+
+        func particle(_ index: Int) -> Particle {
+            var rng = SplitMix64(seed: seed &+ UInt64(bitPattern: Int64(index)) &* 0x9E37_79B9_7F4A_7C15)
+            let jitter = rng.unit()
+            let isDroplet = rng.unit() < dropletShare
+            let moduleIndex = Int(rng.next() % UInt64(OnboardingLanding.modules.count))
+            let depth = isDroplet ? 0.15 + 0.45 * rng.unit() : 0.25 + 0.75 * rng.unit()
+            let diameter = isDroplet ? 9 + 17 * rng.unit() : 46 + 74 * depth * (0.75 + 0.25 * rng.unit())
+            // Far particles rise slower.
+            let lifetime = maxLifetime - (maxLifetime - minLifetime) * depth * (0.8 + 0.2 * rng.unit())
+            // Alternate sides (with the odd surprise) so the stream fans out evenly.
+            let side = (index.isMultiple(of: 2) ? 1.0 : -1.0) * (rng.unit() < 0.18 ? -1 : 1)
+            let spread = side * (20 + 165 * pow(rng.unit(), 0.75))
+            return Particle(
+                index: index,
+                spawnTime: Double(index) * interval + jitter * interval * 0.7,
+                lifetime: lifetime,
+                kind: isDroplet ? .droplet : .module(moduleIndex),
+                diameter: diameter,
+                depth: depth,
+                birthOffset: CGSize(width: (rng.unit() - 0.5) * 34, height: (rng.unit() - 0.5) * 14),
+                drift: spread,
+                swayAmplitude: 6 + 16 * rng.unit(),
+                swayFrequency: 0.35 + 0.5 * rng.unit(),
+                swayPhase: rng.unit() * 2 * .pi
+            )
         }
-        let factor = 0.35 + 0.65 * bubble.depth
-        return CGSize(width: band(translation.width) * factor, height: band(translation.height) * factor)
+
+        /// Spawn indices that can be alive at `time`.
+        func liveRange(at time: Double) -> ClosedRange<Int> {
+            let upper = max(0, Int(floor(time / interval)))
+            let lower = max(0, Int(floor((time - maxLifetime) / interval)) - 1)
+            return lower...upper
+        }
+
+        /// State at `time`, or `nil` before birth / after exit.
+        func state(of p: Particle, at time: Double) -> ParticleState? {
+            let age = time - p.spawnTime
+            guard age >= 0, age <= p.lifetime else { return nil }
+            let t = age / p.lifetime
+            // Linger just above the + (dense stream), then accelerate upwards and out.
+            let climb = pow(t, 1.7)
+            // Fan out sideways early, then keep going.
+            let fan = 1 - pow(1 - min(1, t * 1.5), 2.4)
+            let sway = p.swayAmplitude * sin(age * p.swayFrequency * 2 * .pi / 2 + p.swayPhase) * min(1, t * 3)
+            let x = Double(p.birthOffset.width) * (1 - fan) + p.drift * fan + sway
+            let y = Double(p.birthOffset.height) - rise * climb - 18 * fan
+            // Born small at the +, grow as they leave it.
+            let grow = smoothstep(0, 0.32, t)
+            let scale = Emitter.birthScale + (1 - Emitter.birthScale) * grow
+            let fadeIn = smoothstep(0, 0.06, t)
+            let fadeOut = 1 - smoothstep(0.86, 1, t)
+            let depthAlpha = 0.55 + 0.45 * p.depth
+            return ParticleState(
+                position: CGPoint(x: x, y: y),
+                scale: scale,
+                opacity: fadeIn * fadeOut * depthAlpha,
+                // Droplets stay crisp (they read as glass); far module bubbles go soft.
+                blur: p.kind == .droplet ? 0 : max(0, (0.45 - p.depth) * 4)
+            )
+        }
+
+        /// Fraction (0…1) of an emission pulse for the + bubble: peaks right after a spawn.
+        func emitPulse(at time: Double) -> Double {
+            let index = Int(floor(time / interval))
+            var best = 0.0
+            for i in max(0, index - 1)...index + 1 {
+                let since = time - particle(i).spawnTime
+                if since >= 0 { best = max(best, exp(-since * 7)) }
+            }
+            return best
+        }
     }
+
+    /// Frozen frame shown under Reduce Motion (a well-populated moment of the stream).
+    static let staticTime: Double = 41.3
+    /// The live stream starts this far in, so the screen is already full on appear.
+    static let warmUp: Double = 6.5
+
+    static func smoothstep(_ a: Double, _ b: Double, _ x: Double) -> Double {
+        let t = min(1, max(0, (x - a) / (b - a)))
+        return t * t * (3 - 2 * t)
+    }
+}
+
+/// Small, fast, seedable RNG (SplitMix64) so the stream is deterministic.
+struct SplitMix64: RandomNumberGenerator, Sendable {
+    private var state: UInt64
+    init(seed: UInt64) { state = seed }
+    mutating func next() -> UInt64 {
+        state &+= 0x9E37_79B9_7F4A_7C15
+        var z = state
+        z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
+        z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
+        return z ^ (z >> 31)
+    }
+    /// Uniform in [0, 1).
+    mutating func unit() -> Double { Double(next() >> 11) / Double(1 << 53) }
 }
