@@ -802,6 +802,8 @@ final class VaultRuntimeUITests: XCTestCase {
         let home = app.descendants(matching: .any)["native.home"]
         let deadline = Date().addingTimeInterval(45)
         while Date() < deadline, !home.exists, !email.exists {
+            let landing = app.descendants(matching: .any)["onboarding.landing.continue"]
+            if landing.exists { landing.tap() }
             let skip = app.descendants(matching: .any)["onboarding.skip"]
             if skip.exists { skip.tap() }
             RunLoop.current.run(until: Date().addingTimeInterval(0.5))
@@ -1130,6 +1132,12 @@ private func awaitShellReady(
             return
         }
 
+        let landing = app.descendants(matching: .any)["onboarding.landing.continue"]
+        if landing.exists {
+            landing.tap()
+            continue
+        }
+
         if app.descendants(matching: .any)["onboarding.root"].exists {
             let skip = app.descendants(matching: .any)["onboarding.skip"]
             if skip.waitForExistence(timeout: 2) {
@@ -1171,7 +1179,10 @@ private func awaitShellReady(
 private func signInThroughAppGate(_ app: XCUIApplication, credentials: N1UITestFixture) {
     if app.descendants(matching: .any)["native.home"].exists { return }
 
-    if app.descendants(matching: .any)["onboarding.root"].exists {
+    let landing = app.descendants(matching: .any)["onboarding.landing.continue"]
+    if landing.waitForExistence(timeout: 2) { landing.tap() }
+
+    if app.descendants(matching: .any)["onboarding.root"].waitForExistence(timeout: 2) {
         app.descendants(matching: .any)["onboarding.skip"].tap()
     }
 
@@ -1527,6 +1538,8 @@ final class SignInUITests: XCTestCase {
         let login = app.descendants(matching: .any)["auth.login"].firstMatch
         let deadline = Date().addingTimeInterval(20)
         while !login.exists && Date() < deadline {
+            let landing = app.descendants(matching: .any)["onboarding.landing.continue"]
+            if landing.exists { landing.tap() }
             let skip = app.descendants(matching: .any)["onboarding.skip"]
             if skip.exists { skip.tap() }
             RunLoop.current.run(until: Date().addingTimeInterval(0.5))

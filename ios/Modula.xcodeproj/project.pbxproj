@@ -7,14 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A03200000000000000000008 /* ModulaAttachmentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000008 /* ModulaAttachmentPicker.swift */; };
-		A03200000000000000000007 /* POST03Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000007 /* POST03Tests.swift */; };
-		A03200000000000000000001 /* ModulaAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000001 /* ModulaAttachment.swift */; };
-		A03200000000000000000002 /* AttachmentDownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000002 /* AttachmentDownloadManager.swift */; };
-		A03200000000000000000003 /* AttachmentViewers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000003 /* AttachmentViewers.swift */; };
-		A03200000000000000000004 /* ModulaPostModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000004 /* ModulaPostModels.swift */; };
-		A03200000000000000000005 /* PostContentRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000005 /* PostContentRenderer.swift */; };
-		A03200000000000000000006 /* ContentPostCatalogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000006 /* ContentPostCatalogView.swift */; };
 		001526FE43E0E8C9671B4E84 /* ModuleHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */; };
 		0139D48F433333A6C105C394 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E9539623085AAA12077638F /* SettingsView.swift */; };
 		02ED22D448BC35987DA41C41 /* RuntimeDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */; };
@@ -40,7 +32,6 @@
 		40C4F5F54E3A9902F8396AC2 /* GreenfieldClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DD632C1523A313A40D2B0D3 /* GreenfieldClient.swift */; };
 		4154C7AA00AF7AB56F7031B3 /* ActivityRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3DC1AD1EDCCBBF93362A45C /* ActivityRepository.swift */; };
 		42449AAE9F9A80D339844630 /* NodusWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4D8BFFECC9B4F51FB6DADE9 /* NodusWorkspaceView.swift */; };
-		A02A10000000000000000001 /* Nodus02A1PhysicalAcceptanceRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A02A10000000000000000002 /* Nodus02A1PhysicalAcceptanceRunner.swift */; };
 		470E5C0C13B495ADACC3BDC8 /* ModulaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8D0072715530545613031A3 /* ModulaApp.swift */; };
 		4750A3C17078F3B24F7D4A7E /* ModulaColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0953B7C9CBB401D9F7D74DE /* ModulaColor.swift */; };
 		48A32338CAC0656514D71CF9 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BEF0F5DFEB2FC30D2769C391 /* Foundation.framework */; };
@@ -65,6 +56,15 @@
 		98B1FF0A78D3F224FB40C690 /* IntelligenceToolValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4CC36E2CB4875EBEDB19A1A /* IntelligenceToolValidation.swift */; };
 		9B142191BFBCE380907C8378 /* GeneratedDesignContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69B093117E45986E847387DC /* GeneratedDesignContract.swift */; };
 		9EC0F892BB40CDA543E31677 /* AuthenticationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6336CC5D11266D84679C3C6A /* AuthenticationStore.swift */; };
+		A02A10000000000000000001 /* Nodus02A1PhysicalAcceptanceRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A02A10000000000000000002 /* Nodus02A1PhysicalAcceptanceRunner.swift */; };
+		A03200000000000000000001 /* ModulaAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000001 /* ModulaAttachment.swift */; };
+		A03200000000000000000002 /* AttachmentDownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000002 /* AttachmentDownloadManager.swift */; };
+		A03200000000000000000003 /* AttachmentViewers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000003 /* AttachmentViewers.swift */; };
+		A03200000000000000000004 /* ModulaPostModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000004 /* ModulaPostModels.swift */; };
+		A03200000000000000000005 /* PostContentRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000005 /* PostContentRenderer.swift */; };
+		A03200000000000000000006 /* ContentPostCatalogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000006 /* ContentPostCatalogView.swift */; };
+		A03200000000000000000007 /* POST03Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000007 /* POST03Tests.swift */; };
+		A03200000000000000000008 /* ModulaAttachmentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000008 /* ModulaAttachmentPicker.swift */; };
 		A30300000000000000000001 /* AppleSystemIntelligenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40300000000000000000001 /* AppleSystemIntelligenceProvider.swift */; };
 		A30300000000000000000002 /* LI03AppleProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40300000000000000000002 /* LI03AppleProviderTests.swift */; };
 		A3FDEFCF2FC7C6C44C4CD7F9 /* DeterministicLocalProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1B51F430EC86144078FF8A /* DeterministicLocalProvider.swift */; };
@@ -90,8 +90,6 @@
 		A50100000000000000000012 /* ReactionPeopleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000012 /* ReactionPeopleView.swift */; };
 		A50100000000000000000013 /* ProfileFullBleedChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000013 /* ProfileFullBleedChrome.swift */; };
 		A50100000000000000000014 /* ModuleDetailModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000014 /* ModuleDetailModels.swift */; };
-		V50100000000000000000002 /* ModuleVersionsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = V40100000000000000000002 /* ModuleVersionsSection.swift */; };
-		V50100000000000000000001 /* ModuleVersions.swift in Sources */ = {isa = PBXBuildFile; fileRef = V40100000000000000000001 /* ModuleVersions.swift */; };
 		A50100000000000000000015 /* ModuleDetailV2View.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000015 /* ModuleDetailV2View.swift */; };
 		A50100000000000000000016 /* PublisherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000016 /* PublisherView.swift */; };
 		A50100000000000000000017 /* N4ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000017 /* N4ETests.swift */; };
@@ -229,6 +227,9 @@
 		F10100000000000000000009 /* ProfileMediaViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000009 /* ProfileMediaViews.swift */; };
 		F2381918FBC41E683AA717BB /* IntelligenceResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = C727EBE1A122E68AE7538DFC /* IntelligenceResponse.swift */; };
 		F280213B620AE297E6EC4D78 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE413545A422ACB4BACBB3DF /* RootView.swift */; };
+		F43AEB1A67070000A929D731 /* N1FixtureCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = C086A4FED95A41F19B257A39 /* N1FixtureCredentials.swift */; };
+		F50100000000000000000001 /* ModulaImmersiveSurfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */; };
+		F55C4DEFC5031B25247EC2F9 /* IntelligenceDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00C3046A71D34C45B14E30AE /* IntelligenceDiagnosticsView.swift */; };
 		F80200000000000000000001 /* ModulaIndicators.swift in Sources */ = {isa = PBXBuildFile; fileRef = F80100000000000000000001 /* ModulaIndicators.swift */; };
 		F80200000000000000000002 /* ModulaReactionBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F80100000000000000000002 /* ModulaReactionBar.swift */; };
 		F80200000000000000000003 /* ModulaSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = F80100000000000000000003 /* ModulaSelection.swift */; };
@@ -241,9 +242,6 @@
 		F8020000000000000000000A /* AdvancedInteractionCollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8010000000000000000000A /* AdvancedInteractionCollectionCatalog.swift */; };
 		F8020000000000000000000B /* AdvancedInteractionMediaCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8010000000000000000000B /* AdvancedInteractionMediaCatalog.swift */; };
 		F8020000000000000000000C /* MCAT02Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8010000000000000000000C /* MCAT02Tests.swift */; };
-		F43AEB1A67070000A929D731 /* N1FixtureCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = C086A4FED95A41F19B257A39 /* N1FixtureCredentials.swift */; };
-		F50100000000000000000001 /* ModulaImmersiveSurfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */; };
-		F55C4DEFC5031B25247EC2F9 /* IntelligenceDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00C3046A71D34C45B14E30AE /* IntelligenceDiagnosticsView.swift */; };
 		FA6841DD0637CD7B42AA6ED6 /* NodusSearchContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DEFF4D36F80610C9E3C893D /* NodusSearchContracts.swift */; };
 		FCF5472ED72B6CF79891F968 /* IntelligenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB03DB7121ABD1E492F3AC7E /* IntelligenceProvider.swift */; };
 		FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */; };
@@ -261,6 +259,9 @@
 		H50100000000000000000003 /* SettingsChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = H40100000000000000000003 /* SettingsChrome.swift */; };
 		H50100000000000000000004 /* SettingsMorePages.swift in Sources */ = {isa = PBXBuildFile; fileRef = H40100000000000000000004 /* SettingsMorePages.swift */; };
 		H50100000000000000000005 /* SettingsExtraPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = H40100000000000000000005 /* SettingsExtraPages.swift */; };
+		L50100000000000000000001 /* OnboardingLandingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = L40100000000000000000001 /* OnboardingLandingView.swift */; };
+		L50100000000000000000002 /* OnboardingLandingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = L40100000000000000000002 /* OnboardingLandingModels.swift */; };
+		L50100000000000000000003 /* OnboardingLandingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = L40100000000000000000003 /* OnboardingLandingTests.swift */; };
 		N50100000000000000000001 /* MediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000001 /* MediaModels.swift */; };
 		N50100000000000000000002 /* ModulaVideoPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000002 /* ModulaVideoPlayer.swift */; };
 		N50100000000000000000003 /* MessageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000003 /* MessageModels.swift */; };
@@ -279,8 +280,10 @@
 		N50100000000000000000010 /* ProfilePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000010 /* ProfilePresentation.swift */; };
 		N50100000000000000000011 /* ProfileCustomizationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000011 /* ProfileCustomizationViews.swift */; };
 		N50100000000000000000012 /* N4CTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000012 /* N4CTests.swift */; };
-		V50100000000000000000003 /* ModuleVersionSwitchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = V40100000000000000000003 /* ModuleVersionSwitchTests.swift */; };
 		S50100000000000000000001 /* SettingsVisualSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = S40100000000000000000001 /* SettingsVisualSystem.swift */; };
+		V50100000000000000000001 /* ModuleVersions.swift in Sources */ = {isa = PBXBuildFile; fileRef = V40100000000000000000001 /* ModuleVersions.swift */; };
+		V50100000000000000000002 /* ModuleVersionsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = V40100000000000000000002 /* ModuleVersionsSection.swift */; };
+		V50100000000000000000003 /* ModuleVersionSwitchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = V40100000000000000000003 /* ModuleVersionSwitchTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -301,14 +304,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		A03100000000000000000008 /* ModulaAttachmentPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaAttachmentPicker.swift; path = Features/Media/ModulaAttachmentPicker.swift; sourceTree = "<group>"; };
-		A03100000000000000000007 /* POST03Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = POST03Tests.swift; sourceTree = "<group>"; };
-		A03100000000000000000001 /* ModulaAttachment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaAttachment.swift; path = Features/Media/ModulaAttachment.swift; sourceTree = "<group>"; };
-		A03100000000000000000002 /* AttachmentDownloadManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AttachmentDownloadManager.swift; path = Features/Media/AttachmentDownloadManager.swift; sourceTree = "<group>"; };
-		A03100000000000000000003 /* AttachmentViewers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AttachmentViewers.swift; path = Features/Media/AttachmentViewers.swift; sourceTree = "<group>"; };
-		A03100000000000000000004 /* ModulaPostModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaPostModels.swift; path = Features/Social/ModulaPostModels.swift; sourceTree = "<group>"; };
-		A03100000000000000000005 /* PostContentRenderer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostContentRenderer.swift; path = Features/Social/PostContentRenderer.swift; sourceTree = "<group>"; };
-		A03100000000000000000006 /* ContentPostCatalogView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ContentPostCatalogView.swift; path = Features/Settings/ContentPostCatalogView.swift; sourceTree = "<group>"; };
 		003916B967E1900F61DFB206 /* SettingsStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsStore.swift; path = Features/Settings/SettingsStore.swift; sourceTree = "<group>"; };
 		007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RuntimeDiagnosticsView.swift; path = ModuleRuntime/RuntimeDiagnosticsView.swift; sourceTree = "<group>"; };
 		00C3046A71D34C45B14E30AE /* IntelligenceDiagnosticsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceDiagnosticsView.swift; path = Features/Developer/IntelligenceDiagnosticsView.swift; sourceTree = "<group>"; };
@@ -366,6 +361,15 @@
 		9BDB10B4EB59E29CECC0719A /* manifests.json */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json; name = manifests.json; path = ../runtime/src/registry/manifests.json; sourceTree = "<group>"; };
 		9DD632C1523A313A40D2B0D3 /* GreenfieldClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GreenfieldClient.swift; path = Core/Networking/GreenfieldClient.swift; sourceTree = "<group>"; };
 		9F1039644652AD5B7287B4F0 /* BraveDeveloperSearchProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BraveDeveloperSearchProvider.swift; path = Core/Intelligence/Nodus/Search/BraveDeveloperSearchProvider.swift; sourceTree = "<group>"; };
+		A02A10000000000000000002 /* Nodus02A1PhysicalAcceptanceRunner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Nodus02A1PhysicalAcceptanceRunner.swift; path = Features/Developer/Nodus/Nodus02A1PhysicalAcceptanceRunner.swift; sourceTree = "<group>"; };
+		A03100000000000000000001 /* ModulaAttachment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaAttachment.swift; path = Features/Media/ModulaAttachment.swift; sourceTree = "<group>"; };
+		A03100000000000000000002 /* AttachmentDownloadManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AttachmentDownloadManager.swift; path = Features/Media/AttachmentDownloadManager.swift; sourceTree = "<group>"; };
+		A03100000000000000000003 /* AttachmentViewers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AttachmentViewers.swift; path = Features/Media/AttachmentViewers.swift; sourceTree = "<group>"; };
+		A03100000000000000000004 /* ModulaPostModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaPostModels.swift; path = Features/Social/ModulaPostModels.swift; sourceTree = "<group>"; };
+		A03100000000000000000005 /* PostContentRenderer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostContentRenderer.swift; path = Features/Social/PostContentRenderer.swift; sourceTree = "<group>"; };
+		A03100000000000000000006 /* ContentPostCatalogView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ContentPostCatalogView.swift; path = Features/Settings/ContentPostCatalogView.swift; sourceTree = "<group>"; };
+		A03100000000000000000007 /* POST03Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = POST03Tests.swift; sourceTree = "<group>"; };
+		A03100000000000000000008 /* ModulaAttachmentPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaAttachmentPicker.swift; path = Features/Media/ModulaAttachmentPicker.swift; sourceTree = "<group>"; };
 		A40100000000000000000001 /* AppLaunchState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppLaunchState.swift; path = Core/AppGate/AppLaunchState.swift; sourceTree = "<group>"; };
 		A40100000000000000000002 /* AppGate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppGate.swift; path = Core/AppGate/AppGate.swift; sourceTree = "<group>"; };
 		A40100000000000000000003 /* AppGateHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppGateHost.swift; path = Core/AppGate/AppGateHost.swift; sourceTree = "<group>"; };
@@ -386,8 +390,6 @@
 		A40100000000000000000012 /* ReactionPeopleView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactionPeopleView.swift; path = Features/Social/Reactions/ReactionPeopleView.swift; sourceTree = "<group>"; };
 		A40100000000000000000013 /* ProfileFullBleedChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileFullBleedChrome.swift; path = Features/Profile/FullBleed/ProfileFullBleedChrome.swift; sourceTree = "<group>"; };
 		A40100000000000000000014 /* ModuleDetailModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleDetailModels.swift; path = Features/ProductHub/ModuleDetail/ModuleDetailModels.swift; sourceTree = "<group>"; };
-		V40100000000000000000002 /* ModuleVersionsSection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleVersionsSection.swift; path = Features/ProductHub/ModuleDetail/ModuleVersionsSection.swift; sourceTree = "<group>"; };
-		V40100000000000000000001 /* ModuleVersions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleVersions.swift; path = Features/ProductHub/ModuleDetail/ModuleVersions.swift; sourceTree = "<group>"; };
 		A40100000000000000000015 /* ModuleDetailV2View.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleDetailV2View.swift; path = Features/ProductHub/ModuleDetail/ModuleDetailV2View.swift; sourceTree = "<group>"; };
 		A40100000000000000000016 /* PublisherView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PublisherView.swift; path = Features/ProductHub/Publisher/PublisherView.swift; sourceTree = "<group>"; };
 		A40100000000000000000017 /* N4ETests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4ETests.swift; sourceTree = "<group>"; };
@@ -501,18 +503,6 @@
 		E30100000000000000000009 /* HomeFeedTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeFeedTests.swift; sourceTree = "<group>"; };
 		E3010000000000000000000A /* ModulaContextMenu.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaContextMenu.swift; path = DesignSystem/ModulaContextMenu.swift; sourceTree = "<group>"; };
 		E3010000000000000000000B /* ModulaMediaViewer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaMediaViewer.swift; path = DesignSystem/ModulaMediaViewer.swift; sourceTree = "<group>"; };
-		F80100000000000000000001 /* ModulaIndicators.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaIndicators.swift; path = DesignSystem/AdvancedInteraction/ModulaIndicators.swift; sourceTree = "<group>"; };
-		F80100000000000000000002 /* ModulaReactionBar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaReactionBar.swift; path = DesignSystem/AdvancedInteraction/ModulaReactionBar.swift; sourceTree = "<group>"; };
-		F80100000000000000000003 /* ModulaSelection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaSelection.swift; path = DesignSystem/AdvancedInteraction/ModulaSelection.swift; sourceTree = "<group>"; };
-		F80100000000000000000004 /* ModulaTabsAndSpaces.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaTabsAndSpaces.swift; path = DesignSystem/AdvancedInteraction/ModulaTabsAndSpaces.swift; sourceTree = "<group>"; };
-		F80100000000000000000005 /* ModulaOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaOverlay.swift; path = DesignSystem/AdvancedInteraction/ModulaOverlay.swift; sourceTree = "<group>"; };
-		F80100000000000000000006 /* ModulaSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaSheet.swift; path = DesignSystem/AdvancedInteraction/ModulaSheet.swift; sourceTree = "<group>"; };
-		F80100000000000000000007 /* ModulaComposer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaComposer.swift; path = DesignSystem/AdvancedInteraction/ModulaComposer.swift; sourceTree = "<group>"; };
-		F80100000000000000000008 /* AdvancedInteractionCatalogView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AdvancedInteractionCatalogView.swift; path = Features/Settings/AdvancedInteractionCatalogView.swift; sourceTree = "<group>"; };
-		F80100000000000000000009 /* AdvancedInteractionFoundationCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AdvancedInteractionFoundationCatalog.swift; path = Features/Settings/AdvancedInteractionFoundationCatalog.swift; sourceTree = "<group>"; };
-		F8010000000000000000000A /* AdvancedInteractionCollectionCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AdvancedInteractionCollectionCatalog.swift; path = Features/Settings/AdvancedInteractionCollectionCatalog.swift; sourceTree = "<group>"; };
-		F8010000000000000000000B /* AdvancedInteractionMediaCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AdvancedInteractionMediaCatalog.swift; path = Features/Settings/AdvancedInteractionMediaCatalog.swift; sourceTree = "<group>"; };
-		F8010000000000000000000C /* MCAT02Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MCAT02Tests.swift; sourceTree = "<group>"; };
 		E30100000000000000000010 /* PostGestureThresholds.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostGestureThresholds.swift; path = Features/Social/PostGestureThresholds.swift; sourceTree = "<group>"; };
 		E30100000000000000000011 /* PostBackendCapabilities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostBackendCapabilities.swift; path = Features/Social/PostBackendCapabilities.swift; sourceTree = "<group>"; };
 		E30100000000000000000012 /* PostStateStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostStateStore.swift; path = Features/Social/PostStateStore.swift; sourceTree = "<group>"; };
@@ -526,7 +516,6 @@
 		E3E435D0DE95F2C71A8C5D51 /* NodusMemoryModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusMemoryModels.swift; path = Core/Intelligence/Nodus/Memory/NodusMemoryModels.swift; sourceTree = "<group>"; };
 		E490C161A4B61D0F2ED2F9CE /* Pods-ModulaTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ModulaTests.debug.xcconfig"; path = "Target Support Files/Pods-ModulaTests/Pods-ModulaTests.debug.xcconfig"; sourceTree = "<group>"; };
 		E4D8BFFECC9B4F51FB6DADE9 /* NodusWorkspaceView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusWorkspaceView.swift; path = Features/Developer/Nodus/NodusWorkspaceView.swift; sourceTree = "<group>"; };
-		A02A10000000000000000002 /* Nodus02A1PhysicalAcceptanceRunner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Nodus02A1PhysicalAcceptanceRunner.swift; path = Features/Developer/Nodus/Nodus02A1PhysicalAcceptanceRunner.swift; sourceTree = "<group>"; };
 		E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleHost.swift; path = ModuleRuntime/ModuleHost.swift; sourceTree = "<group>"; };
 		EB03DB7121ABD1E492F3AC7E /* IntelligenceProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceProvider.swift; path = Core/Intelligence/Contracts/IntelligenceProvider.swift; sourceTree = "<group>"; };
 		EECC47A5007CE1E5BB063A97 /* ShellAccessory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShellAccessory.swift; path = DesignSystem/ShellAccessory.swift; sourceTree = "<group>"; };
@@ -543,6 +532,18 @@
 		F16AC42D21EE290AE5568247 /* NodusKnowledgeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusKnowledgeView.swift; path = Features/Developer/Nodus/NodusKnowledgeView.swift; sourceTree = "<group>"; };
 		F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaImmersiveSurfaces.swift; path = DesignSystem/Immersive/ModulaImmersiveSurfaces.swift; sourceTree = "<group>"; };
 		F45DF2084F485AD64DD1A37F /* IntelligenceRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceRequest.swift; path = Core/Intelligence/Contracts/IntelligenceRequest.swift; sourceTree = "<group>"; };
+		F80100000000000000000001 /* ModulaIndicators.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaIndicators.swift; path = DesignSystem/AdvancedInteraction/ModulaIndicators.swift; sourceTree = "<group>"; };
+		F80100000000000000000002 /* ModulaReactionBar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaReactionBar.swift; path = DesignSystem/AdvancedInteraction/ModulaReactionBar.swift; sourceTree = "<group>"; };
+		F80100000000000000000003 /* ModulaSelection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaSelection.swift; path = DesignSystem/AdvancedInteraction/ModulaSelection.swift; sourceTree = "<group>"; };
+		F80100000000000000000004 /* ModulaTabsAndSpaces.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaTabsAndSpaces.swift; path = DesignSystem/AdvancedInteraction/ModulaTabsAndSpaces.swift; sourceTree = "<group>"; };
+		F80100000000000000000005 /* ModulaOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaOverlay.swift; path = DesignSystem/AdvancedInteraction/ModulaOverlay.swift; sourceTree = "<group>"; };
+		F80100000000000000000006 /* ModulaSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaSheet.swift; path = DesignSystem/AdvancedInteraction/ModulaSheet.swift; sourceTree = "<group>"; };
+		F80100000000000000000007 /* ModulaComposer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaComposer.swift; path = DesignSystem/AdvancedInteraction/ModulaComposer.swift; sourceTree = "<group>"; };
+		F80100000000000000000008 /* AdvancedInteractionCatalogView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AdvancedInteractionCatalogView.swift; path = Features/Settings/AdvancedInteractionCatalogView.swift; sourceTree = "<group>"; };
+		F80100000000000000000009 /* AdvancedInteractionFoundationCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AdvancedInteractionFoundationCatalog.swift; path = Features/Settings/AdvancedInteractionFoundationCatalog.swift; sourceTree = "<group>"; };
+		F8010000000000000000000A /* AdvancedInteractionCollectionCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AdvancedInteractionCollectionCatalog.swift; path = Features/Settings/AdvancedInteractionCollectionCatalog.swift; sourceTree = "<group>"; };
+		F8010000000000000000000B /* AdvancedInteractionMediaCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AdvancedInteractionMediaCatalog.swift; path = Features/Settings/AdvancedInteractionMediaCatalog.swift; sourceTree = "<group>"; };
+		F8010000000000000000000C /* MCAT02Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MCAT02Tests.swift; sourceTree = "<group>"; };
 		F97B62939727826A0A7B6B6A /* ModulaIntelligenceService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaIntelligenceService.swift; path = Core/Intelligence/ModulaIntelligenceService.swift; sourceTree = "<group>"; };
 		FAC389B69B72346128446B86 /* NodusKnowledgeStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusKnowledgeStore.swift; path = Core/Intelligence/Nodus/Knowledge/NodusKnowledgeStore.swift; sourceTree = "<group>"; };
 		G40100000000000000000001 /* ModulaSurfaceSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaSurfaceSystem.swift; path = DesignSystem/Surface/ModulaSurfaceSystem.swift; sourceTree = "<group>"; };
@@ -559,6 +560,9 @@
 		H40100000000000000000003 /* SettingsChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsChrome.swift; path = Features/Settings/SettingsChrome.swift; sourceTree = "<group>"; };
 		H40100000000000000000004 /* SettingsMorePages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsMorePages.swift; path = Features/Settings/SettingsMorePages.swift; sourceTree = "<group>"; };
 		H40100000000000000000005 /* SettingsExtraPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsExtraPages.swift; path = Features/Settings/SettingsExtraPages.swift; sourceTree = "<group>"; };
+		L40100000000000000000001 /* OnboardingLandingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingLandingView.swift; path = Features/Onboarding/OnboardingLandingView.swift; sourceTree = "<group>"; };
+		L40100000000000000000002 /* OnboardingLandingModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingLandingModels.swift; path = Features/Onboarding/OnboardingLandingModels.swift; sourceTree = "<group>"; };
+		L40100000000000000000003 /* OnboardingLandingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingLandingTests.swift; sourceTree = "<group>"; };
 		N40100000000000000000001 /* MediaModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MediaModels.swift; path = Features/Media/MediaModels.swift; sourceTree = "<group>"; };
 		N40100000000000000000002 /* ModulaVideoPlayer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaVideoPlayer.swift; path = Features/Media/ModulaVideoPlayer.swift; sourceTree = "<group>"; };
 		N40100000000000000000003 /* MessageModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessageModels.swift; path = Features/Messages/MessageModels.swift; sourceTree = "<group>"; };
@@ -577,8 +581,10 @@
 		N40100000000000000000010 /* ProfilePresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfilePresentation.swift; path = Features/Profile/Customization/ProfilePresentation.swift; sourceTree = "<group>"; };
 		N40100000000000000000011 /* ProfileCustomizationViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileCustomizationViews.swift; path = Features/Profile/Customization/ProfileCustomizationViews.swift; sourceTree = "<group>"; };
 		N40100000000000000000012 /* N4CTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4CTests.swift; sourceTree = "<group>"; };
-		V40100000000000000000003 /* ModuleVersionSwitchTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModuleVersionSwitchTests.swift; sourceTree = "<group>"; };
 		S40100000000000000000001 /* SettingsVisualSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsVisualSystem.swift; path = Features/Settings/SettingsVisualSystem.swift; sourceTree = "<group>"; };
+		V40100000000000000000001 /* ModuleVersions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleVersions.swift; path = Features/ProductHub/ModuleDetail/ModuleVersions.swift; sourceTree = "<group>"; };
+		V40100000000000000000002 /* ModuleVersionsSection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleVersionsSection.swift; path = Features/ProductHub/ModuleDetail/ModuleVersionsSection.swift; sourceTree = "<group>"; };
+		V40100000000000000000003 /* ModuleVersionSwitchTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModuleVersionSwitchTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -634,6 +640,7 @@
 			isa = PBXGroup;
 			children = (
 				A03100000000000000000007 /* POST03Tests.swift */,
+				L40100000000000000000003 /* OnboardingLandingTests.swift */,
 				N40100000000000000000012 /* N4CTests.swift */,
 				V40100000000000000000003 /* ModuleVersionSwitchTests.swift */,
 				D40100000000000000000018 /* N4DTests.swift */,
@@ -782,6 +789,8 @@
 				A40100000000000000000003 /* AppGateHost.swift */,
 				A40100000000000000000004 /* OnboardingModels.swift */,
 				A40100000000000000000005 /* OnboardingView.swift */,
+				L40100000000000000000001 /* OnboardingLandingView.swift */,
+				L40100000000000000000002 /* OnboardingLandingModels.swift */,
 				A40100000000000000000006 /* FirstRunModels.swift */,
 				A40100000000000000000007 /* FirstRunView.swift */,
 				A40100000000000000000008 /* AppLockModels.swift */,
@@ -1224,6 +1233,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A03200000000000000000007 /* POST03Tests.swift in Sources */,
+				L50100000000000000000003 /* OnboardingLandingTests.swift in Sources */,
 				C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */,
 				FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */,
 				E2010000000000000000000A /* DiscoverTests.swift in Sources */,
@@ -1261,6 +1271,8 @@
 				A50100000000000000000003 /* AppGateHost.swift in Sources */,
 				A50100000000000000000004 /* OnboardingModels.swift in Sources */,
 				A50100000000000000000005 /* OnboardingView.swift in Sources */,
+				L50100000000000000000001 /* OnboardingLandingView.swift in Sources */,
+				L50100000000000000000002 /* OnboardingLandingModels.swift in Sources */,
 				A50100000000000000000006 /* FirstRunModels.swift in Sources */,
 				A50100000000000000000007 /* FirstRunView.swift in Sources */,
 				A50100000000000000000008 /* AppLockModels.swift in Sources */,

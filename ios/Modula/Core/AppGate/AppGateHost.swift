@@ -32,6 +32,20 @@ struct AppGateHost: View {
 
     @ViewBuilder
     private var gatedContent: some View {
+        #if DEBUG
+        if OnboardingLandingDebug.isEnabled {
+            // `--debug-onboarding-landing`: render the landing regardless of session, for screenshots.
+            OnboardingLandingView(onContinue: {})
+        } else {
+            launchContent
+        }
+        #else
+        launchContent
+        #endif
+    }
+
+    @ViewBuilder
+    private var launchContent: some View {
         switch app.gate.state {
         case .booting:
             BootSplashView()
@@ -87,12 +101,44 @@ struct FailedBootView: View {
     }
 }
 
+#if DEBUG
+enum OnboardingLandingDebug {
+    static var isEnabled: Bool { ProcessInfo.processInfo.arguments.contains("--debug-onboarding-landing") }
+}
+#endif
+
 struct PreShellAuthHost: View {
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The landing is the front door for every signed-out launch. It is passed once per
+    /// app session, and skipped if something (a deep link, sign-out) already opened an
+    /// auth route.
+    @State private var landingPassed = false
 
     var body: some View {
+        ZStack {
+            if showsLanding {
+                OnboardingLandingView {
+                    withAnimation(ModulaMotion.animation(.presentation, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
+                        landingPassed = true
+                    }
+                }
+                .transition(.opacity)
+                .zIndex(1)
+            } else {
+                authFlow
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    private var showsLanding: Bool {
+        !landingPassed && app.navigation.binding(for: .home).wrappedValue.isEmpty
+    }
+
+    private var authFlow: some View {
         @Bindable var navigation = app.navigation
-        NavigationStack(path: navigation.binding(for: .home)) {
+        return NavigationStack(path: navigation.binding(for: .home)) {
             Group {
                 if app.gate.signedOutSurface == .onboarding {
                     OnboardingView()
