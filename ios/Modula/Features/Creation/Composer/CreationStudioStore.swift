@@ -148,25 +148,64 @@ final class CreationStudioStore {
         HapticEngine.shared.play(.selection)
     }
 
+    /// Uploads above this size wait for Wi‑Fi when the user prefers it.
+    nonisolated static let largeUploadThreshold: Int64 = 25 * 1_024 * 1_024
+
+    nonisolated static func shouldWaitForWiFi(
+        pendingBytes: Int64,
+        prefersWiFi: Bool = ModulaPreferences.preferWiFiForUploads,
+        expensiveNetwork: Bool = NetworkConditions.shared.isExpensive
+    ) -> Bool {
+        prefersWiFi && expensiveNetwork && pendingBytes > largeUploadThreshold
+    }
+
+    /// Settings → Media → Images. Unless "Keep original file data" is on, photos are
+    /// re-encoded (EXIF orientation applied) so location and camera metadata stay on
+    /// the device; "Prefer high-resolution uploads" (off, or Data saver on) caps size.
+    nonisolated static func preparePhotoForUpload(
+        _ data: Data, type: UTType,
+        keepOriginal: Bool = ModulaPreferences.keepOriginalPhotoData,
+        highResolution: Bool = ModulaPreferences.highResolutionUploads
+    ) async throws -> (data: Data, mimeType: String, fileExtension: String)? {
+        if type.conforms(to: .gif) { return nil }
+        if keepOriginal && highResolution { return nil }
+        let prepared = try await MediaPreparation.jpegFitting(
+            data,
+            maxBytes: highResolution ? 14_000_000 : 1_800_000,
+            maxPixel: highResolution ? 4_096 : 2_048,
+            minPixel: highResolution ? 2_048 : 1_440
+        )
+        return (prepared.data, prepared.mimeType, "jpg")
+    }
+
     func attachImages(_ items: [PhotosPickerItem]) async {
         guard capabilities.photoPost || capabilities.storyPhoto || capabilities.carouselPost else { return }
         preparingMedia = true
         defer { preparingMedia = false }
         for item in items {
-            guard let data = try? await item.loadTransferable(type: Data.self) else { continue }
+            guard var data = try? await item.loadTransferable(type: Data.self) else { continue }
             do {
                 let type = item.supportedContentTypes.first(where: { $0.conforms(to: .image) }) ?? .jpeg
-                let mimeType = type.preferredMIMEType ?? "image/jpeg"
+                var mimeType = type.preferredMIMEType ?? "image/jpeg"
+                var fileExtension = type.preferredFilenameExtension ?? "jpg"
+                if let prepared = try? await Self.preparePhotoForUpload(data, type: type) {
+                    data = prepared.data
+                    mimeType = prepared.mimeType
+                    fileExtension = prepared.fileExtension
+                }
                 guard CreationAttachmentPolicy.accepts(mimeType: mimeType, byteCount: data.count) else {
                     publishError = "That photo type or size isn't supported. Your draft is safe."
                     continue
                 }
                 let dimensions = Self.imageDimensions(data)
+                let payload = data
+                let payloadMimeType = mimeType
+                let payloadFilename = "Photo.\(fileExtension)"
                 let media = try await Task.detached(priority: .userInitiated) { [mediaStore, accountID = draft.accountID] in
                     try mediaStore.importData(
-                        data, accountID: accountID, kind: .image,
-                        mimeType: mimeType,
-                        originalFilename: "Photo.\(type.preferredFilenameExtension ?? "jpg")",
+                        payload, accountID: accountID, kind: .image,
+                        mimeType: payloadMimeType,
+                        originalFilename: payloadFilename,
                         width: dimensions?.0, height: dimensions?.1
                     )
                 }.value
@@ -176,6 +215,46 @@ final class CreationStudioStore {
             } catch {
                 publishError = "Couldn't add that photo. Your draft is safe."
             }
+        }
+        persist()
+    }
+
+    /// A photo taken with the composer camera (Settings → Camera decides format/save).
+    func attachCapturedPhoto(_ captured: Data, mimeType capturedMimeType: String) async {
+        guard capabilities.photoPost || capabilities.carouselPost else { return }
+        preparingMedia = true
+        defer { preparingMedia = false }
+        let type: UTType = capturedMimeType == "image/heic" ? .heic : .jpeg
+        var data = captured
+        var mimeType = capturedMimeType
+        var fileExtension = type.preferredFilenameExtension ?? "jpg"
+        if let prepared = try? await Self.preparePhotoForUpload(data, type: type) {
+            data = prepared.data
+            mimeType = prepared.mimeType
+            fileExtension = prepared.fileExtension
+        }
+        guard CreationAttachmentPolicy.accepts(mimeType: mimeType, byteCount: data.count) else {
+            publishError = "That photo couldn't be added. Your draft is safe."
+            return
+        }
+        let dimensions = Self.imageDimensions(data)
+        let payload = data
+        let payloadMimeType = mimeType
+        let payloadFilename = "Camera.\(fileExtension)"
+        do {
+            let media = try await Task.detached(priority: .userInitiated) { [mediaStore, accountID = draft.accountID] in
+                try mediaStore.importData(
+                    payload, accountID: accountID, kind: .image,
+                    mimeType: payloadMimeType,
+                    originalFilename: payloadFilename,
+                    width: dimensions?.0, height: dimensions?.1
+                )
+            }.value
+            draft.media.append(media)
+            if draft.kind == .post { draft.kind = draft.media.count > 1 ? .carousel : .photo }
+            HapticEngine.shared.play(.lightImpact)
+        } catch {
+            publishError = "Couldn't add that photo. Your draft is safe."
         }
         persist()
     }
@@ -381,6 +460,14 @@ final class CreationStudioStore {
     func publish() async -> SocialPost? {
         if let problem = validation {
             publishError = problem.accessibilityHint
+            return nil
+        }
+        // Settings → Network → "Prefer Wi‑Fi for large uploads".
+        let pendingBytes = draft.media.filter { $0.remoteAttachmentID == nil }.reduce(Int64(0)) { $0 + Int64($1.byteCount ?? 0) }
+        if Self.shouldWaitForWiFi(pendingBytes: pendingBytes) {
+            publishError = "Waiting for Wi‑Fi. This upload is large and “Prefer Wi‑Fi for large uploads” is on (Settings → Network). Your draft is saved."
+            HapticEngine.shared.play(.warning)
+            persist(debounce: false)
             return nil
         }
         do {

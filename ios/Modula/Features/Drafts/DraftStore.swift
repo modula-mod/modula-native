@@ -62,6 +62,11 @@ final class DraftStore {
     }
 
     func lastAudience() -> AudienceSelection {
+        // Settings → Creator → Studio defaults → "Default audience", once chosen, is
+        // the starting audience for every new post on this device.
+        if UserDefaults.standard.object(forKey: ModulaPreferences.Key.creatorDefaultAudience) != nil {
+            return ModulaPreferences.creatorDefaultAudience
+        }
         guard let accountID, let raw = defaults.string(forKey: Self.audienceKey(accountID)) else {
             return .everyone
         }

@@ -545,7 +545,18 @@ actor GreenfieldClient {
         if let bearer { request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
         for (field, value) in headers where field == "Idempotency-Key" { request.setValue(value, forHTTPHeaderField: field) }
         request.httpBody = try body.map { try JSONEncoder().encode($0) }
+        let started = Date()
         let (data, response) = try await transport.data(for: request)
+        if ModulaPreferences.verboseLogging {
+            // Settings → Labs → "Verbose local logging": method, path (with the query
+            // stripped), status, size and timing only — never headers or bodies.
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            let safePath = path.split(separator: "?", maxSplits: 1).first.map(String.init) ?? path
+            let elapsed = Int(Date().timeIntervalSince(started) * 1_000)
+            ModulaLog.network.notice(
+                "verbose \(method, privacy: .public) \(safePath, privacy: .public) → \(status, privacy: .public) \(data.count, privacy: .public)B \(elapsed, privacy: .public)ms"
+            )
+        }
         return try Self.decodeEnvelope(data, response: response, method: method, path: path)
     }
 

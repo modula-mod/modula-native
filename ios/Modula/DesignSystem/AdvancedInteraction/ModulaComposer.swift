@@ -175,6 +175,8 @@ struct ModulaComposer: View {
                 }
                 ModulaComposerTextField(prompt: prompt, text: $text, enabled: enabled, focused: $focused)
                     .autocorrectionDisabled(!spellCheck)
+                    // Settings → Keyboard → "Auto-capitalise sentences".
+                    .textInputAutocapitalization(ModulaPreferences.composerAutoCapitalise ? .sentences : .never)
                     .submitLabel(returnSends ? .send : .return)
                 ModulaComposerTrailingButton(canSend: state.canSend, sending: sending, onDictate: onDictate) {
                     onSend()

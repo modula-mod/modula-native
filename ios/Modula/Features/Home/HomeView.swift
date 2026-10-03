@@ -230,10 +230,8 @@ struct HomeView: View {
                             Task { await app.home.toggleSave(resolved, mode: mode) }
                         },
                         onShare: {
-                            UIPasteboard.general.string = resolved.shareURL.absoluteString
-                            Task { await app.postActions.recordShare(resolved) }
-                            HapticEngine.shared.play(.lightImpact)
-                            app.navigation.flash("Link copied", symbol: "link")
+                            // Settings → Sharing decides copy / iOS sheet / Modula sheet.
+                            PostSharing.share(resolved, app: app)
                         },
                         onContextAction: { action in
                             handlePostContext(action, post: resolved)

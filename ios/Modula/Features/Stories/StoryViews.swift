@@ -669,6 +669,15 @@ struct StoryCreateView: View {
             app.drafts.discardStory(id: draftID)
             app.navigation.close()
             HapticEngine.shared.play(.success)
+            // Settings → Photos → "Save Stories you post to Photos" (add-only access).
+            if ModulaPreferences.offerToSaveStories {
+                let data = prepared.data
+                let navigation = app.navigation
+                Task {
+                    let saved = await ModulaPhotoLibrarySaver.save(data)
+                    navigation.flash(saved ? "Story saved to Photos" : "Couldn’t save to Photos", symbol: saved ? "photo.badge.checkmark" : "exclamationmark.triangle")
+                }
+            }
         }
     }
 

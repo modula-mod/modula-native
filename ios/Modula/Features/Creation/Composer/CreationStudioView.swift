@@ -14,6 +14,7 @@ struct CreationStudioView: View {
     @State private var store: CreationStudioStore?
     @State private var pickerItems: [PhotosPickerItem] = []
     @State private var videoPickerItems: [PhotosPickerItem] = []
+    @State private var showsCamera = false
     @State private var showFileImporter = false
     @State private var moreExplanation: CreationTool?
     @State private var publishTask: Task<Void, Never>?
@@ -220,6 +221,16 @@ struct CreationStudioView: View {
                 .padding(.bottom, 24)
             }
             .modulaSoftScrollEdge()
+            // Settings → Photos → "Explain Limited Library".
+            if ModulaPreferences.explainLimitedLibrary, store.draft.media.isEmpty,
+               store.capabilities.toolEnabled(.photo) {
+                Label("Modula only sees the photos you pick — it never needs access to your whole library.", systemImage: "lock.shield")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
             // Pinned above the tool dock so a failed publish is always visible,
             // instead of sitting at the bottom of a long draft in grey text.
             if let error = store.publishError {
@@ -247,6 +258,19 @@ struct CreationStudioView: View {
                         .frame(minWidth: 44, minHeight: 44)
                     }
                     .disabled(!store.capabilities.toolEnabled(.photo))
+                    if store.capabilities.toolEnabled(.photo), UIImagePickerController.isSourceTypeAvailable(.camera) {
+                        Button {
+                            showsCamera = true
+                        } label: {
+                            VStack(spacing: 4) {
+                                Image(systemName: "camera")
+                                Text("Camera").font(.caption2)
+                            }
+                            .frame(minWidth: 44, minHeight: 44)
+                        }
+                        .accessibilityLabel("Camera")
+                        .accessibilityIdentifier("compose.tool.camera")
+                    }
                 },
                 videoPicker: {
                     PhotosPicker(selection: $videoPickerItems, maxSelectionCount: 1, matching: .videos) {
@@ -264,6 +288,15 @@ struct CreationStudioView: View {
             )
             .fontDesign(.default)
             .accessibilitySortPriority(40)
+            .fullScreenCover(isPresented: $showsCamera) {
+                ModulaCameraCaptureView(
+                    onCapture: { data, mimeType in
+                        showsCamera = false
+                        Task { await store.attachCapturedPhoto(data, mimeType: mimeType) }
+                    },
+                    onClose: { showsCamera = false }
+                )
+            }
         }
     }
 
@@ -289,6 +322,9 @@ struct CreationStudioView: View {
         ))
         .font(.body)
         .fontDesign(app.appearance.fontDesign)
+        // Settings → Keyboard.
+        .autocorrectionDisabled(!ModulaPreferences.composerAutocorrect)
+        .textInputAutocapitalization(ModulaPreferences.composerAutoCapitalise ? .sentences : .never)
         .scrollContentBackground(.hidden)
         .frame(minHeight: 180)
         .focused($editorFocused)
@@ -393,6 +429,10 @@ struct CreationStudioView: View {
         app.home.ingestPublished(post)
         app.profile.ingestPublished(post)
         close()
+        // Settings → Creator → "Show insights tip after publish".
+        if ModulaPreferences.creatorShowsInsightsHint {
+            app.navigation.flash("Posted. See how it does in Settings → Creator → Insights.", symbol: "chart.line.uptrend.xyaxis")
+        }
     }
 
     private func startPublishing(_ store: CreationStudioStore) {

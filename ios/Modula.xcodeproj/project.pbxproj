@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		A03200000000000000000008 /* ModulaAttachmentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000008 /* ModulaAttachmentPicker.swift */; };
 		A03200000000000000000007 /* POST03Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000007 /* POST03Tests.swift */; };
+		R50100000000000000000050 /* SettingsRealFeaturesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000050 /* SettingsRealFeaturesTests.swift */; };
 		Q50100000000000000000006 /* SettingsServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = Q40100000000000000000006 /* SettingsServiceTests.swift */; };
 		A03200000000000000000001 /* ModulaAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000001 /* ModulaAttachment.swift */; };
 		A03200000000000000000002 /* AttachmentDownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000002 /* AttachmentDownloadManager.swift */; };
@@ -286,6 +287,19 @@
 		6ACC1709897F66B0E80839F2 /* ModuleSecurityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFC9EF1CC67951AB29E6F94B /* ModuleSecurityTests.swift */; };
 		8847C56025B5FF23E6A2F4CB /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 6D9171C8595DD0F57E983884 /* Localizable.xcstrings */; };
 		5900B968FE1D07B3EE4DAEA0 /* LocalizationCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04756B524E52AA56A61D2E0D /* LocalizationCatalogTests.swift */; };
+		R50100000000000000000020 /* SettingsDecisionPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000020 /* SettingsDecisionPages.swift */; };
+		R50100000000000000000012 /* DownloadedMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000012 /* DownloadedMedia.swift */; };
+		R50100000000000000000011 /* SettingsNotificationPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000011 /* SettingsNotificationPages.swift */; };
+		R50100000000000000000010 /* SettingsCreatorPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000010 /* SettingsCreatorPages.swift */; };
+		R50100000000000000000009 /* SettingsAccountPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000009 /* SettingsAccountPages.swift */; };
+		R50100000000000000000008 /* SettingsRemoteModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000008 /* SettingsRemoteModels.swift */; };
+		R50100000000000000000007 /* ModulaCameraCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000007 /* ModulaCameraCapture.swift */; };
+		R50100000000000000000006 /* ModulaRuntimePreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000006 /* ModulaRuntimePreferences.swift */; };
+		R50100000000000000000005 /* ModulaFocusFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000005 /* ModulaFocusFilter.swift */; };
+		R50100000000000000000004 /* PostTranslation.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000004 /* PostTranslation.swift */; };
+		R50100000000000000000003 /* PostSharing.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000003 /* PostSharing.swift */; };
+		R50100000000000000000002 /* MessageInlineContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000002 /* MessageInlineContent.swift */; };
+		R50100000000000000000001 /* ModulaPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000001 /* ModulaPreferences.swift */; };
 		Q50100000000000000000004 /* ModulaSurfaceEffects.metal in Sources */ = {isa = PBXBuildFile; fileRef = Q40100000000000000000004 /* ModulaSurfaceEffects.metal */; };
 		Q50100000000000000000003 /* ModulaSurfaceEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = Q40100000000000000000003 /* ModulaSurfaceEffects.swift */; };
 		Q50100000000000000000002 /* SettingsServiceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = Q40100000000000000000002 /* SettingsServiceModels.swift */; };
@@ -315,6 +329,7 @@
 /* Begin PBXFileReference section */
 		A03100000000000000000008 /* ModulaAttachmentPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaAttachmentPicker.swift; path = Features/Media/ModulaAttachmentPicker.swift; sourceTree = "<group>"; };
 		A03100000000000000000007 /* POST03Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = POST03Tests.swift; sourceTree = "<group>"; };
+		R40100000000000000000050 /* SettingsRealFeaturesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsRealFeaturesTests.swift; sourceTree = "<group>"; };
 		Q40100000000000000000006 /* SettingsServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsServiceTests.swift; sourceTree = "<group>"; };
 		A03100000000000000000001 /* ModulaAttachment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaAttachment.swift; path = Features/Media/ModulaAttachment.swift; sourceTree = "<group>"; };
 		A03100000000000000000002 /* AttachmentDownloadManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AttachmentDownloadManager.swift; path = Features/Media/AttachmentDownloadManager.swift; sourceTree = "<group>"; };
@@ -596,6 +611,19 @@
 		BFC9EF1CC67951AB29E6F94B /* ModuleSecurityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModuleSecurityTests.swift; sourceTree = "<group>"; };
 		6D9171C8595DD0F57E983884 /* Localizable.xcstrings */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		04756B524E52AA56A61D2E0D /* LocalizationCatalogTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LocalizationCatalogTests.swift; sourceTree = "<group>"; };
+		R40100000000000000000020 /* SettingsDecisionPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsDecisionPages.swift; path = Features/Settings/Real/SettingsDecisionPages.swift; sourceTree = "<group>"; };
+		R40100000000000000000012 /* DownloadedMedia.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DownloadedMedia.swift; path = Features/Media/DownloadedMedia.swift; sourceTree = "<group>"; };
+		R40100000000000000000011 /* SettingsNotificationPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsNotificationPages.swift; path = Features/Settings/Real/SettingsNotificationPages.swift; sourceTree = "<group>"; };
+		R40100000000000000000010 /* SettingsCreatorPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsCreatorPages.swift; path = Features/Settings/Real/SettingsCreatorPages.swift; sourceTree = "<group>"; };
+		R40100000000000000000009 /* SettingsAccountPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsAccountPages.swift; path = Features/Settings/Real/SettingsAccountPages.swift; sourceTree = "<group>"; };
+		R40100000000000000000008 /* SettingsRemoteModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsRemoteModels.swift; path = Features/Settings/Real/SettingsRemoteModels.swift; sourceTree = "<group>"; };
+		R40100000000000000000007 /* ModulaCameraCapture.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaCameraCapture.swift; path = Features/Creation/Media/ModulaCameraCapture.swift; sourceTree = "<group>"; };
+		R40100000000000000000006 /* ModulaRuntimePreferences.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaRuntimePreferences.swift; path = App/ModulaRuntimePreferences.swift; sourceTree = "<group>"; };
+		R40100000000000000000005 /* ModulaFocusFilter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaFocusFilter.swift; path = Features/SystemIntegration/ModulaFocusFilter.swift; sourceTree = "<group>"; };
+		R40100000000000000000004 /* PostTranslation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostTranslation.swift; path = Features/Social/PostTranslation.swift; sourceTree = "<group>"; };
+		R40100000000000000000003 /* PostSharing.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostSharing.swift; path = Features/Social/PostSharing.swift; sourceTree = "<group>"; };
+		R40100000000000000000002 /* MessageInlineContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessageInlineContent.swift; path = Features/Messages/MessageInlineContent.swift; sourceTree = "<group>"; };
+		R40100000000000000000001 /* ModulaPreferences.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaPreferences.swift; path = Core/Preferences/ModulaPreferences.swift; sourceTree = "<group>"; };
 		Q40100000000000000000004 /* ModulaSurfaceEffects.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = ModulaSurfaceEffects.metal; path = DesignSystem/ModulaSurfaceEffects.metal; sourceTree = "<group>"; };
 		Q40100000000000000000003 /* ModulaSurfaceEffects.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaSurfaceEffects.swift; path = DesignSystem/ModulaSurfaceEffects.swift; sourceTree = "<group>"; };
 		Q40100000000000000000002 /* SettingsServiceModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsServiceModels.swift; path = Features/Settings/SettingsServiceModels.swift; sourceTree = "<group>"; };
@@ -658,6 +686,7 @@
 			isa = PBXGroup;
 			children = (
 				A03100000000000000000007 /* POST03Tests.swift */,
+				R40100000000000000000050 /* SettingsRealFeaturesTests.swift */,
 				Q40100000000000000000006 /* SettingsServiceTests.swift */,
 				N40100000000000000000012 /* N4CTests.swift */,
 				V40100000000000000000003 /* ModuleVersionSwitchTests.swift */,
@@ -836,6 +865,19 @@
 				H40100000000000000000004 /* SettingsMorePages.swift */,
 				H40100000000000000000005 /* SettingsExtraPages.swift */,
 				S40100000000000000000001 /* SettingsVisualSystem.swift */,
+				R40100000000000000000020 /* SettingsDecisionPages.swift */,
+				R40100000000000000000012 /* DownloadedMedia.swift */,
+				R40100000000000000000011 /* SettingsNotificationPages.swift */,
+				R40100000000000000000010 /* SettingsCreatorPages.swift */,
+				R40100000000000000000009 /* SettingsAccountPages.swift */,
+				R40100000000000000000008 /* SettingsRemoteModels.swift */,
+				R40100000000000000000007 /* ModulaCameraCapture.swift */,
+				R40100000000000000000006 /* ModulaRuntimePreferences.swift */,
+				R40100000000000000000005 /* ModulaFocusFilter.swift */,
+				R40100000000000000000004 /* PostTranslation.swift */,
+				R40100000000000000000003 /* PostSharing.swift */,
+				R40100000000000000000002 /* MessageInlineContent.swift */,
+				R40100000000000000000001 /* ModulaPreferences.swift */,
 				Q40100000000000000000004 /* ModulaSurfaceEffects.metal */,
 				Q40100000000000000000003 /* ModulaSurfaceEffects.swift */,
 				Q40100000000000000000002 /* SettingsServiceModels.swift */,
@@ -1261,6 +1303,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A03200000000000000000007 /* POST03Tests.swift in Sources */,
+				R50100000000000000000050 /* SettingsRealFeaturesTests.swift in Sources */,
 				Q50100000000000000000006 /* SettingsServiceTests.swift in Sources */,
 				C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */,
 				5900B968FE1D07B3EE4DAEA0 /* LocalizationCatalogTests.swift in Sources */,
@@ -1372,6 +1415,19 @@
 				H50100000000000000000004 /* SettingsMorePages.swift in Sources */,
 				H50100000000000000000005 /* SettingsExtraPages.swift in Sources */,
 				S50100000000000000000001 /* SettingsVisualSystem.swift in Sources */,
+				R50100000000000000000020 /* SettingsDecisionPages.swift in Sources */,
+				R50100000000000000000012 /* DownloadedMedia.swift in Sources */,
+				R50100000000000000000011 /* SettingsNotificationPages.swift in Sources */,
+				R50100000000000000000010 /* SettingsCreatorPages.swift in Sources */,
+				R50100000000000000000009 /* SettingsAccountPages.swift in Sources */,
+				R50100000000000000000008 /* SettingsRemoteModels.swift in Sources */,
+				R50100000000000000000007 /* ModulaCameraCapture.swift in Sources */,
+				R50100000000000000000006 /* ModulaRuntimePreferences.swift in Sources */,
+				R50100000000000000000005 /* ModulaFocusFilter.swift in Sources */,
+				R50100000000000000000004 /* PostTranslation.swift in Sources */,
+				R50100000000000000000003 /* PostSharing.swift in Sources */,
+				R50100000000000000000002 /* MessageInlineContent.swift in Sources */,
+				R50100000000000000000001 /* ModulaPreferences.swift in Sources */,
 				Q50100000000000000000004 /* ModulaSurfaceEffects.metal in Sources */,
 				Q50100000000000000000003 /* ModulaSurfaceEffects.swift in Sources */,
 				Q50100000000000000000002 /* SettingsServiceModels.swift in Sources */,

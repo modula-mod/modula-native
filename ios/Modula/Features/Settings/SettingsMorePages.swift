@@ -32,7 +32,7 @@ struct CameraSettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Saved on this device. Camera access is managed in iOS Settings.")
+                SettingsAPIFootnote(text: "Used by the composer camera (Camera in the post tool bar). Camera access is managed in iOS Settings.")
             }
             .navigationTitle("Camera")
             .navigationBarTitleDisplayMode(.inline)
@@ -96,7 +96,7 @@ struct GesturesSettingsHost: View {
                     Toggle("Swipe to reply in chats", isOn: $swipeReply)
                     Toggle("Shake to undo compose", isOn: $shakeUndo)
                 }
-                SettingsAPIFootnote(text: "Saved on this device. Edge Picker options are in Appearance.")
+                SettingsAPIFootnote(text: "Double-tap likes posts with photos or video. Swipe right on a chat bubble to quote it in your reply. Shake to undo works in Modula’s text fields. Edge Picker options are in Appearance.")
             }
             .navigationTitle("Gestures")
             .navigationBarTitleDisplayMode(.inline)
@@ -125,7 +125,7 @@ struct FinderSettingsHost: View {
                     Toggle("Include modules in results", isOn: $includeModules)
                     Toggle("Prefer people first", isOn: $peopleFirst)
                 }
-                SettingsAPIFootnote(text: "Saved on this device.")
+                SettingsAPIFootnote(text: "Applies to the All results in Search. The Modules tab always shows modules.")
             }
             .navigationTitle("Search")
             .navigationBarTitleDisplayMode(.inline)
@@ -156,7 +156,7 @@ struct SharingSettingsHost: View {
                     Toggle("Copy link instead of opening sheet", isOn: $copyAsLink)
                         .settingsAnchor("sharing.link")
                 }
-                SettingsAPIFootnote(text: "Saved on this device.")
+                SettingsAPIFootnote(text: "Used when you share a post from Home or a post page. Copy link wins over the share sheet.")
             }
             .navigationTitle("Sharing")
             .navigationBarTitleDisplayMode(.inline)
@@ -277,11 +277,11 @@ struct LabsSettingsHost: View {
                 SettingsHeroBanner(title: "Labs", subtitle: "Optional experiments on this device — not the Features registry.", symbol: "flask")
                 SettingsSceneGraphic(style: .pulse)
                 SettingsToggleCard {
-                    Toggle("Experimental chrome sketches", isOn: $experimentalChrome)
-                    Toggle("Debug overlays", isOn: $debugOverlays)
-                    Toggle("Verbose local logging", isOn: $verboseLogging)
+                    Toggle("Experimental bottom chrome", isOn: $experimentalChrome)
+                    Toggle("Debug overlay", isOn: $debugOverlays)
+                    Toggle("Verbose network logging", isOn: $verboseLogging)
                 }
-                SettingsAPIFootnote(text: "Experimental options, saved on this device. They may change or go away.")
+                SettingsAPIFootnote(text: "Experimental bottom chrome swaps the system tab bar for Modula’s floating bar. The debug overlay shows route, network, power and motion state. Verbose logging writes request method, path, status and timing (never headers or content) to the device log.")
             }
             .navigationTitle("Labs")
             .navigationBarTitleDisplayMode(.inline)
@@ -304,8 +304,8 @@ struct PhotosSettingsHost: View {
                 SettingsHeroBanner(title: "Photos", subtitle: "Library access and save behaviour.", symbol: "photo.on.rectangle")
                 SettingsSceneGraphic(style: .filmstrip)
                 SettingsToggleCard {
-                    Toggle("Offer to save Stories to Photos", isOn: $autoSaveStories)
-                    Toggle("Explain Limited Library", isOn: $limitedHint)
+                    Toggle("Save Stories you post to Photos", isOn: $autoSaveStories)
+                    Toggle("Explain photo access in the composer", isOn: $limitedHint)
                 }
                 Button("Open iOS Photos access") {
                     if let url = URL(string: UIApplication.openSettingsURLString) {
@@ -313,7 +313,7 @@ struct PhotosSettingsHost: View {
                     }
                 }
                 .buttonStyle(.bordered)
-                SettingsAPIFootnote(text: "Photo access is managed in iOS Settings. These options only change Modula’s prompts.")
+                SettingsAPIFootnote(text: "Modula picks photos through the iOS picker, so it never needs your whole library. Saving Stories asks for add-only access the first time.")
             }
             .navigationTitle("Photos")
             .navigationBarTitleDisplayMode(.inline)
@@ -343,6 +343,9 @@ struct NetworkSettingsHost: View {
                     Toggle("Prefer Wi‑Fi for large uploads", isOn: $preferWiFi)
                     Toggle("Preload media on Wi‑Fi", isOn: $preload)
                 }
+                Text("Uploads over 25 MB wait for Wi‑Fi on cellular or Low Data Mode. With preload on, videos in your feed download ahead of time on Wi‑Fi only.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 SettingsGroup(title: "Related") {
                     VStack(spacing: 0) {
                         SettingsNavigationRow(title: "Battery & Data", subtitle: "Data saver", symbol: "battery.100.bolt") {
@@ -362,23 +365,11 @@ struct NetworkSettingsHost: View {
 
 struct DigestsSettingsHost: View {
     let route: DigestsSettingsRoute
-    @AppStorage("settings.digests.weekly") private var weekly = false
-    @AppStorage("settings.digests.morning") private var morning = false
 
     var body: some View {
         switch route {
         case .root:
-            SettingsScrollCanvas {
-                SettingsHeroBanner(title: "Digests", subtitle: "Email and push summaries when delivery exists.", symbol: "envelope.open")
-                SettingsSceneGraphic(style: .waves)
-                SettingsToggleCard {
-                    Toggle("Weekly recap (when available)", isOn: $weekly)
-                    Toggle("Morning brief (when available)", isOn: $morning)
-                }
-                SettingsAPIFootnote(text: "Your choice is saved, but digests aren’t being sent yet.")
-            }
-            .navigationTitle("Digests")
-            .navigationBarTitleDisplayMode(.inline)
+            DigestsSettingsView()
         }
     }
 }

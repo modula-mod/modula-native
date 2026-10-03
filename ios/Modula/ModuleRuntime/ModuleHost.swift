@@ -17,7 +17,7 @@ struct ModuleHost: View {
                           contrastPreference: app.appearance.contrastTransparency == .higherContrast ? "higherContrast" : "standard",
                           transparencyPreference: app.appearance.contrastTransparency == .reduceTransparency ? "reduceTransparency" : "standard",
                           iconStyle: app.appearance.iconStyle.rawValue, interfaceShape: app.appearance.interfaceShape.rawValue,
-                          moduleBranding: app.appearance.moduleBranding.rawValue, reduceMotion: reduceMotion,
+                          moduleBranding: app.appearance.moduleBranding.rawValue, reduceMotion: reduceMotion || ModulaPreferences.extraMotionReduction,
                           textScale: textScale * app.appearance.textSize.scale)
     }
     private var palette: ModulaPalette { ModulaPalette.resolve(app.appearance, scheme: scheme) }

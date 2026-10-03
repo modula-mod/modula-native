@@ -179,69 +179,11 @@ struct NotificationSettingsHost: View {
         case .push:
             PushAuthorizationView()
         case .social:
-            SettingsDesignedUnavailableCanvas(
-                title: "Social Notifications",
-                subtitle: "Reactions, comments, follows, mentions.",
-                symbol: "heart",
-                tiles: [
-                    ("Reactions", "When people react", "face.smiling"),
-                    ("Comments", "Replies on your posts", "text.bubble"),
-                    ("Follows", "New followers", "person.badge.plus"),
-                    ("Mentions", "When you’re tagged", "at")
-                ],
-                previewRows: [
-                    ("All social", "Master toggle", "bell.badge"),
-                    ("Digest", "Daily summary", "calendar")
-                ],
-                apiNote: SettingsRegistry.destination(for: .notifications(.social))?.unavailableReason
-                    ?? "This setting isn’t available yet.",
-                alternatives: [
-                    ("Push notifications", "Allow or review iOS permission", "bell.badge", .notifications(.push))
-                ]
-            )
+            NotificationCategoriesView(scope: .social)
         case .modules:
-            SettingsDesignedUnavailableCanvas(
-                title: "Module Notifications",
-                subtitle: "Updates and module activity alerts.",
-                symbol: "shippingbox",
-                tiles: [
-                    ("Updates", "New versions", "arrow.triangle.2.circlepath"),
-                    ("Activity", "Module events", "bolt"),
-                    ("Permissions", "Grant requests", "switch.2"),
-                    ("Security", "Runtime warnings", "lock.shield")
-                ],
-                previewRows: [
-                    ("Installed only", "Limit to installed", "checkmark.circle"),
-                    ("Quiet", "Collapse into digest", "moon")
-                ],
-                apiNote: SettingsRegistry.destination(for: .notifications(.modules))?.unavailableReason
-                    ?? "Module notification settings aren’t available yet.",
-                alternatives: [
-                    ("Push notifications", "Allow or review iOS permission", "bell.badge", .notifications(.push)),
-                    ("Modules", "Installed modules and permissions", "shippingbox", .modules(.root))
-                ]
-            )
+            NotificationCategoriesView(scope: .modules)
         case .quietHours:
-            SettingsDesignedUnavailableCanvas(
-                title: "Quiet Hours",
-                subtitle: "Pause delivery overnight.",
-                symbol: "moon.zzz",
-                tiles: [
-                    ("Starts", "Local evening", "sunset"),
-                    ("Ends", "Local morning", "sunrise"),
-                    ("Allowlist", "Critical only", "star"),
-                    ("Focus", "Respect iOS Focus", "moon.stars")
-                ],
-                previewRows: [
-                    ("Schedule", "Weekdays / weekends", "calendar"),
-                    ("Override", "Mentions still deliver", "bell")
-                ],
-                apiNote: SettingsRegistry.destination(for: .notifications(.quietHours))?.unavailableReason
-                    ?? "Dispatcher not available.",
-                alternatives: [
-                    ("Push notifications", "Allow or review iOS permission", "bell.badge", .notifications(.push))
-                ]
-            )
+            QuietHoursSettingsView()
         }
     }
 }
@@ -402,26 +344,7 @@ struct PrivacySecurityHost: View {
                 ]
             )
         case .blocked:
-            SettingsDesignedUnavailableCanvas(
-                title: "Blocked Accounts",
-                subtitle: "People you’ve blocked.",
-                symbol: "nosign",
-                tiles: [
-                    ("People", "Blocked profiles", "person.crop.circle.badge.xmark"),
-                    ("Modules", "Blocked modules", "shippingbox"),
-                    ("Import", "From other apps", "square.and.arrow.down"),
-                    ("Export", "Your block list", "square.and.arrow.up")
-                ],
-                previewRows: [
-                    ("Search blocked", "Find someone", "magnifyingglass"),
-                    ("Unblock", "Restore access", "arrow.uturn.backward")
-                ],
-                apiNote: SettingsRegistry.destination(for: .privacy(.blocked))?.unavailableReason
-                    ?? "Your blocked accounts list isn’t available yet.",
-                alternatives: [
-                    ("Contact support", "Report someone who is bothering you", "shield.lefthalf.filled", .help(.contact))
-                ]
-            )
+            RelationshipListView(kind: .blocked)
         case .appLock:
             AppLockSettingsView()
         case .biometrics:
@@ -806,9 +729,7 @@ struct DataStorageHost: View {
             .modulaSoftScrollEdge()
             .navigationTitle("Cache")
         case .downloads:
-            ContentUnavailableView("No downloaded content", systemImage: "arrow.down.to.line", description: Text("Downloaded content will appear here."))
-                .modulaSoftScrollEdge()
-                .navigationTitle("Downloads")
+            MediaDownloadsView()
         case .export:
             AccountDataExportView()
         case .backup:

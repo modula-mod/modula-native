@@ -74,7 +74,8 @@ final class SettingsRouteTests: XCTestCase {
         XCTAssertFalse(rows.contains { $0.status == "PLACEHOLDER" })
         XCTAssertTrue(rows.contains { $0.route == "/settings/privacy-security/app-lock" && $0.status == "IMPLEMENTED" })
         XCTAssertTrue(rows.contains { $0.route == "/settings/privacy-security/biometrics" && $0.status == "IMPLEMENTED" })
-        XCTAssertTrue(rows.contains { $0.title == "Quiet Hours" && $0.status == "CAPABILITY-UNAVAILABLE" })
+        XCTAssertTrue(rows.contains { $0.title == "Quiet Hours" && $0.status == "IMPLEMENTED" })
+        XCTAssertTrue(rows.contains { $0.title == "Email" && $0.status == "CAPABILITY-UNAVAILABLE" })
     }
 
     func testSearchOpensTypedRoute() {

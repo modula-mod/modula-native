@@ -228,7 +228,8 @@ struct ConversationRow: View {
     }()
 
     @MainActor static func relative(_ date: Date) -> String {
-        relativeFormatter.localizedString(for: date, relativeTo: Date())
+        guard ModulaPreferences.relativeTimestamps else { return ModulaTimeFormat.absolute(date) }
+        return relativeFormatter.localizedString(for: date, relativeTo: Date())
     }
 }
 
@@ -395,6 +396,16 @@ struct ConversationView: View {
             HapticEngine.shared.play(.confirmation)
         case "retry":
             Task { await app.messaging.retry(message: message, viewer: viewer) }
+        case "reply":
+            // Swipe-to-reply (Settings → Gestures): quote the message into the composer.
+            let quoted = message.body.text
+                .split(separator: "\n", omittingEmptySubsequences: false)
+                .prefix(3)
+                .map { "> " + $0 }
+                .joined(separator: "\n")
+            let existing = app.messaging.drafts[conversationID] ?? ""
+            app.messaging.drafts[conversationID] = quoted + "\n" + existing
+            HapticEngine.shared.play(.selection)
         default:
             break
         }
@@ -461,13 +472,17 @@ struct MessageBubble: View {
                     .padding(.vertical, 10)
                     .background(bubbleFill, in: bubbleShape)
                     .foregroundStyle(message.isOwn ? Color.white : Color.primary)
+                if let attachment = MessageInlineContent.detect(in: message.body.text) {
+                    MessageInlineContentView(content: attachment)
+                }
                 HStack(spacing: 8) {
                     if message.delivery == .failed {
                         Button("Retry") { onAction(.init(id: "retry", title: "Retry")) }
                             .font(.caption.weight(.semibold))
                             .frame(minHeight: ModulaLayout.minimumTouch)
                             .contentShape(Rectangle())
-                    } else if app.messaging.capabilities.readReceipts, message.isOwn, message.delivery == .read {
+                    } else if app.messaging.capabilities.readReceipts, ModulaPreferences.chatShowReadReceipts,
+                              message.isOwn, message.delivery == .read {
                         Text("Read")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
@@ -476,6 +491,17 @@ struct MessageBubble: View {
             }
             if !message.isOwn { Spacer(minLength: 48) }
         }
+        .offset(x: replyOffset)
+        .background(alignment: .leading) {
+            if replyOffset > 8 {
+                Image(systemName: "arrowshape.turn.up.left.fill")
+                    .foregroundStyle(.secondary)
+                    .opacity(min(1, replyOffset / Self.replyThreshold))
+                    .padding(.leading, 4)
+                    .accessibilityHidden(true)
+            }
+        }
+        .simultaneousGesture(swipeToReply)
         .modulaContextMenu(actions: actions, onSelect: onAction)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
@@ -485,8 +511,33 @@ struct MessageBubble: View {
                 Button("Retry") { onAction(.init(id: "retry", title: "Retry")) }
             }
             Button("Copy") { onAction(.init(id: "copy", title: "Copy")) }
+            Button("Reply") { onAction(.init(id: "reply", title: "Reply")) }
         }
         .accessibilityIdentifier("messages.bubble.\(message.id)")
+    }
+
+    @State private var replyOffset: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private static let replyThreshold: CGFloat = 64
+
+    /// Settings → Gestures → "Swipe to reply in chats". Horizontal drags only, so the
+    /// thread still scrolls vertically; under Reduce Motion the bubble doesn't follow
+    /// the finger but the gesture still quotes the message.
+    private var swipeToReply: some Gesture {
+        DragGesture(minimumDistance: 18)
+            .onChanged { value in
+                guard ModulaPreferences.swipeToReply,
+                      value.translation.width > 0,
+                      abs(value.translation.width) > abs(value.translation.height) * 1.6 else { return }
+                if !reduceMotion { replyOffset = min(value.translation.width, Self.replyThreshold * 1.3) }
+            }
+            .onEnded { value in
+                let triggered = ModulaPreferences.swipeToReply
+                    && value.translation.width >= Self.replyThreshold
+                    && abs(value.translation.width) > abs(value.translation.height) * 1.6
+                withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8)) { replyOffset = 0 }
+                if triggered { onAction(.init(id: "reply", title: "Reply")) }
+            }
     }
 
     /// Large outer corners, tighter corners where bubbles of a run meet.
@@ -532,7 +583,7 @@ struct MessageBubble: View {
         var parts = [who, time, message.body.text]
         if message.delivery == .failed { parts.append("Failed to send") }
         if message.delivery == .sending { parts.append("Sending") }
-        if app.messaging.capabilities.readReceipts, message.delivery == .read { parts.append("Read") }
+        if app.messaging.capabilities.readReceipts, ModulaPreferences.chatShowReadReceipts, message.delivery == .read { parts.append("Read") }
         return parts.joined(separator: ", ")
     }
 }

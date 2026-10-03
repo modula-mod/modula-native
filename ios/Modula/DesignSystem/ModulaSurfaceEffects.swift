@@ -18,7 +18,9 @@ enum ModulaSurfaceClock {
 struct ModulaHeroSheenModifier: ViewModifier {
     var intensity: Double = 1
     var isActive: Bool = true
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    /// System Reduce Motion or Settings → Battery & Data → Extra motion reduction.
+    private var reduceMotion: Bool { systemReduceMotion || ModulaPreferences.extraMotionReduction }
 
     func body(content: Content) -> some View {
         let animate = isActive && !reduceMotion
@@ -53,7 +55,9 @@ extension View {
 struct ModulaRadarScope: View {
     var tint: Color
     var energy: Double
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    /// System Reduce Motion or Settings → Battery & Data → Extra motion reduction.
+    private var reduceMotion: Bool { systemReduceMotion || ModulaPreferences.extraMotionReduction }
 
     var body: some View {
         let animate = energy > 0 && !reduceMotion
@@ -80,7 +84,9 @@ struct ModulaRadarScope: View {
 
 struct ModulaTapRippleModifier: ViewModifier {
     var amplitude: Double
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    /// System Reduce Motion or Settings → Battery & Data → Extra motion reduction.
+    private var reduceMotion: Bool { systemReduceMotion || ModulaPreferences.extraMotionReduction }
     @State private var origin: CGPoint = .zero
     @State private var trigger = 0
 

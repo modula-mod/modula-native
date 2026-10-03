@@ -117,9 +117,10 @@ struct DiscoverScreen: View {
         default:
             if let dashboard = state.dashboard {
                 DiscoverDashboardView(
-                    dashboard: dashboard,
+                    dashboard: Self.personalised(dashboard),
                     previewPosts: state.previewPosts,
-                    featuredProducts: featuredProducts,
+                    // Settings → Personalisation → Recommendations → "Suggested modules".
+                    featuredProducts: ModulaPreferences.showsModuleSuggestions ? featuredProducts : [],
                     installedIDs: app.catalogue.installedIDs,
                     followBusyID: app.discover.followBusyID,
                     onTopic: openTopic,
@@ -274,6 +275,19 @@ struct DiscoverScreen: View {
             DiscoverSkeleton(kind: .post)
             DiscoverSkeleton(kind: .module)
         }
+    }
+
+    /// Settings → Personalisation → Recommendations: drop suggested people / modules
+    /// from Trending when switched off. Search and the People/Modules tabs still work.
+    static func personalised(
+        _ dashboard: DiscoverDashboard,
+        suggestedPeople: Bool = ModulaPreferences.showsSuggestedPeople,
+        moduleSuggestions: Bool = ModulaPreferences.showsModuleSuggestions
+    ) -> DiscoverDashboard {
+        var copy = dashboard
+        if !suggestedPeople { copy.people = [] }
+        if !moduleSuggestions { copy.featuredModules = [] }
+        return copy
     }
 
     private var featuredProducts: [CatalogueProduct] {

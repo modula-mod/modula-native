@@ -24,7 +24,7 @@ enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
     }
     var defaultRoute: AppRoute {
         switch self {
-        case .home: .home(.following)
+        case .home: .home(ModulaPreferences.feedDefaultMode)
         case .discover: .discover(.trending)
         case .modules: .productHub(.featured)
         case .activity: .activity(.all)

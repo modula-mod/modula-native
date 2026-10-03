@@ -22,6 +22,7 @@ struct PostCard: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.trailingInteractionInset) private var trailingInteractionInset
+    @State private var heartBurst = 0
 
     private var resolved: SocialPost {
         app.posts.resolved(post)
@@ -62,6 +63,17 @@ struct PostCard: View {
             )
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
+            // Settings → Gestures → "Double-tap to like". Simultaneous so single taps
+            // (video play/pause, open media) are never delayed.
+            .simultaneousGesture(TapGesture(count: 2).onEnded {
+                guard ModulaPreferences.doubleTapToLike, post.hasMedia else { return }
+                if !post.liked { onLike() }
+                HapticEngine.shared.play(.lightImpact)
+                heartBurst += 1
+            })
+            .overlay {
+                DoubleTapHeartBurst(trigger: heartBurst)
+            }
             .overlay(alignment: .trailing) {
                 if usesRail {
                     PostActionRail(
@@ -292,7 +304,6 @@ struct PostBody: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let collapseThreshold = 280
 
     var body: some View {
         if let text = post.text, !text.isEmpty {
@@ -300,7 +311,7 @@ struct PostBody: View {
                 Text(PostTextLinks.attributed(displayedText(text)))
                     .font(bodyFont)
                     .foregroundStyle(.primary)
-                    .lineSpacing(4)
+                    .lineSpacing(captionSize.lineSpacing)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityLabel(text)
@@ -320,7 +331,18 @@ struct PostBody: View {
                     .foregroundStyle(app.appearance.accent.color)
                     .accessibilityLabel(expanded ? "Show less" : "Show more")
                 }
+                PostTranslationControl(text: text)
             }
+        }
+    }
+
+    /// Settings → Personalisation → Captions.
+    private var captionSize: ModulaPreferences.CaptionSize { ModulaPreferences.captionSize }
+    private var collapseThreshold: Int {
+        switch captionSize {
+        case .compact: 180
+        case .standard: 280
+        case .comfortable: 420
         }
     }
 
@@ -331,7 +353,7 @@ struct PostBody: View {
     }
 
     private var bodyFont: Font {
-        .system(.body, design: app.appearance.fontDesign)
+        .system(captionSize == .compact ? .subheadline : .body, design: app.appearance.fontDesign)
     }
 }
 
@@ -605,6 +627,44 @@ enum PostRendererRegistry {
                 },
                 onOpenModule: onOpenModule
             )
+        }
+    }
+}
+
+/// Heart that pops over media after a double-tap like. Reduce Motion (system or
+/// Settings → Battery & Data → Extra motion reduction) swaps the pop for a fade.
+struct DoubleTapHeartBurst: View {
+    let trigger: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var visible = false
+
+    var body: some View {
+        Image(systemName: "heart.fill")
+            .font(.system(size: 88, weight: .bold))
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.35), radius: 14, y: 4)
+            .scaleEffect(visible ? 1 : (calm ? 1 : 0.4))
+            .opacity(visible ? 1 : 0)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+            .onChange(of: trigger) { _, _ in
+                withAnimation(calm ? .easeOut(duration: 0.15) : .spring(response: 0.28, dampingFraction: 0.55)) { visible = true }
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(650))
+                    withAnimation(.easeOut(duration: 0.25)) { visible = false }
+                }
+            }
+    }
+
+    private var calm: Bool { reduceMotion || ModulaPreferences.extraMotionReduction }
+}
+
+extension ModulaPreferences.CaptionSize {
+    var lineSpacing: CGFloat {
+        switch self {
+        case .compact: 2
+        case .standard: 4
+        case .comfortable: 7
         }
     }
 }
