@@ -117,4 +117,34 @@ final class SettingsServiceTests: XCTestCase {
         XCTAssertEqual(SettingsRegistry.destination(for: .dataStorage(.export))?.availability, .implemented)
         XCTAssertTrue(SettingsRegistry.search(query: "support", includeDeveloper: false).contains { $0.route == .help(.contact) })
     }
+
+    func testLegalRoutesResolveToInAppDocuments() {
+        XCTAssertEqual(RouteParser.parse("/settings/about/privacy"), .settings(.about(.privacy)))
+        XCTAssertEqual(RouteParser.parse("/settings/about/terms"), .settings(.about(.terms)))
+        XCTAssertEqual(RouteSerializer.serialize(.settings(.about(.privacy))), "/settings/about/privacy")
+        XCTAssertEqual(RouteSerializer.serialize(.settings(.about(.terms))), "/settings/about/terms")
+        for route in [SettingsRoute.about(.privacy), .about(.terms)] {
+            let destination = SettingsRegistry.destination(for: route)
+            XCTAssertEqual(destination?.availability, .implemented)
+            XCTAssertFalse(destination?.subtitle.contains("modula.digital") ?? true, "Legal pages live in the app, not on the web")
+        }
+        XCTAssertTrue(SettingsRegistry.search(query: "terms of service", includeDeveloper: false).contains { $0.route == .about(.terms) })
+    }
+
+    func testLegalDocumentsAreVersionedAndPortable() {
+        for kind in LegalDocument.Kind.allCases {
+            let document = LegalDocument.document(kind)
+            XCTAssertEqual(document.kind, kind)
+            XCTAssertFalse(document.version.isEmpty)
+            XCTAssertNotNil(document.lastUpdatedDate, "lastUpdated must be yyyy-MM-dd")
+            XCTAssertFalse(document.sections.isEmpty)
+            XCTAssertEqual(Set(document.sections.map(\.id)).count, document.sections.count, "Section ids are scroll anchors and must be unique")
+            let markdown = document.markdown
+            XCTAssertTrue(markdown.hasPrefix("# \(document.title)"))
+            XCTAssertTrue(markdown.contains(document.version))
+            XCTAssertTrue(markdown.contains(document.lastUpdated))
+            // Until owner/legal review flips the status, the draft notice must travel with every copy.
+            XCTAssertEqual(markdown.contains("DRAFT"), document.isDraft)
+        }
+    }
 }

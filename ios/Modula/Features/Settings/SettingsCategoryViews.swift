@@ -1070,10 +1070,21 @@ struct DeveloperSettingsHost: View {
 
 struct AboutSettingsHost: View {
     let route: AboutSettingsRoute
-    @Environment(\.openURL) private var openURL
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
+        switch route {
+        case .privacy:
+            // Native in-app document (owner decision: legal pages live in the app, not on the web).
+            LegalDocumentView(document: .document(.privacy))
+        case .terms:
+            LegalDocumentView(document: .document(.terms))
+        case .root, .version, .licenses:
+            aboutForm
+        }
+    }
+
+    private var aboutForm: some View {
         Form {
             switch route {
             case .root, .version:
@@ -1086,7 +1097,7 @@ struct AboutSettingsHost: View {
                     Section("Legal") {
                         Button { app.navigation.open(.settings(.about(.licenses))) } label: { Label("Licenses", systemImage: "doc.plaintext") }
                         Button { app.navigation.open(.settings(.about(.privacy))) } label: { Label("Privacy Policy", systemImage: "hand.raised") }
-                        Button { app.navigation.open(.settings(.about(.terms))) } label: { Label("Terms", systemImage: "doc.text") }
+                        Button { app.navigation.open(.settings(.about(.terms))) } label: { Label("Terms of Service", systemImage: "doc.text") }
                     }
                     .foregroundStyle(.primary)
                     Section("Service") {
@@ -1097,14 +1108,8 @@ struct AboutSettingsHost: View {
                 }
             case .licenses:
                 Text("React Native, Hermes and CocoaPods components ship under their upstream licenses in the iOS workspace. Application source is Modula.")
-            case .privacy:
-                Button("Open Privacy Policy") {
-                    if let url = URL(string: "https://modula.digital/privacy") { openURL(url) }
-                }
-            case .terms:
-                Button("Open Terms") {
-                    if let url = URL(string: "https://modula.digital/terms") { openURL(url) }
-                }
+            case .privacy, .terms:
+                EmptyView() // Rendered by LegalDocumentView above.
             }
         }
         .modulaSoftScrollEdge()

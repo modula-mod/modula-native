@@ -9,6 +9,7 @@ Updated with the settings-routes-polish branch. **Status** is the registry avail
 - **EMPTY**: honest empty or “—” state with no data source
 - **SCOPED**: unavailable in this version, shown with a plain reason and, where possible, real alternatives (no disabled “Coming soon” rows)
 - **NAV**: hub page
+- **IN-APP**: native content shipped in the app (no server or web dependency)
 - **DEV**: internal builds only
 
 | Route | Status | Reality | Title | Change |
@@ -147,10 +148,12 @@ Updated with the settings-routes-polish branch. **Status** is the registry avail
 | /settings/about | IMPLEMENTED | SYSTEM | About | Adds Legal (licenses, privacy, terms) and Service (status, what’s new) sections |
 | /settings/about/version | IMPLEMENTED | SYSTEM | Version |  |
 | /settings/about/licenses | IMPLEMENTED | NAV | Licenses |  |
-| /settings/about/privacy | IMPLEMENTED | NAV | Privacy Policy |  |
-| /settings/about/terms | IMPLEMENTED | NAV | Terms |  |
+| /settings/about/privacy | IMPLEMENTED | IN-APP | Privacy Policy | Native `LegalDocumentView`; copy in `Core/Settings/LegalDocuments.swift` (DRAFT pending owner/legal review); no longer opens modula.digital/privacy |
+| /settings/about/terms | IMPLEMENTED | IN-APP | Terms of Service | Native `LegalDocumentView`; copy in `Core/Settings/LegalDocuments.swift` (DRAFT pending owner/legal review); no longer opens modula.digital/terms |
 
-Totals: APPLIED 23, DEV 10, EMPTY 1, LIVE 11, LOCAL-ONLY 24, NAV 18, SCOPED 26, SYSTEM 23
+Totals: APPLIED 23, DEV 10, EMPTY 1, IN-APP 2, LIVE 11, LOCAL-ONLY 24, NAV 16, SCOPED 26, SYSTEM 23
+
+Legal documents are native and bundled: `LegalDocument` (`ios/Modula/Core/Settings/LegalDocuments.swift`) holds the Privacy Policy and Terms of Service with a version, last-updated date and draft status, and `markdown` renders a portable copy for the future web version. Render either with the DEBUG harness: `--debug-settings-route /settings/about/privacy` or `/settings/about/terms`.
 
 Installed module detail routes (`/settings/modules/:moduleId/…`) are LIVE, built dynamically from catalogue and HostBridge manifests.
 

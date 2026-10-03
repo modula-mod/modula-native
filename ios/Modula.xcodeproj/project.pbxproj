@@ -287,6 +287,8 @@
 		Q50100000000000000000002 /* SettingsServiceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = Q40100000000000000000002 /* SettingsServiceModels.swift */; };
 		Q50100000000000000000001 /* SettingsServiceViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = Q40100000000000000000001 /* SettingsServiceViews.swift */; };
 		Q50100000000000000000005 /* DebugSettingsHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = Q40100000000000000000005 /* DebugSettingsHarness.swift */; };
+		Q50100000000000000000007 /* LegalDocuments.swift in Sources */ = {isa = PBXBuildFile; fileRef = Q40100000000000000000007 /* LegalDocuments.swift */; };
+		Q50100000000000000000008 /* LegalDocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = Q40100000000000000000008 /* LegalDocumentView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -591,6 +593,8 @@
 		Q40100000000000000000002 /* SettingsServiceModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsServiceModels.swift; path = Features/Settings/SettingsServiceModels.swift; sourceTree = "<group>"; };
 		Q40100000000000000000001 /* SettingsServiceViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsServiceViews.swift; path = Features/Settings/SettingsServiceViews.swift; sourceTree = "<group>"; };
 		Q40100000000000000000005 /* DebugSettingsHarness.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DebugSettingsHarness.swift; path = App/DebugSettingsHarness.swift; sourceTree = "<group>"; };
+		Q40100000000000000000007 /* LegalDocuments.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LegalDocuments.swift; path = Core/Settings/LegalDocuments.swift; sourceTree = "<group>"; };
+		Q40100000000000000000008 /* LegalDocumentView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LegalDocumentView.swift; path = Features/Settings/LegalDocumentView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -827,6 +831,8 @@
 				Q40100000000000000000002 /* SettingsServiceModels.swift */,
 				Q40100000000000000000001 /* SettingsServiceViews.swift */,
 				Q40100000000000000000005 /* DebugSettingsHarness.swift */,
+				Q40100000000000000000007 /* LegalDocuments.swift */,
+				Q40100000000000000000008 /* LegalDocumentView.swift */,
 				DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */,
 				F00100000000000000000001 /* ProfileModels.swift */,
 				F00100000000000000000002 /* ProfileRepository.swift */,
@@ -1356,6 +1362,8 @@
 				Q50100000000000000000002 /* SettingsServiceModels.swift in Sources */,
 				Q50100000000000000000001 /* SettingsServiceViews.swift in Sources */,
 				Q50100000000000000000005 /* DebugSettingsHarness.swift in Sources */,
+				Q50100000000000000000007 /* LegalDocuments.swift in Sources */,
+				Q50100000000000000000008 /* LegalDocumentView.swift in Sources */,
 				G50100000000000000000006 /* TypographyPreview.swift in Sources */,
 				E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */,
 				DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */,

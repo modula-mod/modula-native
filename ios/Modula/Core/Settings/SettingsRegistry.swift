@@ -286,8 +286,8 @@ enum SettingsRegistry {
             item(.about(.root), "About", "Version, licenses and legal", "info.circle", .implemented, terms: ["about"]),
             item(.about(.version), "Version", "Bundle version and build", "number", .implemented, terms: ["version", "build"]),
             item(.about(.licenses), "Licenses", "Third-party notices", "doc.plaintext", .implemented, terms: ["licenses", "oss"]),
-            item(.about(.privacy), "Privacy Policy", "modula.digital/privacy", "hand.raised", .implemented, terms: ["privacy policy"]),
-            item(.about(.terms), "Terms", "modula.digital/terms", "doc.text", .implemented, terms: ["terms"])
+            item(.about(.privacy), "Privacy Policy", "What Modula keeps and how you control it", "hand.raised", .implemented, terms: ["privacy policy", "privacy", "data", "legal"]),
+            item(.about(.terms), "Terms of Service", "Ground rules for using Modula", "doc.text", .implemented, terms: ["terms", "terms of service", "tos", "legal"])
         ]
     }
 }
