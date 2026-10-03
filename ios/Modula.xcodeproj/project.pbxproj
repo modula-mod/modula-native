@@ -77,6 +77,9 @@
 		A50100000000000000000003 /* AppGateHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000003 /* AppGateHost.swift */; };
 		A50100000000000000000004 /* OnboardingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000004 /* OnboardingModels.swift */; };
 		A50100000000000000000005 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000005 /* OnboardingView.swift */; };
+		L50100000000000000000001 /* OnboardingLandingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = L40100000000000000000001 /* OnboardingLandingView.swift */; };
+		L50100000000000000000002 /* OnboardingLandingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = L40100000000000000000002 /* OnboardingLandingModels.swift */; };
+		L50100000000000000000003 /* OnboardingLandingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = L40100000000000000000003 /* OnboardingLandingTests.swift */; };
 		A50100000000000000000006 /* FirstRunModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000006 /* FirstRunModels.swift */; };
 		A50100000000000000000007 /* FirstRunView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000007 /* FirstRunView.swift */; };
 		A50100000000000000000008 /* AppLockModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000008 /* AppLockModels.swift */; };
@@ -399,6 +402,9 @@
 		A40100000000000000000003 /* AppGateHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppGateHost.swift; path = Core/AppGate/AppGateHost.swift; sourceTree = "<group>"; };
 		A40100000000000000000004 /* OnboardingModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingModels.swift; path = Features/Onboarding/OnboardingModels.swift; sourceTree = "<group>"; };
 		A40100000000000000000005 /* OnboardingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingView.swift; path = Features/Onboarding/OnboardingView.swift; sourceTree = "<group>"; };
+		L40100000000000000000001 /* OnboardingLandingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingLandingView.swift; path = Features/Onboarding/OnboardingLandingView.swift; sourceTree = "<group>"; };
+		L40100000000000000000002 /* OnboardingLandingModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingLandingModels.swift; path = Features/Onboarding/OnboardingLandingModels.swift; sourceTree = "<group>"; };
+		L40100000000000000000003 /* OnboardingLandingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingLandingTests.swift; sourceTree = "<group>"; };
 		A40100000000000000000006 /* FirstRunModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FirstRunModels.swift; path = Features/FirstRun/FirstRunModels.swift; sourceTree = "<group>"; };
 		A40100000000000000000007 /* FirstRunView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FirstRunView.swift; path = Features/FirstRun/FirstRunView.swift; sourceTree = "<group>"; };
 		A40100000000000000000008 /* AppLockModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppLockModels.swift; path = Core/Security/AppLockModels.swift; sourceTree = "<group>"; };
@@ -686,6 +692,7 @@
 			isa = PBXGroup;
 			children = (
 				A03100000000000000000007 /* POST03Tests.swift */,
+				L40100000000000000000003 /* OnboardingLandingTests.swift */,
 				R40100000000000000000050 /* SettingsRealFeaturesTests.swift */,
 				Q40100000000000000000006 /* SettingsServiceTests.swift */,
 				N40100000000000000000012 /* N4CTests.swift */,
@@ -838,6 +845,8 @@
 				A40100000000000000000003 /* AppGateHost.swift */,
 				A40100000000000000000004 /* OnboardingModels.swift */,
 				A40100000000000000000005 /* OnboardingView.swift */,
+				L40100000000000000000001 /* OnboardingLandingView.swift */,
+				L40100000000000000000002 /* OnboardingLandingModels.swift */,
 				A40100000000000000000006 /* FirstRunModels.swift */,
 				A40100000000000000000007 /* FirstRunView.swift */,
 				A40100000000000000000008 /* AppLockModels.swift */,
@@ -1303,6 +1312,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A03200000000000000000007 /* POST03Tests.swift in Sources */,
+				L50100000000000000000003 /* OnboardingLandingTests.swift in Sources */,
 				R50100000000000000000050 /* SettingsRealFeaturesTests.swift in Sources */,
 				Q50100000000000000000006 /* SettingsServiceTests.swift in Sources */,
 				C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */,
@@ -1344,6 +1354,8 @@
 				A50100000000000000000003 /* AppGateHost.swift in Sources */,
 				A50100000000000000000004 /* OnboardingModels.swift in Sources */,
 				A50100000000000000000005 /* OnboardingView.swift in Sources */,
+				L50100000000000000000001 /* OnboardingLandingView.swift in Sources */,
+				L50100000000000000000002 /* OnboardingLandingModels.swift in Sources */,
 				A50100000000000000000006 /* FirstRunModels.swift in Sources */,
 				A50100000000000000000007 /* FirstRunView.swift in Sources */,
 				A50100000000000000000008 /* AppLockModels.swift in Sources */,
