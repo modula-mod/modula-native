@@ -19,6 +19,15 @@ enum DebugSettingsHarness {
         guard let route = RouteParser.parse(value), case .settings = route else { return nil }
         return route
     }
+
+    /// `--debug-route /profile/andrei.modula` renders any route (signed-out real data only).
+    static var anyRoute: AppRoute? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let index = args.firstIndex(of: "--debug-route"), args.indices.contains(index + 1) else {
+            return nil
+        }
+        return RouteParser.parse(args[index + 1])
+    }
 }
 
 struct DebugSettingsHarnessView: View {
@@ -36,6 +45,8 @@ struct DebugSettingsHarnessView: View {
     private func destination(_ route: AppRoute) -> some View {
         if case .settings(let settings) = route {
             SettingsDestinationHost(route: settings)
+        } else if DebugSettingsHarness.anyRoute != nil {
+            RouteView(route: route)
         } else {
             ContentUnavailableView(
                 "Outside harness",

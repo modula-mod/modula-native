@@ -226,7 +226,7 @@ struct RootView: View {
     }
 }
 
-private struct RouteView: View {
+struct RouteView: View {
     let route: AppRoute
     var body: some View {
         destination.modulaSoftScrollEdge()

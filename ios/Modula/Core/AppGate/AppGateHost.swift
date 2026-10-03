@@ -33,7 +33,7 @@ struct AppGateHost: View {
     @ViewBuilder
     private var rootContent: some View {
         #if DEBUG
-        if let route = DebugSettingsHarness.route {
+        if let route = DebugSettingsHarness.route ?? DebugSettingsHarness.anyRoute {
             DebugSettingsHarnessView(route: route)
         } else {
             gatedContent
