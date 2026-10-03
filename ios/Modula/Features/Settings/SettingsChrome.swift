@@ -8,6 +8,8 @@ struct SettingsHeroBanner: View {
     var subtitle: String
     var symbol: String
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var appeared = false
 
     var body: some View {
         HStack(alignment: .center, spacing: 16) {
@@ -24,15 +26,19 @@ struct SettingsHeroBanner: View {
                         )
                     )
                     .frame(width: 72, height: 72)
+                    .modulaHeroSheen(intensity: 0.9)
                     .overlay {
                         Image(systemName: symbol)
                             .font(.system(size: 30, weight: .semibold))
                             .foregroundStyle(.white)
+                            .symbolEffect(.bounce.up.byLayer, value: appeared)
                     }
                     .shadow(color: app.appearance.accent.color.opacity(0.28), radius: 16, y: 8)
-                SettingsHeroSparkles()
+                    .scaleEffect(appeared || reduceMotion ? 1 : 0.86)
+                SettingsHeroSparkles(spinning: appeared && !reduceMotion)
                     .frame(width: 96, height: 96)
                     .allowsHitTesting(false)
+                    .opacity(appeared || reduceMotion ? 1 : 0)
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
@@ -42,6 +48,8 @@ struct SettingsHeroBanner: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .offset(x: appeared || reduceMotion ? 0 : 10)
+            .opacity(appeared || reduceMotion ? 1 : 0)
             Spacer(minLength: 0)
         }
         .padding(16)
@@ -54,12 +62,30 @@ struct SettingsHeroBanner: View {
                 }
         }
         .accessibilityElement(children: .combine)
+        .onAppear {
+            guard !appeared else { return }
+            withAnimation(ModulaMotion.animation(.reveal, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
+                appeared = true
+            }
+        }
     }
 }
 private struct SettingsHeroSparkles: View {
+    var spinning = false
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        // Slow orbit; paused (and static) under Reduce Motion.
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !spinning || reduceMotion)) { context in
+            let angle = spinning && !reduceMotion
+                ? context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 40) / 40 * 360
+                : 0
+            sparkles.rotationEffect(.degrees(angle))
+        }
+    }
+
+    private var sparkles: some View {
         ZStack {
             Circle()
                 .stroke(app.appearance.accent.color.opacity(0.18), lineWidth: 1)
@@ -168,6 +194,8 @@ struct SettingsDesignedUnavailableCanvas: View {
     var tiles: [(title: String, detail: String, symbol: String)]
     var previewRows: [(title: String, subtitle: String, symbol: String)]
     var apiNote: String
+    /// Real destinations that help today (shown instead of disabled preview rows).
+    var alternatives: [(title: String, subtitle: String, symbol: String, route: SettingsRoute)] = []
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
@@ -175,32 +203,38 @@ struct SettingsDesignedUnavailableCanvas: View {
             LazyVStack(alignment: .leading, spacing: 22) {
                 SettingsHeroBanner(title: title, subtitle: subtitle, symbol: symbol)
 
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    ForEach(Array(tiles.enumerated()), id: \.offset) { _, tile in
-                        SettingsFeatureTile(
-                            title: tile.title,
-                            detail: tile.detail,
-                            symbol: tile.symbol,
-                            tint: app.appearance.accent.color
-                        )
-                    }
-                }
-
-                SettingsGroup(title: "Coming surface", subtitle: "Coming soon. These options aren’t active yet.") {
-                    VStack(spacing: 0) {
-                        ForEach(Array(previewRows.enumerated()), id: \.offset) { index, row in
-                            SettingsPreviewRow(
-                                title: row.title,
-                                subtitle: row.subtitle,
-                                symbol: row.symbol,
-                                enabled: false
-                            )
-                            if index < previewRows.count - 1 { SettingsDivider() }
+                // Scope card: says plainly that nothing here is switchable in this version.
+                // Planned capabilities are not rendered as disabled controls.
+                ModulaCard {
+                    HStack(alignment: .top, spacing: 14) {
+                        Image(systemName: "circle.dashed")
+                            .font(.title2)
+                            .foregroundStyle(app.appearance.accent.color)
+                            .symbolEffect(.rotate, options: .nonRepeating)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Not available in this version")
+                                .font(.headline)
+                            Text(apiNote)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
+                .accessibilityElement(children: .combine)
 
-                SettingsAPIFootnote(text: apiNote)
+                if !alternatives.isEmpty {
+                    SettingsGroup(title: "What you can do now") {
+                        VStack(spacing: 0) {
+                            ForEach(Array(alternatives.enumerated()), id: \.offset) { index, row in
+                                SettingsNavigationRow(title: row.title, subtitle: row.subtitle, symbol: row.symbol) {
+                                    app.navigation.open(.settings(row.route))
+                                }
+                                if index < alternatives.count - 1 { SettingsDivider() }
+                            }
+                        }
+                    }
+                }
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.top, 10)
@@ -502,6 +536,16 @@ struct SettingsStatChip: View {
 }
 
 struct SettingsRadarGraphic: View {
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        ModulaRadarScope(tint: app.appearance.accent.color, energy: 0.8)
+            .frame(width: 112, height: 112)
+    }
+}
+
+/// Vector radar kept for previews and catalog comparisons.
+struct SettingsStaticRadarGraphic: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {

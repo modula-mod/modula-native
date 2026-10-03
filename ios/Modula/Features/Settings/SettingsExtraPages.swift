@@ -11,73 +11,33 @@ struct HelpSettingsHost: View {
         switch route {
         case .root:
             SettingsScrollCanvas {
-                SettingsHeroBanner(title: "Help", subtitle: "Guides, contact, and status — designed surfaces.", symbol: "questionmark.circle")
+                SettingsHeroBanner(title: "Help", subtitle: "Guides, support requests, and live service status.", symbol: "questionmark.circle")
                 SettingsSceneGraphic(style: .badges)
                 SettingsGroup(title: "Open") {
                     VStack(spacing: 0) {
-                        SettingsNavigationRow(title: "Guides", subtitle: "How Modula works", symbol: "book") {
+                        SettingsNavigationRow(title: "Guides", subtitle: "How the main settings work", symbol: "book") {
                             app.navigation.open(.settings(.help(.guides)))
                         }
                         SettingsDivider()
-                        SettingsNavigationRow(title: "Contact", subtitle: "Reach Modula support", symbol: "envelope") {
+                        SettingsNavigationRow(title: "Contact", subtitle: "Open a case or email support", symbol: "envelope") {
                             app.navigation.open(.settings(.help(.contact)))
                         }
                         SettingsDivider()
-                        SettingsNavigationRow(title: "Status", subtitle: "Service health", symbol: "waveform.path.ecg") {
+                        SettingsNavigationRow(title: "Status", subtitle: "Live service health", symbol: "waveform.path.ecg") {
                             app.navigation.open(.settings(.help(.status)))
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Help articles and contact options are being prepared.")
+                SettingsAPIFootnote(text: "Support requests and status come straight from Modula’s servers.")
             }
             .navigationTitle("Help")
             .navigationBarTitleDisplayMode(.inline)
         case .guides:
-            SettingsScrollCanvas {
-                SettingsHeroBanner(title: "Guides", subtitle: "Short how-tos.", symbol: "book")
-                SettingsSceneGraphic(style: .stack)
-                SettingsGroup(title: "Topics") {
-                    VStack(spacing: 0) {
-                        SettingsPreviewRow(title: "Getting started", subtitle: "Shell, tabs, Edge Picker", symbol: "flag", enabled: false)
-                        SettingsDivider()
-                        SettingsPreviewRow(title: "Modules", subtitle: "Install and permissions", symbol: "shippingbox", enabled: false)
-                        SettingsDivider()
-                        SettingsPreviewRow(title: "Privacy", subtitle: "App Lock and biometrics", symbol: "lock.shield", enabled: false)
-                    }
-                }
-                SettingsAPIFootnote(text: "Full articles aren’t available in the app yet.")
-            }
-            .navigationTitle("Guides")
-            .navigationBarTitleDisplayMode(.inline)
+            HelpGuidesView()
         case .contact:
-            SettingsDesignedUnavailableCanvas(
-                title: "Contact",
-                subtitle: "Ways to get help.",
-                symbol: "envelope",
-                tiles: [
-                    ("Email", "Write in", "envelope"),
-                    ("In-app", "Message Modula", "bubble.left"),
-                    ("Bug", "Attach diagnostics", "ant"),
-                    ("Privacy", "Data requests", "hand.raised")
-                ],
-                previewRows: [
-                    ("Open a case", "Starts a thread", "plus.bubble"),
-                    ("Attach logs", "Developer diagnostics", "doc")
-                ],
-                apiNote: "Sending support requests from the app isn’t available yet."
-            )
+            HelpContactView()
         case .status:
-            SettingsScrollCanvas {
-                SettingsHeroBanner(title: "Status", subtitle: "Service health overview.", symbol: "waveform.path.ecg")
-                SettingsSceneGraphic(style: .radar)
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    SettingsStatChip(label: "API", value: "—", symbol: "server.rack")
-                    SettingsStatChip(label: "Realtime", value: "—", symbol: "antenna.radiowaves.left.and.right")
-                }
-                SettingsAPIFootnote(text: "Live service status isn’t available in the app yet.")
-            }
-            .navigationTitle("Status")
-            .navigationBarTitleDisplayMode(.inline)
+            HelpStatusView()
         }
     }
 }
@@ -94,11 +54,12 @@ struct WhatsNewSettingsHost: View {
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "What’s New", subtitle: "Release highlights for this build.", symbol: "sparkles")
                 SettingsSceneGraphic(style: .ribbon)
-                SettingsGroup(title: "This checkout") {
+                SettingsGroup(title: "In this version") {
                     VStack(alignment: .leading, spacing: 12) {
-                        bullet("Settings identity hero with progressive collapse")
-                        bullet("Intelligence product settings (Models / Knowledge / Privacy / Tools)")
-                        bullet("Expanded Preferences IA with designed unavailable canvases")
+                        bullet("Live service status in Help, measured from Modula’s servers")
+                        bullet("Open support requests from the app, with optional diagnostics you can review")
+                        bullet("Export a copy of your account data from Data & Storage")
+                        bullet("Smoother Settings motion that follows Reduce Motion")
                     }
                     .padding(.vertical, 8)
                 }
@@ -227,7 +188,11 @@ struct PasskeysSettingsHost: View {
                     ("This iPhone", "Platform authenticator", "iphone"),
                     ("Remove passkey", "Stop using a passkey", "trash")
                 ],
-                apiNote: "Passkeys aren’t available yet."
+                apiNote: "Passkeys aren’t available yet.",
+                alternatives: [
+                    ("Password", "Change your account password", "key", .account(.password)),
+                    ("App Lock", "Protect Modula on this device", "lock.fill", .privacy(.appLock))
+                ]
             )
         }
     }

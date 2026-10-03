@@ -7,7 +7,7 @@ struct AppGateHost: View {
 
     var body: some View {
         ZStack {
-            gatedContent
+            rootContent
             if showPrivacyCover {
                 PrivacyCoverView()
             }
@@ -28,6 +28,19 @@ struct AppGateHost: View {
         .onChange(of: app.auth.account?.accountId) { _, _ in
             app.refreshLaunchState()
         }
+    }
+
+    @ViewBuilder
+    private var rootContent: some View {
+        #if DEBUG
+        if let route = DebugSettingsHarness.route {
+            DebugSettingsHarnessView(route: route)
+        } else {
+            gatedContent
+        }
+        #else
+        gatedContent
+        #endif
     }
 
     @ViewBuilder

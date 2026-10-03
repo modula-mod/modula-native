@@ -44,7 +44,10 @@ struct SettingsNavigationRow: View {
     var subtitle: String?
     var symbol: String
     var action: () -> Void
-    var body: some View { ModulaListRow(title: title, subtitle: subtitle, symbol: symbol, action: action) }
+    var body: some View {
+        ModulaListRow(title: title, subtitle: subtitle, symbol: symbol, action: action)
+            .modulaTapRipple(amplitude: 5)
+    }
 }
 
 private struct AppearanceChoice<Value: Hashable>: View {
