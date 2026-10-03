@@ -360,7 +360,7 @@ struct SafetySettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "You can block or mute people from their posts and profiles. More safety settings are coming.")
+                SettingsAPIFootnote(text: "You can block or mute people from their posts and profiles, and report a safety concern from Help → Contact.")
             }
             .navigationTitle("Safety")
             .navigationBarTitleDisplayMode(.inline)
@@ -380,7 +380,10 @@ struct SafetySettingsHost: View {
                     ("Harassment", "Targeted abuse", "hand.raised"),
                     ("Illegal content", "Against the law", "scalemass")
                 ],
-                apiNote: "Reporting from Settings isn’t available yet. You can report a post or profile from its menu."
+                apiNote: "Reporting from Settings isn’t available yet. You can report a post or profile from its menu.",
+                alternatives: [
+                    ("Contact support", "Open a safety case with the team", "shield.lefthalf.filled", .help(.contact))
+                ]
             )
         case .muted:
             SettingsScrollCanvas {
@@ -394,11 +397,14 @@ struct SafetySettingsHost: View {
         case .sensitive:
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Sensitive content", subtitle: "Warnings before opening media.", symbol: "eye.trianglebadge.exclamationmark")
-                SettingsToggleCard {
-                    Toggle("Warn before sensitive media", isOn: .constant(true))
-                        .disabled(true)
+                SettingsGroup(title: "What you can do now") {
+                    VStack(spacing: 0) {
+                        SettingsNavigationRow(title: "Report a safety concern", subtitle: "Open a case with the team", symbol: "shield.lefthalf.filled") {
+                            app.navigation.open(.settings(.help(.contact)))
+                        }
+                    }
                 }
-                SettingsAPIFootnote(text: "This option isn’t available yet.")
+                SettingsAPIFootnote(text: "Modula doesn’t label sensitive media yet, so there’s no warning to switch on. You can report a post or profile from its menu.")
             }
             .navigationTitle("Sensitive content")
             .navigationBarTitleDisplayMode(.inline)
@@ -454,7 +460,10 @@ struct IntegrationsSettingsHost: View {
                 ("Developer", "API keys", "key")
             ],
             apiNote: SettingsRegistry.destination(for: .integrations(.root))?.unavailableReason
-                ?? "Integrations aren’t available yet."
+                ?? "Integrations aren’t available yet.",
+                alternatives: [
+                    ("Modules", "Install and manage modules", "shippingbox", .modules(.root))
+                ]
         )
         .navigationTitle("Integrations")
     }
@@ -513,7 +522,10 @@ struct MonetisationSettingsHost: View {
                     ("Compare", "Feature matrix", "tablecells"),
                     ("Restore", "App Store purchases", "arrow.clockwise")
                 ],
-                apiNote: "Plans shown are examples and can’t be purchased yet."
+                apiNote: "Modula plans can’t be purchased in the app yet.",
+                alternatives: [
+                    ("Contact support", "Ask about plans for your team", "envelope", .help(.contact))
+                ]
             )
         case .payouts:
             SettingsScrollCanvas {

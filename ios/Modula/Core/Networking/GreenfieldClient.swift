@@ -357,6 +357,16 @@ actor GreenfieldClient {
         try await authenticated(method, path: path, body: body, timeout: timeout)
     }
 
+    /// Authenticated JSON with an `Idempotency-Key` header (account data requests, support cases).
+    func authenticatedJSON(_ method: String, path: String, body: JSONValue? = nil, idempotencyKey: String) async throws -> JSONValue {
+        guard Self.isSafeIdempotencyKey(idempotencyKey) else { throw APIError.invalidResponse }
+        return try await authenticated(method, path: path, body: body, headers: ["Idempotency-Key": idempotencyKey])
+    }
+
+    nonisolated static func isSafeIdempotencyKey(_ key: String) -> Bool {
+        key.range(of: "^[A-Za-z0-9._:-]{8,200}$", options: .regularExpression) != nil
+    }
+
     /// Public JSON fetch (no bearer). Used by Discover/Search when signed out.
     func publicJSON(_ method: String, path: String, body: JSONValue? = nil) async throws -> JSONValue {
         try await send(method, path: path, body: body)
@@ -446,12 +456,12 @@ actor GreenfieldClient {
     }
 
     private func authenticated<T: Decodable & Sendable>(
-        _ method: String, path: String, body: JSONValue? = nil, timeout: TimeInterval = 20
+        _ method: String, path: String, body: JSONValue? = nil, timeout: TimeInterval = 20, headers: [String: String] = [:]
     ) async throws -> T {
         let generation = epoch
         let bearer = try await accessToken()
         do {
-            let result: T = try await send(method, path: path, body: body, bearer: bearer, timeout: timeout)
+            let result: T = try await send(method, path: path, body: body, bearer: bearer, timeout: timeout, headers: headers)
             guard generation == epoch else { throw APIError.accountChanged }
             return result
         } catch APIError.rejected(401, _) where generation == epoch && tokens != nil {
@@ -460,7 +470,7 @@ actor GreenfieldClient {
             // once and retry; if the refresh is rejected too, the session is gone.
             let renewed = try await accessToken(forceRefresh: true, rejected: bearer)
             do {
-                let result: T = try await send(method, path: path, body: body, bearer: renewed, timeout: timeout)
+                let result: T = try await send(method, path: path, body: body, bearer: renewed, timeout: timeout, headers: headers)
                 guard generation == epoch else { throw APIError.accountChanged }
                 return result
             } catch APIError.rejected(401, _) where generation == epoch {
@@ -515,7 +525,8 @@ actor GreenfieldClient {
     }
 
     private func send<T: Decodable & Sendable>(
-        _ method: String, path: String, body: JSONValue? = nil, bearer: String? = nil, timeout: TimeInterval = 20
+        _ method: String, path: String, body: JSONValue? = nil, bearer: String? = nil, timeout: TimeInterval = 20,
+        headers: [String: String] = [:]
     ) async throws -> T {
         guard let baseURL, baseURL.scheme == "https", baseURL.user == nil, baseURL.password == nil,
               path.hasPrefix("/v1/"), !path.contains(".."), let url = URL(string: path, relativeTo: baseURL)?.absoluteURL,
@@ -527,6 +538,7 @@ actor GreenfieldClient {
         if body != nil { request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
         request.setValue("ModulaNative/0.1.0 (iOS)", forHTTPHeaderField: "User-Agent")
         if let bearer { request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
+        for (field, value) in headers where field == "Idempotency-Key" { request.setValue(value, forHTTPHeaderField: field) }
         request.httpBody = try body.map { try JSONEncoder().encode($0) }
         let (data, response) = try await transport.data(for: request)
         return try Self.decodeEnvelope(data, response: response, method: method, path: path)

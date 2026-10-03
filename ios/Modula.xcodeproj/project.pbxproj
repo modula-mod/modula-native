@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		A03200000000000000000008 /* ModulaAttachmentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000008 /* ModulaAttachmentPicker.swift */; };
 		A03200000000000000000007 /* POST03Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000007 /* POST03Tests.swift */; };
+		Q50100000000000000000006 /* SettingsServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = Q40100000000000000000006 /* SettingsServiceTests.swift */; };
 		A03200000000000000000001 /* ModulaAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000001 /* ModulaAttachment.swift */; };
 		A03200000000000000000002 /* AttachmentDownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000002 /* AttachmentDownloadManager.swift */; };
 		A03200000000000000000003 /* AttachmentViewers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000003 /* AttachmentViewers.swift */; };
@@ -281,6 +282,10 @@
 		N50100000000000000000012 /* N4CTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000012 /* N4CTests.swift */; };
 		V50100000000000000000003 /* ModuleVersionSwitchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = V40100000000000000000003 /* ModuleVersionSwitchTests.swift */; };
 		S50100000000000000000001 /* SettingsVisualSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = S40100000000000000000001 /* SettingsVisualSystem.swift */; };
+		Q50100000000000000000004 /* ModulaSurfaceEffects.metal in Sources */ = {isa = PBXBuildFile; fileRef = Q40100000000000000000004 /* ModulaSurfaceEffects.metal */; };
+		Q50100000000000000000003 /* ModulaSurfaceEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = Q40100000000000000000003 /* ModulaSurfaceEffects.swift */; };
+		Q50100000000000000000002 /* SettingsServiceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = Q40100000000000000000002 /* SettingsServiceModels.swift */; };
+		Q50100000000000000000001 /* SettingsServiceViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = Q40100000000000000000001 /* SettingsServiceViews.swift */; };
 		Q50100000000000000000005 /* DebugSettingsHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = Q40100000000000000000005 /* DebugSettingsHarness.swift */; };
 /* End PBXBuildFile section */
 
@@ -304,6 +309,7 @@
 /* Begin PBXFileReference section */
 		A03100000000000000000008 /* ModulaAttachmentPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaAttachmentPicker.swift; path = Features/Media/ModulaAttachmentPicker.swift; sourceTree = "<group>"; };
 		A03100000000000000000007 /* POST03Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = POST03Tests.swift; sourceTree = "<group>"; };
+		Q40100000000000000000006 /* SettingsServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsServiceTests.swift; sourceTree = "<group>"; };
 		A03100000000000000000001 /* ModulaAttachment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaAttachment.swift; path = Features/Media/ModulaAttachment.swift; sourceTree = "<group>"; };
 		A03100000000000000000002 /* AttachmentDownloadManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AttachmentDownloadManager.swift; path = Features/Media/AttachmentDownloadManager.swift; sourceTree = "<group>"; };
 		A03100000000000000000003 /* AttachmentViewers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AttachmentViewers.swift; path = Features/Media/AttachmentViewers.swift; sourceTree = "<group>"; };
@@ -580,6 +586,10 @@
 		N40100000000000000000012 /* N4CTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4CTests.swift; sourceTree = "<group>"; };
 		V40100000000000000000003 /* ModuleVersionSwitchTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModuleVersionSwitchTests.swift; sourceTree = "<group>"; };
 		S40100000000000000000001 /* SettingsVisualSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsVisualSystem.swift; path = Features/Settings/SettingsVisualSystem.swift; sourceTree = "<group>"; };
+		Q40100000000000000000004 /* ModulaSurfaceEffects.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = ModulaSurfaceEffects.metal; path = DesignSystem/ModulaSurfaceEffects.metal; sourceTree = "<group>"; };
+		Q40100000000000000000003 /* ModulaSurfaceEffects.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaSurfaceEffects.swift; path = DesignSystem/ModulaSurfaceEffects.swift; sourceTree = "<group>"; };
+		Q40100000000000000000002 /* SettingsServiceModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsServiceModels.swift; path = Features/Settings/SettingsServiceModels.swift; sourceTree = "<group>"; };
+		Q40100000000000000000001 /* SettingsServiceViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsServiceViews.swift; path = Features/Settings/SettingsServiceViews.swift; sourceTree = "<group>"; };
 		Q40100000000000000000005 /* DebugSettingsHarness.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DebugSettingsHarness.swift; path = App/DebugSettingsHarness.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -636,6 +646,7 @@
 			isa = PBXGroup;
 			children = (
 				A03100000000000000000007 /* POST03Tests.swift */,
+				Q40100000000000000000006 /* SettingsServiceTests.swift */,
 				N40100000000000000000012 /* N4CTests.swift */,
 				V40100000000000000000003 /* ModuleVersionSwitchTests.swift */,
 				D40100000000000000000018 /* N4DTests.swift */,
@@ -811,6 +822,10 @@
 				H40100000000000000000004 /* SettingsMorePages.swift */,
 				H40100000000000000000005 /* SettingsExtraPages.swift */,
 				S40100000000000000000001 /* SettingsVisualSystem.swift */,
+				Q40100000000000000000004 /* ModulaSurfaceEffects.metal */,
+				Q40100000000000000000003 /* ModulaSurfaceEffects.swift */,
+				Q40100000000000000000002 /* SettingsServiceModels.swift */,
+				Q40100000000000000000001 /* SettingsServiceViews.swift */,
 				Q40100000000000000000005 /* DebugSettingsHarness.swift */,
 				DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */,
 				F00100000000000000000001 /* ProfileModels.swift */,
@@ -1227,6 +1242,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A03200000000000000000007 /* POST03Tests.swift in Sources */,
+				Q50100000000000000000006 /* SettingsServiceTests.swift in Sources */,
 				C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */,
 				FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */,
 				E2010000000000000000000A /* DiscoverTests.swift in Sources */,
@@ -1335,6 +1351,10 @@
 				H50100000000000000000004 /* SettingsMorePages.swift in Sources */,
 				H50100000000000000000005 /* SettingsExtraPages.swift in Sources */,
 				S50100000000000000000001 /* SettingsVisualSystem.swift in Sources */,
+				Q50100000000000000000004 /* ModulaSurfaceEffects.metal in Sources */,
+				Q50100000000000000000003 /* ModulaSurfaceEffects.swift in Sources */,
+				Q50100000000000000000002 /* SettingsServiceModels.swift in Sources */,
+				Q50100000000000000000001 /* SettingsServiceViews.swift in Sources */,
 				Q50100000000000000000005 /* DebugSettingsHarness.swift in Sources */,
 				G50100000000000000000006 /* TypographyPreview.swift in Sources */,
 				E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */,
