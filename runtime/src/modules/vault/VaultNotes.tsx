@@ -48,7 +48,7 @@ export function VaultNotes({context, host, lifecycle}: Props) {
         {context.environment.colorScheme} · OLED {String(context.environment.oled)} · {context.environment.accent}</ThemedText>
       <ThemedText theme={theme} role="caption" secondary testID="vault.lifecycle">{lifecycle}</ThemedText>
     </View>
-    {!context.userID
+    {!context.signedIn
       ? <ModuleFallback theme={theme} title="Sign in to open your Vault" message="Sign in through native Settings, then reopen Vault Notes."/>
       : editor
         ? <Editor key={editor.record?.record_id ?? 'new'} record={editor.record} host={host} theme={theme}

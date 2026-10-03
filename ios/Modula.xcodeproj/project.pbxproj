@@ -281,6 +281,10 @@
 		N50100000000000000000012 /* N4CTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000012 /* N4CTests.swift */; };
 		V50100000000000000000003 /* ModuleVersionSwitchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = V40100000000000000000003 /* ModuleVersionSwitchTests.swift */; };
 		S50100000000000000000001 /* SettingsVisualSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = S40100000000000000000001 /* SettingsVisualSystem.swift */; };
+		EE84C2D615FD8B38CF506921 /* ModuleCompatibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 736C8CEB3F723FE3824B717E /* ModuleCompatibility.swift */; };
+		6ACC1709897F66B0E80839F2 /* ModuleSecurityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFC9EF1CC67951AB29E6F94B /* ModuleSecurityTests.swift */; };
+		8847C56025B5FF23E6A2F4CB /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 6D9171C8595DD0F57E983884 /* Localizable.xcstrings */; };
+		5900B968FE1D07B3EE4DAEA0 /* LocalizationCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04756B524E52AA56A61D2E0D /* LocalizationCatalogTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -579,6 +583,10 @@
 		N40100000000000000000012 /* N4CTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4CTests.swift; sourceTree = "<group>"; };
 		V40100000000000000000003 /* ModuleVersionSwitchTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModuleVersionSwitchTests.swift; sourceTree = "<group>"; };
 		S40100000000000000000001 /* SettingsVisualSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsVisualSystem.swift; path = Features/Settings/SettingsVisualSystem.swift; sourceTree = "<group>"; };
+		736C8CEB3F723FE3824B717E /* ModuleCompatibility.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleCompatibility.swift; path = ModuleRuntime/ModuleCompatibility.swift; sourceTree = "<group>"; };
+		BFC9EF1CC67951AB29E6F94B /* ModuleSecurityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModuleSecurityTests.swift; sourceTree = "<group>"; };
+		6D9171C8595DD0F57E983884 /* Localizable.xcstrings */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		04756B524E52AA56A61D2E0D /* LocalizationCatalogTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LocalizationCatalogTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -641,6 +649,8 @@
 				C4010000000000000000000C /* N4FTests.swift */,
 				G40100000000000000000007 /* N4GTests.swift */,
 				E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */,
+				04756B524E52AA56A61D2E0D /* LocalizationCatalogTests.swift */,
+				BFC9EF1CC67951AB29E6F94B /* ModuleSecurityTests.swift */,
 				61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */,
 				E1010000000000000000000A /* DiscoverTests.swift */,
 				E30100000000000000000009 /* HomeFeedTests.swift */,
@@ -825,12 +835,14 @@
 				2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */,
 				586EC2A3D1894A46296513D8 /* PrivacyInfo.xcprivacy */,
 				D4010000000000000000001A /* Assets.xcassets */,
+				6D9171C8595DD0F57E983884 /* Localizable.xcstrings */,
 				35DD2D0F98FBF95AC2D68618 /* ModulaBridge.swift */,
 				11C7225BC261899B6AA2414A /* ModulaHostBridge.mm */,
 				435419F8D75EB3FA37353703 /* ModuleEnvironment.swift */,
 				E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */,
 				AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */,
 				90EAE77878B8E7792468645E /* ModuleSession.swift */,
+				736C8CEB3F723FE3824B717E /* ModuleCompatibility.swift */,
 				A632D57B46DA145ADCE10292 /* ReactNativeContainer.swift */,
 				7D0904A1437768EB6AFED58D /* ReactNativeViewController.swift */,
 				007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */,
@@ -1089,6 +1101,7 @@
 			files = (
 				083850E345065E6A6AB4731F /* PrivacyInfo.xcprivacy in Resources */,
 				D5010000000000000000001A /* Assets.xcassets in Resources */,
+				8847C56025B5FF23E6A2F4CB /* Localizable.xcstrings in Resources */,
 				A7C9B3B1BD7B84C45951A4CE /* manifests.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1225,6 +1238,8 @@
 			files = (
 				A03200000000000000000007 /* POST03Tests.swift in Sources */,
 				C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */,
+				5900B968FE1D07B3EE4DAEA0 /* LocalizationCatalogTests.swift in Sources */,
+				6ACC1709897F66B0E80839F2 /* ModuleSecurityTests.swift in Sources */,
 				FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */,
 				E2010000000000000000000A /* DiscoverTests.swift in Sources */,
 				E40100000000000000000009 /* HomeFeedTests.swift in Sources */,
@@ -1367,6 +1382,7 @@
 				001526FE43E0E8C9671B4E84 /* ModuleHost.swift in Sources */,
 				9314852BE26D5B1EB2360CE8 /* ModuleRuntimeController.swift in Sources */,
 				36217ECF8FA82AEF220905B2 /* ModuleSession.swift in Sources */,
+				EE84C2D615FD8B38CF506921 /* ModuleCompatibility.swift in Sources */,
 				18C0C36383D976CD0F415505 /* ReactNativeContainer.swift in Sources */,
 				118234885584A931FC29652A /* ReactNativeViewController.swift in Sources */,
 				02ED22D448BC35987DA41C41 /* RuntimeDiagnosticsView.swift in Sources */,
@@ -1536,7 +1552,8 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = digital.modula.app.native;
 				SDKROOT = iphoneos;
-				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1643,7 +1660,8 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = digital.modula.app.native;
 				SDKROOT = iphoneos;
-				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

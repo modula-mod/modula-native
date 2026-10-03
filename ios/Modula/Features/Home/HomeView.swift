@@ -140,7 +140,7 @@ struct HomeView: View {
 
     private var messagesAccessibilityLabel: String {
         if let count = app.messaging.accountUnreadCount, count > 0 {
-            return "Messages, \(count) unread"
+            return String(localized: "Messages, \(count) unread")
         }
         return "Messages"
     }
@@ -411,7 +411,7 @@ struct HomeView: View {
         .buttonStyle(.plain)
         .transition(reduceMotion ? .opacity : .scale(scale: 0.8, anchor: .top).combined(with: .opacity))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(unseenCount > 0 ? "Stories, \(unseenCount) new" : "Stories")
+        .accessibilityLabel(unseenCount > 0 ? String(localized: "Stories, \(unseenCount) new") : String(localized: "Stories"))
         .accessibilityHint("Opens the first story")
         .accessibilityAddTraits(.isButton)
         .accessibilityIdentifier("home.stories.folded")

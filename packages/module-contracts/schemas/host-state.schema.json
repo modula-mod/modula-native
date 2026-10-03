@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://modula.digital/schemas/module-contracts/host-state.schema.json",
+  "title": "HostState",
+  "description": "Native module-surface states every host must present. Terminal gate states are decided natively before any module JavaScript runs: notInstalled (no runnable installation for the signed-in account), integrityFailed (bundled manifest digest ≠ verified install descriptor), updateRequired (host/bridge outside the manifest's semver ranges), permissionDenied (policy withholds a required capability). `expired` follows 15 minutes without bridge activity; activity renews the TTL.",
+  "enum": ["idle", "preparing", "startingRuntime", "loadingModule", "ready", "suspended", "failed", "unavailable",
+           "notInstalled", "integrityFailed", "updateRequired", "permissionDenied", "expired"]
+}

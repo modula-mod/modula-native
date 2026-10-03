@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://modula.digital/schemas/module-contracts/host-request.schema.json",
+  "title": "HostRequest",
+  "description": "One module → host request (bridge 0.1.0). The host resolves the session from `surfaceToken` alone; the token is native-issued per surface, bound to one module, one account and one surface, and is never broadcast. `moduleID` must equal the bound module. Extra keys are rejected. Max wire size 300000 bytes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "moduleID", "surfaceToken", "action", "params"],
+  "properties": {
+    "version": {"const": "0.1.0"},
+    "moduleID": {"type": "string", "pattern": "^[a-z][a-z0-9.-]+$"},
+    "surfaceToken": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "action": {
+      "enum": ["navigation.open", "haptics.selection", "diagnostics.ready", "diagnostics.dataReady", "diagnostics.fail",
+               "backend.records.list", "backend.records.get", "backend.records.create", "backend.records.update", "backend.records.delete"]
+    },
+    "params": {"type": "object"}
+  }
+}

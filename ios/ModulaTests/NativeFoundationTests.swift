@@ -207,7 +207,7 @@ final class ModuleAuthorizationTests: XCTestCase {
         bridge.navigation = navigation
         let session = try XCTUnwrap(runtime.prepare(moduleID: "modula.runtime-diagnostic", environment: ModuleEnvironment(colorScheme: "light", oled: false, reduceMotion: false, textScale: 1)))
         func request(moduleID: String? = nil, params: [String: Any] = [:]) -> String {
-            let wire: [String: Any] = ["version": "0.1.0", "sessionID": session.id, "moduleID": moduleID ?? session.manifest.id, "action": "haptics.selection", "params": params]
+            let wire: [String: Any] = ["version": "0.1.0", "surfaceToken": session.surfaceToken, "moduleID": moduleID ?? session.manifest.id, "action": "haptics.selection", "params": params]
             var response = ""
             bridge.request(String(data: try! JSONSerialization.data(withJSONObject: wire), encoding: .utf8)!) { response = $0 }
             return response
@@ -215,7 +215,8 @@ final class ModuleAuthorizationTests: XCTestCase {
         XCTAssertTrue(request(moduleID: "digital.modula.vault-notes").contains("REQUEST_DENIED"))
         XCTAssertTrue(request(params: ["unexpected": true]).contains("INVALID_PAYLOAD"))
         session.expiresAt = .distantPast
-        XCTAssertTrue(request().contains("REQUEST_DENIED"))
+        XCTAssertTrue(request().contains("SESSION_EXPIRED"))
+        XCTAssertEqual(session.state, .expired)
         session.expiresAt = .distantFuture
         runtime.unmount(session)
         XCTAssertTrue(request().contains("REQUEST_DENIED"))
@@ -266,7 +267,9 @@ final class ModuleAuthorizationTests: XCTestCase {
             environment: ModuleEnvironment(colorScheme: "dark", oled: true, reduceMotion: true, textScale: 1.2)
         ))
         let properties = runtime.initialProperties(for: session)
-        XCTAssertEqual(Set(properties.keys), ["sessionID", "moduleID", "bridgeVersion", "environment", "userID", "initialPath"])
+        XCTAssertEqual(Set(properties.keys), ["surfaceToken", "moduleID", "bridgeVersion", "environment", "userID", "signedIn", "initialPath", "lifecycle", "eventSequence"])
+        XCTAssertTrue(properties["userID"] is NSNull, "userID requires the identity.userID capability")
+        XCTAssertNil(properties["sessionID"], "the native session ID never reaches JavaScript")
         let wire = String(data: try JSONSerialization.data(withJSONObject: properties), encoding: .utf8)!.lowercased()
         for forbidden in ["password", "accesstoken", "refreshtoken", "authorization", "bearer", "cookie", "keychain"] {
             XCTAssertFalse(wire.contains(forbidden), "Initial module properties contained forbidden credential material")
@@ -346,7 +349,7 @@ final class GreenfieldBridgeIntegrationTests: XCTestCase {
 
         let invalid = await rawCall(bridge, session, action: "backend.records.get", params: ["collection": "note", "recordID": "missing-note"])
         XCTAssertFalse(invalid.ok)
-        XCTAssertEqual(invalid.error?.code, "BACKEND_REQUEST_FAILED")
+        XCTAssertEqual(invalid.error?.code, "BACKEND_NOT_FOUND", "a missing record maps to a stable code, never backend text")
         let recoveredList = try await call(bridge, session, action: "backend.records.list", params: ["collection": "note"])
         XCTAssertNotNil(recoveredList["items"])
 
@@ -396,7 +399,7 @@ final class GreenfieldBridgeIntegrationTests: XCTestCase {
         let request: [String: Any] = [
             "version": ModuleRuntimeController.bridgeVersion,
             "moduleID": session.manifest.id,
-            "sessionID": session.id,
+            "surfaceToken": session.surfaceToken,
             "action": action,
             "params": params
         ]

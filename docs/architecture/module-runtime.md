@@ -16,3 +16,9 @@ N1 freezes one runtime factory for the application lifecycle and disposable surf
 The N1 runtime lifecycle and security boundary remain unchanged. N2 extends the environment additively with `designContractVersion: 1`, semantic theme/dark style, accent, font family, text scale, density, motion, haptics, contrast/transparency, icon style, interface shape, and module branding. Old modules may ignore every new optional field.
 
 `initialPath` is optional module-local state. The host validates the global module route and passes the remaining relative path to the module; Vault interprets its own `/new` and `/note/:noteId[/edit]` paths. No environment field contains credentials, authentication headers, or account preferences unrelated to module presentation. Modules cannot mutate the shell's Appearance settings.
+
+# Module security and lifecycle update
+
+- **States.** The vocabulary gains the native gate and end states `notInstalled`, `integrityFailed`, `updateRequired`, `permissionDenied` and `expired` (`schemas/host-state.schema.json`). `ModuleHost` renders each one natively, with Product Hub, retry and close actions.
+- **Keep-alive.** A hidden host (tab switch or a route pushed on top) calls `suspend`, and showing it again calls `resume`, so the surface and its React state survive. Only dismantling the surface (`ReactNativeViewController.stop`) unmounts and releases the session and token. Account change still revokes every session.
+- **Compatibility.** The registry's exact-version compatibility check is replaced by semver ranges (`ModuleCompatibility` / `SemverRange`, mirrored by `satisfies` in `@modula/module-contracts`).

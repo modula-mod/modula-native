@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://modula.digital/schemas/module-contracts/host-reply.schema.json",
+  "title": "HostReply",
+  "description": "Host → module reply. Errors carry a stable code and fixed host-written text; raw backend/transport messages never reach JavaScript.",
+  "oneOf": [
+    {"type": "object", "additionalProperties": false, "required": ["ok", "data"],
+     "properties": {"ok": {"const": true}, "data": {}}},
+    {"type": "object", "additionalProperties": false, "required": ["ok", "error"],
+     "properties": {
+       "ok": {"const": false},
+       "error": {"type": "object", "additionalProperties": false, "required": ["code", "message"],
+         "properties": {"code": {"$ref": "#/$defs/code"}, "message": {"type": "string", "maxLength": 200}}}
+     }}
+  ],
+  "$defs": {
+    "code": {
+      "enum": ["REQUEST_DENIED", "PERMISSION_DENIED", "SESSION_EXPIRED", "SESSION_REVOKED",
+               "INVALID_BACKEND_REQUEST", "INVALID_PAYLOAD", "INVALID_ROUTE", "UNSUPPORTED_ACTION",
+               "BACKEND_UNAUTHENTICATED", "BACKEND_FORBIDDEN", "BACKEND_NOT_FOUND", "BACKEND_CONFLICT",
+               "BACKEND_VALIDATION_FAILED", "BACKEND_RATE_LIMITED", "BACKEND_UNAVAILABLE", "BACKEND_REQUEST_FAILED",
+               "NETWORK_UNAVAILABLE", "ENCODING_FAILED"]
+    }
+  }
+}

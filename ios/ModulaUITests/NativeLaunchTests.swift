@@ -594,10 +594,13 @@ final class VaultRuntimeUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 15))
         XCTAssertTrue(app.staticTexts["active"].waitForExistence(timeout: 8))
 
+        // Module routes push onto the current stack and the hidden host is suspended, not
+        // unmounted: Back returns to the same Vault surface with its React state intact.
         app.buttons["Open my native Profile"].tap()
         assertNativeProfileVisible(app)
-        selectTab(app, "Modules")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(app.staticTexts["Notes loaded"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.staticTexts["resumed"].waitForExistence(timeout: 8), "the kept-alive surface receives resumed")
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Runtime: 1'")).firstMatch.exists)
         app.buttons["Close"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Vault Notes"].waitForExistence(timeout: 8))
@@ -958,7 +961,8 @@ final class VaultNetworkFailureUITests: XCTestCase {
         print("N1_NETWORK_CUT_READY")
         Thread.sleep(forTimeInterval: 12)
         app.buttons["Reload notes"].tap()
-        XCTAssertTrue(app.staticTexts["Greenfield connection unavailable."].waitForExistence(timeout: 25))
+        // Transport failures reach the module as NETWORK_UNAVAILABLE with host-written text.
+        XCTAssertTrue(app.staticTexts["You appear to be offline."].waitForExistence(timeout: 25))
         app.buttons["Close"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Vault Notes"].waitForExistence(timeout: 8))
         selectTab(app, "Home")

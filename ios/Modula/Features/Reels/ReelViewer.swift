@@ -220,8 +220,8 @@ struct ReelPageView: View {
         var parts = [reel.creator.displayName]
         if let caption = reel.caption { parts.append(caption) }
         if let duration = reel.durationLabel { parts.append(duration) }
-        parts.append("\(resolved.likeCount) likes")
-        parts.append("\(resolved.replyCount) comments")
+        parts.append(String(localized: "\(resolved.likeCount) likes"))
+        parts.append(String(localized: "\(resolved.replyCount) comments"))
         return parts.joined(separator: ", ")
     }
 }
