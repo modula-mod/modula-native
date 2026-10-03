@@ -191,6 +191,19 @@ enum ModulaPreferences {
     static var experimentalChrome: Bool { bool(Key.labsExperimentalChrome, false) }
     static var verboseLogging: Bool { bool(Key.labsVerboseLogging, false) }
 
+    /// The Labs toggles were inert storage from 2026-09-23 until they were wired to real
+    /// behaviour on 2026-10-03, so a stale `true` from that period would suddenly swap the
+    /// tab bar and pin the debug HUD on. Reset them once so Labs starts off until chosen again.
+    static let labsBehaviourRevisionKey = "settings.labs.behaviourRevision"
+    static let labsBehaviourRevision = 1
+
+    static func resetInertLabsTogglesIfNeeded(_ defaults: UserDefaults = .standard) {
+        guard defaults.integer(forKey: labsBehaviourRevisionKey) < labsBehaviourRevision else { return }
+        defaults.removeObject(forKey: Key.labsExperimentalChrome)
+        defaults.removeObject(forKey: Key.labsDebugOverlays)
+        defaults.set(labsBehaviourRevision, forKey: labsBehaviourRevisionKey)
+    }
+
     // MARK: Language / translation
 
     static var translationHints: Bool { bool(Key.languageTranslationHints, true) }

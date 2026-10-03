@@ -130,8 +130,7 @@ struct RootView: View {
         if experimentalChrome {
             // Settings → Labs → "Experimental chrome": Modula's own floating bottom
             // chrome instead of the system tab bar, on every iOS version.
-            tabs(navigation: navigation)
-                .toolbar(.hidden, for: .tabBar)
+            tabs(navigation: navigation, hidesSystemTabBar: true)
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     if policy.bottomBarVisible {
                         ModulaBottomChrome(route: navigation.currentRoute, showsAccessory: policy.shellAccessoryVisible)
@@ -154,8 +153,7 @@ struct RootView: View {
                 }
                 .tabBarMinimizeBehavior(.onScrollDown)
         } else {
-            tabs(navigation: navigation)
-                .toolbar(.hidden, for: .tabBar)
+            tabs(navigation: navigation, hidesSystemTabBar: true)
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     if policy.bottomBarVisible {
                         ModulaBottomChrome(route: navigation.currentRoute, showsAccessory: policy.shellAccessoryVisible)
@@ -164,14 +162,21 @@ struct RootView: View {
         }
     }
 
-    private func tabs(navigation: NavigationCoordinator) -> some View {
+    /// `.toolbar(.hidden, for: .tabBar)` only hides the system bar when applied inside a
+    /// tab's content; on the `TabView` itself iOS 26+ ignores it, which drew the system
+    /// bar underneath Modula's own floating chrome (duplicate tab bar).
+    private func tabs(navigation: NavigationCoordinator, hidesSystemTabBar: Bool = false) -> some View {
         @Bindable var navigation = navigation
         return TabView(selection: $navigation.selectedTab) {
             ForEach(AppTab.allCases) { tab in
                 NavigationStack(path: navigation.binding(for: tab)) {
                     RouteView(route: navigation.root(for: tab))
-                        .navigationDestination(for: AppRoute.self) { RouteView(route: $0) }
+                        .navigationDestination(for: AppRoute.self) {
+                            RouteView(route: $0)
+                                .modifier(SystemTabBarHidden(hidden: hidesSystemTabBar))
+                        }
                         .background(EdgeSwipeBackConfigurator().frame(width: 0, height: 0).accessibilityHidden(true))
+                        .modifier(SystemTabBarHidden(hidden: hidesSystemTabBar))
                 }
                 .environment(\.routeTransitionNamespace, routeTransitions)
                 .modulaSoftScrollEdge()
@@ -354,4 +359,19 @@ struct DevelopmentRouteView: View {
 struct ComposerFoundationView: View {
     let route: ComposeRoute
     var body: some View { CreationStudioView(route: route) }
+}
+
+/// Hides the system tab bar for a tab's content when Modula draws its own bottom chrome.
+/// Leaves per-route visibility (`.toolbar(... for: .tabBar)` in Reels, Messages, Post) alone
+/// when Modula is using the system bar.
+private struct SystemTabBarHidden: ViewModifier {
+    let hidden: Bool
+
+    func body(content: Content) -> some View {
+        if hidden {
+            content.toolbar(.hidden, for: .tabBar)
+        } else {
+            content
+        }
+    }
 }

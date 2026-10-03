@@ -47,6 +47,7 @@ final class AppEnvironment {
     init() {
         let launchArguments = ProcessInfo.processInfo.arguments
         if launchArguments.contains("--reset-appearance") { appearance.reset() }
+        ModulaPreferences.resetInertLabsTogglesIfNeeded()
         #if DEBUG
         // Deterministic visual-acceptance overrides still flow through the sole
         // AppearanceStore authority; production builds expose no test surface.
