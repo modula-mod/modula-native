@@ -310,6 +310,8 @@
 		Q50100000000000000000005 /* DebugSettingsHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = Q40100000000000000000005 /* DebugSettingsHarness.swift */; };
 		Q50100000000000000000007 /* LegalDocuments.swift in Sources */ = {isa = PBXBuildFile; fileRef = Q40100000000000000000007 /* LegalDocuments.swift */; };
 		Q50100000000000000000008 /* LegalDocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = Q40100000000000000000008 /* LegalDocumentView.swift */; };
+		549752B532C38651ABF08131 /* NodusRelease.swift in Sources */ = {isa = PBXBuildFile; fileRef = 480D1FDD174D0F7422903F59 /* NodusRelease.swift */; };
+		253A359389594877DBDBA326 /* NodusModelSettingsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82C70BDE2136649342EC7569 /* NodusModelSettingsCard.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -637,6 +639,8 @@
 		Q40100000000000000000005 /* DebugSettingsHarness.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DebugSettingsHarness.swift; path = App/DebugSettingsHarness.swift; sourceTree = "<group>"; };
 		Q40100000000000000000007 /* LegalDocuments.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LegalDocuments.swift; path = Core/Settings/LegalDocuments.swift; sourceTree = "<group>"; };
 		Q40100000000000000000008 /* LegalDocumentView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LegalDocumentView.swift; path = Features/Settings/LegalDocumentView.swift; sourceTree = "<group>"; };
+		480D1FDD174D0F7422903F59 /* NodusRelease.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusRelease.swift; path = Core/Intelligence/Nodus/NodusRelease.swift; sourceTree = "<group>"; };
+		82C70BDE2136649342EC7569 /* NodusModelSettingsCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusModelSettingsCard.swift; path = Features/Settings/NodusModelSettingsCard.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -869,6 +873,7 @@
 				G40100000000000000000009 /* EdgeLoopMetrics.swift */,
 				G4010000000000000000000A /* EdgePickerSettingsView.swift */,
 				H40100000000000000000001 /* IntelligenceSettingsViews.swift */,
+				82C70BDE2136649342EC7569 /* NodusModelSettingsCard.swift */,
 				H40100000000000000000002 /* SettingsShellViews.swift */,
 				H40100000000000000000003 /* SettingsChrome.swift */,
 				H40100000000000000000004 /* SettingsMorePages.swift */,
@@ -1002,6 +1007,7 @@
 				A60100000000000000000009 /* NodusVerificationStore.swift */,
 				A6010000000000000000000A /* NodusLearningPipeline.swift */,
 				A6010000000000000000000B /* NodusArtifactInstaller.swift */,
+				480D1FDD174D0F7422903F59 /* NodusRelease.swift */,
 				A6010000000000000000000C /* MLXNodusRuntime.swift */,
 				03112C0E692C6AF64E25BDB0 /* NodusConversationEngine.swift */,
 				8EA749138365B53444A18694 /* NodusConversationModels.swift */,
@@ -1422,6 +1428,7 @@
 				G50100000000000000000009 /* EdgeLoopMetrics.swift in Sources */,
 				G5010000000000000000000A /* EdgePickerSettingsView.swift in Sources */,
 				H50100000000000000000001 /* IntelligenceSettingsViews.swift in Sources */,
+				253A359389594877DBDBA326 /* NodusModelSettingsCard.swift in Sources */,
 				H50100000000000000000002 /* SettingsShellViews.swift in Sources */,
 				H50100000000000000000003 /* SettingsChrome.swift in Sources */,
 				H50100000000000000000004 /* SettingsMorePages.swift in Sources */,
@@ -1584,6 +1591,7 @@
 				A70100000000000000000009 /* NodusVerificationStore.swift in Sources */,
 				A7010000000000000000000A /* NodusLearningPipeline.swift in Sources */,
 				A7010000000000000000000B /* NodusArtifactInstaller.swift in Sources */,
+				549752B532C38651ABF08131 /* NodusRelease.swift in Sources */,
 				A7010000000000000000000C /* MLXNodusRuntime.swift in Sources */,
 				C2D2BC0654B3A4ABD668B498 /* NodusConversationEngine.swift in Sources */,
 				D90195AB663F1D6B78E7D368 /* NodusConversationModels.swift in Sources */,

@@ -1,6 +1,7 @@
 import SwiftUI
 
-#if DEBUG
+// Ships in Release behind NodusChatFeature; developer-only affordances stay behind
+// NodusChatPresentation.developerWorkspace and the DEBUG-only Developer settings routes.
 extension NodusChatTint {
     func color(accent: Color) -> Color {
         switch self {
@@ -671,4 +672,4 @@ private struct NodusMoveChatSheet: View {
         }
     }
 }
-#endif
+// End of Release-shipped Nodus Chat surface.

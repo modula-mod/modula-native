@@ -37,9 +37,10 @@ struct IntelligenceSettingsRootView: View {
                 symbol: "brain"
             )
             SettingsSceneGraphic(style: .orbit)
+            NodusModelSettingsCard()
             SettingsGroup(title: "Chat") {
                 VStack(spacing: 0) {
-                    SettingsNavigationRow(title: "Open Nodus", subtitle: "Local chat, projects, and prompts", symbol: "bubble.left.and.bubble.right") {
+                    SettingsNavigationRow(title: "Open \(IntelligenceChatIdentity.title)", subtitle: "Local chat, projects, and prompts", symbol: "bubble.left.and.bubble.right") {
                         PresentationCoordinator.present(.intelligenceChat, in: app.navigation)
                     }
                     SettingsDivider()

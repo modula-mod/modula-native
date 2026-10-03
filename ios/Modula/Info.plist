@@ -45,6 +45,8 @@
 	<string>Modula uses on-device speech recognition to turn your voice into text in Nodus. Speech audio does not leave this iPhone.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Modula uses Face ID to unlock the app after you enable App Lock. Face ID never replaces your Modula account sign-in, and biometric data never leaves this device.</string>
+	<key>ModulaNodusChatEnabled</key>
+	<true/>
 	<key>ModulaAPIURL</key>
 	<string>$(MODULA_API_URL)</string>
 	<key>RCTNewArchEnabled</key>

@@ -1,28 +1,24 @@
 import SwiftUI
 
 enum IntelligenceChatIdentity {
-    static var title: String {
-        #if DEBUG
-        "Nodus"
-        #else
-        "AI Chat"
-        #endif
+    /// Nodus names the entry point once it can actually answer (or always in developer
+    /// builds, which show Nodus' own unavailable states); otherwise it is plain AI Chat.
+    static var presentsNodus: Bool {
+        guard NodusChatFeature.isEnabled() else { return false }
+        return NodusChatFeature.showsUnavailableNodus
+            || (NodusDeviceCapability.evaluate() == .supported && NodusModelStorage.hasInstalledModel())
     }
 
+    static var title: String { presentsNodus ? "Nodus" : "AI Chat" }
+
     static var subtitle: String {
-        #if DEBUG
-        "On-device personal intelligence"
-        #else
-        "On-device intelligence"
-        #endif
+        presentsNodus ? "On-device personal intelligence" : "On-device intelligence"
     }
 
     static var aliases: [String] {
-        #if DEBUG
-        ["nodus", "ai", "assistant", "intelligence", "local intelligence"]
-        #else
-        ["ai", "assistant", "intelligence", "apple intelligence"]
-        #endif
+        var aliases = ["ai", "assistant", "intelligence"]
+        aliases += presentsNodus ? ["nodus", "local intelligence"] : ["apple intelligence"]
+        return aliases
     }
 }
 
@@ -56,27 +52,56 @@ struct IntelligenceChatView: View {
     @State private var isSending = false
     @State private var availability: IntelligenceAvailability?
 
+    @State private var surface: NodusChatSurface?
+
     static var activeProviderID: String {
-        #if DEBUG
-        NodusIntelligenceProvider.providerID
-        #else
-        AppleSystemIntelligenceProvider.providerID
-        #endif
+        IntelligenceChatIdentity.presentsNodus
+            ? NodusIntelligenceProvider.providerID
+            : AppleSystemIntelligenceProvider.providerID
     }
 
     @ViewBuilder
     var body: some View {
-        #if DEBUG
-        NavigationStack {
-            NodusChatView(presentation: .accessorySheet)
-                .accessibilityElement(children: .contain)
-                .accessibilityIdentifier("intelligence.chat")
+        switch surface ?? Self.immediateSurface {
+        case .some(.nodus):
+            NavigationStack {
+                NodusChatView(presentation: .accessorySheet)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("intelligence.chat")
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        case .some(.appleFallback):
+            legacyAppleIntelligenceChat
+        case .none:
+            NavigationStack {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .modulaCanvas()
+                    .accessibilityIdentifier("intelligence.chat.resolving")
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+            .task { await resolveSurface() }
         }
-        .presentationDetents([.large])
-        .presentationDragIndicator(.visible)
-        #else
-        legacyAppleIntelligenceChat
-        #endif
+    }
+
+    /// Surfaces that need no async availability probe: feature off, or developer builds.
+    private static var immediateSurface: NodusChatSurface? {
+        guard NodusChatFeature.isEnabled() else { return .appleFallback }
+        if NodusChatFeature.showsUnavailableNodus { return .nodus }
+        guard NodusDeviceCapability.evaluate() == .supported, NodusModelStorage.hasInstalledModel() else {
+            return .appleFallback
+        }
+        return nil
+    }
+
+    private func resolveSurface() async {
+        let snapshot = await app.intelligence.diagnosticsSnapshot()
+        surface = NodusChatRouting.surface(
+            featureEnabled: NodusChatFeature.isEnabled(),
+            nodusAvailability: snapshot.nodusProviderAvailability
+        )
     }
 
     private var legacyAppleIntelligenceChat: some View {
