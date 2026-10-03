@@ -283,6 +283,9 @@
 		N50100000000000000000012 /* N4CTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000012 /* N4CTests.swift */; };
 		V50100000000000000000003 /* ModuleVersionSwitchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = V40100000000000000000003 /* ModuleVersionSwitchTests.swift */; };
 		S50100000000000000000001 /* SettingsVisualSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = S40100000000000000000001 /* SettingsVisualSystem.swift */; };
+		F70200000000000000000003 /* ProfileContentTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70100000000000000000003 /* ProfileContentTabs.swift */; };
+		F70200000000000000000002 /* ModulaEffectKit.metal in Sources */ = {isa = PBXBuildFile; fileRef = F70100000000000000000002 /* ModulaEffectKit.metal */; };
+		F70200000000000000000001 /* ModulaEffectKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70100000000000000000001 /* ModulaEffectKit.swift */; };
 		R50100000000000000000020 /* SettingsDecisionPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000020 /* SettingsDecisionPages.swift */; };
 		R50100000000000000000012 /* DownloadedMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000012 /* DownloadedMedia.swift */; };
 		R50100000000000000000011 /* SettingsNotificationPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000011 /* SettingsNotificationPages.swift */; };
@@ -601,6 +604,9 @@
 		N40100000000000000000012 /* N4CTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4CTests.swift; sourceTree = "<group>"; };
 		V40100000000000000000003 /* ModuleVersionSwitchTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModuleVersionSwitchTests.swift; sourceTree = "<group>"; };
 		S40100000000000000000001 /* SettingsVisualSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsVisualSystem.swift; path = Features/Settings/SettingsVisualSystem.swift; sourceTree = "<group>"; };
+		F70100000000000000000003 /* ProfileContentTabs.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileContentTabs.swift; path = Features/Profile/ProfileContentTabs.swift; sourceTree = "<group>"; };
+		F70100000000000000000002 /* ModulaEffectKit.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = ModulaEffectKit.metal; path = DesignSystem/Effects/ModulaEffectKit.metal; sourceTree = "<group>"; };
+		F70100000000000000000001 /* ModulaEffectKit.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaEffectKit.swift; path = DesignSystem/Effects/ModulaEffectKit.swift; sourceTree = "<group>"; };
 		R40100000000000000000020 /* SettingsDecisionPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsDecisionPages.swift; path = Features/Settings/Real/SettingsDecisionPages.swift; sourceTree = "<group>"; };
 		R40100000000000000000012 /* DownloadedMedia.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DownloadedMedia.swift; path = Features/Media/DownloadedMedia.swift; sourceTree = "<group>"; };
 		R40100000000000000000011 /* SettingsNotificationPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsNotificationPages.swift; path = Features/Settings/Real/SettingsNotificationPages.swift; sourceTree = "<group>"; };
@@ -851,6 +857,9 @@
 				H40100000000000000000004 /* SettingsMorePages.swift */,
 				H40100000000000000000005 /* SettingsExtraPages.swift */,
 				S40100000000000000000001 /* SettingsVisualSystem.swift */,
+				F70100000000000000000003 /* ProfileContentTabs.swift */,
+				F70100000000000000000002 /* ModulaEffectKit.metal */,
+				F70100000000000000000001 /* ModulaEffectKit.swift */,
 				R40100000000000000000020 /* SettingsDecisionPages.swift */,
 				R40100000000000000000012 /* DownloadedMedia.swift */,
 				R40100000000000000000011 /* SettingsNotificationPages.swift */,
@@ -1394,6 +1403,9 @@
 				H50100000000000000000004 /* SettingsMorePages.swift in Sources */,
 				H50100000000000000000005 /* SettingsExtraPages.swift in Sources */,
 				S50100000000000000000001 /* SettingsVisualSystem.swift in Sources */,
+				F70200000000000000000003 /* ProfileContentTabs.swift in Sources */,
+				F70200000000000000000002 /* ModulaEffectKit.metal in Sources */,
+				F70200000000000000000001 /* ModulaEffectKit.swift in Sources */,
 				R50100000000000000000020 /* SettingsDecisionPages.swift in Sources */,
 				R50100000000000000000012 /* DownloadedMedia.swift in Sources */,
 				R50100000000000000000011 /* SettingsNotificationPages.swift in Sources */,

@@ -245,6 +245,7 @@ struct HomeView: View {
                         },
                         videoCoordinator: videoCoordinator
                     )
+                    .modulaScrollReveal()
                     .onAppear {
                         if post.id == state.items.suffix(3).first?.id || post.id == state.items.last?.id {
                             Task { await app.home.loadMore(mode) }
@@ -365,6 +366,7 @@ struct HomeView: View {
         }
         .padding(.top, 8)
         .redacted(reason: .placeholder)
+        .modulaShimmer()
         .accessibilityIdentifier("home.loading")
     }
 

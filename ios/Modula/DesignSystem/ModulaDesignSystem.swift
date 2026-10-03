@@ -190,8 +190,11 @@ struct ModulaPrimaryButtonStyle: ButtonStyle {
                     .shadow(color: accent.opacity(active && !configuration.isPressed ? 0.32 : 0), radius: 14, y: 6)
             }
             .brightness(configuration.isPressed ? -0.06 : 0)
-            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
-            .animation(reduceMotion ? nil : .snappy(duration: 0.18), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.965 : 1)
+            .animation(reduceMotion ? nil : .spring(response: 0.26, dampingFraction: 0.6), value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, pressed in
+                if pressed && active { HapticEngine.shared.play(.selection) }
+            }
             .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: active)
     }
 }
@@ -855,7 +858,7 @@ extension View {
             .toolbarBackground(.hidden, for: .navigationBar)
     }
 }
-struct ModulaListRow: View { var title: String; var subtitle: String?; var symbol: String; var action: (() -> Void)?; var body: some View { Button { action?() } label: { HStack(spacing: 14) { Image(systemName: symbol).frame(width: 28).foregroundStyle(.tint); VStack(alignment: .leading, spacing: 2) { Text(title).font(.body.weight(.medium)); if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary) } }; Spacer(); if action != nil { Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) } }.frame(minHeight: 48).contentShape(Rectangle()) }.buttonStyle(.plain).disabled(action == nil).accessibilityLabel(title).accessibilityValue(subtitle ?? "") } }
+struct ModulaListRow: View { var title: String; var subtitle: String?; var symbol: String; var action: (() -> Void)?; @State private var taps = 0; @Environment(\.accessibilityReduceMotion) private var reduceMotion; var body: some View { Button { taps += 1; action?() } label: { HStack(spacing: 14) { Image(systemName: symbol).frame(width: 28).foregroundStyle(.tint).symbolEffect(.bounce, value: reduceMotion ? 0 : taps); VStack(alignment: .leading, spacing: 2) { Text(title).font(.body.weight(.medium)); if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary) } }; Spacer(); if action != nil { Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) } }.frame(minHeight: 48).contentShape(Rectangle()) }.buttonStyle(ModulaPressStyle(scale: 0.985, haptic: nil)).disabled(action == nil).accessibilityLabel(title).accessibilityValue(subtitle ?? "") } }
 struct ModulaSection<Content: View>: View { var title: String; @ViewBuilder var content: Content; var body: some View { VStack(alignment: .leading, spacing: 12) { Text(title).font(.headline); content }.frame(maxWidth: .infinity, alignment: .leading) } }
 struct ModulaSearchField: View { @Binding var text: String; var prompt = "Search"; var body: some View { TextField(prompt, text: $text).textFieldStyle(.plain).padding(.horizontal, 14).frame(minHeight: 44).background(.thinMaterial, in: Capsule()).accessibilityLabel(prompt) } }
 struct ModulaMetric: View { var value: String; var label: String; var body: some View { VStack(alignment: .leading, spacing: 2) { Text(value).font(.title3.bold()); Text(label).font(.caption).foregroundStyle(.secondary) }.accessibilityElement(children: .combine) } }
@@ -875,7 +878,25 @@ struct ModulaChip: View {
 struct ModulaToolbar<Content: View>: View { @ViewBuilder var content: Content; var body: some View { HStack(spacing: 8) { content }.padding(6).background(.regularMaterial, in: Capsule()) } }
 struct ModulaTopBar: View { var title: String; var trailing: (() -> Void)?; var body: some View { HStack { Text(title).font(.largeTitle.bold()); Spacer(); if let trailing { ModulaIconButton(title: "Settings", symbol: "gearshape", action: trailing) } }.padding(.horizontal, ModulaLayout.contentInset) } }
 struct ModulaMenu<Content: View>: View { var title: String; @ViewBuilder var content: Content; var body: some View { Menu(title, content: { content }) } }
-struct ModulaEmptyState: View { var title: String; var message: String; var symbol: String; var body: some View { ContentUnavailableView(title, systemImage: symbol, description: Text(message)) } }
+struct ModulaEmptyState: View {
+    var title: String
+    var message: String
+    var symbol: String
+    @Environment(AppEnvironment.self) private var app
+    var body: some View {
+        ContentUnavailableView {
+            VStack(spacing: 10) {
+                ModulaEffectSymbol(symbol: symbol, tint: app.appearance.accent.color, size: 40)
+                Text(title).font(.title3.weight(.semibold))
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(title)
+        } description: {
+            Text(message)
+        }
+        .modulaPageEntrance()
+    }
+}
 struct ModulaLoadingState: View { var title = "Loading…"; var body: some View { ProgressView(title).frame(maxWidth: .infinity, minHeight: 180) } }
 struct ModulaErrorState: View { var message: String; var retry: (() -> Void)?; var body: some View { ContentUnavailableView { Label("Something went wrong", systemImage: "exclamationmark.triangle") } description: { Text(message) } actions: { if let retry { Button("Try Again", action: retry) } } } }
 struct ModulaHero<Content: View>: View { var title: String; var subtitle: String; @ViewBuilder var artwork: Content; var body: some View { ZStack(alignment: .bottomLeading) { artwork.frame(maxWidth: .infinity).frame(height: 260).clipped(); LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .center, endPoint: .bottom); VStack(alignment: .leading) { Text(title).font(.largeTitle.bold()); Text(subtitle) }.foregroundStyle(.white).padding(20) }.clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous)) } }

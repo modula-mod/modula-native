@@ -24,8 +24,8 @@ struct ModulaHeroSheenModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         let animate = isActive && !reduceMotion
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !animate)) { context in
-            let time = animate ? ModulaSurfaceClock.seconds(context.date) : 2.2
+        // Effect-kit clock: also pauses off-screen and while the scene is inactive.
+        ModulaEffectClock(isActive: animate, fps: 30, staticTime: animate ? nil : 2.2) { time in
             content.visualEffect { view, proxy in
                 view.colorEffect(
                     ShaderLibrary.modulaHeroSheen(

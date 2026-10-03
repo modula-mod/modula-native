@@ -13,6 +13,7 @@ struct SettingsGroup<Content: View>: View {
             }
             ModulaCard { content }
         }
+        .modulaScrollReveal()
     }
 }
 

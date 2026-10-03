@@ -6,6 +6,8 @@ import UIKit
 struct ProfileCover: View {
     let coverURL: URL?
     let coverColour: String?
+    /// Hero tint (avatar colour / accent) for the aurora shader.
+    var tint: Color? = nil
     var scrollProgress: CGFloat = 0
     var safeAreaTop: CGFloat = ProfileFullBleedMetrics.windowSafeAreaTop
     var pocketCenterX: CGFloat? = nil
@@ -81,6 +83,11 @@ struct ProfileCover: View {
                     .allowsHitTesting(false)
             }
             .frame(width: width, height: coverHeight + stretch, alignment: .top)
+            // Parallax: the hero drifts at ~40% of the scroll speed while the page scrolls up.
+            .visualEffect { [reduceMotion] content, proxy in
+                let minY = proxy.frame(in: .scrollView).minY
+                return content.offset(y: reduceMotion || minY >= 0 ? 0 : -minY * 0.4)
+            }
             .offset(y: reduceMotion ? 0 : -CGFloat(dissolve) * 22)
             .opacity(1 - (0.32 * Double(dissolve)))
             .mask {
@@ -161,11 +168,22 @@ struct ProfileCover: View {
 
     private var fallbackComposition: some View {
         ZStack {
+            ModulaAuroraBackground(
+                tint: tint ?? fillColor,
+                secondary: coverColour.flatMap { $0.isEmpty ? nil : Color(hex: $0) },
+                intensity: 0.9
+            )
+            legacyGeometry
+                .opacity(0.35)
+        }
+    }
+
+    private var legacyGeometry: some View {
+        ZStack {
             LinearGradient(
                 colors: [
-                    fillColor.opacity(scheme == .dark ? 0.9 : 1),
-                    app.appearance.accent.color.opacity(scheme == .dark ? 0.28 : 0.2),
-                    canvas
+                    .clear,
+                    canvas.opacity(0.4)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -217,6 +235,7 @@ enum ProfileIdentityMetrics {
 /// Circular carve under the cover so the avatar sits in a canvas-coloured pocket (Light + OLED).
 struct ProfileAvatarPocket: View {
     let profile: ModulaProfile
+    var tint: Color? = nil
     var onTap: (() -> Void)? = nil
     var onStoryTap: (() -> Void)? = nil
     var storyRing: StoryRingState? = nil
@@ -266,29 +285,21 @@ struct ProfileAvatarPocket: View {
                                 .strokeBorder(canvas, lineWidth: ring)
                         )
                         .overlay(
-                            Circle()
-                                .strokeBorder(
-                                    AngularGradient(
-                                        colors: [
-                                            app.appearance.accent.color.opacity(0.95),
-                                            app.appearance.accent.color.opacity(0.45),
-                                            Color.white.opacity(0.55),
-                                            app.appearance.accent.color.opacity(0.9)
-                                        ],
-                                        center: .center
-                                    ),
-                                    lineWidth: storyRing == nil ? 3 : 1.5
-                                )
-                                .padding(-1.5)
+                            ModulaGlowRing(
+                                tint: tint ?? app.appearance.accent.color,
+                                lineWidth: storyRing == nil ? 3 : 1.5,
+                                glow: storyRing == nil
+                            )
+                            .padding(-1.5)
                         )
-                        .shadow(color: .black.opacity(0.12), radius: 5, y: 2)
+                        .shadow(color: (tint ?? .black).opacity(0.25), radius: 12, y: 4)
 
                     if let storyRing {
                         StoryRing(state: storyRing, size: avatarSize, accent: app.appearance.accent.color)
                     }
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
             .contextMenu {
                 ForEach(contextActions) { action in
                     Button(role: action.role == .destructive ? .destructive : nil) {
@@ -401,9 +412,28 @@ struct ProfileActionsRow: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
+    @Environment(\.profileAccentColor) private var profileAccent
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
         metricRow
-        .padding(.vertical, 8)
+        .padding(.vertical, 10)
+        .padding(.horizontal, 6)
+        .background {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(reduceTransparency ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(.ultraThinMaterial))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.18), Color.white.opacity(0.02)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ),
+                            lineWidth: 0.75
+                        )
+                )
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("profile.metrics")
     }
@@ -463,11 +493,9 @@ struct ProfileActionsRow: View {
             action()
         } label: {
             VStack(spacing: 2) {
-                Text(ProfileCountFormatter.compact(value))
-                    .font(.headline.weight(.bold))
-                    .monospacedDigit()
+                ModulaCountUpText(value: value, format: ProfileCountFormatter.compact)
+                    .font(.title3.weight(.bold))
                     .foregroundStyle(selected ? app.appearance.accent.color : .primary)
-                    .contentTransition(.numericText())
                 Text(label)
                     .font(.caption2.weight(selected ? .semibold : .medium))
                     .foregroundStyle(selected ? app.appearance.accent.color : .secondary)
@@ -486,7 +514,7 @@ struct ProfileActionsRow: View {
                 }
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
         .accessibilityLabel(ProfileCountFormatter.accessibility(value, noun: accessibilityNoun))
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
@@ -686,6 +714,7 @@ struct ProfileSkeleton: View {
             .padding(.top, 52)
         }
         .redacted(reason: .placeholder)
+        .modulaShimmer()
         .accessibilityIdentifier("profile.loading")
     }
 

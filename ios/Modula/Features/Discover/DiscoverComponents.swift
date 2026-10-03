@@ -411,6 +411,10 @@ struct DiscoverSkeleton: View {
     enum Kind { case topic, person, post, module }
 
     var body: some View {
+        shape.modulaShimmer()
+    }
+
+    @ViewBuilder private var shape: some View {
         switch kind {
         case .topic:
             RoundedRectangle(cornerRadius: 18, style: .continuous)
