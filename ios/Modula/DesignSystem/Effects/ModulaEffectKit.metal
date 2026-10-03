@@ -49,10 +49,12 @@ static inline float fxBlob(float2 uv, float2 centre, float radius) {
     ribbon *= smoothstep(0.95, 0.15, uv.y) * 0.35;
 
     half3 rgb = base.rgb;
-    rgb = mix(rgb, tintA.rgb, half(saturate(b1 * 0.85 + ribbon * 0.6) * intensity));
-    rgb = mix(rgb, tintB.rgb, half(saturate(b2 * 0.75) * intensity));
-    rgb = mix(rgb, mix(tintA.rgb, tintB.rgb, 0.5h), half(saturate(b3 * 0.55) * intensity));
-    rgb += half3(tintB.rgb) * half(b4 * 0.18 * intensity);
+    half3 a = min(tintA.rgb * 1.15h, half3(1.0));
+    half3 b = min(tintB.rgb * 1.10h, half3(1.0));
+    rgb = mix(rgb, a, half(saturate(b1 * 0.95 + ribbon * 0.7) * intensity));
+    rgb = mix(rgb, b, half(saturate(b2 * 0.85) * intensity));
+    rgb = mix(rgb, mix(a, b, 0.5h), half(saturate(b3 * 0.6) * intensity));
+    rgb += b * half(b4 * 0.22 * intensity);
 
     float grain = (fxHash(floor(position)) - 0.5) * 0.035;
     rgb += half3(half(grain));

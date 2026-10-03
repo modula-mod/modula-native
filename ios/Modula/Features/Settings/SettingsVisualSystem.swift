@@ -180,10 +180,14 @@ struct SettingsCoverHeader: View {
                     .overlay {
                         Circle().stroke(canvas, lineWidth: SettingsVisualMetrics.avatarBorder)
                     }
+                    .overlay {
+                        ModulaGlowRing(tint: app.appearance.accent.color, lineWidth: 2.5)
+                            .padding(-2)
+                    }
                     .matchedGeometryEffect(id: "settings.identity.avatar", in: namespace, isSource: clamped < 0.55)
                     .accessibilityLabel("Account")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(ModulaPressStyle(scale: 0.95))
             .offset(y: -SettingsVisualMetrics.avatarOverlap)
             .padding(.bottom, -SettingsVisualMetrics.avatarOverlap)
 
@@ -205,6 +209,11 @@ struct SettingsCoverHeader: View {
     }
 
     private var fallback: some View {
+        ModulaAuroraBackground(tint: app.appearance.accent.color, intensity: 1)
+            .accessibilityHidden(true)
+    }
+
+    private var legacyFallback: some View {
         ZStack {
             LinearGradient(
                 colors: [

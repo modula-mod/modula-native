@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		A03200000000000000000008 /* ModulaAttachmentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000008 /* ModulaAttachmentPicker.swift */; };
 		A03200000000000000000007 /* POST03Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000007 /* POST03Tests.swift */; };
+		F70200000000000000000004 /* EffectKitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70100000000000000000004 /* EffectKitTests.swift */; };
 		R50100000000000000000050 /* SettingsRealFeaturesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000050 /* SettingsRealFeaturesTests.swift */; };
 		Q50100000000000000000006 /* SettingsServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = Q40100000000000000000006 /* SettingsServiceTests.swift */; };
 		A03200000000000000000001 /* ModulaAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000001 /* ModulaAttachment.swift */; };
@@ -326,6 +327,7 @@
 /* Begin PBXFileReference section */
 		A03100000000000000000008 /* ModulaAttachmentPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaAttachmentPicker.swift; path = Features/Media/ModulaAttachmentPicker.swift; sourceTree = "<group>"; };
 		A03100000000000000000007 /* POST03Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = POST03Tests.swift; sourceTree = "<group>"; };
+		F70100000000000000000004 /* EffectKitTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EffectKitTests.swift; sourceTree = "<group>"; };
 		R40100000000000000000050 /* SettingsRealFeaturesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsRealFeaturesTests.swift; sourceTree = "<group>"; };
 		Q40100000000000000000006 /* SettingsServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsServiceTests.swift; sourceTree = "<group>"; };
 		A03100000000000000000001 /* ModulaAttachment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaAttachment.swift; path = Features/Media/ModulaAttachment.swift; sourceTree = "<group>"; };
@@ -680,6 +682,7 @@
 			isa = PBXGroup;
 			children = (
 				A03100000000000000000007 /* POST03Tests.swift */,
+				F70100000000000000000004 /* EffectKitTests.swift */,
 				R40100000000000000000050 /* SettingsRealFeaturesTests.swift */,
 				Q40100000000000000000006 /* SettingsServiceTests.swift */,
 				N40100000000000000000012 /* N4CTests.swift */,
@@ -1293,6 +1296,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A03200000000000000000007 /* POST03Tests.swift in Sources */,
+				F70200000000000000000004 /* EffectKitTests.swift in Sources */,
 				R50100000000000000000050 /* SettingsRealFeaturesTests.swift in Sources */,
 				Q50100000000000000000006 /* SettingsServiceTests.swift in Sources */,
 				C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */,

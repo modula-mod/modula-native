@@ -26,6 +26,10 @@ struct ProfileView: View {
     @State private var avatarTint: Color?
     @State private var contentTab: ProfileContentTab = .posts
     @AppStorage("profile.postLayout") private var postLayoutRaw = ProfilePostLayout.grid.rawValue
+    #if DEBUG
+    /// DEBUG-only: `--debug-autoscroll` scrolls the page for screen recordings.
+    @State private var debugScrollPosition = ScrollPosition(edge: .top)
+    #endif
 
     private var identity: ProfileIdentity {
         .resolving(routeUserID: userID)
@@ -225,6 +229,17 @@ struct ProfileView: View {
                 )
             }
             .refreshable { await refreshCurrent() }
+            #if DEBUG
+            .scrollPosition($debugScrollPosition)
+            .task {
+                guard ProcessInfo.processInfo.arguments.contains("--debug-autoscroll") else { return }
+                try? await Task.sleep(for: .seconds(2.5))
+                for (y, duration) in [(420.0, 1.6), (1_100.0, 2.2), (1_700.0, 2.0), (0.0, 2.6)] {
+                    withAnimation(.easeInOut(duration: duration)) { debugScrollPosition.scrollTo(y: y) }
+                    try? await Task.sleep(for: .seconds(duration + 0.8))
+                }
+            }
+            #endif
 
             ModulaProgressiveHeader(
                 largeTitle: largeTitle,

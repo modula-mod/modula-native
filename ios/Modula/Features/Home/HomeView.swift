@@ -43,7 +43,9 @@ struct HomeView: View {
                                 Task { await openStory(group) }
                             }
                             .padding(.horizontal, -ModulaLayout.contentInset)
-                            .padding(.leading, 4)
+                            // Bleed to the screen edges but start the first story on the
+                            // content inset (it used to sit 4pt from the edge).
+                            .contentMargins(.horizontal, ModulaLayout.contentInset, for: .scrollContent)
                         }
                         if app.home.isOfflineHint && !state.items.isEmpty {
                             offlineBanner

@@ -171,7 +171,7 @@ struct ProfileCover: View {
             ModulaAuroraBackground(
                 tint: tint ?? fillColor,
                 secondary: coverColour.flatMap { $0.isEmpty ? nil : Color(hex: $0) },
-                intensity: 0.9
+                intensity: 1
             )
             legacyGeometry
                 .opacity(0.35)
