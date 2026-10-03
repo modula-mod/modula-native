@@ -12,9 +12,9 @@ struct AccountSettingsView: View {
             case .password: AccountPasswordView()
             case .sessions: AccountSessionsView()
             case .personalInformation: AccountPersonalInformationView()
-            case .username: AccountUsernameView()
+            case .username: UsernameChangeView()
             case .email: AccountEmailView()
-            case .deleteAccount: AccountDeleteView()
+            case .deleteAccount: DeleteAccountView()
             }
         }
         .accessibilityIdentifier("settings.account.\(route.rawValue)")
@@ -272,20 +272,6 @@ private struct AccountPersonalInformationView: View {
     }
 }
 
-private struct AccountUsernameView: View {
-    @Environment(AppEnvironment.self) private var app
-    var body: some View {
-        let dest = SettingsRegistry.destination(for: .account(.username))
-        Form {
-            LabeledContent("Current username", value: app.auth.account.map { "@\($0.primaryHandle)" } ?? "—")
-            Text(dest?.unavailableReason ?? "Username cannot be changed in this client.")
-                .foregroundStyle(.secondary)
-        }
-        .modulaSoftScrollEdge()
-        .navigationTitle("Username")
-    }
-}
-
 private struct AccountEmailView: View {
     @Environment(AppEnvironment.self) private var app
     var body: some View {
@@ -300,20 +286,3 @@ private struct AccountEmailView: View {
     }
 }
 
-private struct AccountDeleteView: View {
-    @State private var confirmation = ""
-    var body: some View {
-        let dest = SettingsRegistry.destination(for: .account(.deleteAccount))
-        Form {
-            Text(dest?.unavailableReason ?? "Account deletion isn’t available.")
-                .foregroundStyle(.secondary)
-            TextField("Type DELETE to confirm", text: $confirmation)
-                .textInputAutocapitalization(.characters)
-                .disabled(true)
-            Button("Delete Account", role: .destructive) {}
-                .disabled(true)
-        }
-        .modulaSoftScrollEdge()
-        .navigationTitle("Delete Account")
-    }
-}

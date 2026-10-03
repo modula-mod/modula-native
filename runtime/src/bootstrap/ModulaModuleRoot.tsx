@@ -42,6 +42,11 @@ function Surface({context: initial, host}: {context: ModuleContext; host: Host})
 }
 
 export function ModulaModuleRoot(context: ModuleContext) {
-  const host = useMemo(() => createHost(context.sessionID, context.moduleID), [context.sessionID, context.moduleID]);
+  const host = useMemo(() => createHost(context.surfaceToken, context.moduleID), [context.surfaceToken, context.moduleID]);
+  // Native delivers this surface's lifecycle/appearance as new root props (never a
+  // broadcast); forward each new event to the module's host subscription.
+  useEffect(() => {
+    host.deliver({name: context.lifecycle ?? 'mounted', sequence: context.eventSequence ?? 0, environment: context.environment});
+  }, [host, context.lifecycle, context.eventSequence, context.environment]);
   return <ModuleBoundary host={host} environment={context.environment}><Surface context={context} host={host}/></ModuleBoundary>;
 }

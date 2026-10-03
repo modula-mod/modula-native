@@ -323,11 +323,24 @@ final class ModulaAudioPlayerState {
 
     func toggle() {
         guard let player else { return }
-        if isPlaying { player.pause() } else { player.play() }
+        if isPlaying {
+            player.pause()
+            proximity.stop()
+        } else {
+            // Settings → Audio → Voice playback speed applies to every audio player.
+            player.defaultRate = ModulaPreferences.voicePlaybackSpeed
+            player.play()
+            player.rate = ModulaPreferences.voicePlaybackSpeed
+            if ModulaPreferences.hapticOnPlay { HapticEngine.shared.play(.lightImpact) }
+            if ModulaPreferences.raiseToListen { proximity.start() }
+        }
         isPlaying.toggle()
     }
 
+    @ObservationIgnored private let proximity = RaiseToListenRouter()
+
     func release() {
+        proximity.stop()
         if let observer, let player { player.removeTimeObserver(observer) }
         observer = nil
         player?.pause()
@@ -370,7 +383,11 @@ struct ModulaAudioViewer: View {
         }
         .task(id: attachment.id) { download.prepare(attachment, downloadsRemote: true, manager: app.attachmentDownloads) }
         .onChange(of: download.state) { _, state in
-            if case .downloaded(let url) = state { audio.attach(url: url) }
+            if case .downloaded(let url) = state {
+                audio.attach(url: url)
+                // Settings → Audio → Playback → "Autoplay previews".
+                if ModulaPreferences.audioAutoplayPreviews, !audio.isPlaying { audio.toggle() }
+            }
         }
         .onDisappear { audio.release() }
     }
@@ -378,5 +395,47 @@ struct ModulaAudioViewer: View {
     private var playableURL: URL? {
         if case .downloaded(let url) = download.state { return url }
         return nil
+    }
+}
+
+/// Settings → Audio → Voice → "Raise to listen".
+/// While audio plays, the proximity sensor is armed; holding the phone to your ear
+/// moves playback to the earpiece (only when microphone access was already granted —
+/// iOS requires the play-and-record session for the receiver, and Modula never asks
+/// for the microphone just for this). Lowering the phone returns to the speaker.
+@MainActor
+final class RaiseToListenRouter {
+    private var token: NSObjectProtocol?
+
+    func start() {
+        guard token == nil else { return }
+        UIDevice.current.isProximityMonitoringEnabled = true
+        guard UIDevice.current.isProximityMonitoringEnabled else { return }
+        token = NotificationCenter.default.addObserver(
+            forName: UIDevice.proximityStateDidChangeNotification, object: nil, queue: .main
+        ) { _ in
+            Task { @MainActor in Self.route(toEar: UIDevice.current.proximityState) }
+        }
+    }
+
+    func stop() {
+        if let token { NotificationCenter.default.removeObserver(token) }
+        token = nil
+        if UIDevice.current.isProximityMonitoringEnabled {
+            UIDevice.current.isProximityMonitoringEnabled = false
+            Self.route(toEar: false)
+        }
+    }
+
+    static func route(toEar: Bool) {
+        let session = AVAudioSession.sharedInstance()
+        if toEar {
+            guard AVAudioApplication.shared.recordPermission == .granted else { return }
+            try? session.setCategory(.playAndRecord, mode: .spokenAudio, options: [])
+            try? session.overrideOutputAudioPort(.none)
+        } else {
+            try? session.setCategory(.playback, mode: .spokenAudio, options: [])
+        }
+        try? session.setActive(true)
     }
 }

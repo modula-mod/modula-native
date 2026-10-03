@@ -271,9 +271,9 @@ struct SocialPost: Identifiable, Hashable, Sendable {
         }
         var engagementBits: [String] = []
         if reactionCount > 0 || likeCount > 0 {
-            engagementBits.append("\(max(reactionCount, likeCount)) reactions")
+            engagementBits.append(String(localized: "\(max(reactionCount, likeCount)) reactions"))
         }
-        if replyCount > 0 { engagementBits.append("\(replyCount) comments") }
+        if replyCount > 0 { engagementBits.append(String(localized: "\(replyCount) comments")) }
         if repostCount > 0 { engagementBits.append("\(repostCount) reposts") }
         if !engagementBits.isEmpty {
             parts.append(engagementBits.joined(separator: ", "))
@@ -315,7 +315,7 @@ struct SocialComment: Identifiable, Hashable, Sendable {
         let who = author?.displayName ?? "Someone"
         let when = ActivityRelativeTime.string(from: createdAt)
         var parts = [who, when, "“\(text)”"]
-        if likeCount > 0 { parts.append("\(likeCount) likes") }
+        if likeCount > 0 { parts.append(String(localized: "\(likeCount) likes")) }
         return parts.joined(separator: ". ")
     }
 }
@@ -364,10 +364,10 @@ struct FeedSummary: Hashable, Sendable {
         let top = counts.sorted { $0.value > $1.value }.prefix(3).map(\.key)
         var highlights: [String] = []
         if !posts.isEmpty { highlights.append("\(posts.count) posts in loaded window") }
-        if likes > 0 { highlights.append("\(likes) likes") }
-        if replies > 0 { highlights.append("\(replies) replies") }
+        if likes > 0 { highlights.append(String(localized: "\(likes) likes")) }
+        if replies > 0 { highlights.append(String(localized: "\(replies) replies")) }
         if media > 0 { highlights.append("\(media) with media") }
-        if modules > 0 { highlights.append("\(modules) module updates") }
+        if modules > 0 { highlights.append(String(localized: "\(modules) module updates")) }
         return FeedSummary(
             source: .aggregate,
             postCount: posts.count,

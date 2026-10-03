@@ -17,7 +17,7 @@ struct ModuleHost: View {
                           contrastPreference: app.appearance.contrastTransparency == .higherContrast ? "higherContrast" : "standard",
                           transparencyPreference: app.appearance.contrastTransparency == .reduceTransparency ? "reduceTransparency" : "standard",
                           iconStyle: app.appearance.iconStyle.rawValue, interfaceShape: app.appearance.interfaceShape.rawValue,
-                          moduleBranding: app.appearance.moduleBranding.rawValue, reduceMotion: reduceMotion,
+                          moduleBranding: app.appearance.moduleBranding.rawValue, reduceMotion: reduceMotion || ModulaPreferences.extraMotionReduction,
                           textScale: textScale * app.appearance.textSize.scale)
     }
     private var palette: ModulaPalette { ModulaPalette.resolve(app.appearance, scheme: scheme) }
@@ -25,7 +25,9 @@ struct ModuleHost: View {
     var body: some View {
         VStack(spacing: 0) {
             if let session {
-                if session.state == .failed || session.state == .unavailable {
+                if let gate = gateContent(for: session) {
+                    gate
+                } else if session.state == .failed || session.state == .unavailable {
                     ContentUnavailableView {
                         Label("\(session.manifest.name) failed to load", systemImage: "exclamationmark.triangle")
                     } description: {
@@ -35,7 +37,7 @@ struct ModuleHost: View {
                         Button("Close") { app.navigation.close() }
                     }
                     .accessibilityIdentifier("module.host.failed")
-                } else if !session.isValid {
+                } else if !session.isValid || session.state == .expired {
                     stateView(
                         title: "Session ended",
                         symbol: "clock.arrow.circlepath",
@@ -83,10 +85,47 @@ struct ModuleHost: View {
             }
             #endif
         }
-        .onAppear { if session == nil || session?.isValid == false { session = app.runtime.prepare(moduleID: moduleID, environment: appearance, initialLocalPath: initialLocalPath) } }
+        .onAppear {
+            if let session, session.isValid {
+                // Back from a tab switch or a pushed route: same surface, same React state.
+                app.runtime.resume(session)
+            } else if session == nil || session?.isValid == false && session?.state != .expired {
+                session = app.runtime.prepare(moduleID: moduleID, environment: appearance, initialLocalPath: initialLocalPath)
+            }
+        }
         .onChange(of: appearance) { _, value in if let session { app.runtime.update(value, session: session) } }
-        .onDisappear { if let session { app.runtime.unmount(session) } }
+        // Hidden ≠ closed: suspend so tab switches and pushed routes keep the module alive.
+        // Real teardown happens when the surface is dismantled (ReactNativeViewController.stop).
+        .onDisappear { if let session { app.runtime.suspend(session) } }
     }
+    /// Native gate states decided before any module JavaScript runs.
+    private func gateContent(for session: ModuleSession) -> AnyView? {
+        let name = session.manifest.name
+        let message = session.error ?? ""
+        switch session.state {
+        case .notInstalled:
+            return AnyView(stateView(title: "\(name) isn’t installed", symbol: "arrow.down.app", message: message,
+                                     retryTitle: "Try again", showsProductHub: true)
+                .accessibilityIdentifier("module.host.notInstalled"))
+        case .integrityFailed:
+            return AnyView(stateView(title: "Couldn’t verify \(name)", symbol: "xmark.shield", message: message,
+                                     retryTitle: "Try again", showsProductHub: true)
+                .accessibilityIdentifier("module.host.integrityFailed"))
+        case .updateRequired:
+            return AnyView(stateView(title: "Update required", symbol: "arrow.triangle.2.circlepath", message: message,
+                                     retryTitle: "Check again", showsProductHub: true)
+                .accessibilityIdentifier("module.host.updateRequired"))
+        case .permissionDenied:
+            let list = session.deniedCapabilities.map(ModuleHostPermissions.purpose(for:))
+            let detail = list.isEmpty ? message : message + "\n\n" + Array(Set(list)).sorted().joined(separator: "\n")
+            return AnyView(stateView(title: "Permission needed", symbol: "hand.raised", message: detail,
+                                     retryTitle: "Try again", showsProductHub: true)
+                .accessibilityIdentifier("module.host.permissionDenied"))
+        default:
+            return nil
+        }
+    }
+
     private func stateView(title: String, symbol: String, message: String, retryTitle: String = "Retry", showsProductHub: Bool) -> some View {
         ContentUnavailableView {
             Label(title, systemImage: symbol)

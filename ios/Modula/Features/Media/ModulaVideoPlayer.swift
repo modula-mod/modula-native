@@ -11,7 +11,8 @@ final class ModulaVideoPlaybackController {
     private(set) var player: AVPlayer?
     private(set) var progress: Double = 0
     private(set) var duration: TimeInterval = 0
-    private(set) var isMuted = true
+    /// Settings → Media → Video → "Start muted".
+    private(set) var isMuted = ModulaPreferences.videoStartsMuted
     var autoplayAllowed = true
     private var timeObserver: Any?
 
@@ -125,6 +126,9 @@ struct ModulaVideoPlayer: View {
         .onTapGesture {
             guard isActive, resource.canPlayVideo else { return }
             controller.toggle()
+            if controller.state == .playing, ModulaPreferences.hapticOnPlay {
+                HapticEngine.shared.play(.lightImpact)
+            }
             onToggle?()
         }
         .onChange(of: isActive) { _, active in
@@ -135,6 +139,13 @@ struct ModulaVideoPlayer: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { controller.pause() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
+            // Low Power Mode switched on mid-scroll: honour "Pause autoplay in Low Power Mode".
+            if controller.state == .playing,
+               !ModulaPreferences.allowsVideoAutoplay(systemReduceMotion: reduceMotion) {
+                controller.pause()
+            }
         }
         .onDisappear { controller.pause() }
         .onAppear { if isActive { activate() } }
@@ -175,7 +186,13 @@ struct ModulaVideoPlayer: View {
         guard resource.canPlayVideo, let url = resource.url else { return }
         controller.attach(url: url)
         if controller.autoplayAllowed {
-            if reduceMotion { controller.pause() } else { controller.play() }
+            // Reduce Motion, Settings → Battery & Data (Low Power / Data saver / extra
+            // motion reduction) decide whether feed video starts on its own.
+            if ModulaPreferences.allowsVideoAutoplay(systemReduceMotion: reduceMotion) {
+                controller.play()
+            } else {
+                controller.pause()
+            }
         }
     }
 

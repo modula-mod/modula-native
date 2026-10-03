@@ -35,6 +35,11 @@ final class AuthenticationStore {
         }
     }
 
+    /// Re-reads `/v1/accounts/me` after an account change (for example a new username).
+    func refreshAccount() async {
+        if let fresh = try? await client.restore() { account = fresh }
+    }
+
     func signIn(email: String, password: String) async -> Bool {
         guard !busy else { return false }
         busy = true; error = nil

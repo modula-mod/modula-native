@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://modula.digital/schemas/module-contracts/module-context.schema.json",
+  "title": "ModuleContext",
+  "description": "Root props of one module surface. Set natively on that surface only; lifecycle and appearance updates arrive as new props on the same surface (per-surface routing), never via a broadcast to the shared JS context. No credential-shaped keys or values are permitted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["surfaceToken", "moduleID", "bridgeVersion", "environment", "userID", "signedIn"],
+  "properties": {
+    "surfaceToken": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "moduleID": {"type": "string"},
+    "bridgeVersion": {"type": "string"},
+    "environment": {"type": "object", "description": "Semantic appearance snapshot (see ModuleEnvironment in src/index.ts)."},
+    "userID": {"type": ["string", "null"], "description": "Null unless the manifest declares, and policy grants, `identity.userID`."},
+    "signedIn": {"type": "boolean", "description": "Whether a shell account is signed in. Non-identifying."},
+    "initialPath": {"type": ["string", "null"]},
+    "lifecycle": {"enum": ["mounted", "active", "inactive", "backgrounded", "foregrounded", "unmounted", "memoryPressure", "appearanceChanged", "suspended", "resumed"]},
+    "eventSequence": {"type": "integer", "minimum": 0}
+  }
+}

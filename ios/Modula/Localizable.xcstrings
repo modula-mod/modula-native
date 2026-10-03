@@ -1,0 +1,1814 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "" : {},
+    " " : {},
+    "#" : {},
+    "%" : {},
+    "%@ attachment, %@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ attachment, %2$@, %3$@"
+          }
+        }
+      }
+    },
+    "%@ draft" : {},
+    "%@ failed to load" : {},
+    "%@ icon" : {},
+    "%@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%@ · %@ risk" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@ risk"
+          }
+        }
+      }
+    },
+    "%@ · %@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@ · %3$@"
+          }
+        }
+      }
+    },
+    "%@ · %@%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@%3$@"
+          }
+        }
+      }
+    },
+    "%@%@%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@%2$@%3$@"
+          }
+        }
+      }
+    },
+    "%@'s profile photo" : {},
+    "%@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@"
+          }
+        }
+      }
+    },
+    "%@, %@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@, %3$@"
+          }
+        }
+      }
+    },
+    "%@, %lld reactions" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %#@count@"
+          },
+          "substitutions" : {
+            "count" : {
+              "argNum" : 2,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg reaction"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg reactions"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%@, %lld saved items" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %#@count@"
+          },
+          "substitutions" : {
+            "count" : {
+              "argNum" : 2,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg saved item"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg saved items"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%@, @%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, @%2$@"
+          }
+        }
+      }
+    },
+    "%@, image %lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, image %2$lld of %3$lld"
+          }
+        }
+      }
+    },
+    "%@, profile photo" : {},
+    "%@. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@. %2$@"
+          }
+        }
+      }
+    },
+    "%@. Last edited %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@. Last edited %2$@"
+          }
+        }
+      }
+    },
+    "%@: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: %2$@"
+          }
+        }
+      }
+    },
+    "%@: %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: %2$@ %3$@"
+          }
+        }
+      }
+    },
+    "%lld" : {},
+    "%lld / %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld / %2$lld"
+          }
+        }
+      }
+    },
+    "%lld comments" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld comment"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld comments"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld high risk" : {},
+    "%lld items · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@count@ · %2$@"
+          },
+          "substitutions" : {
+            "count" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg item"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg items"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld likes" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld like"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld likes"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld module updates" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld module update"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld module updates"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld more attachments" : {},
+    "%lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "%lld percent" : {},
+    "%lld ratings" : {},
+    "%lld reactions" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld reaction"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld reactions"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld replies" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld reply"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld replies"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld reposts" : {},
+    "%lld selected" : {},
+    "%lld unread" : {},
+    "%lld unread items" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld unread item"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld unread items"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "+%lld attachments" : {},
+    "24-hour time" : {},
+    "24.6K" : {},
+    "368" : {},
+    "60 live-backed mixed posts" : {},
+    "60 state fixtures · live feed unavailable" : {},
+    "@%@" : {},
+    "@alex · Product designer and photographer" : {},
+    "A deliberately longer preview verifies wrapping, Dynamic Type, bottom-edge placement, and bounded actions without clipping." : {},
+    "A persona is an instruction written on this iPhone. It does not switch Nodus to another model." : {},
+    "A reply in this chat." : {},
+    "A shared production rail. Tap More or drag down for context." : {},
+    "A single post shell can present text, media, documents, audio, and links without duplicating identity or engagement logic." : {},
+    "A skill adds one instruction line for this chat. Nodus reads it with your question. It does not gain a new tool." : {},
+    "A verified experimental bundle was not found. Chats, Knowledge, and Memory remain on this iPhone." : {},
+    "AI Chat" : {},
+    "AI Mode" : {},
+    "AI-generated summary" : {},
+    "API host" : {},
+    "API key" : {},
+    "About" : {},
+    "About Modula" : {},
+    "Accent" : {},
+    "Accent, type, density, motion and branding update through the additive host environment." : {},
+    "Accept" : {},
+    "Account" : {},
+    "Account ID" : {},
+    "Accounts you mute will appear here." : {},
+    "Actions available" : {},
+    "Active surfaces" : {},
+    "Activity" : {},
+    "Activity Summary" : {},
+    "Adapted" : {},
+    "Add" : {},
+    "Add %@" : {},
+    "Add Knowledge" : {},
+    "Add Link" : {},
+    "Add Memory" : {},
+    "Add Text" : {},
+    "Add a caption" : {},
+    "Add a comment" : {},
+    "Add a comment…" : {},
+    "Add a photo" : {},
+    "Add context" : {},
+    "Add links to the places that matter." : {},
+    "Add option" : {},
+    "Add this link?" : {},
+    "Add to this iPhone" : {},
+    "Added" : {},
+    "Adding places isn’t available yet" : {},
+    "Adds %@" : {},
+    "Advanced Interaction" : {},
+    "Affects how captions wrap in feed cards on this device." : {},
+    "Again" : {},
+    "Alex Rivers" : {},
+    "All Conversations" : {},
+    "All chats" : {},
+    "Allow mentions" : {},
+    "Allowed" : {},
+    "Already have an account? Sign In" : {},
+    "Alt Text" : {},
+    "App Icon" : {},
+    "App Lock" : {},
+    "App Lock protects the already signed-in Modula app on this device. It does not replace account login." : {},
+    "Appearance" : {},
+    "Appearance Preview" : {},
+    "Appearance preferences are saved on this device." : {},
+    "Apple availability reason" : {},
+    "Apple system provider" : {},
+    "Application support" : {},
+    "Applies to posts already loaded in this feed. It doesn’t change what Modula recommends." : {},
+    "Approve" : {},
+    "Archive" : {},
+    "Archived" : {},
+    "Ask Modula…" : {},
+    "Ask Nodus…" : {},
+    "At least 8 characters" : {},
+    "At least 8 characters." : {},
+    "Attach" : {},
+    "Attached" : {},
+    "Attached photo preview" : {},
+    "Attached to this chat" : {},
+    "Attachment" : {},
+    "Attachment diagnostics for %@, state %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Attachment diagnostics for %1$@, state %2$@"
+          }
+        }
+      }
+    },
+    "Attachment unavailable" : {},
+    "Attachments" : {},
+    "Audience" : {},
+    "Audio" : {},
+    "Audio unavailable" : {},
+    "Author" : {},
+    "Auto" : {},
+    "Auto-advance stories" : {},
+    "Auto-detect language" : {},
+    "Autoplay previews" : {},
+    "Availability" : {},
+    "Available" : {},
+    "Available for 24 hours" : {},
+    "Available in Product Hub" : {},
+    "Available to install" : {},
+    "Back" : {},
+    "Back to Sign In" : {},
+    "Background interaction" : {},
+    "Badges" : {},
+    "Bali, Indonesia · 2h" : {},
+    "Base" : {},
+    "Base model" : {},
+    "Battery & Data" : {},
+    "Be the first to leave a comment." : {},
+    "Before a real search, the query is sent to the configured search provider. Nodus model inference remains local. Search is never used when the chat Search control is off." : {},
+    "Bio" : {},
+    "Biometric unlock falls back to your Modula passcode. Failed biometric attempts never open Home." : {},
+    "Block" : {},
+    "Block this profile?" : {},
+    "Body" : {},
+    "Bottom overlay" : {},
+    "Boundaries" : {},
+    "Bridge" : {},
+    "Broader" : {},
+    "Browse Memory" : {},
+    "Build" : {},
+    "Bundle" : {},
+    "Cache" : {},
+    "Cache cleared." : {},
+    "Caches" : {},
+    "Camera" : {},
+    "Cancel" : {},
+    "Cancel Apple Test" : {},
+    "Cancel generation" : {},
+    "Cancel reply" : {},
+    "Canonical carved-edge channel — orange-reference geometry. Outer silhouette stays fixed; the selection aperture expands vertically with whole-phrase rotated labels." : {},
+    "Capability" : {},
+    "Caps Lock mapping" : {},
+    "Caption density" : {},
+    "Captions" : {},
+    "Capture" : {},
+    "Category" : {},
+    "Celsius" : {},
+    "Change" : {},
+    "Change Passcode" : {},
+    "Chat Settings" : {},
+    "Chat actions" : {},
+    "Chat note" : {},
+    "Chat privacy" : {},
+    "Chat settings" : {},
+    "Chats" : {},
+    "Checking version %@ with the registry…" : {},
+    "Choose Modules" : {},
+    "Choose from Library" : {},
+    "Choose reaction" : {},
+    "Clear" : {},
+    "Clear All Memory" : {},
+    "Clear Cache" : {},
+    "Clear all Memory?" : {},
+    "Clear cache?" : {},
+    "Clears URLCache and temporary files only. Account session, drafts and offline module data are kept." : {},
+    "Close" : {},
+    "Close comments" : {},
+    "Close friends" : {},
+    "Close media" : {},
+    "Close post actions" : {},
+    "Close preview" : {},
+    "Collection" : {},
+    "Collections" : {},
+    "Collections sync with your account." : {},
+    "Colour" : {},
+    "Colour, text size, spacing, and timestamps change this chat’s look. Instructions, Search, and Memory stay in Chat Settings." : {},
+    "Comfortable" : {},
+    "Coming Soon" : {},
+    "Coming soon" : {},
+    "Command Center" : {},
+    "Comment" : {},
+    "Comments" : {},
+    "Compact" : {},
+    "Compatibility" : {},
+    "Compatible" : {},
+    "Component Catalog" : {},
+    "Components" : {},
+    "Composer" : {},
+    "Confidence" : {},
+    "Confidence engine" : {},
+    "Configure" : {},
+    "Configure Online Search" : {},
+    "Confirm passcode" : {},
+    "Confirm password" : {},
+    "Connection" : {},
+    "Connectors" : {},
+    "Consent" : {},
+    "Content & Posts" : {},
+    "Content first" : {},
+    "Context" : {},
+    "Context actions" : {},
+    "Continue" : {},
+    "Continue Draft" : {},
+    "Continue Editing" : {},
+    "Continue draft" : {},
+    "Continue your draft?" : {},
+    "Contract" : {},
+    "Conversation" : {},
+    "Conversations" : {},
+    "Copy" : {},
+    "Copy Link" : {},
+    "Copy link instead of opening sheet" : {},
+    "Correct answer / note" : {},
+    "Correction: %@" : {},
+    "Corrections are local Learning Candidates. Valid correction, privacy eligibility, consent, review, and approval are required before future dataset use. This screen never starts training or updates R7 weights." : {},
+    "Could not read .env.n1.local. Run scripts/n1/fixture.mjs first." : {},
+    "Couldn't load comments." : {},
+    "Couldn’t load photo" : {},
+    "Couldn’t load this story" : {},
+    "Count lab" : {},
+    "Counts" : {},
+    "Counts of what is stored on this iPhone. The model itself is under Models." : {},
+    "Cover crop" : {},
+    "Create" : {},
+    "Create Account" : {},
+    "Create Post" : {},
+    "Create a 6-digit passcode" : {},
+    "Create account" : {},
+    "Create an account" : {},
+    "Create story" : {},
+    "Create your account with your email address, then come back here to sign in." : {},
+    "Creator" : {},
+    "Credentials, tokens, precise location, financial secrets, and highly sensitive personal data are never suggested automatically." : {},
+    "Current email" : {},
+    "Current username" : {},
+    "Customise" : {},
+    "Customise %@" : {},
+    "Dark" : {},
+    "Dark Style" : {},
+    "Dark canvas" : {},
+    "Data & Storage" : {},
+    "Data ready ms" : {},
+    "Data saved by this module isn’t removed when you clear the cache." : {},
+    "Data saver" : {},
+    "Debug overlays" : {},
+    "Decline" : {},
+    "Default" : {},
+    "Default audience" : {},
+    "Default policy" : {},
+    "Delete" : {},
+    "Delete Account" : {},
+    "Delete Chat" : {},
+    "Delete Collection" : {},
+    "Delete Folder" : {},
+    "Delete Post" : {},
+    "Delete Project" : {},
+    "Delete collection?" : {},
+    "Delete installed Nodus" : {},
+    "Delete this chat?" : {},
+    "Delete this post?" : {},
+    "Delete “%@”?" : {},
+    "Density" : {},
+    "Describe this photo" : {},
+    "Description" : {},
+    "Deselect" : {},
+    "Deselect all" : {},
+    "Details" : {},
+    "Deterministic fixture" : {},
+    "Deterministic provider" : {},
+    "Deterministic summary from loaded Activity data. AI summaries can replace this later." : {},
+    "Developer" : {},
+    "Developer %@" : {},
+    "Developer Modules" : {},
+    "Developer Website" : {},
+    "Developer-only · Local · Not approved for shipping" : {},
+    "Development-only fixtures for the universal content layer. These screens never inject sample posts into production feeds." : {},
+    "Device" : {},
+    "Diagnostics" : {},
+    "Dictate" : {},
+    "Digests" : {},
+    "Dim Activity" : {},
+    "Dim Activity list" : {},
+    "Discard" : {},
+    "Discard draft?" : {},
+    "Discover" : {},
+    "Discover people" : {},
+    "Discover scope" : {},
+    "Dismiss" : {},
+    "Dismiss sidebar" : {},
+    "Dismissible" : {},
+    "Display name" : {},
+    "Distance" : {},
+    "Distribution" : {},
+    "Done" : {},
+    "Dots and presence" : {},
+    "Double-space for period" : {},
+    "Double-tap to like" : {},
+    "Downgrade" : {},
+    "Download failed · Retry" : {},
+    "Downloaded content will appear here." : {},
+    "Downloaded media will appear here." : {},
+    "Downloads" : {},
+    "Downloads and opens a Quick Look preview" : {},
+    "Draft Media" : {},
+    "Draft preview: %@" : {},
+    "Draft saved" : {},
+    "Drafts" : {},
+    "Drag and pinch to frame your photo." : {},
+    "Drag and pinch to reposition the cover." : {},
+    "Drag horizontally across reactions, then release to commit. VoiceOver users can select each reaction as a button." : {},
+    "Duplicate" : {},
+    "Duration" : {},
+    "Duration %lld hours" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Duration %lld hour"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Duration %lld hours"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Dynamic Type" : {},
+    "Dynamic items" : {},
+    "Edge Picker" : {},
+    "Edge Picker preferences are stored with Appearance on this device. Resetting here does not change theme, accent, type, or global motion." : {},
+    "Edge source" : {},
+    "Edge swipe to go back" : {},
+    "Edit" : {},
+    "Edit & Add" : {},
+    "Edit Memory" : {},
+    "Edit Post" : {},
+    "Edit Profile" : {},
+    "Edit alt text" : {},
+    "Edited" : {},
+    "Editing unavailable" : {},
+    "Editing your headline isn’t available yet." : {},
+    "Editor rows" : {},
+    "Elevated preview" : {},
+    "Email" : {},
+    "Email for resend" : {},
+    "Empty, typing, multiline, focused, keyboard-visible, disabled, sending, and attachment states use the same production primitive." : {},
+    "Enable App Lock" : {},
+    "Enable Online Search" : {},
+    "Enable Online Search?" : {},
+    "Enabled" : {},
+    "English" : {},
+    "Enter to send" : {},
+    "Enter your 6-digit Modula passcode." : {},
+    "Environment" : {},
+    "Events" : {},
+    "Everyone" : {},
+    "Examples" : {},
+    "Execution" : {},
+    "Exit" : {},
+    "Exit selection" : {},
+    "Expand" : {},
+    "Expanded photo, %@" : {},
+    "Expected sha256: artifact hash" : {},
+    "Experimental" : {},
+    "Experimental chrome sketches" : {},
+    "Explain Limited Library" : {},
+    "Export" : {},
+    "Export Approved JSONL" : {},
+    "Export Nodus evaluations" : {},
+    "Extra motion reduction" : {},
+    "FEATURED" : {},
+    "Face ID" : {},
+    "Face ID & Biometrics" : {},
+    "Fahrenheit" : {},
+    "Families" : {},
+    "Family" : {},
+    "Favorite" : {},
+    "Feature Flags" : {},
+    "Feature the modules that represent what you use, build or share." : {},
+    "Featured" : {},
+    "Featured module order is read-only until Greenfield can persist it." : {},
+    "Featured module, %@" : {},
+    "Features" : {},
+    "Feed" : {},
+    "Feeds" : {},
+    "Figures are measured from this device. Drafts, draft media, and Keychain sessions are not included as cache." : {},
+    "Files" : {},
+    "Fixture %@" : {},
+    "Fixtures" : {},
+    "Floating overlay" : {},
+    "Focus" : {},
+    "Focused" : {},
+    "Folders" : {},
+    "Follow people to fill your Following feed." : {},
+    "Followers" : {},
+    "Following" : {},
+    "Following, For You, and Modules are the live home feeds. Custom lists are not on the API yet." : {},
+    "Font" : {},
+    "For You" : {},
+    "Forgot Passcode?" : {},
+    "Forgot Passcode? Sign Out and Reset App Lock" : {},
+    "Forgot Password" : {},
+    "Forgot password?" : {},
+    "Forgot your passcode?" : {},
+    "Forgot your passcode? Sign out to remove App Lock from this device, then sign back in. Drafts on this device are kept unless you discard them." : {},
+    "Fork" : {},
+    "Fork from here" : {},
+    "Format" : {},
+    "Freshness" : {},
+    "From Modula" : {},
+    "From version %@ to version %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "From version %1$@ to version %2$@"
+          }
+        }
+      }
+    },
+    "From your loaded feed. Deterministic aggregate — not an AI summary." : {},
+    "GET" : {},
+    "Generating…" : {},
+    "Generation" : {},
+    "Gestures" : {},
+    "Global" : {},
+    "Global navigation" : {},
+    "Governance" : {},
+    "Governed learning diagnostics" : {},
+    "Guides" : {},
+    "HEIC" : {},
+    "Handle" : {},
+    "Handle @%@. Change handle in Account settings." : {},
+    "Haptic on play" : {},
+    "Haptics" : {},
+    "Headline" : {},
+    "Help" : {},
+    "Hide %@" : {},
+    "Hide module posts" : {},
+    "Hide module posts by default" : {},
+    "Hide password" : {},
+    "Hide tab badges" : {},
+    "Hide tab badges during Focus" : {},
+    "High" : {},
+    "Highlights" : {},
+    "Hold to set how long Nodus may write, and whether it reviews the draft." : {},
+    "Home Summary" : {},
+    "How should Nodus answer in this chat?" : {},
+    "How your choices look" : {},
+    "I agree to the Modula terms" : {},
+    "Identity" : {},
+    "If an account exists for this email, we’ll send reset instructions." : {},
+    "If that email is registered, a new code is on its way." : {},
+    "If that email is registered, a reset message is on its way." : {},
+    "Image %lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Image %1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "Image gallery" : {},
+    "Images" : {},
+    "Images and temporary files will download again when needed." : {},
+    "Imperial" : {},
+    "Import Markdown, TXT, PDF, or JSON" : {},
+    "Important" : {},
+    "In progress" : {},
+    "In the composer" : {},
+    "In-Mail" : {},
+    "Include @handle in share text" : {},
+    "Include modules in results" : {},
+    "Included with Modula. Adding a prompt stores a copy on this iPhone. Nothing is downloaded." : {},
+    "Increase Contrast in iOS Settings is respected. Appearance Contrast & Transparency can raise contrast further without disabling system settings." : {},
+    "Indicators" : {},
+    "Info" : {},
+    "Information" : {},
+    "Initial detent" : {},
+    "Initializations" : {},
+    "Insights" : {},
+    "Install" : {},
+    "Install descriptor verified against the Modula registry" : {},
+    "Install the module to switch between its versions." : {},
+    "Install verified artifact…" : {},
+    "Installed" : {},
+    "Installed %@" : {},
+    "Installed Modules" : {},
+    "Installed version" : {},
+    "Installs to your Modula account" : {},
+    "Instructions" : {},
+    "Instructions are included when Nodus answers chats in this project. They stay on this iPhone." : {},
+    "Instructions are sent with the question. Colour, spacing, and timestamps are in Customise." : {},
+    "Instructions for this chat" : {},
+    "Integrations" : {},
+    "Intelligence" : {},
+    "Intelligence. %@. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Intelligence. %1$@. %2$@"
+          }
+        }
+      }
+    },
+    "Interface" : {},
+    "Invoices" : {},
+    "Its messages are removed from this iPhone. This can’t be undone." : {},
+    "JPEG" : {},
+    "Join the conversation…" : {},
+    "Joined September 2026" : {},
+    "Keep as text" : {},
+    "Keep original" : {},
+    "Keep originals in Photos" : {},
+    "Kept on this iPhone" : {},
+    "Key in exports" : {},
+    "Key storage" : {},
+    "Keyboard" : {},
+    "Keyboard avoidance test" : {},
+    "Kind" : {},
+    "Knowledge" : {},
+    "Knowledge chunks" : {},
+    "Knowledge collections" : {},
+    "Knowledge items" : {},
+    "Knowledge text" : {},
+    "Lab" : {},
+    "Labs" : {},
+    "Language" : {},
+    "Large" : {},
+    "Last error" : {},
+    "Last local test" : {},
+    "Last refresh" : {},
+    "Last rejection" : {},
+    "Latency" : {},
+    "Latest action: %@" : {},
+    "Latest reply" : {},
+    "Latest version" : {},
+    "Layout" : {},
+    "Leading overlay for library and account destinations. The five root tabs stay in the tab bar; Edge Picker stays on the content edge." : {},
+    "Learning" : {},
+    "Learning Candidates" : {},
+    "Less" : {},
+    "Library" : {},
+    "Light" : {},
+    "Likes" : {},
+    "Link add, remove, and reorder wait on a Greenfield write contract." : {},
+    "Link copied" : {},
+    "Link previews" : {},
+    "Links" : {},
+    "Links will appear on your public profile when the backend write path lands." : {},
+    "Live Preview" : {},
+    "Live preview" : {},
+    "Load more" : {},
+    "Load ms" : {},
+    "Load state" : {},
+    "Loading" : {},
+    "Loading attachment…" : {},
+    "Loading conversations" : {},
+    "Loading post…" : {},
+    "Loading profile avatar" : {},
+    "Loading release notes…" : {},
+    "Loading saved posts…" : {},
+    "Loading story…" : {},
+    "Loading versions…" : {},
+    "Local Intelligence" : {},
+    "Local · 4-bit" : {},
+    "Location" : {},
+    "Long-press this source" : {},
+    "Make your profile modular." : {},
+    "Manage" : {},
+    "Manage Following" : {},
+    "Manage following" : {},
+    "Map posts" : {},
+    "Mark Important" : {},
+    "Mark as Read" : {},
+    "Marketplace" : {},
+    "Marks" : {},
+    "Measuring…" : {},
+    "Media" : {},
+    "Media can't be edited here yet." : {},
+    "Media only" : {},
+    "Media only by default" : {},
+    "Memory" : {},
+    "Memory is local contextual information. It is not model training data and is retrieved in bounded relevant sets." : {},
+    "Memory suggestions" : {},
+    "Memory warnings" : {},
+    "Mentions" : {},
+    "Mentions, reactions, and requests appear here after you sign in." : {},
+    "Message" : {},
+    "Messages" : {},
+    "Messages, %lld unread" : {},
+    "Metric" : {},
+    "Mirror front camera" : {},
+    "Modal overlay" : {},
+    "Mode" : {},
+    "Model" : {},
+    "Models" : {},
+    "Modes" : {},
+    "Modula" : {},
+    "Modula Code" : {},
+    "Modula Code for @%@" : {},
+    "Modula asks for permission during first-run setup, not immediately at launch." : {},
+    "Modula couldn’t start" : {},
+    "Modula does not override Reduce Motion. Motion Personality only applies when the system allows motion." : {},
+    "Modula follows system text size. Appearance Text Size is an additional product scale and does not override Dynamic Type." : {},
+    "Modula is hidden" : {},
+    "Modula is locked" : {},
+    "Modula provides a focused pre-share surface, then hands external destinations to Apple's system share controller." : {},
+    "Module" : {},
+    "Module %@" : {},
+    "Module Settings" : {},
+    "Module Updates" : {},
+    "Module data is stored with your Modula account and is not shared with other modules unless you allow it." : {},
+    "Module unavailable" : {},
+    "Module updates" : {},
+    "Modules" : {},
+    "Modules that extend Modula, installed to your account." : {},
+    "Modules worth exploring" : {},
+    "Monetisation" : {},
+    "More" : {},
+    "More actions" : {},
+    "More privacy controls are coming soon." : {},
+    "More reactions" : {},
+    "Morning brief (when available)" : {},
+    "Morph" : {},
+    "Most active" : {},
+    "Most present" : {},
+    "Move" : {},
+    "Move %@" : {},
+    "Move Down" : {},
+    "Move Earlier" : {},
+    "Move Later" : {},
+    "Move Left" : {},
+    "Move Right" : {},
+    "Move Up" : {},
+    "Move down" : {},
+    "Move earlier" : {},
+    "Move later" : {},
+    "Move up" : {},
+    "Multiline sample" : {},
+    "Mute video" : {},
+    "Muted" : {},
+    "My Modula Code" : {},
+    "Name" : {},
+    "Native core" : {},
+    "Network" : {},
+    "Network required" : {},
+    "New" : {},
+    "New Chat" : {},
+    "New Chat in Folder" : {},
+    "New Collection" : {},
+    "New In-Mail" : {},
+    "New Project" : {},
+    "New chat" : {},
+    "New folder" : {},
+    "New password" : {},
+    "New permissions" : {},
+    "New permissions need your consent" : {},
+    "New posts" : {},
+    "New to Modula?" : {},
+    "Newest" : {},
+    "Next" : {},
+    "Next Reel" : {},
+    "Next cursor" : {},
+    "Next page" : {},
+    "No catalogue modules are published under this publisher in the current response." : {},
+    "No chats in this view." : {},
+    "No documents in this collection." : {},
+    "No downloaded content" : {},
+    "No downloads yet" : {},
+    "No drafts" : {},
+    "No featured modules yet." : {},
+    "No folders here yet. A new project also creates Notes, Research, and Drafts." : {},
+    "No global consent" : {},
+    "No installed modules to update." : {},
+    "No invoices" : {},
+    "No local knowledge" : {},
+    "No longer requested" : {},
+    "No matching Knowledge" : {},
+    "No models available" : {},
+    "No modules are installed on this account." : {},
+    "No other signed-in devices." : {},
+    "No payout provider connected" : {},
+    "No permission changes" : {},
+    "No posts yet. Save a post to this collection from its … menu." : {},
+    "No product intelligence providers are registered on this build." : {},
+    "No project or folder" : {},
+    "No public accent is stored yet." : {},
+    "No public links yet." : {},
+    "No release notes were published for this version." : {},
+    "No reply yet. Speak, note, and prompt use the latest Nodus reply." : {},
+    "No saved prompts yet." : {},
+    "No screenshots have been published yet." : {},
+    "No stored Memory" : {},
+    "No stored memory." : {},
+    "No tools registered" : {},
+    "Nodus" : {},
+    "Nodus Diagnostics" : {},
+    "Nodus R7 Experimental" : {},
+    "Nodus answer" : {},
+    "Nodus cannot execute on this device. No fallback model will be used." : {},
+    "Nodus model not installed" : {},
+    "Nodus playground" : {},
+    "Nodus uses this bundle only. If it is missing, the chat does not switch to another model." : {},
+    "Nodus: %@" : {},
+    "None" : {},
+    "Not saved" : {},
+    "Not sent. Swipe up or down for Retry." : {},
+    "Not writable on Greenfield yet." : {},
+    "Note" : {},
+    "Nothing has been saved into Knowledge yet." : {},
+    "Nothing muted yet" : {},
+    "Nothing saved yet. Add a prompt above and it stays on this iPhone." : {},
+    "Nothing saved yet. Add prompts from the Marketplace." : {},
+    "Notification Settings" : {},
+    "Notifications" : {},
+    "OK" : {},
+    "OLED" : {},
+    "OPEN" : {},
+    "Off" : {},
+    "Off-device processing" : {},
+    "Offer to save Stories to Photos" : {},
+    "On" : {},
+    "On this device (%lld host actions)" : {},
+    "On this iPhone" : {},
+    "On this iPhone. Hold Think to set the reply budget." : {},
+    "On-device models, knowledge and privacy" : {},
+    "Online Search" : {},
+    "Only changes what you see. It doesn’t change what others see." : {},
+    "Only on this iPhone" : {},
+    "Only the approved production icon is available. Alternate icons will appear here after their device assets pass visual review." : {},
+    "Open" : {},
+    "Open %@’s profile" : {},
+    "Open Appearance" : {},
+    "Open Author" : {},
+    "Open Messages" : {},
+    "Open Modula" : {},
+    "Open Nodus Chat" : {},
+    "Open Nodus Workspace" : {},
+    "Open Post" : {},
+    "Open Privacy Policy" : {},
+    "Open Profile" : {},
+    "Open Terms" : {},
+    "Open Vault Notes" : {},
+    "Open audio player" : {},
+    "Open comments sheet" : {},
+    "Open creator" : {},
+    "Open full-screen video" : {},
+    "Open grouped actions" : {},
+    "Open iOS Photos access" : {},
+    "Open iOS Settings" : {},
+    "Open interaction laboratory" : {},
+    "Open preview" : {},
+    "Open profile media laboratory" : {},
+    "Open profile photo" : {},
+    "Open sheet" : {},
+    "Open story" : {},
+    "Open universal content laboratory" : {},
+    "Opening %@" : {},
+    "Opening %@…" : {},
+    "Opens %@ chat" : {},
+    "Opens Discover people so you can follow or unfollow." : {},
+    "Opens Modula Messages." : {},
+    "Opens Modula Search." : {},
+    "Opens PDF viewer" : {},
+    "Opens Product Hub" : {},
+    "Opens Search" : {},
+    "Opens a larger preview. Swipe left to remove." : {},
+    "Opens comments" : {},
+    "Opens cover photo" : {},
+    "Opens full-screen media viewer" : {},
+    "Opens in browser" : {},
+    "Opens profile" : {},
+    "Opens story. Use Open profile photo or long press for the image." : {},
+    "Opens the Modula app." : {},
+    "Opens the Modula post composer. Does not publish." : {},
+    "Opens the first story" : {},
+    "Opens the full post" : {},
+    "Opens the installed Vault Notes module via ModuleHost." : {},
+    "Opens the post" : {},
+    "Option %lld" : {},
+    "Optional. Used by VoiceOver and server accessibility metadata when supported." : {},
+    "Options" : {},
+    "Organise" : {},
+    "Other sessions" : {},
+    "Overlays" : {},
+    "Overview" : {},
+    "PDF unavailable" : {},
+    "Page %lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Page %1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "Passcode, %lld of 6 digits entered" : {},
+    "Passkeys" : {},
+    "Password" : {},
+    "Password meets the 8 character minimum" : {},
+    "Password needs at least 8 characters" : {},
+    "Password updated. Sign in with your new password." : {},
+    "Passwords don’t match." : {},
+    "Pause" : {},
+    "Pause autoplay in Low Power Mode" : {},
+    "Payouts" : {},
+    "People" : {},
+    "People to discover" : {},
+    "Permission changes" : {},
+    "Permissions" : {},
+    "Persona" : {},
+    "Personal Information" : {},
+    "Personalisation" : {},
+    "Photo" : {},
+    "Photo crop" : {},
+    "Photo or video" : {},
+    "Photo preview, %@" : {},
+    "Photos" : {},
+    "Pictures" : {},
+    "Pin" : {},
+    "Pinch or double-tap to zoom. Drag down to close." : {},
+    "Pinned" : {},
+    "Play" : {},
+    "Playback" : {},
+    "Playback quality" : {},
+    "Plugins" : {},
+    "Popular today" : {},
+    "Post" : {},
+    "Post a video" : {},
+    "Post action rail" : {},
+    "Post actions" : {},
+    "Post editing is not enabled for this account yet." : {},
+    "Post text" : {},
+    "Posts" : {},
+    "Posts from people you follow appear here after you sign in." : {},
+    "Pre-share actions" : {},
+    "Prefer Wi‑Fi for large uploads" : {},
+    "Prefer high-resolution uploads" : {},
+    "Prefer people first" : {},
+    "Prefer system share sheet" : {},
+    "Preferred" : {},
+    "Preload media on Wi‑Fi" : {},
+    "Preparing PDF…" : {},
+    "Preparing document…" : {},
+    "Preparing media" : {},
+    "Preparing video…" : {},
+    "Present detented sheet" : {},
+    "Presentations" : {},
+    "Preview" : {},
+    "Preview as visitor — public fields only. The server remains the privacy authority." : {},
+    "Preview fields stay read-only until Greenfield returns them." : {},
+    "Preview media inline" : {},
+    "Preview unavailable" : {},
+    "Previews" : {},
+    "Previous" : {},
+    "Previous Reel" : {},
+    "Previous page" : {},
+    "Privacy" : {},
+    "Privacy & Information" : {},
+    "Privacy & Security" : {},
+    "Privacy enforcement" : {},
+    "Privacy levels" : {},
+    "Privacy screen in App Switcher" : {},
+    "Processing" : {},
+    "Product Hub" : {},
+    "Product Hub menu" : {},
+    "Product page" : {},
+    "Product publisher" : {},
+    "Production components with interactive state labs. All examples use the live Modula appearance, motion, and haptic systems." : {},
+    "Production iOS builds follow the App Store release channel. This client cannot switch or downgrade the installed binary." : {},
+    "Profile" : {},
+    "Profile Accent" : {},
+    "Profile Lab" : {},
+    "Profile avatar could not be loaded" : {},
+    "Profile cover photo" : {},
+    "Profile cover, accent background" : {},
+    "Profile photo" : {},
+    "Progressively reveal controls instead of crowding the resting state." : {},
+    "Project instructions" : {},
+    "Project only" : {},
+    "Project, folder, knowledge, and memory for this chat. Search is in Chat Settings. How it looks is in Customise. Persona and skills have their own pages." : {},
+    "Projects" : {},
+    "Projects keep a brief, folders, and the chats inside them on this iPhone." : {},
+    "Prompt" : {},
+    "Provider" : {},
+    "Public" : {},
+    "Publish date not recorded" : {},
+    "Publisher" : {},
+    "Publisher %@" : {},
+    "Publishing" : {},
+    "Pull down to refresh. While pulled, slide left for Command, right for Search, and further right for AI Mode." : {},
+    "Push" : {},
+    "QR code opens the public profile link" : {},
+    "Quantization" : {},
+    "Query" : {},
+    "Question" : {},
+    "Quick Access" : {},
+    "Raise to listen" : {},
+    "Ranking" : {},
+    "Rated %@ out of 5 from %lld ratings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Rated %1$@ out of 5 from %2$lld ratings"
+          }
+        }
+      }
+    },
+    "React" : {},
+    "React Native" : {},
+    "React Native, Hermes and CocoaPods components ship under their upstream licenses in the iOS workspace. Application source is Modula." : {},
+    "Reactions" : {},
+    "Reactions, follows and module updates can arrive as notifications. You can change this later in Settings." : {},
+    "Read" : {},
+    "Ready to open" : {},
+    "Real Apple model" : {},
+    "Real model" : {},
+    "Recent" : {},
+    "Recommendations" : {},
+    "Reduce Motion" : {},
+    "Reel by %@" : {},
+    "Reels" : {},
+    "Refresh" : {},
+    "Refresh %@" : {},
+    "Regular" : {},
+    "Reject" : {},
+    "Relative timestamps" : {},
+    "Release" : {},
+    "Remember" : {},
+    "Remember this" : {},
+    "Remote" : {},
+    "Remote model calls" : {},
+    "Remove" : {},
+    "Remove %@" : {},
+    "Remove API Key" : {},
+    "Remove from this iPhone" : {},
+    "Remove option %lld" : {},
+    "Rename" : {},
+    "Rename Chat" : {},
+    "Replace masked key" : {},
+    "Replies" : {},
+    "Reply" : {},
+    "Reply budget" : {},
+    "Reply tools" : {},
+    "Replying to %@" : {},
+    "Report harassment" : {},
+    "Report other" : {},
+    "Report spam" : {},
+    "Report this profile?" : {},
+    "Reposition" : {},
+    "Requests" : {},
+    "Requests stay on this device. If on-device processing isn’t available, Modula won’t quietly send them elsewhere." : {},
+    "Require Lock" : {},
+    "Resend code" : {},
+    "Reset" : {},
+    "Reset Appearance" : {},
+    "Reset Appearance?" : {},
+    "Reset Crop" : {},
+    "Reset Edge Picker" : {},
+    "Reset Edge Picker?" : {},
+    "Reset token" : {},
+    "Reset zoom" : {},
+    "Restore" : {},
+    "Restores Middle, Standard, Right, On Change, Standard glass, Always Visible, and Follow Appearance for motion and haptics." : {},
+    "Restoring secure session…" : {},
+    "Result" : {},
+    "Results" : {},
+    "Resume" : {},
+    "Retry" : {},
+    "Retry PDF preview" : {},
+    "Retry Save" : {},
+    "Retry cover" : {},
+    "Retry loading more posts" : {},
+    "Revision" : {},
+    "Rollback to previous Nodus" : {},
+    "Rotate" : {},
+    "Run Apple Summarize Test" : {},
+    "Run Deterministic Test" : {},
+    "Run Nodus" : {},
+    "Running…" : {},
+    "Runs on this iPhone" : {},
+    "Runtime" : {},
+    "Runtime and Artifact Diagnostics" : {},
+    "Runtime diagnostics" : {},
+    "Runtime: %@" : {},
+    "Runtime: %lld · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Runtime: %1$lld · %2$@"
+          }
+        }
+      }
+    },
+    "SOON" : {},
+    "Safety" : {},
+    "Save" : {},
+    "Save API Key" : {},
+    "Save Changes" : {},
+    "Save Draft" : {},
+    "Save Source" : {},
+    "Save instructions" : {},
+    "Save project instructions" : {},
+    "Save prompt" : {},
+    "Save this draft?" : {},
+    "Save to Collection" : {},
+    "Save to Knowledge" : {},
+    "Save to Photos" : {},
+    "Saved" : {},
+    "Saved on this device." : {},
+    "Saved on this device. Changes what’s shown to you here." : {},
+    "Saved on this iPhone only." : {},
+    "Saved prompts" : {},
+    "Saved, drafts and collections stay with your account." : {},
+    "Saving" : {},
+    "Saving…" : {},
+    "Scope" : {},
+    "Scrollable content" : {},
+    "Scrollable row %lld" : {},
+    "Scrub the Edge Picker to change modes. Outer carve stays fixed; the selection aperture expands for vertical labels." : {},
+    "Search" : {},
+    "Search Knowledge" : {},
+    "Search Memory" : {},
+    "Search Modula" : {},
+    "Search Product Hub" : {},
+    "Search Settings" : {},
+    "Search chats" : {},
+    "Search commands" : {},
+    "Search people, posts, modules, and topics from one native field." : {},
+    "Search people, posts, topics" : {},
+    "Search people, posts, topics, modules" : {},
+    "Search provider" : {},
+    "Search results" : {},
+    "Search the marketplace" : {},
+    "Search what you can attach" : {},
+    "Searched the web" : {},
+    "Searches loaded conversations only." : {},
+    "Searches loaded threads only." : {},
+    "Searching…" : {},
+    "Security" : {},
+    "See all" : {},
+    "Select" : {},
+    "Select all" : {},
+    "Selected" : {},
+    "Selected: %@" : {},
+    "Selection" : {},
+    "Selects a photo or video for a local draft preview" : {},
+    "Send" : {},
+    "Send Reset Link" : {},
+    "Send reply" : {},
+    "Sending" : {},
+    "Sending…" : {},
+    "Sensitive content" : {},
+    "Sent: %@" : {},
+    "Session" : {},
+    "Sessions" : {},
+    "Set up Modula" : {},
+    "Settings" : {},
+    "Settings menu" : {},
+    "Shake to undo compose" : {},
+    "Share" : {},
+    "Share %@" : {},
+    "Share Modula" : {},
+    "Share Post" : {},
+    "Share Profile" : {},
+    "Share post" : {},
+    "Share preview, %@" : {},
+    "Share to" : {},
+    "Share your first post." : {},
+    "Sharing" : {},
+    "Sheets" : {},
+    "Shipping" : {},
+    "Short, Standard, and Fuller are one draft. Review adds a revision. Deep adds a review and a final pass." : {},
+    "Shortcuts" : {},
+    "Show %@" : {},
+    "Show Translate on posts" : {},
+    "Show actions" : {},
+    "Show all %lld permissions" : {},
+    "Show all %lld versions" : {},
+    "Show fewer" : {},
+    "Show fewer versions" : {},
+    "Show grid" : {},
+    "Show insights tip after publish" : {},
+    "Show less" : {},
+    "Show less bio" : {},
+    "Show less release notes" : {},
+    "Show more" : {},
+    "Show more bio" : {},
+    "Show more release notes" : {},
+    "Show password" : {},
+    "Show read receipts (display)" : {},
+    "Show reply threads" : {},
+    "Show the time on each message" : {},
+    "Show translation hints" : {},
+    "Showing cached posts" : {},
+    "Shows available actions" : {},
+    "Shows the changes before anything is installed" : {},
+    "Shows the screenshot larger" : {},
+    "Sidebar" : {},
+    "Sign In" : {},
+    "Sign Out" : {},
+    "Sign Out All Other Sessions" : {},
+    "Sign Out and Reset" : {},
+    "Sign Out and Reset App Lock" : {},
+    "Sign in" : {},
+    "Sign in required" : {},
+    "Sign in to Modula" : {},
+    "Sign in to manage your Modula account." : {},
+    "Sign in to see Following" : {},
+    "Sign in to see your activity" : {},
+    "Sign in to your digital world, your way." : {},
+    "Sign in with N1 fixture" : {},
+    "Sign out and reset App Lock?" : {},
+    "Sign out to remove App Lock from this device, then sign back in. Drafts on this device are kept." : {},
+    "Signed in" : {},
+    "Signed in as %@" : {},
+    "Size" : {},
+    "Skills" : {},
+    "Skip" : {},
+    "Skips remaining introduction slides and opens sign in" : {},
+    "Small" : {},
+    "Some fields, like pronouns, location and links, aren’t available to edit yet." : {},
+    "Something went wrong" : {},
+    "Source" : {},
+    "Sources · %lld" : {},
+    "Spaces" : {},
+    "Spaces remain domain-neutral: feeds, projects, messages, files, and notifications can share the same interaction primitive." : {},
+    "Spacing" : {},
+    "Spell check" : {},
+    "Stage" : {},
+    "Standard" : {},
+    "Start New" : {},
+    "Start muted" : {},
+    "Start the conversation" : {},
+    "Starting Modula" : {},
+    "State" : {},
+    "States" : {},
+    "Status" : {},
+    "Still allow @mentions" : {},
+    "Stop" : {},
+    "Stop dictation" : {},
+    "Storage" : {},
+    "Stored on this iPhone" : {},
+    "Stories" : {},
+    "Stories, %lld new" : {},
+    "Story" : {},
+    "Story %lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Story %1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "Studio" : {},
+    "Studio defaults" : {},
+    "Subject" : {},
+    "Suggested" : {},
+    "Suggested Memories" : {},
+    "Suggested modules" : {},
+    "Suggested people" : {},
+    "Support" : {},
+    "Swipe between composer tools" : {},
+    "Swipe right to add, left to reject. Nothing is saved until you confirm." : {},
+    "Swipe right to reply, swipe left to fork, double-tap to love." : {},
+    "Swipe sideways to move between Chats, Important, Favorites, and Archive." : {},
+    "Swipe to page, pinch or double-tap to zoom, pan while zoomed, and drag down to dismiss at rest. Paging is suspended during zoom to avoid gesture conflict." : {},
+    "Swipe to reply in chats" : {},
+    "Swipe up or down to zoom. Use actions to move the image." : {},
+    "Swipe up or down with one finger to change mode. The list loops." : {},
+    "Swipe up or down with one finger to change option." : {},
+    "Swipe up to get started" : {},
+    "Switcher" : {},
+    "Synced with your account." : {},
+    "System" : {},
+    "System Info" : {},
+    "System Knowledge · Read-only" : {},
+    "System contrast" : {},
+    "Tabs" : {},
+    "Take Photo" : {},
+    "Take photo" : {},
+    "Tap a photo to preview. Swipe it away to remove. Nodus reads your words, not the picture." : {},
+    "Tap, press, and drag" : {},
+    "Target language" : {},
+    "Temperature" : {},
+    "Temporary" : {},
+    "Test Connection" : {},
+    "Test appearance" : {},
+    "Testing…" : {},
+    "Text" : {},
+    "Text + icon + badge" : {},
+    "The Think button on the composer turns Review and Deep on or off. The slider above sets the reply budget. Search sends only the query." : {},
+    "The developer hasn’t published a privacy declaration for this module." : {},
+    "The five-item native tab bar is the live shell chrome below this catalog. AI Mode is a pull-from-top action beside Search, Refresh, and Command." : {},
+    "The host owns z-order, background, focus, interactive dismissal, safe-area behavior, and reduced-motion transitions—not navigation." : {},
+    "The live system tab bar remains visible below and minimizes with this accessory while scrolling." : {},
+    "The new chat stays on this iPhone." : {},
+    "The preview uses the shared overlay host and elevated Modula material." : {},
+    "The production post route supplies live comments. This lab verifies the shared sheet and composer without creating fake network state." : {},
+    "The registry has no other versions of this module." : {},
+    "The saved posts themselves aren’t deleted." : {},
+    "The search query will be sent to the configured search provider. Nodus model inference remains local." : {},
+    "The tool registry is empty on this build." : {},
+    "Theme" : {},
+    "There are no starter modules to install right now. You can add modules later from Product Hub." : {},
+    "These details are private account metadata. They never appear on Profile." : {},
+    "Think" : {},
+    "This Conversation" : {},
+    "This attachment has no supported local or remote content." : {},
+    "This cannot be undone." : {},
+    "This chat" : {},
+    "This creates a local Learning Candidate. It does not update model weights or start training." : {},
+    "This device" : {},
+    "This experimental feature isn’t installed. Chats, Knowledge and Memory are still available." : {},
+    "This iPhone" : {},
+    "This is how your public Profile identifies itself. It does not change how visitors see Modula’s tab bar or Settings." : {},
+    "This is set by Modula’s intelligence service. There’s no option here to choose a remote model." : {},
+    "This is the publisher’s page for their modules. It’s separate from their social profile." : {},
+    "This module asked for this access. Modula only allows what’s listed here." : {},
+    "This module declares no HostBridge permissions." : {},
+    "This module declares no permissions." : {},
+    "This module doesn’t ask for any special access." : {},
+    "This module hasn’t received enough ratings yet." : {},
+    "This note stays on this iPhone and is not sent to Nodus." : {},
+    "This permanently removes confirmed Memory and pending suggestions. Chats and Knowledge are unaffected." : {},
+    "This post is no longer available" : {},
+    "This post isn't available." : {},
+    "This restores Modula appearance defaults without changing other settings." : {},
+    "This scope has no extra filters." : {},
+    "This version needs a newer Modula app." : {},
+    "Thought more deeply" : {},
+    "Time & Units" : {},
+    "Title" : {},
+    "Token (optional)" : {},
+    "Tokens are never shown here." : {},
+    "Tokens/sec" : {},
+    "Too many attempts. Try again in %lld %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Too many attempts. Try again in %1$lld %2$@."
+          }
+        }
+      }
+    },
+    "Tools" : {},
+    "Training" : {},
+    "Training Dataset Revision" : {},
+    "Translate" : {},
+    "Trending now" : {},
+    "Try Again" : {},
+    "Tune Position / Size / Side / Labels / Glass under Appearance → Edge Picker. ContainedLoopPicker (Typography) does not use the shell carve." : {},
+    "Turn Memory Off" : {},
+    "Turn Memory On" : {},
+    "Turn Search Off" : {},
+    "Turn Search On" : {},
+    "Turn Search on from the composer or from Chat Settings. This page only shows the connection. It does not send anything." : {},
+    "Type DELETE to confirm" : {},
+    "Types" : {},
+    "Unavailable" : {},
+    "Unavailable offline" : {},
+    "Unfavorite" : {},
+    "Unfinished posts and letters appear here." : {},
+    "Uninstall" : {},
+    "Uninstall %@" : {},
+    "Uninstall %@?" : {},
+    "Unlock with %@" : {},
+    "Unmark" : {},
+    "Unmark Important" : {},
+    "Unmute video" : {},
+    "Unpin" : {},
+    "Unread" : {},
+    "Unsave" : {},
+    "Unsaved changes" : {},
+    "Unstable channels are meaningful for internal and TestFlight builds only." : {},
+    "Untrusted content never receives authority from presentation context." : {},
+    "Updates" : {},
+    "Updating" : {},
+    "Updating %@…" : {},
+    "Upload progress" : {},
+    "Use" : {},
+    "Use %@" : {},
+    "Use Dark Appearance" : {},
+    "Use Light Appearance" : {},
+    "Use OLED Appearance" : {},
+    "Use in this chat" : {},
+    "Use the floating source button to exercise the connected morph path." : {},
+    "Use this persona" : {},
+    "User Knowledge" : {},
+    "Username" : {},
+    "Using a prompt puts it in the composer. Adding it keeps a copy with your saved prompts." : {},
+    "Vault Notes" : {},
+    "Verbose local logging" : {},
+    "Verification" : {},
+    "Verification Missions" : {},
+    "Verification code" : {},
+    "Verification does not grant training consent. Candidates remain pending or ineligible until separately approved." : {},
+    "Verified" : {},
+    "Verified account" : {},
+    "Verified against the Modula registry · descriptor %@…" : {},
+    "Verify" : {},
+    "Verify when online" : {},
+    "Version" : {},
+    "Version %@" : {},
+    "Version History" : {},
+    "Version Lock applies to modules, not to the Modula app itself. App updates are managed by the App Store." : {},
+    "Versions" : {},
+    "Versions couldn’t be loaded." : {},
+    "Video" : {},
+    "Video couldn’t be prepared" : {},
+    "Video progress" : {},
+    "Video unavailable" : {},
+    "View" : {},
+    "View %lld replies" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "View %lld reply"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "View %lld replies"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "View in Product Hub" : {},
+    "Visibility" : {},
+    "Visuals" : {},
+    "Voice" : {},
+    "Voice playback speed" : {},
+    "Votes, counts, and expiry are owned by Greenfield when polls are enabled." : {},
+    "Warn before sensitive media" : {},
+    "Watch Reels" : {},
+    "Web sources in this chat" : {},
+    "Weekly recap (when available)" : {},
+    "Welcome back" : {},
+    "We’ll email you a link to reset your password. Your password is never stored on this device." : {},
+    "What can leave" : {},
+    "What do you want to do?" : {},
+    "What should Nodus have said?" : {},
+    "What should Nodus remember?" : {},
+    "What's happening?" : {},
+    "What’s New" : {},
+    "Widgets" : {},
+    "With media" : {},
+    "Workspace" : {},
+    "Write a reply" : {},
+    "You can add a profile photo from your profile after setup." : {},
+    "You have an unfinished post. Continue editing or start a new one." : {},
+    "Your data is kept on your account, so reinstalling brings it back." : {},
+    "Your email and phone number are never shown on your profile." : {},
+    "Your feed is quiet" : {},
+    "Your feeds" : {},
+    "Your invoices will appear here." : {},
+    "Your module data stays on your account." : {},
+    "Your own" : {},
+    "Your profile is still loading." : {},
+    "Your story" : {},
+    "Your story starts here." : {},
+    "Your username was set when you signed up and can’t be changed yet." : {},
+    "You’ll be able to add a location to posts in a future update." : {},
+    "Zoom %lld percent" : {},
+    "Zoom In" : {},
+    "Zoom Out" : {},
+    "Zoom in" : {},
+    "active" : {},
+    "command" : {},
+    "empty" : {},
+    "https://" : {},
+    "less" : {},
+    "modula" : {},
+    "more" : {},
+    "now" : {},
+    "·" : {},
+    "—" : {},
+    "•" : {}
+  },
+  "version" : "1.0"
+}

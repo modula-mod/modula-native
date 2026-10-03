@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://modula.digital/schemas/module-contracts/module-manifest.schema.json",
+  "title": "ModuleManifest",
+  "description": "Bundled module manifest (ios/Modula/Resources/manifests.json). `minHostVersion` and `minBridgeVersion` are semver ranges (bare version = caret; see test-vectors/semver.json). Permissions are requested capabilities; the effective grant is manifest ∩ install-descriptor grant ∩ host-supported.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "version", "runtime", "entry", "permissions", "minHostVersion", "minBridgeVersion"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9.-]+$"},
+    "name": {"type": "string"},
+    "version": {"type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$"},
+    "runtime": {"const": "react-native"},
+    "entry": {"type": "string", "minLength": 1},
+    "permissions": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "minHostVersion": {"type": "string", "minLength": 1, "maxLength": 128},
+    "minBridgeVersion": {"type": "string", "minLength": 1, "maxLength": 128},
+    "collections": {"type": "array", "items": {"type": "string"}}
+  }
+}

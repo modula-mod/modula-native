@@ -273,7 +273,15 @@ struct ModulaVideoSurface: View {
     @State private var controller = ModulaVideoPlaybackController()
     @State private var download = AttachmentDownloadModel()
     @State private var decodedPoster: UIImage?
+    @State private var waitingForTap = false
     @Environment(AppEnvironment.self) private var app
+
+    private var loadLabel: String {
+        if let bytes = attachment.byteSize, bytes > 0 {
+            return "Load video · \(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file))"
+        }
+        return "Load video"
+    }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -307,8 +315,27 @@ struct ModulaVideoSurface: View {
                 .padding(12)
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: ModulaRadius.small))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            case .downloading, .notDownloaded:
+            case .downloading:
                 ProgressView().tint(.white).frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .notDownloaded:
+                if waitingForTap {
+                    // Data saver / "Data saver" playback quality: nothing is fetched until asked.
+                    Button {
+                        waitingForTap = false
+                        download.retry(attachment, manager: app.attachmentDownloads)
+                    } label: {
+                        Label(loadLabel, systemImage: "arrow.down.circle.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .padding(.horizontal, 14).padding(.vertical, 10)
+                            .background(.ultraThinMaterial, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .accessibilityHint("Downloads this video. Data saver is on.")
+                } else {
+                    ProgressView().tint(.white).frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             case .downloaded:
                 EmptyView()
             }
@@ -335,7 +362,10 @@ struct ModulaVideoSurface: View {
             controller.release()
         }
         .task(id: attachment.id) {
-            download.prepare(attachment, downloadsRemote: true, manager: app.attachmentDownloads)
+            // Settings → Media → Video quality / Battery & Data → Data saver.
+            let prefetch = ModulaPreferences.prefetchesVideo()
+            waitingForTap = !prefetch
+            download.prepare(attachment, downloadsRemote: prefetch, manager: app.attachmentDownloads)
         }
         .onChange(of: download.state) { _, state in
             guard case .downloaded(let url) = state, attachment.bestPreviewURL == nil else { return }

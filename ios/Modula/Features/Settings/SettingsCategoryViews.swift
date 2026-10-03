@@ -179,65 +179,18 @@ struct NotificationSettingsHost: View {
         case .push:
             PushAuthorizationView()
         case .social:
-            SettingsDesignedUnavailableCanvas(
-                title: "Social Notifications",
-                subtitle: "Reactions, comments, follows, mentions.",
-                symbol: "heart",
-                tiles: [
-                    ("Reactions", "When people react", "face.smiling"),
-                    ("Comments", "Replies on your posts", "text.bubble"),
-                    ("Follows", "New followers", "person.badge.plus"),
-                    ("Mentions", "When you’re tagged", "at")
-                ],
-                previewRows: [
-                    ("All social", "Master toggle", "bell.badge"),
-                    ("Digest", "Daily summary", "calendar")
-                ],
-                apiNote: SettingsRegistry.destination(for: .notifications(.social))?.unavailableReason
-                    ?? "This setting isn’t available yet."
-            )
+            NotificationCategoriesView(scope: .social)
         case .modules:
-            SettingsDesignedUnavailableCanvas(
-                title: "Module Notifications",
-                subtitle: "Updates and module activity alerts.",
-                symbol: "shippingbox",
-                tiles: [
-                    ("Updates", "New versions", "arrow.triangle.2.circlepath"),
-                    ("Activity", "Module events", "bolt"),
-                    ("Permissions", "Grant requests", "switch.2"),
-                    ("Security", "Runtime warnings", "lock.shield")
-                ],
-                previewRows: [
-                    ("Installed only", "Limit to installed", "checkmark.circle"),
-                    ("Quiet", "Collapse into digest", "moon")
-                ],
-                apiNote: SettingsRegistry.destination(for: .notifications(.modules))?.unavailableReason
-                    ?? "Module notification settings aren’t available yet."
-            )
+            NotificationCategoriesView(scope: .modules)
         case .quietHours:
-            SettingsDesignedUnavailableCanvas(
-                title: "Quiet Hours",
-                subtitle: "Pause delivery overnight.",
-                symbol: "moon.zzz",
-                tiles: [
-                    ("Starts", "Local evening", "sunset"),
-                    ("Ends", "Local morning", "sunrise"),
-                    ("Allowlist", "Critical only", "star"),
-                    ("Focus", "Respect iOS Focus", "moon.stars")
-                ],
-                previewRows: [
-                    ("Schedule", "Weekdays / weekends", "calendar"),
-                    ("Override", "Mentions still deliver", "bell")
-                ],
-                apiNote: SettingsRegistry.destination(for: .notifications(.quietHours))?.unavailableReason
-                    ?? "Dispatcher not available."
-            )
+            QuietHoursSettingsView()
         }
     }
 }
 
 struct PushAuthorizationView: View {
     @State private var status: UNAuthorizationStatus = .notDetermined
+    @State private var requesting = false
 
     var body: some View {
         Form {
@@ -250,8 +203,20 @@ struct PushAuthorizationView: View {
                     }
                 }
             } else if status == .notDetermined {
-                Text("Modula asks for permission during first-run setup, not immediately at launch.")
+                Text("Notifications haven’t been requested yet. iOS asks once; you can change it later in iOS Settings.")
                     .foregroundStyle(.secondary)
+                Button {
+                    Task {
+                        requesting = true
+                        _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])
+                        requesting = false
+                        await refresh()
+                        AccessibilityNotification.Announcement("Notifications \(label.lowercased())").post()
+                    }
+                } label: {
+                    if requesting { ProgressView() } else { Label("Allow Notifications", systemImage: "bell.badge") }
+                }
+                .disabled(requesting)
             }
         }
         .modulaSoftScrollEdge()
@@ -330,9 +295,21 @@ struct PrivacySecurityHost: View {
             .accessibilityIdentifier("settings.privacy-security")
         case .privacy:
             Form {
-                Text("Your email and phone number are never shown on your profile.")
-                Text("More privacy controls are coming soon.")
-                    .foregroundStyle(.secondary)
+                Section {
+                    Text("Your email and phone number are never shown on your profile.")
+                }
+                Section("Your data") {
+                    Button {
+                        app.navigation.open(.settings(.dataStorage(.export)))
+                    } label: {
+                        Label("Export your data", systemImage: "square.and.arrow.up")
+                    }
+                    Button {
+                        app.navigation.open(.settings(.help(.contact)))
+                    } label: {
+                        Label("Make a privacy request", systemImage: "hand.raised")
+                    }
+                }
             }
             .modulaSoftScrollEdge()
             .navigationTitle("Privacy")
@@ -361,26 +338,13 @@ struct PrivacySecurityHost: View {
                     ("Screen security", "App Switcher blur", "eye.slash")
                 ],
                 apiNote: SettingsRegistry.destination(for: .privacy(.glassPrivacy))?.unavailableReason
-                    ?? "Protected Chat / Vault Chat are not cryptographically complete."
+                    ?? "Protected Chat / Vault Chat are not cryptographically complete.",
+                alternatives: [
+                    ("App Lock", "Hide Modula behind Face ID or a passcode", "lock.fill", .privacy(.appLock))
+                ]
             )
         case .blocked:
-            SettingsDesignedUnavailableCanvas(
-                title: "Blocked Accounts",
-                subtitle: "People you’ve blocked.",
-                symbol: "nosign",
-                tiles: [
-                    ("People", "Blocked profiles", "person.crop.circle.badge.xmark"),
-                    ("Modules", "Blocked modules", "shippingbox"),
-                    ("Import", "From other apps", "square.and.arrow.down"),
-                    ("Export", "Your block list", "square.and.arrow.up")
-                ],
-                previewRows: [
-                    ("Search blocked", "Find someone", "magnifyingglass"),
-                    ("Unblock", "Restore access", "arrow.uturn.backward")
-                ],
-                apiNote: SettingsRegistry.destination(for: .privacy(.blocked))?.unavailableReason
-                    ?? "Your blocked accounts list isn’t available yet."
-            )
+            RelationshipListView(kind: .blocked)
         case .appLock:
             AppLockSettingsView()
         case .biometrics:
@@ -494,7 +458,7 @@ struct BiometricsSettingsView: View {
             Text("Biometric unlock falls back to your Modula passcode. Failed biometric attempts never open Home.")
                 .foregroundStyle(.secondary)
         }
-        .modulaCanvas()
+        .modulaSoftScrollEdge()
         .navigationTitle("Face ID & Biometrics")
         .accessibilityIdentifier("settings.privacy-security.biometrics")
     }
@@ -684,7 +648,7 @@ struct DataStorageHost: View {
             SettingsScrollCanvas {
                 SettingsHeroBanner(
                     title: "Data & Storage",
-                    subtitle: "Measured usage, cache, and export honesty.",
+                    subtitle: "Measured usage, cache, and your data export.",
                     symbol: "internaldrive"
                 )
                 SettingsGroup(title: "On this device") {
@@ -765,10 +729,10 @@ struct DataStorageHost: View {
             .modulaSoftScrollEdge()
             .navigationTitle("Cache")
         case .downloads:
-            ContentUnavailableView("No downloaded content", systemImage: "arrow.down.to.line", description: Text("Downloaded content will appear here."))
-                .modulaSoftScrollEdge()
-                .navigationTitle("Downloads")
-        case .backup, .export:
+            MediaDownloadsView()
+        case .export:
+            AccountDataExportView()
+        case .backup:
             let dest = SettingsRegistry.destination(for: .dataStorage(route))
             SettingsCapabilityUnavailableView(title: dest?.title ?? "Unavailable", reason: dest?.unavailableReason ?? "", symbol: dest?.symbol ?? "slash.circle")
         }
@@ -828,6 +792,7 @@ struct StorageUsageSnapshot: Sendable {
 
 struct AccessibilitySettingsHost: View {
     let route: AccessibilitySettingsRoute
+    @Environment(AppEnvironment.self) private var app
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorSchemeContrast) private var contrast
@@ -840,9 +805,29 @@ struct AccessibilitySettingsHost: View {
                     sample: "Modula text follows the system size you choose.",
                     scale: dynamicTypeSize.isAccessibilitySize ? 1.35 : 1
                 )
-                LabeledContent("Dynamic Type", value: String(describing: dynamicTypeSize))
+                LabeledContent("Dynamic Type", value: dynamicTypeSize.settingsLabel)
                 Text("Modula follows system text size. Appearance Text Size is an additional product scale and does not override Dynamic Type.")
                     .foregroundStyle(.secondary)
+                if route == .root {
+                    Section("More") {
+                        Button {
+                            app.navigation.open(.settings(.accessibility(.contrast)))
+                        } label: {
+                            LabeledContent { Text(contrast == .increased ? "Increased" : "Standard") } label: { Label("Contrast", systemImage: "circle.lefthalf.filled") }
+                        }
+                        Button {
+                            app.navigation.open(.settings(.accessibility(.motion)))
+                        } label: {
+                            LabeledContent { Text(reduceMotion ? "Reduced" : "Full") } label: { Label("Motion", systemImage: "figure.walk.motion") }
+                        }
+                        Button {
+                            app.navigation.open(.settings(.appearance(.textSize)))
+                        } label: {
+                            Label("Modula Text Size", systemImage: "textformat.size")
+                        }
+                    }
+                    .foregroundStyle(.primary)
+                }
             case .contrast:
                 LabeledContent("System contrast", value: contrast == .increased ? "Increased" : "Standard")
                 Text("Increase Contrast in iOS Settings is respected. Appearance Contrast & Transparency can raise contrast further without disabling system settings.")
@@ -1006,25 +991,46 @@ struct DeveloperSettingsHost: View {
 
 struct AboutSettingsHost: View {
     let route: AboutSettingsRoute
-    @Environment(\.openURL) private var openURL
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
+        switch route {
+        case .privacy:
+            // Native in-app document (owner decision: legal pages live in the app, not on the web).
+            LegalDocumentView(document: .document(.privacy))
+        case .terms:
+            LegalDocumentView(document: .document(.terms))
+        case .root, .version, .licenses:
+            aboutForm
+        }
+    }
+
+    private var aboutForm: some View {
         Form {
             switch route {
             case .root, .version:
-                LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")
-                LabeledContent("Build", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—")
-                LabeledContent("Name", value: "Modula")
+                Section {
+                    LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")
+                    LabeledContent("Build", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—")
+                    LabeledContent("Name", value: "Modula")
+                }
+                if route == .root {
+                    Section("Legal") {
+                        Button { app.navigation.open(.settings(.about(.licenses))) } label: { Label("Licenses", systemImage: "doc.plaintext") }
+                        Button { app.navigation.open(.settings(.about(.privacy))) } label: { Label("Privacy Policy", systemImage: "hand.raised") }
+                        Button { app.navigation.open(.settings(.about(.terms))) } label: { Label("Terms of Service", systemImage: "doc.text") }
+                    }
+                    .foregroundStyle(.primary)
+                    Section("Service") {
+                        Button { app.navigation.open(.settings(.help(.status))) } label: { Label("Service Status", systemImage: "waveform.path.ecg") }
+                        Button { app.navigation.open(.settings(.whatsNew(.root))) } label: { Label("What’s New", systemImage: "sparkles") }
+                    }
+                    .foregroundStyle(.primary)
+                }
             case .licenses:
                 Text("React Native, Hermes and CocoaPods components ship under their upstream licenses in the iOS workspace. Application source is Modula.")
-            case .privacy:
-                Button("Open Privacy Policy") {
-                    if let url = URL(string: "https://modula.digital/privacy") { openURL(url) }
-                }
-            case .terms:
-                Button("Open Terms") {
-                    if let url = URL(string: "https://modula.digital/terms") { openURL(url) }
-                }
+            case .privacy, .terms:
+                EmptyView() // Rendered by LegalDocumentView above.
             }
         }
         .modulaSoftScrollEdge()

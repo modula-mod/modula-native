@@ -347,7 +347,7 @@ actor GreenfieldClient {
     func moduleRequest(method: String, path: String, body: JSONValue?, expectedAccountID: String) async throws -> JSONValue {
         guard accountID == expectedAccountID else { throw APIError.accountChanged }
         let generation = epoch
-        let result: JSONValue = try await authenticated(method, path: path, body: body)
+        let result: JSONValue = try await authenticated(method, path: path, body: body, invalidatesOnRepeatedRejection: false)
         guard generation == epoch, accountID == expectedAccountID else { throw APIError.accountChanged }
         return result
     }
@@ -355,6 +355,16 @@ actor GreenfieldClient {
     /// Authenticated JSON fetch used by Activity and other native features.
     func authenticatedJSON(_ method: String, path: String, body: JSONValue? = nil, timeout: TimeInterval = 20) async throws -> JSONValue {
         try await authenticated(method, path: path, body: body, timeout: timeout)
+    }
+
+    /// Authenticated JSON with an `Idempotency-Key` header (account data requests, support cases).
+    func authenticatedJSON(_ method: String, path: String, body: JSONValue? = nil, idempotencyKey: String) async throws -> JSONValue {
+        guard Self.isSafeIdempotencyKey(idempotencyKey) else { throw APIError.invalidResponse }
+        return try await authenticated(method, path: path, body: body, headers: ["Idempotency-Key": idempotencyKey])
+    }
+
+    nonisolated static func isSafeIdempotencyKey(_ key: String) -> Bool {
+        key.range(of: "^[A-Za-z0-9._:-]{8,200}$", options: .regularExpression) != nil
     }
 
     /// Public JSON fetch (no bearer). Used by Discover/Search when signed out.
@@ -446,12 +456,13 @@ actor GreenfieldClient {
     }
 
     private func authenticated<T: Decodable & Sendable>(
-        _ method: String, path: String, body: JSONValue? = nil, timeout: TimeInterval = 20
+        _ method: String, path: String, body: JSONValue? = nil, timeout: TimeInterval = 20,
+        headers: [String: String] = [:], invalidatesOnRepeatedRejection: Bool = true
     ) async throws -> T {
         let generation = epoch
         let bearer = try await accessToken()
         do {
-            let result: T = try await send(method, path: path, body: body, bearer: bearer, timeout: timeout)
+            let result: T = try await send(method, path: path, body: body, bearer: bearer, timeout: timeout, headers: headers)
             guard generation == epoch else { throw APIError.accountChanged }
             return result
         } catch APIError.rejected(401, _) where generation == epoch && tokens != nil {
@@ -460,10 +471,14 @@ actor GreenfieldClient {
             // once and retry; if the refresh is rejected too, the session is gone.
             let renewed = try await accessToken(forceRefresh: true, rejected: bearer)
             do {
-                let result: T = try await send(method, path: path, body: body, bearer: renewed, timeout: timeout)
+                let result: T = try await send(method, path: path, body: body, bearer: renewed, timeout: timeout, headers: headers)
                 guard generation == epoch else { throw APIError.accountChanged }
                 return result
-            } catch APIError.rejected(401, _) where generation == epoch {
+            } catch APIError.rejected(401, let code) where generation == epoch {
+                // The refresh just succeeded, so the shell's own session is valid. For
+                // module-scoped calls a repeated 401 is the module's rejection, not a
+                // reason to sign the whole app out.
+                guard invalidatesOnRepeatedRejection else { throw APIError.rejected(401, code) }
                 invalidateSession()
                 throw APIError.unauthenticated
             }
@@ -515,7 +530,8 @@ actor GreenfieldClient {
     }
 
     private func send<T: Decodable & Sendable>(
-        _ method: String, path: String, body: JSONValue? = nil, bearer: String? = nil, timeout: TimeInterval = 20
+        _ method: String, path: String, body: JSONValue? = nil, bearer: String? = nil, timeout: TimeInterval = 20,
+        headers: [String: String] = [:]
     ) async throws -> T {
         guard let baseURL, baseURL.scheme == "https", baseURL.user == nil, baseURL.password == nil,
               path.hasPrefix("/v1/"), !path.contains(".."), let url = URL(string: path, relativeTo: baseURL)?.absoluteURL,
@@ -527,8 +543,20 @@ actor GreenfieldClient {
         if body != nil { request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
         request.setValue("ModulaNative/0.1.0 (iOS)", forHTTPHeaderField: "User-Agent")
         if let bearer { request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
+        for (field, value) in headers where field == "Idempotency-Key" { request.setValue(value, forHTTPHeaderField: field) }
         request.httpBody = try body.map { try JSONEncoder().encode($0) }
+        let started = Date()
         let (data, response) = try await transport.data(for: request)
+        if ModulaPreferences.verboseLogging {
+            // Settings → Labs → "Verbose local logging": method, path (with the query
+            // stripped), status, size and timing only — never headers or bodies.
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            let safePath = path.split(separator: "?", maxSplits: 1).first.map(String.init) ?? path
+            let elapsed = Int(Date().timeIntervalSince(started) * 1_000)
+            ModulaLog.network.notice(
+                "verbose \(method, privacy: .public) \(safePath, privacy: .public) → \(status, privacy: .public) \(data.count, privacy: .public)B \(elapsed, privacy: .public)ms"
+            )
+        }
         return try Self.decodeEnvelope(data, response: response, method: method, path: path)
     }
 

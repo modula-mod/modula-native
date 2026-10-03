@@ -55,7 +55,7 @@ struct ActivityScreen: View {
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: 8) {
                 if let unread = state.unreadCount, unread > 0 {
-                    Text("^[\(unread) unread item](inflect: true)")
+                    Text("\(unread) unread items")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(app.appearance.accent.color)
                         .padding(.top, 4)
