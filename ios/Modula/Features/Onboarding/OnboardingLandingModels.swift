@@ -3,11 +3,11 @@ import Foundation
 
 /// Content and motion model for the signed-out landing screen.
 ///
-/// Bubbles are emitted from the central "+" bubble and fly up and out of the top of
-/// the screen in a continuous stream. The emitter is *stateless*: every particle is a
-/// pure function of its spawn index and a seed, and its on-screen state is a pure
-/// function of time. Rendering a frame allocates nothing and the stream is fully
-/// deterministic, which keeps it testable and lets Reduce Motion show one frozen frame.
+/// Liquid Glass bubbles are emitted from the central glass "+" and float up and out of
+/// the top of the screen in a continuous stream over a slowly living backdrop. The
+/// emitter is *stateless*: every particle is a pure function of its spawn index and a
+/// seed, and its on-screen state is a pure function of time. The stream is fully
+/// deterministic, which keeps it testable and lets Reduce Motion show one composed frame.
 enum OnboardingLanding {
     static let headline = "A new kind of app, built from modules that get things done"
     static let continueTitle = "Let’s go"
@@ -18,7 +18,7 @@ enum OnboardingLanding {
         let id: String
         let title: String
         let symbol: String
-        /// Main sphere tint and a second hue for the mesh fill.
+        /// Identity colour (glass tint and symbol shade) and a lighter companion hue.
         let tint: String
         let glow: String
     }
@@ -58,7 +58,7 @@ enum OnboardingLanding {
         let kind: Kind
         /// Full-grown diameter on a 390 pt wide reference screen.
         let diameter: Double
-        /// 0 (far: small, slow, soft) … 1 (near).
+        /// 0 (far: small, slow, faint) … 1 (near: big, fast, crisp).
         let depth: Double
         /// Birth offset from the + centre, in reference points.
         let birthOffset: CGSize
@@ -69,12 +69,18 @@ enum OnboardingLanding {
         let swayPhase: Double
     }
 
-    /// Per-frame state of one particle, relative to the + centre (reference points, y up is negative).
+    /// Per-frame state of one particle, relative to the + centre (reference points, up is negative y).
     struct ParticleState: Equatable, Sendable {
         var position: CGPoint
         var scale: Double
         var opacity: Double
+        /// Softening for far particles (used by the non-glass fallback only; glass stays sharp).
         var blur: Double
+        /// Vertical stretch of the bubble (>1 tall, <1 squashed); the view scales height by
+        /// `sqrt(stretch)` and width by `1 / sqrt(stretch)`, so area is preserved. Pinches off the + stretched, then wobbles and settles to 1.
+        var stretch: Double
+        /// Tilt (radians) of the stretch axis, following the direction of travel.
+        var tilt: Double
     }
 
     struct Emitter: Sendable {
@@ -85,24 +91,37 @@ enum OnboardingLanding {
         var maxLifetime: Double = 9.6
         /// Distance from the + centre to just past the top edge (reference points).
         var rise: Double = 560
-        /// Fraction of particles that are tiny empty droplets.
-        var dropletShare: Double = 0.3
+        /// How far a newborn bubble pops out of the + before it starts to float (reference points).
+        var pop: Double = 70
+        /// Fraction of particles that are tiny clear droplets.
+        var dropletShare: Double = 0.34
 
+        /// Step between the modules of consecutive spawns (coprime with the module count).
+        static let moduleStride = 5
         /// Smallest scale at birth.
         static let birthScale = 0.2
+        /// Largest squash/stretch either way.
+        static let maxStretch = 0.2
+        /// While younger than this a bubble is still emerging from the + (the view draws
+        /// it underneath the +, so it is first seen through the +'s glass).
+        static let birthWindow = 0.95
 
         func particle(_ index: Int) -> Particle {
             var rng = SplitMix64(seed: seed &+ UInt64(bitPattern: Int64(index)) &* 0x9E37_79B9_7F4A_7C15)
             let jitter = rng.unit()
             let isDroplet = rng.unit() < dropletShare
-            let moduleIndex = Int(rng.next() % UInt64(OnboardingLanding.modules.count))
-            let depth = isDroplet ? 0.15 + 0.45 * rng.unit() : 0.25 + 0.75 * rng.unit()
-            let diameter = isDroplet ? 9 + 17 * rng.unit() : 46 + 74 * depth * (0.75 + 0.25 * rng.unit())
+            _ = rng.next()
+            // Walk the modules in a fixed stride (coprime with the count) so neighbours in
+            // the stream are always different modules and every module keeps appearing.
+            let count = OnboardingLanding.modules.count
+            let moduleIndex = (index * Emitter.moduleStride) % count
+            let depth = isDroplet ? 0.15 + 0.6 * rng.unit() : 0.2 + 0.8 * rng.unit()
+            let diameter = isDroplet ? 10 + 18 * rng.unit() : 38 + 74 * depth * (0.78 + 0.22 * rng.unit())
             // Far particles rise slower.
             let lifetime = maxLifetime - (maxLifetime - minLifetime) * depth * (0.8 + 0.2 * rng.unit())
             // Alternate sides (with the odd surprise) so the stream fans out evenly.
             let side = (index.isMultiple(of: 2) ? 1.0 : -1.0) * (rng.unit() < 0.18 ? -1 : 1)
-            let spread = side * (20 + 165 * pow(rng.unit(), 0.75))
+            let spread = side * (16 + 160 * pow(rng.unit(), 0.8))
             return Particle(
                 index: index,
                 spawnTime: Double(index) * interval + jitter * interval * 0.7,
@@ -110,9 +129,9 @@ enum OnboardingLanding {
                 kind: isDroplet ? .droplet : .module(moduleIndex),
                 diameter: diameter,
                 depth: depth,
-                birthOffset: CGSize(width: (rng.unit() - 0.5) * 34, height: (rng.unit() - 0.5) * 14),
+                birthOffset: CGSize(width: (rng.unit() - 0.5) * 30, height: (rng.unit() - 0.5) * 12),
                 drift: spread,
-                swayAmplitude: 6 + 16 * rng.unit(),
+                swayAmplitude: 5 + 14 * rng.unit(),
                 swayFrequency: 0.35 + 0.5 * rng.unit(),
                 swayPhase: rng.unit() * 2 * .pi
             )
@@ -130,25 +149,36 @@ enum OnboardingLanding {
             let age = time - p.spawnTime
             guard age >= 0, age <= p.lifetime else { return nil }
             let t = age / p.lifetime
-            // Linger just above the + (dense stream), then accelerate upwards and out.
-            let climb = pow(t, 1.7)
-            // Fan out sideways early, then keep going.
-            let fan = 1 - pow(1 - min(1, t * 1.5), 2.4)
-            let sway = p.swayAmplitude * sin(age * p.swayFrequency * 2 * .pi / 2 + p.swayPhase) * min(1, t * 3)
+            // Buoyant: pops out of the + with an ease-out, lingers just above it (dense
+            // stream), then accelerates up and out of the top.
+            let popOut = pop * (1 - exp(-age * 2.6))
+            let climb = pow(t, 1.75)
+            // Rise as a column straight out of the +, then spread wider as they climb.
+            let fan = smoothstep(0.03, 0.78, t)
+            let swayIn = smoothstep(0.04, 0.3, t)
+            let sway = p.swayAmplitude * sin(age * p.swayFrequency * .pi + p.swayPhase) * swayIn
             let x = Double(p.birthOffset.width) * (1 - fan) + p.drift * fan + sway
-            let y = Double(p.birthOffset.height) - rise * climb - 18 * fan
+            let y = Double(p.birthOffset.height) - popOut - (rise - pop) * climb - 14 * fan
             // Born small at the +, grow as they leave it.
-            let grow = smoothstep(0, 0.32, t)
+            let grow = smoothstep(0, 0.24, t)
             let scale = Emitter.birthScale + (1 - Emitter.birthScale) * grow
-            let fadeIn = smoothstep(0, 0.06, t)
-            let fadeOut = 1 - smoothstep(0.86, 1, t)
-            let depthAlpha = 0.55 + 0.45 * p.depth
+            // Pinches off the + stretched, then a damped squash/stretch wobble and a faint
+            // living jiggle.
+            let pinch = 0.17 * exp(-age * 1.9) * cos(age * 8.6)
+            let jiggle = 0.025 * sin(age * (2.4 + p.swayFrequency) + p.swayPhase)
+            let stretch = 1 + max(-Emitter.maxStretch, min(Emitter.maxStretch, pinch + jiggle))
+            // Lean slightly into the sideways motion.
+            let tilt = 0.22 * (p.drift / 176) * (1 - smoothstep(0.2, 0.7, t)) + 0.04 * sin(age * 1.3 + p.swayPhase)
+            let fadeIn = smoothstep(0, 0.05, t)
+            let fadeOut = 1 - smoothstep(0.88, 1, t)
+            let depthAlpha = 0.6 + 0.4 * p.depth
             return ParticleState(
                 position: CGPoint(x: x, y: y),
                 scale: scale,
                 opacity: fadeIn * fadeOut * depthAlpha,
-                // Droplets stay crisp (they read as glass); far module bubbles go soft.
-                blur: p.kind == .droplet ? 0 : max(0, (0.45 - p.depth) * 4)
+                blur: p.kind == .droplet ? 0 : max(0, (0.45 - p.depth) * 4),
+                stretch: stretch,
+                tilt: tilt
             )
         }
 
@@ -158,16 +188,56 @@ enum OnboardingLanding {
             var best = 0.0
             for i in max(0, index - 1)...index + 1 {
                 let since = time - particle(i).spawnTime
-                if since >= 0 { best = max(best, exp(-since * 7)) }
+                if since >= 0 { best = max(best, exp(-since * 6)) }
             }
             return best
         }
+
+        /// Slow breathing of the + (−1…1) layered under the emission pulses.
+        static func breath(at time: Double) -> Double { sin(time * 2 * .pi / 3.6) }
     }
 
-    /// Frozen frame shown under Reduce Motion (a well-populated moment of the stream).
+    /// Composed frame shown under Reduce Motion (a well-populated moment of the stream).
     static let staticTime: Double = 41.3
     /// The live stream starts this far in, so the screen is already full on appear.
     static let warmUp: Double = 6.5
+
+    // MARK: Backdrop
+
+    /// The living mesh-gradient backdrop the glass refracts: a 4×4 mesh whose inner
+    /// points drift slowly on Lissajous paths. Edge points stay on the edges.
+    enum Backdrop {
+        static let width = 4
+        static let height = 4
+
+        /// Dark Modula palette, row by row (top → bottom). Deep ink at the top, colour
+        /// fields through the middle, a teal/violet glow pooling behind the +, dark at the
+        /// bottom so the white headline and button keep strong contrast.
+        static let colors: [String] = [
+            "#05080F", "#0B1030", "#150B2A", "#05080F",
+            "#0A2A3A", "#1B2C7A", "#4A1F6E", "#0B1A3A",
+            "#0E5A5E", "#2A3FA8", "#7A2C7E", "#173E80",
+            "#030608", "#071417", "#0A0D1C", "#030608",
+        ]
+
+        static func points(at time: Double) -> [SIMD2<Float>] {
+            var result: [SIMD2<Float>] = []
+            result.reserveCapacity(width * height)
+            for row in 0..<height {
+                for column in 0..<width {
+                    var x = Double(column) / Double(width - 1)
+                    var y = Double(row) / Double(height - 1)
+                    let seed = Double(row * width + column)
+                    let isEdgeX = column == 0 || column == width - 1
+                    let isEdgeY = row == 0 || row == height - 1
+                    if !isEdgeX { x += 0.09 * sin(time * (0.11 + 0.013 * seed) + seed * 1.7) }
+                    if !isEdgeY { y += 0.07 * cos(time * (0.09 + 0.011 * seed) + seed * 2.3) }
+                    result.append(SIMD2(Float(x), Float(y)))
+                }
+            }
+            return result
+        }
+    }
 
     static func smoothstep(_ a: Double, _ b: Double, _ x: Double) -> Double {
         let t = min(1, max(0, (x - a) / (b - a)))

@@ -1,16 +1,21 @@
 import SwiftUI
+import UIKit
 
-/// First screen a signed-out user sees: a continuous stream of glass bubbles (Modula's
-/// modules) flowing out of a central "+" bubble and flying up off the screen, one
-/// headline, and a single "Let's go" pill.
+/// First screen a signed-out user sees: a continuous stream of Liquid Glass bubbles
+/// (Modula's modules) flowing out of a central glass "+" and floating up off the
+/// screen over a slowly living mesh-gradient backdrop, one headline and a "Let's go"
+/// button.
 ///
-/// The stream is drawn in a `Canvas` driven by a `TimelineView`. Each bubble design is
-/// rendered once as a Canvas symbol and then translated/scaled per frame, so a frame is
-/// only a few dozen layer draws with no view diffing or allocations. Motion comes from
-/// the stateless `OnboardingLanding.Emitter`.
-///
-/// Always rendered on a dark immersive canvas, so it reads the same in light and dark
-/// mode. Under Reduce Motion the stream is one frozen frame and the + doesn't pulse.
+/// - Every bubble, the + and the tiny droplets are real Liquid Glass (`glassEffect`),
+///   each its own lens, so they refract the backdrop and each other. Newborn bubbles
+///   are first seen through the +'s glass, then pop out of its top. Module identity
+///   (an SF Symbol, a faint tint) sits inside the glass.
+/// - Motion comes from the stateless `OnboardingLanding.Emitter`; the backdrop from
+///   `OnboardingLanding.Backdrop`. Both are pure functions of time driven by one
+///   `TimelineView`.
+/// - Reduce Motion: one composed, frozen frame. Reduce Transparency: solid bubbles.
+///   Before iOS 26: material bubbles with a drawn glass rim.
+/// - Always rendered dark, so it reads the same in light and dark mode.
 struct OnboardingLandingView: View {
     var onContinue: () -> Void
 
@@ -18,69 +23,83 @@ struct OnboardingLandingView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var startDate = Date()
-    @State private var appeared = false
+    @State private var entrance = Entrance()
     @State private var drag: CGSize = .zero
     @State private var continuing = false
 
+    /// Entrance choreography: backdrop, then the +, then the stream, then the copy.
+    private struct Entrance {
+        var backdrop = false
+        var plus = false
+        var stream = false
+        var headline = false
+        var button = false
+    }
+
     var body: some View {
-        ZStack {
-            LandingBackdrop()
-            VStack(spacing: 0) {
-                stage
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .ignoresSafeArea(edges: .top)
-                VStack(spacing: dynamicTypeSize.isAccessibilitySize ? 20 : 30) {
-                    headline
-                    continueButton
+        TimelineView(.animation(paused: reduceMotion)) { context in
+            let time = reduceMotion
+                ? OnboardingLanding.staticTime
+                : context.date.timeIntervalSince(startDate) + OnboardingLanding.warmUp
+            ZStack {
+                LandingBackdrop(time: time)
+                    .opacity(entrance.backdrop ? 1 : 0)
+                VStack(spacing: 0) {
+                    stage(time: time)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .ignoresSafeArea(edges: .top)
+                    copy
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 12)
-                .frame(maxWidth: 560)
-                .layoutPriority(1)
             }
         }
+        .background(Color(hex: "#030608").ignoresSafeArea())
         .environment(\.colorScheme, .dark)
         .toolbar(.hidden, for: .navigationBar)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("onboarding.landing")
-        .onAppear {
-            startDate = Date()
-            if reduceMotion {
-                appeared = true
-            } else {
-                withAnimation(.easeOut(duration: 0.8)) { appeared = true }
-            }
+        .onAppear(perform: playEntrance)
+    }
+
+    private func playEntrance() {
+        startDate = Date()
+        if reduceMotion {
+            entrance = Entrance(backdrop: true, plus: true, stream: true, headline: true, button: true)
+            return
         }
+        withAnimation(.easeOut(duration: 1.1)) { entrance.backdrop = true }
+        withAnimation(.spring(duration: 0.75, bounce: 0.45).delay(0.15)) { entrance.plus = true }
+        withAnimation(.easeOut(duration: 1.0).delay(0.35)) { entrance.stream = true }
+        withAnimation(.spring(duration: 0.8, bounce: 0.2).delay(0.55)) { entrance.headline = true }
+        withAnimation(.spring(duration: 0.8, bounce: 0.2).delay(0.75)) { entrance.button = true }
     }
 
     // MARK: Stage
 
-    private var stage: some View {
+    private func stage(time: Double) -> some View {
         GeometryReader { proxy in
             let size = proxy.size
             let unit = min(size.width, 560) / 390
-            let origin = CGPoint(x: size.width / 2, y: size.height - 92 * unit)
-            let emitter = OnboardingLanding.Emitter(rise: Double(origin.y / unit) + 150)
-            TimelineView(.animation(paused: reduceMotion)) { context in
-                let time = reduceMotion
-                    ? OnboardingLanding.staticTime
-                    : context.date.timeIntervalSince(startDate) + OnboardingLanding.warmUp
-                let pulse = reduceMotion ? 0 : emitter.emitPulse(at: time)
-                ZStack {
-                    PlusBubble(diameter: 112 * unit, pulse: pulse)
-                        .position(origin)
-                    Canvas { context, _ in
-                        draw(in: &context, emitter: emitter, time: time, origin: origin, unit: unit)
-                    } symbols: {
-                        ForEach(OnboardingLanding.modules.indices, id: \.self) { index in
-                            ModuleBubbleSymbol(module: OnboardingLanding.modules[index]).tag(index)
-                        }
-                        DropletSymbol().tag(BubbleSymbol.droplet)
-                    }
-                    .allowsHitTesting(false)
-                }
+            let origin = CGPoint(x: size.width / 2, y: size.height - 86 * unit)
+            let emitter = OnboardingLanding.Emitter(rise: Double(origin.y / unit) + 140)
+            let pulse = reduceMotion ? 0 : emitter.emitPulse(at: time)
+            let breath = reduceMotion ? 0 : OnboardingLanding.Emitter.breath(at: time)
+            let bubbles = visibleBubbles(emitter: emitter, time: time, origin: origin, unit: unit)
+            let plusDiameter = 108 * unit * (1 + 0.045 * pulse + 0.015 * breath)
+            ZStack {
+                // Light pooling behind the + for the glass to bend; flares with each emission.
+                PlusGlow(diameter: 108 * unit, pulse: pulse, breath: breath)
+                    .position(origin)
+                    .opacity(entrance.plus ? 1 : 0)
+                GlassStream(
+                    bubbles: bubbles,
+                    plusCenter: origin,
+                    plusDiameter: plusDiameter * (entrance.plus ? 1 : 0.55),
+                    plusOpacity: entrance.plus ? 1 : 0,
+                    streamOpacity: entrance.stream ? 1 : 0,
+                    unit: unit
+                )
             }
-            .opacity(appeared ? 1 : 0)
+            .frame(width: size.width, height: size.height)
         }
         .contentShape(Rectangle())
         .gesture(dragGesture)
@@ -90,41 +109,34 @@ struct OnboardingLandingView: View {
         .accessibilityIdentifier("onboarding.landing.cluster")
     }
 
-    private func draw(
-        in context: inout GraphicsContext,
+    /// Visible particles for this frame in screen space, far first so near bubbles draw on top.
+    private func visibleBubbles(
         emitter: OnboardingLanding.Emitter,
         time: Double,
         origin: CGPoint,
         unit: CGFloat
-    ) {
-        let range = emitter.liveRange(at: time)
-        // Two passes so far (soft, small) bubbles sit behind near ones without sorting.
-        for pass in 0..<2 {
-            for index in range {
-                let particle = emitter.particle(index)
-                let isNear = particle.depth >= 0.55
-                guard isNear == (pass == 1), let state = emitter.state(of: particle, at: time) else { continue }
-                let tag: Int
-                switch particle.kind {
-                case .module(let module): tag = module
-                case .droplet: tag = BubbleSymbol.droplet
-                }
-                guard let symbol = context.resolveSymbol(id: tag) else { continue }
-                let parallax = 0.3 + 0.7 * particle.depth
-                let center = CGPoint(
-                    x: origin.x + (state.position.x + band(drag.width) * parallax) * unit,
-                    y: origin.y + (state.position.y + band(drag.height) * parallax) * unit
-                )
-                let scale = particle.diameter * state.scale * unit / BubbleSymbol.base
-                context.drawLayer { layer in
-                    layer.opacity = state.opacity
-                    if state.blur > 0.15 { layer.addFilter(.blur(radius: state.blur * unit)) }
-                    layer.translateBy(x: center.x, y: center.y)
-                    layer.scaleBy(x: scale, y: scale)
-                    layer.draw(symbol, at: .zero, anchor: .center)
-                }
-            }
+    ) -> [Bubble] {
+        var result: [Bubble] = []
+        result.reserveCapacity(48)
+        for index in emitter.liveRange(at: time) {
+            let particle = emitter.particle(index)
+            guard let state = emitter.state(of: particle, at: time), state.opacity > 0.005 else { continue }
+            let parallax = 0.3 + 0.7 * particle.depth
+            let center = CGPoint(
+                x: origin.x + (state.position.x + band(drag.width) * parallax) * unit,
+                y: origin.y + (state.position.y + band(drag.height) * parallax) * unit
+            )
+            guard center.y > -particle.diameter * unit else { continue }
+            result.append(Bubble(
+                particle: particle,
+                state: state,
+                age: time - particle.spawnTime,
+                center: center,
+                diameter: particle.diameter * unit
+            ))
         }
+        result.sort { $0.particle.depth < $1.particle.depth }
+        return result
     }
 
     /// Rubber-banded drag translation (reference points).
@@ -146,18 +158,28 @@ struct OnboardingLandingView: View {
 
     // MARK: Copy and action
 
-    private var headline: some View {
-        Text(OnboardingLanding.headline)
-            .font(.system(.largeTitle, design: app.appearance.fontDesign).weight(.light))
-            .multilineTextAlignment(.center)
-            .foregroundStyle(.white)
-            .fixedSize(horizontal: false, vertical: true)
-            .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 0.75 : 1)
-            .opacity(appeared ? 1 : 0)
-            .offset(y: appeared || reduceMotion ? 0 : 14)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.7).delay(0.3), value: appeared)
-            .accessibilityAddTraits(.isHeader)
-            .accessibilityIdentifier("onboarding.landing.headline")
+    private var copy: some View {
+        VStack(spacing: dynamicTypeSize.isAccessibilitySize ? 20 : 28) {
+            Text(OnboardingLanding.headline)
+                .font(.system(.largeTitle, design: app.appearance.fontDesign).weight(.light))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.35), radius: 12, y: 2)
+                .fixedSize(horizontal: false, vertical: true)
+                .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 0.75 : 1)
+                .opacity(entrance.headline ? 1 : 0)
+                .offset(y: entrance.headline ? 0 : 18)
+                .blur(radius: entrance.headline ? 0 : 6)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("onboarding.landing.headline")
+            continueButton
+                .opacity(entrance.button ? 1 : 0)
+                .offset(y: entrance.button ? 0 : 14)
+        }
+        .padding(.horizontal, 24)
+        .padding(.bottom, 12)
+        .frame(maxWidth: 560)
+        .layoutPriority(1)
     }
 
     private var continueButton: some View {
@@ -173,11 +195,26 @@ struct OnboardingLandingView: View {
                 .frame(maxWidth: .infinity, minHeight: 56)
                 .contentShape(Capsule())
         }
-        .buttonStyle(LandingPillButtonStyle())
-        .opacity(appeared ? 1 : 0)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.6).delay(0.5), value: appeared)
+        .modifier(LandingButtonStyle())
         .accessibilityHint("Continues to sign in")
         .accessibilityIdentifier("onboarding.landing.continue")
+    }
+}
+
+/// "Let's go": a bright, prominent glass capsule on iOS 26, a white pill before.
+private struct LandingButtonStyle: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *), !reduceTransparency {
+            content
+                .buttonStyle(.glassProminent)
+                .buttonBorderShape(.capsule)
+                .tint(.white)
+                .shadow(color: .white.opacity(0.14), radius: 22, y: 4)
+        } else {
+            content.buttonStyle(LandingPillButtonStyle())
+        }
     }
 }
 
@@ -196,159 +233,391 @@ private struct LandingPillButtonStyle: ButtonStyle {
 
 // MARK: - Backdrop
 
+/// The living backdrop the glass refracts: a drifting dark mesh gradient in Modula's
+/// palette, soft aurora light, slowly rising light motes and film grain. Kept dark at
+/// the bottom for the headline and button.
 private struct LandingBackdrop: View {
-    @Environment(AppEnvironment.self) private var app
+    var time: Double
+
+    private static let colors: [Color] = OnboardingLanding.Backdrop.colors.map { Color(hex: $0) }
 
     var body: some View {
         ZStack {
-            Color(hex: "#030708")
-            RadialGradient(
-                colors: [app.appearance.accent.color.opacity(0.32), app.appearance.accent.color.opacity(0.07), .clear],
-                center: UnitPoint(x: 0.5, y: 0.55),
-                startRadius: 10,
-                endRadius: 440
+            MeshGradient(
+                width: OnboardingLanding.Backdrop.width,
+                height: OnboardingLanding.Backdrop.height,
+                points: OnboardingLanding.Backdrop.points(at: time),
+                colors: Self.colors
             )
-            RadialGradient(
-                colors: [Color(hex: "#4F6BFF").opacity(0.10), .clear],
-                center: UnitPoint(x: 0.2, y: 0.08),
-                startRadius: 0,
-                endRadius: 280
+            Aurora(time: time)
+                .blendMode(.screen)
+            Motes(time: time)
+            LinearGradient(
+                stops: [
+                    .init(color: .black.opacity(0.35), location: 0),
+                    .init(color: .clear, location: 0.22),
+                    .init(color: .clear, location: 0.58),
+                    .init(color: .black.opacity(0.78), location: 0.86),
+                    .init(color: .black.opacity(0.9), location: 1),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
             )
-            LinearGradient(colors: [.clear, .black.opacity(0.6)], startPoint: UnitPoint(x: 0.5, y: 0.62), endPoint: .bottom)
+            Grain()
         }
         .ignoresSafeArea()
+        .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+}
+
+/// Two soft, slowly swaying light fields.
+private struct Aurora: View {
+    var time: Double
+
+    var body: some View {
+        GeometryReader { proxy in
+            let w = proxy.size.width, h = proxy.size.height
+            ZStack {
+                Ellipse()
+                    .fill(RadialGradient(colors: [Color(hex: "#3BE3D0").opacity(0.30), .clear], center: .center, startRadius: 0, endRadius: w * 0.55))
+                    .frame(width: w * 1.3, height: h * 0.34)
+                    .rotationEffect(.degrees(-24 + 7 * sin(time * 0.13)))
+                    .position(x: w * (0.32 + 0.08 * sin(time * 0.07)), y: h * (0.36 + 0.04 * cos(time * 0.09)))
+                Ellipse()
+                    .fill(RadialGradient(colors: [Color(hex: "#B05CFF").opacity(0.26), .clear], center: .center, startRadius: 0, endRadius: w * 0.5))
+                    .frame(width: w * 1.2, height: h * 0.3)
+                    .rotationEffect(.degrees(28 + 6 * cos(time * 0.11)))
+                    .position(x: w * (0.72 + 0.07 * cos(time * 0.06)), y: h * (0.2 + 0.05 * sin(time * 0.08)))
+                Ellipse()
+                    .fill(RadialGradient(colors: [Color(hex: "#4F7BFF").opacity(0.22), .clear], center: .center, startRadius: 0, endRadius: w * 0.45))
+                    .frame(width: w * 1.1, height: h * 0.26)
+                    .rotationEffect(.degrees(-8 + 5 * sin(time * 0.1)))
+                    .position(x: w * (0.55 + 0.06 * sin(time * 0.05 + 1)), y: h * (0.55 + 0.03 * cos(time * 0.07)))
+            }
+            .blur(radius: 30)
+        }
+    }
+}
+
+/// Tiny drifting points of light; they give the glass detail to bend and lens.
+private struct Motes: View {
+    var time: Double
+
+    var body: some View {
+        Canvas { context, size in
+            var rng = SplitMix64(seed: 0x6D6F_7465)
+            for _ in 0..<90 {
+                let x0 = rng.unit(), y0 = rng.unit()
+                let speed = 0.004 + 0.012 * rng.unit()
+                let radius = 0.5 + 1.6 * pow(rng.unit(), 2)
+                let phase = rng.unit() * 2 * .pi
+                let twinkle = 0.55 + 0.45 * sin(time * (0.6 + rng.unit()) + phase)
+                let y = (y0 - time * speed).truncatingRemainder(dividingBy: 1)
+                let point = CGPoint(
+                    x: (x0 + 0.01 * sin(time * 0.3 + phase)) * size.width,
+                    y: (y < 0 ? y + 1 : y) * size.height
+                )
+                let fadeLow = 1 - OnboardingLanding.smoothstep(0.62, 0.85, point.y / size.height)
+                let alpha = 0.55 * twinkle * fadeLow
+                guard alpha > 0.02 else { continue }
+                let rect = CGRect(x: point.x - radius, y: point.y - radius, width: radius * 2, height: radius * 2)
+                context.fill(Path(ellipseIn: rect), with: .color(.white.opacity(alpha)))
+                if radius > 1.4 {
+                    let halo = rect.insetBy(dx: -radius * 2.5, dy: -radius * 2.5)
+                    context.fill(Path(ellipseIn: halo), with: .color(Color(hex: "#9FE8FF").opacity(alpha * 0.12)))
+                }
+            }
+        }
+    }
+}
+
+/// Static film grain, tiled.
+private struct Grain: View {
+    private static let tile: UIImage = {
+        let side = 128
+        var rng = SplitMix64(seed: 0x6772_6169_6E)
+        var pixels = [UInt8](repeating: 0, count: side * side)
+        for i in pixels.indices { pixels[i] = UInt8(truncatingIfNeeded: rng.next() >> 56) }
+        let provider = CGDataProvider(data: Data(pixels) as CFData)!
+        let image = CGImage(
+            width: side, height: side, bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: side,
+            space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGBitmapInfo(rawValue: 0),
+            provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
+        )!
+        return UIImage(cgImage: image, scale: 2, orientation: .up)
+    }()
+
+    var body: some View {
+        Image(uiImage: Self.tile)
+            .resizable(resizingMode: .tile)
+            .blendMode(.overlay)
+            .opacity(0.09)
     }
 }
 
 // MARK: - Bubbles
 
-private enum BubbleSymbol {
-    /// Symbols are rendered at this diameter and only ever scaled down.
-    static let base: CGFloat = 150
-    static let droplet = -1
+private struct Bubble {
+    let particle: OnboardingLanding.Particle
+    let state: OnboardingLanding.ParticleState
+    let age: Double
+    let center: CGPoint
+    let diameter: CGFloat
 }
 
-/// Glass rim, curved highlight and soft inner light shared by every bubble.
-private struct GlassShell: View {
-    var diameter: CGFloat
-    var tint: Color
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(RadialGradient(colors: [.white.opacity(0.10), tint.opacity(0.08), .white.opacity(0.03)], center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: diameter * 0.6))
-            Circle()
-                .strokeBorder(
-                    AngularGradient(
-                        colors: [.white.opacity(0.75), .white.opacity(0.08), .white.opacity(0.35), .white.opacity(0.05), .white.opacity(0.75)],
-                        center: .center,
-                        angle: .degrees(-130)
-                    ),
-                    lineWidth: diameter * 0.018
-                )
-            Ellipse()
-                .fill(LinearGradient(colors: [.white.opacity(0.6), .white.opacity(0)], startPoint: .top, endPoint: .bottom))
-                .frame(width: diameter * 0.44, height: diameter * 0.2)
-                .rotationEffect(.degrees(-30))
-                .offset(x: -diameter * 0.17, y: -diameter * 0.26)
-                .blur(radius: diameter * 0.025)
-        }
-        .frame(width: diameter, height: diameter)
-    }
-}
-
-private struct ModuleBubbleSymbol: View {
-    let module: OnboardingLanding.Module
-    private let d = BubbleSymbol.base
-
-    var body: some View {
-        let tint = Color(hex: module.tint)
-        let glow = Color(hex: module.glow)
-        ZStack {
-            // Soft coloured halo.
-            Circle()
-                .fill(RadialGradient(colors: [tint.opacity(0.45), .clear], center: .center, startRadius: d * 0.3, endRadius: d * 0.62))
-                .frame(width: d * 1.25, height: d * 1.25)
-            // Sphere: a mesh of light, tint and shade for a 3D, art-like fill.
-            MeshGradient(
-                width: 3,
-                height: 3,
-                points: [
-                    [0, 0], [0.5, 0], [1, 0],
-                    [0, 0.5], [0.42, 0.4], [1, 0.55],
-                    [0, 1], [0.6, 1], [1, 1]
-                ],
-                colors: [
-                    glow, glow.mix(with: tint, by: 0.5), tint,
-                    tint.mix(with: glow, by: 0.3), tint, tint.mix(with: .black, by: 0.35),
-                    tint.mix(with: .black, by: 0.25), tint.mix(with: .black, by: 0.5), tint.mix(with: .black, by: 0.65)
-                ]
-            )
-            .clipShape(Circle())
-            .overlay {
-                Circle().fill(RadialGradient(colors: [.clear, .black.opacity(0.35)], center: UnitPoint(x: 0.4, y: 0.35), startRadius: d * 0.2, endRadius: d * 0.48))
-            }
-            .frame(width: d * 0.84, height: d * 0.84)
-            Image(systemName: module.symbol)
-                .font(.system(size: d * 0.3, weight: .semibold))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.3), radius: d * 0.025, y: d * 0.02)
-            GlassShell(diameter: d, tint: tint)
-        }
-        .frame(width: d * 1.25, height: d * 1.25)
-    }
-}
-
-private struct DropletSymbol: View {
-    private let d = BubbleSymbol.base
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(RadialGradient(colors: [.white.opacity(0.14), .white.opacity(0.015)], center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: d * 0.6))
-            GlassShell(diameter: d, tint: .white)
-        }
-        .frame(width: d * 1.25, height: d * 1.25)
-    }
-}
-
-/// The real-glass "+" the stream flows out of. Breathes slightly with each emission.
-private struct PlusBubble: View {
+/// Soft light behind the + that flares with each emission (the glass refracts it).
+private struct PlusGlow: View {
     var diameter: CGFloat
     var pulse: Double
+    var breath: Double
+
+    var body: some View {
+        Circle()
+            .fill(RadialGradient(
+                colors: [Color(hex: "#7FF5E4").opacity(0.30 + 0.16 * pulse + 0.04 * breath), Color(hex: "#5B6CFF").opacity(0.12), .clear],
+                center: .center,
+                startRadius: diameter * 0.1,
+                endRadius: diameter * 1.15
+            ))
+            .frame(width: diameter * 2.4, height: diameter * 2.4)
+            .allowsHitTesting(false)
+    }
+}
+
+/// The + and the stream: real Liquid Glass on iOS 26, fallbacks otherwise.
+private struct GlassStream: View {
+    var bubbles: [Bubble]
+    var plusCenter: CGPoint
+    var plusDiameter: CGFloat
+    var plusOpacity: Double
+    var streamOpacity: Double
+    var unit: CGFloat
+
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(RadialGradient(colors: [Color.white.opacity(0.10 + 0.10 * pulse), .clear], center: .center, startRadius: diameter * 0.3, endRadius: diameter * 0.85))
-                .frame(width: diameter * 1.7, height: diameter * 1.7)
+        if #available(iOS 26.0, *), !reduceTransparency {
+            // Each bubble is its own lens, so overlapping bubbles stay separate glass
+            // instead of fusing into blobs (a shared GlassEffectContainer also lags
+            // behind per-frame motion). Newborns sit *under* the + so they are first
+            // seen magnified through its glass, then pop out of the top of it.
             ZStack {
-                Circle()
-                    .fill(RadialGradient(colors: [.white.opacity(0.16), .white.opacity(0.03)], center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: diameter * 0.6))
-                    .padding(diameter * 0.075)
-                Image(systemName: "plus")
-                    .font(.system(size: diameter * 0.32, weight: .light))
-                    .foregroundStyle(.white.opacity(0.92))
-                GlassShell(diameter: diameter, tint: .white)
+                ForEach(bubbles.filter { $0.age < OnboardingLanding.Emitter.birthWindow }, id: \.particle.index) { bubble in
+                    BubbleView(bubble: bubble, style: .glass).opacity(streamOpacity)
+                }
+                plus(style: .glass)
+                ForEach(bubbles.filter { $0.age >= OnboardingLanding.Emitter.birthWindow }, id: \.particle.index) { bubble in
+                    BubbleView(bubble: bubble, style: .glass).opacity(streamOpacity)
+                }
             }
-            .frame(width: diameter, height: diameter)
-            .background { glass }
-            .scaleEffect(1 + 0.035 * pulse)
+            .allowsHitTesting(false)
+        } else {
+            let style: BubbleStyle = reduceTransparency ? .solid : .material
+            ZStack {
+                ForEach(bubbles.filter { $0.age < OnboardingLanding.Emitter.birthWindow }, id: \.particle.index) { bubble in
+                    BubbleView(bubble: bubble, style: style).opacity(streamOpacity)
+                }
+                plus(style: style)
+                ForEach(bubbles.filter { $0.age >= OnboardingLanding.Emitter.birthWindow }, id: \.particle.index) { bubble in
+                    BubbleView(bubble: bubble, style: style).opacity(streamOpacity)
+                }
+            }
+            .allowsHitTesting(false)
         }
-        .accessibilityHidden(true)
+    }
+
+    private func plus(style: BubbleStyle) -> some View {
+        PlusView(diameter: plusDiameter, style: style)
+            .opacity(plusOpacity)
+            .position(plusCenter)
+    }
+}
+
+private enum BubbleStyle {
+    /// Liquid Glass (iOS 26).
+    case glass
+    /// Blurred material with a drawn rim (before iOS 26).
+    case material
+    /// Opaque (Reduce Transparency).
+    case solid
+}
+
+private struct BubbleView: View {
+    let bubble: Bubble
+    let style: BubbleStyle
+
+    var body: some View {
+        let state = bubble.state
+        let squash = sqrt(state.stretch)
+        let d = bubble.diameter
+        // Liquid Glass follows layout, not render transforms (a `scaleEffect` leaves the
+        // glass at full size), so the glass is sized and squashed through its frame;
+        // only the non-glass core and symbol use transforms.
+        let width = d * state.scale / squash
+        let height = d * state.scale * squash
+        ZStack {
+            // A coloured light core *behind* the glass: the glass refracts it, so module
+            // bubbles glow with their colour while the glass itself stays clear.
+            if style == .glass {
+                core.scaleEffect(x: state.scale / squash, y: state.scale * squash)
+            }
+            Color.clear
+                .frame(width: width, height: height)
+                .modifier(BubbleSurface(kind: bubble.particle.kind, depth: bubble.particle.depth, style: style, blur: state.blur))
+            if style != .glass {
+                // A material or solid fill would hide the core, so it sits on top instead.
+                core.scaleEffect(x: state.scale / squash, y: state.scale * squash).opacity(0.75)
+            }
+            // The symbol sits on the glass (outside the effect, so it keeps full vibrancy).
+            symbol
+                .scaleEffect(state.scale)
+                .rotationEffect(.radians(state.tilt))
+        }
+        .frame(width: d, height: d)
+        // Translucent glass turns muddy, so glass keeps full opacity except for its
+        // birth/exit fades; depth reads through size, speed and symbol strength.
+        .opacity(style == .glass ? state.opacity / (0.6 + 0.4 * bubble.particle.depth) : state.opacity)
+        .position(bubble.center)
     }
 
     @ViewBuilder
-    private var glass: some View {
-        if reduceTransparency {
-            Circle().fill(Color(hex: "#1A2224"))
-        } else if #available(iOS 26.0, *) {
-            Color.clear.glassEffect(.regular.tint(.white.opacity(0.04)), in: Circle())
-        } else {
-            Circle().fill(.ultraThinMaterial)
+    private var core: some View {
+        if case .module(let index) = bubble.particle.kind {
+            let module = OnboardingLanding.modules[index]
+            let d = bubble.diameter
+            Circle()
+                .fill(RadialGradient(
+                    colors: [Color(hex: module.glow).opacity(0.55), Color(hex: module.tint).opacity(0.5), Color(hex: module.tint).opacity(0)],
+                    center: UnitPoint(x: 0.45, y: 0.6),
+                    startRadius: 0,
+                    endRadius: d * 0.42
+                ))
+                .frame(width: d * 0.86, height: d * 0.86)
+                .opacity(0.55 + 0.45 * bubble.particle.depth)
+        }
+    }
+
+    @ViewBuilder
+    private var symbol: some View {
+        if case .module(let index) = bubble.particle.kind {
+            let module = OnboardingLanding.modules[index]
+            let d = bubble.diameter
+            Image(systemName: module.symbol)
+                .font(.system(size: d * 0.36, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(LinearGradient(colors: [.white, Color(hex: module.glow)], startPoint: .top, endPoint: .bottom))
+                .shadow(color: Color(hex: module.tint).opacity(0.9), radius: d * 0.08)
+                .opacity(0.75 + 0.25 * bubble.particle.depth)
+        }
+    }
+}
+
+/// The bubble's body for each style.
+private struct BubbleSurface: ViewModifier {
+    let kind: OnboardingLanding.Kind
+    let depth: Double
+    let style: BubbleStyle
+    let blur: Double
+
+    func body(content: Content) -> some View {
+        switch style {
+        case .glass:
+            if #available(iOS 26.0, *) {
+                content.glassEffect(glass, in: Ellipse())
+            } else {
+                content
+            }
+        case .material:
+            content
+                .background(Ellipse().fill(.ultraThinMaterial))
+                .overlay(GlassRim())
+                .blur(radius: blur)
+        case .solid:
+            content
+                .background(Ellipse().fill(solidFill))
+                .overlay(Ellipse().strokeBorder(.white.opacity(0.22), lineWidth: 1))
+        }
+    }
+
+    @available(iOS 26.0, *)
+    private var glass: Glass {
+        switch kind {
+        case .module(let index):
+            let tint = Color(hex: OnboardingLanding.modules[index].tint)
+            return .clear.tint(tint.opacity(0.10 + 0.14 * depth))
+        case .droplet:
+            return .clear
+        }
+    }
+
+    private var solidFill: Color {
+        switch kind {
+        case .module(let index): Color(hex: OnboardingLanding.modules[index].tint).mix(with: .black, by: 0.55)
+        case .droplet: Color(hex: "#2A3338")
+        }
+    }
+}
+
+/// Drawn glass rim and highlight for the pre-iOS 26 fallback.
+private struct GlassRim: View {
+    var body: some View {
+        GeometryReader { proxy in
+            let d = proxy.size.width
+            ZStack {
+                Ellipse()
+                    .strokeBorder(
+                        AngularGradient(
+                            colors: [.white.opacity(0.7), .white.opacity(0.08), .white.opacity(0.35), .white.opacity(0.05), .white.opacity(0.7)],
+                            center: .center,
+                            angle: .degrees(-130)
+                        ),
+                        lineWidth: max(0.8, d * 0.02)
+                    )
+                Ellipse()
+                    .fill(LinearGradient(colors: [.white.opacity(0.5), .white.opacity(0)], startPoint: .top, endPoint: .bottom))
+                    .frame(width: d * 0.42, height: d * 0.18)
+                    .rotationEffect(.degrees(-30))
+                    .offset(x: -d * 0.16, y: -d * 0.25)
+            }
+        }
+    }
+}
+
+/// The glass "+" the stream flows out of.
+private struct PlusView: View {
+    let diameter: CGFloat
+    let style: BubbleStyle
+
+    var body: some View {
+        Image(systemName: "plus")
+            .font(.system(size: diameter * 0.3, weight: .light))
+            .foregroundStyle(.white.opacity(0.95))
+            .frame(width: diameter, height: diameter)
+            .modifier(PlusSurface(style: style))
+            .accessibilityHidden(true)
+    }
+}
+
+private struct PlusSurface: ViewModifier {
+    let style: BubbleStyle
+
+    func body(content: Content) -> some View {
+        switch style {
+        case .glass:
+            if #available(iOS 26.0, *) {
+                content.glassEffect(.clear.tint(.white.opacity(0.04)), in: Circle())
+            } else {
+                content
+            }
+        case .material:
+            content
+                .background(Circle().fill(.ultraThinMaterial))
+                .overlay(GlassRim())
+        case .solid:
+            content
+                .background(Circle().fill(Color(hex: "#1A2224")))
+                .overlay(Circle().strokeBorder(.white.opacity(0.25), lineWidth: 1))
         }
     }
 }
