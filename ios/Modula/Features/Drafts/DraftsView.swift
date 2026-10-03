@@ -96,7 +96,7 @@ struct DraftRow: View {
                         .lineLimit(2)
                         .foregroundStyle(.primary)
                     // "5 minutes ago" rather than a bare, ticking "5 min".
-                    Text(lastEdited.formatted(.relative(presentation: .named)))
+                    Text(ModulaTimeFormat.short(lastEdited))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -107,7 +107,7 @@ struct DraftRow: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title) draft")
-        .accessibilityValue("\(preview). Last edited \(lastEdited.formatted(.relative(presentation: .named)))")
+        .accessibilityValue("\(preview). Last edited \(ModulaTimeFormat.short(lastEdited))")
         .accessibilityHint("Continue draft")
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button("Delete", role: .destructive, action: onDelete)

@@ -8,6 +8,12 @@ struct RootView: View {
     @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var routeTransitions
+    // Device preferences that change the shell itself (re-render on change).
+    @AppStorage(ModulaPreferences.Key.labsDebugOverlays) private var debugOverlays = false
+    @AppStorage(ModulaPreferences.Key.labsExperimentalChrome) private var experimentalChrome = false
+    @AppStorage(ModulaPreferences.Key.focusFilterActive) private var focusFilterActive = false
+    @AppStorage(ModulaPreferences.Key.focusHideBadges) private var focusHideBadges = false
+    @AppStorage(ModulaPreferences.Key.focusAllowMentions) private var focusAllowMentions = true
     var body: some View {
         @Bindable var navigation = app.navigation
         @Bindable var appearance = app.appearance
@@ -41,8 +47,15 @@ struct RootView: View {
         .overlay(alignment: .top) {
             if let banner = navigation.banner { Label(banner.message, systemImage: banner.symbol).padding(12).background(.regularMaterial, in: Capsule()).padding(.top, 8) }
         }
+        .overlay(alignment: .top) {
+            if debugOverlays { ModulaDebugOverlay(route: navigation.currentRoute) }
+        }
         .background(palette.canvas.ignoresSafeArea())
+        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
+            ModulaRuntimePreferences.apply()
+        }
         .onAppear {
+            ModulaRuntimePreferences.apply()
             app.runtime.markNativeUsable()
             if let delegate = UIApplication.shared.delegate as? ModulaAppDelegate {
                 delegate.environment = app
@@ -114,7 +127,17 @@ struct RootView: View {
 
     @ViewBuilder
     private func shell(navigation: NavigationCoordinator, policy: ShellChromePolicy) -> some View {
-        if #available(iOS 26.1, *) {
+        if experimentalChrome {
+            // Settings → Labs → "Experimental chrome": Modula's own floating bottom
+            // chrome instead of the system tab bar, on every iOS version.
+            tabs(navigation: navigation)
+                .toolbar(.hidden, for: .tabBar)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    if policy.bottomBarVisible {
+                        ModulaBottomChrome(route: navigation.currentRoute, showsAccessory: policy.shellAccessoryVisible)
+                    }
+                }
+        } else if #available(iOS 26.1, *) {
             tabs(navigation: navigation)
                 .toolbar(policy.bottomBarVisible ? .visible : .hidden, for: .tabBar)
                 .tabViewBottomAccessory(isEnabled: policy.shellAccessoryVisible) {
@@ -148,6 +171,7 @@ struct RootView: View {
                 NavigationStack(path: navigation.binding(for: tab)) {
                     RouteView(route: navigation.root(for: tab))
                         .navigationDestination(for: AppRoute.self) { RouteView(route: $0) }
+                        .background(EdgeSwipeBackConfigurator().frame(width: 0, height: 0).accessibilityHidden(true))
                 }
                 .environment(\.routeTransitionNamespace, routeTransitions)
                 .modulaSoftScrollEdge()
@@ -166,6 +190,7 @@ struct RootView: View {
                             .contentTransition(.symbolEffect(.replace))
                     }
                 }
+                .badge(tab == .activity ? activityBadge : 0)
                 .tag(tab)
             }
         }
@@ -182,6 +207,15 @@ struct RootView: View {
             .allowsHitTesting(false)
             .accessibilityHidden(true)
         }
+    }
+
+    /// Unread Activity, quietened by an iOS Focus filter per Settings → Focus.
+    private var activityBadge: Int {
+        _ = (focusFilterActive, focusHideBadges, focusAllowMentions)
+        let events = app.activity.state(for: .all).events
+        let unread = app.activity.state(for: .all).unreadCount ?? events.filter { !$0.isRead }.count
+        let mentions = events.filter { !$0.isRead && $0.kind.isMention }.count
+        return ModulaFocusState.activityBadge(unread: unread, unreadMentions: mentions)
     }
 
     private func refreshTabAvatar() async {

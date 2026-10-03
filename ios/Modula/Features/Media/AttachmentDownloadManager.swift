@@ -79,7 +79,9 @@ actor AttachmentDownloadManager {
             try Task.checkCancellation()
             let temporaryURL = try await downloader.download(from: remoteURL)
             try Task.checkCancellation()
-            return try store.saveFile(at: temporaryURL, filename: filename)
+            let saved = try store.saveFile(at: temporaryURL, filename: filename)
+            DownloadedMediaIndex(store: store).record(filename: filename, title: attachment.filename, kind: attachment.kind.rawValue, mimeType: attachment.mimeType)
+            return saved
         }
         inFlight[attachment.id] = task
         defer { inFlight[attachment.id] = nil }
@@ -101,6 +103,23 @@ actor AttachmentDownloadManager {
     }
 
     func activeDownloadCount() -> Int { inFlight.count }
+
+    /// Files saved for offline viewing, newest first (Settings → Data & Storage → Downloads).
+    func listDownloads() -> [DownloadedMedia] {
+        DownloadedMediaIndex(store: store).list()
+    }
+
+    func removeDownload(_ item: DownloadedMedia) throws {
+        try DownloadedMediaIndex(store: store).remove(filename: item.filename)
+    }
+
+    /// Removes every downloaded file. Returns the bytes freed.
+    @discardableResult
+    func removeAllDownloads() throws -> Int64 {
+        for task in inFlight.values { task.cancel() }
+        inFlight.removeAll()
+        return try DownloadedMediaIndex(store: store).removeAll()
+    }
 
     private func cacheFilename(for attachment: ModulaAttachment) -> String {
         let ext = attachment.uniformType?.preferredFilenameExtension

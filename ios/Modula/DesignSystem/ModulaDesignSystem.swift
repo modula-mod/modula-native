@@ -16,7 +16,7 @@ enum ModulaMotion {
         case reveal, dismiss, railExpand, railCollapse, sheetPresent
     }
     static func animation(_ role: Role, personality: AppearanceStore.MotionPersonality, reduceMotion: Bool) -> Animation? {
-        guard !reduceMotion else { return .easeOut(duration: 0.12) }
+        guard !reduceMotion, !ModulaPreferences.extraMotionReduction else { return .easeOut(duration: 0.12) }
         switch personality {
         case .calm:
             return .easeOut(duration: role == .navigation || role == .presentation ? 0.22 : 0.16)

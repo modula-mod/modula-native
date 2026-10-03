@@ -110,7 +110,7 @@ struct SearchScreen: View {
             ModulaErrorState(message: message) {
                 Task { await app.discover.performSearch(query: query, section: chromeScope.section) }
             }
-        case _ where state.results.isEmpty:
+        case _ where visibleResults.isEmpty:
             ContentUnavailableView.search(text: query)
                 .frame(minHeight: 240)
         default:
@@ -132,12 +132,31 @@ struct SearchScreen: View {
     private var visibleResults: [SearchHit] {
         let results = app.discover.search.results
         switch chromeScope {
-        case .all: return results
+        case .all: return Self.orderAll(results)
         case .people: return results.filter { $0.entityType == "profile" }
         case .posts: return results.filter { $0.entityType == "post" }
         case .modules: return results.filter { $0.entityType == "module" || $0.entityType == "module-release" }
         case .topics: return results.filter { $0.entityType == "topic" }
         }
+    }
+
+    /// Settings → Search: "Include modules in results" (All scope only — the Modules
+    /// scope always shows modules) and "Prefer people first" (stable re-order).
+    static func orderAll(
+        _ results: [SearchHit],
+        includeModules: Bool = ModulaPreferences.searchIncludesModules,
+        peopleFirst: Bool = ModulaPreferences.searchPeopleFirst
+    ) -> [SearchHit] {
+        var visible = results
+        if !includeModules {
+            visible.removeAll { $0.entityType == "module" || $0.entityType == "module-release" }
+        }
+        if peopleFirst {
+            let people = visible.filter { $0.entityType == "profile" }
+            let others = visible.filter { $0.entityType != "profile" }
+            visible = people + others
+        }
+        return visible
     }
 
     @ViewBuilder private func searchRow(_ hit: SearchHit) -> some View {

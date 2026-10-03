@@ -10,6 +10,8 @@ struct ActivityRelativeTime {
     }()
 
     static func string(from date: Date, now: Date = Date()) -> String {
+        // Settings → Time & Units: absolute timestamps (12/24-hour) when relative is off.
+        guard ModulaPreferences.relativeTimestamps else { return ModulaTimeFormat.absolute(date, now: now) }
         // Avoid "in 0 sec" / tiny future values from clock skew.
         if abs(now.timeIntervalSince(date)) < 45 { return String(localized: "now") }
         return formatter.localizedString(for: min(date, now), relativeTo: now)
@@ -117,7 +119,13 @@ struct ActivityRequestActions: View {
 
 struct ActivityRow: View {
     @Environment(AppEnvironment.self) private var app
+    @AppStorage(ModulaPreferences.Key.focusFilterActive) private var focusFilterActive = false
     let event: ActivityEvent
+
+    private var dimmedForFocus: Bool {
+        guard focusFilterActive, ModulaPreferences.dimsActivityNow else { return false }
+        return !(ModulaPreferences.focusAllowsMentions && event.kind.isMention)
+    }
     var showActions = false
     var busy = false
     var onAccept: (() -> Void)?
@@ -160,6 +168,9 @@ struct ActivityRow: View {
         .padding(.vertical, 10 * app.appearance.density.spacingScale)
         .padding(.horizontal, 2)
         .background(event.isRead ? Color.clear : app.appearance.accent.color.opacity(0.05))
+        // Settings → Focus → "Dim Activity list" while an iOS Focus filter is on;
+        // mentions stay bright when "Still allow @mentions" is on.
+        .opacity(dimmedForFocus ? 0.5 : 1)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(event.voiceOverSummary)

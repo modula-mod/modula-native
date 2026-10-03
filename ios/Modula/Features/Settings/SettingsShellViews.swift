@@ -52,7 +52,7 @@ struct PersonalisationSettingsHost: View {
                     Toggle("Suggested people", isOn: $suggestedPeople)
                     Toggle("Suggested modules", isOn: $moduleSuggestions)
                 } footer: {
-                    Text("Saved on this device. Changes what’s shown to you here.")
+                    Text("Controls the suggested people and featured modules on Discover → Trending. Search and the People and Modules tabs aren’t affected.")
                 }
             }
             .modulaSoftScrollEdge()
@@ -81,7 +81,7 @@ struct PersonalisationSettingsHost: View {
                 } header: {
                     Text("Caption density")
                 } footer: {
-                    Text("Affects how captions wrap in feed cards on this device.")
+                    Text("Changes post text size, line spacing and how much shows before “Show more”.")
                 }
             }
             .modulaSoftScrollEdge()
@@ -200,37 +200,34 @@ struct MediaSettingsHost: View {
             .navigationBarTitleDisplayMode(.inline)
         case .video:
             Form {
-                Picker("Playback quality", selection: $videoQuality) {
-                    Text("Auto").tag("auto")
-                    Text("Data saver").tag("saver")
-                    Text("High").tag("high")
+                Section {
+                    Picker("Playback quality", selection: $videoQuality) {
+                        Text("Auto").tag("auto")
+                        Text("Data saver").tag("saver")
+                        Text("High").tag("high")
+                    }
+                    Toggle("Start muted", isOn: $muteStart)
+                } footer: {
+                    Text("Auto downloads feed videos ahead of time on Wi‑Fi only. Data saver waits until you tap Load video. High always downloads ahead.")
                 }
-                Toggle("Start muted", isOn: $muteStart)
             }
             .modulaSoftScrollEdge()
             .navigationTitle("Video")
             .navigationBarTitleDisplayMode(.inline)
         case .images:
             Form {
-                Toggle("Prefer high-resolution uploads", isOn: $highResUploads)
-                Toggle("Keep originals in Photos", isOn: $saveOriginals)
+                Section {
+                    Toggle("Prefer high-resolution uploads", isOn: $highResUploads)
+                    Toggle("Keep original file data", isOn: $saveOriginals)
+                } footer: {
+                    Text("High resolution uploads photos up to 4096 px (2048 px when off or with Data saver). Unless you keep original file data, photos are re-encoded so location and camera details stay on your iPhone.")
+                }
             }
             .modulaSoftScrollEdge()
             .navigationTitle("Images")
             .navigationBarTitleDisplayMode(.inline)
         case .downloads:
-            SettingsScrollCanvas {
-                SettingsHeroBanner(title: "Downloads", subtitle: "Offline media store.", symbol: "arrow.down.circle")
-                ContentUnavailableView(
-                    "No downloads yet",
-                    systemImage: "tray",
-                    description: Text("Downloaded media will appear here.")
-                )
-                .frame(minHeight: 180)
-                SettingsAPIFootnote(text: "Downloading media for offline use isn’t available yet.")
-            }
-            .navigationTitle("Downloads")
-            .navigationBarTitleDisplayMode(.inline)
+            MediaDownloadsView()
         }
     }
 }
@@ -265,9 +262,9 @@ struct FeedSettingsHost: View {
                 SettingsToggleCard {
                     Toggle("Media only by default", isOn: $mediaOnly)
                     Toggle("Hide module posts by default", isOn: $hideModulePosts)
-                    Toggle("Show reply threads", isOn: $showReplies)
+                    Toggle("Expand reply threads in posts", isOn: $showReplies)
                 }
-                SettingsAPIFootnote(text: "Saved on this device. You can still change feeds from Home.")
+                SettingsAPIFootnote(text: "Home opens on your default feed next time Modula starts. Media only and Hide module posts apply to every Home feed until you change that feed’s own filter on Home. Reply threads open automatically for the first few comments on a post.")
             }
             .navigationTitle("Feed")
             .navigationBarTitleDisplayMode(.inline)
@@ -324,7 +321,7 @@ struct BatterySettingsHost: View {
                     Toggle("Extra motion reduction", isOn: $reduceMotionExtra)
                         .settingsAnchor("battery.motion")
                 }
-                SettingsAPIFootnote(text: "Saved on this device. Low Power Mode and cellular data are managed in iOS Settings.")
+                SettingsAPIFootnote(text: "Data saver stops feed videos downloading on their own, stops autoplay on cellular, skips chat link previews and uploads smaller photos. Extra motion reduction calms animations and Metal effects across Modula, like Reduce Motion. Low Power Mode and Low Data Mode are set in iOS Settings.")
             }
             .navigationTitle("Battery & Data")
             .navigationBarTitleDisplayMode(.inline)
@@ -365,35 +362,9 @@ struct SafetySettingsHost: View {
             .navigationTitle("Safety")
             .navigationBarTitleDisplayMode(.inline)
         case .reporting:
-            SettingsDesignedUnavailableCanvas(
-                title: "Reporting",
-                subtitle: "Choose what happened and send context.",
-                symbol: "exclamationmark.bubble",
-                tiles: [
-                    ("Post", "Report a post", "text.bubble"),
-                    ("Profile", "Report a person", "person.crop.circle.badge.exclamationmark"),
-                    ("Message", "Report a chat", "bubble.left"),
-                    ("Module", "Report a module", "shippingbox")
-                ],
-                previewRows: [
-                    ("Spam", "Misleading or repetitive", "flame"),
-                    ("Harassment", "Targeted abuse", "hand.raised"),
-                    ("Illegal content", "Against the law", "scalemass")
-                ],
-                apiNote: "Reporting from Settings isn’t available yet. You can report a post or profile from its menu.",
-                alternatives: [
-                    ("Contact support", "Open a safety case with the team", "shield.lefthalf.filled", .help(.contact))
-                ]
-            )
+            MyReportsView()
         case .muted:
-            SettingsScrollCanvas {
-                SettingsHeroBanner(title: "Muted", subtitle: "Quiet words and accounts on this device.", symbol: "speaker.slash")
-                ContentUnavailableView("Nothing muted yet", systemImage: "speaker.slash", description: Text("Accounts you mute will appear here."))
-                    .frame(minHeight: 160)
-                SettingsAPIFootnote(text: "Managing muted accounts here isn’t available yet.")
-            }
-            .navigationTitle("Muted")
-            .navigationBarTitleDisplayMode(.inline)
+            RelationshipListView(kind: .muted)
         case .sensitive:
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Sensitive content", subtitle: "Warnings before opening media.", symbol: "eye.trianglebadge.exclamationmark")
@@ -418,25 +389,7 @@ struct ConnectorsSettingsHost: View {
     let route: ConnectorsSettingsRoute
 
     var body: some View {
-        SettingsDesignedUnavailableCanvas(
-            title: "Connectors",
-            subtitle: "Link accounts Modula can use with your permission.",
-            symbol: "link",
-            tiles: [
-                ("Calendar", "Events & reminders", "calendar"),
-                ("Cloud drive", "Files & attachments", "externaldrive"),
-                ("Music", "Listening context", "music.note"),
-                ("Health", "Activity signals", "heart")
-            ],
-            previewRows: [
-                ("Apple", "Sign in with Apple services", "apple.logo"),
-                ("Google", "Calendar and Drive", "g.circle"),
-                ("GitHub", "Developer links", "chevron.left.forwardslash.chevron.right")
-            ],
-            apiNote: SettingsRegistry.destination(for: .connectors(.root))?.unavailableReason
-                ?? "Connected apps aren’t available yet."
-        )
-        .navigationTitle("Connectors")
+        ConnectorsSettingsView()
     }
 }
 
@@ -528,35 +481,9 @@ struct MonetisationSettingsHost: View {
                 ]
             )
         case .payouts:
-            SettingsScrollCanvas {
-                SettingsHeroBanner(title: "Payouts", subtitle: "Creator balance.", symbol: "banknote")
-                ModulaCard {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Available")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text("—")
-                            .font(.largeTitle.weight(.semibold))
-                        Text("No payout provider connected")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 8)
-                }
-                SettingsAPIFootnote(text: "Your balance will appear here when payouts are available.")
-            }
-            .navigationTitle("Payouts")
-            .navigationBarTitleDisplayMode(.inline)
+            PayoutsLedgerView()
         case .invoices:
-            SettingsScrollCanvas {
-                SettingsHeroBanner(title: "Invoices", subtitle: "Billing history.", symbol: "doc.richtext")
-                ContentUnavailableView("No invoices", systemImage: "doc", description: Text("Your invoices will appear here."))
-                    .frame(minHeight: 160)
-                SettingsAPIFootnote(text: "Your invoices will appear here.")
-            }
-            .navigationTitle("Invoices")
-            .navigationBarTitleDisplayMode(.inline)
+            InvoicesListView()
         }
     }
 }
@@ -597,7 +524,7 @@ struct ChatsSettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Saved on this device.")
+                SettingsAPIFootnote(text: "These change how chats look and behave on this iPhone.")
             }
             .navigationTitle("Chats")
             .navigationBarTitleDisplayMode(.inline)
@@ -612,8 +539,12 @@ struct ChatsSettingsHost: View {
             .navigationBarTitleDisplayMode(.inline)
         case .previews:
             Form {
-                Toggle("Preview media inline", isOn: $previewMedia)
-                Toggle("Link previews", isOn: $linkPreviews)
+                Section {
+                    Toggle("Preview media inline", isOn: $previewMedia)
+                    Toggle("Link previews", isOn: $linkPreviews)
+                } footer: {
+                    Text("Image links in messages show as images. Other links show a preview card, fetched by your iPhone (not Modula’s servers). Data saver turns link previews off.")
+                }
             }
             .modulaSoftScrollEdge()
             .navigationTitle("Previews")
@@ -666,21 +597,29 @@ struct AudioSettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Saved on this device. Volume and Focus are managed by iOS.")
+                SettingsAPIFootnote(text: "Applies to audio posts and video in Modula. Volume is managed by iOS.")
             }
             .navigationTitle("Audio")
             .navigationBarTitleDisplayMode(.inline)
             .accessibilityIdentifier("settings.audio")
         case .playback:
             Form {
-                Toggle("Autoplay previews", isOn: $autoplayPreviews)
+                Section {
+                    Toggle("Autoplay previews", isOn: $autoplayPreviews)
+                } footer: {
+                    Text("Starts audio as soon as you open it.")
+                }
             }
             .modulaSoftScrollEdge()
             .navigationTitle("Playback")
             .navigationBarTitleDisplayMode(.inline)
         case .voice:
             Form {
-                Toggle("Raise to listen", isOn: $raiseToListen)
+                Section {
+                    Toggle("Raise to listen", isOn: $raiseToListen)
+                } footer: {
+                    Text("While audio plays, holding your iPhone to your ear switches to the earpiece (only if Modula already has microphone access, which iOS requires for the earpiece).")
+                }
                 VStack(alignment: .leading) {
                     Text("Voice playback speed")
                     Slider(value: $voiceSpeed, in: 0.75...2.0, step: 0.25)

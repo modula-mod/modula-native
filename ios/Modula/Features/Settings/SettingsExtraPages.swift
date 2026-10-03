@@ -110,28 +110,22 @@ struct CreatorSettingsHost: View {
             .navigationBarTitleDisplayMode(.inline)
         case .studio:
             Form {
-                Picker("Default audience", selection: $audience) {
-                    Text("Public").tag("public")
-                    Text("Followers").tag("followers")
-                    Text("Close friends").tag("close")
+                Section {
+                    Picker("Default audience", selection: $audience) {
+                        Text("Everyone").tag("public")
+                        Text("Followers").tag("followers")
+                        Text("Only me").tag("private")
+                    }
+                    Toggle("Show insights tip after publish", isOn: $insightsHint)
+                } footer: {
+                    Text("New posts start with this audience. You can still change it in the composer.")
                 }
-                Toggle("Show insights tip after publish", isOn: $insightsHint)
             }
             .modulaSoftScrollEdge()
             .navigationTitle("Studio defaults")
             .navigationBarTitleDisplayMode(.inline)
         case .insights:
-            SettingsScrollCanvas {
-                SettingsHeroBanner(title: "Insights", subtitle: "Reach and engagement.", symbol: "chart.line.uptrend.xyaxis")
-                SettingsSceneGraphic(style: .meter)
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    SettingsStatChip(label: "Views", value: "—", symbol: "eye")
-                    SettingsStatChip(label: "Follows", value: "—", symbol: "person.badge.plus")
-                }
-                SettingsAPIFootnote(text: "Insights show a dash until real data is available.")
-            }
-            .navigationTitle("Insights")
-            .navigationBarTitleDisplayMode(.inline)
+            CreatorInsightsView()
         }
     }
 }
@@ -158,7 +152,7 @@ struct FocusSettingsHost: View {
                     Toggle("Still allow @mentions", isOn: $allowMentions)
                         .settingsAnchor("focus.mentions")
                 }
-                SettingsAPIFootnote(text: "Saved on this device. Set up Focus modes in iOS Settings.")
+                SettingsAPIFootnote(text: "To use these, add the Modula filter to a Focus: iOS Settings → Focus → choose a Focus → Add Filter → Modula. While that Focus is on, the Activity badge and list follow these choices.")
             }
             .navigationTitle("Focus")
             .navigationBarTitleDisplayMode(.inline)
@@ -174,26 +168,7 @@ struct PasskeysSettingsHost: View {
     var body: some View {
         switch route {
         case .root:
-            SettingsDesignedUnavailableCanvas(
-                title: "Passkeys",
-                subtitle: "Passwordless sign-in with iCloud Keychain.",
-                symbol: "person.badge.key",
-                tiles: [
-                    ("Create", "New passkey", "plus.circle"),
-                    ("Devices", "Where it syncs", "laptopcomputer.and.iphone"),
-                    ("Security", "Phishing resistant", "lock.shield"),
-                    ("Fallback", "Password still works", "key")
-                ],
-                previewRows: [
-                    ("This iPhone", "Platform authenticator", "iphone"),
-                    ("Remove passkey", "Stop using a passkey", "trash")
-                ],
-                apiNote: "Passkeys aren’t available yet.",
-                alternatives: [
-                    ("Password", "Change your account password", "key", .account(.password)),
-                    ("App Lock", "Protect Modula on this device", "lock.fill", .privacy(.appLock))
-                ]
-            )
+            PasskeysSettingsView()
         }
     }
 }
@@ -201,6 +176,7 @@ struct PasskeysSettingsHost: View {
 // MARK: - Translate
 
 struct TranslateSettingsHost: View {
+    static let targets = ["en", "fr", "de", "es", "it", "pt", "nl", "pl", "tr", "ru", "uk", "ar", "hi", "ja", "ko", "zh-Hans", "zh-Hant", "id", "th", "vi"]
     let route: TranslateSettingsRoute
     @AppStorage("settings.translate.autoDetect") private var autoDetect = true
     @AppStorage("settings.translate.showButton") private var showButton = true
@@ -218,14 +194,16 @@ struct TranslateSettingsHost: View {
                     LabeledContent("Target language") {
                         Picker("Target language", selection: $target) {
                             Text("System").tag("system")
-                            Text("English").tag("en")
+                            ForEach(TranslateSettingsHost.targets, id: \.self) { code in
+                                Text(Locale.current.localizedString(forLanguageCode: code) ?? code).tag(code)
+                            }
                             Text("Keep original").tag("original")
                         }
                         .labelsHidden()
                         .pickerStyle(.menu)
                     }
                 }
-                SettingsAPIFootnote(text: "Saved on this device. Translation itself isn’t available yet.")
+                SettingsAPIFootnote(text: "Posts are translated on your iPhone with Apple Translation — the text isn’t sent anywhere. iOS may ask to download a language the first time. “Keep original” hides Translate.")
             }
             .navigationTitle("Translate")
             .navigationBarTitleDisplayMode(.inline)
@@ -336,7 +314,7 @@ struct TimeUnitsSettingsHost: View {
                         .pickerStyle(.menu)
                     }
                 }
-                SettingsAPIFootnote(text: "Saved on this device. Doesn’t change your iOS region settings.")
+                SettingsAPIFootnote(text: "Applies to timestamps across Modula (feed, comments, chats, Activity, drafts) and is shared with modules for distances and temperatures. Doesn’t change your iOS region settings.")
             }
             .navigationTitle("Time & Units")
             .navigationBarTitleDisplayMode(.inline)
@@ -360,10 +338,10 @@ struct KeyboardSettingsHost: View {
                 SettingsSceneGraphic(style: .pulse)
                 SettingsToggleCard {
                     Toggle("Swipe between composer tools", isOn: $swipe)
-                    Toggle("Double-space for period", isOn: $periodShortcut)
-                    Toggle("Caps Lock mapping", isOn: $capsLock)
+                    Toggle("Autocorrect in composers", isOn: $periodShortcut)
+                    Toggle("Auto-capitalise sentences", isOn: $capsLock)
                 }
-                SettingsAPIFootnote(text: "Saved on this device. Keyboards are managed in iOS Settings.")
+                SettingsAPIFootnote(text: "Applies to the post composer and chat composer. Double-space period, Caps Lock and keyboard layouts are iOS keyboard settings (Settings → General → Keyboard), which apps can’t change.")
             }
             .navigationTitle("Keyboard")
             .navigationBarTitleDisplayMode(.inline)

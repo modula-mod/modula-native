@@ -35,6 +35,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Modula saves photos you take in the composer and Stories you post to your library when you turn that on in Settings.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Modula uses the camera when you take a profile photo, a cover photo, or a picture to attach in Nodus. Photos stay on this device until you choose to upload a profile image.</string>
 	<key>NSMicrophoneUsageDescription</key>

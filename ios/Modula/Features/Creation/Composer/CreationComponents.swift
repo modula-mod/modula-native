@@ -9,6 +9,20 @@ struct CreationToolDock<PhotoPicker: View, VideoPicker: View>: View {
     var onTool: (CreationTool) -> Void
 
     var body: some View {
+        // Settings → Keyboard → "Swipe between composer tools": the dock scrolls
+        // sideways (paging by tool) instead of squeezing every tool into one row.
+        if ModulaPreferences.composerToolSwipe {
+            ScrollView(.horizontal, showsIndicators: false) {
+                dock.scrollTargetLayout()
+            }
+            .scrollTargetBehavior(.viewAligned)
+            .background(.bar)
+        } else {
+            dock
+        }
+    }
+
+    private var dock: some View {
         HStack(spacing: 8) {
             ForEach(CreationTool.allCases) { tool in
                 if capabilities.toolVisible(tool, kind: kind, developerMode: developerMode) {

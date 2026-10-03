@@ -158,7 +158,15 @@ struct PostDetailView: View {
                 onComment: { showsCommentsSheet = true },
                 onRepost: { Task { await app.postActions.toggleRepost(post) } },
                 onSave: { Task { await app.postActions.toggleSave(post) } },
-                onShare: { showsShareSheet = true }
+                onShare: {
+                    // Settings → Sharing: copy link / iOS share sheet go straight there;
+                    // otherwise this screen's share panel opens.
+                    if PostSharing.method() == .modulaSheet {
+                        showsShareSheet = true
+                    } else {
+                        PostSharing.share(post, app: app)
+                    }
+                }
             )
         }
         .confirmationDialog("Post actions", isPresented: $showsMoreMenu, titleVisibility: .hidden) {
@@ -370,7 +378,7 @@ struct PostShareSheet: View {
                 }
                 .buttonStyle(.plain)
 
-                ShareLink(item: post.shareURL) {
+                ShareLink(item: PostSharing.shareText(for: post)) {
                     Label("Share", systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .frame(minHeight: 48)

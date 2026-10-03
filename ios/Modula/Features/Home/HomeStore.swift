@@ -31,7 +31,11 @@ final class HomeStore {
     }
 
     func displayOptions(for mode: HomeMode) -> HomeFeedDisplayOptions {
-        displayOptions[mode.rawValue] ?? HomeFeedDisplayOptions()
+        // Settings → Feed supplies the defaults; a per-mode choice made on Home wins.
+        displayOptions[mode.rawValue] ?? HomeFeedDisplayOptions(
+            mediaOnly: ModulaPreferences.feedMediaOnlyByDefault,
+            hideModules: ModulaPreferences.feedHideModulePostsByDefault
+        )
     }
 
     func setDisplayOptions(_ options: HomeFeedDisplayOptions, for mode: HomeMode) {

@@ -35,6 +35,12 @@ final class PostCommentsStore {
             nextCursor = page.nextCursor
             hasMore = page.hasMore
             isLoading = false
+            // Settings → Feed → "Expand reply threads": open the first few threads.
+            if ModulaPreferences.feedShowReplyThreads {
+                for comment in Self.threadsToExpand(page.items) {
+                    await loadReplies(for: comment)
+                }
+            }
         } catch let api as APIError {
             loadError = api.userFacingMessage
             isLoading = false
@@ -83,6 +89,10 @@ final class PostCommentsStore {
             HapticEngine.shared.play(.failure)
             return false
         }
+    }
+
+    nonisolated static func threadsToExpand(_ comments: [SocialComment], limit: Int = 3) -> [SocialComment] {
+        Array(comments.filter { $0.parentID == nil && $0.replyCount > 0 }.prefix(limit))
     }
 
     func loadReplies(for comment: SocialComment) async {
