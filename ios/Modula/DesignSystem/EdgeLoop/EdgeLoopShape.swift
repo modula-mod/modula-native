@@ -125,6 +125,54 @@ struct EdgeLoopShape: Shape {
         return path
     }
 
+    /// Carved depth of the real outline (distance from the physical edge) at local `y` in a rail of
+    /// `height`, using exactly the same clamps and cubic control points as `carvedPath`.
+    nonisolated static func outlineDepth(
+        atY y: CGFloat,
+        height: CGFloat,
+        width: CGFloat,
+        depth: CGFloat,
+        curveStartFraction: CGFloat,
+        channelStartFraction: CGFloat,
+        channelEndFraction: CGFloat,
+        curveEndFraction: CGFloat
+    ) -> CGFloat {
+        let h = max(height, 1)
+        guard y > 0, y < h else { return 0 }
+        let carved = min(max(depth, 28), max(width, 28))
+        var y1 = min(max(curveStartFraction, 0.06), 0.28) * h
+        var y2 = min(max(channelStartFraction, 0.22), 0.42) * h
+        var y3 = min(max(channelEndFraction, 0.58), 0.78) * h
+        var y4 = min(max(curveEndFraction, 0.72), 0.94) * h
+        if y2 <= y1 { y2 = y1 + h * 0.12 }
+        if y3 <= y2 { y3 = y2 + h * 0.2 }
+        if y4 <= y3 { y4 = y3 + h * 0.12 }
+        y1 = min(y1, h * 0.4)
+        y4 = min(max(y4, y3 + 1), h)
+        if y >= y2 && y <= y3 { return carved }
+        // Cubic in (depth, y): solve y(t) by bisection (monotonic), return depth(t).
+        func solve(_ p0: CGPoint, _ c1: CGPoint, _ c2: CGPoint, _ p3: CGPoint) -> CGFloat {
+            func at(_ t: CGFloat) -> CGPoint {
+                let u = 1 - t
+                let a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t
+                return CGPoint(x: a * p0.x + b * c1.x + c * c2.x + d * p3.x, y: a * p0.y + b * c1.y + c * c2.y + d * p3.y)
+            }
+            var lo: CGFloat = 0, hi: CGFloat = 1
+            let increasing = p3.y > p0.y
+            for _ in 0..<22 {
+                let mid = (lo + hi) / 2
+                if (at(mid).y < y) == increasing { lo = mid } else { hi = mid }
+            }
+            return max(at((lo + hi) / 2).x, 0)
+        }
+        if y < y2 {
+            // Upper curve: waist (y2) -> edge (0).
+            return solve(CGPoint(x: carved, y: y2), CGPoint(x: carved, y: y2 - (y2 - y1) * 0.55), CGPoint(x: 0, y: y1), CGPoint(x: 0, y: 0))
+        }
+        // Lower curve: edge (h) -> waist (y3).
+        return solve(CGPoint(x: 0, y: h), CGPoint(x: 0, y: y4), CGPoint(x: carved, y: y3 + (y4 - y3) * 0.55), CGPoint(x: carved, y: y3))
+    }
+
     /// Key Y landmarks in the given rect (for debug overlays / tests).
     nonisolated static func landmarks(
         in rect: CGRect,
