@@ -636,7 +636,7 @@ struct NodusChatView: View {
             .animation(motion(.morph), value: composerCorner)
             .animation(motion(.morph), value: composerFocused)
             .animation(.easeInOut(duration: 0.35), value: model.isGenerating)
-            .modulaComposerMascot(.nodus, busy: model.isGenerating)
+            .modulaComposerMascot(.nodus, busy: model.isGenerating, text: model.input, attachmentCount: attachments.count, trailingInset: 22)
         }
         .padding(.horizontal, 12)
         .padding(.top, 8)

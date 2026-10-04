@@ -245,10 +245,10 @@ struct ModulaComposer: View {
                             .transition(.opacity)
                     } else {
                         fieldPill
+                            .modulaComposerMascot(mascot, busy: sending, text: text, attachmentCount: attachments.count)
                     }
                     trailingButton
                 }
-                .modulaComposerMascot(mascot, busy: sending)
             }
         }
         .animation(motion, value: attachMenuOpen)
