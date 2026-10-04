@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C1DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift */; };
+		C12F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift */; };
+		C17A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift in Sources */ = {isa = PBXBuildFile; fileRef = C07A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift */; };
 		C1B5F34784604E6B40CAC97C /* ModulaRichFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B5F34784604E6B40CAC97C /* ModulaRichFormat.swift */; };
 		C18FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift */; };
 		C1F05546B4D00806E53DCE68 /* ModulaMascot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F05546B4D00806E53DCE68 /* ModulaMascot.swift */; };
@@ -348,6 +351,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		C0DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommentAttachExtras.swift; path = Features/Social/CommentAttachExtras.swift; sourceTree = "<group>"; };
+		C02F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaStickerExtras.swift; path = DesignSystem/AdvancedInteraction/ModulaStickerExtras.swift; sourceTree = "<group>"; };
+		C07A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaInlineCamera.swift; path = DesignSystem/AdvancedInteraction/ModulaInlineCamera.swift; sourceTree = "<group>"; };
 		C0B5F34784604E6B40CAC97C /* ModulaRichFormat.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaRichFormat.swift; path = DesignSystem/AdvancedInteraction/ModulaRichFormat.swift; sourceTree = "<group>"; };
 		C08FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaMascotHost.swift; path = DesignSystem/Mascot/ModulaMascotHost.swift; sourceTree = "<group>"; };
 		C0F05546B4D00806E53DCE68 /* ModulaMascot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaMascot.swift; path = DesignSystem/Mascot/ModulaMascot.swift; sourceTree = "<group>"; };
@@ -916,6 +922,9 @@
 				F70100000000000000000003 /* ProfileContentTabs.swift */,
 				F70100000000000000000002 /* ModulaEffectKit.metal */,
 				F70100000000000000000001 /* ModulaEffectKit.swift */,
+				C0DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift */,
+				C02F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift */,
+				C07A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift */,
 				C0B5F34784604E6B40CAC97C /* ModulaRichFormat.swift */,
 				C08FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift */,
 				C0F05546B4D00806E53DCE68 /* ModulaMascot.swift */,
@@ -1487,6 +1496,9 @@
 				F70200000000000000000003 /* ProfileContentTabs.swift in Sources */,
 				F70200000000000000000002 /* ModulaEffectKit.metal in Sources */,
 				F70200000000000000000001 /* ModulaEffectKit.swift in Sources */,
+				C1DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift in Sources */,
+				C12F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift in Sources */,
+				C17A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift in Sources */,
 				C1B5F34784604E6B40CAC97C /* ModulaRichFormat.swift in Sources */,
 				C18FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift in Sources */,
 				C1F05546B4D00806E53DCE68 /* ModulaMascot.swift in Sources */,

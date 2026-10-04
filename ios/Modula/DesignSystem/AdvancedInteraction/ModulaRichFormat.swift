@@ -57,10 +57,10 @@ enum ModulaMarkup {
     ]
     private static let codeRx = rx(#"`([^`\n]+)`"#)
     private static let linkRx = rx(#"\[([^\]\n]+)\]\((https?://[^)\s]+)\)"#)
-    private static let tagRx = rx(#"<(kbd|mark|sub|sup|u|s)>([\s\S]+?)</\1>"#)
-    private static let abbrRx = rx(#"<abbr title="([^"<>]{0,80})">([^<\n]+?)</abbr>"#)
-    private static let spanRx = rx(#"<span color="([a-z]+)">([^<]+?)</span>"#)
-    private static let detailsRx = rx(#"<details>\s*<summary>([^<\n]+?)</summary>([\s\S]*?)</details>"#)
+    private static let tagRx = try! NSRegularExpression(pattern: #"<(kbd|mark|sub|sup|u|s|b|i)\s*>([\s\S]+?)</\1\s*>"#, options: [.caseInsensitive])
+    private static let abbrRx = try! NSRegularExpression(pattern: #"<abbr\s+title\s*=\s*["“”„'‘’]([^"“”„<>]{0,80}?)["“”„'‘’]\s*>([^<\n]+?)</abbr\s*>"#, options: [.caseInsensitive])
+    private static let spanRx = try! NSRegularExpression(pattern: #"<span\s+(?:color|style\s*=\s*["“”„']color:)\s*=?\s*["“”„']?\s*([a-zA-Z]+)\s*;?["“”„']?\s*>([^<]+?)</span\s*>"#, options: [.caseInsensitive])
+    private static let detailsRx = try! NSRegularExpression(pattern: #"<details(?:\s+open)?\s*>\s*<summary\s*>([^<\n]+?)</summary\s*>([\s\S]*?)</details\s*>"#, options: [.caseInsensitive])
 
     /// Parses `text` into styled runs (UTF-16 ranges into `text`).
     static func parse(_ text: String) -> [MarkupRun] {
@@ -142,8 +142,8 @@ enum ModulaMarkup {
             runs.append(MarkupRun(style: .details, content: bodyR, markers: [MarkupMarker(range: NSRange(location: NSMaxRange(summary), length: bodyR.location - NSMaxRange(summary)), replacement: "\n"), MarkupMarker(range: NSRange(location: NSMaxRange(bodyR), length: NSMaxRange(m.range) - NSMaxRange(bodyR)))]))
         }
         for m in tagRx.matches(in: text, range: full) where free(m.range) {
-            let tag = ns.substring(with: m.range(at: 1)), inner = m.range(at: 2)
-            let style: MarkupStyle = switch tag { case "kbd": .kbd; case "mark": .highlight; case "sub": .sub; case "sup": .sup; case "u": .underline; default: .strike }
+            let tag = ns.substring(with: m.range(at: 1)).lowercased(), inner = m.range(at: 2)
+            let style: MarkupStyle = switch tag { case "kbd": .kbd; case "mark": .highlight; case "sub": .sub; case "sup": .sup; case "u": .underline; case "b": .bold; case "i": .italic; default: .strike }
             runs.append(MarkupRun(style: style, content: inner, markers: [MarkupMarker(range: NSRange(location: m.range.location, length: inner.location - m.range.location)), MarkupMarker(range: NSRange(location: NSMaxRange(inner), length: NSMaxRange(m.range) - NSMaxRange(inner)))]))
         }
         for m in abbrRx.matches(in: text, range: full) where free(m.range) {
@@ -151,7 +151,7 @@ enum ModulaMarkup {
             runs.append(MarkupRun(style: .abbr, content: inner, markers: [MarkupMarker(range: NSRange(location: m.range.location, length: inner.location - m.range.location)), MarkupMarker(range: NSRange(location: NSMaxRange(inner), length: NSMaxRange(m.range) - NSMaxRange(inner)))], value: ns.substring(with: m.range(at: 1))))
         }
         for m in spanRx.matches(in: text, range: full) where free(m.range) {
-            let name = ns.substring(with: m.range(at: 1)), inner = m.range(at: 2)
+            let name = ns.substring(with: m.range(at: 1)).lowercased(), inner = m.range(at: 2)
             guard colors[name] != nil else { continue }
             runs.append(MarkupRun(style: .color, content: inner, markers: [MarkupMarker(range: NSRange(location: m.range.location, length: inner.location - m.range.location)), MarkupMarker(range: NSRange(location: NSMaxRange(inner), length: NSMaxRange(m.range) - NSMaxRange(inner)))], value: name))
         }
@@ -559,6 +559,9 @@ struct ModulaRichTextEditor: UIViewRepresentable {
         tv.spellCheckingType = spellCheck ? .default : .no
         tv.autocapitalizationType = autocapitalize ? .sentences : .none
         tv.returnKeyType = returnSends ? .send : .default
+        // Smart quotes/dashes would break HTML attributes like title="…".
+        tv.smartQuotesType = .no
+        tv.smartDashesType = .no
         if tv.text != text {
             tv.text = text
             context.coordinator.rehighlight(tv)

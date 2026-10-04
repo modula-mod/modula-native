@@ -88,7 +88,10 @@ final class PostCommentsStore {
     }
 
     func send(parentID: SocialCommentID? = nil) async -> Bool {
-        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Client-rendered stickers (animated/mascot/custom) travel as text tokens.
+        let localTokens = pendingMedia.compactMap { $0.sticker.flatMap(ModulaLocalSticker.from)?.token }
+        let typed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = (localTokens.joined(separator: " ") + (localTokens.isEmpty || typed.isEmpty ? "" : "\n") + typed)
         let media = pendingMedia.compactMap(\.payload)
         guard !text.isEmpty || !media.isEmpty, !isSending, pendingMedia.allSatisfy(\.isReady) else { return false }
         isSending = true
@@ -131,6 +134,11 @@ final class PostCommentsStore {
             }
             await upload(data: data, type: type, kind: isVideo ? .video : .image)
         }
+    }
+
+    func addVideoFile(_ url: URL) async {
+        guard pendingMedia.count < 4, let data = try? Data(contentsOf: url) else { return }
+        await upload(data: data, type: .quickTimeMovie, kind: .video, fileName: "Video.mov")
     }
 
     func addCameraImage(_ image: UIImage) async {
@@ -364,6 +372,8 @@ struct PostCommentsView: View {
     let postID: SocialPostID
     var isSheet: Bool = false
     var onClose: (() -> Void)? = nil
+    /// Asks the hosting sheet for more room (panel / camera opened).
+    var onExpand: (() -> Void)? = nil
     // Detail supplies its identity/content here so conversation shares one scroll surface.
     var header: AnyView? = nil
 
@@ -374,6 +384,13 @@ struct PostCommentsView: View {
     @State private var mediaPanelTab: ModulaComposerMediaPanel.Tab = .emoji
     @State private var showsPhotoPicker = false
     @State private var showsCamera = false
+    @State private var showsInlineCamera = false
+    @State private var showsScanner = false
+    @State private var showsSketch = false
+    @State private var showsContactPicker = false
+    @State private var showsEventSheet = false
+    @State private var showsAudioImporter = false
+    @State private var stickerSection: String?
     @State private var photoSelection: [PhotosPickerItem] = []
     @State private var showsPollCreator = false
     @State private var showsFileImporter = false
@@ -448,6 +465,25 @@ struct PostCommentsView: View {
             Task { await store?.addFile(url) }
         }
         .translationPresentation(isPresented: Binding(get: { translating != nil }, set: { if !$0 { translating = nil } }), text: translating ?? "")
+        .fullScreenCover(isPresented: $showsScanner) {
+            CommentDocumentScanner { pages in Task { for page in pages { await store?.addCameraImage(page) } } }
+                .ignoresSafeArea()
+        }
+        .sheet(isPresented: $showsSketch) {
+            CommentSketchSheet { image in Task { await store?.addCameraImage(image) } }
+        }
+        .sheet(isPresented: $showsContactPicker) {
+            CommentContactPicker { text in insertIntoDraft(text) }
+        }
+        .sheet(isPresented: $showsEventSheet) {
+            CommentEventSheet { text in insertIntoDraft(text) }
+        }
+        .fileImporter(isPresented: $showsAudioImporter, allowedContentTypes: [.audio, .mp3, .mpeg4Audio, .wav], allowsMultipleSelection: false) { result in
+            guard case .success(let urls) = result, let url = urls.first else { return }
+            Task { await store?.addFile(url) }
+        }
+        .onChange(of: mediaPanelActive) { _, open in if open { onExpand?() } }
+        .onChange(of: showsInlineCamera) { _, open in if open { onExpand?() } }
         .fullScreenCover(isPresented: $showsCamera) {
             CommentCameraPicker { image in Task { await store?.addCameraImage(image) } }
                 .ignoresSafeArea()
@@ -624,8 +660,12 @@ struct PostCommentsView: View {
                     .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .accessibilityLabel("Quoting \(quoted.authorName ?? "a comment"): \(quoted.text)")
                 }
-                if !comment.text.isEmpty {
-                    Text(ModulaRichText.attributed(comment.text, revealSpoilers: revealedSpoilers.contains(comment.id)))
+                let local = ModulaLocalSticker.extract(comment.text)
+                if !local.stickers.isEmpty {
+                    ModulaLocalStickerRow(stickers: local.stickers)
+                }
+                if !local.text.isEmpty {
+                    Text(ModulaRichText.attributed(local.text, revealSpoilers: revealedSpoilers.contains(comment.id)))
                         .font(.body)
                         .lineSpacing(3)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -770,19 +810,44 @@ struct PostCommentsView: View {
     /// Everything Greenfield comments accept: photos/videos and files (attachment pipeline),
     /// camera, GIFs (GIF proxy), first-party stickers, polls and a shared location.
     private var attachmentOptions: [ModulaComposerAttachmentOption] {
-        var options = [ModulaComposerAttachmentOption(id: "photos", title: "Photos", systemImage: "photo.on.rectangle", tint: .blue)]
+        typealias O = ModulaComposerAttachmentOption
+        var options = [O(id: "photos", title: "Photos", systemImage: "photo.on.rectangle", tint: .blue)]
         if UIImagePickerController.isSourceTypeAvailable(.camera) {
-            options.append(ModulaComposerAttachmentOption(id: "camera", title: "Camera", systemImage: "camera.fill", tint: .gray))
+            options.append(O(id: "camera", title: "Camera", systemImage: "camera.fill", tint: .gray))
         }
-        options.append(ModulaComposerAttachmentOption(id: "gif", title: "GIF", systemImage: "play.square.stack.fill", tint: .purple))
-        options.append(ModulaComposerAttachmentOption(id: "sticker", title: "Sticker", systemImage: "seal.fill", tint: .orange))
-        options.append(ModulaComposerAttachmentOption(id: "poll", title: "Poll", systemImage: "chart.bar.fill", tint: .green))
-        options.append(ModulaComposerAttachmentOption(id: "location", title: locating ? "Locating…" : "Location", systemImage: "location.fill", tint: .teal))
-        options.append(ModulaComposerAttachmentOption(id: "file", title: "File", systemImage: "doc.fill", tint: .indigo))
+        options += [
+            O(id: "gif", title: "GIF", systemImage: "play.square.stack.fill", tint: .purple),
+            O(id: "sticker", title: "Sticker", systemImage: "seal.fill", tint: .orange),
+            O(id: "poll", title: "Poll", systemImage: "chart.bar.fill", tint: .green),
+            O(id: "location", title: locating ? "Locating…" : "Location", systemImage: "location.fill", tint: .teal),
+            O(id: "file", title: "File", systemImage: "doc.fill", tint: .indigo),
+            O(id: "voice", title: "Voice note", systemImage: "waveform", tint: .red),
+        ]
+        if CommentDocumentScanner.isSupported {
+            options.append(O(id: "scan", title: "Scan", systemImage: "doc.viewfinder.fill", tint: .cyan))
+        }
+        options += [
+            O(id: "sketch", title: "Sketch", systemImage: "scribble.variable", tint: .pink),
+            O(id: "link", title: "Link", systemImage: "link", tint: .blue),
+            O(id: "event", title: "Event", systemImage: "calendar", tint: .red),
+            O(id: "quote", title: "Quote post", systemImage: "quote.bubble.fill", tint: .mint),
+            O(id: "code", title: "Code", systemImage: "chevron.left.forwardslash.chevron.right", tint: .gray),
+            O(id: "contact", title: "Contact", systemImage: "person.crop.circle.fill", tint: .brown),
+            O(id: "audio", title: "Audio", systemImage: "music.note", tint: .orange),
+            O(id: "mascot", title: "Mascot", systemImage: "pawprint.fill", tint: .purple),
+        ]
         if UIPasteboard.general.hasImages {
-            options.append(ModulaComposerAttachmentOption(id: "paste", title: "Paste", systemImage: "doc.on.clipboard.fill", tint: .pink))
+            options.append(O(id: "paste", title: "Paste", systemImage: "doc.on.clipboard.fill", tint: .pink))
         }
         return options
+    }
+
+    private func insertIntoDraft(_ snippet: String) {
+        guard let store else { return }
+        let current = store.draft
+        store.draft = current.isEmpty ? snippet : current + (current.hasSuffix("\n") ? "" : "\n") + snippet
+        composerFocused = true
+        HapticEngine.shared.play(.selection)
     }
 
     private var composer: some View {
@@ -793,6 +858,27 @@ struct PostCommentsView: View {
                     .foregroundStyle(.red)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
+            }
+            if showsInlineCamera {
+                ModulaInlineCamera(
+                    modes: [.photo, .video],
+                    idPrefix: "comment.camera",
+                    height: 300,
+                    onPhoto: { image in
+                        Task { await store?.addCameraImage(image) }
+                        withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { showsInlineCamera = false }
+                    },
+                    onVideo: { url in
+                        Task { await store?.addVideoFile(url) }
+                        withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { showsInlineCamera = false }
+                    },
+                    onClose: { withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { showsInlineCamera = false } }
+                )
+                .padding(.horizontal, 12)
+                .transition(reduceMotion ? .opacity : .scale(scale: 0.92, anchor: .bottom).combined(with: .opacity))
+                .gesture(DragGesture(minimumDistance: 24).onEnded { value in
+                    if value.translation.height > 70 { withAnimation(.snappy) { showsInlineCamera = false } }
+                })
             }
             ModulaComposer(
                 text: Binding(
@@ -826,7 +912,7 @@ struct PostCommentsView: View {
                 mediaPanelActive: Binding(
                     get: { mediaPanelActive },
                     set: { value in
-                        if value { mediaPanelTab = .emoji }
+                        if value { mediaPanelTab = .emoji; stickerSection = nil; showsInlineCamera = false }
                         mediaPanelActive = value
                     }
                 ),
@@ -843,6 +929,7 @@ struct PostCommentsView: View {
                 ModulaComposerMediaPanel(
                     client: app.client,
                     initialTab: mediaPanelTab,
+                    initialStickerSection: stickerSection,
                     onEmoji: { store?.draft.append($0) },
                     onGif: { gif in
                         store?.addGif(gif)
@@ -853,12 +940,14 @@ struct PostCommentsView: View {
                         mediaPanelActive = false
                     }
                 )
+                .id("\(mediaPanelTab.rawValue)-\(stickerSection ?? "")")
                 .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
             }
         }
         .padding(.top, 6)
         .padding(.bottom, mediaPanelActive ? 0 : 8)
         .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.34, dampingFraction: 0.85), value: mediaPanelActive)
+        .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.36, dampingFraction: 0.82), value: showsInlineCamera)
         .gesture(
             DragGesture(minimumDistance: PostGestureThresholds.dragActivationDistance)
                 .onEnded { value in
@@ -877,11 +966,24 @@ struct PostCommentsView: View {
     private func handleAttachmentOption(_ option: ModulaComposerAttachmentOption) {
         switch option.id {
         case "photos": showsPhotoPicker = true
-        case "camera": showsCamera = true
-        case "gif", "sticker":
+        case "camera":
             composerFocused = false
+            mediaPanelActive = false
+            withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { showsInlineCamera = true }
+        case "gif", "sticker", "mascot":
+            composerFocused = false
+            showsInlineCamera = false
             mediaPanelTab = option.id == "gif" ? .gifs : .stickers
+            stickerSection = option.id == "mascot" ? "mascots" : nil
             mediaPanelActive = true
+        case "scan": showsScanner = true
+        case "sketch": showsSketch = true
+        case "contact": showsContactPicker = true
+        case "event": showsEventSheet = true
+        case "audio": showsAudioImporter = true
+        case "quote": insertIntoDraft("🔁 " + ModulaShareLink.post(postID).absoluteString)
+        case "link": insertIntoDraft("[link](https://)")
+        case "code": insertIntoDraft("```\n\n```")
         case "poll": showsPollCreator = true
         case "file": showsFileImporter = true
         case "paste":
@@ -959,7 +1061,9 @@ struct PostCommentsSheet: View {
 
     var body: some View {
         ModulaSheet(detents: detents, selectedDetent: $selectedDetent) {
-            PostCommentsView(postID: postID, isSheet: true, onClose: { dismiss() })
+            PostCommentsView(postID: postID, isSheet: true, onClose: { dismiss() }, onExpand: {
+                if selectedDetent != .large { withAnimation(.snappy) { selectedDetent = .large } }
+            })
         }
     }
 }
@@ -1004,7 +1108,7 @@ struct PendingCommentMedia: Identifiable, Equatable {
             if let title = gif.title { item["title"] = .string(title) }
             return .object(item)
         case .sticker:
-            guard let sticker else { return nil }
+            guard let sticker, !sticker.packID.hasPrefix("local.") else { return nil }
             return .object(["type": .string("sticker"), "stickerId": .string(sticker.id)])
         case .poll:
             guard let poll else { return nil }

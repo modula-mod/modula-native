@@ -454,7 +454,7 @@ struct CommentActionOverlay<Actions: View>: View {
                         Text(comment.author?.displayName ?? "Comment").font(.subheadline.weight(.semibold))
                     }
                     if !comment.text.isEmpty {
-                        Text(ModulaRichText.attributed(comment.text, revealSpoilers: false)).font(.body).lineLimit(6)
+                        Text(ModulaRichText.attributed(ModulaLocalSticker.extract(comment.text).text, revealSpoilers: false)).font(.body).lineLimit(6)
                     }
                 }
                 .padding(14)

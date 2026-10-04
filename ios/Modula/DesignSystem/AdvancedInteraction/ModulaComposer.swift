@@ -209,6 +209,9 @@ struct ModulaComposer: View {
     @State private var micHoldTask: Task<Void, Never>?
     @State private var cancelDrag: CGFloat = 0
     @State private var showTranslate = false
+    @State private var handsFreeRecording = false
+    @State private var attachAppeared = false
+    @State private var attachPage: Int? = 0
     @Namespace private var glass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(AppEnvironment.self) private var app
@@ -248,6 +251,14 @@ struct ModulaComposer: View {
                 }
                 HStack(alignment: .bottom, spacing: 8) {
                     if showsAttachmentButton && !recorder.isRecording { attachButton }
+                    if handsFreeRecording && recorder.isRecording {
+                        ModulaGlassIconButton(title: "Discard voice note", systemImage: "trash", size: ModulaLayout.minimumTouch, tint: .red) {
+                            recorder.cancel()
+                            handsFreeRecording = false
+                            HapticEngine.shared.play(.failure)
+                        }
+                        .transition(.scale.combined(with: .opacity))
+                    }
                     if recorder.isRecording {
                         ModulaRecordingPill(recorder: recorder, cancelProgress: min(cancelDrag / 110, 1))
                             .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
@@ -471,7 +482,17 @@ struct ModulaComposer: View {
 
     @ViewBuilder
     private var trailingButton: some View {
-        if (showsMic || recorder.isRecording), onVoiceNote != nil {
+        if handsFreeRecording && recorder.isRecording {
+            ModulaGlassSendButton(title: "Send voice note", systemImage: "arrow.up", ready: true, busy: false, size: ModulaLayout.minimumTouch, tint: app.appearance.accent.color) {
+                handsFreeRecording = false
+                if let note = recorder.finish() {
+                    onVoiceNote?(note)
+                    HapticEngine.shared.play(.success)
+                }
+            }
+            .modulaGlassID("composer.trailing", in: glass)
+            .accessibilityIdentifier("composer.voice.send")
+        } else if (showsMic || recorder.isRecording), onVoiceNote != nil {
             voiceMicButton
                 .modulaGlassID("composer.trailing", in: glass)
                 .transition(reduceMotion ? .opacity : .scale(scale: 0.7).combined(with: .opacity))
@@ -499,37 +520,107 @@ struct ModulaComposer: View {
         }
     }
 
-    private var attachMenu: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 12) {
-            ForEach(attachmentOptions) { option in
-                Button {
-                    attachMenuOpen = false
-                    HapticEngine.shared.play(.selection)
-                    onAttachmentOption?(option)
-                } label: {
-                    VStack(spacing: 6) {
-                        Image(systemName: option.systemImage)
-                            .font(.title3.weight(.medium))
-                            .foregroundStyle(.white)
-                            .frame(width: 50, height: 50)
-                            .background(option.tint.gradient, in: Circle())
-                        Text(option.title)
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(.primary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                    }
-                    .frame(maxWidth: .infinity)
+    /// Options the composer handles itself (no host round-trip).
+    private func handleOption(_ option: ModulaComposerAttachmentOption) {
+        attachMenuOpen = false
+        HapticEngine.shared.play(.selection)
+        switch option.id {
+        case "link" where showsFormatting:
+            focused = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { linkSheet = .link }
+        case "code" where showsFormatting:
+            focused = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { rich.apply(.codeBlock) }
+        case "voice" where onVoiceNote != nil:
+            Task { @MainActor in
+                if dictation.isListening { dictation.stop() }
+                if await recorder.start() {
+                    handsFreeRecording = true
+                    HapticEngine.shared.play(.actionConfirmed)
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("composer.attach.\(option.id)")
+            }
+        default:
+            onAttachmentOption?(option)
+        }
+    }
+
+    private var attachPages: [[ModulaComposerAttachmentOption]] {
+        stride(from: 0, to: attachmentOptions.count, by: 8).map { Array(attachmentOptions[$0..<min($0 + 8, attachmentOptions.count)]) }
+    }
+
+    private var attachMenu: some View {
+        VStack(spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 0) {
+                    ForEach(Array(attachPages.enumerated()), id: \.offset) { pageIndex, page in
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 14) {
+                            ForEach(Array(page.enumerated()), id: \.element.id) { index, option in
+                                attachTile(option, order: pageIndex * 8 + index)
+                            }
+                        }
+                        .padding(.horizontal, 14)
+                        .frame(maxHeight: .infinity, alignment: .top)
+                        .containerRelativeFrame(.horizontal)
+                        .id(pageIndex)
+                    }
+                }
+                .scrollTargetLayout()
+            }
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: $attachPage)
+            .frame(height: attachPages.count > 1 || attachmentOptions.count > 4 ? 172 : 84)
+            if attachPages.count > 1 {
+                HStack(spacing: 6) {
+                    ForEach(0..<attachPages.count, id: \.self) { index in
+                        Capsule()
+                            .fill(Color.primary.opacity((attachPage ?? 0) == index ? 0.7 : 0.2))
+                            .frame(width: (attachPage ?? 0) == index ? 16 : 6, height: 6)
+                    }
+                }
+                .animation(.snappy, value: attachPage)
+                .accessibilityHidden(true)
             }
         }
-        .padding(14)
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 26, style: .continuous), interactive: false)
+        .padding(.vertical, 14)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 28, style: .continuous), interactive: false, specular: true)
         .modulaGlassID("composer.attach", in: glass)
         .transition(reduceMotion ? .opacity : .scale(scale: 0.3, anchor: .bottomLeading).combined(with: .opacity))
+        .onAppear {
+            attachPage = 0
+            attachAppeared = false
+            DispatchQueue.main.async { attachAppeared = true }
+        }
+        .onDisappear { attachAppeared = false }
         .accessibilityIdentifier("composer.attach.menu")
+    }
+
+    private func attachTile(_ option: ModulaComposerAttachmentOption, order: Int) -> some View {
+        Button { handleOption(option) } label: {
+            VStack(spacing: 6) {
+                Image(systemName: option.systemImage)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 52, height: 52)
+                    .background(option.tint.gradient, in: Circle())
+                    .overlay {
+                        Circle().strokeBorder(LinearGradient(colors: [.white.opacity(0.55), .white.opacity(0.05)], startPoint: .top, endPoint: .bottom), lineWidth: 1)
+                    }
+                    .shadow(color: option.tint.opacity(0.35), radius: 8, y: 4)
+                Text(option.title)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(ModulaPressScaleStyle())
+        .scaleEffect(attachAppeared || reduceMotion ? 1 : 0.4)
+        .opacity(attachAppeared || reduceMotion ? 1 : 0)
+        .offset(y: attachAppeared || reduceMotion ? 0 : 18)
+        .animation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.68).delay(Double(order % 8) * 0.028), value: attachAppeared)
+        .accessibilityIdentifier("composer.attach.\(option.id)")
     }
 
     private func replyPreview(_ reply: ModulaComposerReply) -> some View {
@@ -643,4 +734,12 @@ struct ModulaComposer: View {
 private struct LinkSheetItem: Identifiable {
     let mode: ModulaLinkInsertSheet.Mode
     var id: String { mode == .link ? "link" : "abbr" }
+}
+
+private struct ModulaPressScaleStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.88 : 1)
+            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+    }
 }
