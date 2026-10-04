@@ -512,7 +512,7 @@ struct ChatsSettingsHost: View {
                 ChatsPrivacyGraphic(receipts: readReceiptsDisplay)
                 SettingsGroup(title: "Open") {
                     VStack(spacing: 0) {
-                        SettingsNavigationRow(title: "Composer", subtitle: "Enter to send, spell check", symbol: "keyboard") {
+                        SettingsNavigationRow(title: "Composer", subtitle: "Mascot, enter to send, spell check", symbol: "keyboard") {
                             app.navigation.open(.settings(.chats(.composer)))
                         }
                         SettingsDivider()
@@ -532,8 +532,11 @@ struct ChatsSettingsHost: View {
             .accessibilityIdentifier("settings.chats")
         case .composer:
             Form {
-                Toggle("Enter to send", isOn: $enterToSend)
-                Toggle("Spell check", isOn: $spellCheck)
+                Section {
+                    Toggle("Enter to send", isOn: $enterToSend)
+                    Toggle("Spell check", isOn: $spellCheck)
+                }
+                ComposerMascotSettingsSection()
             }
             .modulaSoftScrollEdge()
             .navigationTitle("Composer")

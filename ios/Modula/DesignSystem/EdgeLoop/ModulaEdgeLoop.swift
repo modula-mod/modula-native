@@ -538,6 +538,7 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
                     }
                 }
                 let travel = value.translation.height * EdgeLoopMetrics.dragSensitivity
+                if placement == .shellEdge { EdgePickerBulge.shared.drag = max(-1, min(1, value.translation.height / 140)) }
                 let crossed = engine.updateDrag(translation: travel)
                 if crossed {
                     configuration.playSelectionHaptic()
@@ -546,6 +547,7 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
             }
             .onEnded { value in
                 touchActivity()
+                if placement == .shellEdge { withAnimation(.spring(response: 0.5, dampingFraction: 0.75)) { EdgePickerBulge.shared.drag = 0 } }
                 let actual = value.translation.height * EdgeLoopMetrics.dragSensitivity
                 let projected = value.predictedEndTranslation.height * EdgeLoopMetrics.dragSensitivity
                 let index: Int

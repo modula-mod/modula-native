@@ -189,6 +189,8 @@ struct ModulaComposer: View {
     var showsFormatting = false
     /// Hold the mic to record a voice note (tap still dictates).
     var onVoiceNote: ((ModulaVoiceNote) -> Void)? = nil
+    /// Where this composer sits, for the mascot preference (Settings → Chats → Composer).
+    var mascot: ModulaMascotPlacement = .other
     var onSend: () -> Void
 
     @FocusState private var focused: Bool
@@ -246,6 +248,7 @@ struct ModulaComposer: View {
                     }
                     trailingButton
                 }
+                .modulaComposerMascot(mascot, busy: sending)
             }
         }
         .animation(motion, value: attachMenuOpen)

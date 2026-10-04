@@ -832,6 +832,7 @@ struct PostCommentsView: View {
                 onHashtagQuery: { store?.updateHashtagQuery($0) },
                 showsFormatting: true,
                 onVoiceNote: { note in Task { await store?.addVoiceNote(note) } },
+                mascot: .comments,
                 onSend: { Task { _ = await store?.send() } }
             )
             .padding(.horizontal, 12)

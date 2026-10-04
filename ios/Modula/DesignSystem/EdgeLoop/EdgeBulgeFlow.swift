@@ -10,6 +10,8 @@ final class EdgePickerBulge {
     var depth: CGFloat = 0
     var trailing = true
     var fractions = SIMD4<Double>(0.14, 0.33, 0.67, 0.86)
+    /// Live picker drag, -1…1 (0 at rest); rows near the picker follow it a touch.
+    var drag: CGFloat = 0
 
     var isActive: Bool { depth > 0.5 && frame.height > 0 }
 
@@ -58,8 +60,12 @@ struct EdgeBulgeFlow: ViewModifier {
             content.padding(.trailing, trailingInset).padding(.leading, leadingInset)
         } else {
             let inset = requiredInset(bulge)
+            // Very slight follow: rows beside the picker drift ≤2pt with its drag and lean ≤1pt away.
+            let proximity = bulge.depth > 0 ? min(inset / max(bulge.depth, 1), 1) : 0
+            let follow = bulge.drag * proximity
             content
                 .padding(bulge.trailing ? .trailing : .leading, inset)
+                .offset(x: (bulge.trailing ? -1 : 1) * abs(follow) * 1, y: follow * 2)
                 // Measured outside the inset: the row's full-width outer frame (no feedback loop).
                 .onGeometryChange(for: CGRect.self) { proxy in
                     let frame = proxy.frame(in: .global)
