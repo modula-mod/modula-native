@@ -623,6 +623,7 @@ struct NodusChatView: View {
             .padding(.top, 12)
             .padding(.bottom, 9)
             .modulaChrome(in: RoundedRectangle(cornerRadius: composerCorner, style: .continuous), opaque: false)
+            .modulaMascotPerch()
             .overlay {
                 NodusComposerPulse(
                     active: model.isGenerating,
@@ -636,7 +637,7 @@ struct NodusChatView: View {
             .animation(motion(.morph), value: composerCorner)
             .animation(motion(.morph), value: composerFocused)
             .animation(.easeInOut(duration: 0.35), value: model.isGenerating)
-            .modulaComposerMascot(.nodus, busy: model.isGenerating, text: model.input, attachmentCount: attachments.count, trailingInset: 22)
+            .modulaComposerMascot(.nodus, busy: model.isGenerating, text: model.input, attachmentCount: attachments.count, trailingInset: 30)
         }
         .padding(.horizontal, 12)
         .padding(.top, 8)

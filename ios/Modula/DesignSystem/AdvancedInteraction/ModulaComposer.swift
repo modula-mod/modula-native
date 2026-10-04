@@ -245,7 +245,6 @@ struct ModulaComposer: View {
                             .transition(.opacity)
                     } else {
                         fieldPill
-                            .modulaComposerMascot(mascot, busy: sending, text: text, attachmentCount: attachments.count)
                     }
                     trailingButton
                 }
@@ -288,6 +287,9 @@ struct ModulaComposer: View {
         #endif
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("modula.composer")
+        // Mascot perches on the composer's top edge (topmost bar), clear of the mic/send button.
+        .modulaMascotPerch()
+        .modulaComposerMascot(mascot, busy: sending, text: text, attachmentCount: attachments.count, trailingInset: 62)
     }
 
     // MARK: Pieces
