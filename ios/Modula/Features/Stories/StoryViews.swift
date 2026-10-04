@@ -103,7 +103,8 @@ struct StoryTray: View {
                                 .lineLimit(1)
                         }
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.modulaPress)
+                    .modulaCarouselReveal()
                     .accessibilityLabel("Your story")
                     .accessibilityValue("empty")
                     .accessibilityIdentifier("home.story.own")
@@ -121,7 +122,8 @@ struct StoryTray: View {
                                 .frame(width: labelWidth)
                         }
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(ModulaPressStyle(scale: 0.93, haptic: nil))
+                    .modulaCarouselReveal()
                     .accessibilityValue(group.isOwn ? (group.isComposerPlaceholder ? "empty" : "active") : "")
                     .accessibilityIdentifier(group.isOwn ? "home.story.own" : "home.story.\(group.id)")
                 }

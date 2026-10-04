@@ -167,19 +167,20 @@ struct PostHeader: View {
 
     var body: some View {
         if showsCompactAuthor {
-            HStack {
+            // Compact (profile) header: time on the leading edge, menu trailing. The
+            // menu stays accessible (the whole row used to be hidden from VoiceOver).
+            HStack(spacing: 6) {
+                Text(ActivityRelativeTime.string(from: post.createdAt))
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
                 if post.isEdited {
-                    Text("Edited")
-                        .font(.caption2)
+                    Text("· Edited")
+                        .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
                 Spacer(minLength: 0)
-                Text(ActivityRelativeTime.string(from: post.createdAt))
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
                 moreButton
             }
-            .accessibilityHidden(true)
         } else {
             HStack(spacing: 10) {
                 Button(action: onOpenAuthor) {

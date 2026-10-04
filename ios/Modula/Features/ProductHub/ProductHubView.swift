@@ -426,8 +426,9 @@ struct ProductCard: View {
             .padding(14)
             .background(ModulaPalette.resolve(app.appearance, scheme: scheme).surface, in: RoundedRectangle(cornerRadius: 21, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 21, style: .continuous).stroke(.primary.opacity(0.065)))
+            .contentShape(RoundedRectangle(cornerRadius: 21, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.modulaPress)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(product.name), \(product.publisherName)")
         .accessibilityValue(installed ? "Installed" : (product.installable ? "Available" : "Coming soon"))
@@ -450,6 +451,7 @@ struct ProductShelf: View {
             }
             ForEach(products) { product in
                 ProductCard(product: product, installed: installedIDs.contains(product.id)) { action(product) }
+                    .modulaScrollReveal(depth: true)
             }
         }
     }
@@ -464,6 +466,7 @@ struct ProductHero: View {
         Button(action: action) {
             ZStack(alignment: .bottomLeading) {
                 ProductBackdrop(product: product)
+                    .modulaHeroSheen(intensity: 0.55)
                 LinearGradient(colors: [.clear, .black.opacity(0.72)], startPoint: .center, endPoint: .bottom)
                 HStack(alignment: .bottom, spacing: 14) {
                     ProductArtwork(product: product, size: 64)
@@ -486,7 +489,8 @@ struct ProductHero: View {
             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.modulaPressTilt)
+        .modulaScrollReveal(depth: true)
         .accessibilityLabel("Featured module, \(product.name)")
         .accessibilityIdentifier("product-hub.featured")
     }

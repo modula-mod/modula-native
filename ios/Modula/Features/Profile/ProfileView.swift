@@ -22,6 +22,14 @@ struct ProfileView: View {
     @State private var followBusyIDs: Set<String> = []
     @State private var copiedBanner = false
     @State private var activityShare: ActivityShareItem?
+    /// Dominant colour of the real avatar image; tints the aurora hero and glow ring.
+    @State private var avatarTint: Color?
+    @State private var contentTab: ProfileContentTab = .posts
+    @AppStorage("profile.postLayout") private var postLayoutRaw = ProfilePostLayout.grid.rawValue
+    #if DEBUG
+    /// DEBUG-only: `--debug-autoscroll` scrolls the page for screen recordings.
+    @State private var debugScrollPosition = ScrollPosition(edge: .top)
+    #endif
 
     private var identity: ProfileIdentity {
         .resolving(routeUserID: userID)
@@ -60,6 +68,13 @@ struct ProfileView: View {
         .task(id: taskKey) {
             await bootstrap()
             await app.stories.loadIfNeeded()
+        }
+        .task(id: profile?.avatarURL) {
+            guard let url = profile?.avatarURL else {
+                avatarTint = nil
+                return
+            }
+            avatarTint = await ModulaImageTint.tint(for: url, cacheKey: "tint:\(url.path)", client: app.client)
         }
         .onChange(of: app.auth.account?.accountId) { _, _ in
             Task { await bootstrap() }
@@ -214,6 +229,17 @@ struct ProfileView: View {
                 )
             }
             .refreshable { await refreshCurrent() }
+            #if DEBUG
+            .scrollPosition($debugScrollPosition)
+            .task(id: profile != nil) {
+                guard profile != nil, ProcessInfo.processInfo.arguments.contains("--debug-autoscroll") else { return }
+                try? await Task.sleep(for: .seconds(1.5))
+                for (y, duration) in [(260.0, 1.4), (620.0, 1.8), (1_000.0, 1.8), (0.0, 2.2)] {
+                    withAnimation(.easeInOut(duration: duration)) { debugScrollPosition.scrollTo(y: y) }
+                    try? await Task.sleep(for: .seconds(duration + 0.8))
+                }
+            }
+            #endif
 
             ModulaProgressiveHeader(
                 largeTitle: largeTitle,
@@ -280,6 +306,21 @@ struct ProfileView: View {
                 }
             }
         }
+    }
+
+    /// Avatar colour → profile accent → cover colour → app accent.
+    private var heroTint: Color {
+        if let avatarTint { return avatarTint }
+        if let accent = profile?.presentation.accent?.color { return accent }
+        if let hex = profile?.coverColour, !hex.isEmpty { return Color(hex: hex) }
+        return app.appearance.accent.color
+    }
+
+    private var postLayout: Binding<ProfilePostLayout> {
+        Binding(
+            get: { ProfilePostLayout(rawValue: postLayoutRaw) ?? .grid },
+            set: { postLayoutRaw = $0.rawValue }
+        )
     }
 
     private var largeTitle: String {
@@ -360,7 +401,9 @@ struct ProfileView: View {
                     }
                 }
                 primaryActions(profile)
+                    .modulaPageEntrance(delay: 0.04)
                 metrics(profile)
+                    .modulaPageEntrance(delay: 0.08)
 
                 if let focus = profile.focusStatus {
                     Label(focus.message ?? focus.label, systemImage: "circle.fill")
@@ -372,10 +415,10 @@ struct ProfileView: View {
                 }
 
                 ProfileAboutGrid(profile: profile)
+                    .modulaPageEntrance(delay: 0.12)
 
-                postsPreview(profile)
-                modulesPreview(profile)
-                linksPreview(profile)
+                contentTabs(profile)
+                    .modulaPageEntrance(delay: 0.16)
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.leading, leadingInteractionInset)
@@ -389,6 +432,7 @@ struct ProfileView: View {
             ProfileCover(
                 coverURL: profile.coverURL,
                 coverColour: profile.coverColour,
+                tint: heroTint,
                 scrollProgress: headerProgress,
                 pocketCenterX: ModulaLayout.contentInset + ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass) / 2,
                 pocketRadius: ProfileIdentityMetrics.carveRadius(avatarSize: ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass)),
@@ -398,6 +442,7 @@ struct ProfileView: View {
             )
             ProfileAvatarPocket(
                 profile: profile,
+                tint: heroTint,
                 onTap: { openAvatarViewer(profile) },
                 onStoryTap: { openProfileStory(profile) },
                 storyRing: storyRing(for: profile),
@@ -444,6 +489,127 @@ struct ProfileView: View {
             onFollowing: { openSection(.following) },
             onModules: { openSection(.modules) }
         )
+    }
+
+    private func availableTabs(_ profile: ModulaProfile) -> [ProfileContentTab] {
+        var tabs: [ProfileContentTab] = [.posts, .modules]
+        if !profile.publicLinks.isEmpty { tabs.append(.links) }
+        return tabs
+    }
+
+    private func contentTabs(_ profile: ModulaProfile) -> some View {
+        let tabs = availableTabs(profile)
+        let selected = tabs.contains(contentTab) ? contentTab : .posts
+        return VStack(alignment: .leading, spacing: 14) {
+            ModulaEffectTabs(
+                tabs: tabs,
+                selection: Binding(get: { selected }, set: { contentTab = $0 }),
+                title: { $0.title },
+                symbol: { $0.symbol },
+                tint: heroTint
+            )
+            .accessibilityIdentifier("profile.tabs")
+
+            Group {
+                switch selected {
+                case .posts: postsTab(profile)
+                case .modules: modulesTab(profile)
+                case .links: linksTab(profile)
+                }
+            }
+            .id(selected)
+            .transition(.asymmetric(
+                insertion: .opacity.combined(with: .offset(y: 10)),
+                removal: .opacity
+            ))
+        }
+        .task(id: selected) {
+            guard selected == .modules else { return }
+            await app.profile.loadModulesIfNeeded(
+                identity,
+                handle: profile.handle,
+                featuredIDs: profile.featuredModuleIds,
+                catalogue: app.catalogue.products
+            )
+        }
+    }
+
+    private func postsTab(_ profile: ModulaProfile) -> some View {
+        let items = session.posts.items.isEmpty ? session.overviewPreviewPosts : session.posts.items
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(profile.postCount == 1 ? "1 post" : "\(ProfileCountFormatter.compact(max(profile.postCount, items.count))) posts")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if !items.isEmpty {
+                    ProfilePostLayoutToggle(layout: postLayout, tint: heroTint)
+                }
+            }
+            if items.isEmpty {
+                if case .loading = session.posts.loadState {
+                    ProfilePostGridSkeleton()
+                } else {
+                    emptyPosts(isOwn: isOwnProfile, compact: true)
+                }
+            } else if postLayout.wrappedValue == .grid {
+                ProfilePostGrid(
+                    posts: items,
+                    tint: heroTint,
+                    onOpen: { post in
+                        app.navigation.open(.post(post.id, .root))
+                        HapticEngine.shared.play(.navigation)
+                    },
+                    onReachEnd: {
+                        Task { await app.profile.loadMorePosts(identity, handle: profile.handle) }
+                    }
+                )
+            } else {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(items) { post in
+                        postCard(post, compactAuthor: true)
+                            .modulaScrollReveal()
+                            .onAppear {
+                                if post.id == items.last?.id {
+                                    Task { await app.profile.loadMorePosts(identity, handle: profile.handle) }
+                                }
+                            }
+                        Divider().opacity(0.35)
+                    }
+                }
+            }
+        }
+        .accessibilityIdentifier("profile.preview.posts")
+    }
+
+    private func modulesTab(_ profile: ModulaProfile) -> some View {
+        let modules = session.modules.items
+        return Group {
+            if modules.isEmpty {
+                if case .loading = session.modules.loadState {
+                    ProfilePostGridSkeleton(rows: 1)
+                } else {
+                    emptyModules(compact: true)
+                }
+            } else {
+                ProfileModuleGrid(
+                    products: modules,
+                    installedIDs: app.catalogue.installedIDs,
+                    onOpen: openModule
+                )
+            }
+        }
+        .accessibilityIdentifier("profile.preview.modules")
+    }
+
+    private func linksTab(_ profile: ModulaProfile) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(profile.publicLinks) { link in
+                linkRow(link)
+                    .modulaScrollReveal()
+            }
+        }
+        .accessibilityIdentifier("profile.preview.links")
     }
 
     private func postsPreview(_ profile: ModulaProfile) -> some View {
@@ -514,9 +680,8 @@ struct ProfileView: View {
                 let items = session.posts.items
                 switch session.posts.loadState {
                 case .loading where items.isEmpty:
-                    ProgressView()
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 40)
+                    ProfilePostGridSkeleton()
+                        .padding(.top, 8)
                 case .failed where items.isEmpty:
                     ModulaErrorState(message: session.posts.lastError ?? "Unable to load posts.") {
                         Task { await app.profile.refreshPosts(identity, handle: profile.handle) }
@@ -528,6 +693,7 @@ struct ProfileView: View {
                 default:
                     ForEach(items) { post in
                         postCard(post, compactAuthor: true)
+                            .modulaScrollReveal()
                             .onAppear {
                                 if post.id == items.suffix(3).first?.id || post.id == items.last?.id {
                                     Task { await app.profile.loadMorePosts(identity, handle: profile.handle) }
@@ -608,6 +774,7 @@ struct ProfileView: View {
                                 Task { await toggleFollow(person) }
                             }
                         )
+                        .modulaScrollReveal()
                         Divider().opacity(0.3)
                     }
                 }
@@ -667,6 +834,7 @@ struct ProfileView: View {
             ProfileCover(
                 coverURL: profile.coverURL,
                 coverColour: profile.coverColour,
+                tint: heroTint,
                 scrollProgress: headerProgress,
                 pocketCenterX: ModulaLayout.contentInset + ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass) / 2,
                 pocketRadius: ProfileIdentityMetrics.carveRadius(avatarSize: ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass)),
@@ -676,6 +844,7 @@ struct ProfileView: View {
             )
             ProfileAvatarPocket(
                 profile: profile,
+                tint: heroTint,
                 onTap: { openAvatarViewer(profile) },
                 onStoryTap: { openProfileStory(profile) },
                 storyRing: storyRing(for: profile),
@@ -861,13 +1030,25 @@ struct ProfileView: View {
     }
 
     private func bootstrap() async {
-        await app.catalogue.load()
+        // Load the profile and the module catalogue concurrently: the profile used to
+        // wait for the whole catalogue before its first request (slow first paint).
+        let catalogueLoad = Task { await app.catalogue.load() }
         await app.profile.loadIfNeeded(
             identity,
             handleHint: userID,
             accountHandle: accountHandle,
             catalogue: app.catalogue.products
         )
+        await catalogueLoad.value
+        if let resolved = app.profile.session(for: identity, handleHint: accountHandle).profile,
+           !resolved.featuredModuleIds.isEmpty {
+            await app.profile.loadModulesIfNeeded(
+                identity,
+                handle: resolved.handle,
+                featuredIDs: resolved.featuredModuleIds,
+                catalogue: app.catalogue.products
+            )
+        }
         guard let handle = app.profile.session(for: identity, handleHint: accountHandle).profile?.handle
                 ?? accountHandle
                 ?? userID

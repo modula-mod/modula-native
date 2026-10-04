@@ -135,6 +135,7 @@ struct ModulaSheet<Content: View>: View {
 
     var body: some View {
         content()
+            .modulaPageEntrance(delay: 0.05)
             .presentationDetents(Set(detents.map(\.presentationDetent)), selection: presentationSelection)
             .presentationDragIndicator(dragEnabled ? .visible : .hidden)
             .interactiveDismissDisabled(!dismissible)
