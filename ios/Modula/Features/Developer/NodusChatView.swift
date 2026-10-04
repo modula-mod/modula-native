@@ -5,7 +5,8 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
-#if DEBUG
+// Ships in Release behind NodusChatFeature; developer-only affordances stay behind
+// NodusChatPresentation.developerWorkspace and the DEBUG-only Developer settings routes.
 private enum NodusConnectorFollowUp {
     case knowledge, memory, library
 }
@@ -1429,4 +1430,4 @@ private struct NodusSaveSearchSourceSheet: View {
         }
     }
 }
-#endif
+// End of Release-shipped Nodus Chat surface.

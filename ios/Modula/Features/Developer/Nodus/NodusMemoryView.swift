@@ -1,7 +1,8 @@
 import SwiftUI
 import UIKit
 
-#if DEBUG
+// Ships in Release behind NodusChatFeature; developer-only affordances stay behind
+// NodusChatPresentation.developerWorkspace and the DEBUG-only Developer settings routes.
 struct NodusMemoryView: View {
     @Environment(AppEnvironment.self) private var app
     @State private var snapshot = NodusMemorySnapshot()
@@ -303,4 +304,4 @@ private struct NodusSuggestionCardStack: View {
         }
     }
 }
-#endif
+// End of Release-shipped Nodus Chat surface.

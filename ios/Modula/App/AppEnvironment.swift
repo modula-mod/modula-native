@@ -43,6 +43,8 @@ final class AppEnvironment {
     let nodusKnowledgeStore = NodusKnowledgeStore()
     let nodusMemoryStore = NodusMemoryStore()
     let nodusSearchCredentials = NodusSearchCredentialStore()
+    /// Downloadable Nodus model lifecycle (verified download, install, remove, chat preference).
+    let nodusModels: NodusModelManager
 
     init() {
         let launchArguments = ProcessInfo.processInfo.arguments
@@ -104,6 +106,14 @@ final class AppEnvironment {
             registerDeterministicLocalProvider: false
         )
         #endif
+        let modelInstaller = nodusArtifactInstaller
+        let intelligenceService = intelligence
+        nodusModels = NodusModelManager(
+            installer: modelInstaller,
+            downloader: NodusModelDownloader(installer: modelInstaller),
+            endpoint: NodusModelEndpoint.resolve(apiBaseURL: url),
+            onModelChanged: { await intelligenceService.unloadNodus() }
+        )
         let catalogueStore = catalogue
         let draftsStore = drafts
         auth.onAccountChange = { [weak self, weak runtime, weak catalogueStore] account in
@@ -204,9 +214,15 @@ final class AppEnvironment {
         let configuredKey: String?
         do { configuredKey = try nodusSearchCredentials.loadKey() }
         catch { configuredKey = nil }
+        // Brave search is a developer-keyed tool; Release Nodus answers without live web search.
+        #if DEBUG
         let provider: (any NodusSearchProvider)? = configuredKey.map {
             BraveDeveloperSearchProvider(apiKey: $0)
         }
+        #else
+        _ = configuredKey
+        let provider: (any NodusSearchProvider)? = nil
+        #endif
         return NodusConversationEngine(
             conversations: nodusConversationStore,
             knowledge: nodusKnowledgeStore,

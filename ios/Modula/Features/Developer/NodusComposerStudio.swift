@@ -5,7 +5,8 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
-#if DEBUG
+// Ships in Release behind NodusChatFeature; developer-only affordances stay behind
+// NodusChatPresentation.developerWorkspace and the DEBUG-only Developer settings routes.
 
 struct NodusComposerAttachment: Identifiable, Equatable {
     let id = UUID()
@@ -1624,4 +1625,4 @@ struct NodusFunctionsSheet: View {
         }
     }
 }
-#endif
+// End of Release-shipped Nodus Chat surface.
