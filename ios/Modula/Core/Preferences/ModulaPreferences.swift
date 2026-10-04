@@ -27,6 +27,7 @@ enum ModulaPreferences {
         static let cameraMirrorFront = "settings.camera.mirrorFront"
         static let cameraSaveCapture = "settings.camera.saveCapture"
         static let chatsLinkPreviews = "settings.chats.linkPreviews"
+        static let linksOpenInApp = "settings.links.openInApp"
         static let chatsPreviewMedia = "settings.chats.previewMedia"
         static let chatsReadReceiptsDisplay = "settings.chats.readReceiptsDisplay"
         static let creatorDefaultAudience = "settings.creator.defaultAudience"
@@ -146,6 +147,8 @@ enum ModulaPreferences {
     // MARK: Chats
 
     static var chatLinkPreviews: Bool { bool(Key.chatsLinkPreviews, true) && !dataSaver }
+    /// Settings → Chats → Previews → "Open links in app" (Modula browser vs. the default browser).
+    static var openLinksInApp: Bool { bool(Key.linksOpenInApp, true) }
     static var chatInlineMedia: Bool { bool(Key.chatsPreviewMedia, true) }
     static var chatShowReadReceipts: Bool { bool(Key.chatsReadReceiptsDisplay, true) }
 

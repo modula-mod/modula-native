@@ -304,6 +304,8 @@ struct SocialComment: Identifiable, Hashable, Sendable {
     var liked: Bool
     var likeCount: Int
     var isPending: Bool
+    /// Photos, videos and GIFs attached to the comment (Greenfield comment media).
+    var media: [SocialCommentMedia] = []
 
     var isReply: Bool { parentID != nil }
     var isEdited: Bool {
@@ -514,8 +516,9 @@ enum SocialPayloadDecoder {
             || value["deleted_at"]?.string != nil
             || value["deletedAt"]?.string != nil
         let text = emptyToNil(value["text"]?.string ?? value["body"]?.string) ?? ""
-        guard !text.isEmpty || deleted else { return nil }
-        return SocialComment(
+        let media = (value["media"]?.array ?? []).compactMap(SocialCommentMedia.init(json:))
+        guard !text.isEmpty || deleted || !media.isEmpty else { return nil }
+        var comment = SocialComment(
             id: id,
             postID: value["postId"]?.string ?? value["post_id"]?.string ?? fallbackPostID,
             author: value["author"].flatMap(author) ?? authorFromActorID(
@@ -533,6 +536,8 @@ enum SocialPayloadDecoder {
             likeCount: value["likeCount"]?.int ?? value["like_count"]?.int ?? 0,
             isPending: false
         )
+        comment.media = deleted ? [] : media
+        return comment
     }
 
     /// Live Greenfield comments currently emit `author_actor_id` without a nested profile object.
@@ -602,5 +607,42 @@ enum SocialPayloadDecoder {
         guard let value else { return nil }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
+
+/// One media item on a comment: an uploaded photo/video or a GIF from the Greenfield GIF proxy.
+struct SocialCommentMedia: Identifiable, Hashable, Sendable {
+    enum Kind: String, Sendable { case image, video, gif }
+    let id: String
+    let kind: Kind
+    let url: URL
+    let previewURL: URL?
+    let width: Int?
+    let height: Int?
+
+    var aspectRatio: CGFloat? {
+        guard let width, let height, width > 0, height > 0 else { return nil }
+        return CGFloat(width) / CGFloat(height)
+    }
+
+    init(id: String, kind: Kind, url: URL, previewURL: URL? = nil, width: Int? = nil, height: Int? = nil) {
+        self.id = id; self.kind = kind; self.url = url; self.previewURL = previewURL; self.width = width; self.height = height
+    }
+
+    init?(json value: JSONValue) {
+        switch value["type"]?.string {
+        case "attachment":
+            guard let id = value["attachmentId"]?.string, let url = value["url"]?.string.flatMap(URL.init(string:)) else { return nil }
+            self.init(id: id, kind: value["kind"]?.string == "video" ? .video : .image, url: url,
+                      width: value["width"]?.int, height: value["height"]?.int)
+        case "gif":
+            guard let id = value["id"]?.string, let url = value["url"]?.string.flatMap(URL.init(string:)) else { return nil }
+            self.init(id: "gif:\(id)", kind: .gif, url: url,
+                      previewURL: value["previewUrl"]?.string.flatMap(URL.init(string:)),
+                      width: value["width"]?.int, height: value["height"]?.int)
+        default:
+            return nil
+        }
     }
 }

@@ -190,17 +190,14 @@ struct InMailThreadView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Reply")
                 .font(.headline)
-            TextField("Write a reply", text: replyBinding, axis: .vertical)
-                .lineLimit(3...10)
-                .padding(12)
-                .frame(minHeight: dynamicTypeSize.isAccessibilitySize ? 88 : 72, alignment: .topLeading)
-                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .disabled(!app.inMail.capabilities.reply)
-            Button("Send reply") {
-                Task { await app.inMail.reply(to: threadID) }
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(!app.inMail.capabilities.reply)
+            ModulaComposer(
+                text: replyBinding,
+                prompt: "Write a reply",
+                enabled: app.inMail.capabilities.reply,
+                showsAttachmentButton: false,
+                onSend: { Task { await app.inMail.reply(to: threadID) } }
+            )
+            .accessibilityIdentifier("inmail.reply.composer")
         }
     }
 

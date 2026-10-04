@@ -13,10 +13,25 @@ struct ModulaApp: App {
                 .environment(environment)
                 .tint(environment.appearance.accent.color)
                 .preferredColorScheme(environment.appearance.colorScheme)
+                // Web links anywhere in the app open in the Modula browser (Settings → Links).
+                .environment(\.openURL, OpenURLAction { url in ModulaLinkRouter.handle(url, source: nil) })
                 .onAppear {
+                    ModulaBrowserPresenter.shared.environment = environment
                     appDelegate.environment = environment
                     environment.refreshQuickActions()
                 }
+                #if DEBUG
+                .task {
+                    guard let url = DebugSettingsHarness.browserURL else { return }
+                    try? await Task.sleep(for: .seconds(2))
+                    var source: ModulaBrowserSource?
+                    if let id = DebugSettingsHarness.browserPostID,
+                       let post = try? await GreenfieldPostRepository(client: environment.client).post(id: id) {
+                        source = ModulaBrowserSource(post: post, onLike: {}, onComment: {}, onRepost: {}, onSave: {}, onShare: nil)
+                    }
+                    ModulaBrowserPresenter.shared.present(url, source: source)
+                }
+                #endif
                 .onContinueUserActivity(CSSearchableItemActionType) { activity in
                     guard let id = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String else { return }
                     handleSpotlight(id)

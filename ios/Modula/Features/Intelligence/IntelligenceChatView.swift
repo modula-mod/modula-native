@@ -192,30 +192,17 @@ struct IntelligenceChatView: View {
     }
 
     private var composer: some View {
-        let opaque = reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
-        return HStack(spacing: 8) {
-            TextField("Ask Modula…", text: $draft, axis: .vertical)
-                .textFieldStyle(.plain)
-                .focused($composerFocused)
-                .lineLimit(1...5)
-                .disabled(isSending || !canSend)
-                .accessibilityIdentifier("intelligence.chat.field")
-            Button {
-                Task { await send() }
-            } label: {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 28))
-                    .symbolEffect(.bounce, value: isSending)
-                    .foregroundStyle(canSubmit ? app.appearance.accent.color : Color.secondary)
-            }
-            .buttonStyle(.plain)
-            .disabled(!canSubmit)
-            .accessibilityLabel("Send")
-            .accessibilityIdentifier("intelligence.chat.send")
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .modulaChrome(in: Capsule(), opaque: opaque)
+        // Shared Liquid Glass composer (design system); dictation stays on device.
+        ModulaComposer(
+            text: $draft,
+            prompt: "Ask Modula…",
+            enabled: canSend && !isSending,
+            sending: isSending,
+            showsAttachmentButton: false,
+            externalFocus: Binding(get: { composerFocused }, set: { composerFocused = $0 }),
+            onSend: { Task { await send() } }
+        )
+        .accessibilityIdentifier("intelligence.chat.field")
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
     }

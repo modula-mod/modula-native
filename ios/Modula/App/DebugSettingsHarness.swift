@@ -20,6 +20,19 @@ enum DebugSettingsHarness {
         return route
     }
 
+    /// `--debug-composer attach|gifs` opens the composer attach menu or GIF panel for screenshots.
+    static var composerState: String? { value(after: "--debug-composer") }
+
+    /// `--debug-browser https://… [--debug-browser-post <postID>]` opens the in-app browser for screenshots.
+    static var browserURL: URL? { value(after: "--debug-browser").flatMap(URL.init(string:)) }
+    static var browserPostID: String? { value(after: "--debug-browser-post") }
+
+    private static func value(after flag: String) -> String? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let index = args.firstIndex(of: flag), args.indices.contains(index + 1) else { return nil }
+        return args[index + 1]
+    }
+
     /// `--debug-route /profile/andrei.modula` renders any route (signed-out real data only).
     static var anyRoute: AppRoute? {
         let args = ProcessInfo.processInfo.arguments

@@ -327,13 +327,16 @@ struct CreationStudioView: View {
         .textInputAutocapitalization(ModulaPreferences.composerAutoCapitalise ? .sentences : .never)
         .scrollContentBackground(.hidden)
         .frame(minHeight: 180)
+        .padding(10)
+        // Shared Liquid Glass input surface (design system).
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
         .focused($editorFocused)
         .overlay(alignment: .topLeading) {
             if store.draft.text.isEmpty {
                 Text(placeholder(store))
                     .foregroundStyle(.secondary)
-                    .padding(.top, 8)
-                    .padding(.leading, 5)
+                    .padding(.top, 18)
+                    .padding(.leading, 15)
                     .allowsHitTesting(false)
             }
         }

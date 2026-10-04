@@ -129,6 +129,19 @@ struct PostCard: View {
             actions: menuActions(for: post),
             onSelect: { onContextAction?($0) }
         )
+        // Links in this post open in the Modula browser with the post in its bottom sheet.
+        .environment(\.modulaLinkSource, linkSource(for: post))
+        .environment(\.openURL, OpenURLAction { url in
+            if let route = PostTextLinks.route(for: url) {
+                app.navigation.push(route)
+                return .handled
+            }
+            return ModulaLinkRouter.handle(url, source: linkSource(for: post))
+        })
+    }
+
+    private func linkSource(for post: SocialPost) -> ModulaBrowserSource {
+        ModulaBrowserSource(post: post, onLike: onLike, onComment: onComment, onRepost: onRepost, onSave: onSave, onShare: onShare)
     }
 
     private func menuActions(for post: SocialPost) -> [ModulaContextAction] {
@@ -302,6 +315,7 @@ struct PostBody: View {
     let post: SocialPost
     var allowsCollapse = true
     @State private var expanded = false
+    @Environment(\.modulaLinkSource) private var linkSource
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -318,10 +332,17 @@ struct PostBody: View {
                     .accessibilityLabel(text)
                     .tint(app.appearance.accent.color)
                     .environment(\.openURL, OpenURLAction { url in
-                        guard let route = PostTextLinks.route(for: url) else { return .systemAction }
-                        app.navigation.push(route)
-                        return .handled
+                        if let route = PostTextLinks.route(for: url) {
+                            app.navigation.push(route)
+                            return .handled
+                        }
+                        return ModulaLinkRouter.handle(url, source: linkSource)
                     })
+                // Rich preview for the first web link when the post has no structured link card.
+                if post.link == nil, !post.hasMedia, let url = ModulaLinkDetector.firstWebURL(in: text) {
+                    ModulaRichLinkCard(url: url)
+                        .environment(\.openURL, OpenURLAction { ModulaLinkRouter.handle($0, source: linkSource) })
+                }
                 if allowsCollapse && text.count > collapseThreshold {
                     Button(expanded ? "Show less" : "Show more") {
                         withAnimation(ModulaMotion.animation(.reveal, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
@@ -366,15 +387,34 @@ enum PostTextLinks {
         }
         var result = AttributedString()
         var cursor = text.startIndex
-        for match in regex.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
-            guard let range = Range(match.range, in: text) else { continue }
+        let whole = NSRange(text.startIndex..., in: text)
+        // Web links (opened in the Modula browser) plus #hashtags and @mentions.
+        var tokens: [(Range<String.Index>, URL?)] = []
+        if let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) {
+            for match in detector.matches(in: text, range: whole) {
+                guard let range = Range(match.range, in: text), let url = match.url,
+                      ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { continue }
+                tokens.append((range, url))
+            }
+        }
+        for match in regex.matches(in: text, range: whole) {
+            guard let range = Range(match.range, in: text),
+                  !tokens.contains(where: { $0.0.overlaps(range) }) else { continue }
+            tokens.append((range, nil))
+        }
+        for (range, webURL) in tokens.sorted(by: { $0.0.lowerBound < $1.0.lowerBound }) {
+            guard range.lowerBound >= cursor else { continue }
             result.append(AttributedString(String(text[cursor..<range.lowerBound])))
             var token = AttributedString(String(text[range]))
-            var url = URLComponents()
-            url.scheme = "modula"
-            url.host = text[range].first == "#" ? "hashtag" : "mention"
-            url.queryItems = [URLQueryItem(name: "value", value: String(text[range].dropFirst()))]
-            token.link = url.url
+            if let webURL {
+                token.link = webURL
+            } else {
+                var url = URLComponents()
+                url.scheme = "modula"
+                url.host = text[range].first == "#" ? "hashtag" : "mention"
+                url.queryItems = [URLQueryItem(name: "value", value: String(text[range].dropFirst()))]
+                token.link = url.url
+            }
             result.append(token)
             cursor = range.upperBound
         }

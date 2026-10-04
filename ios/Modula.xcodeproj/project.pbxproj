@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C1A939FC00EE1BFBCF34B881 /* ModulaInAppBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A939FC00EE1BFBCF34B881 /* ModulaInAppBrowser.swift */; };
+		C11D7B0B13F8243B07F10A44 /* ComposerServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = C01D7B0B13F8243B07F10A44 /* ComposerServices.swift */; };
+		C14CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift */; };
+		C16FA2EE1AB23C72883DE0F4 /* ModulaGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06FA2EE1AB23C72883DE0F4 /* ModulaGlass.swift */; };
 		A03200000000000000000008 /* ModulaAttachmentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000008 /* ModulaAttachmentPicker.swift */; };
 		A03200000000000000000007 /* POST03Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000007 /* POST03Tests.swift */; };
 		F70200000000000000000004 /* EffectKitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70100000000000000000004 /* EffectKitTests.swift */; };
@@ -337,6 +341,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		C0A939FC00EE1BFBCF34B881 /* ModulaInAppBrowser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaInAppBrowser.swift; path = Features/Browser/ModulaInAppBrowser.swift; sourceTree = "<group>"; };
+		C01D7B0B13F8243B07F10A44 /* ComposerServices.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ComposerServices.swift; path = Core/Composer/ComposerServices.swift; sourceTree = "<group>"; };
+		C04CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaComposerMediaPanel.swift; path = DesignSystem/AdvancedInteraction/ModulaComposerMediaPanel.swift; sourceTree = "<group>"; };
+		C06FA2EE1AB23C72883DE0F4 /* ModulaGlass.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaGlass.swift; path = DesignSystem/Glass/ModulaGlass.swift; sourceTree = "<group>"; };
 		A03100000000000000000008 /* ModulaAttachmentPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaAttachmentPicker.swift; path = Features/Media/ModulaAttachmentPicker.swift; sourceTree = "<group>"; };
 		A03100000000000000000007 /* POST03Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = POST03Tests.swift; sourceTree = "<group>"; };
 		F70100000000000000000004 /* EffectKitTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EffectKitTests.swift; sourceTree = "<group>"; };
@@ -894,6 +902,10 @@
 				F70100000000000000000003 /* ProfileContentTabs.swift */,
 				F70100000000000000000002 /* ModulaEffectKit.metal */,
 				F70100000000000000000001 /* ModulaEffectKit.swift */,
+				C0A939FC00EE1BFBCF34B881 /* ModulaInAppBrowser.swift */,
+				C01D7B0B13F8243B07F10A44 /* ComposerServices.swift */,
+				C04CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift */,
+				C06FA2EE1AB23C72883DE0F4 /* ModulaGlass.swift */,
 				R40100000000000000000020 /* SettingsDecisionPages.swift */,
 				R40100000000000000000012 /* DownloadedMedia.swift */,
 				R40100000000000000000011 /* SettingsNotificationPages.swift */,
@@ -1454,6 +1466,10 @@
 				F70200000000000000000003 /* ProfileContentTabs.swift in Sources */,
 				F70200000000000000000002 /* ModulaEffectKit.metal in Sources */,
 				F70200000000000000000001 /* ModulaEffectKit.swift in Sources */,
+				C1A939FC00EE1BFBCF34B881 /* ModulaInAppBrowser.swift in Sources */,
+				C11D7B0B13F8243B07F10A44 /* ComposerServices.swift in Sources */,
+				C14CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift in Sources */,
+				C16FA2EE1AB23C72883DE0F4 /* ModulaGlass.swift in Sources */,
 				R50100000000000000000020 /* SettingsDecisionPages.swift in Sources */,
 				R50100000000000000000012 /* DownloadedMedia.swift in Sources */,
 				R50100000000000000000011 /* SettingsNotificationPages.swift in Sources */,

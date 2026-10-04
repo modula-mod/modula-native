@@ -11,6 +11,7 @@ protocol PostRepository: Sendable {
     func recordShare(postID: SocialPostID) async throws
     func comments(postID: SocialPostID, cursor: String?) async throws -> CommentPage
     func createComment(postID: SocialPostID, text: String, parentID: SocialCommentID?) async throws -> SocialComment
+    func createComment(postID: SocialPostID, text: String, parentID: SocialCommentID?, media: [JSONValue]) async throws -> SocialComment
     func deleteComment(commentID: SocialCommentID) async throws
     func editPost(postID: SocialPostID, text: String) async throws -> SocialPost
     func deletePost(postID: SocialPostID) async throws
@@ -117,10 +118,16 @@ actor GreenfieldPostRepository: PostRepository {
     }
 
     func createComment(postID: SocialPostID, text: String, parentID: SocialCommentID?) async throws -> SocialComment {
+        try await createComment(postID: postID, text: text, parentID: parentID, media: [])
+    }
+
+    /// `media` items: `{type: "attachment", attachmentId}` (uploaded via /v1/attachments) or `{type: "gif", …}`.
+    func createComment(postID: SocialPostID, text: String, parentID: SocialCommentID?, media: [JSONValue]) async throws -> SocialComment {
         guard capabilities.commentsCreate else {
             throw APIError.unavailable("Commenting is not available yet.")
         }
-        let body: [String: JSONValue] = ["text": .string(text)]
+        var body: [String: JSONValue] = ["text": .string(text)]
+        if !media.isEmpty { body["media"] = .array(media) }
         let path = parentID.map { "/v1/comments/\(Self.pathEscaped($0))/replies" }
             ?? PostBackendCapabilities.CommentPaths.create(postID: postID)
         let value: JSONValue = try await client.authenticatedJSON(

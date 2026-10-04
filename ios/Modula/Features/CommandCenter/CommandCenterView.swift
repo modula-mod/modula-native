@@ -207,7 +207,8 @@ struct CommandSearchField: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        // Shared Liquid Glass input surface (design system).
+        .modulaGlass(in: Capsule(), interactive: false)
         .accessibilityIdentifier("command.search")
     }
 }

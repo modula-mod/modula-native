@@ -496,6 +496,7 @@ struct ChatsSettingsHost: View {
     @AppStorage("settings.chats.enterToSend") private var enterToSend = false
     @AppStorage("settings.chats.previewMedia") private var previewMedia = true
     @AppStorage("settings.chats.linkPreviews") private var linkPreviews = true
+    @AppStorage("settings.links.openInApp") private var openLinksInApp = true
     @AppStorage("settings.chats.spellCheck") private var spellCheck = true
     @AppStorage("settings.chats.readReceiptsDisplay") private var readReceiptsDisplay = true
 
@@ -543,7 +544,15 @@ struct ChatsSettingsHost: View {
                     Toggle("Preview media inline", isOn: $previewMedia)
                     Toggle("Link previews", isOn: $linkPreviews)
                 } footer: {
-                    Text("Image links in messages show as images. Other links show a preview card, fetched by your iPhone (not Modula’s servers). Data saver turns link previews off.")
+                    Text("Image links in messages show as images. Other links show a preview card. Post and comment previews are fetched through Modula’s link preview service. Data saver turns link previews off.")
+                }
+                Section {
+                    Toggle("Open links in app", isOn: $openLinksInApp)
+                        .accessibilityIdentifier("settings.links.openInApp")
+                } header: {
+                    Text("Links")
+                } footer: {
+                    Text("Web links open in Modula’s browser with the post kept at hand. Links that belong to an installed app, like YouTube or Maps, still open in that app. Turn off to use your default browser.")
                 }
             }
             .modulaSoftScrollEdge()
