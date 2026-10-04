@@ -25,23 +25,42 @@ private struct ModulaGlassModifier<S: Shape>: ViewModifier {
     let shape: S
     var interactive: Bool
     var tint: Color?
+    var prominent = false
+    var specular = false
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     func body(content: Content) -> some View {
         if #available(iOS 26.0, *), !reduceTransparency {
-            content.glassEffect(glass, in: shape)
+            content
+                .glassEffect(glass, in: shape)
+                .overlay {
+                    if specular {
+                        // Subtle specular rim: bright top edge fading out, faint shade at the bottom.
+                        shape.stroke(
+                            LinearGradient(colors: [.white.opacity(0.55), .white.opacity(0.06), .black.opacity(0.05)], startPoint: .top, endPoint: .bottom),
+                            lineWidth: 0.8
+                        )
+                        .allowsHitTesting(false)
+                    }
+                }
         } else {
             content
                 .background(reduceTransparency ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(.regularMaterial), in: shape)
-                .background((tint ?? .clear).opacity(0.18), in: shape)
-                .overlay(shape.stroke(Color.primary.opacity(0.1), lineWidth: 0.6))
+                .background((tint ?? .clear).opacity(prominent ? 0.9 : 0.18), in: shape)
+                .overlay(
+                    shape.stroke(
+                        LinearGradient(colors: [.white.opacity(reduceTransparency ? 0 : 0.5), Color.primary.opacity(0.08)], startPoint: .top, endPoint: .bottom),
+                        lineWidth: 0.7
+                    )
+                )
+                .shadow(color: .black.opacity(prominent ? 0.14 : 0.06), radius: prominent ? 6 : 4, y: 2)
         }
     }
 
     @available(iOS 26.0, *)
     private var glass: Glass {
         var value = Glass.regular
-        if let tint { value = value.tint(tint.opacity(0.55)) }
+        if let tint { value = value.tint(prominent ? tint : tint.opacity(0.55)) }
         return interactive ? value.interactive() : value
     }
 }
@@ -61,8 +80,8 @@ private struct ModulaGlassIDModifier: ViewModifier {
 
 extension View {
     /// Liquid Glass on iOS 26 (material fallback when unavailable or with Reduce Transparency).
-    func modulaGlass<S: Shape>(in shape: S, interactive: Bool = true, tint: Color? = nil) -> some View {
-        modifier(ModulaGlassModifier(shape: shape, interactive: interactive, tint: tint))
+    func modulaGlass<S: Shape>(in shape: S, interactive: Bool = true, tint: Color? = nil, prominent: Bool = false, specular: Bool = false) -> some View {
+        modifier(ModulaGlassModifier(shape: shape, interactive: interactive, tint: tint, prominent: prominent, specular: specular))
     }
 
     /// Identity for glass morphing between states inside a `ModulaGlassGroup`.
@@ -90,10 +109,44 @@ struct ModulaGlassIconButton: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .modulaGlass(in: Circle(), tint: tint)
+        .modulaGlass(in: Circle(), tint: tint, specular: true)
         .disabled(!enabled)
         .opacity(enabled ? 1 : 0.5)
         .accessibilityLabel(title)
+    }
+}
+
+/// Tinted, interactive Liquid Glass send button. Prominent (full accent tint, white glyph) when
+/// `ready`; plain glass otherwise. Pair with `modulaGlassID` inside a `ModulaGlassGroup` to morph.
+struct ModulaGlassSendButton: View {
+    var title = "Send"
+    var systemImage = "arrow.up"
+    var ready: Bool
+    var busy = false
+    var size: CGFloat = 44
+    var tint: Color = .accentColor
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Group {
+                if busy {
+                    ProgressView().controlSize(.small).tint(.white)
+                } else {
+                    Image(systemName: systemImage)
+                        .font(.system(size: size * 0.4, weight: .bold))
+                        .contentTransition(.symbolEffect(.replace))
+                }
+            }
+            .foregroundStyle(ready || busy ? Color.white : Color.secondary)
+            .frame(width: size, height: size)
+            .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: Circle(), interactive: true, tint: ready || busy ? tint : nil, prominent: ready || busy, specular: true)
+        .disabled(!ready && !busy)
+        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: ready)
+        .accessibilityLabel(busy ? "Sending" : title)
     }
 }
 

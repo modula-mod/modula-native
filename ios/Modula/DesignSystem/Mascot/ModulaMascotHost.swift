@@ -882,14 +882,15 @@ struct MascotChatView: View {
                 .frame(height: 150)
                 .onChange(of: messages) { _, m in withAnimation { proxy.scrollTo(m.last?.id, anchor: .bottom) } }
             }
+            ModulaGlassGroup(spacing: 6) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     ForEach(prompts, id: \.self) { p in
                         Button(p) { send(p) }
                             .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 10).padding(.vertical, 6)
-                            .background(Capsule().fill(Color.primary.opacity(0.07)))
+                            .padding(.horizontal, 11).padding(.vertical, 7)
                             .buttonStyle(.plain)
+                            .modulaGlass(in: Capsule(), interactive: true)
                             .disabled(replying)
                     }
                 }
@@ -901,14 +902,9 @@ struct MascotChatView: View {
                     .submitLabel(.send)
                     .onSubmit { send(draft) }
                     .padding(.horizontal, 12).frame(height: 38)
-                    .background(Capsule().fill(Color.primary.opacity(0.06)))
-                Button { send(draft) } label: {
-                    Image(systemName: "arrow.up").font(.subheadline.weight(.bold)).foregroundStyle(.white)
-                        .frame(width: 36, height: 36).background(Circle().fill(Color.accentColor))
-                }
-                .buttonStyle(.plain)
-                .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty || replying)
-                .accessibilityLabel("Send")
+                    .modulaGlass(in: Capsule(), interactive: false, specular: true)
+                ModulaGlassSendButton(ready: !draft.trimmingCharacters(in: .whitespaces).isEmpty && !replying, busy: replying, size: 38, tint: .accentColor) { send(draft) }
+            }
             }
         }
         .padding(14)
@@ -1040,14 +1036,9 @@ struct ComposerMascotSettingsSection: View {
                     .textFieldStyle(.plain)
                     .padding(.horizontal, 14)
                     .frame(height: 44)
-                    .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
+                    .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
                     .modulaMascotPerch()
-                Button { previewText = "" } label: {
-                    Image(systemName: "arrow.up").font(.body.weight(.bold)).foregroundStyle(.white)
-                        .frame(width: 44, height: 44).background(Circle().fill(Color.accentColor))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Send preview")
+                ModulaGlassSendButton(title: "Send preview", ready: !previewText.isEmpty) { previewText = "" }
             }
             .padding(.top, 62)
             .overlayPreferenceValue(MascotPerchKey.self) { anchor in

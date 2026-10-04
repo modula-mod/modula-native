@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C1B5F34784604E6B40CAC97C /* ModulaRichFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B5F34784604E6B40CAC97C /* ModulaRichFormat.swift */; };
 		C18FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift */; };
 		C1F05546B4D00806E53DCE68 /* ModulaMascot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F05546B4D00806E53DCE68 /* ModulaMascot.swift */; };
 		C14B413EE2CA03DFFC2B64FF /* CommentRichContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */; };
@@ -347,6 +348,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		C0B5F34784604E6B40CAC97C /* ModulaRichFormat.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaRichFormat.swift; path = DesignSystem/AdvancedInteraction/ModulaRichFormat.swift; sourceTree = "<group>"; };
 		C08FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaMascotHost.swift; path = DesignSystem/Mascot/ModulaMascotHost.swift; sourceTree = "<group>"; };
 		C0F05546B4D00806E53DCE68 /* ModulaMascot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaMascot.swift; path = DesignSystem/Mascot/ModulaMascot.swift; sourceTree = "<group>"; };
 		C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommentRichContent.swift; path = Features/Social/CommentRichContent.swift; sourceTree = "<group>"; };
@@ -914,6 +916,7 @@
 				F70100000000000000000003 /* ProfileContentTabs.swift */,
 				F70100000000000000000002 /* ModulaEffectKit.metal */,
 				F70100000000000000000001 /* ModulaEffectKit.swift */,
+				C0B5F34784604E6B40CAC97C /* ModulaRichFormat.swift */,
 				C08FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift */,
 				C0F05546B4D00806E53DCE68 /* ModulaMascot.swift */,
 				C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */,
@@ -1484,6 +1487,7 @@
 				F70200000000000000000003 /* ProfileContentTabs.swift in Sources */,
 				F70200000000000000000002 /* ModulaEffectKit.metal in Sources */,
 				F70200000000000000000001 /* ModulaEffectKit.swift in Sources */,
+				C1B5F34784604E6B40CAC97C /* ModulaRichFormat.swift in Sources */,
 				C18FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift in Sources */,
 				C1F05546B4D00806E53DCE68 /* ModulaMascot.swift in Sources */,
 				C14B413EE2CA03DFFC2B64FF /* CommentRichContent.swift in Sources */,

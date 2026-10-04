@@ -493,12 +493,14 @@ struct PostCommentsView: View {
             if let onClose {
                 Button(action: onClose) {
                     Image(systemName: "xmark")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 44, height: 44)
-                        .background(Color.primary.opacity(0.05), in: Circle())
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(.primary.opacity(0.75))
+                        .frame(width: 40, height: 40)
+                        .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
+                .modulaGlass(in: Circle(), interactive: true, specular: true)
+                .frame(width: 44, height: 44)
                 .accessibilityLabel("Close comments")
             }
         }

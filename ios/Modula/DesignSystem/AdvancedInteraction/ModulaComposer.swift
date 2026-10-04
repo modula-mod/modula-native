@@ -193,7 +193,15 @@ struct ModulaComposer: View {
     var mascot: ModulaMascotPlacement = .other
     var onSend: () -> Void
 
-    @FocusState private var focused: Bool
+    @FocusState private var plainFocused: Bool
+    @State private var richFocused = false
+    @State private var rich = ModulaRichEditorController()
+    @State private var linkSheet: ModulaLinkInsertSheet.Mode?
+    /// Focus of whichever field is showing (rich WYSIWYG editor when formatting is enabled).
+    private var focused: Bool {
+        get { showsFormatting ? richFocused : plainFocused }
+        nonmutating set { if showsFormatting { richFocused = newValue } else { plainFocused = newValue } }
+    }
     @State private var attachMenuOpen = false
     @StateObject private var dictation = NodusDictation()
     @StateObject private var recorder = ModulaVoiceRecorder()
@@ -223,8 +231,10 @@ struct ModulaComposer: View {
                 if !mentionSuggestions.isEmpty { mentionList }
                 if !hashtagSuggestions.isEmpty { hashtagList }
                 if showsFormatting && focused && !recorder.isRecording {
-                    ModulaFormattingBar(
-                        onFormat: { text = ModulaTextFormat.apply($0, to: text) },
+                    ModulaRichFormattingBar(
+                        controller: rich,
+                        onLink: { linkSheet = .link },
+                        onAbbr: { linkSheet = .abbr },
                         onTranslate: state.trimmed.isEmpty ? nil : { showTranslate = true }
                     )
                     .modulaGlassID("composer.formatting", in: glass)
@@ -260,6 +270,14 @@ struct ModulaComposer: View {
         .animation(motion, value: focused)
         .translationPresentation(isPresented: $showTranslate, text: text) { translated in
             text = translated
+        }
+        .sheet(item: Binding(get: { linkSheet.map { LinkSheetItem(mode: $0) } }, set: { linkSheet = $0?.mode })) { item in
+            ModulaLinkInsertSheet(mode: item.mode, initialText: rich.selectedText) { label, value in
+                switch item.mode {
+                case .link: rich.insertLink(text: label, url: value)
+                case .abbr: rich.insertAbbreviation(label, title: value)
+                }
+            }
         }
         .onChange(of: text) { _, value in
             onMentionQuery?(ModulaComposerState.mentionQuery(in: value))
@@ -320,10 +338,29 @@ struct ModulaComposer: View {
                     .padding(.bottom, 7)
                     .accessibilityHidden(true)
             }
-            ModulaComposerTextField(prompt: prompt, text: $text, enabled: enabled, focused: $focused)
-                .autocorrectionDisabled(!spellCheck)
-                .textInputAutocapitalization(ModulaPreferences.composerAutoCapitalise ? .sentences : .never)
-                .submitLabel(returnSends ? .send : .return)
+            if showsFormatting {
+                ModulaRichTextEditor(
+                    text: $text,
+                    isFocused: $richFocused,
+                    controller: rich,
+                    enabled: enabled,
+                    spellCheck: spellCheck,
+                    autocapitalize: ModulaPreferences.composerAutoCapitalise,
+                    returnSends: returnSends,
+                    onReturn: send
+                )
+                .overlay(alignment: .topLeading) {
+                    if text.isEmpty {
+                        Text(prompt).foregroundStyle(.tertiary).padding(.top, 11).allowsHitTesting(false)
+                    }
+                }
+                .accessibilityLabel(prompt)
+            } else {
+                ModulaComposerTextField(prompt: prompt, text: $text, enabled: enabled, focused: $plainFocused)
+                    .autocorrectionDisabled(!spellCheck)
+                    .textInputAutocapitalization(ModulaPreferences.composerAutoCapitalise ? .sentences : .never)
+                    .submitLabel(returnSends ? .send : .return)
+            }
             if let characterLimit, text.count > characterLimit / 2 {
                 ModulaCharacterLimitRing(count: text.count, limit: characterLimit)
                     .padding(.bottom, 11)
@@ -346,7 +383,7 @@ struct ModulaComposer: View {
         }
         .padding(.leading, avatar == nil ? 14 : 6)
         .padding(.trailing, mediaPanelActive == nil ? 14 : 4)
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
         .modulaGlassID("composer.field", in: glass)
         .accessibilityIdentifier("composer.field")
     }
@@ -358,7 +395,7 @@ struct ModulaComposer: View {
             .foregroundStyle(recorder.isRecording ? Color.white : (dictation.isListening ? Color.red : Color.primary))
             .symbolEffect(.bounce, value: recorder.isRecording)
             .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
-            .modulaGlass(in: Circle(), tint: recorder.isRecording ? .red : nil)
+            .modulaGlass(in: Circle(), tint: recorder.isRecording ? .red : nil, prominent: recorder.isRecording, specular: true)
             .scaleEffect(recorder.isRecording && !reduceMotion ? 1.25 : 1)
             .offset(x: recorder.isRecording ? -min(cancelDrag, 120) * 0.4 : 0)
             .contentShape(Circle())
@@ -454,18 +491,7 @@ struct ModulaComposer: View {
             .modulaGlassID("composer.trailing", in: glass)
             .transition(reduceMotion ? .opacity : .scale(scale: 0.7).combined(with: .opacity))
         } else {
-            Button(action: send) {
-                Group {
-                    if sending { ProgressView().controlSize(.small).tint(.white) }
-                    else { Image(systemName: "arrow.up").font(.body.weight(.bold)) }
-                }
-                .foregroundStyle(state.canSend ? Color.white : Color.secondary)
-                .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
-                .contentShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .modulaGlass(in: Circle(), tint: state.canSend ? app.appearance.accent.color : nil)
-            .disabled(!state.canSend)
+            ModulaGlassSendButton(ready: state.canSend, busy: sending, size: ModulaLayout.minimumTouch, tint: app.appearance.accent.color, action: send)
             .modulaGlassID("composer.trailing", in: glass)
             .transition(reduceMotion ? .opacity : .scale(scale: 0.7).combined(with: .opacity))
             .accessibilityLabel(sending ? "Sending" : "Send")
@@ -612,4 +638,9 @@ struct ModulaComposer: View {
         onSend()
         HapticEngine.shared.play(.actionConfirmed)
     }
+}
+
+private struct LinkSheetItem: Identifiable {
+    let mode: ModulaLinkInsertSheet.Mode
+    var id: String { mode == .link ? "link" : "abbr" }
 }

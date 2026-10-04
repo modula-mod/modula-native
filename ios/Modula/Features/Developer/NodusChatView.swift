@@ -947,20 +947,16 @@ struct NodusChatView: View {
 
     private var sendButton: some View {
         let ready = model.isGenerating || model.canSend || !attachments.isEmpty
-        return Button {
+        return ModulaGlassSendButton(
+            title: model.isGenerating ? "Stop" : "Send",
+            systemImage: model.isGenerating ? "stop.fill" : "arrow.up",
+            ready: ready,
+            size: 38,
+            tint: accent
+        ) {
             model.isGenerating ? model.cancel() : submitComposer()
-        } label: {
-            Image(systemName: model.isGenerating ? "stop.fill" : "arrow.up")
-                .font(.headline)
-                .foregroundStyle(ready ? accent : Color.secondary)
-                .frame(width: 36, height: 36)
-                .modulaChrome(in: Circle(), opaque: false)
-                .contentTransition(.symbolEffect(.replace))
-                .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
-                .contentShape(Circle())
         }
-        .buttonStyle(.plain)
-        .disabled(!model.isGenerating && !model.canSend && attachments.isEmpty)
+        .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
         .accessibilityLabel(model.isGenerating ? "Stop" : "Send")
         .accessibilityIdentifier(model.isGenerating ? "nodus.chat.stop" : "nodus.chat.send")
     }

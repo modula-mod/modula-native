@@ -228,26 +228,8 @@ struct ModulaFormattingBar: View {
 enum ModulaRichText {
     /// **bold**, _italic_, `code`, [links](url), ||spoilers|| (hidden until revealed), plus @mentions/#tags/URLs.
     static func attributed(_ text: String, revealSpoilers: Bool) -> AttributedString {
-        var result = AttributedString()
-        for (index, segment) in text.components(separatedBy: "||").enumerated() {
-            let isSpoiler = index % 2 == 1 && text.components(separatedBy: "||").count > index + 1
-            var part: AttributedString
-            if segment.contains("**") || segment.contains("_") || segment.contains("`") || segment.contains("](") {
-                part = (try? AttributedString(markdown: segment, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(segment)
-            } else {
-                part = PostTextLinks.attributed(segment)
-            }
-            if isSpoiler && !revealSpoilers {
-                part.foregroundColor = .clear
-                part.backgroundColor = Color.secondary.opacity(0.45)
-                part.link = nil
-            } else if isSpoiler {
-                part.backgroundColor = Color.secondary.opacity(0.12)
-            }
-            result.append(part)
-        }
-        return result
+        ModulaMarkup.render(text, revealSpoilers: revealSpoilers)
     }
 
-    static func hasSpoiler(_ text: String) -> Bool { text.components(separatedBy: "||").count > 2 }
+    static func hasSpoiler(_ text: String) -> Bool { ModulaMarkup.hasHiddenContent(text) }
 }
