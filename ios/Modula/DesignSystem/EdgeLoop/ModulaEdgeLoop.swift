@@ -283,6 +283,16 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
             height: metrics.railHeight
         )
         .contentShape(placement == .contained ? AnyShape(Capsule()) : AnyShape(hitShape))
+        // Publish the live bulge so feed rows can flow around it (shell placement only).
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+            guard placement == .shellEdge, showsShapeDiagnostics == false else { return }
+            EdgePickerBulge.shared.publish(frame: frame, depth: disabled ? 0 : bodyDepth, trailing: position == .trailing, metrics: metrics)
+        }
+        .onChange(of: bodyDepth) { _, depth in
+            guard placement == .shellEdge else { return }
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) { EdgePickerBulge.shared.depth = disabled ? 0 : depth }
+        }
+        .onDisappear { if placement == .shellEdge { EdgePickerBulge.shared.hide() } }
         .highPriorityGesture(reelGesture)
         .allowsHitTesting(!disabled)
     }

@@ -22,6 +22,8 @@ struct PostCard: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.trailingInteractionInset) private var trailingInteractionInset
+    /// Reference box: updated on scroll without invalidating the card's body.
+    @State private var frameBox = ModulaFrameBox()
     @State private var heartBurst = 0
 
     private var resolved: SocialPost {
@@ -129,7 +131,8 @@ struct PostCard: View {
             actions: menuActions(for: post),
             onSelect: { onContextAction?($0) }
         )
-        // Links in this post open in the Modula browser with the post in its bottom sheet.
+        // Links in this post open in the Modula browser; the post itself becomes its drawer.
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frameBox.frame = $0 }
         .environment(\.modulaLinkSource, linkSource(for: post))
         .environment(\.openURL, OpenURLAction { url in
             if let route = PostTextLinks.route(for: url) {
@@ -141,7 +144,7 @@ struct PostCard: View {
     }
 
     private func linkSource(for post: SocialPost) -> ModulaBrowserSource {
-        ModulaBrowserSource(post: post, onLike: onLike, onComment: onComment, onRepost: onRepost, onSave: onSave, onShare: onShare)
+        ModulaBrowserSource(post: post, onLike: onLike, onComment: onComment, onRepost: onRepost, onSave: onSave, onShare: onShare, originFrame: frameBox.frame)
     }
 
     private func menuActions(for post: SocialPost) -> [ModulaContextAction] {
@@ -708,4 +711,9 @@ extension ModulaPreferences.CaptionSize {
         case .comfortable: 7
         }
     }
+}
+
+/// Non-observed frame holder (written during scroll, read when a link is tapped).
+final class ModulaFrameBox {
+    var frame: CGRect = .zero
 }

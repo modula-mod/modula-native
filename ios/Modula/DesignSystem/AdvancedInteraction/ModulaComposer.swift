@@ -1,4 +1,5 @@
 import SwiftUI
+import Translation
 
 // MARK: - Shared Liquid Glass composer
 //
@@ -70,6 +71,16 @@ struct ModulaComposerState: Equatable, Sendable {
         guard let range = text.range(of: #"(?:^|\s)@([A-Za-z0-9_.]{0,30})$"#, options: .regularExpression) else { return nil }
         let token = text[range].trimmingCharacters(in: .whitespaces)
         return String(token.dropFirst())
+    }
+
+    static func hashtagQuery(in text: String) -> String? {
+        guard let range = text.range(of: #"(?:^|\s)#([A-Za-z0-9_]{1,40})$"#, options: .regularExpression) else { return nil }
+        return String(text[range].trimmingCharacters(in: .whitespaces).dropFirst())
+    }
+
+    static func applying(hashtag tag: String, to text: String) -> String {
+        guard let range = text.range(of: #"#([A-Za-z0-9_]{1,40})$"#, options: .regularExpression) else { return text }
+        return text.replacingCharacters(in: range, with: "#\(tag) ")
     }
 
     static func applying(mention handle: String, to text: String) -> String {
@@ -173,11 +184,21 @@ struct ModulaComposer: View {
     /// Emoji/GIF panel toggle (shown in place of the keyboard by the host).
     var mediaPanelActive: Binding<Bool>? = nil
     var dictationEnabled = true
+    var hashtagSuggestions: [String] = []
+    var onHashtagQuery: ((String?) -> Void)? = nil
+    var showsFormatting = false
+    /// Hold the mic to record a voice note (tap still dictates).
+    var onVoiceNote: ((ModulaVoiceNote) -> Void)? = nil
     var onSend: () -> Void
 
     @FocusState private var focused: Bool
     @State private var attachMenuOpen = false
     @StateObject private var dictation = NodusDictation()
+    @StateObject private var recorder = ModulaVoiceRecorder()
+    @State private var micPressStart: Date?
+    @State private var micHoldTask: Task<Void, Never>?
+    @State private var cancelDrag: CGFloat = 0
+    @State private var showTranslate = false
     @Namespace private var glass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(AppEnvironment.self) private var app
@@ -198,6 +219,15 @@ struct ModulaComposer: View {
         ModulaGlassGroup(spacing: 10) {
             VStack(alignment: .leading, spacing: ModulaSpacing.xs) {
                 if !mentionSuggestions.isEmpty { mentionList }
+                if !hashtagSuggestions.isEmpty { hashtagList }
+                if showsFormatting && focused && !recorder.isRecording {
+                    ModulaFormattingBar(
+                        onFormat: { text = ModulaTextFormat.apply($0, to: text) },
+                        onTranslate: state.trimmed.isEmpty ? nil : { showTranslate = true }
+                    )
+                    .modulaGlassID("composer.formatting", in: glass)
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                }
                 if let reply { replyPreview(reply) }
                 if !attachments.isEmpty { attachmentStrip }
                 if attachMenuOpen && !attachmentOptions.isEmpty { attachMenu }
@@ -205,8 +235,15 @@ struct ModulaComposer: View {
                     Text(status).font(.caption).foregroundStyle(.secondary).padding(.horizontal, 8)
                 }
                 HStack(alignment: .bottom, spacing: 8) {
-                    if showsAttachmentButton { attachButton }
-                    fieldPill
+                    if showsAttachmentButton && !recorder.isRecording { attachButton }
+                    if recorder.isRecording {
+                        ModulaRecordingPill(recorder: recorder, cancelProgress: min(cancelDrag / 110, 1))
+                            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
+                            .modulaGlassID("composer.field", in: glass)
+                            .transition(.opacity)
+                    } else {
+                        fieldPill
+                    }
                     trailingButton
                 }
             }
@@ -216,8 +253,15 @@ struct ModulaComposer: View {
         .animation(motion, value: attachments)
         .animation(motion, value: reply)
         .animation(motion, value: mentionSuggestions)
+        .animation(motion, value: hashtagSuggestions)
+        .animation(motion, value: recorder.isRecording)
+        .animation(motion, value: focused)
+        .translationPresentation(isPresented: $showTranslate, text: text) { translated in
+            text = translated
+        }
         .onChange(of: text) { _, value in
             onMentionQuery?(ModulaComposerState.mentionQuery(in: value))
+            onHashtagQuery?(ModulaComposerState.hashtagQuery(in: value))
             // A vertical TextField inserts "\n" for Return; treat a trailing newline as Send.
             guard returnSends, value.hasSuffix("\n") else { return }
             text = String(value.dropLast())
@@ -302,9 +346,94 @@ struct ModulaComposer: View {
         .accessibilityIdentifier("composer.field")
     }
 
+    /// Tap = dictation, hold = voice note (slide left to cancel).
+    private var voiceMicButton: some View {
+        Image(systemName: recorder.isRecording ? "mic.fill" : (dictation.isListening ? "stop.fill" : "mic"))
+            .font(.body.weight(.semibold))
+            .foregroundStyle(recorder.isRecording ? Color.white : (dictation.isListening ? Color.red : Color.primary))
+            .symbolEffect(.bounce, value: recorder.isRecording)
+            .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
+            .modulaGlass(in: Circle(), tint: recorder.isRecording ? .red : nil)
+            .scaleEffect(recorder.isRecording && !reduceMotion ? 1.25 : 1)
+            .offset(x: recorder.isRecording ? -min(cancelDrag, 120) * 0.4 : 0)
+            .contentShape(Circle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        if micPressStart == nil {
+                            micPressStart = Date()
+                            micHoldTask = Task { @MainActor in
+                                try? await Task.sleep(for: .milliseconds(320))
+                                guard !Task.isCancelled, micPressStart != nil else { return }
+                                if dictation.isListening { dictation.stop() }
+                                if await recorder.start() {
+                                    HapticEngine.shared.play(.actionConfirmed)
+                                }
+                            }
+                        }
+                        guard recorder.isRecording else { return }
+                        let dragged = max(0, -value.translation.width)
+                        if dragged >= 110 && cancelDrag < 110 { HapticEngine.shared.play(.dragThreshold) }
+                        cancelDrag = dragged
+                    }
+                    .onEnded { _ in
+                        micHoldTask?.cancel()
+                        defer { micPressStart = nil; cancelDrag = 0 }
+                        if recorder.isRecording {
+                            if cancelDrag >= 110 {
+                                recorder.cancel()
+                                HapticEngine.shared.play(.failure)
+                            } else if let note = recorder.finish() {
+                                onVoiceNote?(note)
+                                HapticEngine.shared.play(.success)
+                            }
+                        } else if let start = micPressStart, Date().timeIntervalSince(start) < 0.32 {
+                            if let onDictate { onDictate() } else {
+                                dictation.toggle(current: { text }, apply: { text = $0 })
+                            }
+                            HapticEngine.shared.play(.lightImpact)
+                        }
+                    }
+            )
+            .accessibilityElement()
+            .accessibilityLabel(dictation.isListening ? "Stop dictation" : "Dictate")
+            .accessibilityHint("Touch and hold to record a voice note")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { dictation.toggle(current: { text }, apply: { text = $0 }) }
+            .accessibilityAction(named: "Record voice note") {
+                Task { _ = await recorder.start() }
+            }
+            .accessibilityIdentifier("composer.mic")
+    }
+
+    private var hashtagList: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(hashtagSuggestions.prefix(8), id: \.self) { tag in
+                    Button {
+                        text = ModulaComposerState.applying(hashtag: tag, to: text)
+                        onHashtagQuery?(nil)
+                        HapticEngine.shared.play(.selection)
+                    } label: {
+                        Text("#\(tag)").font(.subheadline.weight(.semibold)).padding(.horizontal, 12).frame(minHeight: 34)
+                    }
+                    .buttonStyle(.plain)
+                    .modulaGlass(in: Capsule())
+                }
+            }
+            .padding(.horizontal, 4)
+        }
+        .modulaGlassID("composer.hashtags", in: glass)
+        .accessibilityIdentifier("composer.hashtags")
+    }
+
     @ViewBuilder
     private var trailingButton: some View {
-        if showsMic {
+        if (showsMic || recorder.isRecording), onVoiceNote != nil {
+            voiceMicButton
+                .modulaGlassID("composer.trailing", in: glass)
+                .transition(reduceMotion ? .opacity : .scale(scale: 0.7).combined(with: .opacity))
+        } else if showsMic {
             ModulaGlassIconButton(
                 title: dictation.isListening ? "Stop dictation" : "Dictate",
                 systemImage: dictation.isListening ? "stop.fill" : "mic",

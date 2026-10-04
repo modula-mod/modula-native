@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C14B413EE2CA03DFFC2B64FF /* CommentRichContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */; };
+		C1E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */; };
+		C13029B25B9DB3676F028E7B /* ModulaGlassShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */; };
+		C12C151370E36AF608722F3D /* EdgeBulgeFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02C151370E36AF608722F3D /* EdgeBulgeFlow.swift */; };
 		C1A939FC00EE1BFBCF34B881 /* ModulaInAppBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A939FC00EE1BFBCF34B881 /* ModulaInAppBrowser.swift */; };
 		C11D7B0B13F8243B07F10A44 /* ComposerServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = C01D7B0B13F8243B07F10A44 /* ComposerServices.swift */; };
 		C14CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift */; };
@@ -341,6 +345,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommentRichContent.swift; path = Features/Social/CommentRichContent.swift; sourceTree = "<group>"; };
+		C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaComposerExtras.swift; path = DesignSystem/AdvancedInteraction/ModulaComposerExtras.swift; sourceTree = "<group>"; };
+		C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = ModulaGlassShaders.metal; path = DesignSystem/Glass/ModulaGlassShaders.metal; sourceTree = "<group>"; };
+		C02C151370E36AF608722F3D /* EdgeBulgeFlow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeBulgeFlow.swift; path = DesignSystem/EdgeLoop/EdgeBulgeFlow.swift; sourceTree = "<group>"; };
 		C0A939FC00EE1BFBCF34B881 /* ModulaInAppBrowser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaInAppBrowser.swift; path = Features/Browser/ModulaInAppBrowser.swift; sourceTree = "<group>"; };
 		C01D7B0B13F8243B07F10A44 /* ComposerServices.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ComposerServices.swift; path = Core/Composer/ComposerServices.swift; sourceTree = "<group>"; };
 		C04CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaComposerMediaPanel.swift; path = DesignSystem/AdvancedInteraction/ModulaComposerMediaPanel.swift; sourceTree = "<group>"; };
@@ -902,6 +910,10 @@
 				F70100000000000000000003 /* ProfileContentTabs.swift */,
 				F70100000000000000000002 /* ModulaEffectKit.metal */,
 				F70100000000000000000001 /* ModulaEffectKit.swift */,
+				C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */,
+				C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */,
+				C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */,
+				C02C151370E36AF608722F3D /* EdgeBulgeFlow.swift */,
 				C0A939FC00EE1BFBCF34B881 /* ModulaInAppBrowser.swift */,
 				C01D7B0B13F8243B07F10A44 /* ComposerServices.swift */,
 				C04CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift */,
@@ -1466,6 +1478,10 @@
 				F70200000000000000000003 /* ProfileContentTabs.swift in Sources */,
 				F70200000000000000000002 /* ModulaEffectKit.metal in Sources */,
 				F70200000000000000000001 /* ModulaEffectKit.swift in Sources */,
+				C14B413EE2CA03DFFC2B64FF /* CommentRichContent.swift in Sources */,
+				C1E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift in Sources */,
+				C13029B25B9DB3676F028E7B /* ModulaGlassShaders.metal in Sources */,
+				C12C151370E36AF608722F3D /* EdgeBulgeFlow.swift in Sources */,
 				C1A939FC00EE1BFBCF34B881 /* ModulaInAppBrowser.swift in Sources */,
 				C11D7B0B13F8243B07F10A44 /* ComposerServices.swift in Sources */,
 				C14CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift in Sources */,

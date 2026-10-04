@@ -1,12 +1,17 @@
 import SwiftUI
 
-/// Telegram-style media panel shown in place of the keyboard: Emoji and GIFs.
-/// Stickers are omitted until Greenfield has a sticker source (no placeholder packs).
+/// Telegram-style media panel shown in place of the keyboard: Emoji, Stickers and GIFs.
 struct ModulaComposerMediaPanel: View {
     enum Tab: String, CaseIterable, Identifiable {
-        case emoji = "Emoji", gifs = "GIFs"
+        case emoji = "Emoji", stickers = "Stickers", gifs = "GIFs"
         var id: String { rawValue }
-        var systemImage: String { self == .emoji ? "face.smiling" : "play.square.stack" }
+        var systemImage: String {
+            switch self {
+            case .emoji: "face.smiling"
+            case .stickers: "seal"
+            case .gifs: "play.square.stack"
+            }
+        }
     }
 
     var client: GreenfieldClient
@@ -14,16 +19,22 @@ struct ModulaComposerMediaPanel: View {
     var allowsGifs = true
     var onEmoji: (String) -> Void
     var onGif: (ModulaGif) -> Void
+    var onSticker: ((ModulaSticker) -> Void)? = nil
 
     @State private var tab: Tab = .emoji
+    @Namespace private var tabGlass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var tabs: [Tab] {
+        Tab.allCases.filter { ($0 != .gifs || allowsGifs) && ($0 != .stickers || onSticker != nil) }
+    }
 
     var body: some View {
         VStack(spacing: 8) {
-            if allowsGifs {
+            if tabs.count > 1 {
                 ModulaGlassGroup(spacing: 6) {
                     HStack(spacing: 6) {
-                        ForEach(Tab.allCases) { item in
+                        ForEach(tabs) { item in
                             Button {
                                 tab = item
                                 HapticEngine.shared.play(.selection)
@@ -33,9 +44,11 @@ struct ModulaComposerMediaPanel: View {
                                     .padding(.horizontal, 14)
                                     .frame(minHeight: 36)
                                     .foregroundStyle(tab == item ? Color.primary : Color.secondary)
+                                    .symbolEffect(.bounce, value: tab == item)
                             }
                             .buttonStyle(.plain)
                             .modulaGlass(in: Capsule(), tint: tab == item ? .accentColor : nil)
+                            .modulaGlassID("panel.tab.\(item.rawValue)", in: tabGlass)
                             .accessibilityAddTraits(tab == item ? .isSelected : [])
                             .accessibilityIdentifier("composer.panel.\(item.rawValue.lowercased())")
                         }
@@ -46,75 +59,250 @@ struct ModulaComposerMediaPanel: View {
             Group {
                 switch tab {
                 case .emoji: ModulaEmojiGrid(onPick: onEmoji)
+                case .stickers: ModulaStickerPicker(client: client) { onSticker?($0) }
                 case .gifs: ModulaGifPicker(repository: GreenfieldGifRepository(client: client), onPick: onGif)
                 }
             }
             .transition(.opacity)
         }
-        .frame(height: 300)
+        .frame(height: 320)
         .frame(maxWidth: .infinity)
         .modulaGlass(in: UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28, style: .continuous), interactive: false)
         .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: tab)
-        .onAppear { tab = allowsGifs ? initialTab : .emoji }
+        .onAppear { tab = tabs.contains(initialTab) ? initialTab : .emoji }
         .accessibilityIdentifier("composer.panel")
     }
 }
 
+// MARK: - Emoji (search, recents, skin tones)
+
 struct ModulaEmojiGrid: View {
     var onPick: (String) -> Void
     @AppStorage("composer.recentEmoji") private var recentRaw = ""
+    @AppStorage("composer.emojiSkinTone") private var skinTone = 0
+    @State private var query = ""
+
+    private static let tones: [String] = ["", "\u{1F3FB}", "\u{1F3FC}", "\u{1F3FD}", "\u{1F3FE}", "\u{1F3FF}"]
 
     private static let sections: [(String, [ClosedRange<UInt32>])] = [
-        ("Smileys & people", [0x1F600...0x1F64F, 0x1F910...0x1F92F, 0x1F970...0x1F97F, 0x1F44A...0x1F450]),
+        ("Smileys & people", [0x1F600...0x1F64F, 0x1F910...0x1F92F, 0x1F970...0x1F97F, 0x1F44A...0x1F450, 0x1F466...0x1F469, 0x1F590...0x1F596]),
         ("Animals & nature", [0x1F400...0x1F43F, 0x1F330...0x1F343]),
         ("Food & drink", [0x1F345...0x1F37F, 0x1F950...0x1F96F]),
         ("Activities & travel", [0x1F380...0x1F3FF, 0x1F680...0x1F6C5]),
         ("Objects & symbols", [0x1F4A0...0x1F4FF, 0x2600...0x26FF, 0x1F9E0...0x1F9FF])
     ]
 
-    private static let emoji: [(String, [String])] = sections.map { title, ranges in
+    struct Item: Hashable { let base: Unicode.Scalar; let name: String }
+
+    private static let emoji: [(String, [Item])] = sections.map { title, ranges in
         (title, ranges.flatMap { range in
-            range.compactMap { value -> String? in
+            range.compactMap { value -> Item? in
                 guard let scalar = Unicode.Scalar(value), scalar.properties.isEmojiPresentation else { return nil }
-                return String(Character(scalar))
+                return Item(base: scalar, name: (scalar.properties.name ?? "").lowercased())
             }
         })
     }
 
     private var recents: [String] { recentRaw.split(separator: " ").map(String.init) }
 
+    private func render(_ item: Item, tone: Int? = nil) -> String {
+        let tone = tone ?? skinTone
+        guard tone > 0, item.base.properties.isEmojiModifierBase else { return String(Character(item.base)) }
+        return String(Character(item.base)) + Self.tones[tone]
+    }
+
     var body: some View {
-        ScrollView {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 8), alignment: .leading, spacing: 4, pinnedViews: [.sectionHeaders]) {
-                if !recents.isEmpty { section("Recent", recents) }
-                ForEach(Self.emoji, id: \.0) { title, items in section(title, items) }
+        VStack(spacing: 6) {
+            HStack(spacing: 8) {
+                ModulaGlassSearchField(prompt: "Search emoji", text: $query)
+                Menu {
+                    Picker("Skin tone", selection: $skinTone) {
+                        ForEach(0..<Self.tones.count, id: \.self) { index in
+                            Text("👋" + Self.tones[index]).tag(index)
+                        }
+                    }
+                } label: {
+                    Text("👋" + Self.tones[skinTone]).font(.title3).frame(width: 40, height: 40)
+                }
+                .modulaGlass(in: Circle())
+                .accessibilityLabel("Skin tone")
+                .accessibilityIdentifier("composer.emoji.skintone")
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 12)
+            ScrollView {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 8), alignment: .leading, spacing: 4, pinnedViews: [.sectionHeaders]) {
+                    let trimmed = query.trimmingCharacters(in: .whitespaces).lowercased()
+                    if trimmed.isEmpty {
+                        if !recents.isEmpty { section("Recent", recents.map { ($0, nil) }) }
+                        ForEach(Self.emoji, id: \.0) { title, items in section(title, items.map { (render($0), $0) }) }
+                    } else {
+                        let matches = Self.emoji.flatMap(\.1).filter { $0.name.contains(trimmed) }
+                        if matches.isEmpty {
+                            Text("No emoji for “\(query)”").font(.footnote).foregroundStyle(.secondary).padding()
+                        }
+                        section("Results", matches.prefix(120).map { (render($0), $0) })
+                    }
+                }
+                .padding(.horizontal, 10)
+            }
         }
         .accessibilityIdentifier("composer.panel.emoji.grid")
     }
 
-    private func section(_ title: String, _ items: [String]) -> some View {
+    private func pick(_ emoji: String) {
+        onPick(emoji)
+        var list = recents.filter { $0 != emoji }
+        list.insert(emoji, at: 0)
+        recentRaw = list.prefix(24).joined(separator: " ")
+        HapticEngine.shared.play(.selection)
+    }
+
+    private func section(_ title: String, _ items: [(String, Item?)]) -> some View {
         Section {
-            ForEach(items, id: \.self) { emoji in
-                Button {
-                    onPick(emoji)
-                    var list = recents.filter { $0 != emoji }
-                    list.insert(emoji, at: 0)
-                    recentRaw = list.prefix(24).joined(separator: " ")
-                    HapticEngine.shared.play(.selection)
-                } label: {
+            ForEach(items, id: \.0) { emoji, item in
+                Button { pick(emoji) } label: {
                     Text(emoji).font(.system(size: 30)).frame(maxWidth: .infinity, minHeight: 40)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(emoji)
+                .accessibilityLabel(item?.name ?? emoji)
+                // Long-press a person emoji for every skin tone.
+                .contextMenu {
+                    if let item, item.base.properties.isEmojiModifierBase {
+                        ForEach(0..<Self.tones.count, id: \.self) { tone in
+                            Button(render(item, tone: tone)) { pick(render(item, tone: tone)) }
+                        }
+                    }
+                }
             }
         } header: {
             Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 4)
+                .background(.clear)
         }
     }
 }
+
+// MARK: - Stickers (first-party packs from Greenfield)
+
+struct ModulaSticker: Identifiable, Hashable, Sendable {
+    let id: String
+    let packID: String
+    let emoji: String
+    let label: String
+}
+
+struct ModulaStickerPack: Identifiable, Hashable, Sendable {
+    let id: String
+    let title: String
+    let icon: String
+    let stickers: [ModulaSticker]
+}
+
+@MainActor
+enum ModulaStickerCatalog {
+    private static var cached: [ModulaStickerPack]?
+
+    static func packs(client: GreenfieldClient) async throws -> [ModulaStickerPack] {
+        if let cached { return cached }
+        let value = try await client.json("GET", path: "/v1/stickers/packs")
+        let packs: [ModulaStickerPack] = (value["packs"]?.array ?? []).compactMap { pack in
+            guard let id = pack["id"]?.string, let title = pack["title"]?.string else { return nil }
+            let stickers: [ModulaSticker] = (pack["stickers"]?.array ?? []).compactMap { sticker in
+                guard let sid = sticker["id"]?.string, let emoji = sticker["emoji"]?.string else { return nil }
+                return ModulaSticker(id: sid, packID: id, emoji: emoji, label: sticker["label"]?.string ?? emoji)
+            }
+            return ModulaStickerPack(id: id, title: title, icon: pack["icon"]?.string ?? stickers.first?.emoji ?? "⭐️", stickers: stickers)
+        }
+        cached = packs
+        return packs
+    }
+}
+
+struct ModulaStickerPicker: View {
+    var client: GreenfieldClient
+    var onPick: (ModulaSticker) -> Void
+    @State private var packs: [ModulaStickerPack] = []
+    @State private var selected: String?
+    @State private var failed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        VStack(spacing: 6) {
+            if failed {
+                ContentUnavailableView {
+                    Label("Couldn’t load stickers", systemImage: "seal")
+                } actions: {
+                    Button("Retry") { Task { await load() } }
+                }
+            } else if packs.isEmpty {
+                ProgressView().frame(maxHeight: .infinity)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(packs) { pack in
+                            Button {
+                                selected = pack.id
+                                HapticEngine.shared.play(.selection)
+                            } label: {
+                                Text(pack.icon).font(.title2).frame(width: 44, height: 40)
+                            }
+                            .buttonStyle(.plain)
+                            .modulaGlass(in: Capsule(), tint: selected == pack.id ? .accentColor : nil)
+                            .accessibilityLabel(pack.title)
+                            .accessibilityAddTraits(selected == pack.id ? .isSelected : [])
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                }
+                if let pack = packs.first(where: { $0.id == selected }) ?? packs.first {
+                    ScrollView {
+                        Text(pack.title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 14)
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 10) {
+                            ForEach(pack.stickers) { sticker in
+                                Button { onPick(sticker); HapticEngine.shared.play(.success) } label: {
+                                    ModulaStickerView(emoji: sticker.emoji, size: 64)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("\(sticker.label) sticker")
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                    }
+                }
+            }
+        }
+        .task { await load() }
+        .accessibilityIdentifier("composer.panel.stickers.grid")
+    }
+
+    private func load() async {
+        failed = false
+        do {
+            packs = try await ModulaStickerCatalog.packs(client: client)
+            if selected == nil { selected = packs.first?.id }
+        } catch {
+            failed = true
+        }
+    }
+}
+
+/// A first-party sticker: a large emoji on a soft glass disc with a die-cut white outline.
+struct ModulaStickerView: View {
+    let emoji: String
+    var size: CGFloat = 96
+    var body: some View {
+        Text(emoji)
+            .font(.system(size: size * 0.62))
+            .shadow(color: .white, radius: 0, x: 1.5, y: 1.5)
+            .shadow(color: .white, radius: 0, x: -1.5, y: -1.5)
+            .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
+            .frame(width: size, height: size)
+            .background(Circle().fill(Color.primary.opacity(0.04)))
+    }
+}
+
+// MARK: - GIFs
 
 struct ModulaGifPicker: View {
     var repository: GreenfieldGifRepository
@@ -127,9 +315,29 @@ struct ModulaGifPicker: View {
 
     enum LoadState: Equatable { case idle, loading, loaded, notConfigured, failed(String) }
 
+    private static let categories = ["Trending", "Reactions", "LOL", "Love", "Happy", "Sad", "Celebrate", "Thumbs up", "Wow", "Yes", "No", "Thank you", "Hello"]
+
     var body: some View {
         VStack(spacing: 8) {
-            ModulaGlassSearchField(prompt: "Search GIFs", text: $query).padding(.horizontal, 12)
+            ModulaGlassSearchField(prompt: "Search GIPHY", text: $query).padding(.horizontal, 12)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(Self.categories, id: \.self) { category in
+                        let active = category == "Trending" ? query.isEmpty : query.caseInsensitiveCompare(category) == .orderedSame
+                        Button {
+                            query = category == "Trending" ? "" : category
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            Text(category).font(.caption.weight(.semibold)).padding(.horizontal, 12).frame(minHeight: 30)
+                                .foregroundStyle(active ? Color.primary : Color.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .modulaGlass(in: Capsule(), tint: active ? .accentColor : nil)
+                        .accessibilityAddTraits(active ? .isSelected : [])
+                    }
+                }
+                .padding(.horizontal, 12)
+            }
             content
         }
         .task(id: query) {

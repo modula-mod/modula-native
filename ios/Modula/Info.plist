@@ -39,6 +39,8 @@
 	<string>Modula saves photos you take in the composer and Stories you post to your library when you turn that on in Settings.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Modula uses the camera when you take a profile photo, a cover photo, or a picture to attach in Nodus. Photos stay on this device until you choose to upload a profile image.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Modula uses your location only when you choose to share it in a comment or message.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Modula uses the microphone so you can dictate into Nodus on this iPhone. Audio is recognized on device and is not uploaded.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

@@ -123,11 +123,16 @@ actor GreenfieldPostRepository: PostRepository {
 
     /// `media` items: `{type: "attachment", attachmentId}` (uploaded via /v1/attachments) or `{type: "gif", …}`.
     func createComment(postID: SocialPostID, text: String, parentID: SocialCommentID?, media: [JSONValue]) async throws -> SocialComment {
+        try await createComment(postID: postID, text: text, parentID: parentID, media: media, quotedCommentID: nil)
+    }
+
+    func createComment(postID: SocialPostID, text: String, parentID: SocialCommentID?, media: [JSONValue], quotedCommentID: SocialCommentID?) async throws -> SocialComment {
         guard capabilities.commentsCreate else {
             throw APIError.unavailable("Commenting is not available yet.")
         }
         var body: [String: JSONValue] = ["text": .string(text)]
         if !media.isEmpty { body["media"] = .array(media) }
+        if let quotedCommentID, parentID == nil { body["quotedCommentId"] = .string(quotedCommentID) }
         let path = parentID.map { "/v1/comments/\(Self.pathEscaped($0))/replies" }
             ?? PostBackendCapabilities.CommentPaths.create(postID: postID)
         let value: JSONValue = try await client.authenticatedJSON(
@@ -152,6 +157,43 @@ actor GreenfieldPostRepository: PostRepository {
             liked: false,
             likeCount: 0,
             isPending: false
+        )
+    }
+
+    /// Vote (or clear with nil) on a comment poll; returns the comment with fresh tallies.
+    func voteCommentPoll(commentID: SocialCommentID, postID: SocialPostID, option: Int?) async throws -> SocialComment? {
+        let value: JSONValue = try await client.authenticatedJSON(
+            "PUT",
+            path: "/v1/comments/\(Self.pathEscaped(commentID))/poll/vote",
+            body: .object(["optionIndex": option.map { .number(Double($0)) } ?? .null])
+        )
+        return SocialPayloadDecoder.comment(value["comment"] ?? value, fallbackPostID: postID)
+    }
+
+    /// Post authors pin one top-level comment.
+    func setCommentPinned(commentID: SocialCommentID, postID: SocialPostID, pinned: Bool) async throws -> SocialComment? {
+        let value: JSONValue = try await client.authenticatedJSON(
+            pinned ? "PUT" : "DELETE",
+            path: "/v1/comments/\(Self.pathEscaped(commentID))/pin",
+            body: pinned ? .object([:]) : nil
+        )
+        return SocialPayloadDecoder.comment(value["comment"] ?? value, fallbackPostID: postID)
+    }
+
+    func setCommentReaction(commentID: SocialCommentID, type: String?) async throws {
+        let path = "/v1/comments/\(Self.pathEscaped(commentID))/reaction"
+        if let type {
+            let _: JSONValue = try await client.authenticatedJSON("PUT", path: path, body: .object(["type": .string(type)]))
+        } else {
+            let _: JSONValue = try await client.authenticatedJSON("DELETE", path: path, body: nil)
+        }
+    }
+
+    func reportComment(commentID: SocialCommentID, category: String) async throws {
+        let _: JSONValue = try await client.authenticatedJSON(
+            "POST",
+            path: "/v1/reports",
+            body: .object(["targetType": .string("comment"), "targetId": .string(commentID), "category": .string(category)])
         )
     }
 

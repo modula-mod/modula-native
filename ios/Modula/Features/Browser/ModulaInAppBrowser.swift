@@ -12,6 +12,8 @@ struct ModulaBrowserSource {
     var onRepost: () -> Void
     var onSave: () -> Void
     var onShare: (() -> Void)?
+    /// Global frame of the post that was tapped; the browser drawer starts exactly there.
+    var originFrame: CGRect? = nil
 }
 
 private struct ModulaLinkSourceKey: EnvironmentKey {
@@ -60,7 +62,8 @@ final class ModulaBrowserPresenter {
         }
         var host: UIViewController?
         let root = ModulaInAppBrowserView(initialURL: url, source: source) {
-            host?.dismiss(animated: true)
+            // The view animates its own post→drawer transition; UIKit just hosts it.
+            host?.dismiss(animated: false)
         }
         .environment(environment)
         .tint(environment.appearance.accent.color)
@@ -69,7 +72,7 @@ final class ModulaBrowserPresenter {
         controller.modalPresentationStyle = .overFullScreen
         controller.view.backgroundColor = .clear
         host = controller
-        top.present(controller, animated: true)
+        top.present(controller, animated: false)
         HapticEngine.shared.play(.navigation)
     }
 
@@ -95,7 +98,85 @@ fileprivate final class ModulaWebPage: NSObject, WKNavigationDelegate, WKUIDeleg
     var canGoBack = false
     var canGoForward = false
     var failure: String?
+    var zoom: CGFloat = 1
+    var desktopSite = false
     @ObservationIgnored private var observations: [NSKeyValueObservation] = []
+
+    func adjustZoom(_ delta: CGFloat?) {
+        zoom = delta.map { min(max(zoom + $0, 0.5), 2.0) } ?? 1
+        webView.pageZoom = zoom
+        HapticEngine.shared.play(.selection)
+    }
+
+    func setDesktopSite(_ enabled: Bool) {
+        desktopSite = enabled
+        webView.customUserAgent = enabled ? "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15" : nil
+        webView.reload()
+    }
+
+    func presentFind() {
+        webView.isFindInteractionEnabled = true
+        webView.findInteraction?.presentFindNavigator(showingReplace: false)
+    }
+
+    func setBottomInset(_ inset: CGFloat) {
+        guard abs(webView.scrollView.contentInset.bottom - inset) > 1 else { return }
+        webView.scrollView.contentInset.bottom = inset
+        webView.scrollView.verticalScrollIndicatorInsets.bottom = inset
+    }
+
+    /// Lightweight readability pass in the page; content renders natively (no page scripts run in reader).
+    func extractReader() async -> ModulaReaderArticle? {
+        guard let raw = try? await webView.evaluateJavaScript(Self.readerScript) as? String,
+              let data = raw.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let items = json["blocks"] as? [[String: String]] else { return nil }
+        let blocks: [ModulaReaderArticle.Block] = items.compactMap { item in
+            guard let kind = item["k"], let value = item["v"] else { return nil }
+            switch kind {
+            case "h": return .heading(value)
+            case "q": return .quote(value)
+            case "li": return .listItem(value)
+            case "img": return URL(string: value).map { .image($0) }
+            default: return .paragraph(value)
+            }
+        }
+        guard blocks.filter({ if case .paragraph = $0 { true } else { false } }).count >= 2 else { return nil }
+        return ModulaReaderArticle(title: (json["title"] as? String) ?? title ?? domain, byline: json["byline"] as? String, siteName: json["site"] as? String, blocks: blocks)
+    }
+
+    private static let readerScript = #"""
+    (() => {
+      const pick = () => {
+        const c = document.querySelector('article') || document.querySelector('main') || document.querySelector('[role=main]');
+        if (c) return c;
+        let best = document.body, score = 0;
+        document.querySelectorAll('div,section').forEach(el => {
+          const s = Array.from(el.children).filter(x => x.tagName === 'P').reduce((a, p) => a + p.innerText.length, 0);
+          if (s > score) { score = s; best = el; }
+        });
+        return best;
+      };
+      const root = pick(); const out = [];
+      root.querySelectorAll('h1,h2,h3,p,blockquote,li,img').forEach(el => {
+        if (el.closest('nav,footer,aside,form,script,style,button')) return;
+        if (el.tagName === 'IMG') {
+          const s = el.currentSrc || el.src;
+          if (s && s.startsWith('http') && (el.naturalWidth || 0) >= 240) out.push({k: 'img', v: s});
+          return;
+        }
+        if (el.parentElement && el.parentElement.closest('blockquote,li') && el.tagName === 'P') return;
+        const t = (el.innerText || '').trim();
+        if (!t) return;
+        if (/^H[1-3]$/.test(el.tagName)) out.push({k: 'h', v: t});
+        else if (el.tagName === 'BLOCKQUOTE') out.push({k: 'q', v: t});
+        else if (el.tagName === 'LI') { if (t.length > 2 && t.length < 600) out.push({k: 'li', v: t}); }
+        else if (t.length > 40 || out.length) out.push({k: 'p', v: t});
+      });
+      const meta = n => { const m = document.querySelector(`meta[property="${n}"],meta[name="${n}"]`); return m ? m.content : null; };
+      return JSON.stringify({title: meta('og:title') || document.title, byline: meta('author'), site: meta('og:site_name'), blocks: out.slice(0, 500)});
+    })()
+    """#
 
     init(url: URL) {
         self.url = url
@@ -172,7 +253,10 @@ fileprivate final class ModulaWebPage: NSObject, WKNavigationDelegate, WKUIDeleg
     }
 
     nonisolated func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        Task { @MainActor in self.failure = nil }
+        Task { @MainActor in
+            self.failure = nil
+            if let url = webView.url { ModulaBrowserHistory.record(url, title: webView.title) }
+        }
     }
 
     /// target=_blank links open in the same view instead of a hidden window.
@@ -198,6 +282,15 @@ private struct ModulaWebViewRepresentable: UIViewRepresentable {
 
 // MARK: - Browser UI
 
+/// Layout for the post→drawer transition. progress 0 = the post where it was tapped, 1 = page open.
+private struct BrowserDrawerLayout {
+    var height: CGFloat
+    var startY: CGFloat
+    var compactTop: CGFloat
+    func top(_ progress: CGFloat) -> CGFloat { startY + (compactTop - startY) * progress }
+    var span: CGFloat { max(compactTop - startY, 1) }
+}
+
 struct ModulaInAppBrowserView: View {
     let initialURL: URL
     var source: ModulaBrowserSource?
@@ -205,12 +298,27 @@ struct ModulaInAppBrowserView: View {
 
     @State private var page: ModulaWebPage
     @State private var post: SocialPost?
-    @State private var sheetExpanded = false
-    @State private var sheetHidden = false
-    @State private var dismissOffset: CGFloat = 0
-    @State private var copied = false
+    @State private var progress: CGFloat = 0
+    @State private var dragStart: CGFloat?
+    @State private var dragVelocity: CGFloat = 0
+    @State private var openSide = false
+    @State private var warpActive = false
+    @State private var snapshot: UIImage?
+    @State private var drawerHeight: CGFloat = 0
+    @State private var mediaHeight: CGFloat = 0
+    @State private var reader: ModulaReaderArticle?
+    @State private var readerLoading = false
+    @State private var showHistory = false
+    @State private var showModulaShare = false
+    @State private var showReport = false
+    @State private var safety: ModulaLinkSafety?
+    @State private var safetyBypassed = false
+    @State private var toast: String?
+    @State private var fade: Double = 0
+    @State private var opened = false
+    @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     init(initialURL: URL, source: ModulaBrowserSource?, onClose: @escaping () -> Void) {
         self.initialURL = initialURL
@@ -220,16 +328,220 @@ struct ModulaInAppBrowserView: View {
         _post = State(initialValue: source?.post)
     }
 
-    private var motion: Animation {
-        reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.38, dampingFraction: 0.86)
-    }
+    private var hasDrawer: Bool { post != nil && source != nil }
 
     var body: some View {
-        ZStack(alignment: .top) {
-            Color(uiColor: .systemBackground).ignoresSafeArea()
-            ModulaWebViewRepresentable(page: page)
-                .ignoresSafeArea(edges: .bottom)
-                .accessibilityIdentifier("browser.web")
+        GeometryReader { proxy in
+            let safe = proxy.safeAreaInsets
+            let height = proxy.size.height + safe.top + safe.bottom
+            let layout = layout(height: height)
+            let clamped = min(max(progress, 0), 1)
+            let top = layout.top(progress)
+            ZStack(alignment: .top) {
+                // The app underneath (nav bar, tab bar) dims as the drawer travels down.
+                Color.black.opacity(0.55 * clamped)
+                    .allowsHitTesting(false)
+                // Live page card: a fixed-size web view clipped to the region above the drawer.
+                pageCard(height: height, top: top, progress: clamped, safeTop: safe.top) {
+                    ModulaWebViewRepresentable(page: page)
+                }
+                // SwiftUI-only layer that carries the glass warp: a page snapshot (only while the
+                // transition moves — shaders can't rasterise WKWebView) plus the drawer.
+                ZStack(alignment: .top) {
+                    if warpActive, !reduceMotion {
+                        pageCard(height: height, top: top, progress: clamped, safeTop: safe.top) {
+                            if let snapshot {
+                                Image(uiImage: snapshot).resizable().frame(width: proxy.size.width, height: height)
+                            } else {
+                                Color(uiColor: .systemBackground)
+                            }
+                        }
+                        .allowsHitTesting(false)
+                    }
+                    if let post, let source {
+                        drawer(post: post, source: source, layout: layout, top: top, progress: clamped, safeBottom: safe.bottom)
+                    }
+                }
+                .modifier(ModulaGlassWarp(
+                    progress: progress,
+                    velocity: dragVelocity,
+                    startY: layout.startY,
+                    compactTop: layout.compactTop,
+                    enabled: warpActive && !reduceMotion
+                ))
+                bottomBar
+                    .padding(.horizontal, 12)
+                    .offset(y: hasDrawer ? top - 60 : height - safe.bottom - 62)
+                    .opacity(hasDrawer ? Double(smooth(clamped, from: 0.55, to: 1)) : Double(clamped))
+                    .allowsHitTesting(clamped > 0.9)
+                if let toast {
+                    Text(toast)
+                        .font(.footnote.weight(.semibold))
+                        .padding(.horizontal, 14).padding(.vertical, 9)
+                        .modulaGlass(in: Capsule(), interactive: false)
+                        .padding(.top, safe.top + 12)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .accessibilityAddTraits(.isStaticText)
+                }
+            }
+            .frame(width: proxy.size.width, height: height, alignment: .top)
+            .ignoresSafeArea()
+            .onAppear { open() }
+            .onChange(of: Int(layout.compactTop)) { _, value in
+                page.setBottomInset(hasDrawer ? max(0, height - CGFloat(value) - safe.bottom + 8) : 64)
+            }
+        }
+        .opacity(reduceMotion ? fade : 1)
+        .task {
+            await checkSafety()
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--debug-browser-reader") {
+                try? await Task.sleep(for: .seconds(4))
+                await toggleReader()
+            }
+            #endif
+        }
+        .sheet(isPresented: $showHistory) {
+            ModulaBrowserHistoryView { url in
+                showHistory = false
+                reader = nil
+                page.webView.load(URLRequest(url: url))
+            }
+            .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showModulaShare) {
+            ModulaShareSheet(payload: .link(url: page.url, title: page.title))
+        }
+        .confirmationDialog("Report this link", isPresented: $showReport, titleVisibility: .visible) {
+            Button("Spam") { Task { await report("spam", details: nil) } }
+            Button("Scam or phishing") { Task { await report("other", details: "Scam or phishing") } }
+            Button("Malware") { Task { await report("other", details: "Malware") } }
+            Button("Harmful or illegal") { Task { await report("illegal-content", details: nil) } }
+            Button("Privacy violation") { Task { await report("privacy", details: nil) } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(page.domain)
+        }
+        .accessibilityIdentifier("browser")
+        .accessibilityAction(.escape) { close() }
+    }
+
+    // MARK: Layout & transition
+
+    private func layout(height: CGFloat) -> BrowserDrawerLayout {
+        guard hasDrawer else { return BrowserDrawerLayout(height: height, startY: height * 0.35, compactTop: height) }
+        let clamped = min(max(progress, 0), 1)
+        let compact = max(drawerHeight - mediaHeight * (1 - clamped), 150)
+        let origin = source?.originFrame?.minY ?? height * 0.5
+        return BrowserDrawerLayout(height: height, startY: min(max(origin, 60), height - compact), compactTop: height - compact)
+    }
+
+    private func smooth(_ value: CGFloat, from a: CGFloat, to b: CGFloat) -> CGFloat {
+        let t = min(max((value - a) / (b - a), 0), 1)
+        return t * t * (3 - 2 * t)
+    }
+
+    private func open() {
+        guard !opened else { return }
+        opened = true
+        if reduceMotion {
+            progress = 1
+            withAnimation(.easeOut(duration: 0.25)) { fade = 1 }
+            return
+        }
+        // Let the drawer measure itself for one frame so it starts exactly over the post.
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(40))
+            settle(to: 1)
+        }
+    }
+
+    private func close() {
+        if reduceMotion {
+            withAnimation(.easeOut(duration: 0.2)) { fade = 0 } completion: { onClose() }
+        } else {
+            page.webView.stopLoading()
+            settle(to: 0)
+        }
+    }
+
+    /// Interruptible spring: a new drag simply takes over `progress` mid-flight.
+    private func settle(to target: CGFloat, velocity: CGFloat = 0) {
+        beginWarp {
+            withAnimation(.spring(response: 0.46, dampingFraction: 0.84)) {
+                progress = target
+            } completion: {
+                guard dragStart == nil else { return }
+                warpActive = false
+                dragVelocity = 0
+                if target == 0 {
+                    onClose()
+                } else {
+                    HapticEngine.shared.play(.lightImpact)
+                }
+            }
+        }
+    }
+
+    private func beginWarp(_ then: @escaping () -> Void) {
+        guard !reduceMotion, !reduceTransparency else { then(); return }
+        if warpActive || page.webView.url == nil {
+            warpActive = true
+            then()
+            return
+        }
+        page.webView.takeSnapshot(with: nil) { image, _ in
+            snapshot = image
+            warpActive = true
+            then()
+        }
+    }
+
+    private func rubberBand(_ distance: CGFloat, limit: CGFloat) -> CGFloat {
+        limit * (1 - 1 / (distance / limit * 0.55 + 1))
+    }
+
+    private func drawerDrag(_ layout: BrowserDrawerLayout) -> some Gesture {
+        DragGesture(minimumDistance: 6, coordinateSpace: .global)
+            .onChanged { value in
+                if dragStart == nil {
+                    dragStart = progress
+                    if !warpActive { beginWarp {} }
+                }
+                var next = (dragStart ?? 1) + value.translation.height / layout.span
+                if next > 1 { next = 1 + rubberBand((next - 1) * layout.span, limit: 80) / layout.span }
+                if next < 0 { next = -rubberBand(-next * layout.span, limit: 60) / layout.span }
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    progress = next
+                    dragVelocity = value.velocity.height
+                }
+                // Detent haptic when crossing between "post" and "page".
+                let side = next > 0.5
+                if side != openSide {
+                    openSide = side
+                    HapticEngine.shared.play(.dragThreshold)
+                }
+            }
+            .onEnded { value in
+                let projected = (dragStart ?? 1) + value.predictedEndTranslation.height / layout.span
+                dragStart = nil
+                settle(to: projected < 0.42 ? 0 : 1, velocity: value.velocity.height)
+            }
+    }
+
+    // MARK: Page card
+
+    private func pageCard<Content: View>(height: CGFloat, top: CGFloat, progress p: CGFloat, safeTop: CGFloat, @ViewBuilder content: () -> Content) -> some View {
+        let visible = max(min(top + 30, height), 0)
+        return ZStack(alignment: .top) {
+            Color(uiColor: .systemBackground)
+            content()
+            if let reader {
+                ModulaReaderView(article: reader, scale: page.zoom, bottomInset: height - top) { self.reader = nil }
+                    .transition(.opacity)
+            }
             if let failure = page.failure {
                 ContentUnavailableView {
                     Label("Couldn’t open this page", systemImage: "exclamationmark.triangle")
@@ -238,28 +550,21 @@ struct ModulaInAppBrowserView: View {
                 }
                 .background(Color(uiColor: .systemBackground))
             }
-            progressBar
-            pullHandle
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 8) {
-                bottomBar
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, post != nil && !sheetHidden ? 0 : 6)
-                if let post, let source, !sheetHidden {
-                    sourceSheet(post: post, source: source)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
+            if let safety, safety.level == .blocked, !safetyBypassed {
+                blockedInterstitial(safety)
             }
+            VStack(spacing: 0) {
+                progressBar
+                pullHandle
+            }
+            .padding(.top, safeTop)
         }
-        .offset(y: dismissOffset)
-        .opacity(1 - Double(min(dismissOffset / 600, 0.5)))
-        .animation(motion, value: sheetExpanded)
-        .animation(motion, value: sheetHidden)
-        .accessibilityIdentifier("browser")
+        .frame(height: height)
+        .frame(height: visible, alignment: .top)
+        .clipShape(RoundedRectangle(cornerRadius: 44, style: .continuous))
+        .scaleEffect(0.94 + 0.06 * p, anchor: .top)
+        .opacity(Double(min(1, 0.25 + p * 1.6)))
     }
-
-    // MARK: Chrome
 
     private var progressBar: some View {
         GeometryReader { proxy in
@@ -279,22 +584,112 @@ struct ModulaInAppBrowserView: View {
             .frame(height: 28)
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
-            .gesture(dismissDrag)
+            .gesture(
+                DragGesture(minimumDistance: 8)
+                    .onEnded { value in
+                        if value.translation.height > 120 || value.predictedEndTranslation.height > 300 {
+                            HapticEngine.shared.play(.navigation)
+                            close()
+                        }
+                    }
+            )
             .accessibilityHidden(true)
     }
 
-    private var dismissDrag: some Gesture {
-        DragGesture(minimumDistance: 8)
-            .onChanged { value in dismissOffset = max(0, value.translation.height) }
-            .onEnded { value in
-                if value.translation.height > 140 || value.predictedEndTranslation.height > 320 {
-                    HapticEngine.shared.play(.navigation)
-                    close()
-                } else {
-                    withAnimation(motion) { dismissOffset = 0 }
-                }
+    private func blockedInterstitial(_ verdict: ModulaLinkSafety) -> some View {
+        VStack(spacing: 14) {
+            Image(systemName: "exclamationmark.shield.fill")
+                .font(.system(size: 52))
+                .foregroundStyle(.red)
+                .symbolEffect(.pulse, isActive: !reduceMotion)
+            Text("This site has been flagged").font(.title3.bold())
+            Text("Modula marked \(verdict.domain) as unsafe (\(verdict.reasons.first ?? "unsafe")). It may try to steal your information.")
+                .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            Button("Go back") { close() }.buttonStyle(.borderedProminent).tint(.red)
+            Button("Continue anyway") {
+                safetyBypassed = true
+                page.webView.load(URLRequest(url: page.url))
             }
+            .font(.footnote)
+        }
+        .padding(28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(uiColor: .systemBackground))
+        .accessibilityElement(children: .contain)
     }
+
+    // MARK: Drawer (the source post)
+
+    private func drawer(post: SocialPost, source: ModulaBrowserSource, layout: BrowserDrawerLayout, top: CGFloat, progress p: CGFloat, safeBottom: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Capsule().fill(Color.secondary.opacity(0.45)).frame(width: 36, height: 5)
+                .frame(maxWidth: .infinity)
+                .opacity(Double(p))
+            HStack(spacing: 10) {
+                ModulaAvatar(initials: post.author?.initials ?? "?", url: post.author?.avatarURL, size: 38)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(post.author?.displayName ?? "Post").font(.subheadline.weight(.semibold)).lineLimit(1)
+                    if let handle = post.author?.handle {
+                        Text("@\(handle)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 0)
+                Text("Modula").font(.headline.weight(.heavy)).accessibilityHidden(true)
+            }
+            if let text = post.text, !text.isEmpty {
+                Text(text).font(.subheadline).lineLimit(4).frame(maxWidth: .infinity, alignment: .leading)
+            }
+            // The link card folds away as the post turns into the compact sheet.
+            ModulaRichLinkCard(url: initialURL)
+                .fixedSize(horizontal: false, vertical: true)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { mediaHeight = $0 }
+                .frame(height: mediaHeight * (1 - p), alignment: .top)
+                .clipped()
+                .opacity(Double(1 - p))
+                .allowsHitTesting(false)
+                .accessibilityHidden(p > 0.5)
+            PostActions(
+                post: post,
+                onLike: {
+                    self.post?.liked.toggle()
+                    self.post?.likeCount += (self.post?.liked == true) ? 1 : -1
+                    source.onLike()
+                },
+                onComment: {
+                    close()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { source.onComment() }
+                },
+                onRepost: {
+                    self.post?.reposted.toggle()
+                    source.onRepost()
+                },
+                onSave: {
+                    self.post?.saved.toggle()
+                    source.onSave()
+                },
+                onShare: source.onShare
+            )
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, safeBottom + 4)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { drawerHeight = $0 }
+        .background(alignment: .top) {
+            UnevenRoundedRectangle(topLeadingRadius: 24 * p, topTrailingRadius: 24 * p, style: .continuous)
+                .fill(Color(uiColor: .systemBackground))
+                .shadow(color: .black.opacity(0.2 * Double(p)), radius: 18, y: -4)
+                // Below the post the drawer fills to the bottom edge as it opens (plus rubber-band room).
+                .frame(height: drawerHeight + max(0, layout.height - top - drawerHeight + 120) * p)
+        }
+        .contentShape(Rectangle())
+        .offset(y: top)
+        .gesture(drawerDrag(layout))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("browser.post")
+        .accessibilityAction(named: "Back to post") { close() }
+    }
+
+    // MARK: Bottom bar
 
     private var bottomBar: some View {
         ModulaGlassGroup(spacing: 10) {
@@ -310,55 +705,50 @@ struct ModulaInAppBrowserView: View {
                     page.reload()
                     HapticEngine.shared.play(.lightImpact)
                 }
+                .symbolEffect(.rotate, value: page.isLoading)
                 .accessibilityIdentifier("browser.reload")
             }
         }
-        .simultaneousGesture(dismissDrag)
     }
 
     private var domainPill: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             if page.canGoBack {
                 Button { page.webView.goBack() } label: {
                     Image(systemName: "chevron.backward").frame(width: 30, height: 46)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Back")
+                // Long-press: the back list.
+                .contextMenu {
+                    ForEach(Array(page.webView.backForwardList.backList.reversed().enumerated()), id: \.offset) { _, item in
+                        Button(item.title?.isEmpty == false ? item.title! : (item.url.host ?? item.url.absoluteString)) { page.webView.go(to: item) }
+                    }
+                }
             }
-            Image(systemName: page.isSecure ? "lock.fill" : "exclamationmark.triangle.fill")
+            Image(systemName: lockSymbol)
                 .font(.caption2)
-                .foregroundStyle(page.isSecure ? Color.secondary : Color.orange)
+                .foregroundStyle(lockColor)
                 .accessibilityLabel(page.isSecure ? "Secure connection" : "Not secure")
-            Text(page.domain)
+            Text(reader != nil ? "Reader · \(page.domain)" : page.domain)
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(maxWidth: .infinity)
+                .contentTransition(.opacity)
             if page.canGoForward {
                 Button { page.webView.goForward() } label: {
                     Image(systemName: "chevron.forward").frame(width: 30, height: 46)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Forward")
-            }
-            Menu {
-                ShareLink(item: page.url) { Label("Share", systemImage: "square.and.arrow.up") }
-                Button { UIApplication.shared.open(page.url) } label: { Label("Open in browser", systemImage: "safari") }
-                Button {
-                    UIPasteboard.general.url = page.url
-                    HapticEngine.shared.play(.success)
-                } label: { Label("Copy link", systemImage: "link") }
-                if source != nil, sheetHidden {
-                    Button { sheetHidden = false } label: { Label("Show post", systemImage: "text.bubble") }
+                .contextMenu {
+                    ForEach(Array(page.webView.backForwardList.forwardList.enumerated()), id: \.offset) { _, item in
+                        Button(item.title?.isEmpty == false ? item.title! : (item.url.host ?? item.url.absoluteString)) { page.webView.go(to: item) }
+                    }
                 }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .rotationEffect(.degrees(90))
-                    .frame(width: 36, height: 46)
-                    .contentShape(Rectangle())
             }
-            .accessibilityLabel("More")
-            .accessibilityIdentifier("browser.menu")
+            moreMenu
         }
         .foregroundStyle(.primary)
         .padding(.leading, 14)
@@ -369,88 +759,291 @@ struct ModulaInAppBrowserView: View {
         .accessibilityIdentifier("browser.domain")
     }
 
-    // MARK: Source post sheet
-
-    private func sourceSheet(post: SocialPost, source: ModulaBrowserSource) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Capsule().fill(Color.secondary.opacity(0.4)).frame(width: 36, height: 5)
-                .frame(maxWidth: .infinity)
-                .padding(.top, 6)
-            HStack(spacing: 10) {
-                ModulaAvatar(initials: post.author?.initials ?? "?", url: post.author?.avatarURL, size: 34)
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(post.author?.displayName ?? "Post").font(.subheadline.weight(.semibold)).lineLimit(1)
-                    if let handle = post.author?.handle {
-                        Text("@\(handle)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                    }
-                }
-                Spacer(minLength: 0)
-                Text("Modula")
-                    .font(.headline.weight(.heavy))
-                    .accessibilityHidden(true)
-            }
-            if let text = post.text, !text.isEmpty {
-                if sheetExpanded {
-                    ScrollView {
-                        Text(text).font(.subheadline).frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .frame(maxHeight: 260)
-                } else {
-                    Text(text).font(.subheadline).lineLimit(3).frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-            Group {
-                PostActions(
-                    post: post,
-                    onLike: {
-                        self.post?.liked.toggle()
-                        self.post?.likeCount += (self.post?.liked == true) ? 1 : -1
-                        source.onLike()
-                    },
-                    onComment: {
-                        close()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { source.onComment() }
-                    },
-                    onRepost: {
-                        self.post?.reposted.toggle()
-                        source.onRepost()
-                    },
-                    onSave: {
-                        self.post?.saved.toggle()
-                        source.onSave()
-                    },
-                    onShare: source.onShare
-                )
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.bottom, 8)
-        .background {
-            UnevenRoundedRectangle(topLeadingRadius: 22, topTrailingRadius: 22, style: .continuous)
-                .fill(Color(uiColor: .systemBackground))
-                .shadow(color: .black.opacity(0.12), radius: 12, y: -2)
-                .ignoresSafeArea(edges: .bottom)
-        }
-        .contentShape(Rectangle())
-        .onTapGesture { sheetExpanded.toggle() }
-        .gesture(
-            DragGesture(minimumDistance: 10)
-                .onEnded { value in
-                    if value.translation.height < -30 { sheetExpanded = true }
-                    else if value.translation.height > 30 {
-                        if sheetExpanded { sheetExpanded = false } else { sheetHidden = true }
-                    }
-                    HapticEngine.shared.play(.selection)
-                }
-        )
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("browser.post")
-        .accessibilityAction(named: sheetExpanded ? "Collapse post" : "Expand post") { sheetExpanded.toggle() }
+    private var lockSymbol: String {
+        if safety?.level == .blocked { return "exclamationmark.shield.fill" }
+        return page.isSecure ? "lock.fill" : "exclamationmark.triangle.fill"
     }
 
-    private func close() {
-        page.webView.stopLoading()
-        onClose()
+    private var lockColor: Color {
+        if safety?.level == .blocked { return .red }
+        return page.isSecure ? .secondary : .orange
+    }
+
+    private var moreMenu: some View {
+        Menu {
+            Section {
+                Button { copyLink() } label: { Label("Copy link", systemImage: "link") }
+                ShareLink(item: page.url) { Label("Share", systemImage: "square.and.arrow.up") }
+                Button { showModulaShare = true } label: { Label("Share to Modula…", systemImage: "paperplane") }
+                Button { UIApplication.shared.open(page.url) } label: { Label("Open in browser", systemImage: "safari") }
+            }
+            Section {
+                Button { Task { await toggleReader() } } label: {
+                    Label(reader == nil ? "Reader" : "Exit reader", systemImage: reader == nil ? "doc.plaintext" : "doc.richtext")
+                }
+                Button { page.presentFind() } label: { Label("Find on page", systemImage: "text.magnifyingglass") }
+                Menu {
+                    Button { page.adjustZoom(+0.1) } label: { Label("Larger", systemImage: "textformat.size.larger") }
+                    Button { page.adjustZoom(-0.1) } label: { Label("Smaller", systemImage: "textformat.size.smaller") }
+                    Button { page.adjustZoom(nil) } label: { Label("Reset (\(Int((page.zoom * 100).rounded()))%)", systemImage: "arrow.counterclockwise") }
+                } label: { Label("Text size", systemImage: "textformat.size") }
+                Toggle(isOn: Binding(get: { page.desktopSite }, set: { page.setDesktopSite($0) })) {
+                    Label("Desktop site", systemImage: "desktopcomputer")
+                }
+            }
+            Section {
+                if source != nil {
+                    Button { toggleSavePost() } label: {
+                        Label(post?.saved == true ? "Remove from saved" : "Save post", systemImage: post?.saved == true ? "bookmark.slash" : "bookmark")
+                    }
+                } else {
+                    Button { showModulaShare = true } label: { Label("Save to Collection…", systemImage: "bookmark") }
+                }
+                Button { showHistory = true } label: { Label("History", systemImage: "clock.arrow.circlepath") }
+                Button(role: .destructive) { showReport = true } label: { Label("Report link", systemImage: "exclamationmark.bubble") }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .rotationEffect(.degrees(90))
+                .frame(width: 36, height: 46)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("More")
+        .accessibilityIdentifier("browser.menu")
+    }
+
+    // MARK: Actions
+
+    private func show(_ message: String) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { toast = message }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.8))
+            withAnimation(.easeOut(duration: 0.2)) { if toast == message { toast = nil } }
+        }
+    }
+
+    private func copyLink() {
+        UIPasteboard.general.url = page.url
+        HapticEngine.shared.play(.success)
+        show("Link copied")
+    }
+
+    private func toggleSavePost() {
+        guard let source else { return }
+        post?.saved.toggle()
+        source.onSave()
+        HapticEngine.shared.play(.success)
+        show(post?.saved == true ? "Saved to your Modula saved items" : "Removed from saved")
+    }
+
+    private func toggleReader() async {
+        if reader != nil {
+            withAnimation(.easeInOut(duration: 0.2)) { reader = nil }
+            return
+        }
+        readerLoading = true
+        defer { readerLoading = false }
+        if let article = await page.extractReader() {
+            withAnimation(.easeInOut(duration: 0.25)) { reader = article }
+            HapticEngine.shared.play(.selection)
+        } else {
+            show("Reader isn’t available for this page")
+        }
+    }
+
+    private func checkSafety() async {
+        let encoded = initialURL.absoluteString.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
+        if let value = try? await app.client.authenticatedJSON("GET", path: "/v1/link-safety?url=\(encoded)") {
+            let verdict = ModulaLinkSafety(
+                level: ModulaLinkSafety.Level(rawValue: value["level"]?.string ?? "ok") ?? .ok,
+                reasons: value["reasons"]?.array?.compactMap(\.string) ?? [],
+                domain: value["domain"]?.string ?? page.domain
+            )
+            safety = verdict
+            if verdict.level == .blocked {
+                page.webView.stopLoading()
+                HapticEngine.shared.play(.failure)
+            }
+        }
+        if initialURL.scheme?.lowercased() == "http", safety?.level != .blocked {
+            show("Not secure: this site doesn’t use encryption")
+        }
+    }
+
+    private func report(_ category: String, details: String?) async {
+        var body: [String: JSONValue] = [
+            "targetType": .string("other"),
+            "targetId": .string(String(page.url.absoluteString.prefix(500))),
+            "category": .string(category)
+        ]
+        body["details"] = .string([details, "Link: \(page.url.absoluteString)"].compactMap { $0 }.joined(separator: " — "))
+        do {
+            let _: JSONValue = try await app.client.authenticatedJSON("POST", path: "/v1/reports", body: .object(body))
+            HapticEngine.shared.play(.success)
+            show("Thanks, we’ll review this link")
+        } catch {
+            HapticEngine.shared.play(.failure)
+            show("Couldn’t send report. Sign in and try again.")
+        }
+    }
+}
+
+// MARK: - Glass warp (Metal)
+
+/// Lens refraction + chromatic fringe along the moving seam; animates with progress, zero when idle.
+private struct ModulaGlassWarp: ViewModifier, @MainActor Animatable {
+    var progress: CGFloat
+    var velocity: CGFloat
+    var startY: CGFloat
+    var compactTop: CGFloat
+    var enabled: Bool
+
+    var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        let clamped = min(max(progress, 0), 1)
+        let seam = startY + (compactTop - startY) * progress
+        let motion = Double(sin(.pi * clamped)) * 0.75 + min(abs(Double(velocity)) / 2400, 0.45)
+        let strength = enabled ? Float(min(motion, 1)) : 0
+        content.visualEffect { view, proxy in
+            view.layerEffect(
+                ShaderLibrary.modulaGlassWarp(.float2(proxy.size), .float(Float(seam)), .float(strength), .float(26)),
+                maxSampleOffset: CGSize(width: 24, height: 32),
+                isEnabled: strength > 0.002
+            )
+        }
+    }
+}
+
+// MARK: - Safety, reader, history
+
+struct ModulaLinkSafety: Equatable {
+    enum Level: String { case ok, warning, blocked }
+    var level: Level
+    var reasons: [String]
+    var domain: String
+}
+
+struct ModulaReaderArticle: Equatable {
+    enum Block: Hashable {
+        case heading(String), paragraph(String), quote(String), listItem(String), image(URL)
+    }
+    var title: String
+    var byline: String?
+    var siteName: String?
+    var blocks: [Block]
+}
+
+private struct ModulaReaderView: View {
+    let article: ModulaReaderArticle
+    let scale: CGFloat
+    let bottomInset: CGFloat
+    var onClose: () -> Void
+    @ScaledMetric private var bodySize: CGFloat = 19
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16 * scale) {
+                if let site = article.siteName { Text(site.uppercased()).font(.caption.weight(.semibold)).foregroundStyle(.secondary) }
+                Text(article.title).font(.system(size: 28 * scale, weight: .bold, design: .serif))
+                if let byline = article.byline { Text(byline).font(.subheadline).foregroundStyle(.secondary) }
+                Divider()
+                ForEach(Array(article.blocks.enumerated()), id: \.offset) { _, block in
+                    switch block {
+                    case .heading(let text): Text(text).font(.system(size: bodySize * scale * 1.2, weight: .semibold, design: .serif))
+                    case .paragraph(let text): Text(text).font(.system(size: bodySize * scale, design: .serif)).lineSpacing(5 * scale)
+                    case .quote(let text):
+                        Text(text).font(.system(size: bodySize * scale, design: .serif)).italic()
+                            .padding(.leading, 12)
+                            .overlay(alignment: .leading) { Capsule().fill(Color.accentColor).frame(width: 3) }
+                    case .listItem(let text):
+                        HStack(alignment: .firstTextBaseline, spacing: 8) { Text("•"); Text(text) }
+                            .font(.system(size: bodySize * scale, design: .serif))
+                    case .image(let url):
+                        ModulaRemoteImage(url: url, cacheKey: "reader:\(url.absoluteString)", maximumPixelSize: 1200) { phase in
+                            if case .success(let image) = phase { Image(uiImage: image).resizable().scaledToFit() } else { Color.primary.opacity(0.05).frame(height: 180) }
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                }
+            }
+            .textSelection(.enabled)
+            .padding(.horizontal, 22)
+            .padding(.top, 64)
+            .padding(.bottom, bottomInset + 40)
+            .frame(maxWidth: 680, alignment: .leading)
+            .frame(maxWidth: .infinity)
+        }
+        .background(Color(uiColor: .systemBackground))
+        .accessibilityIdentifier("browser.reader")
+    }
+}
+
+/// Local, private history of pages opened in the in-app browser (never synced or sent anywhere).
+enum ModulaBrowserHistory {
+    struct Entry: Codable, Hashable, Identifiable {
+        var url: URL
+        var title: String?
+        var visitedAt: Date
+        var id: String { url.absoluteString }
+    }
+
+    private static let key = "browser.history.v1"
+
+    static func load() -> [Entry] {
+        guard let data = UserDefaults.standard.data(forKey: key) else { return [] }
+        return (try? JSONDecoder().decode([Entry].self, from: data)) ?? []
+    }
+
+    static func record(_ url: URL, title: String?) {
+        guard ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { return }
+        var items = load().filter { $0.url != url }
+        items.insert(Entry(url: url, title: title, visitedAt: .now), at: 0)
+        if let data = try? JSONEncoder().encode(Array(items.prefix(150))) { UserDefaults.standard.set(data, forKey: key) }
+    }
+
+    static func clear() { UserDefaults.standard.removeObject(forKey: key) }
+}
+
+private struct ModulaBrowserHistoryView: View {
+    var onOpen: (URL) -> Void
+    @State private var entries = ModulaBrowserHistory.load()
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if entries.isEmpty {
+                    ContentUnavailableView("No history yet", systemImage: "clock", description: Text("Pages you open in Modula stay on this device only."))
+                }
+                ForEach(entries) { entry in
+                    Button { onOpen(entry.url) } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(entry.title?.isEmpty == false ? entry.title! : (entry.url.host ?? entry.url.absoluteString)).lineLimit(1)
+                            Text("\(entry.url.host ?? "") · \(entry.visitedAt.formatted(.relative(presentation: .named)))")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    .foregroundStyle(.primary)
+                }
+            }
+            .navigationTitle("History")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .destructiveAction) {
+                    Button("Clear", role: .destructive) {
+                        ModulaBrowserHistory.clear()
+                        entries = []
+                        HapticEngine.shared.play(.success)
+                    }
+                    .disabled(entries.isEmpty)
+                }
+            }
+        }
     }
 }
 
@@ -469,6 +1062,15 @@ struct ModulaRichLinkCard: View {
             if let preview {
                 Button { openURL(url) } label: { card(preview) }
                     .buttonStyle(.plain)
+                    // Long-press peek with link actions.
+                    .contextMenu {
+                        Button { openURL(url) } label: { Label("Open", systemImage: "arrow.up.forward.app") }
+                        Button { UIApplication.shared.open(url) } label: { Label("Open in browser", systemImage: "safari") }
+                        Button { UIPasteboard.general.url = url } label: { Label("Copy link", systemImage: "link") }
+                        ShareLink(item: url) { Label("Share", systemImage: "square.and.arrow.up") }
+                    } preview: {
+                        ModulaLinkPeek(preview: preview)
+                    }
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel("\(preview.title ?? preview.domain), from \(preview.domain)")
                     .accessibilityHint("Opens the link")
@@ -526,5 +1128,30 @@ struct ModulaRichLinkCard: View {
                 .padding(.leading, 12)
         }
         .contentShape(Rectangle())
+    }
+}
+
+/// Context-menu preview for a link card: large image, title, description and domain.
+private struct ModulaLinkPeek: View {
+    let preview: ModulaLinkPreviewData
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let imageURL = preview.imageURL {
+                ModulaRemoteImage(url: imageURL, cacheKey: "link:\(imageURL.absoluteString)", maximumPixelSize: 1000) { phase in
+                    if case .success(let image) = phase { Image(uiImage: image).resizable().scaledToFill() } else { Color.primary.opacity(0.06) }
+                }
+                .frame(width: 320, height: 180)
+                .clipped()
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                if let title = preview.title { Text(title).font(.headline).lineLimit(2) }
+                if let summary = preview.description { Text(summary).font(.subheadline).foregroundStyle(.secondary).lineLimit(3) }
+                Label(preview.domain, systemImage: "globe").font(.caption).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.bottom, 14)
+        }
+        .frame(width: 320)
+        .background(Color(uiColor: .systemBackground))
     }
 }

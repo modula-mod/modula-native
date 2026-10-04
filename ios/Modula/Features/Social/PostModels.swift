@@ -304,8 +304,12 @@ struct SocialComment: Identifiable, Hashable, Sendable {
     var liked: Bool
     var likeCount: Int
     var isPending: Bool
-    /// Photos, videos and GIFs attached to the comment (Greenfield comment media).
+    /// Photos, videos, GIFs, stickers, polls, voice notes, files and locations (Greenfield comment media).
     var media: [SocialCommentMedia] = []
+    var reactions: [CommentReactionCount] = []
+    var viewerReaction: String? = nil
+    var pinned = false
+    var quoted: CommentQuote? = nil
 
     var isReply: Bool { parentID != nil }
     var isEdited: Bool {
@@ -537,6 +541,17 @@ enum SocialPayloadDecoder {
             isPending: false
         )
         comment.media = deleted ? [] : media
+        comment.reactions = (value["reactions"]?.array ?? []).compactMap { item in
+            guard let type = item["type"]?.string, let count = item["count"]?.int, count > 0 else { return nil }
+            return CommentReactionCount(type: type, count: count)
+        }
+        comment.viewerReaction = value["viewerReaction"]?.string
+        comment.pinned = value["pinned"]?.bool ?? false
+        if let quoted = value["quotedComment"], let qid = quoted["id"]?.string {
+            comment.quoted = CommentQuote(id: qid, authorName: quoted["author"]?["displayName"]?.string ?? quoted["author"]?["handle"]?.string, text: quoted["text"]?.string ?? "", deleted: quoted["deleted"]?.bool ?? false)
+        }
+        if comment.likeCount == 0, let likes = comment.reactions.first(where: { $0.type == "like" }) { comment.likeCount = likes.count }
+        if comment.viewerReaction == "like" { comment.liked = true }
         return comment
     }
 
@@ -611,15 +626,65 @@ enum SocialPayloadDecoder {
 }
 
 
-/// One media item on a comment: an uploaded photo/video or a GIF from the Greenfield GIF proxy.
+struct CommentReactionCount: Hashable, Sendable {
+    let type: String
+    let count: Int
+    var emoji: String {
+        switch type {
+        case "like": "👍"
+        case "love": "❤️"
+        case "laugh": "😂"
+        case "fire": "🔥"
+        case "celebrate": "🎉"
+        case "insightful": "💡"
+        case "support": "🙌"
+        case "curious": "🤔"
+        default: "👍"
+        }
+    }
+    static let allTypes = ["like", "love", "laugh", "fire", "celebrate", "insightful", "support", "curious"]
+}
+
+struct CommentQuote: Hashable, Sendable {
+    let id: String
+    let authorName: String?
+    let text: String
+    let deleted: Bool
+}
+
+struct CommentPoll: Hashable, Sendable {
+    var question: String
+    var options: [String]
+    var counts: [Int]
+    var totalVotes: Int
+    var viewerVote: Int?
+    var closed: Bool
+    var closesAt: Date?
+}
+
+/// One media item on a comment.
 struct SocialCommentMedia: Identifiable, Hashable, Sendable {
-    enum Kind: String, Sendable { case image, video, gif }
+    enum Kind: String, Sendable { case image, video, gif, sticker, poll, location, voice, file }
     let id: String
     let kind: Kind
     let url: URL
     let previewURL: URL?
     let width: Int?
     let height: Int?
+    var emoji: String? = nil
+    var label: String? = nil
+    var poll: CommentPoll? = nil
+    var latitude: Double? = nil
+    var longitude: Double? = nil
+    var durationMs: Int? = nil
+    var waveform: [Int] = []
+    var fileName: String? = nil
+    var byteSize: Int? = nil
+    var mimeType: String? = nil
+
+    static let placeholderURL = URL(string: "modula://comment-media")!
+
+    var isVisualMedia: Bool { kind == .image || kind == .video || kind == .gif }
 
     var aspectRatio: CGFloat? {
         guard let width, let height, width > 0, height > 0 else { return nil }
@@ -634,13 +699,47 @@ struct SocialCommentMedia: Identifiable, Hashable, Sendable {
         switch value["type"]?.string {
         case "attachment":
             guard let id = value["attachmentId"]?.string, let url = value["url"]?.string.flatMap(URL.init(string:)) else { return nil }
-            self.init(id: id, kind: value["kind"]?.string == "video" ? .video : .image, url: url,
-                      width: value["width"]?.int, height: value["height"]?.int)
+            let rawKind = value["kind"]?.string
+            let kind: Kind = switch rawKind {
+            case "video": .video
+            case "audio": value["voice"] != nil ? .voice : .file
+            case "pdf", "document": .file
+            default: .image
+            }
+            self.init(id: id, kind: kind, url: url, width: value["width"]?.int, height: value["height"]?.int)
+            fileName = value["fileName"]?.string
+            byteSize = value["byteSize"]?.int
+            mimeType = value["mimeType"]?.string
+            durationMs = value["voice"]?["durationMs"]?.int
+            waveform = value["voice"]?["waveform"]?.array?.compactMap(\.int) ?? []
         case "gif":
             guard let id = value["id"]?.string, let url = value["url"]?.string.flatMap(URL.init(string:)) else { return nil }
             self.init(id: "gif:\(id)", kind: .gif, url: url,
                       previewURL: value["previewUrl"]?.string.flatMap(URL.init(string:)),
                       width: value["width"]?.int, height: value["height"]?.int)
+        case "sticker":
+            guard let id = value["stickerId"]?.string, let emoji = value["emoji"]?.string else { return nil }
+            self.init(id: "sticker:\(id)", kind: .sticker, url: Self.placeholderURL)
+            self.emoji = emoji
+            label = value["label"]?.string
+        case "poll":
+            guard let question = value["question"]?.string, let options = value["options"]?.array?.compactMap(\.string), options.count >= 2 else { return nil }
+            self.init(id: "poll:\(question.hashValue)", kind: .poll, url: Self.placeholderURL)
+            let counts = value["counts"]?.array?.compactMap(\.int) ?? Array(repeating: 0, count: options.count)
+            poll = CommentPoll(
+                question: question, options: options,
+                counts: counts.count == options.count ? counts : Array(repeating: 0, count: options.count),
+                totalVotes: value["totalVotes"]?.int ?? 0,
+                viewerVote: value["viewerVote"]?.int,
+                closed: value["closed"]?.bool ?? false,
+                closesAt: value["closesAt"]?.string.flatMap { ISO8601DateFormatter().date(from: $0) }
+            )
+        case "location":
+            guard let lat = value["latitude"]?.number, let lng = value["longitude"]?.number else { return nil }
+            self.init(id: "location:\(lat),\(lng)", kind: .location, url: Self.placeholderURL)
+            latitude = lat
+            longitude = lng
+            label = value["name"]?.string
         default:
             return nil
         }
