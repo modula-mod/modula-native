@@ -34,19 +34,17 @@ static float modulaBulgeProfile(float t, float4 f) {
     return clamp(min(up, down), 0.0, 1.0);
 }
 
-/// Pre-scale distortion. The row is also scaled horizontally by `row.z` (its minimum
-/// squeeze, which keeps hit-testing aligned); this adds the remaining per-line squeeze so
-/// the final x of every line is x * (width - depth(y)) / width, following the bulge curve.
-/// bulge = (globalTop, height, depth, side: 1 trailing / -1 leading); row = (globalTop, width, rowScale)
-[[ stitchable ]] float2 modulaEdgeFlow(float2 position, float4 bulge, float4 fractions, float3 row) {
-    float t = (row.x + position.y - bulge.x) / max(bulge.y, 1.0);
-    float d = bulge.z * modulaBulgeProfile(t, fractions);
-    float width = max(row.y, 1.0);
-    float s = max((width - d) / width, 0.5);
-    float ratio = row.z / s;
-    if (bulge.w > 0.0) {
-        return float2(position.x * ratio, position.y);
-    }
-    float fromTrailing = width - position.x;
-    return float2(width - fromTrailing * ratio, position.y);
+/// Edge Picker feed flow. The row already has a real layout inset equal to the Gaussian peak
+/// over its span (so nothing is clipped or compressed); this pass only *translates* each line
+/// back out toward the bulge where the curve is weaker, giving a smooth gentle curve. The
+/// falloff is a wide Gaussian (sigma ~ half the bulge height, visible over ~2.5x its height),
+/// so across one glyph or avatar the shift is effectively constant: content moves, it never warps.
+/// bulge = (centerY global, sigma, amplitude, side: 1 trailing / -1 leading); row = (globalTop, rowPeak)
+[[ stitchable ]] float2 modulaEdgeFlow(float2 position, float4 bulge, float2 row) {
+    float dy = (row.x + position.y - bulge.x) / max(bulge.y, 1.0);
+    float g = exp(-0.5 * dy * dy);
+    // Translation toward the picker = (row inset - local inset) >= 0, never more than the inset.
+    // Half of the residual keeps the curve readable while shear across a glyph stays ~1pt.
+    float shift = 0.5 * max(row.y - bulge.z * g, 0.0);
+    return float2(position.x - shift * bulge.w, position.y);
 }

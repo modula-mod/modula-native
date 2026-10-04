@@ -42,15 +42,18 @@ final class EdgePickerBulge {
     }
 }
 
-/// Feed rows flow around the Edge Picker: a uniform horizontal scale (real geometry, so taps land
-/// where content is drawn) plus a Metal distortion for the per-line curve. Only rows that intersect
-/// the bulge do any work; Reduce Motion uses a static inset.
+/// Feed rows flow gently around the Edge Picker.
+/// - Real layout: a trailing inset equal to the Gaussian peak over the row (text re-wraps, media
+///   re-fits at its aspect ratio; nothing is squeezed, clipped or cut out; hit-testing is exact).
+/// - Shader: a pure horizontal translation that lets each line drift back toward the picker where
+///   the curve is weaker, so the row edge follows the bulge smoothly.
+/// - Bulge inputs are eased (Animatable) so picker moves/expansion never snap.
+/// Only rows within the falloff band do any work; Reduce Motion uses a static inset.
 struct EdgeBulgeFlow: ViewModifier {
     var enabled = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.trailingInteractionInset) private var trailingInset
     @Environment(\.leadingInteractionInset) private var leadingInset
-    @State private var rowFrame: CGRect = .zero
 
     func body(content: Content) -> some View {
         let bulge = EdgePickerBulge.shared
@@ -59,29 +62,61 @@ struct EdgeBulgeFlow: ViewModifier {
         } else if reduceMotion {
             content.padding(.trailing, trailingInset).padding(.leading, leadingInset)
         } else {
-            let intersects = bulge.isActive && rowFrame.maxY > bulge.frame.minY && rowFrame.minY < bulge.frame.maxY && rowFrame.width > 0
-            let minDepth = intersects ? bulge.minimumDepth(from: rowFrame.minY, to: rowFrame.maxY) : 0
-            let width = max(rowFrame.width, 1)
-            let rowScale = intersects ? (width - minDepth) / width : 1
-            content
-                // Only rows near the picker report frames each scroll frame; others stay quiet.
-                .onGeometryChange(for: CGRect.self) { proxy in
-                    let frame = proxy.frame(in: .global)
-                    let band = EdgePickerBulge.shared.frame.insetBy(dx: 0, dy: -240)
-                    return frame.intersects(band) ? frame.integral : CGRect(x: 0, y: -10_000, width: frame.width, height: 0)
-                } action: { rowFrame = $0 }
-                .distortionEffect(
-                    ShaderLibrary.modulaEdgeFlow(
-                        .float4(Float(bulge.frame.minY), Float(bulge.frame.height), Float(bulge.depth), bulge.trailing ? 1 : -1),
-                        .float4(bulge.fractions.x, bulge.fractions.y, bulge.fractions.z, bulge.fractions.w),
-                        .float3(Float(rowFrame.minY), Float(width), Float(rowScale))
-                    ),
-                    maxSampleOffset: CGSize(width: bulge.depth + 2, height: 0),
-                    isEnabled: intersects
-                )
-                .scaleEffect(x: rowScale, y: 1, anchor: bulge.trailing ? .leading : .trailing)
-                .animation(.spring(response: 0.35, dampingFraction: 0.9), value: bulge.depth)
+            let height = max(bulge.frame.height, 1)
+            content.modifier(EdgeFlowShift(
+                centerY: bulge.frame.midY,
+                // sigma = 0.55 x bulge height: visible over roughly 2.5x the bulge height.
+                sigma: height * 0.55,
+                // Peak displacement a little under the bulge depth.
+                amplitude: bulge.isActive ? bulge.depth * 0.85 : 0,
+                trailing: bulge.trailing
+            ))
+            .animation(.smooth(duration: 0.45), value: bulge.frame.midY)
+            .animation(.smooth(duration: 0.45), value: bulge.depth)
+            .animation(.smooth(duration: 0.45), value: bulge.frame.height)
         }
+    }
+}
+
+private struct EdgeFlowShift: ViewModifier, Animatable {
+    var centerY: CGFloat
+    var sigma: CGFloat
+    var amplitude: CGFloat
+    var trailing: Bool
+    @State private var rowFrame: CGRect = .zero
+
+    nonisolated var animatableData: AnimatablePair<CGFloat, AnimatablePair<CGFloat, CGFloat>> {
+        get { AnimatablePair(centerY, AnimatablePair(sigma, amplitude)) }
+        set { centerY = newValue.first; sigma = newValue.second.first; amplitude = newValue.second.second }
+    }
+
+    private func gaussian(_ y: CGFloat) -> CGFloat {
+        let d = (y - centerY) / max(sigma, 1)
+        return exp(-0.5 * d * d)
+    }
+
+    func body(content: Content) -> some View {
+        let band = 3 * sigma
+        let near = amplitude > 0.5 && rowFrame.height > 0 && rowFrame.maxY > centerY - band && rowFrame.minY < centerY + band
+        // Peak of the falloff over the row's span.
+        let peakG: CGFloat = near ? (rowFrame.minY...rowFrame.maxY ~= centerY ? 1 : max(gaussian(rowFrame.minY), gaussian(rowFrame.maxY))) : 0
+        // Quantized to whole points so scrolling doesn't re-layout on sub-point changes.
+        let inset = (amplitude * peakG).rounded()
+        content
+            .onGeometryChange(for: CGRect.self) { proxy in
+                let frame = proxy.frame(in: .global)
+                let active = frame.maxY > centerY - band - 120 && frame.minY < centerY + band + 120
+                return active ? frame.integral : CGRect(x: 0, y: -10_000, width: frame.width, height: 0)
+            } action: { rowFrame = $0 }
+            .distortionEffect(
+                ShaderLibrary.modulaEdgeFlow(
+                    .float4(Float(centerY), Float(sigma), Float(amplitude), trailing ? 1 : -1),
+                    .float2(Float(rowFrame.minY), Float(inset))
+                ),
+                maxSampleOffset: CGSize(width: inset + 1, height: 0),
+                isEnabled: inset > 0.5
+            )
+            .padding(trailing ? .trailing : .leading, inset)
     }
 }
 
