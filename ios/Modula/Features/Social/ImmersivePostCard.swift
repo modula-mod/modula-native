@@ -102,6 +102,7 @@ struct ImmersivePostCard: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.trailingInteractionInset) private var trailingInteractionInset
     @Environment(\.openURL) private var openURL
 
     @State private var heartBurst = 0
@@ -203,44 +204,57 @@ struct ImmersivePostCard: View {
 
     @ViewBuilder
     private func mediaCard(_ canonical: ModulaPost, pages: [ModulaAttachment]) -> some View {
-        let ratio = stageRatio(pages.first)
         let current = min(max(page ?? 0, 0), pages.count - 1)
         let isVideo = pages[current].kind == .video
         VStack(alignment: .leading, spacing: 10) {
-            Color.black
-                .aspectRatio(ratio, contentMode: .fit)
-                .frame(maxWidth: .infinity)
-                .overlay { mediaPager(pages) }
-                .overlay(alignment: .top) {
-                    LinearGradient(colors: [.black.opacity(0.55), .black.opacity(0.18), .clear], startPoint: .top, endPoint: .bottom)
-                        .frame(height: 120)
-                        .allowsHitTesting(false)
-                }
-                .overlay(alignment: .bottom) {
-                    LinearGradient(colors: [.clear, .black.opacity(0.35), .black.opacity(0.78)], startPoint: .top, endPoint: .bottom)
-                        .frame(height: 210)
-                        .allowsHitTesting(false)
-                }
-                .overlay { DoubleTapHeartBurst(trigger: heartBurst) }
-                .overlay(alignment: .top) { mediaHeader(canonical, pages: pages, current: current) }
-                .overlay(alignment: .bottomLeading) { captionBlock(canonical, pages: pages, current: current, isVideo: isVideo) }
-                .overlay(alignment: .bottomTrailing) { rail(expandable: isVideo ? pages[current] : nil, gallery: pages) }
-                .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: radius, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(colors: [.white.opacity(0.42), .white.opacity(0.08), .white.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                            lineWidth: 0.8
-                        )
-                        .allowsHitTesting(false)
-                }
-                .shadow(color: glow.opacity(0.28), radius: 18, y: 8)
-                .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
-                .environment(\.colorScheme, .dark)
-
-            commentBar
+            mediaStage(canonical, pages: pages, current: current, isVideo: isVideo)
             extraBlocks(canonical)
         }
+    }
+
+    private func mediaStage(_ canonical: ModulaPost, pages: [ModulaAttachment], current: Int, isVideo: Bool) -> some View {
+        let expandable: ModulaAttachment? = isVideo ? pages[current] : nil
+        return mediaStageBase(pages: pages)
+            .overlay(alignment: .top) { mediaHeader(canonical, pages: pages, current: current) }
+            .overlay(alignment: .bottomLeading) { captionBlock(canonical, pages: pages, current: current, isVideo: isVideo) }
+            .overlay(alignment: .bottomTrailing) { rail(expandable: expandable, gallery: pages) }
+            .overlay(alignment: .bottom) { mediaCommentStrip(isVideo: isVideo) }
+            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .overlay { mediaCardStroke }
+            .shadow(color: glow.opacity(0.28), radius: 18, y: 8)
+            .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+            .environment(\.colorScheme, .dark)
+    }
+
+    private func mediaStageBase(pages: [ModulaAttachment]) -> some View {
+        Color.black
+            .aspectRatio(stageRatio(pages.first), contentMode: .fit)
+            .frame(maxWidth: .infinity)
+            .overlay { mediaPager(pages) }
+            .overlay(alignment: .top) { mediaTopFade }
+            .overlay(alignment: .bottom) { mediaBottomFade }
+            .overlay { DoubleTapHeartBurst(trigger: heartBurst) }
+    }
+
+    private var mediaTopFade: some View {
+        LinearGradient(colors: [.black.opacity(0.55), .black.opacity(0.18), .clear], startPoint: .top, endPoint: .bottom)
+            .frame(height: 120)
+            .allowsHitTesting(false)
+    }
+
+    private var mediaBottomFade: some View {
+        LinearGradient(colors: [.clear, .black.opacity(0.35), .black.opacity(0.78)], startPoint: .top, endPoint: .bottom)
+            .frame(height: 210)
+            .allowsHitTesting(false)
+    }
+
+    private var mediaCardStroke: some View {
+        RoundedRectangle(cornerRadius: radius, style: .continuous)
+            .strokeBorder(
+                LinearGradient(colors: [.white.opacity(0.42), .white.opacity(0.08), .white.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                lineWidth: 0.8
+            )
+            .allowsHitTesting(false)
     }
 
     private var glow: Color {
@@ -354,38 +368,8 @@ struct ImmersivePostCard: View {
     private func authorButton(_ canonical: ModulaPost, onMedia: Bool) -> some View {
         Button(action: onOpenAuthor) {
             HStack(spacing: 10) {
-                RingedAvatar(author: post.author, size: 38)
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 4) {
-                        Text(post.author?.displayName ?? "Modula")
-                            .font(.system(.subheadline, design: font, weight: .semibold))
-                            .lineLimit(1)
-                        if post.author?.isVerified == true {
-                            Image(systemName: "checkmark.seal.fill")
-                                .font(.system(size: 13, weight: .semibold))
-                                .symbolRenderingMode(.palette)
-                                .foregroundStyle(.white, Color.blue)
-                                .accessibilityLabel("Verified")
-                        }
-                        Text("· \(ActivityRelativeTime.string(from: post.createdAt))")
-                            .font(.system(.caption, design: font))
-                            .foregroundStyle(onMedia ? .white.opacity(0.75) : .secondary)
-                            .lineLimit(1)
-                            .layoutPriority(-1)
-                    }
-                    if let location = canonical.context.location {
-                        Label(location, systemImage: "mappin.and.ellipse")
-                            .font(.system(.caption2, design: font, weight: .medium))
-                            .foregroundStyle(onMedia ? .white.opacity(0.85) : .secondary)
-                            .lineLimit(1)
-                            .labelStyle(TightLabelStyle())
-                    } else if let handle = post.author?.handle, !onMedia {
-                        Text("@\(handle)")
-                            .font(.system(.caption, design: font))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
+                RingedAvatar(author: post.author, size: onMedia ? 38 : 34)
+                authorMeta(canonical, onMedia: onMedia)
             }
             .foregroundStyle(onMedia ? Color.white : Color.primary)
             .shadow(color: onMedia ? .black.opacity(0.35) : .clear, radius: 3, y: 1)
@@ -395,6 +379,50 @@ struct ImmersivePostCard: View {
         .accessibilityLabel(post.author.map { "\($0.displayName), @\($0.handle)" } ?? "Author")
         .accessibilityHint("Opens profile")
         .accessibilityIdentifier(post.author.map { "home.author.\($0.id)" } ?? "home.author.unknown")
+    }
+
+    @ViewBuilder
+    private func authorMeta(_ canonical: ModulaPost, onMedia: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            authorNameRow(onMedia: onMedia)
+            authorSubtitle(canonical, onMedia: onMedia)
+        }
+    }
+
+    private func authorNameRow(onMedia: Bool) -> some View {
+        HStack(spacing: 4) {
+            Text(post.author?.displayName ?? "Modula")
+                .font(.system(.subheadline, design: font, weight: .semibold))
+                .lineLimit(1)
+            if post.author?.isVerified == true {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(.white, Color.blue)
+                    .accessibilityLabel("Verified")
+            }
+            Text("· \(ActivityRelativeTime.string(from: post.createdAt))")
+                .font(.system(.caption, design: font))
+                .foregroundStyle(onMedia ? Color.white.opacity(0.75) : Color.secondary.opacity(0.7))
+                .lineLimit(1)
+                .layoutPriority(-1)
+        }
+    }
+
+    @ViewBuilder
+    private func authorSubtitle(_ canonical: ModulaPost, onMedia: Bool) -> some View {
+        if let location = canonical.context.location {
+            Label(location, systemImage: "mappin.and.ellipse")
+                .font(.system(.caption2, design: font, weight: .medium))
+                .foregroundStyle(onMedia ? Color.white.opacity(0.85) : Color.secondary)
+                .lineLimit(1)
+                .labelStyle(TightLabelStyle())
+        } else if let handle = post.author?.handle, !onMedia {
+            Text("@\(handle)")
+                .font(.system(.caption2, design: font))
+                .foregroundStyle(Color.secondary.opacity(0.7))
+                .lineLimit(1)
+        }
     }
 
     private var moreButton: some View {
@@ -489,7 +517,8 @@ struct ImmersivePostCard: View {
         }
         .padding(.leading, 14)
         .padding(.trailing, 70)
-        .padding(.bottom, isVideo ? 30 : 14)
+        // Leave room for the slim comment strip overlay.
+        .padding(.bottom, isVideo ? 64 : 48)
     }
 
     // MARK: Rail
@@ -536,8 +565,9 @@ struct ImmersivePostCard: View {
             }
         }
         .shadow(color: glow.opacity(calm ? 0 : 0.35), radius: 10, y: 0)
-        .padding(.trailing, 10)
-        .padding(.bottom, 12)
+        // Keep clear of the Edge Loop "For You" tab.
+        .padding(.trailing, max(10, trailingInteractionInset * 0.35 + 6))
+        .padding(.bottom, 36)
         .gesture(
             DragGesture(minimumDistance: PostGestureThresholds.dragActivationDistance)
                 .onEnded { value in
@@ -797,55 +827,86 @@ struct ImmersivePostCard: View {
         if let onShare { onShare() } else { onRepost() }
     }
 
-    // MARK: Comment bar
+    // MARK: Comment strip (blended — no nested glass pill)
 
-    private var commentBar: some View {
-        HStack(spacing: 10) {
-            if let profile = app.profile.ownProfile {
-                ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 26)
-            } else {
-                Image(systemName: "person.crop.circle.fill")
-                    .font(.system(size: 22))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 26, height: 26)
+    /// Slim affordance on media cards, drawn over the bottom gradient (left of the rail).
+    private func mediaCommentStrip(isVideo: Bool) -> some View {
+        Button(action: onComment) {
+            HStack(spacing: 8) {
+                if let profile = app.profile.ownProfile {
+                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 22)
+                } else {
+                    Image(systemName: "person.crop.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .frame(width: 22, height: 22)
+                }
+                Text(post.replyCount > 0 ? "View comments" : "Add a comment…")
+                    .font(.system(.caption, design: font, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.88))
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.55))
             }
-            Text("Add a comment…")
-                .font(.system(.subheadline, design: font))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            Spacer(minLength: 0)
-            Button(action: onComment) {
-                Image(systemName: "photo")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 32, height: 32)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Comment with a photo")
-            Button(action: onComment) {
-                Text("GIF")
-                    .font(.system(size: 11, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 6).padding(.vertical, 3)
-                    .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(Color.secondary.opacity(0.6), lineWidth: 1.2))
-                    .frame(height: 32)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Comment with a GIF")
+            .padding(.horizontal, 12)
+            .frame(height: 34)
+            .background(.white.opacity(0.12), in: Capsule())
         }
-        .padding(.leading, 9)
-        .padding(.trailing, 8)
-        .frame(height: 44)
-        .modulaGlass(in: Capsule(), interactive: true)
-        .contentShape(Capsule())
-        .onTapGesture(perform: onComment)
+        .buttonStyle(.plain)
+        .padding(.leading, 12)
+        .padding(.trailing, 62 + max(0, trailingInteractionInset * 0.25))
+        .padding(.bottom, isVideo ? 28 : 10)
         .gesture(
             DragGesture(minimumDistance: PostGestureThresholds.dragActivationDistance)
                 .onEnded { value in
-                    if value.translation.height < -PostGestureThresholds.commentSheetThreshold { onComment() }
+                    if value.translation.height < -PostGestureThresholds.commentSheetThreshold {
+                        HapticEngine.shared.play(.contextOpen)
+                        onComment()
+                    }
                 }
         )
-        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Add a comment")
+        .accessibilityHint("Opens comments. Swipe up to open.")
+        .accessibilityIdentifier("post.comment.prompt.\(post.id)")
+    }
+
+    /// Integrated strip for text/link/audio/doc cards — shares the card surface (no second pill).
+    private var commentBar: some View {
+        Button(action: onComment) {
+            HStack(spacing: 8) {
+                if let profile = app.profile.ownProfile {
+                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 22)
+                } else {
+                    Image(systemName: "person.crop.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 22, height: 22)
+                }
+                Text(post.replyCount > 0 ? "Join the conversation…" : "Add a comment…")
+                    .font(.system(.subheadline, design: font))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 4)
+            .frame(height: 36)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .gesture(
+            DragGesture(minimumDistance: PostGestureThresholds.dragActivationDistance)
+                .onEnded { value in
+                    if value.translation.height < -PostGestureThresholds.commentSheetThreshold {
+                        HapticEngine.shared.play(.contextOpen)
+                        onComment()
+                    }
+                }
+        )
         .accessibilityLabel("Add a comment")
         .accessibilityHint("Opens comments. Swipe up to open.")
         .accessibilityIdentifier("post.comment.prompt.\(post.id)")
@@ -855,7 +916,8 @@ struct ImmersivePostCard: View {
     private func extraBlocks(_ canonical: ModulaPost) -> some View {
         ForEach(canonical.content.filter { !$0.isMediaFirst }) { block in
             if case .link(let value) = block {
-                ModulaLinkPreview(content: value) { openURL($0) }
+                ModulaLinkPreview(content: value, onOpen: { openURL($0) }, embedded: true)
+                    .padding(.horizontal, 4)
             }
         }
     }
@@ -864,69 +926,96 @@ struct ImmersivePostCard: View {
 
     @ViewBuilder
     private func textCard(_ canonical: ModulaPost) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: 10) {
                 authorButton(canonical, onMedia: false)
                 Spacer(minLength: 6)
                 moreButton
             }
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+
             if post.text?.isEmpty == false {
                 PostBody(post: post)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 10)
                     .contentShape(Rectangle())
                     .onTapGesture(perform: onOpenPost)
                     .accessibilityAction(named: "Open Post", onOpenPost)
                     .accessibilityIdentifier("post.open.\(post.id)")
             }
-            if case .audio(let value)? = canonical.content.first {
-                ImmersiveMusicPlayer(attachment: value.attachment) {
-                    viewer = ImmersiveViewerItem(attachment: value.attachment, gallery: [])
+
+            Group {
+                if case .audio(let value)? = canonical.content.first {
+                    ImmersiveMusicPlayer(attachment: value.attachment, onExpand: {
+                        viewer = ImmersiveViewerItem(attachment: value.attachment, gallery: [])
+                    }, embedded: true)
+                } else if !canonical.content.isEmpty || canonical.context.module != nil {
+                    PostCanonicalContent(
+                        source: post,
+                        videoCoordinator: videoCoordinator,
+                        onOpenAttachment: { attachment in
+                            if let media = post.media.first(where: { $0.id == attachment.id }) { onOpenMedia?(media) }
+                        },
+                        onOpenModule: onOpenModule,
+                        embeddedAttachments: true
+                    )
                 }
-            } else if !canonical.content.isEmpty || canonical.context.module != nil {
-                PostCanonicalContent(
-                    source: post,
-                    videoCoordinator: videoCoordinator,
-                    onOpenAttachment: { attachment in
-                        if let media = post.media.first(where: { $0.id == attachment.id }) { onOpenMedia?(media) }
-                    },
-                    onOpenModule: onOpenModule
-                )
             }
+            .padding(.horizontal, 10)
+            .padding(.bottom, 6)
+
+            // Soft fade into the action band (one system — horizontal only).
             textActions
+                .padding(.horizontal, 6)
+                .padding(.top, 2)
+                .padding(.bottom, 2)
+                .overlay(alignment: .top) {
+                    LinearGradient(colors: [Color.primary.opacity(0.06), .clear], startPoint: .top, endPoint: .bottom)
+                        .frame(height: 1)
+                        .padding(.horizontal, 14)
+                        .allowsHitTesting(false)
+                }
+
             commentBar
+                .padding(.horizontal, 14)
+                .padding(.top, 2)
+                .padding(.bottom, 10)
         }
-        .padding(14)
         .background {
             RoundedRectangle(cornerRadius: radius, style: .continuous)
                 .fill(reduceTransparency ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(.regularMaterial))
         }
         .background {
             RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .fill(LinearGradient(colors: [glow.opacity(0.10), .clear], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .fill(LinearGradient(colors: [glow.opacity(0.08), .clear], startPoint: .topLeading, endPoint: .bottomTrailing))
         }
         .overlay {
             RoundedRectangle(cornerRadius: radius, style: .continuous)
                 .strokeBorder(
-                    LinearGradient(colors: [.white.opacity(0.5), Color.primary.opacity(0.06), .white.opacity(0.18)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                    LinearGradient(colors: [.white.opacity(0.45), Color.primary.opacity(0.05), .white.opacity(0.14)], startPoint: .topLeading, endPoint: .bottomTrailing),
                     lineWidth: 0.8
                 )
                 .allowsHitTesting(false)
         }
-        .shadow(color: glow.opacity(0.22), radius: 20, y: 8)
-        .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
-        .overlay {
-            if !calm {
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(glow.opacity(0.18), lineWidth: 1)
-                    .allowsHitTesting(false)
-            }
-        }
+        .shadow(color: glow.opacity(0.16), radius: 16, y: 6)
+        .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
     }
 
     private var textActions: some View {
         HStack(spacing: 2) {
             heartControl(vertical: false)
                 .foregroundStyle(.secondary)
+            if let emoji = PostEmojiReactionStore.shared.emoji(for: post.id), reacted {
+                Text(emoji)
+                    .font(.system(size: 14))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Color.primary.opacity(0.06), in: Capsule())
+                    .accessibilityLabel("Reacted \(emoji)")
+            }
             pillButton("Comment", symbol: "bubble.right", count: post.replyCount, active: false, action: onComment)
                 .accessibilityIdentifier("home.action.comment.\(post.id)")
             pillButton("Repost", symbol: "arrow.2.squarepath", count: post.repostCount, active: post.reposted, action: onRepost)
@@ -936,6 +1025,7 @@ struct ImmersivePostCard: View {
                 .accessibilityIdentifier("home.action.save.\(post.id)")
             pillButton("Share", symbol: "paperplane", count: 0, active: false, action: share)
         }
+        .frame(minHeight: 40)
     }
 
     private func pillButton(_ title: String, symbol: String, count: Int, active: Bool, action: @escaping () -> Void) -> some View {
@@ -945,7 +1035,7 @@ struct ImmersivePostCard: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: symbol)
-                    .font(.system(size: 17, weight: .medium))
+                    .font(.system(size: 16, weight: .medium))
                     .contentTransition(.symbolEffect(.replace))
                     .symbolEffect(.bounce, value: active)
                 if let text = ModulaCountFormat.compact(count) {
@@ -954,8 +1044,8 @@ struct ImmersivePostCard: View {
                 }
             }
             .foregroundStyle(active ? app.appearance.accent.color : .secondary)
-            .frame(minWidth: 44, minHeight: 44)
-            .padding(.horizontal, 4)
+            .frame(minWidth: 40, minHeight: 40)
+            .padding(.horizontal, 2)
             .contentShape(Rectangle())
             .scaleEffect(railPressed == title ? 0.9 : 1)
             .animation(calm ? nil : .spring(response: 0.22, dampingFraction: 0.55), value: railPressed == title)
@@ -1193,6 +1283,7 @@ private struct EmojiPressStyle: ButtonStyle {
 struct ImmersiveMusicPlayer: View {
     let attachment: ModulaAttachment
     var onExpand: () -> Void
+    var embedded = false
     @State private var audio = ModulaAudioPlayerState()
     @State private var download = AttachmentDownloadModel()
     @Environment(AppEnvironment.self) private var app
@@ -1267,8 +1358,11 @@ struct ImmersiveMusicPlayer: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Open full player")
         }
-        .padding(10)
-        .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(embedded ? 8 : 10)
+        .background(
+            Color.primary.opacity(embedded ? 0.04 : 0.045),
+            in: RoundedRectangle(cornerRadius: embedded ? 12 : 18, style: .continuous)
+        )
         .onDisappear { audio.release() }
         .task(id: attachment.id) {
             download.prepare(attachment, downloadsRemote: true, manager: app.attachmentDownloads)

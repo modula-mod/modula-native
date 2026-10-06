@@ -70,6 +70,8 @@ struct ModulaPostContentRenderer: View {
     var onOpenAttachment: (ModulaAttachment) -> Void
     var onOpenLink: (URL) -> Void
     var onOpenModule: (SocialPostModule) -> Void
+    /// Flush attachments into the parent card (no nested card chrome).
+    var embeddedAttachments = false
 
     private var visibleBlocks: [PostContentBlock] {
         presentation == .detail
@@ -108,13 +110,13 @@ struct ModulaPostContentRenderer: View {
             case .video(let value):
                 ModulaVideoSurface(attachment: value.attachment, coordinator: videoCoordinator) { onOpenAttachment(value.attachment) }
             case .pdf(let value):
-                ModulaPDFSurface(attachment: value.attachment) { onOpenAttachment(value.attachment) }
+                ModulaPDFSurface(attachment: value.attachment, onOpen: { onOpenAttachment(value.attachment) }, embedded: embeddedAttachments)
             case .document(let value):
-                ModulaDocumentCard(attachment: value.attachment) { onOpenAttachment(value.attachment) }
+                ModulaDocumentCard(attachment: value.attachment, onOpen: { onOpenAttachment(value.attachment) }, embedded: embeddedAttachments)
             case .audio(let value):
-                ModulaAudioSurface(attachment: value.attachment) { onOpenAttachment(value.attachment) }
+                ModulaAudioSurface(attachment: value.attachment, onExpand: { onOpenAttachment(value.attachment) }, embedded: embeddedAttachments)
             case .link(let value):
-                ModulaLinkPreview(content: value, onOpen: onOpenLink)
+                ModulaLinkPreview(content: value, onOpen: onOpenLink, embedded: embeddedAttachments)
             }
         }
     }
@@ -425,14 +427,18 @@ struct ModulaVideoSurface: View {
 struct ModulaPDFSurface: View {
     let attachment: ModulaAttachment
     var onOpen: () -> Void
+    /// When true, sits flush inside a parent card (no second-card chrome).
+    var embedded = false
     @Environment(AppEnvironment.self) private var app
+
+    private var corner: CGFloat { embedded ? 14 : ModulaRadius.medium }
 
     var body: some View {
         Button(action: onOpen) {
             VStack(alignment: .leading, spacing: 0) {
                 PDFPreview(attachment: attachment)
-                    .frame(maxWidth: .infinity).frame(height: 230)
-                    .background(Color.primary.opacity(0.05))
+                    .frame(maxWidth: .infinity).frame(height: embedded ? 200 : 230)
+                    .background(Color.primary.opacity(embedded ? 0.03 : 0.05))
                 HStack(spacing: ModulaSpacing.sm) {
                     Image(systemName: "doc.richtext.fill").foregroundStyle(app.appearance.accent.color)
                     VStack(alignment: .leading, spacing: 2) {
@@ -444,9 +450,13 @@ struct ModulaPDFSurface: View {
                 }
                 .padding(ModulaSpacing.sm)
             }
-            .background(Color.primary.opacity(0.035))
-            .clipShape(RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous))
-            .overlay { RoundedRectangle(cornerRadius: ModulaRadius.medium).stroke(Color.primary.opacity(0.08)) }
+            .background(Color.primary.opacity(embedded ? 0.04 : 0.035))
+            .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
+            .overlay {
+                if !embedded {
+                    RoundedRectangle(cornerRadius: corner, style: .continuous).stroke(Color.primary.opacity(0.08))
+                }
+            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(attachment.accessibilityLabel)
@@ -521,6 +531,7 @@ private struct PDFPreview: View {
 struct ModulaDocumentCard: View {
     let attachment: ModulaAttachment
     var onOpen: () -> Void
+    var embedded = false
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
@@ -534,8 +545,11 @@ struct ModulaDocumentCard: View {
                 Spacer(minLength: 4)
                 Image(systemName: "arrow.down.circle").foregroundStyle(.secondary)
             }
-            .padding(ModulaSpacing.sm)
-            .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: ModulaRadius.medium))
+            .padding(embedded ? 10 : ModulaSpacing.sm)
+            .background(
+                Color.primary.opacity(embedded ? 0.04 : 0.045),
+                in: RoundedRectangle(cornerRadius: embedded ? 12 : ModulaRadius.medium, style: .continuous)
+            )
         }
         .buttonStyle(.plain)
         .accessibilityLabel(attachment.accessibilityLabel)
@@ -568,6 +582,7 @@ struct ModulaDocumentCard: View {
 struct ModulaAudioSurface: View {
     let attachment: ModulaAttachment
     var onExpand: () -> Void
+    var embedded = false
     @State private var audio = ModulaAudioPlayerState()
     @State private var download = AttachmentDownloadModel()
     @Environment(AppEnvironment.self) private var app
@@ -616,8 +631,11 @@ struct ModulaAudioSurface: View {
                 .background(.regularMaterial)
             }
         }
-        .padding(ModulaSpacing.sm)
-        .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: ModulaRadius.medium))
+        .padding(embedded ? 10 : ModulaSpacing.sm)
+        .background(
+            Color.primary.opacity(embedded ? 0.04 : 0.045),
+            in: RoundedRectangle(cornerRadius: embedded ? 12 : ModulaRadius.medium, style: .continuous)
+        )
         .onDisappear { audio.release() }
         .task(id: attachment.id) {
             download.prepare(attachment, downloadsRemote: true, manager: app.attachmentDownloads)
@@ -635,6 +653,7 @@ struct ModulaAudioSurface: View {
 struct ModulaLinkPreview: View {
     let content: LinkContent
     var onOpen: (URL) -> Void
+    var embedded = false
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
@@ -657,8 +676,11 @@ struct ModulaLinkPreview: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(ModulaSpacing.sm)
-            .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: ModulaRadius.medium))
+            .padding(embedded ? 10 : ModulaSpacing.sm)
+            .background(
+                Color.primary.opacity(embedded ? 0.04 : 0.045),
+                in: RoundedRectangle(cornerRadius: embedded ? 12 : ModulaRadius.medium, style: .continuous)
+            )
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
@@ -700,6 +722,7 @@ struct PostCanonicalContent: View {
     var videoCoordinator: FeedVideoCoordinator?
     var onOpenAttachment: (@MainActor (ModulaAttachment) -> Void)?
     var onOpenModule: (@MainActor (SocialPostModule) -> Void)?
+    var embeddedAttachments = false
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -709,7 +732,8 @@ struct PostCanonicalContent: View {
             videoCoordinator: videoCoordinator,
             onOpenAttachment: { onOpenAttachment?($0) },
             onOpenLink: { openURL($0) },
-            onOpenModule: { onOpenModule?($0) }
+            onOpenModule: { onOpenModule?($0) },
+            embeddedAttachments: embeddedAttachments
         )
     }
 }

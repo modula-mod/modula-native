@@ -127,9 +127,7 @@ struct PostCard: View {
                     onSave: onSave,
                     onReactLongPress: onReactLongPress
                 )
-            }
-
-            if layout.prefersActionRail {
+                // Slim comment affordance only with the horizontal action system (never with the rail).
                 PostCommentPrompt(post: post, onComment: onComment)
             }
         }
@@ -327,10 +325,9 @@ private struct PostCommentPrompt: View {
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(.tertiary)
             }
-            .padding(.horizontal, 10)
-            .frame(minHeight: 48)
-            .background(Color.primary.opacity(0.045), in: Capsule())
-            .contentShape(Capsule())
+            .padding(.horizontal, 4)
+            .frame(minHeight: 40)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Add a comment")
