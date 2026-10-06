@@ -89,6 +89,7 @@ struct SocialAuthor: Identifiable, Hashable, Sendable {
     let handle: String
     let displayName: String
     let avatarURL: URL?
+    var isVerified = false
 
     var initials: String {
         let parts = displayName.split(separator: " ")
@@ -205,6 +206,8 @@ struct SocialPost: Identifiable, Hashable, Sendable {
     let module: SocialPostModule?
     let glowColour: String?
     var engagement: PostEngagement
+    /// Place name when the API sends one (post `location` / `place`).
+    var location: String? = nil
 
     var liked: Bool {
         get { engagement.liked }
@@ -507,7 +510,8 @@ enum SocialPayloadDecoder {
                 quoteCount: value["quoteCount"]?.int ?? value["quote_count"]?.int ?? 0,
                 reactionCount: value["reactionCount"]?.int ?? value["reaction_count"]?.int ?? 0,
                 reactionSummary: ReactionSummary.decode(from: value["reactionSummary"] ?? value["reactions"] ?? value["reactionBreakdown"] ?? value["byType"])
-            )
+            ),
+            location: emptyToNil(value["location"]?.string ?? value["location"]?["name"]?.string ?? value["place"]?["name"]?.string ?? value["place"]?.string)
         )
     }
 
@@ -570,7 +574,8 @@ enum SocialPayloadDecoder {
             id: id,
             handle: handle,
             displayName: display,
-            avatarURL: (value["avatarUri"]?.string ?? value["avatarUrl"]?.string ?? value["avatar"]?.string).flatMap(URL.init(string:))
+            avatarURL: (value["avatarUri"]?.string ?? value["avatarUrl"]?.string ?? value["avatar"]?.string).flatMap(URL.init(string:)),
+            isVerified: value["verified"]?.bool ?? value["isVerified"]?.bool ?? value["is_verified"]?.bool ?? false
         )
     }
 

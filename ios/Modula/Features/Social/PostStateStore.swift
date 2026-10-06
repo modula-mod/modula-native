@@ -26,7 +26,8 @@ final class PostStateStore {
                 link: post.link ?? existing.link,
                 module: post.module ?? existing.module,
                 glowColour: post.glowColour ?? existing.glowColour,
-                engagement: post.engagement
+                engagement: post.engagement,
+                location: post.location ?? existing.location
             )
         } else {
             posts[post.id] = post

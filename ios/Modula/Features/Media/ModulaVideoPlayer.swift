@@ -73,6 +73,8 @@ struct ModulaVideoPlayer: View {
     var controller: ModulaVideoPlaybackController
     var fallbackPoster: UIImage? = nil
     var onToggle: (() -> Void)? = nil
+    /// Built-in play glyph + progress capsule (immersive cards draw their own).
+    var showsChrome = true
 
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -85,7 +87,7 @@ struct ModulaVideoPlayer: View {
                     .disabled(true)
                     .opacity(controller.state == .idle ? 0 : 1)
             }
-            if controller.state == .paused || controller.state == .preparing || !isActive {
+            if showsChrome, controller.state == .paused || controller.state == .preparing || !isActive {
                 Image(systemName: controller.state == .playing ? "pause.fill" : "play.fill")
                     .font(.system(size: 36, weight: .semibold))
                     .foregroundStyle(.white)
@@ -95,7 +97,7 @@ struct ModulaVideoPlayer: View {
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
             }
-            if controller.player != nil, isActive {
+            if showsChrome, controller.player != nil, isActive {
                 VStack {
                     Spacer()
                     HStack(spacing: 8) {

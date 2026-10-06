@@ -169,7 +169,7 @@ enum ModulaPostMapper {
         return ModulaPost(
             id: post.id,
             author: post.author.map {
-                PostAuthor(id: $0.id, handle: $0.handle, displayName: $0.displayName, avatarURL: $0.avatarURL)
+                PostAuthor(id: $0.id, handle: $0.handle, displayName: $0.displayName, avatarURL: $0.avatarURL, isVerified: $0.isVerified)
             },
             createdAt: post.createdAt,
             editedAt: post.editedAt,
@@ -177,7 +177,7 @@ enum ModulaPostMapper {
             content: blocks,
             context: PostContext(
                 feed: post.feed,
-                location: attachments.compactMap(\.metadata.location).first,
+                location: post.location ?? attachments.compactMap(\.metadata.location).first,
                 audience: post.audience,
                 visibility: post.visibility,
                 audioTitle: attachments.first(where: { $0.kind == .audio })?.metadata.title,

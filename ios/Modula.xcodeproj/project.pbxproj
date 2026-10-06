@@ -240,6 +240,7 @@
 		E40100000000000000000015 /* PostContextActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000015 /* PostContextActions.swift */; };
 		E40100000000000000000016 /* PostReactionPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000016 /* PostReactionPicker.swift */; };
 		E40100000000000000000017 /* PostActionRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000017 /* PostActionRail.swift */; };
+		D1E1E266D5A898AC84EB6AB0 /* ImmersivePostCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E1E266D5A898AC84EB6AB0 /* ImmersivePostCard.swift */; };
 		E40100000000000000000018 /* PostCommentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000018 /* PostCommentsView.swift */; };
 		E40100000000000000000019 /* PostSystemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000019 /* PostSystemTests.swift */; };
 		E423D28883AE5B3B8E115FCA /* Nodus02ATests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF7E2A43B8AEB5467D475D1F /* Nodus02ATests.swift */; };
@@ -609,6 +610,7 @@
 		E30100000000000000000015 /* PostContextActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostContextActions.swift; path = Features/Social/PostContextActions.swift; sourceTree = "<group>"; };
 		E30100000000000000000016 /* PostReactionPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostReactionPicker.swift; path = Features/Social/PostReactionPicker.swift; sourceTree = "<group>"; };
 		E30100000000000000000017 /* PostActionRail.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostActionRail.swift; path = Features/Social/PostActionRail.swift; sourceTree = "<group>"; };
+		D0E1E266D5A898AC84EB6AB0 /* ImmersivePostCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ImmersivePostCard.swift; path = Features/Social/ImmersivePostCard.swift; sourceTree = "<group>"; };
 		E30100000000000000000018 /* PostCommentsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostCommentsView.swift; path = Features/Social/PostCommentsView.swift; sourceTree = "<group>"; };
 		E30100000000000000000019 /* PostSystemTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostSystemTests.swift; sourceTree = "<group>"; };
 		E3E435D0DE95F2C71A8C5D51 /* NodusMemoryModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusMemoryModels.swift; path = Core/Intelligence/Nodus/Memory/NodusMemoryModels.swift; sourceTree = "<group>"; };
@@ -846,6 +848,7 @@
 				E30100000000000000000015 /* PostContextActions.swift */,
 				E30100000000000000000016 /* PostReactionPicker.swift */,
 				E30100000000000000000017 /* PostActionRail.swift */,
+				D0E1E266D5A898AC84EB6AB0 /* ImmersivePostCard.swift */,
 				E30100000000000000000018 /* PostCommentsView.swift */,
 				N40100000000000000000001 /* MediaModels.swift */,
 				N40100000000000000000002 /* ModulaVideoPlayer.swift */,
@@ -1487,6 +1490,7 @@
 				E40100000000000000000015 /* PostContextActions.swift in Sources */,
 				E40100000000000000000016 /* PostReactionPicker.swift in Sources */,
 				E40100000000000000000017 /* PostActionRail.swift in Sources */,
+				D1E1E266D5A898AC84EB6AB0 /* ImmersivePostCard.swift in Sources */,
 				E40100000000000000000018 /* PostCommentsView.swift in Sources */,
 				N50100000000000000000001 /* MediaModels.swift in Sources */,
 				N50100000000000000000002 /* ModulaVideoPlayer.swift in Sources */,

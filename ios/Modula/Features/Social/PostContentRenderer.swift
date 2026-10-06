@@ -270,6 +270,8 @@ struct ModulaVideoSurface: View {
     /// Extra top inset for the expand control when the surface sits under
     /// overlaid chrome (e.g. the Reels top bar).
     var controlsTopInset: CGFloat = 0
+    /// Immersive feed card: no expand button (the rail has one), thin progress bar + time.
+    var immersive = false
     @State private var controller = ModulaVideoPlaybackController()
     @State private var download = AttachmentDownloadModel()
     @State private var decodedPoster: UIImage?
@@ -297,7 +299,8 @@ struct ModulaVideoSurface: View {
                 ),
                 isActive: allowsPlayback && (coordinator?.activeVideoID == attachment.id || coordinator == nil),
                 controller: controller,
-                fallbackPoster: decodedPoster
+                fallbackPoster: decodedPoster,
+                showsChrome: !immersive
             )
             .frame(maxWidth: .infinity).frame(height: height)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
@@ -340,15 +343,33 @@ struct ModulaVideoSurface: View {
                 EmptyView()
             }
 
-            Button(action: onExpand) {
-                Image(systemName: "arrow.up.left.and.arrow.down.right")
-                    .font(.caption.bold()).foregroundStyle(.white)
-                    .frame(width: 44, height: 44)
-                    .background(.black.opacity(0.48), in: Circle())
+            if !immersive {
+                Button(action: onExpand) {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.caption.bold()).foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .background(.black.opacity(0.48), in: Circle())
+                }
+                .accessibilityLabel("Open full-screen video")
+                .padding(ModulaSpacing.xs)
+                .padding(.top, controlsTopInset)
             }
-            .accessibilityLabel("Open full-screen video")
-            .padding(ModulaSpacing.xs)
-            .padding(.top, controlsTopInset)
+        }
+        .overlay {
+            if immersive, controller.player != nil, controller.state != .playing {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 64, height: 64)
+                    .modulaGlass(in: Circle(), interactive: false)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if immersive, controller.player != nil {
+                ImmersiveVideoProgress(controller: controller)
+            }
         }
         .background {
             GeometryReader { geometry in

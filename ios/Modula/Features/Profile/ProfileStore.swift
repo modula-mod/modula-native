@@ -359,6 +359,47 @@ final class ProfileStore {
         }
     }
 
+    /// Follow by id + handle without a loaded profile session (e.g. from a post's author menu).
+    @discardableResult
+    func follow(profileID: ProfileID, handle: String) async -> Bool {
+        do {
+            _ = try await repository.follow(profileID: profileID, handle: handle)
+            HapticEngine.shared.play(.followComplete)
+            return true
+        } catch {
+            actionError = "Could not follow."
+            HapticEngine.shared.play(.failure)
+            return false
+        }
+    }
+
+    @discardableResult
+    func block(profileID: ProfileID) async -> Bool {
+        do {
+            try await repository.block(profileID: profileID)
+            HapticEngine.shared.play(.mediumImpact)
+            return true
+        } catch {
+            actionError = "Could not block this profile."
+            HapticEngine.shared.play(.failure)
+            return false
+        }
+    }
+
+    /// Profile report endpoint, used for "Report" on a post (no post-level report endpoint yet).
+    @discardableResult
+    func report(profileID: ProfileID, category: String, details: String?) async -> Bool {
+        do {
+            try await repository.report(profileID: profileID, category: category, details: details)
+            HapticEngine.shared.play(.confirmation)
+            return true
+        } catch {
+            actionError = "Could not submit report."
+            HapticEngine.shared.play(.failure)
+            return false
+        }
+    }
+
     func report(identity: ProfileIdentity, handleHint: String?, category: String, details: String? = nil) async {
         let key = sessionKey(identity, handleHint: handleHint)
         guard let profile = sessions[key]?.profile else { return }

@@ -18,6 +18,8 @@ struct PostCard: View {
     var onOpenModule: (@MainActor (SocialPostModule) -> Void)? = nil
     var onReactLongPress: (() -> Void)? = nil
     var videoCoordinator: FeedVideoCoordinator? = nil
+    /// `.immersive` = Home feed media-first card (see ImmersivePostCard).
+    var style: PostCardStyle = .standard
 
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -31,6 +33,29 @@ struct PostCard: View {
     }
 
     var body: some View {
+        if style == .immersive {
+            ImmersivePostCard(
+                post: resolved,
+                isOwnPost: isOwnPost,
+                onOpenPost: onOpenPost,
+                onOpenAuthor: onOpenAuthor,
+                onLike: onLike,
+                onComment: onComment,
+                onRepost: onRepost,
+                onSave: onSave,
+                onShare: onShare,
+                onContextAction: onContextAction,
+                onOpenMedia: onOpenMedia,
+                onOpenModule: onOpenModule,
+                videoCoordinator: videoCoordinator
+            )
+        } else {
+            standardBody
+        }
+    }
+
+    @ViewBuilder
+    private var standardBody: some View {
         let post = resolved
         let canonical = ModulaPostMapper.map(post)
         let layout = ModulaPostLayoutPolicy.resolve(canonical)

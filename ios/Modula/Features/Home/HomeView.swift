@@ -9,6 +9,8 @@ struct HomeView: View {
     @Environment(\.shellChromeMetrics) private var shellChromeMetrics
     @State private var videoCoordinator = FeedVideoCoordinator()
     @State private var commentsPost: SocialPost?
+    @State private var reportTarget: SocialPost?
+    @State private var blockTarget: SocialPost?
     /// True once the story tray has scrolled under the navigation bar; the
     /// tray then "folds" into a small avatar stack beside the title.
     @State private var storyTrayFolded = false
@@ -135,6 +137,30 @@ struct HomeView: View {
         .sheet(item: $commentsPost) { post in
             PostCommentsSheet(postID: post.id)
         }
+        .confirmationDialog(
+            "Report this post?",
+            isPresented: Binding(get: { reportTarget != nil }, set: { if !$0 { reportTarget = nil } }),
+            titleVisibility: .visible,
+            presenting: reportTarget
+        ) { post in
+            ForEach(["Spam", "Harassment or bullying", "Inappropriate content", "Misinformation", "Something else"], id: \.self) { reason in
+                Button(reason, role: .destructive) { report(post, reason: reason) }
+            }
+            Button("Cancel", role: .cancel) { reportTarget = nil }
+        } message: { post in
+            Text("Reports about @\(post.author?.handle ?? "this account") are reviewed by Modula.")
+        }
+        .confirmationDialog(
+            "Block this account?",
+            isPresented: Binding(get: { blockTarget != nil }, set: { if !$0 { blockTarget = nil } }),
+            titleVisibility: .visible,
+            presenting: blockTarget
+        ) { post in
+            Button("Block @\(post.author?.handle ?? "author")", role: .destructive) { block(post) }
+            Button("Cancel", role: .cancel) { blockTarget = nil }
+        } message: { _ in
+            Text("They won’t be able to follow you or see your posts, and you won’t see theirs.")
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("native.home")
         .accessibilityValue(RouteSerializer.serialize(.home(mode)))
@@ -245,7 +271,8 @@ struct HomeView: View {
                             app.navigation.push(.productHub(.module(module.id, .overview)))
                             HapticEngine.shared.play(.navigation)
                         },
-                        videoCoordinator: videoCoordinator
+                        videoCoordinator: videoCoordinator,
+                        style: .immersive
                     )
                     // Posts run full width and flow around the Edge Picker bulge.
                     .padding(.trailing, -trailingInteractionInset)
@@ -257,7 +284,6 @@ struct HomeView: View {
                             Task { await app.home.loadMore(mode) }
                         }
                     }
-                    Divider().opacity(0.25)
                 }
                 if state.loadState == .loadingMore {
                     ProgressView()
@@ -443,6 +469,30 @@ struct HomeView: View {
         HapticEngine.shared.play(.navigation)
     }
 
+    private func report(_ post: SocialPost, reason: String) {
+        reportTarget = nil
+        guard let author = post.author else { return }
+        Task {
+            if await app.profile.report(profileID: author.id, category: reason, details: "Post \(post.id)") {
+                app.postActions.hideLocally(post)
+                app.home.syncVisibleEngagement()
+                app.navigation.flash("Thanks, report sent", symbol: "checkmark.shield")
+            }
+        }
+    }
+
+    private func block(_ post: SocialPost) {
+        blockTarget = nil
+        guard let author = post.author else { return }
+        Task {
+            if await app.profile.block(profileID: author.id) {
+                app.postActions.hideLocally(post)
+                app.home.syncVisibleEngagement()
+                app.navigation.flash("Blocked @\(author.handle)", symbol: "hand.raised")
+            }
+        }
+    }
+
     private func handlePostContext(_ action: ModulaContextAction, post: SocialPost) {
         switch action.id {
         case "save":
@@ -466,6 +516,36 @@ struct HomeView: View {
         case "hide":
             app.postActions.hideLocally(post)
             app.home.syncVisibleEngagement()
+        case "not-interested":
+            app.postActions.hideLocally(post)
+            app.home.syncVisibleEngagement()
+            app.navigation.flash("You’ll see fewer posts like this", symbol: "eye.slash")
+        case "notify":
+            app.navigation.flash("Post notifications aren’t available yet", symbol: "bell.slash")
+        case "report":
+            reportTarget = post
+            HapticEngine.shared.play(.warning)
+        case "follow-author":
+            if let author = post.author {
+                Task {
+                    if await app.profile.follow(profileID: author.id, handle: author.handle) {
+                        app.navigation.flash("Following @\(author.handle)", symbol: "person.badge.plus")
+                    }
+                }
+            }
+        case "lists-author":
+            app.navigation.flash("Lists aren’t available yet", symbol: "list.bullet.rectangle")
+        case "mute-author":
+            if let author = post.author {
+                Task {
+                    if await app.profile.mute(profileID: author.id) {
+                        app.navigation.flash("Muted @\(author.handle)", symbol: "speaker.slash")
+                    }
+                }
+            }
+        case "block-author":
+            blockTarget = post
+            HapticEngine.shared.play(.warning)
         case "edit-post":
             app.navigation.open(.post(post.id, .edit))
         case "delete":
