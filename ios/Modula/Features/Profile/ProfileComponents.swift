@@ -261,11 +261,12 @@ struct ProfileAvatarPocket: View {
             .frame(height: ProfileIdentityMetrics.contentHeight(avatarSize: avatarSize))
             .overlay(alignment: .topLeading) {
                 avatarBadge
-                    .frame(width: avatarSize, height: avatarSize)
+                    .frame(width: avatarSize, height: avatarSize + (isOwnProfile && overlayStore.badge != nil ? 18 : 0))
                     .offset(y: -intersection)
                     .padding(.leading, inset)
             }
-        .accessibilityElement(children: .contain)
+            .onAppear { overlayStore.bind(accountID: app.auth.account?.accountId) }
+            .accessibilityElement(children: .contain)
     }
 
     private var avatarBadge: some View {
@@ -279,19 +280,21 @@ struct ProfileAvatarPocket: View {
                 HapticEngine.shared.play(.lightImpact)
             } label: {
                 ZStack {
-                    ProfileAvatarContent(profile: profile, size: avatarSize)
+                    decoratedAvatarContent
                         .overlay(
                             Circle()
                                 .strokeBorder(canvas, lineWidth: ring)
                         )
-                        .overlay(
-                            ModulaGlowRing(
-                                tint: tint ?? app.appearance.accent.color,
-                                lineWidth: storyRing == nil ? 3 : 1.5,
-                                glow: storyRing == nil
-                            )
-                            .padding(-1.5)
-                        )
+                        .overlay {
+                            if overlayStore.frameID == ProfileAvatarFrame.none.id {
+                                ModulaGlowRing(
+                                    tint: tint ?? app.appearance.accent.color,
+                                    lineWidth: storyRing == nil ? 3 : 1.5,
+                                    glow: storyRing == nil
+                                )
+                                .padding(-1.5)
+                            }
+                        }
                         .shadow(color: (tint ?? .black).opacity(0.25), radius: 12, y: 4)
 
                     if let storyRing {
@@ -330,6 +333,32 @@ struct ProfileAvatarPocket: View {
                     .offset(x: 2, y: 2)
                     .accessibilityLabel("Verified account")
             }
+        }
+    }
+
+    private var overlayStore: ProfileAvatarOverlayStore { ProfileAvatarOverlayStore.shared }
+
+    private var isOwnProfile: Bool {
+        profile.id == app.auth.account?.accountId
+            || profile.handle.caseInsensitiveCompare(app.auth.account?.primaryHandle ?? "") == .orderedSame
+    }
+
+    @ViewBuilder
+    private var decoratedAvatarContent: some View {
+        if isOwnProfile {
+            ModulaDecoratedAvatar(
+                size: avatarSize - 8,
+                frame: ProfileAvatarFrame.frame(id: overlayStore.frameID),
+                presence: overlayStore.presence,
+                badge: overlayStore.badge,
+                customBadgeLabel: overlayStore.customBadgeLabel,
+                customBadgeColor: Color(hex: overlayStore.customBadgeColorHex),
+                showsBadgeChip: overlayStore.badge != nil
+            ) {
+                ProfileAvatarContent(profile: profile, size: avatarSize - 8)
+            }
+        } else {
+            ProfileAvatarContent(profile: profile, size: avatarSize)
         }
     }
 
@@ -964,5 +993,543 @@ struct ProfileAvatarContent: View {
         } else {
             ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: size, name: profile.displayName)
         }
+    }
+}
+
+// MARK: - Avatar overlays (frames, badges, presence)
+
+// MARK: - Local overlay preferences (server has no fields yet)
+
+/// Discord-style frames, LinkedIn-style status badges, and presence dots — stored locally
+/// per account until the profile API grows matching fields.
+@MainActor @Observable
+final class ProfileAvatarOverlayStore {
+    static let shared = ProfileAvatarOverlayStore()
+
+    private(set) var frameID: String = ProfileAvatarFrame.none.id
+    private(set) var badge: ProfileStatusBadge?
+    private(set) var presence: ProfilePresenceStatus = .offline
+    private(set) var customBadgeLabel: String = ""
+    private(set) var customBadgeColorHex: String = "#3478F6"
+
+    private var accountKey: String = "anon"
+
+    func bind(accountID: String?) {
+        accountKey = accountID ?? "anon"
+        load()
+    }
+
+    func setFrame(_ id: String) {
+        frameID = id
+        persist()
+    }
+
+    func setBadge(_ badge: ProfileStatusBadge?) {
+        self.badge = badge
+        persist()
+    }
+
+    func setPresence(_ presence: ProfilePresenceStatus) {
+        self.presence = presence
+        persist()
+    }
+
+    func setCustomBadge(label: String, hex: String) {
+        customBadgeLabel = String(label.prefix(28))
+        customBadgeColorHex = hex
+        badge = .custom
+        persist()
+    }
+
+    private var defaultsKey: String { "profile.avatarOverlays.v1.\(accountKey)" }
+
+    private func load() {
+        guard let data = UserDefaults.standard.data(forKey: defaultsKey),
+              let decoded = try? JSONDecoder().decode(Payload.self, from: data) else {
+            frameID = ProfileAvatarFrame.none.id
+            badge = nil
+            presence = .offline
+            return
+        }
+        frameID = decoded.frameID
+        badge = decoded.badge.flatMap(ProfileStatusBadge.init(rawValue:))
+        presence = ProfilePresenceStatus(rawValue: decoded.presence) ?? .offline
+        customBadgeLabel = decoded.customLabel
+        customBadgeColorHex = decoded.customHex
+    }
+
+    private func persist() {
+        let payload = Payload(
+            frameID: frameID,
+            badge: badge?.rawValue,
+            presence: presence.rawValue,
+            customLabel: customBadgeLabel,
+            customHex: customBadgeColorHex
+        )
+        if let data = try? JSONEncoder().encode(payload) {
+            UserDefaults.standard.set(data, forKey: defaultsKey)
+        }
+    }
+
+    private struct Payload: Codable {
+        var frameID: String
+        var badge: String?
+        var presence: String
+        var customLabel: String
+        var customHex: String
+    }
+}
+
+// MARK: - Catalog
+
+struct ProfileAvatarFrame: Identifiable, Hashable, Sendable {
+    let id: String
+    let title: String
+    let kind: Kind
+
+    enum Kind: Hashable, Sendable {
+        case none
+        case softRing(Color)
+        case dualRing(Color, Color)
+        case dashed(Color)
+        case gradient([Color])
+        case pixels(Color)
+        case laurels(Color)
+        case hex(Color)
+        case sparkle(Color)
+        case neon(Color)
+        case mascotPaw(Color)
+    }
+
+    static let none = ProfileAvatarFrame(id: "none", title: "None", kind: .none)
+
+    static let catalog: [ProfileAvatarFrame] = [
+        none,
+        .init(id: "soft.accent", title: "Soft", kind: .softRing(Color(hex: "#3478F6"))),
+        .init(id: "soft.violet", title: "Violet", kind: .softRing(Color(hex: "#7656D6"))),
+        .init(id: "soft.coral", title: "Coral", kind: .softRing(Color(hex: "#D66056"))),
+        .init(id: "dual.ocean", title: "Ocean Dual", kind: .dualRing(Color(hex: "#3478F6"), Color(hex: "#5AC8FA"))),
+        .init(id: "dual.sunset", title: "Sunset", kind: .dualRing(Color(hex: "#FF6B6B"), Color(hex: "#FFD93D"))),
+        .init(id: "dashed.mint", title: "Dashed Mint", kind: .dashed(Color(hex: "#34C759"))),
+        .init(id: "grad.aurora", title: "Aurora", kind: .gradient([.purple, .pink, .orange, .yellow, .purple])),
+        .init(id: "grad.ice", title: "Ice", kind: .gradient([.cyan, .blue, .indigo, .cyan])),
+        .init(id: "pixels.lime", title: "Pixels", kind: .pixels(Color(hex: "#A8E10C"))),
+        .init(id: "laurels.gold", title: "Laurels", kind: .laurels(Color(hex: "#C9A227"))),
+        .init(id: "hex.teal", title: "Hex", kind: .hex(Color(hex: "#369CAA"))),
+        .init(id: "sparkle.pink", title: "Sparkle", kind: .sparkle(Color(hex: "#FF2D55"))),
+        .init(id: "neon.cyan", title: "Neon", kind: .neon(Color(hex: "#00F5FF"))),
+        .init(id: "paw.purple", title: "Paw", kind: .mascotPaw(Color(hex: "#AF52DE"))),
+    ]
+
+    static func frame(id: String) -> ProfileAvatarFrame {
+        catalog.first { $0.id == id } ?? .none
+    }
+}
+
+enum ProfileStatusBadge: String, CaseIterable, Identifiable, Sendable {
+    case openToWork
+    case hiring
+    case collaborating
+    case learning
+    case custom
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .openToWork: "Open to work"
+        case .hiring: "Hiring"
+        case .collaborating: "Collaborating"
+        case .learning: "Learning"
+        case .custom: "Custom"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .openToWork: "briefcase.fill"
+        case .hiring: "person.badge.plus"
+        case .collaborating: "person.2.fill"
+        case .learning: "book.fill"
+        case .custom: "tag.fill"
+        }
+    }
+
+    var defaultColor: Color {
+        switch self {
+        case .openToWork: Color(hex: "#0A66C2") // LinkedIn-ish blue
+        case .hiring: Color(hex: "#34C759")
+        case .collaborating: Color(hex: "#7656D6")
+        case .learning: Color(hex: "#FF9F0A")
+        case .custom: Color(hex: "#3478F6")
+        }
+    }
+}
+
+enum ProfilePresenceStatus: String, CaseIterable, Identifiable, Sendable {
+    case online, idle, dnd, offline
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .online: "Online"
+        case .idle: "Idle"
+        case .dnd: "Do not disturb"
+        case .offline: "Invisible"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .online: Color(hex: "#23A559")
+        case .idle: Color(hex: "#F0B232")
+        case .dnd: Color(hex: "#F23F43")
+        case .offline: Color(hex: "#80848E")
+        }
+    }
+}
+
+// MARK: - Decorated avatar
+
+/// Wraps avatar content with frame ring, presence pip, and optional status badge chip.
+struct ModulaDecoratedAvatar<Content: View>: View {
+    var size: CGFloat
+    var frame: ProfileAvatarFrame
+    var presence: ProfilePresenceStatus = .offline
+    var badge: ProfileStatusBadge? = nil
+    var customBadgeLabel: String = ""
+    var customBadgeColor: Color = .accentColor
+    var showsBadgeChip = true
+    @ViewBuilder var content: () -> Content
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var ringPad: CGFloat {
+        switch frame.kind {
+        case .none: 0
+        case .softRing, .dashed: 4
+        case .dualRing, .gradient, .neon, .sparkle: 6
+        case .pixels, .laurels, .hex, .mascotPaw: 8
+        }
+    }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            ZStack(alignment: .bottomTrailing) {
+                content()
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+                    .padding(ringPad)
+                    .background { frameBackground }
+                    .overlay { frameOverlay }
+
+                if presence != .offline {
+                    presencePip
+                        .offset(x: -2, y: -2)
+                }
+            }
+
+            if showsBadgeChip, let badge {
+                statusChip(badge)
+                    .offset(y: size * 0.42)
+            }
+        }
+        .frame(width: size + ringPad * 2, height: size + ringPad * 2)
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private var frameBackground: some View {
+        switch frame.kind {
+        case .none:
+            EmptyView()
+        case .softRing(let color), .dashed(let color), .pixels(let color), .laurels(let color), .hex(let color), .mascotPaw(let color), .neon(let color), .sparkle(let color):
+            Circle().strokeBorder(color.opacity(0.35), lineWidth: 3)
+        case .dualRing(let a, let b):
+            Circle().strokeBorder(
+                AngularGradient(colors: [a, b, a], center: .center),
+                lineWidth: 3.5
+            )
+        case .gradient(let colors):
+            Circle().strokeBorder(
+                AngularGradient(colors: colors, center: .center),
+                lineWidth: 4
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var frameOverlay: some View {
+        switch frame.kind {
+        case .none:
+            EmptyView()
+        case .softRing(let color):
+            Circle().strokeBorder(color.opacity(0.85), lineWidth: 2.5)
+        case .dualRing(let a, let b):
+            Circle()
+                .strokeBorder(AngularGradient(colors: [a, b, a], center: .center), lineWidth: 3)
+                .padding(2)
+            Circle()
+                .strokeBorder(b.opacity(0.5), lineWidth: 1)
+                .padding(-1)
+        case .dashed(let color):
+            Circle()
+                .strokeBorder(color, style: StrokeStyle(lineWidth: 2.5, dash: [5, 4]))
+        case .gradient(let colors):
+            Circle()
+                .strokeBorder(AngularGradient(colors: colors, center: .center), lineWidth: 3.5)
+                .shadow(color: colors.first?.opacity(reduceMotion ? 0 : 0.45) ?? .clear, radius: 8)
+        case .pixels(let color):
+            Circle().strokeBorder(color, lineWidth: 2)
+            ForEach(0..<8, id: \.self) { i in
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(color)
+                    .frame(width: 5, height: 5)
+                    .offset(y: -(size / 2 + ringPad - 1))
+                    .rotationEffect(.degrees(Double(i) * 45))
+            }
+        case .laurels(let color):
+            Circle().strokeBorder(color.opacity(0.7), lineWidth: 2)
+            Image(systemName: "laurel.leading")
+                .font(.system(size: size * 0.28, weight: .semibold))
+                .foregroundStyle(color)
+                .offset(x: -(size * 0.52), y: size * 0.08)
+            Image(systemName: "laurel.trailing")
+                .font(.system(size: size * 0.28, weight: .semibold))
+                .foregroundStyle(color)
+                .offset(x: size * 0.52, y: size * 0.08)
+        case .hex(let color):
+            Circle().strokeBorder(color.opacity(0.25), lineWidth: 1)
+            Image(systemName: "hexagon")
+                .font(.system(size: size + ringPad * 2, weight: .ultraLight))
+                .foregroundStyle(color.opacity(0.9))
+        case .sparkle(let color):
+            Circle().strokeBorder(color.opacity(0.8), lineWidth: 2)
+            ForEach(0..<5, id: \.self) { i in
+                Image(systemName: "sparkle")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(color)
+                    .offset(y: -(size / 2 + ringPad))
+                    .rotationEffect(.degrees(Double(i) * 72))
+            }
+        case .neon(let color):
+            Circle()
+                .strokeBorder(color, lineWidth: 2)
+                .shadow(color: color.opacity(reduceMotion ? 0 : 0.9), radius: 10)
+                .shadow(color: color.opacity(reduceMotion ? 0 : 0.5), radius: 18)
+        case .mascotPaw(let color):
+            Circle().strokeBorder(color.opacity(0.55), lineWidth: 2)
+            Image(systemName: "pawprint.fill")
+                .font(.system(size: size * 0.16, weight: .bold))
+                .foregroundStyle(color)
+                .offset(x: size * 0.38, y: -size * 0.38)
+        }
+    }
+
+    private var presencePip: some View {
+        Circle()
+            .fill(presence.color)
+            .frame(width: max(12, size * 0.22), height: max(12, size * 0.22))
+            .overlay(Circle().strokeBorder(Color(uiColor: .systemBackground), lineWidth: 2.5))
+            .accessibilityLabel(presence.title)
+    }
+
+    private func statusChip(_ badge: ProfileStatusBadge) -> some View {
+        let label = badge == .custom ? (customBadgeLabel.isEmpty ? "Custom" : customBadgeLabel) : badge.title
+        let color = badge == .custom ? customBadgeColor : badge.defaultColor
+        return HStack(spacing: 4) {
+            Image(systemName: badge.systemImage)
+                .font(.system(size: 9, weight: .bold))
+            Text(label)
+                .font(.system(size: 10, weight: .bold))
+                .lineLimit(1)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(color, in: Capsule())
+        .overlay(Capsule().strokeBorder(.white.opacity(0.35), lineWidth: 0.8))
+        .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
+        .accessibilityLabel(label)
+    }
+}
+
+// MARK: - Editor sheet
+
+struct ProfileAvatarOverlayEditor: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    private var store: ProfileAvatarOverlayStore { ProfileAvatarOverlayStore.shared }
+    @State private var customLabel: String = ""
+    @State private var customHex: String = "#3478F6"
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    preview
+
+                    section("Frame") {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 10)], spacing: 10) {
+                            ForEach(ProfileAvatarFrame.catalog) { item in
+                                Button {
+                                    store.setFrame(item.id)
+                                    HapticEngine.shared.play(.selection)
+                                } label: {
+                                    VStack(spacing: 6) {
+                                        ModulaDecoratedAvatar(
+                                            size: 44,
+                                            frame: item,
+                                            presence: .offline,
+                                            showsBadgeChip: false
+                                        ) {
+                                            Circle().fill(app.appearance.accent.color.opacity(0.35))
+                                        }
+                                        Text(item.title)
+                                            .font(.caption2.weight(.semibold))
+                                            .foregroundStyle(store.frameID == item.id ? app.appearance.accent.color : .secondary)
+                                            .lineLimit(1)
+                                    }
+                                    .padding(8)
+                                    .frame(maxWidth: .infinity)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(store.frameID == item.id ? app.appearance.accent.color.opacity(0.12) : Color.primary.opacity(0.04))
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(item.title)
+                                .accessibilityAddTraits(store.frameID == item.id ? .isSelected : [])
+                            }
+                        }
+                    }
+
+                    section("Status badge") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    badgeChip(nil, title: "None", color: .secondary)
+                                    ForEach(ProfileStatusBadge.allCases.filter { $0 != .custom }) { badge in
+                                        badgeChip(badge, title: badge.title, color: badge.defaultColor)
+                                    }
+                                    badgeChip(.custom, title: "Custom", color: Color(hex: customHex))
+                                }
+                            }
+                            if store.badge == .custom {
+                                TextField("Badge label", text: $customLabel)
+                                    .textFieldStyle(.plain)
+                                    .padding(.horizontal, 14)
+                                    .frame(height: 44)
+                                    .modulaGlass(in: Capsule(), interactive: true)
+                                    .onChange(of: customLabel) { _, value in
+                                        store.setCustomBadge(label: value, hex: customHex)
+                                    }
+                                HStack(spacing: 8) {
+                                    ForEach(["#3478F6", "#0A66C2", "#34C759", "#FF9F0A", "#FF2D55", "#AF52DE"], id: \.self) { hex in
+                                        Button {
+                                            customHex = hex
+                                            store.setCustomBadge(label: customLabel, hex: hex)
+                                            HapticEngine.shared.play(.selection)
+                                        } label: {
+                                            Circle().fill(Color(hex: hex)).frame(width: 28, height: 28)
+                                                .overlay(Circle().strokeBorder(customHex == hex ? Color.primary : .clear, lineWidth: 2))
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    section("Presence") {
+                        HStack(spacing: 8) {
+                            ForEach(ProfilePresenceStatus.allCases) { status in
+                                Button {
+                                    store.setPresence(status)
+                                    HapticEngine.shared.play(.selection)
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Circle().fill(status.color).frame(width: 10, height: 10)
+                                        Text(status.title).font(.caption.weight(.semibold))
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .frame(height: 36)
+                                    .background(
+                                        Capsule().fill(store.presence == status ? status.color.opacity(0.18) : Color.primary.opacity(0.05))
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+
+                    Text("Frames, badges, and presence are saved on this device until the profile API supports them.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(16)
+            }
+            .modulaCanvas()
+            .navigationTitle("Avatar overlays")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .onAppear {
+                store.bind(accountID: app.auth.account?.accountId)
+                customLabel = store.customBadgeLabel
+                customHex = store.customBadgeColorHex
+            }
+        }
+    }
+
+    private var preview: some View {
+        let frame = ProfileAvatarFrame.frame(id: store.frameID)
+        return HStack {
+            Spacer()
+            ModulaDecoratedAvatar(
+                size: 96,
+                frame: frame,
+                presence: store.presence,
+                badge: store.badge,
+                customBadgeLabel: store.customBadgeLabel,
+                customBadgeColor: Color(hex: store.customBadgeColorHex)
+            ) {
+                if let profile = app.profile.ownProfile {
+                    ProfileAvatarContent(profile: profile, size: 96)
+                } else {
+                    Circle().fill(app.appearance.accent.color.opacity(0.35))
+                }
+            }
+            Spacer()
+        }
+        .padding(.vertical, 12)
+    }
+
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title).font(.headline)
+            content()
+        }
+    }
+
+    private func badgeChip(_ badge: ProfileStatusBadge?, title: String, color: Color) -> some View {
+        Button {
+            store.setBadge(badge)
+            HapticEngine.shared.play(.selection)
+        } label: {
+            HStack(spacing: 6) {
+                if let badge {
+                    Image(systemName: badge.systemImage).font(.caption.weight(.bold))
+                }
+                Text(title).font(.caption.weight(.semibold))
+            }
+            .foregroundStyle(store.badge == badge ? Color.white : Color.primary)
+            .padding(.horizontal, 12)
+            .frame(height: 36)
+            .background(store.badge == badge ? color : Color.primary.opacity(0.06), in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }

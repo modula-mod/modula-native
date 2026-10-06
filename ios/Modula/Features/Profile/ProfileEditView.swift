@@ -5,6 +5,7 @@ struct ProfileEditView: View {
     @State private var confirmsDiscard = false
     @State private var mediaAction: ProfileMediaWorkspaceAction?
     @State private var mediaViewer: ModulaMediaViewerItem?
+    @State private var showsAvatarOverlays = false
 
     private var editing: ProfileEditingState { app.profile.editing }
     private var draft: ProfileEditDraft? { editing.draft }
@@ -79,6 +80,9 @@ struct ProfileEditView: View {
             ) {
                 mediaViewer = nil
             }
+        }
+        .sheet(isPresented: $showsAvatarOverlays) {
+            ProfileAvatarOverlayEditor()
         }
         .confirmationDialog("Unsaved changes", isPresented: $confirmsDiscard, titleVisibility: .visible) {
             Button("Save Changes") {
@@ -182,6 +186,17 @@ struct ProfileEditView: View {
                 onEdit: { mediaAction = .cropExisting(.cover) },
                 onRemove: { mediaAction = .remove(.cover) }
             )
+            Button {
+                showsAvatarOverlays = true
+                HapticEngine.shared.play(.selection)
+            } label: {
+                Label("Avatar frames & badges", systemImage: "circle.dashed")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(minHeight: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("profile.edit.avatarOverlays")
         }
     }
 
