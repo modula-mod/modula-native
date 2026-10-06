@@ -8,96 +8,45 @@ enum PostContextActions {
         saved: Bool,
         capabilities: PostBackendCapabilities = .production
     ) -> [ModulaContextAction] {
+        // Same action set as the Liquid Glass PostMenuOverlay (accessibility / VoiceOver).
         if isOwn {
-            var items: [ModulaContextAction] = []
-            if capabilities.editOwnPost {
-                items.append(.init(id: "edit-post", title: "Edit Post", systemImage: "pencil"))
-            }
+            var items: [ModulaContextAction] = [
+                .init(id: "share", title: "Share", systemImage: "square.and.arrow.up"),
+                .init(id: "copy-link", title: "Copy link", systemImage: "link"),
+            ]
             if capabilities.save {
-                items.append(.init(
-                    id: "save",
-                    title: saved ? "Unsave" : "Save",
-                    systemImage: saved ? "bookmark.fill" : "bookmark"
-                ))
-                items.append(.init(
-                    id: "save-collection",
-                    title: "Save to Collection…",
-                    systemImage: "rectangle.stack.badge.plus"
-                ))
+                items.append(.init(id: "save", title: saved ? "Saved" : "Save", systemImage: saved ? "bookmark.fill" : "bookmark"))
+                items.append(.init(id: "save-collection", title: "Collection", systemImage: "rectangle.stack.badge.plus"))
             }
-            items.append(.init(id: "copy-link", title: "Copy Link", systemImage: "link"))
-            items.append(.init(id: "share", title: "Share", systemImage: "square.and.arrow.up"))
+            items.append(.init(id: "interactions", title: "View Post Interactions", systemImage: "chart.bar"))
+            if capabilities.editOwnPost { items.append(.init(id: "edit-post", title: "Edit post", systemImage: "pencil")) }
             if capabilities.deleteOwnPost {
-                items.append(.init(
-                    id: "delete",
-                    title: "Delete Post",
-                    systemImage: "trash",
-                    role: .destructive,
-                    accessibilityLabel: "Delete post"
-                ))
+                items.append(.init(id: "delete", title: "Delete post", systemImage: "trash", role: .destructive))
             }
             return items
         }
-
-        var items: [ModulaContextAction] = []
-        if capabilities.save {
-            items.append(.init(
-                id: "save",
-                title: saved ? "Unsave" : "Save",
-                systemImage: saved ? "bookmark.fill" : "bookmark"
-            ))
-            items.append(.init(
-                id: "save-collection",
-                title: "Save to Collection…",
-                systemImage: "rectangle.stack.badge.plus"
-            ))
-        }
-        items.append(.init(id: "copy-link", title: "Copy Link", systemImage: "link"))
-        items.append(.init(id: "share", title: "Share", systemImage: "square.and.arrow.up"))
-        if capabilities.notInterested {
-            items.append(.init(id: "not-interested", title: "Not Interested", systemImage: "eye.slash"))
-        } else if capabilities.hideLocally {
-            items.append(.init(id: "hide", title: "Hide this post", systemImage: "eye.slash"))
-        }
-        if capabilities.muteAuthor {
-            items.append(.init(id: "mute-author", title: "Mute Author", systemImage: "speaker.slash"))
-        }
-        if capabilities.reportPost {
-            items.append(.init(
-                id: "report",
-                title: "Report",
-                systemImage: "exclamationmark.bubble",
-                role: .destructive,
-                accessibilityLabel: "Report post"
-            ))
-        }
-        return items
+        return [
+            .init(id: "share", title: "Share", systemImage: "square.and.arrow.up"),
+            .init(id: "copy-link", title: "Copy link", systemImage: "link"),
+            .init(id: "save", title: saved ? "Saved" : "Save", systemImage: saved ? "bookmark.fill" : "bookmark"),
+            .init(id: "save-collection", title: "Collection", systemImage: "rectangle.stack.badge.plus"),
+            .init(id: "not-interested", title: "Not interested in this post", systemImage: "eye.slash"),
+            .init(id: "interactions", title: "View Post Interactions", systemImage: "chart.bar"),
+            .init(id: "notify", title: "Turn on notifications", systemImage: "bell"),
+            .init(id: "hide", title: "Hide post", systemImage: "rectangle.slash"),
+            .init(id: "report", title: "Report post", systemImage: "flag", role: .destructive),
+            .init(id: "spam", title: "Mark as spam", systemImage: "exclamationmark.circle"),
+            .init(id: "community-note", title: "Request Community Note", systemImage: "megaphone"),
+        ]
     }
 
-    /// Glass panel opened by swiping down on the immersive rail (or "…").
+    /// Legacy helper kept for ImmersivePostContextPanel stubs; routes to the shared X set.
     static func immersivePanel(
         isOwn: Bool,
         saved: Bool,
         capabilities: PostBackendCapabilities = .production
     ) -> [ModulaContextAction] {
-        var items: [ModulaContextAction] = [
-            .init(id: "share", title: "Share post", systemImage: "square.and.arrow.up"),
-            .init(id: "copy-link", title: "Copy link", systemImage: "link")
-        ]
-        if capabilities.save {
-            items.append(.init(id: "save-collection", title: "Add to collection", systemImage: "rectangle.stack.badge.plus"))
-        }
-        if isOwn {
-            if capabilities.editOwnPost { items.append(.init(id: "edit-post", title: "Edit post", systemImage: "pencil")) }
-            if capabilities.deleteOwnPost {
-                items.append(.init(id: "delete", title: "Delete post", systemImage: "trash", role: .destructive, accessibilityLabel: "Delete post"))
-            }
-            return items
-        }
-        items.append(.init(id: "notify", title: "Turn on notifications", systemImage: "bell"))
-        items.append(.init(id: "not-interested", title: "Not interested", systemImage: "eye.slash"))
-        items.append(.init(id: "report", title: "Report", systemImage: "exclamationmark.bubble", role: .destructive, accessibilityLabel: "Report post"))
-        return items
+        menu(isOwn: isOwn, saved: saved, capabilities: capabilities)
     }
 
     /// X-style author section (@handle: Follow, Add to lists, Mute, Block).
@@ -117,24 +66,8 @@ enum PostContextActions {
         saved: Bool,
         capabilities: PostBackendCapabilities = .production
     ) -> [ModulaContextAction] {
-        var items: [ModulaContextAction] = [
-            .init(id: "share", title: "Share Post", systemImage: "square.and.arrow.up"),
-            .init(id: "copy-link", title: "Copy Link", systemImage: "link")
-        ]
-        if capabilities.save {
-            items.append(.init(
-                id: "save",
-                title: saved ? "Unsave" : "Save",
-                systemImage: "bookmark"
-            ))
-            items.append(.init(id: "save-collection", title: "Add to Collection", systemImage: "rectangle.stack.badge.plus"))
-        }
-        if capabilities.notInterested {
-            items.append(.init(id: "not-interested", title: "Not Interested", systemImage: "eye.slash"))
-        } else if capabilities.hideLocally {
-            items.append(.init(id: "hide", title: "Hide this post", systemImage: "eye.slash"))
-        }
-        return items
+        // Same set as PostMenuOverlay — never the old light system-menu items.
+        menu(isOwn: false, saved: saved, capabilities: capabilities)
     }
 
     static func commentMenu(
@@ -374,15 +307,32 @@ private struct PostMenuOverlay: View {
 
     @ViewBuilder
     private func glassShape(radius: CGFloat) -> some View {
+        // Target: dark frosted Liquid Glass (never the light system Menu material).
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         if opaque {
-            shape.fill(Color(white: 0.13))
-                .overlay(shape.strokeBorder(.white.opacity(0.12), lineWidth: 0.5))
+            shape.fill(Color(white: 0.11))
+                .overlay(shape.strokeBorder(.white.opacity(0.14), lineWidth: 0.6))
         } else {
-            Color.clear
-                .modulaGlass(in: shape, interactive: false, tint: .black.opacity(0.32), specular: true)
-                .overlay(shape.strokeBorder(.white.opacity(0.1), lineWidth: 0.5))
-                .shadow(color: .black.opacity(0.3), radius: 28, y: 14)
+            ZStack {
+                shape.fill(.ultraThinMaterial)
+                shape.fill(
+                    LinearGradient(
+                        colors: [Color(white: 0.14).opacity(0.92), Color(white: 0.08).opacity(0.88)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                shape.fill(
+                    LinearGradient(
+                        colors: [.white.opacity(0.10), .clear],
+                        startPoint: .top,
+                        endPoint: UnitPoint(x: 0.5, y: 0.35)
+                    )
+                )
+            }
+            .clipShape(shape)
+            .overlay(shape.strokeBorder(.white.opacity(0.16), lineWidth: 0.6))
+            .shadow(color: .black.opacity(0.45), radius: 32, y: 16)
         }
     }
 
@@ -403,28 +353,36 @@ private struct PostMenuOverlay: View {
             quickTiles
                 .padding(.horizontal, 10)
                 .padding(.top, 10)
-                .padding(.bottom, 4)
-            if request.isOwn {
-                row("interactions", "View Post Interactions", "chart.bar")
-                if request.hooks.onTranslate != nil { row("translate", "Translate post", "translate") }
-                if caps.editOwnPost { row("edit-post", "Edit post", "pencil") }
-                if caps.deleteOwnPost { row("delete", "Delete post", "trash", destructive: true) }
-            } else {
-                row("not-interested", "Not interested in this post", "eye.slash")
-                row("interactions", "View Post Interactions", "chart.bar")
-                row("notify", "Turn on notifications", "bell")
-                if request.hooks.onTranslate != nil { row("translate", "Translate post", "translate") }
-                if caps.hideLocally { row("hide", "Hide post", "rectangle.slash") }
-                row("report", "Report post", "flag", destructive: true)
-                row("spam", "Mark as spam", "exclamationmark.octagon")
-                row("community-note", "Request Community Note", "megaphone")
-                if let handle {
-                    Divider().overlay(.white.opacity(0.12)).padding(.horizontal, 18).padding(.vertical, 2)
-                    row("handle", "@\(handle)", nil, trailing: "chevron.right", emphasized: true)
+                .padding(.bottom, 2)
+                .zIndex(1)
+            // Soft top fade under the tile row (X progressive-blur feel).
+            ZStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 0) {
+                    if request.isOwn {
+                        row("interactions", "View Post Interactions", "chart.bar")
+                        if request.hooks.onTranslate != nil { row("translate", "Translate post", "translate") }
+                        if caps.editOwnPost { row("edit-post", "Edit post", "pencil") }
+                        if caps.deleteOwnPost { row("delete", "Delete post", "trash", destructive: true) }
+                    } else {
+                        row("not-interested", "Not interested in this post", "eye.slash")
+                        row("interactions", "View Post Interactions", "chart.bar")
+                        row("notify", "Turn on notifications", "bell")
+                        row("hide", "Hide post", "rectangle.slash")
+                        row("report", "Report post", "flag", destructive: true)
+                        row("spam", "Mark as spam", "exclamationmark.circle")
+                        row("community-note", "Request Community Note", "megaphone")
+                        if let handle {
+                            Divider().overlay(.white.opacity(0.14)).padding(.horizontal, 18).padding(.vertical, 3)
+                            row("handle", "@\(handle)", nil, trailing: "chevron.right", emphasized: true)
+                        }
+                    }
                 }
+                LinearGradient(colors: [Color.black.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
+                    .frame(height: 18)
+                    .allowsHitTesting(false)
             }
         }
-        .padding(.bottom, 8)
+        .padding(.bottom, 10)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Post actions")
     }
@@ -433,10 +391,8 @@ private struct PostMenuOverlay: View {
         HStack(spacing: 6) {
             tile("share", "Share", "square.and.arrow.up")
             tile("copy-link", "Copy link", "link")
-            if caps.save {
-                tile("save", request.post.saved ? "Saved" : "Save", request.post.saved ? "bookmark.fill" : "bookmark")
-                tile("save-collection", "Collection", "rectangle.stack.badge.plus")
-            }
+            tile("save", request.post.saved ? "Saved" : "Save", request.post.saved ? "bookmark.fill" : "bookmark")
+            tile("save-collection", "Collection", "rectangle.stack.badge.plus")
         }
     }
 
@@ -578,7 +534,11 @@ private struct PostMenuOverlay: View {
             .frame(maxWidth: .infinity, minHeight: 58)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.white.opacity(lit ? 0.2 : 0.08))
+                    .fill(.white.opacity(lit ? 0.22 : 0.10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(.white.opacity(0.12), lineWidth: 0.5)
+                    )
             )
             .scaleEffect(lit && !calm ? 1.06 : 1)
             .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -844,33 +804,40 @@ enum PostMenuExecutor {
 // MARK: - Menu sources
 
 /// "…" that opens the glass menu on tap, or press-and-drag straight onto an item.
+/// Uses a real `Button` so it works in toolbars (native `Menu` / `contextMenu` replaced).
 struct PostMenuButton<Label: View>: View {
     var makeRequest: (CGRect) -> PostMenuRequest
     @ViewBuilder var label: () -> Label
     @State private var frame: CGRect = .zero
+    @State private var dragging = false
 
     var body: some View {
-        label()
-            .contentShape(Rectangle())
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
-            .onTapGesture {
-                PostMenuCenter.shared.present(makeRequest(frame))
-            }
-            .gesture(
-                LongPressGesture(minimumDuration: 0.18, maximumDistance: 12)
-                    .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
-                    .onChanged { value in
-                        guard case .second(true, let drag) = value else { return }
-                        let center = PostMenuCenter.shared
-                        if !center.isPresented { center.present(makeRequest(frame), tracking: true) }
-                        if let drag { center.track(drag.location) }
-                    }
-                    .onEnded { _ in PostMenuCenter.shared.release() }
-            )
-            .accessibilityElement(children: .ignore)
-            .accessibilityAddTraits(.isButton)
-            .accessibilityLabel("More actions")
-            .accessibilityAction { PostMenuCenter.shared.present(makeRequest(frame)) }
+        Button {
+            guard !dragging else { return }
+            PostMenuCenter.shared.present(makeRequest(frame))
+        } label: {
+            label()
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.18, maximumDistance: 12)
+                .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
+                .onChanged { value in
+                    guard case .second(true, let drag) = value else { return }
+                    dragging = true
+                    let center = PostMenuCenter.shared
+                    if !center.isPresented { center.present(makeRequest(frame), tracking: true) }
+                    if let drag { center.track(drag.location) }
+                }
+                .onEnded { _ in
+                    PostMenuCenter.shared.release()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { dragging = false }
+                }
+        )
+        .accessibilityLabel("More actions")
+        .accessibilityHint("Opens post actions")
     }
 }
 

@@ -282,32 +282,6 @@ struct PostHeader: View {
                     .frame(width: PostGestureThresholds.minimumHitTarget, height: PostGestureThresholds.minimumHitTarget)
             }
             .accessibilityIdentifier("post.more.\(post.id)")
-        } else if let onSelectAction, !menuActions.isEmpty {
-            Menu {
-                ForEach(menuActions) { action in
-                    Button(role: action.role == .destructive ? .destructive : nil) {
-                        onSelectAction(action)
-                    } label: {
-                        if let symbol = action.systemImage {
-                            Label(action.title, systemImage: symbol)
-                        } else {
-                            Text(action.title)
-                        }
-                    }
-                    .disabled(!action.isInteractive)
-                    .accessibilityLabel(action.resolvedAccessibilityLabel)
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: PostGestureThresholds.minimumHitTarget, height: PostGestureThresholds.minimumHitTarget)
-                    .contentShape(Rectangle())
-            }
-            .menuStyle(.button)
-            .buttonStyle(.plain)
-            .accessibilityLabel("More actions")
-            .accessibilityIdentifier("post.more.\(post.id)")
         } else if let onMore {
             Button(action: onMore) {
                 Image(systemName: "ellipsis")

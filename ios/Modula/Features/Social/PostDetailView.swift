@@ -16,7 +16,7 @@ struct PostDetailView: View {
     @State private var attachmentViewerItem: ModulaAttachment?
     @State private var confirmDelete = false
     @State private var editText = ""
-    @State private var showsMoreMenu = false
+    @State private var moreFrame: CGRect = .zero
 
     private var isOwn: Bool {
         guard let handle = post?.author?.handle, let own = app.auth.account?.primaryHandle else { return false }
@@ -141,7 +141,8 @@ struct PostDetailView: View {
         VStack(alignment: .leading, spacing: 14) {
             PostHeader(
                 post: post,
-                onOpenAuthor: { openAuthor(post) }
+                onOpenAuthor: { openAuthor(post) },
+                makeMenuRequest: { menuRequest(for: post, anchor: $0) }
             )
             PostRendererRegistry.content(
                 for: post,
@@ -168,18 +169,6 @@ struct PostDetailView: View {
                     }
                 }
             )
-        }
-        .confirmationDialog("Post actions", isPresented: $showsMoreMenu, titleVisibility: .hidden) {
-            ForEach(PostContextActions.menu(
-                isOwn: isOwn,
-                saved: post.saved,
-                capabilities: app.postActions.capabilities
-            )) { action in
-                Button(action.title, role: action.role == .destructive ? .destructive : nil) {
-                    handleContext(action, post: post)
-                }
-            }
-            Button("Cancel", role: .cancel) {}
         }
     }
 
@@ -253,21 +242,35 @@ struct PostDetailView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             if let post {
-                ModulaContextMenu(
-                    actions: PostContextActions.menu(
-                        isOwn: isOwn,
-                        saved: post.saved,
-                        capabilities: app.postActions.capabilities
-                    )
-                ) { action in
-                    handleContext(action, post: post)
-                } label: {
+                PostMenuButton(makeRequest: { menuRequest(for: post, anchor: $0) }) {
                     Image(systemName: "ellipsis")
+                        .font(.body.weight(.semibold))
                         .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
-                .accessibilityLabel("More")
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { moreFrame = $0 }
+                .accessibilityIdentifier("post.detail.more")
             }
         }
+    }
+
+    private func menuRequest(for post: SocialPost, anchor: CGRect) -> PostMenuRequest {
+        PostMenuRequest(
+            post: post,
+            isOwn: isOwn,
+            anchor: anchor == .zero ? moreFrame : anchor,
+            hooks: PostMenuHooks(
+                onSave: { Task { await app.postActions.toggleSave(post) } },
+                onShare: {
+                    if PostSharing.method() == .modulaSheet {
+                        showsShareSheet = true
+                    } else {
+                        PostSharing.share(post, app: app)
+                    }
+                },
+                onContextAction: { action in handleContext(action, post: post) }
+            )
+        )
     }
 
     private func load() async {
