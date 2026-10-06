@@ -115,6 +115,10 @@ struct ImmersivePostCard: View {
     @State private var heartFrame: CGRect = .zero
     @State private var suppressHeartTap = false
     @State private var captionExpanded = false
+    @State private var pinchScale: CGFloat = 1
+    @State private var pinchBase: CGFloat = 1
+    @State private var saveBounce = 0
+    @State private var railPressed: String?
 
     private let radius: CGFloat = 24
     private var space: String { "immersive.\(post.id)" }
@@ -251,7 +255,7 @@ struct ImmersivePostCard: View {
         } else {
             // Horizontal paging owns only horizontal drags; the feed keeps vertical scrolling.
             ScrollView(.horizontal) {
-                LazyHStack(spacing: 0) {
+                LazyHStack(spacing: 8) {
                     ForEach(Array(pages.enumerated()), id: \.element.id) { index, attachment in
                         mediaPage(attachment, gallery: pages)
                             .containerRelativeFrame([.horizontal, .vertical])
@@ -291,10 +295,24 @@ struct ImmersivePostCard: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 SmartCropImage(attachment: attachment)
+                    .scaleEffect(pinchScale)
+                    .animation(calm ? nil : .interactiveSpring(response: 0.28, dampingFraction: 0.82), value: pinchScale)
                     .contentShape(Rectangle())
-                    .onTapGesture { openMedia(attachment) }
+                    .onTapGesture { if pinchScale <= 1.05 { openMedia(attachment) } }
+                    .simultaneousGesture(
+                        MagnificationGesture()
+                            .onChanged { value in
+                                guard !calm else { return }
+                                pinchScale = min(max(pinchBase * value, 1), 3.2)
+                            }
+                            .onEnded { _ in
+                                pinchBase = 1
+                                withAnimation(calm ? nil : .spring(response: 0.32, dampingFraction: 0.78)) { pinchScale = 1 }
+                                HapticEngine.shared.play(.selection)
+                            }
+                    )
                     .accessibilityLabel(attachment.accessibilityLabel)
-                    .accessibilityHint("Opens the post")
+                    .accessibilityHint("Opens the post. Pinch to zoom.")
             }
         }
         .simultaneousGesture(TapGesture(count: 2).onEnded {
@@ -408,10 +426,15 @@ struct ImmersivePostCard: View {
                     .shadow(color: .black.opacity(0.45), radius: 3, y: 1)
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        if captionExpanded || text.count < 90 { onOpenPost() } else {
+                        if text.count < 90 {
+                            onOpenPost()
+                        } else if captionExpanded {
+                            withAnimation(calm ? nil : .snappy) { captionExpanded = false }
+                        } else {
                             withAnimation(calm ? nil : .snappy) { captionExpanded = true }
                         }
                     }
+                    .onLongPressGesture(minimumDuration: 0.35) { onOpenPost() }
                     .accessibilityLabel(text)
                     .accessibilityHint("Opens the full post")
                     .accessibilityIdentifier("post.open.\(post.id)")
@@ -446,14 +469,22 @@ struct ImmersivePostCard: View {
             if pages.count > 1 {
                 HStack(spacing: 5) {
                     ForEach(0..<pages.count, id: \.self) { index in
-                        Capsule()
-                            .fill(.white.opacity(index == current ? 0.95 : 0.4))
-                            .frame(width: index == current ? 16 : 6, height: 6)
+                        Button {
+                            withAnimation(calm ? nil : .snappy) { page = index }
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            Capsule()
+                                .fill(.white.opacity(index == current ? 0.95 : 0.4))
+                                .frame(width: index == current ? 18 : 7, height: 7)
+                                .frame(minWidth: 18, minHeight: 18)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Go to item \(index + 1)")
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .animation(calm ? nil : .snappy, value: current)
-                .accessibilityHidden(true)
             }
         }
         .padding(.leading, 14)
@@ -469,11 +500,21 @@ struct ImmersivePostCard: View {
     private func rail(expandable: ModulaAttachment?, gallery: [ModulaAttachment]) -> some View {
         VStack(spacing: 0) {
             heartControl(vertical: true)
-            railButton("Comment", symbol: "bubble.right.fill", count: post.replyCount, active: false, action: onComment)
+            railButton("Comment", symbol: "bubble.right.fill", count: post.replyCount, active: false) {
+                HapticEngine.shared.play(.contextOpen)
+                onComment()
+            }
                 .accessibilityIdentifier("home.action.comment.\(post.id)")
-            railButton(post.saved ? "Unsave" : "Save", symbol: post.saved ? "bookmark.fill" : "bookmark", count: 0, active: post.saved, tint: .yellow, action: onSave)
+            railButton(post.saved ? "Unsave" : "Save", symbol: post.saved ? "bookmark.fill" : "bookmark", count: 0, active: post.saved, tint: .yellow) {
+                saveBounce += 1
+                HapticEngine.shared.play(.confirmation)
+                onSave()
+            }
                 .accessibilityIdentifier("home.action.save.\(post.id)")
-            railButton("Share", symbol: "paperplane.fill", count: post.repostCount, active: false, action: share)
+            railButton("Share", symbol: "paperplane.fill", count: post.repostCount, active: false) {
+                HapticEngine.shared.play(.contextOpen)
+                share()
+            }
             if let expandable {
                 railButton("Open full-screen player", symbol: "arrow.up.left.and.arrow.down.right", count: 0, active: false) {
                     viewer = ImmersiveViewerItem(attachment: expandable, gallery: gallery)
@@ -483,6 +524,18 @@ struct ImmersivePostCard: View {
         .padding(.vertical, 6)
         .padding(.horizontal, 2)
         .modulaGlass(in: Capsule(), interactive: false, specular: true)
+        .overlay {
+            if !calm {
+                Capsule()
+                    .strokeBorder(
+                        AngularGradient(colors: [glow.opacity(0.55), .white.opacity(0.15), glow.opacity(0.35), .clear, glow.opacity(0.55)], center: .center),
+                        lineWidth: 1
+                    )
+                    .opacity(0.85)
+                    .allowsHitTesting(false)
+            }
+        }
+        .shadow(color: glow.opacity(calm ? 0 : 0.35), radius: 10, y: 0)
         .padding(.trailing, 10)
         .padding(.bottom, 12)
         .gesture(
@@ -506,16 +559,25 @@ struct ImmersivePostCard: View {
                     .font(.system(size: 19, weight: .semibold))
                     .foregroundStyle(active ? (tint ?? app.appearance.accent.color) : .white)
                     .contentTransition(.symbolEffect(.replace))
+                    .symbolEffect(.bounce, value: symbol.contains("bookmark") ? saveBounce : 0)
+                    .scaleEffect(railPressed == title ? 0.82 : 1)
                 if let text = ModulaCountFormat.compact(count) {
                     Text(text)
                         .font(.system(size: 10, weight: .semibold, design: font).monospacedDigit())
                         .foregroundStyle(.white.opacity(0.9))
+                        .contentTransition(.numericText())
                 }
             }
             .frame(width: 44, height: 44)
             .contentShape(Rectangle())
+            .animation(calm ? nil : .spring(response: 0.22, dampingFraction: 0.55), value: railPressed == title)
         }
         .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in if railPressed != title { railPressed = title } }
+                .onEnded { _ in railPressed = nil }
+        )
         .accessibilityLabel(title)
         .accessibilityValue(count > 0 ? "\(count)" : "")
     }
@@ -540,7 +602,12 @@ struct ImmersivePostCard: View {
             guard !suppressHeartTap else { return }
             if showsReactions { closePicker(); return }
             onLike()
-            if !reacted { HapticEngine.shared.play(.lightImpact) }
+            if !reacted {
+                heartBurst += 1
+                HapticEngine.shared.play(.confirmation)
+            } else {
+                HapticEngine.shared.play(.selection)
+            }
         }
         .simultaneousGesture(
             LongPressGesture(minimumDuration: PostGestureThresholds.longPressDuration)
@@ -707,8 +774,8 @@ struct ImmersivePostCard: View {
     }
 
     private func openPanel() {
-        HapticEngine.shared.play(.dragThreshold)
-        withAnimation(calm ? nil : .spring(response: 0.34, dampingFraction: 0.8)) { showsPanel = true }
+        HapticEngine.shared.play(.contextOpen)
+        withAnimation(calm ? nil : .spring(response: 0.28, dampingFraction: 0.72)) { showsPanel = true }
     }
 
     private func closePanel() {
@@ -845,8 +912,15 @@ struct ImmersivePostCard: View {
                 )
                 .allowsHitTesting(false)
         }
-        .shadow(color: glow.opacity(0.14), radius: 16, y: 6)
-        .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+        .shadow(color: glow.opacity(0.22), radius: 20, y: 8)
+        .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+        .overlay {
+            if !calm {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .strokeBorder(glow.opacity(0.18), lineWidth: 1)
+                    .allowsHitTesting(false)
+            }
+        }
     }
 
     private var textActions: some View {
@@ -865,21 +939,33 @@ struct ImmersivePostCard: View {
     }
 
     private func pillButton(_ title: String, symbol: String, count: Int, active: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button {
+            HapticEngine.shared.play(.selection)
+            action()
+        } label: {
             HStack(spacing: 5) {
                 Image(systemName: symbol)
                     .font(.system(size: 17, weight: .medium))
                     .contentTransition(.symbolEffect(.replace))
+                    .symbolEffect(.bounce, value: active)
                 if let text = ModulaCountFormat.compact(count) {
                     Text(text).font(.system(size: 12, weight: .semibold, design: font).monospacedDigit())
+                        .contentTransition(.numericText())
                 }
             }
             .foregroundStyle(active ? app.appearance.accent.color : .secondary)
             .frame(minWidth: 44, minHeight: 44)
             .padding(.horizontal, 4)
             .contentShape(Rectangle())
+            .scaleEffect(railPressed == title ? 0.9 : 1)
+            .animation(calm ? nil : .spring(response: 0.22, dampingFraction: 0.55), value: railPressed == title)
         }
         .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in railPressed = title }
+                .onEnded { _ in railPressed = nil }
+        )
         .accessibilityLabel(title)
         .accessibilityValue(count > 0 ? "\(count)" : "")
     }
@@ -1226,26 +1312,72 @@ extension Color {
 }
 
 /// Thin progress bar + elapsed/total time for immersive video (sits left of the action rail).
+/// Drag to scrub; long-press the time label to cycle 1× / 1.5× / 2×.
 struct ImmersiveVideoProgress: View {
     let controller: ModulaVideoPlaybackController
+    @State private var scrubbing = false
+    @State private var scrubProgress: Double = 0
+    @State private var rateFlash: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(label)
+            Text(rateFlash ?? label)
                 .font(.system(size: 10, weight: .semibold).monospacedDigit())
                 .foregroundStyle(.white.opacity(0.92))
                 .fixedSize()
+                .contentTransition(.opacity)
+                .onLongPressGesture(minimumDuration: 0.35) {
+                    let rate = controller.cycleRate()
+                    let label = rate == 1 ? "1×" : (rate == 1.5 ? "1.5×" : "2×")
+                    rateFlash = label
+                    HapticEngine.shared.play(.confirmation)
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(900))
+                        if rateFlash == label { rateFlash = nil }
+                    }
+                }
+                .accessibilityLabel("Playback speed \(controller.rate == 1 ? "1x" : controller.rate == 1.5 ? "1.5x" : "2x"). Long-press to change.")
             GeometryReader { geo in
+                let shown = scrubbing ? scrubProgress : controller.progress
                 Capsule().fill(.white.opacity(0.28))
                     .overlay(alignment: .leading) {
-                        Capsule().fill(.white).frame(width: max(2, geo.size.width * controller.progress))
+                        Capsule().fill(.white).frame(width: max(2, geo.size.width * shown))
                     }
+                    .frame(maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                let fraction = min(max(value.location.x / max(geo.size.width, 1), 0), 1)
+                                if !scrubbing {
+                                    scrubbing = true
+                                    HapticEngine.shared.play(.selection)
+                                }
+                                scrubProgress = fraction
+                            }
+                            .onEnded { value in
+                                let fraction = min(max(value.location.x / max(geo.size.width, 1), 0), 1)
+                                controller.seek(to: fraction)
+                                scrubbing = false
+                                HapticEngine.shared.play(.lightImpact)
+                            }
+                    )
             }
-            .frame(height: 3)
+            .frame(height: scrubbing ? 8 : 3)
+            .animation(reduceMotion ? nil : .snappy(duration: 0.15), value: scrubbing)
             .accessibilityElement()
             .accessibilityLabel("Video progress")
-            .accessibilityValue("\(Int(controller.progress * 100)) percent")
-            Button { controller.toggleMute() } label: {
+            .accessibilityValue("\(Int((scrubbing ? scrubProgress : controller.progress) * 100)) percent")
+            .accessibilityAdjustableAction { direction in
+                let step = 0.05
+                let next = controller.progress + (direction == .increment ? step : -step)
+                controller.seek(to: next)
+            }
+            Button {
+                controller.toggleMute()
+                HapticEngine.shared.play(.selection)
+            } label: {
                 Image(systemName: controller.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.white)
@@ -1262,7 +1394,7 @@ struct ImmersiveVideoProgress: View {
 
     private var label: String {
         let total = controller.duration
-        let elapsed = total * controller.progress
+        let elapsed = total * (scrubbing ? scrubProgress : controller.progress)
         return "\(Self.clock(elapsed)) / \(Self.clock(total))"
     }
 

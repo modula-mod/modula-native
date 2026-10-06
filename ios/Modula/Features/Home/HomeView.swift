@@ -135,7 +135,7 @@ struct HomeView: View {
             }
         }
         .sheet(item: $commentsPost) { post in
-            PostCommentsSheet(postID: post.id, commentCount: post.replyCount)
+            PostCommentsSheet(postID: post.id, commentCount: post.replyCount, postAuthorID: post.author?.id)
         }
         .confirmationDialog(
             "Report this post?",
@@ -382,24 +382,37 @@ struct HomeView: View {
     }
 
     private var skeleton: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            ForEach(0..<3, id: \.self) { _ in
+        VStack(alignment: .leading, spacing: 16) {
+            ForEach(0..<3, id: \.self) { index in
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 10) {
-                        Circle().fill(Color.primary.opacity(0.08)).frame(width: 36, height: 36)
+                        Circle().fill(Color.primary.opacity(0.08)).frame(width: 38, height: 38)
                         VStack(alignment: .leading, spacing: 6) {
-                            Capsule().fill(Color.primary.opacity(0.08)).frame(width: 120, height: 12)
-                            Capsule().fill(Color.primary.opacity(0.06)).frame(width: 80, height: 10)
+                            Capsule().fill(Color.primary.opacity(0.10)).frame(width: 128, height: 12)
+                            Capsule().fill(Color.primary.opacity(0.06)).frame(width: 72, height: 10)
                         }
+                        Spacer()
+                        Circle().fill(Color.primary.opacity(0.06)).frame(width: 28, height: 28)
                     }
-                    RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.06)).frame(height: 64)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 12)
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(Color.primary.opacity(index == 1 ? 0.07 : 0.05))
+                        .frame(height: index == 1 ? 280 : 220)
+                        .overlay(alignment: .bottomTrailing) {
+                            Capsule().fill(Color.primary.opacity(0.06)).frame(width: 44, height: 140)
+                                .padding(12)
+                        }
+                    Capsule().fill(Color.primary.opacity(0.06)).frame(height: 40)
+                        .padding(.horizontal, 8)
+                        .padding(.bottom, 8)
                 }
+                .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: false)
             }
         }
         .padding(.top, 8)
         .redacted(reason: .placeholder)
-        .modulaShimmer()
-        .accessibilityIdentifier("home.loading")
+        .accessibilityLabel("Loading posts")
     }
 
     private var showsStoryTray: Bool {

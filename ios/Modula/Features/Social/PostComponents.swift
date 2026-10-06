@@ -706,26 +706,46 @@ struct DoubleTapHeartBurst: View {
     let trigger: Int
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var visible = false
+    @State private var particleSeed = 0
 
     var body: some View {
-        Image(systemName: "heart.fill")
-            .font(.system(size: 88, weight: .bold))
-            .foregroundStyle(.white)
-            .shadow(color: .black.opacity(0.35), radius: 14, y: 4)
-            .scaleEffect(visible ? 1 : (calm ? 1 : 0.4))
-            .opacity(visible ? 1 : 0)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-            .onChange(of: trigger) { _, _ in
-                withAnimation(calm ? .easeOut(duration: 0.15) : .spring(response: 0.28, dampingFraction: 0.55)) { visible = true }
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(650))
-                    withAnimation(.easeOut(duration: 0.25)) { visible = false }
+        ZStack {
+            if visible && !calm {
+                ForEach(0..<8, id: \.self) { index in
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 14 + CGFloat(index % 3) * 4, weight: .bold))
+                        .foregroundStyle(Color(red: 1, green: 0.27, blue: 0.4).opacity(0.9))
+                        .offset(particleOffset(index))
+                        .opacity(visible ? 0.15 : 1)
+                        .animation(calm ? nil : .easeOut(duration: 0.55), value: visible)
                 }
             }
+            Image(systemName: "heart.fill")
+                .font(.system(size: 88, weight: .bold))
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.35), radius: 14, y: 4)
+                .scaleEffect(visible ? 1 : (calm ? 1 : 0.4))
+                .opacity(visible ? 1 : 0)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+        .onChange(of: trigger) { _, _ in
+            particleSeed = trigger
+            withAnimation(calm ? .easeOut(duration: 0.15) : .spring(response: 0.26, dampingFraction: 0.52)) { visible = true }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(calm ? 400 : 720))
+                withAnimation(.easeOut(duration: 0.28)) { visible = false }
+            }
+        }
     }
 
     private var calm: Bool { reduceMotion || ModulaPreferences.extraMotionReduction }
+
+    private func particleOffset(_ index: Int) -> CGSize {
+        let angle = Double(index) / 8 * .pi * 2 + Double(particleSeed) * 0.3
+        let radius = visible ? 56.0 + Double(index % 3) * 10 : 8
+        return CGSize(width: cos(angle) * radius, height: sin(angle) * radius - (visible ? 12 : 0))
+    }
 }
 
 extension ModulaPreferences.CaptionSize {

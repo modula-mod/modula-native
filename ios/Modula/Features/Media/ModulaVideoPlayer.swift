@@ -11,10 +11,20 @@ final class ModulaVideoPlaybackController {
     private(set) var player: AVPlayer?
     private(set) var progress: Double = 0
     private(set) var duration: TimeInterval = 0
-    /// Settings → Media → Video → "Start muted".
-    private(set) var isMuted = ModulaPreferences.videoStartsMuted
+    /// Settings → Media → Video → "Start muted", then last in-session mute choice.
+    private(set) var isMuted: Bool
+    /// Playback rate (1 / 1.5 / 2). Persists for the lifetime of this controller.
+    private(set) var rate: Float = 1
     var autoplayAllowed = true
     private var timeObserver: Any?
+
+    init() {
+        if UserDefaults.standard.object(forKey: "modula.video.lastMuted") != nil {
+            isMuted = UserDefaults.standard.bool(forKey: "modula.video.lastMuted")
+        } else {
+            isMuted = ModulaPreferences.videoStartsMuted
+        }
+    }
 
     func attach(url: URL) {
         guard player?.currentItem?.asset as? AVURLAsset == nil ||
@@ -24,9 +34,10 @@ final class ModulaVideoPlaybackController {
         let next = AVPlayer(playerItem: item)
         next.actionAtItemEnd = .pause
         next.isMuted = isMuted
+        next.rate = rate
         player = next
         state = .preparing
-        timeObserver = next.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.5, preferredTimescale: 600), queue: .main) { [weak self, weak next] time in
+        timeObserver = next.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.25, preferredTimescale: 600), queue: .main) { [weak self, weak next] time in
             guard let self, let next else { return }
             Task { @MainActor in
                 let total = next.currentItem?.duration.seconds ?? 0
@@ -39,6 +50,7 @@ final class ModulaVideoPlaybackController {
     func play() {
         guard let player else { return }
         player.play()
+        player.rate = rate
         state = .playing
     }
 
@@ -54,6 +66,40 @@ final class ModulaVideoPlaybackController {
     func toggleMute() {
         isMuted.toggle()
         player?.isMuted = isMuted
+        UserDefaults.standard.set(isMuted, forKey: "modula.video.lastMuted")
+    }
+
+    /// Seek to a normalised progress 0…1. Keeps play/pause state.
+    func seek(to fraction: Double) {
+        guard let player, duration > 0 else { return }
+        let clamped = min(max(fraction, 0), 1)
+        let target = CMTime(seconds: duration * clamped, preferredTimescale: 600)
+        let wasPlaying = state == .playing
+        player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                self.progress = clamped
+                if wasPlaying { self.player?.play(); self.player?.rate = self.rate; self.state = .playing }
+            }
+        }
+    }
+
+    /// Cycle 1x → 1.5x → 2x → 1x. Applies immediately if playing.
+    func cycleRate() -> Float {
+        let next: Float
+        switch rate {
+        case ..<1.25: next = 1.5
+        case ..<1.75: next = 2
+        default: next = 1
+        }
+        rate = next
+        if state == .playing { player?.rate = next }
+        return next
+    }
+
+    func setRate(_ value: Float) {
+        rate = value
+        if state == .playing { player?.rate = value }
     }
 
     func release() {

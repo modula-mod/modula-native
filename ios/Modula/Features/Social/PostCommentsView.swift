@@ -396,6 +396,8 @@ struct PostCommentsView: View {
     var header: AnyView? = nil
     /// Known reply count from the post (shown in the header while comments load).
     var commentCount: Int? = nil
+    /// Post author id — used to badge OP comments when present.
+    var postAuthorID: String? = nil
 
     @Environment(AppEnvironment.self) private var app
     @State private var store: PostCommentsStore?
@@ -425,6 +427,9 @@ struct PostCommentsView: View {
     @State private var assistantBrain = MascotBrain()
     @State private var sort: CommentSort = .best
     @State private var heartBursts: [SocialCommentID: Int] = [:]
+    @State private var searchText = ""
+    @State private var showsSearch = false
+    @State private var scrollTarget: SocialCommentID?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
 
@@ -433,21 +438,31 @@ struct PostCommentsView: View {
             if isSheet {
                 conversationHeader
             }
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 20) {
-                    if let header { header }
-                    if !isSheet { conversationHeader }
-                    content
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 20) {
+                        if let header { header }
+                        if !isSheet { conversationHeader }
+                        content
+                    }
+                    .padding(.horizontal, ModulaLayout.contentInset)
+                    .padding(.top, isSheet ? 12 : 16)
+                    .padding(.bottom, 24)
                 }
-                .padding(.horizontal, ModulaLayout.contentInset)
-                .padding(.top, isSheet ? 12 : 16)
-                .padding(.bottom, 24)
-            }
-            .scrollDismissesKeyboard(.interactively)
-            .modulaSoftScrollEdge()
-            .refreshable {
-                await store?.load()
-                HapticEngine.shared.play(.selection)
+                .scrollDismissesKeyboard(.interactively)
+                .scrollBounceBehavior(.always)
+                .modulaSoftScrollEdge()
+                .refreshable {
+                    await store?.load()
+                    HapticEngine.shared.play(.selection)
+                }
+                .onChange(of: scrollTarget) { _, id in
+                    guard let id else { return }
+                    withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.32, dampingFraction: 0.82)) {
+                        proxy.scrollTo(id, anchor: .center)
+                    }
+                    scrollTarget = nil
+                }
             }
             // Drag images in from other apps (iPad split view / iPhone drag between apps).
             .dropDestination(for: Data.self) { items, _ in
@@ -632,6 +647,7 @@ struct PostCommentsView: View {
     }
 
     private var conversationHeader: some View {
+        VStack(alignment: .leading, spacing: 8) {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
@@ -670,6 +686,23 @@ struct PostCommentsView: View {
                 .accessibilityLabel("Sort comments, \(sort.title)")
             }
             Spacer(minLength: 8)
+            Button {
+                withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.28, dampingFraction: 0.78)) {
+                    showsSearch.toggle()
+                    if !showsSearch { searchText = "" }
+                }
+                HapticEngine.shared.play(.selection)
+            } label: {
+                Image(systemName: showsSearch ? "xmark.circle.fill" : "magnifyingglass")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.primary.opacity(0.75))
+                    .frame(width: 40, height: 40)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .modulaGlass(in: Circle(), interactive: true)
+            .frame(width: 44, height: 44)
+            .accessibilityLabel(showsSearch ? "Close search" : "Search comments")
             if let onClose {
                 Button(action: onClose) {
                     Image(systemName: "xmark")
@@ -685,8 +718,8 @@ struct PostCommentsView: View {
             }
         }
         .padding(.horizontal, isSheet ? ModulaLayout.contentInset : 0)
-        .padding(.top, isSheet ? 20 : 8)
-        .padding(.bottom, isSheet ? 8 : 0)
+        .padding(.top, isSheet ? 16 : 8)
+        .padding(.bottom, isSheet ? 6 : 0)
         // Swipe down on the header to dismiss the sheet (close X still works).
         .gesture(
             DragGesture(minimumDistance: 20)
@@ -699,6 +732,12 @@ struct PostCommentsView: View {
                 }
         )
         .accessibilityHint(isSheet ? "Swipe down to close" : "")
+        if showsSearch {
+            ModulaGlassSearchField(prompt: "Search comments", text: $searchText)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .accessibilityIdentifier("post.comments.search")
+        }
+        }
     }
 
     @ViewBuilder
@@ -748,12 +787,26 @@ struct PostCommentsView: View {
                 .padding(.horizontal, 16)
                 .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
                 .padding(.top, 8)
+            } else if !searchText.isEmpty && filteredRoots(store).isEmpty {
+                VStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
+                    Text("No matching comments")
+                        .font(.subheadline.weight(.semibold))
+                    Text("Try a different name or phrase.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 28)
+                .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
             } else {
                 LazyVStack(alignment: .leading, spacing: 18) {
-                    ForEach(roots(sortedItems(store.items))) { comment in
+                    ForEach(filteredRoots(store)) { comment in
                         commentRow(comment, store: store)
-                        let replies = sortedReplies(store.items.filter { $0.parentID == comment.id })
-                        if store.expandedReplies.contains(comment.id) {
+                        let replies = filteredReplies(store, parent: comment)
+                        if store.expandedReplies.contains(comment.id) || (!searchText.isEmpty && !replies.isEmpty) {
                             ForEach(replies) { reply in
                                 commentRow(reply, store: store, indented: true)
                             }
@@ -850,10 +903,39 @@ struct PostCommentsView: View {
         items.sorted { $0.createdAt < $1.createdAt }
     }
 
+    private func filteredRoots(_ store: PostCommentsStore) -> [SocialComment] {
+        let base = roots(sortedItems(store.items))
+        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return base }
+        return base.filter { comment in
+            matchesSearch(comment, query: q)
+                || store.items.contains { $0.parentID == comment.id && matchesSearch($0, query: q) }
+        }
+    }
+
+    private func filteredReplies(_ store: PostCommentsStore, parent: SocialComment) -> [SocialComment] {
+        let base = sortedReplies(store.items.filter { $0.parentID == parent.id })
+        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return base }
+        // When searching, show matching replies even if parent thread wasn't expanded visually.
+        return base.filter { matchesSearch($0, query: q) }
+    }
+
+    private func matchesSearch(_ comment: SocialComment, query: String) -> Bool {
+        if comment.text.lowercased().contains(query) { return true }
+        if comment.author?.displayName.lowercased().contains(query) == true { return true }
+        if comment.author?.handle.lowercased().contains(query) == true { return true }
+        return false
+    }
+
     private func commentRow(_ comment: SocialComment, store: PostCommentsStore, indented: Bool = false) -> some View {
         HStack(alignment: .top, spacing: 10) {
             if indented {
-                Color.clear.frame(width: 28)
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(app.appearance.accent.color.opacity(0.35))
+                    .frame(width: 2)
+                    .padding(.vertical, 4)
+                Color.clear.frame(width: 8)
             }
             if let author = comment.author {
                 Button { openProfile(author.routeID) } label: {
@@ -874,6 +956,15 @@ struct PostCommentsView: View {
                         .foregroundStyle(.secondary)
                     if comment.isEdited {
                         Text("Edited").font(.caption2).foregroundStyle(.secondary)
+                    }
+                    if isOP(comment) {
+                        Text("OP")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(app.appearance.accent.color)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(app.appearance.accent.color.opacity(0.14), in: Capsule())
+                            .accessibilityLabel("Original poster")
                     }
                     }
                     VStack(alignment: .leading, spacing: 2) {
@@ -923,21 +1014,40 @@ struct PostCommentsView: View {
                         Task { await store.react(comment, type: type) }
                     }
                 }
+                if indented, let parentID = comment.parentID {
+                    Button {
+                        scrollTarget = parentID
+                        HapticEngine.shared.play(.selection)
+                    } label: {
+                        Label("Parent", systemImage: "arrow.up.to.line")
+                    }
+                    .accessibilityLabel("Jump to parent comment")
+                }
                 HStack(spacing: 18) {
                     Button("Reply") {
                         store.quoting = nil
                         store.replyingTo = comment
                         composerFocused = true
+                        HapticEngine.shared.play(.selection)
                     }
                     Button {
                         Task { await store.react(comment, type: "like") }
-                        HapticEngine.shared.play(.lightImpact)
+                        HapticEngine.shared.play(.confirmation)
                     } label: {
-                        Image(systemName: comment.viewerReaction == "like" ? "heart.fill" : "heart")
-                            .foregroundStyle(comment.viewerReaction == "like" ? Color.red : Color.secondary)
-                            .symbolEffect(.bounce, value: comment.viewerReaction == "like")
+                        HStack(spacing: 4) {
+                            Image(systemName: comment.viewerReaction == "like" ? "heart.fill" : "heart")
+                                .foregroundStyle(comment.viewerReaction == "like" ? Color.red : Color.secondary)
+                                .symbolEffect(.bounce, value: comment.viewerReaction == "like")
+                            if comment.likeCount > 0 {
+                                Text("\(comment.likeCount)")
+                                    .font(.caption.weight(.semibold).monospacedDigit())
+                                    .foregroundStyle(comment.viewerReaction == "like" ? Color.red.opacity(0.9) : Color.secondary)
+                                    .contentTransition(.numericText())
+                            }
+                        }
                     }
                     .accessibilityLabel(comment.viewerReaction == "like" ? "Unlike" : "Like")
+                    .accessibilityValue(comment.likeCount > 0 ? "\(comment.likeCount)" : "")
                 }
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
@@ -946,6 +1056,7 @@ struct PostCommentsView: View {
             }
         }
         .padding(.vertical, 4)
+        .id(comment.id)
         .overlay(alignment: .topTrailing) {
             if comment.pinned {
                 Label("Pinned", systemImage: "pin.fill").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
@@ -986,6 +1097,11 @@ struct PostCommentsView: View {
 
     private func isOwn(_ comment: SocialComment) -> Bool {
         comment.author?.handle.caseInsensitiveCompare(app.auth.account?.primaryHandle ?? "") == .orderedSame
+    }
+
+    private func isOP(_ comment: SocialComment) -> Bool {
+        guard let postAuthorID, let authorID = comment.author?.id else { return false }
+        return authorID == postAuthorID
     }
 
     private func swipeToReply(_ comment: SocialComment, store: PostCommentsStore) -> some Gesture {
@@ -1312,6 +1428,7 @@ struct PostCommentsView: View {
 struct PostCommentsSheet: View {
     let postID: SocialPostID
     var commentCount: Int? = nil
+    var postAuthorID: String? = nil
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var selectedDetent: ModulaSheetDetent = .medium
@@ -1331,11 +1448,17 @@ struct PostCommentsSheet: View {
             PostCommentsView(
                 postID: postID,
                 isSheet: true,
-                onClose: { dismiss() },
-                onExpand: {
-                    if selectedDetent != .large { withAnimation(.snappy) { selectedDetent = .large } }
+                onClose: {
+                    HapticEngine.shared.play(.selection)
+                    dismiss()
                 },
-                commentCount: commentCount
+                onExpand: {
+                    if selectedDetent != .large {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) { selectedDetent = .large }
+                    }
+                },
+                commentCount: commentCount,
+                postAuthorID: postAuthorID
             )
         }
     }

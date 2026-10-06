@@ -43,7 +43,7 @@ struct PostDetailView: View {
         .toolbar(.hidden, for: .tabBar)
         .task(id: postID) { await load() }
         .sheet(isPresented: $showsCommentsSheet) {
-            PostCommentsSheet(postID: postID, commentCount: post?.replyCount)
+            PostCommentsSheet(postID: postID, commentCount: post?.replyCount, postAuthorID: post?.author?.id)
         }
         .sheet(isPresented: $showsShareSheet) {
             if let post {

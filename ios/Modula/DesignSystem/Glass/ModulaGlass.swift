@@ -144,8 +144,10 @@ struct ModulaGlassSendButton: View {
         }
         .buttonStyle(.plain)
         .modulaGlass(in: Circle(), interactive: true, tint: ready || busy ? tint : nil, prominent: ready || busy, specular: true)
+        .scaleEffect(ready && !busy ? 1.08 : 1)
+        .shadow(color: ready && !busy ? tint.opacity(0.45) : .clear, radius: 8, y: 0)
         .disabled(!ready && !busy)
-        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: ready)
+        .animation(.spring(response: 0.28, dampingFraction: 0.62), value: ready)
         .accessibilityLabel(busy ? "Sending" : title)
     }
 }
