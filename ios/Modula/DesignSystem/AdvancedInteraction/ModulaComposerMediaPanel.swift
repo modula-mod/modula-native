@@ -136,8 +136,11 @@ struct ModulaEmojiGrid: View {
     @AppStorage("composer.emojiSkinTone") private var skinTone = 0
     @State private var query = ""
     @State private var visibleSection = "Frequently used"
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(AppEnvironment.self) private var app
 
     private static let tones: [String] = ["", "\u{1F3FB}", "\u{1F3FC}", "\u{1F3FD}", "\u{1F3FE}", "\u{1F3FF}"]
+    private static let columns = Array(repeating: GridItem(.flexible(minimum: 34), spacing: 0), count: 8)
 
     private static let sections: [(String, String, [ClosedRange<UInt32>])] = [
         ("Smileys & people", "face.smiling", [0x1F600...0x1F64F, 0x1F910...0x1F92F, 0x1F970...0x1F97F, 0x1F44A...0x1F450, 0x1F466...0x1F469, 0x1F590...0x1F596]),
@@ -180,7 +183,8 @@ struct ModulaEmojiGrid: View {
     }
 
     var body: some View {
-        VStack(spacing: 10) {
+        let canvas = ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas
+        VStack(spacing: 8) {
             HStack(spacing: 8) {
                 ModulaGlassSearchField(prompt: "Search emoji", text: $query)
                 Menu {
@@ -197,28 +201,97 @@ struct ModulaEmojiGrid: View {
                 .accessibilityIdentifier("composer.emoji.skintone")
             }
             .padding(.horizontal, 12)
+
+            // Explicit VStack so the category strip sits under the scroll view (never overlays labels).
+            // Per-section LazyVGrid (not Section-in-LazyVGrid) keeps a dense, even keyboard layout.
             ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 8), alignment: .leading, spacing: 4, pinnedViews: [.sectionHeaders]) {
-                        let trimmed = query.trimmingCharacters(in: .whitespaces).lowercased()
-                        if trimmed.isEmpty {
-                            if !frequent.isEmpty { section("Frequently used", frequent.map { ($0, nil) }) }
-                            ForEach(Self.emoji, id: \.0) { title, _, items in section(title, items.map { (render($0), $0) }) }
-                        } else {
-                            let matches = Self.emoji.flatMap(\.2).filter { $0.name.contains(trimmed) }
-                            if matches.isEmpty {
-                                Text("No emoji for “\(query)”").font(.footnote).foregroundStyle(.secondary).padding()
+                VStack(spacing: 0) {
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 12) {
+                            let trimmed = query.trimmingCharacters(in: .whitespaces).lowercased()
+                            if trimmed.isEmpty {
+                                if !frequent.isEmpty {
+                                    emojiBlock(title: "Frequently used", cells: frequent.map { EmojiCell(id: "freq.\($0)", glyph: $0, item: nil) })
+                                }
+                                ForEach(Self.emoji, id: \.0) { title, _, items in
+                                    emojiBlock(
+                                        title: title,
+                                        cells: items.enumerated().map { index, item in
+                                            EmojiCell(id: "\(title).\(index)", glyph: render(item), item: item)
+                                        }
+                                    )
+                                }
+                            } else {
+                                let matches = Self.emoji.flatMap(\.2).filter { $0.name.contains(trimmed) }
+                                if matches.isEmpty {
+                                    Text("No emoji for “\(query)”")
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 24)
+                                } else {
+                                    emojiBlock(
+                                        title: "Results",
+                                        cells: matches.prefix(120).enumerated().map { index, item in
+                                            EmojiCell(id: "result.\(index)", glyph: render(item), item: item)
+                                        }
+                                    )
+                                }
                             }
-                            section("Results", matches.prefix(120).map { (render($0), $0) })
                         }
+                        .padding(.horizontal, 8)
+                        .padding(.bottom, 10)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.bottom, 8)
+                    .scrollIndicators(.hidden)
+
+                    if query.isEmpty {
+                        categoryBar(proxy)
+                            .padding(.top, 6)
+                            .padding(.bottom, 2)
+                            .background(canvas)
+                    }
                 }
-                if query.isEmpty { categoryBar(proxy) }
             }
         }
         .accessibilityIdentifier("composer.panel.emoji.grid")
+    }
+
+    private struct EmojiCell: Identifiable {
+        let id: String
+        let glyph: String
+        let item: Item?
+    }
+
+    @ViewBuilder
+    private func emojiBlock(title: String, cells: [EmojiCell]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 4)
+            LazyVGrid(columns: Self.columns, spacing: 2) {
+                ForEach(cells) { cell in
+                    Button { pick(cell.glyph) } label: {
+                        Text(cell.glyph)
+                            .font(.system(size: 28))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 36)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(cell.item?.name ?? cell.glyph)
+                    .contextMenu {
+                        if let item = cell.item, item.base.properties.isEmojiModifierBase {
+                            ForEach(0..<Self.tones.count, id: \.self) { tone in
+                                Button(render(item, tone: tone)) { pick(render(item, tone: tone)) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .id("section.\(title)")
     }
 
     private func categoryBar(_ proxy: ScrollViewProxy) -> some View {
@@ -233,15 +306,20 @@ struct ModulaEmojiGrid: View {
                     Image(systemName: icon)
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(visibleSection == title ? Color.accentColor : Color.secondary)
-                        .frame(maxWidth: .infinity, minHeight: 30)
-                        .background { if visibleSection == title { Capsule().fill(Color.accentColor.opacity(0.15)).padding(.horizontal, 4) } }
+                        .frame(maxWidth: .infinity, minHeight: 32)
+                        .background {
+                            if visibleSection == title {
+                                Capsule().fill(Color.accentColor.opacity(0.15)).padding(.horizontal, 4)
+                            }
+                        }
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(title)
+                .accessibilityAddTraits(visibleSection == title ? .isSelected : [])
             }
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 3)
+        .padding(.vertical, 4)
         .modulaGlass(in: Capsule(), interactive: false)
         .padding(.horizontal, 12)
     }
@@ -258,30 +336,6 @@ struct ModulaEmojiGrid: View {
         counts[emoji, default: 0] += 1
         countsRaw = counts.sorted { $0.value > $1.value }.prefix(40).map { "\($0.key)=\($0.value)" }.joined(separator: " ")
         HapticEngine.shared.play(.selection)
-    }
-
-    private func section(_ title: String, _ items: [(String, Item?)]) -> some View {
-        Section {
-            ForEach(items, id: \.0) { emoji, item in
-                Button { pick(emoji) } label: {
-                    Text(emoji).font(.system(size: 30)).frame(maxWidth: .infinity, minHeight: 40)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(item?.name ?? emoji)
-                // Long-press a person emoji for every skin tone.
-                .contextMenu {
-                    if let item, item.base.properties.isEmojiModifierBase {
-                        ForEach(0..<Self.tones.count, id: \.self) { tone in
-                            Button(render(item, tone: tone)) { pick(render(item, tone: tone)) }
-                        }
-                    }
-                }
-            }
-        } header: {
-            Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 4)
-                .id("section.\(title)")
-        }
     }
 }
 

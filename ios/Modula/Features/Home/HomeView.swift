@@ -135,7 +135,7 @@ struct HomeView: View {
             }
         }
         .sheet(item: $commentsPost) { post in
-            PostCommentsSheet(postID: post.id)
+            PostCommentsSheet(postID: post.id, commentCount: post.replyCount)
         }
         .confirmationDialog(
             "Report this post?",

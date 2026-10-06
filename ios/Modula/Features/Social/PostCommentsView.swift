@@ -357,6 +357,10 @@ final class PostCommentsStore {
         }
     }
 
+    func collapseReplies(for comment: SocialComment) {
+        expandedReplies.remove(comment.id)
+    }
+
     func delete(_ comment: SocialComment) async {
         do {
             try await repository.deleteComment(commentID: comment.id)
@@ -370,6 +374,18 @@ final class PostCommentsStore {
     }
 }
 
+enum CommentSort: String, CaseIterable, Identifiable, Sendable {
+    case best, newest, oldest
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .best: "Best"
+        case .newest: "Newest"
+        case .oldest: "Oldest"
+        }
+    }
+}
+
 struct PostCommentsView: View {
     let postID: SocialPostID
     var isSheet: Bool = false
@@ -378,6 +394,8 @@ struct PostCommentsView: View {
     var onExpand: (() -> Void)? = nil
     // Detail supplies its identity/content here so conversation shares one scroll surface.
     var header: AnyView? = nil
+    /// Known reply count from the post (shown in the header while comments load).
+    var commentCount: Int? = nil
 
     @Environment(AppEnvironment.self) private var app
     @State private var store: PostCommentsStore?
@@ -405,6 +423,8 @@ struct PostCommentsView: View {
     @State private var assistantDraft: MascotAssistantDraft?
     @State private var assistantHandled: Set<String> = []
     @State private var assistantBrain = MascotBrain()
+    @State private var sort: CommentSort = .best
+    @State private var heartBursts: [SocialCommentID: Int] = [:]
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
 
@@ -425,6 +445,10 @@ struct PostCommentsView: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .modulaSoftScrollEdge()
+            .refreshable {
+                await store?.load()
+                HapticEngine.shared.play(.selection)
+            }
             // Drag images in from other apps (iPad split view / iPhone drag between apps).
             .dropDestination(for: Data.self) { items, _ in
                 guard let store, !items.isEmpty else { return false }
@@ -598,10 +622,54 @@ struct PostCommentsView: View {
         }
     }
 
+    private var displayedCount: Int {
+        let live = store.map { roots(sortedItems($0.items)).count } ?? 0
+        // Prefer the live root count once loaded; fall back to the post's replyCount.
+        if store?.isLoading == false, store?.items.isEmpty == false || store?.loadError != nil {
+            return max(live, 0)
+        }
+        return max(commentCount ?? 0, live)
+    }
+
     private var conversationHeader: some View {
-        HStack(spacing: 8) {
-            Text("Comments").font(.headline)
-            Spacer()
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text("Comments").font(.headline)
+                    if displayedCount > 0 {
+                        Text("\(displayedCount)")
+                            .font(.subheadline.weight(.semibold).monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel("\(displayedCount) comments")
+                    }
+                }
+                Menu {
+                    ForEach(CommentSort.allCases) { option in
+                        Button {
+                            sort = option
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            HStack {
+                                Text(option.title)
+                                if sort == option { Image(systemName: "checkmark") }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(sort.title)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .modulaGlass(in: Capsule(), interactive: true)
+                }
+                .accessibilityLabel("Sort comments, \(sort.title)")
+            }
+            Spacer(minLength: 8)
             if let onClose {
                 Button(action: onClose) {
                     Image(systemName: "xmark")
@@ -619,15 +687,36 @@ struct PostCommentsView: View {
         .padding(.horizontal, isSheet ? ModulaLayout.contentInset : 0)
         .padding(.top, isSheet ? 20 : 8)
         .padding(.bottom, isSheet ? 8 : 0)
+        // Swipe down on the header to dismiss the sheet (close X still works).
+        .gesture(
+            DragGesture(minimumDistance: 20)
+                .onEnded { value in
+                    guard isSheet, let onClose else { return }
+                    let down = value.translation.height
+                    guard down > 56, down > abs(value.translation.width) * 1.2 else { return }
+                    HapticEngine.shared.play(.selection)
+                    onClose()
+                }
+        )
+        .accessibilityHint(isSheet ? "Swipe down to close" : "")
     }
 
     @ViewBuilder
     private var content: some View {
         if let store {
             if store.isLoading && store.items.isEmpty {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding()
+                VStack(spacing: 14) {
+                    ProgressView()
+                    Text("Loading comments…")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 36)
+                .padding(.horizontal, 16)
+                .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
+                .padding(.top, 8)
+                .accessibilityLabel("Loading comments")
             } else if let loadError = store.loadError, store.items.isEmpty {
                 ContentUnavailableView {
                     Label("Couldn't load comments.", systemImage: "bubble.left.and.exclamationmark.bubble.right")
@@ -637,27 +726,57 @@ struct PostCommentsView: View {
                     Button("Retry") {
                         Task { await store.load() }
                     }
+                    .modulaGlass(in: Capsule(), interactive: true)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
                 .accessibilityIdentifier("post.comments.error")
             } else if store.items.isEmpty {
-                HStack(alignment: .top, spacing: 12) {
+                VStack(spacing: 10) {
                     Image(systemName: "bubble.left.and.bubble.right")
-                        .font(.title3).foregroundStyle(app.appearance.accent.color)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Start the conversation").font(.subheadline.weight(.semibold))
-                        Text("Be the first to leave a comment.").font(.subheadline).foregroundStyle(.secondary)
-                    }
+                        .font(.title2)
+                        .foregroundStyle(app.appearance.accent.color)
+                    Text("Start the conversation")
+                        .font(.subheadline.weight(.semibold))
+                    Text("Be the first to leave a comment.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                 }
-                .padding(.vertical, 16)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 28)
+                .padding(.horizontal, 16)
+                .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
+                .padding(.top, 8)
             } else {
                 LazyVStack(alignment: .leading, spacing: 18) {
-                    ForEach(roots(store.items)) { comment in
+                    ForEach(roots(sortedItems(store.items))) { comment in
                         commentRow(comment, store: store)
-                        let replies = store.items.filter { $0.parentID == comment.id }
+                        let replies = sortedReplies(store.items.filter { $0.parentID == comment.id })
                         if store.expandedReplies.contains(comment.id) {
                             ForEach(replies) { reply in
                                 commentRow(reply, store: store, indented: true)
+                            }
+                            if !replies.isEmpty || comment.replyCount > 0 {
+                                Button {
+                                    withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .snappy) {
+                                        store.collapseReplies(for: comment)
+                                    }
+                                    HapticEngine.shared.play(.selection)
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Rectangle().frame(width: 20, height: 1)
+                                        Text("Hide replies")
+                                        Image(systemName: "chevron.up")
+                                            .font(.caption2.weight(.bold))
+                                    }
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.leading, 42)
+                                    .frame(minHeight: 40)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Hide replies")
                             }
                         } else if comment.replyCount > 0 {
                             Button {
@@ -665,8 +784,9 @@ struct PostCommentsView: View {
                             } label: {
                                 HStack(spacing: 8) {
                                     Rectangle().frame(width: 20, height: 1)
-                                    Text("View \(comment.replyCount) replies")
+                                    Text("View \(comment.replyCount) \(comment.replyCount == 1 ? "reply" : "replies")")
                                     if store.loadingReplies.contains(comment.id) { ProgressView().controlSize(.mini) }
+                                    else { Image(systemName: "chevron.down").font(.caption2.weight(.bold)) }
                                 }
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(app.appearance.accent.color)
@@ -678,20 +798,56 @@ struct PostCommentsView: View {
                         }
                     }
                     if store.hasMore {
-                        Button("Load more") {
+                        Button {
                             Task { await store.loadMore() }
+                        } label: {
+                            Text(store.isLoadingMore ? "Loading…" : "Load more")
+                                .font(.subheadline.weight(.semibold))
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 44)
+                                .modulaGlass(in: Capsule(), interactive: true)
                         }
+                        .buttonStyle(.plain)
                         .disabled(store.isLoadingMore)
                     }
                 }
             }
         } else {
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            ProgressView().frame(maxWidth: .infinity).padding(.vertical, 36)
         }
     }
 
     private func roots(_ items: [SocialComment]) -> [SocialComment] {
         items.filter { $0.parentID == nil }
+    }
+
+    private func sortedItems(_ items: [SocialComment]) -> [SocialComment] {
+        let pinned = { (c: SocialComment) in c.pinned ? 0 : 1 }
+        switch sort {
+        case .best:
+            return items.sorted {
+                if pinned($0) != pinned($1) { return pinned($0) < pinned($1) }
+                let lhs = $0.likeCount + $0.reactions.reduce(0) { $0 + $1.count }
+                let rhs = $1.likeCount + $1.reactions.reduce(0) { $0 + $1.count }
+                if lhs != rhs { return lhs > rhs }
+                return $0.createdAt > $1.createdAt
+            }
+        case .newest:
+            return items.sorted {
+                if pinned($0) != pinned($1) { return pinned($0) < pinned($1) }
+                return $0.createdAt > $1.createdAt
+            }
+        case .oldest:
+            return items.sorted {
+                if pinned($0) != pinned($1) { return pinned($0) < pinned($1) }
+                return $0.createdAt < $1.createdAt
+            }
+        }
+    }
+
+    private func sortedReplies(_ items: [SocialComment]) -> [SocialComment] {
+        // Replies always read chronologically so threads stay coherent.
+        items.sorted { $0.createdAt < $1.createdAt }
     }
 
     private func commentRow(_ comment: SocialComment, store: PostCommentsStore, indented: Bool = false) -> some View {
@@ -807,8 +963,20 @@ struct PostCommentsView: View {
         }
         .offset(x: swipeOffsets[comment.id] ?? 0)
         .simultaneousGesture(swipeToReply(comment, store: store))
+        .simultaneousGesture(TapGesture(count: 2).onEnded {
+            Task { await store.react(comment, type: "like") }
+            heartBursts[comment.id, default: 0] += 1
+            HapticEngine.shared.play(.lightImpact)
+        })
+        .overlay {
+            DoubleTapHeartBurst(trigger: heartBursts[comment.id, default: 0])
+                .frame(width: 72, height: 72)
+        }
         .accessibilityElement(children: .contain)
         .accessibilityAction(named: "Reply") { store.replyingTo = comment; composerFocused = true }
+        .accessibilityAction(named: "Like") {
+            Task { await store.react(comment, type: "like") }
+        }
         .onLongPressGesture(minimumDuration: 0.35) {
             HapticEngine.shared.play(.actionConfirmed)
             withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.32, dampingFraction: 0.82)) { menuComment = comment }
@@ -853,6 +1021,13 @@ struct PostCommentsView: View {
                 UIPasteboard.general.string = comment.text
                 HapticEngine.shared.play(.lightImpact)
             } label: { Label("Copy", systemImage: "doc.on.doc") }
+            Button {
+                menuComment = nil
+                // Comments don't have a stable public URL yet — share the post link instead.
+                UIPasteboard.general.string = ModulaShareLink.post(postID).absoluteString
+                HapticEngine.shared.play(.lightImpact)
+                app.navigation.flash("Post link copied", symbol: "link")
+            } label: { Label("Copy post link", systemImage: "link") }
             if !comment.text.isEmpty {
                 Button { menuComment = nil; translating = comment.text } label: { Label("Translate", systemImage: "translate") }
             }
@@ -1136,6 +1311,7 @@ struct PostCommentsView: View {
 
 struct PostCommentsSheet: View {
     let postID: SocialPostID
+    var commentCount: Int? = nil
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var selectedDetent: ModulaSheetDetent = .medium
@@ -1152,9 +1328,15 @@ struct PostCommentsSheet: View {
 
     var body: some View {
         ModulaSheet(detents: detents, selectedDetent: $selectedDetent) {
-            PostCommentsView(postID: postID, isSheet: true, onClose: { dismiss() }, onExpand: {
-                if selectedDetent != .large { withAnimation(.snappy) { selectedDetent = .large } }
-            })
+            PostCommentsView(
+                postID: postID,
+                isSheet: true,
+                onClose: { dismiss() },
+                onExpand: {
+                    if selectedDetent != .large { withAnimation(.snappy) { selectedDetent = .large } }
+                },
+                commentCount: commentCount
+            )
         }
     }
 }
