@@ -64,19 +64,37 @@ struct ReelFeedView: View {
             else if let restored = app.reels.restoredID { app.reels.activate(restored) }
         }
         .safeAreaInset(edge: .top) {
+            // Floating glass chrome over a soft scrim instead of a solid band.
             HStack(spacing: 12) {
-                Button { app.navigation.close() } label: {
-                    Image(systemName: "chevron.left").frame(width: 44, height: 44)
-                }.accessibilityLabel("Back")
-                Text("Reels").font(.title2.weight(.bold))
+                ModulaGlassIconButton(title: "Back", systemImage: "chevron.left", foreground: .white) {
+                    app.navigation.close()
+                }
+                Text("Reels")
+                    .font(.title2.weight(.bold))
+                    .shadow(color: .black.opacity(0.45), radius: 6, y: 1)
                 Spacer()
-                Button { app.navigation.open(.compose(.video)) } label: {
-                    Image(systemName: "video.badge.plus").frame(width: 44, height: 44)
-                }.accessibilityLabel("Post a video")
+                Button {
+                    HapticEngine.shared.play(.navigation)
+                    app.navigation.open(.compose(.video))
+                } label: {
+                    Label("Create", systemImage: "video.badge.plus")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 14)
+                        .frame(height: 44)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.modulaPress)
+                .modulaGlass(in: Capsule(), tint: app.appearance.accent.color.opacity(0.45), specular: true)
+                .accessibilityLabel("Post a video")
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 12)
-            .background(.black.opacity(0.55))
+            .padding(.bottom, 6)
+            .background {
+                LinearGradient(colors: [.black.opacity(0.6), .black.opacity(0.25), .clear], startPoint: .top, endPoint: .bottom)
+                    .ignoresSafeArea(edges: .top)
+                    .allowsHitTesting(false)
+            }
             .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: { topBarBottom = $0 }
         }
         // The navigation bar is hidden, which also removes the system
@@ -132,6 +150,7 @@ struct ReelFeedView: View {
                         onExpand: { expandedVideo = reel.attachment }
                     )
                     .containerRelativeFrame(.vertical)
+                    .modifier(ReelPageTransition(reduceMotion: reduceMotion))
                     .id(reel.id)
                 }
             }
@@ -166,6 +185,7 @@ struct ReelPageView: View {
     var onComment: () -> Void
     var onExpand: () -> Void
     @Environment(AppEnvironment.self) private var app
+    @State private var heartBurst = 0
 
     var body: some View {
         ZStack {
@@ -176,13 +196,30 @@ struct ReelPageView: View {
                                    controlsTopInset: controlsTopInset)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            LinearGradient(colors: [.clear, .clear, .black.opacity(0.82)], startPoint: .top, endPoint: .bottom)
-                .allowsHitTesting(false)
+            LinearGradient(
+                stops: [
+                    .init(color: .clear, location: 0),
+                    .init(color: .clear, location: 0.52),
+                    .init(color: .black.opacity(0.35), location: 0.72),
+                    .init(color: .black.opacity(0.86), location: 1)
+                ],
+                startPoint: .top, endPoint: .bottom
+            )
+            .allowsHitTesting(false)
+            DoubleTapHeartBurst(trigger: heartBurst)
             ReelOverlay(reel: resolved, shareRoute: shareRoute, onComment: onComment)
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .padding(.bottom, 48)
         }
         .contentShape(Rectangle())
+        // Double-tap anywhere to like (never unlikes), with the feed's heart burst.
+        .simultaneousGesture(TapGesture(count: 2).onEnded {
+            guard ModulaPreferences.doubleTapToLike else { return }
+            let post = resolved
+            if !post.liked { Task { await app.postActions.toggleLike(post) } }
+            HapticEngine.shared.play(.lightImpact)
+            heartBurst += 1
+        })
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityAction(named: "Open creator") {
@@ -231,31 +268,17 @@ struct ReelOverlay: View {
     var shareRoute: AppRoute
     var onComment: () -> Void
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @State private var captionExpanded = false
 
     var body: some View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 10) {
-                Button {
-                    if let route = reel.author?.routeID {
-                        app.navigation.push(.profile(route, .overview))
-                        HapticEngine.shared.play(.navigation)
-                    }
-                } label: {
-                    HStack {
-                        ModulaAvatar(initials: reel.author?.initials ?? "?", url: reel.author?.avatarURL, size: 36)
-                        Text(reel.author?.displayName ?? "Creator")
-                            .font(.headline)
-                            .foregroundStyle(.white)
-                    }
+                creatorRow
+                if let caption = reel.text, !caption.isEmpty {
+                    captionView(caption)
                 }
-                .buttonStyle(.plain)
-                if let caption = reel.text {
-                    Text(caption)
-                        .font(.subheadline)
-                        .foregroundStyle(.white)
-                        .lineLimit(3)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                commentPill
             }
             .padding(.leading, 16)
             .padding(.bottom, 28)
@@ -267,10 +290,120 @@ struct ReelOverlay: View {
                 onSave: { Task { await app.postActions.toggleSave(reel) } },
                 onShare: {
                     app.navigation.presented = .share(shareRoute)
-                }
+                },
+                glass: true
             )
             .padding(.trailing, 10)
             .padding(.bottom, 36)
+        }
+    }
+
+    private var creatorRow: some View {
+        Button {
+            if let route = reel.author?.routeID {
+                app.navigation.push(.profile(route, .overview))
+                HapticEngine.shared.play(.navigation)
+            }
+        } label: {
+            HStack(spacing: 10) {
+                ModulaAvatar(initials: reel.author?.initials ?? "?", url: reel.author?.avatarURL, size: 38)
+                    .padding(2)
+                    .background(
+                        Circle().stroke(
+                            AngularGradient(colors: [app.appearance.accent.color, .white.opacity(0.9), app.appearance.accent.color], center: .center),
+                            lineWidth: 2
+                        )
+                    )
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 4) {
+                        Text(reel.author?.displayName ?? "Creator")
+                            .font(.headline)
+                            .lineLimit(1)
+                        if reel.author?.isVerified == true {
+                            Image(systemName: "checkmark.seal.fill")
+                                .font(.caption)
+                                .foregroundStyle(app.appearance.accent.color)
+                                .accessibilityLabel("Verified")
+                        }
+                    }
+                    if let handle = reel.author?.handle, !handle.isEmpty {
+                        Text("@\(handle)")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.7))
+                            .lineLimit(1)
+                    }
+                }
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.4), radius: 4, y: 1)
+            }
+            .padding(.trailing, 12)
+            .padding(4)
+            .modulaGlass(in: Capsule(), interactive: false, tint: .black.opacity(0.18))
+        }
+        .buttonStyle(.modulaPress)
+    }
+
+    private func captionView(_ caption: String) -> some View {
+        Button {
+            withAnimation(ModulaEffectGate.reduceMotion(systemReduceMotion) ? nil : .spring(response: 0.36, dampingFraction: 0.86)) {
+                captionExpanded.toggle()
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(caption)
+                    .font(.subheadline)
+                    .foregroundStyle(.white)
+                    .lineLimit(captionExpanded ? 10 : 2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.leading)
+                if caption.count > 90 {
+                    Text(captionExpanded ? "less" : "more")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+            }
+            .shadow(color: .black.opacity(0.5), radius: 4, y: 1)
+            .frame(maxWidth: 300, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(caption)
+        .accessibilityHint(captionExpanded ? "Collapses the caption" : "Expands the caption")
+    }
+
+    /// Slim "Add a comment…" strip, matching media post cards.
+    private var commentPill: some View {
+        Button(action: onComment) {
+            HStack(spacing: 8) {
+                Image(systemName: "bubble.left")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(reel.replyCount > 0 ? "View \(ModulaCountFormat.compact(reel.replyCount) ?? "\(reel.replyCount)") comments" : "Add a comment…")
+                    .font(.caption.weight(.medium))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(.white.opacity(0.88))
+            .padding(.horizontal, 12)
+            .frame(height: 32)
+            .background(.white.opacity(0.12), in: Capsule())
+        }
+        .buttonStyle(.modulaPress)
+        .accessibilityIdentifier("reels.comment.prompt")
+    }
+}
+
+/// Neighbouring reels recede slightly while paging (static under Reduce Motion).
+private struct ReelPageTransition: ViewModifier {
+    var reduceMotion: Bool
+
+    func body(content: Content) -> some View {
+        if ModulaEffectGate.reduceMotion(reduceMotion) {
+            content
+        } else {
+            content.scrollTransition(.interactive, axis: .vertical) { view, phase in
+                view
+                    .scaleEffect(phase.isIdentity ? 1 : 0.94)
+                    .brightness(phase.isIdentity ? 0 : -0.18)
+            }
         }
     }
 }
@@ -278,6 +411,7 @@ struct ReelOverlay: View {
 struct DiscoverReelsShelf: View {
     let reels: [Reel]
     var onOpen: (Reel) -> Void
+    @Environment(\.modulaHeroScope) private var heroScope
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -287,6 +421,7 @@ struct DiscoverReelsShelf: View {
                 LazyHStack(spacing: 12) {
                     ForEach(reels) { reel in
                         Button {
+                            ModulaHeroMorph.arm(ModulaHeroMorph.sourceID(scope: heroScope, kind: "reel", key: reel.id), for: .reels(.reel(reel.id)))
                             onOpen(reel)
                         } label: {
                             ZStack(alignment: .bottomLeading) {
@@ -304,7 +439,11 @@ struct DiscoverReelsShelf: View {
                                 LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom)
                                     .frame(width: 132, height: 196)
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Image(systemName: "play.fill").font(.title3).padding(.bottom, 12)
+                                    Image(systemName: "play.fill")
+                                        .font(.title3)
+                                        .frame(width: 38, height: 38)
+                                        .modulaGlass(in: Circle(), interactive: false, tint: .black.opacity(0.15))
+                                        .padding(.bottom, 8)
                                     Text(reel.creator.displayName)
                                         .font(.caption.weight(.semibold))
                                     if let caption = reel.caption {
@@ -314,9 +453,15 @@ struct DiscoverReelsShelf: View {
                                 .foregroundStyle(.white)
                                 .padding(10)
                             }
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(LinearGradient(colors: [.white.opacity(0.3), .white.opacity(0.04)], startPoint: .top, endPoint: .bottom), lineWidth: 0.75)
+                            )
+                            .modulaHeroSource("reel", key: reel.id)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.modulaPressTilt)
+                        .modulaCarouselReveal()
                         .accessibilityLabel("Reel by \(reel.creator.displayName)")
                     }
                 }

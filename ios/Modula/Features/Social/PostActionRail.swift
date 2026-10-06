@@ -11,6 +11,8 @@ struct PostActionRail: View {
     var onShare: () -> Void
     var onReactLongPress: (() -> Void)? = nil
     var onContextAction: ((ModulaContextAction) -> Void)? = nil
+    /// Liquid Glass capsule (Reels). Default keeps the dark scrim used on feed cards.
+    var glass = false
 
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -93,8 +95,8 @@ struct PostActionRail: View {
         .padding(.vertical, 8)
         .padding(.horizontal, showsContext ? 16 : 4)
         .foregroundStyle(.white)
-        .background(.black.opacity(reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency ? 1 : (showsContext ? 0.96 : 0.72)), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(.white.opacity(0.14)))
+        .background { railBackground }
+        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(.white.opacity(glass ? 0.08 : 0.14)))
         .offset(y: morphProgress * 0.15)
         .gesture(railMorphGesture)
         .accessibilityElement(children: .contain)
@@ -120,6 +122,16 @@ struct PostActionRail: View {
         }
     }
 
+    @ViewBuilder private var railBackground: some View {
+        let opaque = reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
+        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
+        if glass && !opaque && !showsContext {
+            Color.clear.modulaGlass(in: shape, interactive: false, tint: .black.opacity(0.22), specular: true)
+        } else {
+            shape.fill(.black.opacity(opaque ? 1 : (showsContext ? 0.96 : 0.72)))
+        }
+    }
+
     private func perform(_ action: ModulaContextAction) {
         if let onContextAction { onContextAction(action); return }
         switch action.id {
@@ -137,16 +149,21 @@ struct PostActionRail: View {
                 Image(systemName: symbol)
                     .font(.system(size: 21, weight: .regular))
                     .foregroundStyle(active ? app.appearance.accent.color : .white)
+                    .shadow(color: active ? app.appearance.accent.color.opacity(0.6) : .black.opacity(0.25), radius: active ? 6 : 2)
+                    .contentTransition(.symbolEffect(.replace))
+                    .symbolEffect(.bounce, value: active)
                 if let count {
                     Text(count)
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.white.opacity(0.85))
+                        .contentTransition(.numericText())
                 }
             }
+            .animation(.snappy, value: count)
             .frame(width: PostGestureThresholds.minimumHitTarget, height: PostGestureThresholds.minimumHitTarget)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ModulaPressStyle(scale: 0.86, haptic: nil))
         .accessibilityLabel(title)
         .accessibilityValue(count ?? "")
     }
