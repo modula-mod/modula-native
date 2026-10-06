@@ -164,6 +164,7 @@ struct ModulaLiveMascot: View {
     var showsShadow = true
     var animated = true
     var bubble: Bool = true
+    var outfit: MascotOutfit = .empty
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
@@ -194,7 +195,7 @@ struct ModulaLiveMascot: View {
                         .frame(width: size * kind.bodySize.width * (1 - pose.hop / 40), height: size * 0.18)
                         .offset(y: foot)
                 }
-                ModulaMascotFigure(kind: kind, pose: pose, size: size)
+                ModulaMascotFigure(kind: kind, pose: pose, size: size, outfit: outfit)
                 if bubble && (pose.mood == .thinking || pose.mood == .typing) { thoughtBubble(now: now, typing: pose.mood == .typing) }
                 if pose.mood == .sleepy && !reduceMotion { sleepZs(now: now) }
                 if !reduceMotion && !brain.bursts.isEmpty { particles(now: now) }
@@ -289,6 +290,7 @@ struct ModulaLiveMascot: View {
                 switch burst.style {
                 case .hearts: count = 6
                 case .confetti: count = 18
+                case .aura, .outfit: count = 14
                 case .tear: count = 1
                 default: count = 9
                 }
@@ -325,6 +327,13 @@ struct ModulaLiveMascot: View {
                     case .tear:
                         path = MascotDropShape().path(in: CGRect(x: pos.x - 2.5, y: pos.y - 4, width: 5, height: 7))
                         color = Color(red: 0.5, green: 0.75, blue: 1)
+                    case .aura:
+                        path = MascotParticle.star(at: pos, r: r * 1.4)
+                        color = pal.accent.opacity(0.9)
+                    case .outfit:
+                        path = MascotParticle.star(at: pos, r: r * 1.1)
+                        let palette: [Color] = [.pink, .mint, .yellow, .cyan, .orange]
+                        color = palette[i % palette.count]
                     }
                     ctx.opacity = life
                     // Glow pass then crisp pass.
@@ -404,8 +413,14 @@ struct ModulaComposerMascotModifier: ViewModifier {
     }
 
     private var kind: ModulaMascotKind? {
+        if custom != nil { return .pip }   // behaviour proxy for custom mascots
         guard let k = ModulaMascotKind(rawValue: kindRaw) else { return nil }
         return MascotEntitlements.canUse(k) ? k : .pip
+    }
+
+    private var custom: CustomMascot? {
+        guard kindRaw.hasPrefix("custom:") else { return nil }
+        return CustomMascotStore.shared.mascot(id: kindRaw)
     }
 
     func body(content: Content) -> some View {
@@ -422,7 +437,7 @@ struct ModulaComposerMascotModifier: ViewModifier {
                         let x = bar.maxX - trailingInset - size * kind.bodySize.width / 2
                         // Feet sink ~6pt into the bar's top edge.
                         let y = bar.minY + 6 - kind.footFraction * size
-                        ModulaComposerMascot(kind: kind, busy: busy, touch: touch, text: text, attachmentCount: attachmentCount, placement: placement, size: size) { kindRaw = $0.rawValue }
+                        ModulaComposerMascot(kind: kind, busy: busy, touch: touch, text: text, attachmentCount: attachmentCount, placement: placement, size: size, custom: custom) { kindRaw = $0.rawValue }
                             .position(x: x, y: y)
                     }
                 }
@@ -443,6 +458,7 @@ struct ModulaComposerMascot: View {
     var attachmentCount: Int = 0
     var placement: ModulaMascotPlacement = .other
     var size: CGFloat = 48
+    var custom: CustomMascot? = nil
     var onSelect: (ModulaMascotKind) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -450,6 +466,7 @@ struct ModulaComposerMascot: View {
     @State private var brain = MascotBrain()
     @State private var picking = false
     @State private var chatting = false
+    @State private var dressing = false
     @State private var premiumKind: ModulaMascotKind?
     @State private var hovered: ModulaMascotKind?
     @State private var tileFrames: [ModulaMascotKind: CGRect] = [:]
@@ -459,35 +476,11 @@ struct ModulaComposerMascot: View {
     @State private var moved = false
     @State private var typingSettle: Task<Void, Never>?
     private let context = MascotContext.shared
+    private var wardrobe = MascotWardrobeStore.shared
 
     var body: some View {
-        ModulaLiveMascot(kind: kind, size: size, busy: busy, touch: picking ? nil : touch, brain: brain)
-            .id(kind)
-            .transition(reduceMotion ? .opacity : .asymmetric(insertion: .scale(scale: 0.2, anchor: .bottom).combined(with: .opacity), removal: .scale(scale: 1.4).combined(with: .opacity)))
-            .scaleEffect(picking ? 1.1 : 1, anchor: .bottom)
-            .contentShape(Ellipse().scale(x: 0.42, y: 0.46))
-            .gesture(pressGesture)
-            .overlay(alignment: .bottomTrailing) {
-                if picking {
-                    ModulaMascotPicker(selected: kind, hovered: hovered, onFrames: { tileFrames = $0 }) { choice in
-                        commit(choice)
-                    } onClose: {
-                        withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) { picking = false }
-                    }
-                    .alignmentGuide(.bottom) { d in d[.bottom] + size * 0.75 }
-                    .alignmentGuide(.trailing) { d in d[.trailing] - size * 0.55 }
-                    .transition(reduceMotion ? .opacity : .scale(scale: 0.12, anchor: .bottomTrailing).combined(with: .opacity))
-                }
-            }
-            .popover(isPresented: $chatting, arrowEdge: .bottom) {
-                MascotChatView(kind: kind, brain: brain)
-                    .presentationCompactAdaptation(.popover)
-            }
-            .sheet(item: $premiumKind) { k in
-                MascotPremiumSheet(kind: k)
-            }
-            .animation(.spring(response: 0.42, dampingFraction: 0.68), value: kind)
-            .animation(.spring(response: 0.36, dampingFraction: 0.78), value: picking)
+        mascotChrome
+            .task { MascotProgressStore.shared.touchDay() }
             .onChange(of: text) { old, new in textChanged(old: old, new: new) }
             .onChange(of: attachmentCount) { old, new in
                 if new > old { brain.react(.surprised); MascotSound.shared.play(.pop); HapticEngine.shared.play(.lightImpact) }
@@ -510,12 +503,57 @@ struct ModulaComposerMascot: View {
             }
             .sensoryFeedback(.selection, trigger: hovered)
             .accessibilityElement()
-            .accessibilityLabel("\(kind.name), composer mascot")
-            .accessibilityHint("Double-tap to chat. Hold to choose a different mascot.")
+            .accessibilityLabel("\(custom?.name ?? kind.name), composer mascot")
+            .accessibilityHint("Double-tap to chat. Hold to choose or dress up the mascot.")
             .accessibilityAddTraits(.isButton)
             .accessibilityAction { chatting = true }
             .accessibilityAction(named: "Choose mascot") { picking = true }
             .accessibilityIdentifier("composer.mascot")
+    }
+
+    private var mascotChrome: some View {
+        Group {
+            if let custom {
+                CustomLiveMascot(mascot: custom, size: size, busy: busy, touch: picking ? nil : touch, brain: brain, outfit: wardrobe.outfit)
+            } else {
+                ModulaLiveMascot(kind: kind, size: size, busy: busy, touch: picking ? nil : touch, brain: brain, outfit: wardrobe.outfit)
+            }
+        }
+            .id(custom?.id ?? kind.rawValue)
+            .transition(reduceMotion ? .opacity : .asymmetric(insertion: .scale(scale: 0.2, anchor: .bottom).combined(with: .opacity), removal: .scale(scale: 1.4).combined(with: .opacity)))
+            .scaleEffect(picking ? 1.1 : 1, anchor: .bottom)
+            .contentShape(Ellipse().scale(x: 0.42, y: 0.46))
+            .gesture(pressGesture)
+            .overlay(alignment: .bottomTrailing) {
+                if picking {
+                    ModulaMascotPicker(selected: kind, hovered: hovered, onFrames: { tileFrames = $0 }) { choice in
+                        commit(choice)
+                    } onClose: {
+                        withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) { picking = false }
+                    } onDressUp: {
+                        withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) { picking = false }
+                        dressing = true
+                    }
+                    .alignmentGuide(.bottom) { d in d[.bottom] + size * 0.75 }
+                    .alignmentGuide(.trailing) { d in d[.trailing] - size * 0.55 }
+                    .transition(reduceMotion ? .opacity : .scale(scale: 0.12, anchor: .bottomTrailing).combined(with: .opacity))
+                }
+            }
+            .popover(isPresented: $chatting, arrowEdge: .bottom) {
+                MascotChatView(kind: kind, brain: brain)
+                    .presentationCompactAdaptation(.popover)
+            }
+            .sheet(item: $premiumKind) { k in
+                MascotPremiumSheet(kind: k)
+            }
+            .sheet(isPresented: $dressing) {
+                MascotDressUpSheet()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .mascotOutfitDidChange)) { _ in
+                brain.outfitChanged()
+            }
+            .animation(.spring(response: 0.42, dampingFraction: 0.68), value: kind)
+            .animation(.spring(response: 0.36, dampingFraction: 0.78), value: picking)
     }
 
     private func wake() {
@@ -642,6 +680,7 @@ struct ModulaMascotPicker: View {
     var onFrames: ([ModulaMascotKind: CGRect]) -> Void
     var onSelect: (ModulaMascotKind) -> Void
     var onClose: () -> Void
+    var onDressUp: (() -> Void)? = nil
     @State private var frames: [ModulaMascotKind: CGRect] = [:]
     @State private var brains: [ModulaMascotKind: MascotBrain] = Dictionary(uniqueKeysWithValues: ModulaMascotKind.allCases.map { ($0, MascotBrain()) })
     @State private var appeared = false
@@ -675,6 +714,19 @@ struct ModulaMascotPicker: View {
                 ForEach(Array(ModulaMascotKind.allCases.enumerated()), id: \.element) { index, kind in
                     tileView(kind, index: index)
                 }
+            }
+            if onDressUp != nil {
+                Button {
+                    onDressUp?()
+                } label: {
+                    Label("Dress up", systemImage: "tshirt.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 36)
+                }
+                .buttonStyle(.plain)
+                .modulaGlass(in: Capsule(), interactive: true)
+                .padding(.top, 2)
+                .accessibilityLabel("Dress up mascot")
             }
         }
         .padding(10)
@@ -1007,6 +1059,21 @@ struct ComposerMascotSettingsSection: View {
             }
         }
         Section {
+            NavigationLink {
+                MascotStudioView(initialTab: .wardrobe)
+            } label: {
+                Label("Mascot Studio", systemImage: "tshirt.fill")
+            }
+            NavigationLink {
+                MascotStudioView(initialTab: .assistant)
+            } label: {
+                Label("Assistant & keywords", systemImage: "bubble.left.and.text.bubble.right")
+            }
+        } footer: {
+            Text("Dress up, create custom mascots, and set keyword draft-replies for comments on your posts.")
+        }
+        MascotProfileSettingsSection()
+        Section {
             Toggle("Mascot sounds", isOn: $sounds)
             #if DEBUG
             Toggle("Unlock Premium mascots (Debug)", isOn: $debugPremium)
@@ -1015,6 +1082,11 @@ struct ComposerMascotSettingsSection: View {
             Text("Short, quiet sounds that follow your silent switch.")
         }
         .sheet(item: $premiumKind) { MascotPremiumSheet(kind: $0) }
+        .onAppear {
+            MascotProgressStore.shared.touchDay()
+            _ = MascotWardrobeStore.shared.applyOutfitOfTheDayIfNeeded()
+            _ = MascotWardrobeStore.shared.applyBirthdayOutfitIfNeeded(birthday: MascotAssistantStore.shared.context.birthday)
+        }
     }
 
     private var previewCard: some View {

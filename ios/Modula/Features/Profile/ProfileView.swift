@@ -11,6 +11,8 @@ struct ProfileView: View {
     @Environment(\.shellChromeMetrics) private var shellChromeMetrics
     @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var headerProgress: CGFloat = 0
+    @AppStorage(MascotProfileSettings.showOnProfileKey) private var showProfileMascot = true
+    @State private var dressUpMascot = false
     @State private var confirmsBlock = false
     @State private var confirmsReport = false
     @State private var mediaViewer: ModulaMediaViewerItem?
@@ -452,6 +454,15 @@ struct ProfileView: View {
                 ),
                 onContextAction: { handleContextAction($0, profile: profile) }
             )
+            .overlay(alignment: .topLeading) {
+                if isOwnProfile && showProfileMascot {
+                    ProfileMascotChip(size: 28)
+                        .offset(
+                            x: ModulaLayout.contentInset + ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass) + 6,
+                            y: -ProfileIdentityMetrics.overlap(avatarSize: ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass)) + 4
+                        )
+                }
+            }
             ProfileIdentityBlock(profile: profile)
                 .padding(.horizontal, ModulaLayout.contentInset)
                 .padding(.leading, leadingInteractionInset)
@@ -854,6 +865,15 @@ struct ProfileView: View {
                 ),
                 onContextAction: { handleContextAction($0, profile: profile) }
             )
+            .overlay(alignment: .topLeading) {
+                if isOwnProfile && showProfileMascot {
+                    ProfileMascotChip(size: 28)
+                        .offset(
+                            x: ModulaLayout.contentInset + ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass) + 6,
+                            y: -ProfileIdentityMetrics.overlap(avatarSize: ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass)) + 4
+                        )
+                }
+            }
             VStack(alignment: .leading, spacing: 16) {
                 ProfileIdentityBlock(profile: profile)
                 primaryActions(profile)

@@ -279,7 +279,7 @@ struct ProfileAvatarPocket: View {
                 HapticEngine.shared.play(.lightImpact)
             } label: {
                 ZStack {
-                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: avatarSize, name: profile.displayName)
+                    ProfileAvatarContent(profile: profile, size: avatarSize)
                         .overlay(
                             Circle()
                                 .strokeBorder(canvas, lineWidth: ring)
@@ -944,5 +944,25 @@ struct ProfilePreviewHeader: View {
             }
         }
         .accessibilityElement(children: .contain)
+    }
+}
+
+
+// MARK: - Mascot-aware avatar content
+
+/// Shows the dressed mascot inside the avatar ring when the user opts in; otherwise the photo.
+struct ProfileAvatarContent: View {
+    let profile: ModulaProfile
+    let size: CGFloat
+    @AppStorage(MascotProfileSettings.useAsAvatarKey) private var useMascot = false
+    @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
+
+    var body: some View {
+        let selection = MascotSelection.resolve(raw: kindRaw)
+        if useMascot, selection != .off {
+            MascotAvatarView(size: size)
+        } else {
+            ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: size, name: profile.displayName)
+        }
     }
 }

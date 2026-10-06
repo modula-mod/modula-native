@@ -232,7 +232,7 @@ final class ModulaMascotMotion {
 
 // MARK: - Pose & brain
 
-enum MascotMood: Equatable { case idle, typing, happy, pleased, surprised, sleepy, thinking, dizzy, sad, laughing, speaking }
+enum MascotMood: Equatable { case idle, typing, happy, pleased, surprised, sleepy, thinking, dizzy, sad, laughing, speaking, wave, dance, celebrate, shy, excited, curious, sit }
 
 /// Ambient, context-driven looks (battery, time, power, network, capture, appearance).
 struct MascotConditions: Equatable {
@@ -267,7 +267,7 @@ struct MascotPose {
 }
 
 struct MascotBurst: Identifiable {
-    enum Style { case sparkle, hearts, pop, confetti, tear }
+    enum Style { case sparkle, hearts, pop, confetti, tear, aura, outfit }
     let id = UUID()
     let start: Double
     let style: Style
@@ -346,14 +346,47 @@ final class MascotBrain {
         case .sad:
             reaction = (mood, n, 2.0)
             burst(.tear)
+        case .wave:
+            reaction = (mood, n, 1.2)
+            hops.append((n, 4))
+        case .dance:
+            reaction = (mood, n, 2.0)
+            hops.append(contentsOf: [(n, 7), (n + 0.28, 7), (n + 0.56, 7), (n + 0.84, 7)])
+            burst(.sparkle)
+        case .celebrate:
+            reaction = (mood, n, 1.8)
+            hops.append(contentsOf: [(n, 12), (n + 0.35, 9)])
+            burst(.confetti)
+            burst(.aura)
+        case .shy:
+            reaction = (mood, n, 1.6)
+        case .excited:
+            reaction = (mood, n, 1.4)
+            hops.append(contentsOf: [(n, 10), (n + 0.3, 8)])
+            burst(.sparkle)
+        case .curious:
+            reaction = (mood, n, 1.2)
+            hops.append((n, 5))
+        case .sit:
+            reaction = (mood, n, 2.4)
+            hops.append((n, 3))
         default:
             reaction = (mood, n, 1.0)
         }
     }
 
     func celebrate() {
-        react(.happy)
+        react(.celebrate)
         burst(.confetti)
+    }
+
+    func wave() { react(.wave) }
+    func dance() { react(.dance) }
+    func sit() { react(.sit) }
+    func outfitChanged() {
+        react(.excited)
+        burst(.outfit)
+        burst(.sparkle)
     }
 
     func pose(at now: Double, touchLook: CGSize?, tilt: CGSize, busy: Bool, reduceMotion: Bool, conditions: MascotConditions) -> MascotPose {
@@ -376,7 +409,8 @@ final class MascotBrain {
         lastMood = p.mood
 
         switch p.mood {
-        case .happy, .pleased, .laughing: p.eyes = .happy
+        case .happy, .pleased, .laughing, .excited, .celebrate, .dance: p.eyes = .happy
+        case .shy: p.eyes = .happy
         case .dizzy: p.eyes = .spiral
         default: p.eyes = .normal
         }
@@ -451,6 +485,11 @@ final class MascotBrain {
         p.sway = sin(now * 0.9) * (p.mood == .sleepy ? 3.5 : 2.2)
         if p.mood == .dizzy { p.sway = sin(now * 7) * 9 }
         if p.mood == .laughing { p.sway = sin(now * 28) * 4 }
+        if p.mood == .dance { p.sway = sin(now * 10) * 10 }
+        if p.mood == .wave { p.sway = sin(now * 5) * 6 }
+        if p.mood == .shy { p.sway = sin(now * 1.2) * 1.5; p.look = CGSize(width: -0.4, height: 0.2) }
+        if p.mood == .curious { p.look = CGSize(width: 0.55, height: -0.15) }
+        if p.mood == .excited { p.sway = sin(now * 14) * 5 }
         // Head bob on keystrokes.
         let ke = now - lastKey
         if ke < 0.35 { p.sway += 4 * exp(-ke * 9) * sin(ke * 30) }
@@ -477,6 +516,13 @@ final class MascotBrain {
         }
         if p.mood == .thinking { height = max(height, 2 + 2 * CGFloat(sin(now * 3.2))) }
         if p.mood == .typing { height = max(height, 1 + CGFloat(sin(now * 2.4))) }
+        if p.mood == .sit {
+            // Settle down: a soft squat with a contented little rock.
+            squash = min(squash, 0.84)
+            height = 0
+            p.sway = sin(now * 1.4) * 1.6
+            p.eyes = .happy
+        }
         p.hop = height
         p.squash = squash
         return p
@@ -494,6 +540,7 @@ struct ModulaMascotFigure: View {
     let kind: ModulaMascotKind
     var pose: MascotPose
     var size: CGFloat = 48
+    var outfit: MascotOutfit = .empty
 
     /// The figure canvas, generous enough for ears, gills, hats and tentacles.
     static func canvas(_ s: CGFloat) -> CGSize { CGSize(width: s * 2.0, height: s * 1.9) }
@@ -504,13 +551,20 @@ struct ModulaMascotFigure: View {
         let t = pose.t
         let a = pose.amp
         let c = Self.canvas(s)
+        let rig = MascotRig.stock(kind)
+        let dressed = !outfit.isEmpty
         ZStack {
+            // Wardrobe is painted in three passes so it wraps the body: back items behind,
+            // garments on the body under the face, and head/hand/face props on top.
+            if dressed { MascotWardrobeOverlay(outfit: outfit, rig: rig, pose: pose, size: s, layer: .back, animate: a > 0) }
             behind(s: s, pal: pal, t: t, a: a)
             bodyLayer(s: s, pal: pal, t: t, a: a)
             front(s: s, pal: pal, t: t, a: a)
+            if dressed { MascotWardrobeOverlay(outfit: outfit, rig: rig, pose: pose, size: s, layer: .body, animate: a > 0) }
             face(s: s, pal: pal, t: t)
                 .rotationEffect(.degrees(kind == .tuck ? 7 * sin(t * 0.8) * Double(a) : 0), anchor: .bottom)
             accessories(s: s, pal: pal, t: t, a: a)
+            if dressed { MascotWardrobeOverlay(outfit: outfit, rig: rig, pose: pose, size: s, layer: .front, animate: a > 0) }
         }
         .frame(width: c.width, height: c.height)
         .drawingGroup(opaque: false, colorMode: .extendedLinear)
@@ -828,7 +882,7 @@ struct ModulaMascotFigure: View {
     @ViewBuilder
     private func accessories(s: CGFloat, pal: ModulaMascotKind.Palette, t: Double, a: CGFloat) -> some View {
         let top = -s * (kind.bodySize.height / 2 - kind.bodyOffsetY) // top of body
-        if pose.conditions.night {
+        if pose.conditions.night && outfit.item(for: .hat) == nil && outfit.item(for: .seasonal) == nil && outfit.item(for: .hair) == nil {
             // Nightcap with a pom-pom.
             ZStack(alignment: .topTrailing) {
                 MascotCapShape()
@@ -847,7 +901,7 @@ struct ModulaMascotFigure: View {
                 .scaleEffect(0.8 + 0.25 * CGFloat(abs(sin(t * 1.6))) * a + (1 - a) * 0.2)
                 .offset(x: s * 0.42, y: top - s * 0.02)
         }
-        if pose.conditions.offline {
+        if pose.conditions.offline && outfit.item(for: .accessory) == nil && outfit.item(for: .top) == nil && outfit.item(for: .outerwear) == nil {
             // Little scarf.
             Capsule().fill(LinearGradient(colors: [Color(red: 0.95, green: 0.35, blue: 0.35), Color(red: 0.78, green: 0.22, blue: 0.25)], startPoint: .top, endPoint: .bottom))
                 .overlay(Capsule().stroke(Color(red: 0.45, green: 0.1, blue: 0.12).opacity(0.6), lineWidth: 0.8))

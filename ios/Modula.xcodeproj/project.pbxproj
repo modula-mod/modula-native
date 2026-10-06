@@ -13,6 +13,15 @@
 		C1B5F34784604E6B40CAC97C /* ModulaRichFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B5F34784604E6B40CAC97C /* ModulaRichFormat.swift */; };
 		C18FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift */; };
 		C1F05546B4D00806E53DCE68 /* ModulaMascot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F05546B4D00806E53DCE68 /* ModulaMascot.swift */; };
+		C1E6700BB572D50315F0DF090B /* MascotWardrobe.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E6700BB572D50315F0DF090B /* MascotWardrobe.swift */; };
+		C18E3F07060BD5F1C2F6D22C8A /* MascotWardrobeLayers.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08E3F07060BD5F1C2F6D22C8A /* MascotWardrobeLayers.swift */; };
+		C1403BE7599E95D561F435C27E /* MascotCustom.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0403BE7599E95D561F435C27E /* MascotCustom.swift */; };
+		C1BAD833BF4AA294710BD47644 /* MascotAssistant.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BAD833BF4AA294710BD47644 /* MascotAssistant.swift */; };
+		C11826D84B06144D712FB0998B /* MascotStudioViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C01826D84B06144D712FB0998B /* MascotStudioViews.swift */; };
+		C1AA8D1E651C6AF02C08EB0094 /* MascotWardrobeArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0AA8D1E651C6AF02C08EB0094 /* MascotWardrobeArt.swift */; };
+		C147C44B90908E004470E7C63A /* MascotScenes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C047C44B90908E004470E7C63A /* MascotScenes.swift */; };
+		C16C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift */; };
+		C18E871C00879B8E66C5673FB3 /* MascotRig.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08E871C00879B8E66C5673FB3 /* MascotRig.swift */; };
 		C14B413EE2CA03DFFC2B64FF /* CommentRichContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */; };
 		C1E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */; };
 		C13029B25B9DB3676F028E7B /* ModulaGlassShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */; };
@@ -357,6 +366,15 @@
 		C0B5F34784604E6B40CAC97C /* ModulaRichFormat.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaRichFormat.swift; path = DesignSystem/AdvancedInteraction/ModulaRichFormat.swift; sourceTree = "<group>"; };
 		C08FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaMascotHost.swift; path = DesignSystem/Mascot/ModulaMascotHost.swift; sourceTree = "<group>"; };
 		C0F05546B4D00806E53DCE68 /* ModulaMascot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaMascot.swift; path = DesignSystem/Mascot/ModulaMascot.swift; sourceTree = "<group>"; };
+		C0E6700BB572D50315F0DF090B /* MascotWardrobe.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotWardrobe.swift; path = DesignSystem/Mascot/MascotWardrobe.swift; sourceTree = "<group>"; };
+		C08E3F07060BD5F1C2F6D22C8A /* MascotWardrobeLayers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotWardrobeLayers.swift; path = DesignSystem/Mascot/MascotWardrobeLayers.swift; sourceTree = "<group>"; };
+		C0403BE7599E95D561F435C27E /* MascotCustom.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotCustom.swift; path = DesignSystem/Mascot/MascotCustom.swift; sourceTree = "<group>"; };
+		C0BAD833BF4AA294710BD47644 /* MascotAssistant.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotAssistant.swift; path = DesignSystem/Mascot/MascotAssistant.swift; sourceTree = "<group>"; };
+		C01826D84B06144D712FB0998B /* MascotStudioViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotStudioViews.swift; path = DesignSystem/Mascot/MascotStudioViews.swift; sourceTree = "<group>"; };
+		C0AA8D1E651C6AF02C08EB0094 /* MascotWardrobeArt.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotWardrobeArt.swift; path = DesignSystem/Mascot/MascotWardrobeArt.swift; sourceTree = "<group>"; };
+		C047C44B90908E004470E7C63A /* MascotScenes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotScenes.swift; path = DesignSystem/Mascot/MascotScenes.swift; sourceTree = "<group>"; };
+		C06C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotProgress.swift; path = DesignSystem/Mascot/MascotProgress.swift; sourceTree = "<group>"; };
+		C08E871C00879B8E66C5673FB3 /* MascotRig.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotRig.swift; path = DesignSystem/Mascot/MascotRig.swift; sourceTree = "<group>"; };
 		C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommentRichContent.swift; path = Features/Social/CommentRichContent.swift; sourceTree = "<group>"; };
 		C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaComposerExtras.swift; path = DesignSystem/AdvancedInteraction/ModulaComposerExtras.swift; sourceTree = "<group>"; };
 		C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = ModulaGlassShaders.metal; path = DesignSystem/Glass/ModulaGlassShaders.metal; sourceTree = "<group>"; };
@@ -928,6 +946,15 @@
 				C0B5F34784604E6B40CAC97C /* ModulaRichFormat.swift */,
 				C08FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift */,
 				C0F05546B4D00806E53DCE68 /* ModulaMascot.swift */,
+				C0E6700BB572D50315F0DF090B /* MascotWardrobe.swift */,
+				C08E3F07060BD5F1C2F6D22C8A /* MascotWardrobeLayers.swift */,
+				C0403BE7599E95D561F435C27E /* MascotCustom.swift */,
+				C0BAD833BF4AA294710BD47644 /* MascotAssistant.swift */,
+				C01826D84B06144D712FB0998B /* MascotStudioViews.swift */,
+				C0AA8D1E651C6AF02C08EB0094 /* MascotWardrobeArt.swift */,
+				C047C44B90908E004470E7C63A /* MascotScenes.swift */,
+				C06C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift */,
+				C08E871C00879B8E66C5673FB3 /* MascotRig.swift */,
 				C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */,
 				C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */,
 				C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */,
@@ -1502,6 +1529,15 @@
 				C1B5F34784604E6B40CAC97C /* ModulaRichFormat.swift in Sources */,
 				C18FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift in Sources */,
 				C1F05546B4D00806E53DCE68 /* ModulaMascot.swift in Sources */,
+				C1E6700BB572D50315F0DF090B /* MascotWardrobe.swift in Sources */,
+				C18E3F07060BD5F1C2F6D22C8A /* MascotWardrobeLayers.swift in Sources */,
+				C1403BE7599E95D561F435C27E /* MascotCustom.swift in Sources */,
+				C1BAD833BF4AA294710BD47644 /* MascotAssistant.swift in Sources */,
+				C11826D84B06144D712FB0998B /* MascotStudioViews.swift in Sources */,
+				C1AA8D1E651C6AF02C08EB0094 /* MascotWardrobeArt.swift in Sources */,
+				C147C44B90908E004470E7C63A /* MascotScenes.swift in Sources */,
+				C16C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift in Sources */,
+				C18E871C00879B8E66C5673FB3 /* MascotRig.swift in Sources */,
 				C14B413EE2CA03DFFC2B64FF /* CommentRichContent.swift in Sources */,
 				C1E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift in Sources */,
 				C13029B25B9DB3676F028E7B /* ModulaGlassShaders.metal in Sources */,

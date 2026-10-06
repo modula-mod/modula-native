@@ -108,6 +108,7 @@ final class PostCommentsStore {
             postState.adjustReplyCount(postID: postID, delta: 1)
             isSending = false
             HapticEngine.shared.play(.success)
+            MascotProgressStore.shared.record(.comment)
             return true
         } catch {
             // Preserve draft on failure.
@@ -295,6 +296,7 @@ final class PostCommentsStore {
         items[index] = updated
         do {
             try await repository.setCommentReaction(commentID: comment.id, type: removing ? nil : type)
+            if !removing { MascotProgressStore.shared.record(.reaction) }
         } catch {
             if let index = items.firstIndex(where: { $0.id == comment.id }) { items[index] = previous }
             composerError = (error as? APIError)?.userFacingMessage ?? "Couldn’t react. Sign in and try again."
@@ -400,6 +402,9 @@ struct PostCommentsView: View {
     @State private var swipeOffsets: [SocialCommentID: CGFloat] = [:]
     @State private var dropTargeted = false
     @State private var menuComment: SocialComment?
+    @State private var assistantDraft: MascotAssistantDraft?
+    @State private var assistantHandled: Set<String> = []
+    @State private var assistantBrain = MascotBrain()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -497,6 +502,7 @@ struct PostCommentsView: View {
             )
             store = created
             await created.load()
+            await scanAssistantDrafts(in: created)
             #if DEBUG
             switch DebugSettingsHarness.composerState {
             case "stickers": mediaPanelTab = .stickers; mediaPanelActive = true
@@ -512,6 +518,27 @@ struct PostCommentsView: View {
             #endif
         }
         .accessibilityIdentifier(isSheet ? "post.comments.sheet" : "post.comments")
+        .sheet(item: $assistantDraft) { draft in
+            MascotAssistantDraftSheet(
+                draft: draft,
+                onSend: { text in
+                    guard let store else { return }
+                    store.draft = text
+                    store.replyingTo = store.items.first { $0.id == draft.commentID }
+                    Task {
+                        _ = await store.send()
+                        assistantBrain.react(.celebrate)
+                    }
+                },
+                onDiscard: {
+                    assistantBrain.react(.shy)
+                }
+            )
+        }
+        .onChange(of: store?.items.map(\.id) ?? []) { _, _ in
+            guard let store else { return }
+            Task { await scanAssistantDrafts(in: store) }
+        }
         #if DEBUG
         .onAppear {
             if DebugSettingsHarness.composerState == "gifs" {
@@ -520,6 +547,54 @@ struct PostCommentsView: View {
             }
         }
         #endif
+    }
+
+    /// Keyword assistant: only on posts the viewer authored; drafts a reply and never auto-posts unless enabled.
+    @MainActor
+    private func scanAssistantDrafts(in store: PostCommentsStore) async {
+        let assistant = MascotAssistantStore.shared
+        guard assistant.enabled else { return }
+        let me = app.auth.account?.primaryHandle ?? ""
+        guard !me.isEmpty,
+              let author = store.postAuthorHandle,
+              author.caseInsensitiveCompare(me) == .orderedSame else { return }
+
+        for comment in store.items {
+            // Don't reply to ourselves.
+            if comment.author?.handle.caseInsensitiveCompare(me) == .orderedSame { continue }
+            let cid = comment.id
+            if assistantHandled.contains(cid) { continue }
+            guard let match = assistant.match(in: comment.text) else { continue }
+            assistantHandled.insert(cid)
+            assistantBrain.react(.curious)
+            assistantBrain.burst(.sparkle)
+            MascotSound.shared.play(.pop)
+            HapticEngine.shared.play(.selection)
+
+            let draftText = await MascotAssistantVoice.draftReply(
+                selection: assistant.selection,
+                keyword: match.keyword,
+                commentText: comment.text,
+                context: assistant.context
+            )
+            let draft = MascotAssistantDraft(
+                commentID: cid,
+                keyword: match.keyword,
+                originalText: comment.text,
+                draftText: draftText,
+                mascotRaw: assistant.kindRaw
+            )
+            if assistant.autoSend {
+                // Explicit opt-in path — still surfaces briefly then sends.
+                store.draft = draftText
+                store.replyingTo = comment
+                _ = await store.send()
+                assistantBrain.react(.celebrate)
+            } else {
+                assistantDraft = draft
+            }
+            break // one draft at a time
+        }
     }
 
     private var conversationHeader: some View {
