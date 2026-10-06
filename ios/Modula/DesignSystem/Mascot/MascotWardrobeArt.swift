@@ -460,7 +460,7 @@ extension MascotWearPainter {
         let x0 = rig.faceHalfWidth + 0.03
         var p = Path(R(x0, fringeY - 0.1, 0.8, y1 - fringeY + 0.1))
         p.addRect(R(-x0 - 0.8, fringeY - 0.1, 0.8, y1 - fringeY + 0.1))
-        return inflated(1.07).intersection(p)
+        return inflated(1.07).meet(p)
     }
 
     func hairShine(_ cap: Path, _ w: MascotSwatch) {
@@ -537,14 +537,14 @@ extension MascotWearPainter {
         let style = e.item.style
         var cap: Path
         switch style {
-        case "spiky": cap = inflated(1.05).intersection(fringeRegion(bumps: 7, depth: 0.04))
-        case "swoop": cap = inflated(1.05).intersection(fringeRegion(bumps: 3, depth: 0.03, slant: 0.06))
-        case "curlybob", "afro": cap = inflated(1.06).intersection(fringeRegion(bumps: 8, depth: 0.03))
+        case "spiky": cap = inflated(1.05).meet(fringeRegion(bumps: 7, depth: 0.04))
+        case "swoop": cap = inflated(1.05).meet(fringeRegion(bumps: 3, depth: 0.03, slant: 0.06))
+        case "curlybob", "afro": cap = inflated(1.06).meet(fringeRegion(bumps: 8, depth: 0.03))
         case "mohawk": cap = Path()
-        default: cap = inflated(1.05).intersection(fringeRegion(bumps: 5, depth: 0.025))
+        default: cap = inflated(1.05).meet(fringeRegion(bumps: 5, depth: 0.025))
         }
         if ["bob", "curlybob", "waves", "braid"].contains(style) {
-            cap = cap.union(sideLocks(to: style == "waves" ? rig.bodyBottom - 0.06 : rig.mouthY + 0.04))
+            cap = cap.join(sideLocks(to: style == "waves" ? rig.bodyBottom - 0.06 : rig.mouthY + 0.04))
         }
         if !cap.isEmpty {
             a.solid(cap, w, gloss: 0.15)
@@ -614,7 +614,7 @@ extension MascotWearPainter {
 
     func hood(_ e: MascotWearList.Entry) {
         let w = MascotSwatch(e.color)
-        let p = inflated(1.14).intersection(above(rig.neckY + 0.03))
+        let p = inflated(1.14).meet(above(rig.neckY + 0.03))
         art.solid(p, MascotSwatch(w.dark), gloss: 0.2)
         var g = ctx; g.clip(to: p)
         g.stroke(inflated(1.06), with: .color(w.deep.opacity(0.6)), lineWidth: L(0.03))
@@ -969,7 +969,7 @@ extension MascotWearPainter {
                 var g = ctx; g.clip(to: p)
                 g.stroke(p, with: .color(w.base), lineWidth: L(0.06))
                 a.pattern(p, e.item.pattern, w, scale: L(0.12))
-                if style == "royalcape" { ermine(along: p.intersection(below(hem - 0.06)), width: 0.05) }
+                if style == "royalcape" { ermine(along: p.meet(below(hem - 0.06)), width: 0.05) }
             }
         case "backpack":
             let pack = Path(roundedRect: R(-rig.bodyW / 2 - 0.08, rig.neckY - 0.06, rig.bodyW + 0.16, waistY - rig.neckY + 0.14), cornerRadius: L(0.08))
@@ -1345,7 +1345,7 @@ extension MascotWearPainter {
             eyes(CGPoint(x: 0.0, y: -0.25), 0.05); eyes(CGPoint(x: 0.18, y: -0.25), 0.05)
         case "fishbowl":
             let bowl = Path(ellipseIn: CGRect(x: -0.4, y: -0.8, width: 0.8, height: 0.8))
-            a.g.fill(bowl.intersection(Path(CGRect(x: -0.5, y: -0.55, width: 1, height: 0.6))), with: .color(Color(red: 0.55, green: 0.8, blue: 1).opacity(0.55)))
+            a.g.fill(bowl.meet(Path(CGRect(x: -0.5, y: -0.55, width: 1, height: 0.6))), with: .color(Color(red: 0.55, green: 0.8, blue: 1).opacity(0.55)))
             let sw = amp > 0 ? 0.12 * sin(t * 1.2) : 0
             let fish = Path(ellipseIn: CGRect(x: -0.12 + sw, y: -0.38, width: 0.24, height: 0.14))
             a.solid(fish, w, gloss: 0.5)

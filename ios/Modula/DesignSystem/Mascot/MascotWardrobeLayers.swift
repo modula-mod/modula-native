@@ -542,7 +542,39 @@ struct MascotWearPainter {
     }
 
     func garment(hem: CGFloat, extra: CGFloat = 0, dip: CGFloat = 0.03, inflate: CGFloat = 1.035) -> Path {
-        inflated(inflate).intersection(belowNeck(extra, dip: dip)).intersection(above(hem))
+        let p = inflated(inflate).meet(belowNeck(extra, dip: dip)).meet(above(hem))
+        return p.isEmpty ? garmentPolygon(hem: hem, extra: extra, dip: dip, inflate: inflate) : p
+    }
+
+    /// Boolean-free torso outline (from the rig's chord profile), used if a path boolean fails.
+    func garmentPolygon(hem: CGFloat, extra: CGFloat = 0, dip: CGFloat = 0.03, inflate: CGFloat = 1.035) -> Path {
+        let ny = rig.neckY + extra
+        let side = max(ny - 0.1, rig.eyeBottom + 0.05)
+        let half = rig.faceHalfWidth + 0.12
+        func hw(_ y: CGFloat) -> CGFloat { inflate * rig.chord(at: rig.bodyY + (y - rig.bodyY) / inflate) / 2 }
+        let bottom = min(hem, rig.bodyY + (rig.bodyBottom - rig.bodyY) * inflate - 0.004)
+        guard bottom > side + 0.02 else { return Path() }
+        let n = 18
+        var left: [CGPoint] = [], right: [CGPoint] = []
+        for i in 0...n {
+            let y = side + (bottom - side) * CGFloat(i) / CGFloat(n)
+            let w = hw(y)
+            left.append(P(-w, y)); right.append(P(w, y))
+        }
+        var p = Path()
+        p.move(to: left[0])
+        for i in 0...24 {
+            let x = -half + 2 * half * CGFloat(i) / 24
+            let k = max(0, 1 - (x / half) * (x / half))
+            let y = side + (ny + dip - side) * k
+            let lim = hw(y)
+            p.addLine(to: P(min(max(x, -lim), lim), y))
+        }
+        p.addLine(to: right[0])
+        for pt in right.dropFirst() { p.addLine(to: pt) }
+        for pt in left.reversed().dropLast() { p.addLine(to: pt) }
+        p.closeSubpath()
+        return p
     }
 
     func top(_ e: MascotWearList.Entry) {
@@ -585,7 +617,7 @@ struct MascotWearPainter {
                 g.draw(Text("7").font(.system(size: L(0.16), weight: .black, design: .rounded)).foregroundStyle(w.lighter), at: P(0, y))
             }
         case "tank":
-            let p = garment(hem: hipHem, dip: 0.06).intersection(columns(0).intersection(Path(R(-shoulderHalf * 0.82, -1, shoulderHalf * 1.64, 2.4))))
+            let p = garment(hem: hipHem, dip: 0.06).meet(columns(0).meet(Path(R(-shoulderHalf * 0.82, -1, shoulderHalf * 1.64, 2.4))))
             base(p)
             collarTrim(w.lighter, width: 0.025, dip: 0.06)
         case "hoodie":
@@ -609,7 +641,7 @@ struct MascotWearPainter {
             pocket.addLine(to: P(pw / 2 - 0.05, py))
             pocket.addLine(to: P(pw / 2, fullHem - 0.04))
             pocket.closeSubpath()
-            let pp = pocket.intersection(p)
+            let pp = pocket.meet(p)
             fa.g.fill(pp, with: .color(w.dark.opacity(0.35)))
             fa.g.stroke(pp, with: .color(w.ink.opacity(0.8)), lineWidth: stroke * 0.8)
         case "sweater":
@@ -649,7 +681,7 @@ struct MascotWearPainter {
             let bibHalf = min(0.18, rig.chord(at: bibTop + 0.05) * 0.3)
             var p = Path(roundedRect: R(-bibHalf, bibTop, bibHalf * 2, waistY - bibTop + 0.02), cornerRadius: L(0.03))
             p.addPath(below(waistY))
-            let o = inflated(1.04).intersection(p)
+            let o = inflated(1.04).meet(p)
             fa.solid(o, denim, gloss: 0.25)
             fa.stitch(Path(roundedRect: R(-bibHalf + 0.02, bibTop + 0.02, bibHalf * 2 - 0.04, waistY - bibTop - 0.02), cornerRadius: L(0.02)), denim)
             stitchLine(P(0, waistY + 0.02), P(0, rig.bodyBottom), clip: o, denim)
@@ -694,7 +726,7 @@ struct MascotWearPainter {
             col.addLine(to: P(0, rig.neckY + 0.2))
             col.addLine(to: P(-shoulderHalf, rig.neckY + 0.06))
             col.closeSubpath()
-            let cp = col.intersection(p)
+            let cp = col.meet(p)
             fa.solid(cp, navy, gloss: 0.2)
             fa.stitch(cp, navy, opacity: 0.9)
             let red = MascotSwatch(Color(red: 0.88, green: 0.2, blue: 0.24))
@@ -705,7 +737,7 @@ struct MascotWearPainter {
             knot.addLine(to: P(0, rig.neckY + 0.22))
             knot.addLine(to: P(-0.07, rig.neckY + 0.27))
             knot.closeSubpath()
-            fa.solid(knot.intersection(inflated(1.06)), red, gloss: 0.3)
+            fa.solid(knot.meet(inflated(1.06)), red, gloss: 0.3)
         case "islandshirt":
             sleeves(w, length: 0.13, width: 0.16, pattern: .floral)
             let p = garment(hem: hipHem + 0.02, dip: 0.08)
@@ -717,7 +749,7 @@ struct MascotWearPainter {
             sleeves(jacket, length: 0.21, cuff: .white)
             let p = garment(hem: fullHem)
             fa.solid(p, jacket, gloss: 0.3)
-            let shirt = p.intersection(Path(R(-0.11, -1, 0.22, 3)))
+            let shirt = p.meet(Path(R(-0.11, -1, 0.22, 3)))
             fa.solid(shirt, w, gloss: 0.2, outline: false)
             var x: CGFloat = -0.08
             while x <= 0.08 { fa.line(P(x, rig.neckY + 0.06), P(x, fullHem - 0.02), Color.black.opacity(0.12), width: 0.5); x += 0.04 }
@@ -734,7 +766,7 @@ struct MascotWearPainter {
             var g2 = g; g2.clip(to: p)
             g2.stroke(wrap, with: .color(w.ink), lineWidth: L(0.04) + stroke)
             g2.stroke(wrap, with: .color(w.lighter), lineWidth: L(0.04))
-            let sash = Path(R(-0.6, waistY - 0.02, 1.2, 0.05)).intersection(inflated(1.05))
+            let sash = Path(R(-0.6, waistY - 0.02, 1.2, 0.05)).meet(inflated(1.05))
             fa.solid(sash, MascotSwatch(w.base.mix(with: Color(red: 1, green: 0.8, blue: 0.3), by: 0.6)), gloss: 0.3)
             fa.dot(P(0.12, waistY + 0.005), L(0.03), w.dark, outline: w.ink)
         case "armor":
@@ -768,7 +800,7 @@ struct MascotWearPainter {
             let disc = Path(ellipseIn: R(-0.1, ey - 0.085, 0.2, 0.17))
             fa.solid(disc, MascotSwatch(Color(red: 1, green: 0.85, blue: 0.3)), gloss: 0.5)
             fa.solid(shield, MascotSwatch(Color(red: 0.9, green: 0.2, blue: 0.25)), gloss: 0.4)
-            let belt = Path(R(-0.7, waistY, 1.4, 0.045)).intersection(inflated(1.05))
+            let belt = Path(R(-0.7, waistY, 1.4, 0.045)).meet(inflated(1.05))
             fa.solid(belt, MascotSwatch(Color(red: 1, green: 0.8, blue: 0.3)), gloss: 0.5)
             fa.metal(Path(roundedRect: R(-0.04, waistY - 0.008, 0.08, 0.06), cornerRadius: L(0.01)), MascotSwatch(Color(red: 1, green: 0.85, blue: 0.4)))
         case "dresstop":
@@ -776,7 +808,7 @@ struct MascotWearPainter {
             base(p, gloss: 0.4)
             collarTrim(w.lighter, width: 0.02, dip: 0.06)
             skirt(e, w, flare: 1.18, pleats: false, ruffles: 1)
-            let belt = Path(R(-0.7, waistY - 0.015, 1.4, 0.04)).intersection(inflated(1.06))
+            let belt = Path(R(-0.7, waistY - 0.015, 1.4, 0.04)).meet(inflated(1.06))
             fa.solid(belt, MascotSwatch(w.dark), gloss: 0.5)
             for i in -2...2 { fa.gem(P(CGFloat(i) * 0.06, waistY + 0.005), L(0.012), Color(red: 1, green: 0.9, blue: 0.6), sparkle: i == 0 ? 0.6 : 0) }
         case "spacesuit":
@@ -822,7 +854,7 @@ struct MascotWearPainter {
             p.addLine(to: P(side * min(0.2, shoulderHalf * 0.7), ny - 0.025))
             p.addLine(to: P(side * (style == .open ? 0.16 : 0.12), ny + (style == .open ? 0.12 : 0.09)))
             p.closeSubpath()
-            a.solid(p.intersection(inflated(1.06)), MascotSwatch(w.light), gloss: 0.3)
+            a.solid(p.meet(inflated(1.06)), MascotSwatch(w.light), gloss: 0.3)
         }
     }
 
@@ -843,7 +875,7 @@ struct MascotWearPainter {
             p.addLine(to: P(side * 0.2, ny + 0.06))
             p.addLine(to: P(side * 0.11, ny + 0.2))
             p.closeSubpath()
-            let lp = p.intersection(inflated(1.06))
+            let lp = p.meet(inflated(1.06))
             if satin { a.metal(lp, MascotSwatch(w.base.lighter(0.12))) } else { a.solid(lp, MascotSwatch(w.light), gloss: 0.25) }
         }
     }
@@ -873,12 +905,12 @@ struct MascotWearPainter {
         let fullHem = rig.bodyBottom + 0.035
         let longHem = rig.bodyBottom + 0.09
         func panels(gap: CGFloat, hem: CGFloat, inflate: CGFloat = 1.06) -> Path {
-            let core = inflated(inflate).intersection(belowNeck(-0.006, dip: 0.04)).intersection(columns(gap))
-            guard hem > rig.bodyBottom + 0.04 else { return core.intersection(above(hem)) }
+            let core = inflated(inflate).meet(belowNeck(-0.006, dip: 0.04)).meet(columns(gap))
+            guard hem > rig.bodyBottom + 0.04 else { return core.meet(above(hem)) }
             // Long coats continue past the body as a straight skirt.
             let skirtTop = max(waistY, rig.bodyBottom - 0.16)
-            let ext = Path(roundedRect: R(-rig.bodyW * 0.46, skirtTop, rig.bodyW * 0.92, hem - skirtTop), cornerRadius: L(0.05)).intersection(columns(gap))
-            return core.union(ext)
+            let ext = Path(roundedRect: R(-rig.bodyW * 0.46, skirtTop, rig.bodyW * 0.92, hem - skirtTop), cornerRadius: L(0.05)).meet(columns(gap))
+            return core.join(ext)
         }
         switch it.style {
         case "cardigan":
@@ -919,7 +951,7 @@ struct MascotWearPainter {
             fa.solid(p, w, gloss: 0.3)
             fa.stitch(p, MascotSwatch(Color(red: 0.95, green: 0.75, blue: 0.4)), opacity: 0.9)
             for side in [-1.0, 1.0] as [CGFloat] {
-                let flap = Path(roundedRect: R(side > 0 ? 0.1 : -0.22, rig.neckY + 0.08, 0.12, 0.05), cornerRadius: L(0.01)).intersection(p)
+                let flap = Path(roundedRect: R(side > 0 ? 0.1 : -0.22, rig.neckY + 0.08, 0.12, 0.05), cornerRadius: L(0.01)).meet(p)
                 fa.solid(flap, MascotSwatch(w.dark), gloss: 0.2)
                 fa.button(P(side * 0.16, rig.neckY + 0.11), L(0.01), MascotSwatch(Color(red: 0.85, green: 0.65, blue: 0.3)))
             }
@@ -939,7 +971,7 @@ struct MascotWearPainter {
                 for side in [-1.0, 1.0] as [CGFloat] {
                     for i in 0..<2 { fa.button(P(side * 0.07, rig.neckY + 0.12 + CGFloat(i) * 0.08), L(0.013), MascotSwatch(w.dark)) }
                 }
-                let belt = Path(R(-0.8, waistY - 0.01, 1.6, 0.045)).intersection(inflated(1.08))
+                let belt = Path(R(-0.8, waistY - 0.01, 1.6, 0.045)).meet(inflated(1.08))
                 fa.solid(belt, MascotSwatch(w.dark), gloss: 0.3)
                 fa.metal(Path(roundedRect: R(-0.035, waistY - 0.015, 0.07, 0.055), cornerRadius: L(0.008)), MascotSwatch(Color(red: 0.9, green: 0.8, blue: 0.5)))
             } else {
@@ -974,14 +1006,14 @@ struct MascotWearPainter {
             ermine(along: p, width: 0.05)
             fa.gem(P(0, rig.neckY + 0.05), L(0.03), Color(red: 1, green: 0.8, blue: 0.3))
         case "tabard":
-            let p = inflated(1.07).intersection(belowNeck(-0.004, dip: 0.04)).intersection(Path(R(-0.2, -1, 0.4, 3))).intersection(above(longHem))
-                .union(Path(roundedRect: R(-0.2, rig.bodyBottom - 0.1, 0.4, longHem - rig.bodyBottom + 0.1), cornerRadius: L(0.02)))
+            let p = inflated(1.07).meet(belowNeck(-0.004, dip: 0.04)).meet(Path(R(-0.2, -1, 0.4, 3))).meet(above(longHem))
+                .join(Path(roundedRect: R(-0.2, rig.bodyBottom - 0.1, 0.4, longHem - rig.bodyBottom + 0.1), cornerRadius: L(0.02)))
             fa.solid(p, w, gloss: 0.3)
             fa.stitch(p, MascotSwatch(Color(red: 1, green: 0.85, blue: 0.4)), opacity: 1)
             let cy0 = (rig.neckY + waistY) / 2
-            let cross = Path(R(-0.018, cy0 - 0.07, 0.036, 0.14)).union(Path(R(-0.06, cy0 - 0.03, 0.12, 0.036)))
+            let cross = Path(R(-0.018, cy0 - 0.07, 0.036, 0.14)).join(Path(R(-0.06, cy0 - 0.03, 0.12, 0.036)))
             fa.solid(cross, MascotSwatch(Color(red: 1, green: 0.85, blue: 0.35)), gloss: 0.6)
-            let belt = Path(R(-0.8, waistY + 0.02, 1.6, 0.04)).intersection(inflated(1.08))
+            let belt = Path(R(-0.8, waistY + 0.02, 1.6, 0.04)).meet(inflated(1.08))
             fa.solid(belt, MascotSwatch(Color(red: 0.4, green: 0.26, blue: 0.16)), gloss: 0.2)
         default:
             let p = panels(gap: 0.06, hem: fullHem)
@@ -1097,23 +1129,23 @@ struct MascotWearPainter {
             a.solid(Path(roundedRect: R(-rig.bodyW * 0.38, waistY - 0.012, rig.bodyW * 0.76, 0.03), cornerRadius: L(0.012)), MascotSwatch(w.dark), gloss: 0.3)
         default:
             // Shorts / jeans / cargo on legged mascots.
-            let body = inflated(1.04).intersection(below(waistY))
+            let body = inflated(1.04).meet(below(waistY))
             let legLen: CGFloat = style == "jeans" ? 0.1 : 0.05
             var legs = Path()
             for side in [-1.0, 1.0] as [CGFloat] {
                 legs.addRoundedRect(in: R(side * 0.17 - 0.11, rig.bodyBottom - 0.08, 0.22, 0.08 + legLen), cornerSize: CGSize(width: L(0.05), height: L(0.05)))
             }
-            let p = body.union(legs)
+            let p = body.join(legs)
             a.solid(p, w, gloss: 0.3)
             a.pattern(p, e.item.pattern, w, scale: L(0.1))
             a.line(P(0, waistY + 0.03), P(0, rig.bodyBottom + 0.01), w.ink.opacity(0.7), width: 0.8)
-            let bandP = Path(R(-1, waistY - 0.005, 2, 0.04)).intersection(inflated(1.05))
+            let bandP = Path(R(-1, waistY - 0.005, 2, 0.04)).meet(inflated(1.05))
             a.solid(bandP, MascotSwatch(w.dark), gloss: 0.2)
             for x in [-0.16, 0.0, 0.16] as [CGFloat] { a.line(P(x, waistY - 0.005), P(x, waistY + 0.035), w.ink.opacity(0.7), width: 0.7) }
             if style == "jeans" || style == "cargo" { a.stitch(p, MascotSwatch(Color(red: 0.95, green: 0.75, blue: 0.4)), opacity: 0.9) }
             if style == "cargo" {
                 for side in [-1.0, 1.0] as [CGFloat] {
-                    let pk = Path(roundedRect: R(side * 0.24 - 0.05, rig.bodyBottom - 0.1, 0.1, 0.08), cornerRadius: L(0.012)).intersection(p)
+                    let pk = Path(roundedRect: R(side * 0.24 - 0.05, rig.bodyBottom - 0.1, 0.1, 0.08), cornerRadius: L(0.012)).meet(p)
                     a.solid(pk, MascotSwatch(w.dark), gloss: 0.15)
                 }
             }
@@ -1348,7 +1380,7 @@ struct MascotWearPainter {
                 a.metal(Path(ellipseIn: R(side * half - 0.03, rig.neckY - 0.03, 0.06, 0.06)), MascotSwatch(clasp))
             }
             if e.item.style == "royalcape" {
-                ermine(along: inflated(1.06).intersection(belowNeck(0, dip: 0.03)).intersection(above(rig.neckY + 0.07)), width: 0.04)
+                ermine(along: inflated(1.06).meet(belowNeck(0, dip: 0.03)).meet(above(rig.neckY + 0.07)), width: 0.04)
             }
             if e.item.style == "spookycape" {
                 // Tall collar points beside (never over) the face.
@@ -1365,5 +1397,62 @@ struct MascotWearPainter {
         default:
             break
         }
+    }
+}
+
+
+// MARK: - Robust path booleans
+
+extension Path {
+    /// Curves → short line segments. Boolean ops on line-only paths behave the same on every iOS
+    /// runtime (curve-vs-curve booleans can come back empty, and CoreGraphics returns the whole
+    /// argument when the receiver is empty, which painted giant rectangles).
+    func mascotFlattened(segments: Int = 14) -> Path {
+        var out = Path()
+        var cur = CGPoint.zero
+        var start = CGPoint.zero
+        forEach { el in
+            switch el {
+            case .move(let p):
+                out.move(to: p); cur = p; start = p
+            case .line(let p):
+                out.addLine(to: p); cur = p
+            case .quadCurve(let p, let c):
+                for i in 1...segments {
+                    let t = CGFloat(i) / CGFloat(segments), u = 1 - t
+                    out.addLine(to: CGPoint(x: u * u * cur.x + 2 * u * t * c.x + t * t * p.x,
+                                            y: u * u * cur.y + 2 * u * t * c.y + t * t * p.y))
+                }
+                cur = p
+            case .curve(let p, let c1, let c2):
+                for i in 1...segments {
+                    let t = CGFloat(i) / CGFloat(segments), u = 1 - t
+                    let k0 = u * u * u, k1 = 3 * u * u * t, k2 = 3 * u * t * t, k3 = t * t * t
+                    out.addLine(to: CGPoint(x: k0 * cur.x + k1 * c1.x + k2 * c2.x + k3 * p.x,
+                                            y: k0 * cur.y + k1 * c1.y + k2 * c2.y + k3 * p.y))
+                }
+                cur = p
+            case .closeSubpath:
+                out.closeSubpath(); cur = start
+            }
+        }
+        return out
+    }
+
+    /// Safe intersection: empty in → empty out, and never larger than either input.
+    func meet(_ other: Path) -> Path {
+        if isEmpty || other.isEmpty { return Path() }
+        let a = boundingRect, b = other.boundingRect
+        guard a.intersects(b) else { return Path() }
+        let r = mascotFlattened().intersection(other.mascotFlattened())
+        guard !r.isEmpty, a.intersection(b).insetBy(dx: -1, dy: -1).contains(r.boundingRect) else { return Path() }
+        return r
+    }
+
+    /// Safe union.
+    func join(_ other: Path) -> Path {
+        if isEmpty { return other }
+        if other.isEmpty { return self }
+        return mascotFlattened().union(other.mascotFlattened())
     }
 }
