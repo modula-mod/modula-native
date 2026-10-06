@@ -406,6 +406,7 @@ struct PostCommentsView: View {
     @State private var assistantHandled: Set<String> = []
     @State private var assistantBrain = MascotBrain()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: 0) {
@@ -925,81 +926,94 @@ struct PostCommentsView: View {
         HapticEngine.shared.play(.selection)
     }
 
+    @ViewBuilder
     private var composer: some View {
-        VStack(spacing: 8) {
-            if let error = store?.composerError {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-            }
-            if showsInlineCamera {
-                ModulaInlineCamera(
-                    modes: [.photo, .video],
-                    idPrefix: "comment.camera",
-                    height: 300,
-                    onPhoto: { image in
-                        Task { await store?.addCameraImage(image) }
-                        withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { showsInlineCamera = false }
+        let canvas = ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas
+        VStack(spacing: 0) {
+            VStack(spacing: 8) {
+                if let error = store?.composerError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+                }
+                if showsInlineCamera {
+                    ModulaInlineCamera(
+                        modes: [.photo, .video],
+                        idPrefix: "comment.camera",
+                        height: 300,
+                        onPhoto: { image in
+                            Task { await store?.addCameraImage(image) }
+                            withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { showsInlineCamera = false }
+                        },
+                        onVideo: { url in
+                            Task { await store?.addVideoFile(url) }
+                            withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { showsInlineCamera = false }
+                        },
+                        onClose: { withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { showsInlineCamera = false } }
+                    )
+                    .padding(.horizontal, 12)
+                    .transition(reduceMotion ? .opacity : .scale(scale: 0.92, anchor: .bottom).combined(with: .opacity))
+                    .gesture(DragGesture(minimumDistance: 24).onEnded { value in
+                        if value.translation.height > 70 { withAnimation(.snappy) { showsInlineCamera = false } }
+                    })
+                }
+                // Composer + perched mascot always sit fully above the emoji/GIF panel
+                // (keyboard-replacement). Opaque backing stops the comment list showing through.
+                ModulaComposer(
+                    text: Binding(
+                        get: { store?.draft ?? "" },
+                        set: { store?.draft = $0 }
+                    ),
+                    prompt: store?.replyingTo == nil ? "Add a comment…" : "Reply…",
+                    enabled: store != nil,
+                    sending: store?.isSending == true,
+                    attachments: store?.pendingMedia.map(\.composerAttachment) ?? [],
+                    showsAttachmentButton: true,
+                    externalFocus: Binding(
+                        get: { composerFocused },
+                        set: { composerFocused = $0 }
+                    ),
+                    avatar: app.auth.account.map { account in
+                        ModulaComposerAvatar(
+                            initials: String(account.displayName?.prefix(2) ?? account.primaryHandle.prefix(2)).uppercased(),
+                            url: app.profile.ownProfile?.avatarURL
+                        )
                     },
-                    onVideo: { url in
-                        Task { await store?.addVideoFile(url) }
-                        withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { showsInlineCamera = false }
-                    },
-                    onClose: { withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { showsInlineCamera = false } }
+                    reply: store?.replyingTo.map { ModulaComposerReply(title: "Replying to \($0.author?.displayName ?? "comment")", excerpt: $0.text) }
+                        ?? store?.quoting.map { ModulaComposerReply(title: "Quoting \($0.author?.displayName ?? "comment")", excerpt: $0.text) },
+                    onCancelReply: { store?.replyingTo = nil; store?.quoting = nil },
+                    attachmentOptions: attachmentOptions,
+                    onAttachmentOption: handleAttachmentOption,
+                    onRemoveAttachment: { store?.removeMedia(id: $0.id) },
+                    characterLimit: PostCommentsStore.characterLimit,
+                    mentionSuggestions: store?.mentionSuggestions ?? [],
+                    onMentionQuery: { store?.updateMentionQuery($0) },
+                    mediaPanelActive: Binding(
+                        get: { mediaPanelActive },
+                        set: { value in
+                            if value { mediaPanelTab = .emoji; stickerSection = nil; showsInlineCamera = false }
+                            mediaPanelActive = value
+                        }
+                    ),
+                    hashtagSuggestions: store?.hashtagSuggestions ?? [],
+                    onHashtagQuery: { store?.updateHashtagQuery($0) },
+                    showsFormatting: true,
+                    onVoiceNote: { note in Task { await store?.addVoiceNote(note) } },
+                    mascot: .comments,
+                    onSend: { Task { _ = await store?.send() } }
                 )
                 .padding(.horizontal, 12)
-                .transition(reduceMotion ? .opacity : .scale(scale: 0.92, anchor: .bottom).combined(with: .opacity))
-                .gesture(DragGesture(minimumDistance: 24).onEnded { value in
-                    if value.translation.height > 70 { withAnimation(.snappy) { showsInlineCamera = false } }
-                })
+                .accessibilityIdentifier("post.comment.composer")
             }
-            ModulaComposer(
-                text: Binding(
-                    get: { store?.draft ?? "" },
-                    set: { store?.draft = $0 }
-                ),
-                prompt: store?.replyingTo == nil ? "Add a comment…" : "Reply…",
-                enabled: store != nil,
-                sending: store?.isSending == true,
-                attachments: store?.pendingMedia.map(\.composerAttachment) ?? [],
-                showsAttachmentButton: true,
-                externalFocus: Binding(
-                    get: { composerFocused },
-                    set: { composerFocused = $0 }
-                ),
-                avatar: app.auth.account.map { account in
-                    ModulaComposerAvatar(
-                        initials: String(account.displayName?.prefix(2) ?? account.primaryHandle.prefix(2)).uppercased(),
-                        url: app.profile.ownProfile?.avatarURL
-                    )
-                },
-                reply: store?.replyingTo.map { ModulaComposerReply(title: "Replying to \($0.author?.displayName ?? "comment")", excerpt: $0.text) }
-                    ?? store?.quoting.map { ModulaComposerReply(title: "Quoting \($0.author?.displayName ?? "comment")", excerpt: $0.text) },
-                onCancelReply: { store?.replyingTo = nil; store?.quoting = nil },
-                attachmentOptions: attachmentOptions,
-                onAttachmentOption: handleAttachmentOption,
-                onRemoveAttachment: { store?.removeMedia(id: $0.id) },
-                characterLimit: PostCommentsStore.characterLimit,
-                mentionSuggestions: store?.mentionSuggestions ?? [],
-                onMentionQuery: { store?.updateMentionQuery($0) },
-                mediaPanelActive: Binding(
-                    get: { mediaPanelActive },
-                    set: { value in
-                        if value { mediaPanelTab = .emoji; stickerSection = nil; showsInlineCamera = false }
-                        mediaPanelActive = value
-                    }
-                ),
-                hashtagSuggestions: store?.hashtagSuggestions ?? [],
-                onHashtagQuery: { store?.updateHashtagQuery($0) },
-                showsFormatting: true,
-                onVoiceNote: { note in Task { await store?.addVoiceNote(note) } },
-                mascot: .comments,
-                onSend: { Task { _ = await store?.send() } }
-            )
-            .padding(.horizontal, 12)
-            .accessibilityIdentifier("post.comment.composer")
+            .padding(.top, 6)
+            .padding(.bottom, mediaPanelActive ? 10 : 8)
+            .frame(maxWidth: .infinity)
+            .background(canvas)
+            // Keep the composer + mascot above the panel even if a glass layer tries to float.
+            .zIndex(2)
+
             if mediaPanelActive {
                 ModulaComposerMediaPanel(
                     client: app.client,
@@ -1017,10 +1031,12 @@ struct PostCommentsView: View {
                 )
                 .id("\(mediaPanelTab.rawValue)-\(stickerSection ?? "")")
                 .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                .zIndex(1)
             }
         }
-        .padding(.top, 6)
-        .padding(.bottom, mediaPanelActive ? 0 : 8)
+        // Solid fill under the whole inset (composer + panel) so nothing from the
+        // comment list or the home feed peeks through the home-indicator zone.
+        .background(canvas.ignoresSafeArea(edges: .bottom))
         .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.34, dampingFraction: 0.85), value: mediaPanelActive)
         .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.36, dampingFraction: 0.82), value: showsInlineCamera)
         .gesture(

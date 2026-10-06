@@ -27,6 +27,9 @@ struct ModulaComposerMediaPanel: View {
     @State private var tab: Tab = .emoji
     @Namespace private var tabGlass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     private var tabs: [Tab] {
         Tab.allCases.filter { ($0 != .gifs || allowsGifs) && ($0 != .stickers || onSticker != nil) }
@@ -37,8 +40,15 @@ struct ModulaComposerMediaPanel: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
-            Capsule().fill(Color.primary.opacity(0.18)).frame(width: 36, height: 4).padding(.top, 8)
+        let canvas = ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas
+        VStack(spacing: 0) {
+            // Handle + tabs sit above the content with comfortable breathing room.
+            Capsule()
+                .fill(Color.primary.opacity(0.22))
+                .frame(width: 36, height: 5)
+                .padding(.top, 10)
+                .padding(.bottom, 10)
+                .accessibilityHidden(true)
             if tabs.count > 1 {
                 ModulaGlassGroup(spacing: 6) {
                     HStack(spacing: 6) {
@@ -64,8 +74,8 @@ struct ModulaComposerMediaPanel: View {
                         }
                     }
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 2)
                 }
+                .padding(.bottom, 10)
             }
             Group {
                 switch tab {
@@ -80,16 +90,37 @@ struct ModulaComposerMediaPanel: View {
             }
             .frame(height: contentHeight)
             .transition(.opacity)
+            // Keep content clear of the home indicator; the opaque fill still covers it.
+            Color.clear.frame(height: 6)
+                .padding(.bottom, 4)
         }
-        .padding(.bottom, 6)
         .frame(maxWidth: .infinity)
+        // Keyboard-replacement surface: opaque enough that the comment list never bleeds
+        // through. Liquid Glass is reserved for the small tab chips above — a full-bleed
+        // glassEffect here was compositing above the composer and chopping the mascot.
         .background {
-            // Glass runs under the home indicator; content stays above it.
-            shape.fill(Color.clear)
-                .modulaGlass(in: shape, interactive: false, specular: true)
-                .ignoresSafeArea(edges: .bottom)
+            ZStack {
+                // Opaque canvas first so comment-list content can never bleed through.
+                shape.fill(canvas)
+                if !reduceTransparency {
+                    shape.fill(Color.clear)
+                        .background(.ultraThickMaterial, in: shape)
+                }
+            }
+            .overlay {
+                shape.stroke(
+                    LinearGradient(
+                        colors: [.white.opacity(0.55), Color.primary.opacity(0.06), .white.opacity(0.18)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 0.8
+                )
+                .allowsHitTesting(false)
+            }
+            // Extend the fill under the home indicator without clipping it away.
+            .ignoresSafeArea(edges: .bottom)
         }
-        .clipShape(shape)
         .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: tab)
         .onAppear { tab = tabs.contains(initialTab) ? initialTab : .emoji }
         .accessibilityIdentifier("composer.panel")
@@ -149,7 +180,7 @@ struct ModulaEmojiGrid: View {
     }
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 10) {
             HStack(spacing: 8) {
                 ModulaGlassSearchField(prompt: "Search emoji", text: $query)
                 Menu {
@@ -314,7 +345,7 @@ struct ModulaStickerPicker: View {
     }
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 10) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     ForEach(sections) { section in
@@ -491,7 +522,7 @@ struct ModulaGifPicker: View {
     private static let categories = ["Trending", "Reactions", "LOL", "Love", "Happy", "Sad", "Celebrate", "Thumbs up", "Wow", "Yes", "No", "Thank you", "Hello"]
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 10) {
             ModulaGlassSearchField(prompt: "Search GIPHY", text: $query).padding(.horizontal, 12)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
