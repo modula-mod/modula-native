@@ -1,3 +1,5 @@
+import CoreImage
+import CoreImage.CIFilterBuiltins
 import PhotosUI
 import SwiftUI
 import ImageIO
@@ -500,10 +502,99 @@ struct StoryProgressBar: View {
     }
 }
 
+// MARK: - Filters
+
+struct StoryFilter: Identifiable, Hashable, Sendable {
+    let id: String
+    let title: String
+    let systemImage: String
+
+    static let catalog: [StoryFilter] = [
+        .init(id: "none", title: "Original", systemImage: "circle"),
+        .init(id: "vivid", title: "Vivid", systemImage: "sun.max.fill"),
+        .init(id: "warm", title: "Warm", systemImage: "flame.fill"),
+        .init(id: "cool", title: "Cool", systemImage: "snowflake"),
+        .init(id: "mono", title: "Mono", systemImage: "circle.lefthalf.filled"),
+        .init(id: "fade", title: "Fade", systemImage: "cloud.fill"),
+        .init(id: "noir", title: "Noir", systemImage: "moon.fill"),
+        .init(id: "chrome", title: "Chrome", systemImage: "sparkles"),
+    ]
+}
+
+enum StoryFilterEngine {
+    nonisolated(unsafe) private static let context = CIContext(options: [.useSoftwareRenderer: false])
+
+    @MainActor
+    static func apply(_ filter: StoryFilter, to image: UIImage) -> UIImage {
+        guard filter.id != "none", let cg = image.cgImage else { return image }
+        let ci = CIImage(cgImage: cg)
+        let output: CIImage?
+        switch filter.id {
+        case "vivid":
+            let f = CIFilter.colorControls()
+            f.inputImage = ci
+            f.saturation = 1.45
+            f.contrast = 1.12
+            output = f.outputImage
+        case "warm":
+            let f = CIFilter.temperatureAndTint()
+            f.inputImage = ci
+            f.neutral = CIVector(x: 6500, y: 0)
+            f.targetNeutral = CIVector(x: 4500, y: 0)
+            output = f.outputImage
+        case "cool":
+            let f = CIFilter.temperatureAndTint()
+            f.inputImage = ci
+            f.neutral = CIVector(x: 6500, y: 0)
+            f.targetNeutral = CIVector(x: 9000, y: 0)
+            output = f.outputImage
+        case "mono":
+            let f = CIFilter.photoEffectMono()
+            f.inputImage = ci
+            output = f.outputImage
+        case "fade":
+            let f = CIFilter.photoEffectFade()
+            f.inputImage = ci
+            output = f.outputImage
+        case "noir":
+            let f = CIFilter.photoEffectNoir()
+            f.inputImage = ci
+            output = f.outputImage
+        case "chrome":
+            let f = CIFilter.photoEffectChrome()
+            f.inputImage = ci
+            output = f.outputImage
+        default:
+            output = ci
+        }
+        guard let output, let rendered = context.createCGImage(output, from: output.extent) else { return image }
+        return UIImage(cgImage: rendered, scale: image.scale, orientation: image.imageOrientation)
+    }
+}
+
+// MARK: - Stickers
+
+struct StoryStickerPlacement: Identifiable, Hashable, Sendable {
+    let id: String
+    var emoji: String
+    /// Normalised 0…1 within the preview.
+    var x: CGFloat
+    var y: CGFloat
+    var scale: CGFloat
+
+    static let palette: [String] = ["😀", "😍", "🔥", "✨", "🎉", "💜", "🦋", "🌟", "👑", "🐾", "😎", "🫶"]
+}
+
+// MARK: - Composer (replaces the grey "Add a photo" sheet)
+
+@MainActor
 struct StoryCreateView: View {
     @Environment(AppEnvironment.self) private var app
-    @State private var pickerItem: PhotosPickerItem?
-    @State private var preview: UIImage?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pickerItems: [PhotosPickerItem] = []
+    @State private var showsCamera = true
+    @State private var sourceImage: UIImage?
+    @State private var filteredPreview: UIImage?
     @State private var prepared: PreparedImage?
     @State private var caption = ""
     @State private var busy = false
@@ -512,82 +603,21 @@ struct StoryCreateView: View {
     @State private var published = false
     @State private var restored = false
     @State private var draftID = "story-primary"
+    @State private var filter = StoryFilter.catalog[0]
+    @State private var stickers: [StoryStickerPlacement] = []
+    @State private var toolTab: ToolTab = .filters
+    @State private var videoURL: URL?
+    @State private var toast: String?
+
+    private enum ToolTab: String, CaseIterable { case filters = "Filters", stickers = "Stickers" }
+
+    private var canPublishVideo: Bool { app.stories.capabilities.video }
+    private var hasMedia: Bool { sourceImage != nil || videoURL != nil }
 
     var body: some View {
         Group {
             if app.stories.capabilities.create {
-                ScrollView {
-                    VStack(spacing: 18) {
-                        PhotosPicker(selection: $pickerItem, matching: .images) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                                    .fill(Color.primary.opacity(0.06))
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 360)
-                                if let preview {
-                                    Image(uiImage: preview)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 360)
-                                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                                } else {
-                                    VStack(spacing: 10) {
-                                        Image(systemName: "plus.circle.fill")
-                                            .font(.system(size: 36, weight: .semibold))
-                                        Text("Add a photo")
-                                            .font(.headline)
-                                    }
-                                    .foregroundStyle(app.appearance.accent.color)
-                                }
-                            }
-                        }
-                        .accessibilityLabel("Add a photo")
-                        .accessibilityValue(photoAccessibilityValue)
-                        .accessibilityIdentifier("story.create.photo")
-                        .disabled(busy)
-
-                        HStack {
-                            Label("Available for 24 hours", systemImage: "clock")
-                                .font(.caption).foregroundStyle(.secondary)
-                            Spacer()
-                            Picker("Audience", selection: $visibility) {
-                                Text("Everyone").tag("public")
-                                Text("Followers").tag("followers")
-                            }
-                            .pickerStyle(.menu)
-                            .tint(app.appearance.accent.color)
-                            .disabled(busy)
-                        }
-
-                        TextField("Add a caption", text: $caption, axis: .vertical)
-                            .disabled(busy)
-                            .lineLimit(1...3)
-                            .textFieldStyle(.plain)
-                            .padding(14)
-                            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous))
-
-                        Button {
-                            Task { await publish() }
-                        } label: {
-                            if busy {
-                                ProgressView().frame(maxWidth: .infinity).frame(minHeight: 48)
-                            } else {
-                                Text("Share")
-                                    .font(.headline)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(minHeight: 48)
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(app.appearance.accent.color)
-                        .disabled(prepared == nil || busy)
-                        .accessibilityIdentifier("story.create.share")
-                    }
-                    .padding(.horizontal, ModulaLayout.contentInset)
-                    .padding(.top, 12)
-                    .padding(.bottom, 28)
-                }
+                composer
             } else {
                 ModulaEmptyState(
                     title: "Create story",
@@ -597,11 +627,24 @@ struct StoryCreateView: View {
             }
         }
         .modulaCanvas()
-        .modulaSoftScrollEdge()
         .navigationTitle("Create story")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
-        .onChange(of: pickerItem) { _, item in
-            Task { await load(item) }
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                if hasMedia && !showsCamera {
+                    Button("Retake") {
+                        withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.34, dampingFraction: 0.82)) {
+                            clearMedia()
+                            showsCamera = true
+                        }
+                        HapticEngine.shared.play(.selection)
+                    }
+                }
+            }
+        }
+        .onChange(of: pickerItems) { _, items in
+            Task { await loadPicker(items) }
         }
         .task {
             await restoreDraft()
@@ -611,10 +654,12 @@ struct StoryCreateView: View {
         }
         .onChange(of: caption) { _, _ in saveDraft() }
         .onChange(of: visibility) { _, _ in saveDraft() }
+        .onChange(of: filter) { _, _ in refilter() }
         .onDisappear { if !published { saveDraft(); app.drafts.flush() } }
         .overlay(alignment: .bottom) {
-            if let message = app.stories.actionError ?? app.drafts.saveError {
+            if let message = toast ?? app.stories.actionError ?? app.drafts.saveError {
                 ModulaErrorBanner(message: message, identifier: "story.create.error") {
+                    toast = nil
                     app.stories.setActionError(nil)
                 }
             }
@@ -623,46 +668,403 @@ struct StoryCreateView: View {
         .accessibilityValue(RouteSerializer.serialize(.stories(.create)))
     }
 
-    private var photoAccessibilityValue: String {
-        guard let prepared else { return "No photo selected" }
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--uitest-story-large-photo") {
-            return "Photo selected, \(prepared.data.count) bytes"
+    private var composer: some View {
+        ZStack(alignment: .bottom) {
+            Color.black.ignoresSafeArea()
+
+            if showsCamera || !hasMedia {
+                captureStage
+            } else {
+                editStage
+            }
+
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                if hasMedia && !showsCamera {
+                    toolChrome
+                }
+                bottomBar
+            }
         }
-        #endif
-        return "Photo selected"
     }
 
-    private func load(_ item: PhotosPickerItem?) async {
-        guard let item else { return }
-        guard let data = try? await item.loadTransferable(type: Data.self) else {
-            app.stories.setActionError("Couldn’t open that photo. Try another one.")
-            return
+    // MARK: Capture
+
+    private var captureStage: some View {
+        VStack(spacing: 12) {
+            ModulaInlineCamera(
+                modes: canPublishVideo ? [.photo, .video] : [.photo],
+                idPrefix: "story.camera",
+                height: 480,
+                maxVideoSeconds: 15,
+                onPhoto: { image in
+                    Task { await accept(image: image) }
+                },
+                onVideo: { url in
+                    if canPublishVideo {
+                        videoURL = url
+                        sourceImage = nil
+                        filteredPreview = nil
+                        prepared = nil
+                        showsCamera = false
+                        HapticEngine.shared.play(.success)
+                    } else {
+                        toast = "Video stories aren’t available yet — share a photo instead."
+                        HapticEngine.shared.play(.failure)
+                    }
+                },
+                onClose: {
+                    // Keep library path available; dismiss only the live camera card.
+                    withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .snappy) { showsCamera = false }
+                }
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+
+            libraryChip
+            Spacer(minLength: 0)
         }
-        await load(data: data)
     }
 
-    private func load(data: Data) async {
-        app.stories.setActionError(nil)
+    private var libraryChip: some View {
+        PhotosPicker(selection: $pickerItems, maxSelectionCount: canPublishVideo ? 4 : 1, matching: .any(of: [.images, .videos])) {
+            Label("Photo library", systemImage: "photo.on.rectangle")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .frame(height: 44)
+                .background(.ultraThinMaterial, in: Capsule())
+                .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 0.8))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("story.create.library")
+        .disabled(busy)
+    }
+
+    // MARK: Edit
+
+    private var editStage: some View {
+        GeometryReader { geo in
+            ZStack {
+                if let videoURL {
+                    // Video stories (when enabled): show a still placeholder + filename.
+                    VStack(spacing: 12) {
+                        Image(systemName: "video.fill")
+                            .font(.system(size: 44, weight: .semibold))
+                            .foregroundStyle(.white)
+                        Text(videoURL.lastPathComponent)
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.7))
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(white: 0.12))
+                } else if let image = filteredPreview ?? sourceImage {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                }
+
+                ForEach(stickers) { sticker in
+                    Text(sticker.emoji)
+                        .font(.system(size: 44 * sticker.scale))
+                        .position(
+                            x: sticker.x * geo.size.width,
+                            y: sticker.y * geo.size.height
+                        )
+                        .gesture(
+                            DragGesture()
+                                .onChanged { value in
+                                    if let i = stickers.firstIndex(where: { $0.id == sticker.id }) {
+                                        stickers[i].x = min(max(value.location.x / max(geo.size.width, 1), 0.05), 0.95)
+                                        stickers[i].y = min(max(value.location.y / max(geo.size.height, 1), 0.05), 0.95)
+                                    }
+                                }
+                        )
+                        .onLongPressGesture {
+                            stickers.removeAll { $0.id == sticker.id }
+                            HapticEngine.shared.play(.selection)
+                        }
+                }
+            }
+        }
+        .ignoresSafeArea(edges: .bottom)
+    }
+
+    // MARK: Tools + bar
+
+    private var toolChrome: some View {
+        VStack(spacing: 10) {
+            Picker("Tools", selection: $toolTab) {
+                ForEach(ToolTab.allCases, id: \.self) { tab in
+                    Text(tab.rawValue).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 16)
+
+            if toolTab == .filters {
+                filterStrip
+            } else {
+                stickerStrip
+            }
+        }
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial.opacity(0.92))
+    }
+
+    private var filterStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(StoryFilter.catalog) { item in
+                    Button {
+                        filter = item
+                        HapticEngine.shared.play(.selection)
+                    } label: {
+                        VStack(spacing: 6) {
+                            ZStack {
+                                Circle()
+                                    .fill(filterThumb(item))
+                                    .frame(width: 52, height: 52)
+                                    .overlay {
+                                        Circle().strokeBorder(filter.id == item.id ? Color.white : Color.white.opacity(0.25), lineWidth: filter.id == item.id ? 2.5 : 1)
+                                    }
+                                Image(systemName: item.systemImage)
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(.white)
+                            }
+                            Text(item.title)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(filter.id == item.id ? Color.white : Color.white.opacity(0.7))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(item.title)
+                    .accessibilityAddTraits(filter.id == item.id ? .isSelected : [])
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    private var stickerStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(StoryStickerPlacement.palette, id: \.self) { emoji in
+                    Button {
+                        stickers.append(
+                            StoryStickerPlacement(
+                                id: UUID().uuidString,
+                                emoji: emoji,
+                                x: 0.5,
+                                y: 0.45,
+                                scale: 1
+                            )
+                        )
+                        HapticEngine.shared.play(.selection)
+                    } label: {
+                        Text(emoji)
+                            .font(.system(size: 32))
+                            .frame(width: 52, height: 52)
+                            .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Add \(emoji) sticker")
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    private var bottomBar: some View {
+        VStack(spacing: 10) {
+            if hasMedia && !showsCamera {
+                HStack(spacing: 10) {
+                    TextField("Add a caption…", text: $caption, axis: .vertical)
+                        .lineLimit(1...3)
+                        .textFieldStyle(.plain)
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 44)
+                        .modulaGlass(in: Capsule(), interactive: true)
+                        .disabled(busy)
+
+                    Menu {
+                        Button("Everyone") { visibility = "public" }
+                        Button("Followers") { visibility = "followers" }
+                    } label: {
+                        Label(visibility == "followers" ? "Followers" : "Everyone", systemImage: "person.2")
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 12)
+                            .frame(height: 44)
+                            .modulaGlass(in: Capsule(), interactive: true)
+                    }
+                    .disabled(busy)
+                    .accessibilityLabel("Audience")
+                }
+            }
+
+            HStack(spacing: 12) {
+                if !showsCamera {
+                    Button {
+                        withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.34, dampingFraction: 0.82)) {
+                            showsCamera = true
+                        }
+                        HapticEngine.shared.play(.selection)
+                    } label: {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 17, weight: .semibold))
+                            .frame(width: 48, height: 48)
+                            .modulaGlass(in: Circle(), interactive: true)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Open camera")
+
+                    PhotosPicker(selection: $pickerItems, maxSelectionCount: 1, matching: .images) {
+                        Image(systemName: "photo.on.rectangle")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 48, height: 48)
+                            .background(.ultraThinMaterial, in: Circle())
+                            .overlay(Circle().strokeBorder(.white.opacity(0.22), lineWidth: 0.8))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Photo library")
+                }
+
+                Spacer(minLength: 0)
+
+                Button {
+                    Task { await publish() }
+                } label: {
+                    Group {
+                        if busy {
+                            ProgressView().tint(.white)
+                        } else {
+                            Text("Share")
+                                .font(.headline)
+                        }
+                    }
+                    .frame(minWidth: 120)
+                    .frame(height: 48)
+                    .padding(.horizontal, 10)
+                }
+                .buttonStyle(.plain)
+                .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color, prominent: true, specular: true)
+                .disabled((prepared == nil && videoURL == nil) || busy || showsCamera)
+                .opacity((prepared == nil && videoURL == nil) || showsCamera ? 0.45 : 1)
+                .accessibilityIdentifier("story.create.share")
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 10)
+        .padding(.bottom, 16)
+        .background {
+            LinearGradient(colors: [.clear, .black.opacity(0.55), .black.opacity(0.82)], startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea(edges: .bottom)
+                .allowsHitTesting(false)
+        }
+    }
+
+    // MARK: Helpers
+
+    private func filterThumb(_ item: StoryFilter) -> Color {
+        switch item.id {
+        case "vivid": Color.orange
+        case "warm": Color.red.opacity(0.85)
+        case "cool": Color.cyan.opacity(0.85)
+        case "mono", "noir": Color.gray
+        case "fade": Color.purple.opacity(0.7)
+        case "chrome": Color.yellow.opacity(0.8)
+        default: Color.white.opacity(0.25)
+        }
+    }
+
+    private func clearMedia() {
+        sourceImage = nil
+        filteredPreview = nil
+        prepared = nil
+        draftMedia = nil
+        videoURL = nil
+        stickers = []
+        filter = StoryFilter.catalog[0]
+    }
+
+    private func refilter() {
+        guard let sourceImage else { return }
+        filteredPreview = StoryFilterEngine.apply(filter, to: sourceImage)
+        Task { await bakePrepared() }
+    }
+
+    private func accept(image: UIImage) async {
+        sourceImage = image
+        videoURL = nil
+        filteredPreview = StoryFilterEngine.apply(filter, to: image)
+        showsCamera = false
+        await bakePrepared()
+        HapticEngine.shared.play(.success)
+    }
+
+    private func bakePrepared() async {
+        guard let base = filteredPreview ?? sourceImage else { return }
+        let composited = bakeStickers(onto: base)
+        guard let data = composited.jpegData(compressionQuality: 0.92) else { return }
         do {
             let image = try await MediaPreparation.jpegStrippingMetadata(
                 data, maxPixel: StoryUploadBudget.targetLongEdge, quality: StoryUploadBudget.preferredQuality
             )
-            guard let accountID = app.auth.account?.accountId else {
-                app.stories.setActionError("Sign in again to save this story as a draft.")
-                return
-            }
-            let media = try app.draftMedia.importJPEG(image.data, accountID: accountID, width: image.width, height: image.height)
             prepared = image
-            preview = UIImage(data: image.data)
-            draftMedia = media
+            if let accountID = app.auth.account?.accountId {
+                draftMedia = try app.draftMedia.importJPEG(image.data, accountID: accountID, width: image.width, height: image.height)
+            }
             saveDraft()
         } catch {
             app.stories.setActionError("Couldn’t prepare that photo.")
         }
     }
 
+    private func bakeStickers(onto image: UIImage) -> UIImage {
+        guard !stickers.isEmpty else { return image }
+        let size = image.size
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = image.scale
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
+        return renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: size))
+            for sticker in stickers {
+                let font = UIFont.systemFont(ofSize: 72 * sticker.scale)
+                let attrs: [NSAttributedString.Key: Any] = [.font: font]
+                let text = sticker.emoji as NSString
+                let textSize = text.size(withAttributes: attrs)
+                let origin = CGPoint(
+                    x: sticker.x * size.width - textSize.width / 2,
+                    y: sticker.y * size.height - textSize.height / 2
+                )
+                text.draw(at: origin, withAttributes: attrs)
+            }
+        }
+    }
+
+    private func loadPicker(_ items: [PhotosPickerItem]) async {
+        guard let item = items.first else { return }
+        pickerItems = []
+        if let data = try? await item.loadTransferable(type: Data.self),
+           let image = UIImage(data: data) {
+            await accept(image: image)
+            return
+        }
+        app.stories.setActionError("Couldn’t open that item. Try a photo.")
+    }
+
     private func publish() async {
+        if videoURL != nil, !canPublishVideo {
+            toast = "Video stories aren’t available yet — share a photo instead."
+            HapticEngine.shared.play(.failure)
+            return
+        }
         guard let prepared else { return }
         busy = true
         defer { busy = false }
@@ -671,7 +1073,6 @@ struct StoryCreateView: View {
             app.drafts.discardStory(id: draftID)
             app.navigation.close()
             HapticEngine.shared.play(.success)
-            // Settings → Photos → "Save Stories you post to Photos" (add-only access).
             if ModulaPreferences.offerToSaveStories {
                 let data = prepared.data
                 let navigation = app.navigation
@@ -684,15 +1085,12 @@ struct StoryCreateView: View {
     }
 
     #if DEBUG
-    /// UI-test hook: `--uitest-story-large-photo` feeds a generated, detail-heavy photo
-    /// (well over 1 MB once prepared) through the same path as the Photos picker.
-    /// Only honoured against the isolated N1 fixture host, never production.
     private func injectUITestPhotoIfRequested() async {
         guard ProcessInfo.processInfo.arguments.contains("--uitest-story-large-photo"), prepared == nil else { return }
         guard GreenfieldEnvironmentLabel.isIsolatedFixture(host: await app.client.apiOriginHost) else { return }
         let data = await Task.detached(priority: .userInitiated) { StoryUITestPhoto.detailedJPEG() }.value
-        guard let data else { return }
-        await load(data: data)
+        guard let data, let image = UIImage(data: data) else { return }
+        await accept(image: image)
     }
     #endif
 
@@ -709,20 +1107,31 @@ struct StoryCreateView: View {
             draftID = resume
             app.drafts.pendingResumeID = nil
         }
-        guard let saved = app.drafts.stories.first(where: { $0.id == draftID }) else { return }
+        guard let saved = app.drafts.stories.first(where: { $0.id == draftID }) else {
+            showsCamera = true
+            return
+        }
         caption = saved.caption
         visibility = saved.visibility == "followers" ? "followers" : "public"
         draftMedia = saved.media
-        guard let media = saved.media else { return }
+        guard let media = saved.media else {
+            showsCamera = true
+            return
+        }
         do {
             let data = try Data(contentsOf: app.draftMedia.fileURL(media))
-            let image = try await MediaPreparation.jpegStrippingMetadata(
-                data, maxPixel: StoryUploadBudget.targetLongEdge, quality: StoryUploadBudget.preferredQuality
-            )
-            prepared = image
-            preview = UIImage(data: image.data)
+            if let image = UIImage(data: data) {
+                sourceImage = image
+                filteredPreview = image
+                showsCamera = false
+                let preparedImage = try await MediaPreparation.jpegStrippingMetadata(
+                    data, maxPixel: StoryUploadBudget.targetLongEdge, quality: StoryUploadBudget.preferredQuality
+                )
+                prepared = preparedImage
+            }
         } catch {
             app.stories.setActionError("The draft photo couldn’t be restored. Choose it again to continue.")
+            showsCamera = true
         }
     }
 }
