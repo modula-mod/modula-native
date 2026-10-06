@@ -12,6 +12,8 @@ import Translation
 /// Nothing leaves the device; iOS may ask to download a language the first time.
 struct PostTranslationControl: View {
     let text: String
+    /// Start translating as soon as it appears (post menu → "Translate post").
+    var autoStart = false
     @State private var configuration: TranslationSession.Configuration?
     @State private var translated: String?
     @State private var failed = false
@@ -51,6 +53,13 @@ struct PostTranslationControl: View {
                 if failed {
                     Text("Couldn’t translate this post.").font(.caption2).foregroundStyle(.secondary)
                 }
+            }
+            .onAppear {
+                guard autoStart, configuration == nil, translated == nil else { return }
+                configuration = TranslationSession.Configuration(
+                    source: decision.source,
+                    target: ModulaPreferences.translateTargetLanguage
+                )
             }
             .translationTask(configuration) { session in
                 // The framework hands the session to this main-actor closure and keeps it

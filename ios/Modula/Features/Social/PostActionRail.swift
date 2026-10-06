@@ -18,7 +18,7 @@ struct PostActionRail: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var morphProgress: CGFloat = 0
-    @State private var showsContext = false
+    @State private var moreFrame: CGRect = .zero
     @State private var showsReactions = false
 
     private var contextActions: [ModulaContextAction] {
@@ -28,33 +28,10 @@ struct PostActionRail: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            if showsContext {
-                HStack {
-                    Text("Post actions").font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.7))
-                    Spacer()
-                    Button(action: dismissContext) {
-                        Image(systemName: "xmark").frame(width: 44, height: 44)
-                    }
-                    .accessibilityLabel("Close post actions")
-                }
-                .frame(width: 204)
-                ForEach(contextActions) { action in
-                    Button {
-                        perform(action)
-                        dismissContext()
-                    } label: {
-                        Label(action.title, systemImage: action.systemImage ?? "ellipsis")
-                            .font(.subheadline.weight(.medium))
-                            .frame(width: 204, alignment: .leading)
-                            .frame(minHeight: 44)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(action.resolvedAccessibilityLabel)
-                }
-            } else {
                 railButton(title: "More actions", symbol: "ellipsis", count: nil, active: false) {
-                    showsContext = true
+                    PostMenuCenter.shared.present(menuRequest(anchor: moreFrame))
                 }
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { moreFrame = $0 }
                 railButton(
                     title: post.viewerReaction?.accessibilityName ?? "Like",
                     symbol: post.viewerReaction?.systemImage ?? (post.liked ? "heart.fill" : "heart"),
@@ -90,10 +67,9 @@ struct PostActionRail: View {
                     active: false,
                     action: onShare
                 )
-            }
         }
         .padding(.vertical, 8)
-        .padding(.horizontal, showsContext ? 16 : 4)
+        .padding(.horizontal, 4)
         .foregroundStyle(.white)
         .background { railBackground }
         .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(.white.opacity(glass ? 0.08 : 0.14)))
@@ -105,12 +81,7 @@ struct PostActionRail: View {
         .accessibilityAction(named: "Choose reaction") {
             if let onReactLongPress { onReactLongPress() } else { showsReactions = true }
         }
-        .accessibilityAction(named: "More actions") { showsContext = true }
-        .contextMenu {
-            ForEach(contextActions) { action in
-                Button(action.title, systemImage: action.systemImage ?? "ellipsis") { perform(action) }
-            }
-        }
+        .accessibilityAction(named: "More actions") { PostMenuCenter.shared.present(menuRequest(anchor: moreFrame)) }
         .popover(isPresented: $showsReactions) {
             PostReactionPicker(current: post.viewerReaction, multiEnabled: app.postActions.capabilities.multiReactions,
                 onSelect: { reaction in
@@ -125,10 +96,10 @@ struct PostActionRail: View {
     @ViewBuilder private var railBackground: some View {
         let opaque = reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
         let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
-        if glass && !opaque && !showsContext {
+        if glass && !opaque {
             Color.clear.modulaGlass(in: shape, interactive: false, tint: .black.opacity(0.22), specular: true)
         } else {
-            shape.fill(.black.opacity(opaque ? 1 : (showsContext ? 0.96 : 0.72)))
+            shape.fill(.black.opacity(opaque ? 1 : 0.72))
         }
     }
 
@@ -168,31 +139,40 @@ struct PostActionRail: View {
         .accessibilityValue(count ?? "")
     }
 
+    /// Swipe down on the rail: the glass menu grows out of the finger; keep sliding to pick an item.
     private var railMorphGesture: some Gesture {
-        DragGesture(minimumDistance: PostGestureThresholds.dragActivationDistance)
+        DragGesture(minimumDistance: PostGestureThresholds.dragActivationDistance, coordinateSpace: .global)
             .onChanged { value in
-                let vertical = value.translation.height
-                let horizontal = abs(value.translation.width)
-                guard vertical > 0, vertical > horizontal * PostGestureThresholds.verticalDominanceRatio else { return }
-                morphProgress = min(vertical, PostGestureThresholds.railMorphThreshold * 1.5)
-                if vertical >= PostGestureThresholds.railMorphThreshold, !showsContext {
-                    showsContext = true
+                let center = PostMenuCenter.shared
+                if !center.isPresented {
+                    let vertical = value.translation.height
+                    let horizontal = abs(value.translation.width)
+                    guard vertical > 0, vertical > horizontal * PostGestureThresholds.verticalDominanceRatio else { return }
+                    morphProgress = min(vertical, PostGestureThresholds.railMorphThreshold * 1.5)
+                    guard vertical >= PostGestureThresholds.railMorphThreshold * 0.6 else { return }
                     HapticEngine.shared.play(.dragThreshold)
-                }
-            }
-            .onEnded { _ in
-                if !showsContext {
+                    let point = value.location
+                    center.present(menuRequest(anchor: CGRect(x: point.x - 22, y: point.y - 22, width: 44, height: 44)), tracking: true)
                     withAnimation(ModulaMotion.animation(.dismiss, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
                         morphProgress = 0
                     }
                 }
+                center.track(value.location)
+            }
+            .onEnded { _ in
+                PostMenuCenter.shared.release()
+                withAnimation(ModulaMotion.animation(.dismiss, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
+                    morphProgress = 0
+                }
             }
     }
 
-    private func dismissContext() {
-        withAnimation(ModulaMotion.animation(.railCollapse, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
-            showsContext = false
-            morphProgress = 0
-        }
+    private func menuRequest(anchor: CGRect) -> PostMenuRequest {
+        PostMenuRequest(
+            post: post,
+            isOwn: post.author?.id != nil && post.author?.id == app.auth.account?.accountId,
+            anchor: anchor,
+            hooks: PostMenuHooks(onSave: onSave, onShare: onShare, onContextAction: onContextAction)
+        )
     }
 }

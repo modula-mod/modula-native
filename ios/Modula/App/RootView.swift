@@ -41,6 +41,8 @@ struct RootView: View {
         }
         .modulaSidebarEdgeOpen()
         .overlay { ShellSidebarHost() }
+        // Liquid Glass post menu: above tabs and chrome so it can blur the whole screen.
+        .overlay { PostMenuHost() }
         .sheet(item: $navigation.presented) { presentation in
             ModulaSheet { PresentationView(presentation: presentation) }
         }

@@ -73,7 +73,8 @@ struct PostCard: View {
                 onOpenAuthor: onOpenAuthor,
                 onMore: onMore,
                 menuActions: onContextAction == nil ? [] : menuActions(for: post),
-                onSelectAction: onContextAction
+                onSelectAction: onContextAction,
+                makeMenuRequest: { menuRequest(for: post, anchor: $0) }
             )
 
             if !post.hasMedia { postBody(post) }
@@ -150,10 +151,8 @@ struct PostCard: View {
                 }
             }
         }
-        .modulaContextMenu(
-            actions: menuActions(for: post),
-            onSelect: { onContextAction?($0) }
-        )
+        // Long-press: Liquid Glass menu grows out of the touch point (replaces the system context menu).
+        .postMenuLongPress { menuRequest(for: post, anchor: $0) }
         // Links in this post open in the Modula browser; the post itself becomes its drawer.
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frameBox.frame = $0 }
         .environment(\.modulaLinkSource, linkSource(for: post))
@@ -168,6 +167,19 @@ struct PostCard: View {
 
     private func linkSource(for post: SocialPost) -> ModulaBrowserSource {
         ModulaBrowserSource(post: post, onLike: onLike, onComment: onComment, onRepost: onRepost, onSave: onSave, onShare: onShare, originFrame: frameBox.frame)
+    }
+
+    private func menuRequest(for post: SocialPost, anchor: CGRect) -> PostMenuRequest {
+        PostMenuRequest(
+            post: post,
+            isOwn: isOwnPost,
+            anchor: anchor,
+            hooks: PostMenuHooks(
+                onSave: onSave,
+                onShare: { onShare?() ?? onRepost() },
+                onContextAction: onContextAction
+            )
+        )
     }
 
     private func menuActions(for post: SocialPost) -> [ModulaContextAction] {
@@ -203,6 +215,8 @@ struct PostHeader: View {
     /// When provided, the "…" control is a native Menu of these actions.
     var menuActions: [ModulaContextAction] = []
     var onSelectAction: ((ModulaContextAction) -> Void)? = nil
+    /// When set, "…" opens the Liquid Glass post menu (tap, or press and drag onto an item).
+    var makeMenuRequest: ((CGRect) -> PostMenuRequest)? = nil
 
     var body: some View {
         if showsCompactAuthor {
@@ -260,7 +274,15 @@ struct PostHeader: View {
 
     @ViewBuilder
     private var moreButton: some View {
-        if let onSelectAction, !menuActions.isEmpty {
+        if let makeMenuRequest {
+            PostMenuButton(makeRequest: makeMenuRequest) {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: PostGestureThresholds.minimumHitTarget, height: PostGestureThresholds.minimumHitTarget)
+            }
+            .accessibilityIdentifier("post.more.\(post.id)")
+        } else if let onSelectAction, !menuActions.isEmpty {
             Menu {
                 ForEach(menuActions) { action in
                     Button(role: action.role == .destructive ? .destructive : nil) {

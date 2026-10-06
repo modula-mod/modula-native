@@ -35,17 +35,42 @@ struct PostEmojiReaction: Identifiable, Hashable, Sendable {
         "👀", "💪", "🌈", "⭐️", "🍿", "☕️", "🎶", "📸", "🌸", "🐐",
     ]
 
+    /// Searchable "+" grid: emoji with names/keywords (first word is the VoiceOver name).
+    static let catalog: [(String, String)] = [
+        ("❤️", "heart love red like"), ("😂", "laugh joy tears funny lol"), ("😮", "wow surprised shock"),
+        ("😢", "sad cry tear"), ("😡", "angry mad rage"), ("🔥", "fire hot lit flame"),
+        ("😍", "love eyes heart crush"), ("🥰", "adore hearts smile love"), ("🤣", "rolling laugh lmao funny"),
+        ("😭", "sob crying sad"), ("🥲", "smile tear bittersweet"), ("😎", "cool sunglasses"),
+        ("🤩", "starstruck amazing wow"), ("🥳", "party celebrate birthday"), ("🎉", "tada celebrate party congrats"),
+        ("👏", "clap applause bravo"), ("🙌", "raised hands praise celebrate"), ("🙏", "pray thanks please support"),
+        ("🫶", "heart hands support love"), ("💯", "hundred perfect fire"), ("✨", "sparkles magic shine"),
+        ("💡", "idea insightful bulb smart"), ("🤔", "thinking hmm curious"), ("🧐", "monocle curious inspect"),
+        ("🤯", "mind blown wow"), ("😱", "scream shock scared"), ("😴", "sleep tired bored"),
+        ("🤤", "drool yum want"), ("😈", "devil mischief"), ("💀", "skull dead lol"),
+        ("👀", "eyes look curious watching"), ("💪", "strong muscle support flex"), ("🌈", "rainbow pride colour"),
+        ("⭐️", "star favourite great"), ("🍿", "popcorn drama watching"), ("☕️", "coffee morning"),
+        ("🎶", "music notes song"), ("📸", "camera photo picture"), ("🌸", "blossom flower spring"),
+        ("🐐", "goat greatest best"), ("👍", "thumbs up like yes good"), ("👎", "thumbs down dislike no"),
+        ("😆", "grin laugh happy"), ("😊", "blush smile happy"), ("😇", "angel innocent"),
+        ("🤗", "hug support warm"), ("🤝", "handshake deal agree support"), ("✅", "check done yes correct"),
+        ("❗️", "exclamation important"), ("❓", "question curious what"), ("🚀", "rocket launch ship fast"),
+        ("🏆", "trophy win champion celebrate"), ("💎", "gem diamond valuable"), ("🧠", "brain smart insightful"),
+        ("📈", "chart growth up"), ("🎯", "target bullseye insightful"), ("🫡", "salute respect"),
+        ("😬", "grimace awkward yikes"), ("🙃", "upside down silly"), ("😤", "huff determined"),
+        ("💔", "broken heart sad"), ("🌟", "glowing star shine"), ("🍀", "clover luck"),
+    ]
+
     static func custom(_ emoji: String) -> PostEmojiReaction {
         if let quick = quick.first(where: { $0.emoji == emoji }) { return quick }
         let reaction: SocialReaction
         switch emoji {
-        case "😍", "🥰": reaction = .love
-        case "🥳", "🎉", "👏", "🙌": reaction = .celebrate
-        case "💡": reaction = .insightful
-        case "🤔", "🧐", "👀", "🤯", "😱": reaction = .curious
-        case "🙏", "🫶", "💪": reaction = .support
-        case "💯", "⭐️", "✨": reaction = .fire
-        case "🤣": reaction = .laugh
+        case "😍", "🥰", "😊", "😇", "💔": reaction = .love
+        case "🥳", "🎉", "👏", "🙌", "🏆", "🚀", "🫡": reaction = .celebrate
+        case "💡", "🧠", "🎯", "📈", "💎": reaction = .insightful
+        case "🤔", "🧐", "👀", "🤯", "😱", "❓", "❗️", "😬": reaction = .curious
+        case "🙏", "🫶", "💪", "🤗", "🤝": reaction = .support
+        case "💯", "⭐️", "✨", "🌟", "😎", "🐐": reaction = .fire
+        case "🤣", "😆", "💀", "🙃": reaction = .laugh
         default: reaction = .like
         }
         return PostEmojiReaction(emoji: emoji, title: emoji, reaction: reaction)
@@ -110,7 +135,7 @@ struct ImmersivePostCard: View {
     @State private var showsReactions = false
     @State private var hoveredReaction: String?
     @State private var showsReactionGrid = false
-    @State private var showsPanel = false
+    @State private var moreFrame: CGRect = .zero
     @State private var viewer: ImmersiveViewerItem?
     @State private var reactionFrames: [String: CGRect] = [:]
     @State private var heartFrame: CGRect = .zero
@@ -120,6 +145,12 @@ struct ImmersivePostCard: View {
     @State private var pinchBase: CGFloat = 1
     @State private var saveBounce = 0
     @State private var railPressed: String?
+    @State private var showsTranslation = false
+    /// Finger position (card space) while the reaction picker is open — drives dock magnification.
+    @State private var fingerPoint: CGPoint?
+    @State private var pickerStagger = false
+    @State private var barSize: CGSize = .zero
+    @State private var bursts: [ReactionBurst] = []
 
     private let radius: CGFloat = 24
     private var space: String { "immersive.\(post.id)" }
@@ -131,14 +162,20 @@ struct ImmersivePostCard: View {
         Group {
             if pages.isEmpty {
                 textCard(canonical)
+                    .postMenuLongPress(enabled: !showsReactions && !suppressHeartTap) { menuRequest(anchor: $0) }
             } else {
                 mediaCard(canonical, pages: pages)
             }
         }
         .coordinateSpace(.named(space))
         .overlay { pickerLayer }
-        .overlay(alignment: .topTrailing) { panelLayer }
-        .zIndex(showsPanel || showsReactions ? 5 : 0)
+        .overlay {
+            ZStack {
+                ForEach(bursts) { burst in ReactionBurstView(burst: burst) }
+            }
+            .allowsHitTesting(false)
+        }
+        .zIndex(showsReactions || !bursts.isEmpty ? 5 : 0)
         .padding(.vertical, 6)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(post.voiceOverSummary)
@@ -149,7 +186,8 @@ struct ImmersivePostCard: View {
         .accessibilityAction(named: "Save", onSave)
         .accessibilityAction(named: "Share") { share() }
         .accessibilityAction(named: "Open Author", onOpenAuthor)
-        .accessibilityAction(named: "More actions") { openPanel() }
+        .accessibilityAction(named: "More actions") { PostMenuCenter.shared.present(menuRequest(anchor: moreFrame)) }
+        .accessibilityAction(named: "Who reacted") { openReactors() }
         .sheet(isPresented: $showsReactionGrid) {
             ReactionGridSheet { emoji in
                 showsReactionGrid = false
@@ -209,12 +247,24 @@ struct ImmersivePostCard: View {
         VStack(alignment: .leading, spacing: 10) {
             mediaStage(canonical, pages: pages, current: current, isVideo: isVideo)
             extraBlocks(canonical)
+            translationBlock
+        }
+    }
+
+    @ViewBuilder
+    private var translationBlock: some View {
+        if showsTranslation, let text = post.text, !text.isEmpty {
+            PostTranslationControl(text: text, autoStart: true)
+                .padding(.horizontal, 10)
+                .transition(.opacity.combined(with: .move(edge: .top)))
         }
     }
 
     private func mediaStage(_ canonical: ModulaPost, pages: [ModulaAttachment], current: Int, isVideo: Bool) -> some View {
         let expandable: ModulaAttachment? = isVideo ? pages[current] : nil
         return mediaStageBase(pages: pages)
+            // Long-press the media: the glass menu grows out of the touch point.
+            .postMenuLongPress(enabled: !showsReactions && !suppressHeartTap) { menuRequest(anchor: $0) }
             .overlay(alignment: .top) { mediaHeader(canonical, pages: pages, current: current) }
             .overlay(alignment: .bottomLeading) { captionBlock(canonical, pages: pages, current: current, isVideo: isVideo) }
             .overlay(alignment: .bottomTrailing) { rail(expandable: expandable, gallery: pages) }
@@ -425,25 +475,44 @@ struct ImmersivePostCard: View {
         }
     }
 
+    /// Tap to open; press and drag to slide straight onto an item.
     private var moreButton: some View {
-        Button(action: openPanel) {
+        PostMenuButton(makeRequest: { menuRequest(anchor: $0) }) {
             Image(systemName: "ellipsis")
                 .font(.system(size: 15, weight: .bold))
                 .frame(width: 36, height: 36)
-                .contentShape(Circle())
+                .modulaGlass(in: Circle(), specular: true)
+                .frame(width: PostGestureThresholds.minimumHitTarget, height: PostGestureThresholds.minimumHitTarget)
         }
-        .buttonStyle(.plain)
-        .modulaGlass(in: Circle(), specular: true)
-        .frame(width: PostGestureThresholds.minimumHitTarget, height: PostGestureThresholds.minimumHitTarget)
-        .contentShape(Rectangle())
-        .accessibilityLabel("More actions")
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { moreFrame = $0 }
         .accessibilityIdentifier("post.more.\(post.id)")
+    }
+
+    private func menuRequest(anchor: CGRect) -> PostMenuRequest {
+        let translatable = post.text.flatMap { PostTranslationPolicy.decision(for: $0) } != nil
+        return PostMenuRequest(
+            post: post,
+            isOwn: isOwnPost,
+            anchor: anchor,
+            hooks: PostMenuHooks(
+                onSave: {
+                    saveBounce += 1
+                    onSave()
+                },
+                onShare: share,
+                onTranslate: translatable && !showsTranslation ? {
+                    withAnimation(calm ? nil : .snappy) { showsTranslation = true }
+                } : nil,
+                onContextAction: onContextAction
+            )
+        )
     }
 
     // MARK: Caption
 
     private func captionBlock(_ canonical: ModulaPost, pages: [ModulaAttachment], current: Int, isVideo: Bool) -> some View {
         VStack(alignment: .leading, spacing: 8) {
+            reactionSummaryChip(onMedia: true)
             if let text = post.text, !text.isEmpty {
                 Text(PostTextLinks.attributed(text))
                     .font(.system(.subheadline, design: font))
@@ -462,7 +531,6 @@ struct ImmersivePostCard: View {
                             withAnimation(calm ? nil : .snappy) { captionExpanded = true }
                         }
                     }
-                    .onLongPressGesture(minimumDuration: 0.35) { onOpenPost() }
                     .accessibilityLabel(text)
                     .accessibilityHint("Opens the full post")
                     .accessibilityIdentifier("post.open.\(post.id)")
@@ -568,14 +636,21 @@ struct ImmersivePostCard: View {
         // Keep clear of the Edge Loop "For You" tab.
         .padding(.trailing, max(10, trailingInteractionInset * 0.35 + 6))
         .padding(.bottom, 36)
+        // Swipe down on the rail: the menu grows out of where the finger is; keep sliding to pick.
         .gesture(
-            DragGesture(minimumDistance: PostGestureThresholds.dragActivationDistance)
-                .onEnded { value in
-                    let vertical = value.translation.height
-                    guard vertical > PostGestureThresholds.railMorphThreshold,
-                          vertical > abs(value.translation.width) * PostGestureThresholds.verticalDominanceRatio else { return }
-                    openPanel()
+            DragGesture(minimumDistance: PostGestureThresholds.dragActivationDistance, coordinateSpace: .global)
+                .onChanged { value in
+                    let center = PostMenuCenter.shared
+                    if !center.isPresented {
+                        let vertical = value.translation.height
+                        guard vertical > PostGestureThresholds.railMorphThreshold * 0.6,
+                              vertical > abs(value.translation.width) * PostGestureThresholds.verticalDominanceRatio else { return }
+                        let point = value.location
+                        center.present(menuRequest(anchor: CGRect(x: point.x - 22, y: point.y - 22, width: 44, height: 44)), tracking: true)
+                    }
+                    center.track(value.location)
                 }
+                .onEnded { _ in PostMenuCenter.shared.release() }
         )
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Post actions")
@@ -655,11 +730,17 @@ struct ImmersivePostCard: View {
                         break
                     }
                 }
-                .onEnded { _ in
-                    if let hovered = hoveredReaction {
-                        if hovered == "+" { openGrid() } else { apply(.custom(hovered)) }
+                .onEnded { value in
+                    var velocity = CGSize.zero
+                    if case .second(true, let drag?) = value { velocity = drag.velocity }
+                    let flung = velocity.height < -650
+                    // A fast upward flick sends the nearest emoji even outside the bar.
+                    let target = hoveredReaction ?? (flung ? nearestReaction() : nil)
+                    if let target {
+                        if target == "+" { openGrid() } else { apply(.custom(target), fling: flung) }
                     }
                     hoveredReaction = nil
+                    fingerPoint = nil
                     Task { @MainActor in
                         try? await Task.sleep(for: .milliseconds(120))
                         suppressHeartTap = false
@@ -696,20 +777,107 @@ struct ImmersivePostCard: View {
         }
     }
 
+    /// Band around the bar where the finger magnifies emoji; outside it, releasing cancels.
+    private var reactionBand: CGRect? {
+        let frames = reactionFrames.values
+        guard let first = frames.first else { return nil }
+        let union = frames.dropFirst().reduce(first) { $0.union($1) }
+        return union.insetBy(dx: -24, dy: -60)
+    }
+
+    private func nearestReaction(to point: CGPoint? = nil) -> String? {
+        guard let x = (point ?? fingerPoint)?.x else { return nil }
+        return reactionFrames.min { abs($0.value.midX - x) < abs($1.value.midX - x) }?.key
+    }
+
     private func hover(at point: CGPoint) {
-        let hit = reactionFrames.first { $0.value.insetBy(dx: -3, dy: -26).contains(point) }?.key
+        fingerPoint = point
+        let hit = (reactionBand?.contains(point) ?? false) ? nearestReaction(to: point) : nil
         if hit != hoveredReaction {
             hoveredReaction = hit
             if hit != nil { HapticEngine.shared.play(.selection) }
         }
     }
 
-    private func apply(_ option: PostEmojiReaction) {
-        HapticEngine.shared.play(.confirmation)
+    private func apply(_ option: PostEmojiReaction, fling: Bool = false) {
+        HapticEngine.shared.play(fling ? .success : .confirmation)
+        let origin = reactionFrames[option.emoji].map { CGPoint(x: $0.midX, y: $0.midY) }
+            ?? CGPoint(x: heartFrame.midX, y: heartFrame.midY)
         PostEmojiReactionStore.shared.set(option.emoji == PostEmojiReaction.heart.emoji ? nil : option.emoji, for: post.id)
         closePicker()
-        heartBurst += option.emoji == PostEmojiReaction.heart.emoji ? 1 : 0
+        heartBurst += option.emoji == PostEmojiReaction.heart.emoji && !fling ? 1 : 0
+        if !calm {
+            let burst = ReactionBurst(emoji: option.emoji, origin: origin, fling: fling)
+            bursts.append(burst)
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(900))
+                bursts.removeAll { $0.id == burst.id }
+            }
+        }
         Task { await app.postActions.setReaction(post, reaction: option.reaction) }
+    }
+
+    // MARK: Reaction summary
+
+    /// Top three emoji on this post: server breakdown first, then the viewer's own pick.
+    private var topReactionEmojis: [String] {
+        var list: [String] = []
+        if let summary = post.engagement.reactionSummary {
+            for (kind, count) in summary.breakdown.sorted(by: { $0.value > $1.value }) where count > 0 {
+                list.append(kind.emoji)
+            }
+        }
+        if reacted {
+            let mine = PostEmojiReactionStore.shared.emoji(for: post.id) ?? post.viewerReaction?.emoji ?? "❤️"
+            if !list.contains(mine) { list.insert(mine, at: 0) }
+        }
+        if list.isEmpty && reactionCount > 0 { list = ["❤️"] }
+        var seen = Set<String>()
+        return list.filter { seen.insert($0).inserted }.prefix(3).map { $0 }
+    }
+
+    @ViewBuilder
+    private func reactionSummaryChip(onMedia: Bool) -> some View {
+        let emojis = topReactionEmojis
+        if reactionCount > 0, !emojis.isEmpty {
+            Button(action: openReactors) {
+                HStack(spacing: 5) {
+                    HStack(spacing: -5) {
+                        ForEach(Array(emojis.enumerated()), id: \.element) { index, emoji in
+                            Text(emoji)
+                                .font(.system(size: 12))
+                                .frame(width: 20, height: 20)
+                                .background(Circle().fill(onMedia ? Color.black.opacity(0.45) : Color(uiColor: .secondarySystemBackground)))
+                                .overlay(Circle().strokeBorder(onMedia ? Color.white.opacity(0.18) : Color.primary.opacity(0.08), lineWidth: 0.5))
+                                .zIndex(Double(3 - index))
+                                .transition(.scale.combined(with: .opacity))
+                        }
+                    }
+                    Text(ModulaCountFormat.compact(reactionCount) ?? "\(reactionCount)")
+                        .font(.system(size: 11, weight: .semibold, design: font).monospacedDigit())
+                        .foregroundStyle(onMedia ? Color.white.opacity(0.92) : Color.secondary)
+                        .contentTransition(.numericText())
+                }
+                .padding(.leading, 4)
+                .padding(.trailing, 9)
+                .padding(.vertical, 3)
+                .modulaGlass(in: Capsule(), interactive: true)
+                .animation(calm ? nil : .spring(response: 0.3, dampingFraction: 0.7), value: emojis)
+            }
+            .buttonStyle(.modulaPress)
+            .accessibilityLabel("\(reactionCount) reactions: \(emojis.joined(separator: " "))")
+            .accessibilityHint("Shows who reacted")
+            .accessibilityIdentifier("post.reaction.summary.\(post.id)")
+        }
+    }
+
+    private func openReactors() {
+        if app.postActions.capabilities.reactionsList {
+            app.navigation.push(.post(post.id, .reactions))
+            HapticEngine.shared.play(.navigation)
+        } else {
+            app.navigation.flash("Who reacted is coming soon", symbol: "face.smiling")
+        }
     }
 
     private func openGrid() {
@@ -721,6 +889,7 @@ struct ImmersivePostCard: View {
     private func closePicker() {
         withAnimation(calm ? nil : .snappy(duration: 0.2)) { showsReactions = false }
         hoveredReaction = nil
+        fingerPoint = nil
     }
 
     // MARK: Reaction picker layer
@@ -733,27 +902,36 @@ struct ImmersivePostCard: View {
                     Color.black.opacity(0.001)
                         .contentShape(Rectangle())
                         .onTapGesture { closePicker() }
+                    let barCenter = CGPoint(x: geo.size.width / 2, y: max(34, heartFrame.minY - 36))
                     reactionBar
-                        .position(
-                            x: geo.size.width / 2,
-                            y: max(34, heartFrame.minY - 36)
-                        )
+                        .onGeometryChange(for: CGSize.self) { $0.size } action: { barSize = $0 }
+                        .position(barCenter)
+                        // Grows out of the heart.
+                        .transition(calm ? .opacity : .scale(scale: 0.12, anchor: heartAnchor(barCenter: barCenter)).combined(with: .opacity))
                 }
             }
             .transition(.opacity)
         }
     }
 
+    private func heartAnchor(barCenter: CGPoint) -> UnitPoint {
+        let size = barSize == .zero ? CGSize(width: 330, height: 52) : barSize
+        return UnitPoint(
+            x: (heartFrame.midX - (barCenter.x - size.width / 2)) / size.width,
+            y: (heartFrame.midY - (barCenter.y - size.height / 2)) / size.height
+        )
+    }
+
     private var reactionBar: some View {
         HStack(spacing: 2) {
-            ForEach(PostEmojiReaction.quick) { option in
-                reactionItem(id: option.emoji) {
+            ForEach(Array(PostEmojiReaction.quick.enumerated()), id: \.element.id) { index, option in
+                reactionItem(id: option.emoji, index: index, title: option.title) {
                     Text(option.emoji).font(.system(size: 27))
                 }
                 .accessibilityLabel(option.title)
                 .onTapGesture { apply(option) }
             }
-            reactionItem(id: "+") {
+            reactionItem(id: "+", index: PostEmojiReaction.quick.count, title: "More") {
                 Image(systemName: "plus")
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(.primary)
@@ -767,49 +945,53 @@ struct ImmersivePostCard: View {
         .padding(.vertical, 5)
         .modulaGlass(in: Capsule(), specular: true)
         .shadow(color: .black.opacity(0.18), radius: 14, y: 6)
+        .onAppear { withAnimation { pickerStagger = true } }
+        .onDisappear { pickerStagger = false }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("post.reaction.picker")
     }
 
-    private func reactionItem<Content: View>(id: String, @ViewBuilder content: () -> Content) -> some View {
+    /// Dock-style magnification: emoji near the finger swell, the one under it lifts and shows its name.
+    private func magnification(for id: String) -> CGFloat {
+        guard !calm else { return hoveredReaction == id ? 1.3 : 1 }
+        guard let finger = fingerPoint, let frame = reactionFrames[id], reactionBand?.contains(finger) == true else { return 1 }
+        let distance = abs(finger.x - frame.midX)
+        return 1 + 0.75 * max(0, 1 - distance / 70)
+    }
+
+    private func reactionItem<Content: View>(id: String, index: Int, title: String, @ViewBuilder content: () -> Content) -> some View {
         let hovered = hoveredReaction == id
-        return content()
+        let scale = magnification(for: id)
+        // Fixed slot is measured (not the scaled glyph) so hit-testing stays stable while magnifying.
+        return Color.clear
             .frame(width: 42, height: 42)
-            .scaleEffect(hovered ? 1.55 : 1, anchor: .bottom)
-            .offset(y: hovered ? -10 : 0)
-            .animation(calm ? nil : .spring(response: 0.22, dampingFraction: 0.6), value: hovered)
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(space)) } action: { reactionFrames[id] = $0 }
+            .overlay {
+                content()
+                    .scaleEffect(scale, anchor: .bottom)
+                    .offset(y: hovered && !calm ? -12 : 0)
+                    .scaleEffect(pickerStagger || calm ? 1 : 0.3)
+                    .opacity(pickerStagger || calm ? 1 : 0)
+                    .animation(calm ? nil : .spring(response: 0.34, dampingFraction: 0.62).delay(Double(index) * 0.03), value: pickerStagger)
+                    .animation(calm ? nil : .interactiveSpring(response: 0.2, dampingFraction: 0.62), value: scale)
+            }
+            .overlay(alignment: .top) {
+                if hovered {
+                    Text(title)
+                        .font(.caption2.weight(.semibold))
+                        .lineLimit(1)
+                        .fixedSize()
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .modulaGlass(in: Capsule(), interactive: false)
+                        .offset(y: calm ? -30 : -62)
+                        .transition(.scale(scale: 0.6, anchor: .bottom).combined(with: .opacity))
+                        .allowsHitTesting(false)
+                }
+            }
+            .animation(calm ? nil : .snappy(duration: 0.18), value: hovered)
+            .zIndex(hovered ? 2 : 0)
             .contentShape(Rectangle())
-    }
-
-    // MARK: Context panel
-
-    @ViewBuilder
-    private var panelLayer: some View {
-        if showsPanel {
-            ImmersivePostContextPanel(
-                post: post,
-                isOwnPost: isOwnPost,
-                capabilities: app.postActions.capabilities,
-                onSelect: { action in
-                    closePanel()
-                    perform(action)
-                },
-                onClose: closePanel
-            )
-            .padding(.top, 8)
-            .padding(.trailing, 8)
-            .transition(calm ? .opacity : .scale(scale: 0.85, anchor: .topTrailing).combined(with: .opacity))
-        }
-    }
-
-    private func openPanel() {
-        HapticEngine.shared.play(.contextOpen)
-        withAnimation(calm ? nil : .spring(response: 0.28, dampingFraction: 0.72)) { showsPanel = true }
-    }
-
-    private func closePanel() {
-        withAnimation(calm ? nil : .snappy(duration: 0.22)) { showsPanel = false }
     }
 
     private func perform(_ action: ModulaContextAction) {
@@ -945,6 +1127,9 @@ struct ImmersivePostCard: View {
                     .accessibilityAction(named: "Open Post", onOpenPost)
                     .accessibilityIdentifier("post.open.\(post.id)")
             }
+            translationBlock
+                .padding(.horizontal, 4)
+                .padding(.bottom, showsTranslation ? 8 : 0)
 
             Group {
                 if case .audio(let value)? = canonical.content.first {
@@ -1007,14 +1192,7 @@ struct ImmersivePostCard: View {
         HStack(spacing: 2) {
             heartControl(vertical: false)
                 .foregroundStyle(.secondary)
-            if let emoji = PostEmojiReactionStore.shared.emoji(for: post.id), reacted {
-                Text(emoji)
-                    .font(.system(size: 14))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(Color.primary.opacity(0.06), in: Capsule())
-                    .accessibilityLabel("Reacted \(emoji)")
-            }
+            reactionSummaryChip(onMedia: false)
             pillButton("Comment", symbol: "bubble.right", count: post.replyCount, active: false, action: onComment)
                 .accessibilityIdentifier("home.action.comment.\(post.id)")
             pillButton("Repost", symbol: "arrow.2.squarepath", count: post.repostCount, active: post.reposted, action: onRepost)
@@ -1234,35 +1412,129 @@ struct ImmersivePostContextPanel: View {
     }
 }
 
-/// "+" grid of custom emoji reactions; each emoji enlarges while pressed.
+/// "+" grid: every emoji maps onto one of the server's 8 reaction types. Searchable by name.
 private struct ReactionGridSheet: View {
     var onPick: (String) -> Void
     @Environment(\.dismiss) private var dismiss
+    @State private var query = ""
+
+    private var results: [(String, String)] {
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !q.isEmpty else { return PostEmojiReaction.catalog }
+        return PostEmojiReaction.catalog.filter { $0.0 == q || $0.1.contains(q) }
+    }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 6), spacing: 10) {
-                    ForEach(PostEmojiReaction.grid, id: \.self) { emoji in
-                        Button {
-                            HapticEngine.shared.play(.selection)
-                            onPick(emoji)
-                        } label: {
-                            Text(emoji)
-                                .font(.system(size: 32))
-                                .frame(width: 52, height: 52)
+            VStack(spacing: 0) {
+                ModulaGlassSearchField(prompt: "Search reactions", text: $query)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
+                ScrollView {
+                    if results.isEmpty {
+                        ContentUnavailableView.search(text: query)
+                            .padding(.top, 40)
+                    } else {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 6), spacing: 10) {
+                            ForEach(results, id: \.0) { item in
+                                Button {
+                                    HapticEngine.shared.play(.reactionSelect)
+                                    onPick(item.0)
+                                } label: {
+                                    Text(item.0)
+                                        .font(.system(size: 32))
+                                        .frame(width: 52, height: 52)
+                                }
+                                .buttonStyle(EmojiPressStyle())
+                                .accessibilityLabel(item.1.split(separator: " ").first.map(String.init) ?? item.0)
+                            }
                         }
-                        .buttonStyle(EmojiPressStyle())
-                        .accessibilityLabel(emoji)
+                        .padding(16)
+                        .animation(.snappy, value: query)
                     }
                 }
-                .padding(16)
+                .scrollDismissesKeyboard(.immediately)
             }
             .navigationTitle("Reactions")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
             }
+        }
+    }
+}
+
+/// One release / fling of an emoji reaction: particles burst from the picked emoji.
+struct ReactionBurst: Identifiable, Equatable {
+    let id = UUID()
+    let emoji: String
+    let origin: CGPoint
+    var fling = false
+}
+
+private struct ReactionBurstView: View {
+    let burst: ReactionBurst
+    @State private var go = false
+
+    var body: some View {
+        ZStack {
+            if burst.fling {
+                Text(burst.emoji)
+                    .font(.system(size: 40))
+                    .scaleEffect(go ? 1.9 : 1)
+                    .rotationEffect(.degrees(go ? -16 : 0))
+                    .offset(y: go ? -230 : 0)
+                    .opacity(go ? 0 : 1)
+            }
+            ForEach(0..<12, id: \.self) { index in
+                let angle = Double(index) / 12 * .pi * 2 + 0.3
+                let radius: CGFloat = go ? CGFloat(52 + (index % 3) * 16) : 4
+                Group {
+                    if index.isMultiple(of: 2) {
+                        Text(burst.emoji).font(.system(size: 13 + CGFloat(index % 3) * 4))
+                    } else {
+                        Circle()
+                            .fill(index % 3 == 0 ? Color.yellow : Color(red: 1, green: 0.42, blue: 0.55))
+                            .frame(width: 5, height: 5)
+                    }
+                }
+                .offset(x: cos(angle) * radius, y: sin(angle) * radius - (go ? 18 : 0))
+                .scaleEffect(go ? 0.55 : 1)
+                .opacity(go ? 0 : 1)
+            }
+        }
+        .position(burst.origin)
+        .allowsHitTesting(false)
+        .onAppear { withAnimation(.easeOut(duration: burst.fling ? 0.75 : 0.62)) { go = true } }
+    }
+}
+
+extension ReactionKind {
+    var emoji: String {
+        switch self {
+        case .like: "❤️"
+        case .love: "😍"
+        case .laugh: "😂"
+        case .wow: "😮"
+        case .support: "🙏"
+        case .sad: "😢"
+        case .angry: "😡"
+        }
+    }
+}
+
+extension SocialReaction {
+    var emoji: String {
+        switch self {
+        case .like: "❤️"
+        case .love: "😍"
+        case .laugh: "😂"
+        case .fire: "🔥"
+        case .celebrate: "🎉"
+        case .insightful: "💡"
+        case .support: "🙏"
+        case .curious: "😮"
         }
     }
 }
@@ -1421,6 +1693,7 @@ struct ImmersiveVideoProgress: View {
                 .fixedSize()
                 .contentTransition(.opacity)
                 .onLongPressGesture(minimumDuration: 0.35) {
+                    PostMenuCenter.shared.suppressLongPressUntil = Date().addingTimeInterval(1)
                     let rate = controller.cycleRate()
                     let label = rate == 1 ? "1×" : (rate == 1.5 ? "1.5×" : "2×")
                     rateFlash = label
@@ -1443,6 +1716,7 @@ struct ImmersiveVideoProgress: View {
                         DragGesture(minimumDistance: 0)
                             .onChanged { value in
                                 let fraction = min(max(value.location.x / max(geo.size.width, 1), 0), 1)
+                                PostMenuCenter.shared.suppressLongPressUntil = Date().addingTimeInterval(0.8)
                                 if !scrubbing {
                                     scrubbing = true
                                     HapticEngine.shared.play(.selection)
