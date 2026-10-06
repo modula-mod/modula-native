@@ -872,7 +872,8 @@ struct ImmersivePostCard: View {
         .accessibilityIdentifier("post.comment.prompt.\(post.id)")
     }
 
-    /// Integrated strip for text/link/audio/doc cards — shares the card surface (no second pill).
+    /// Slim strip for text/link/audio/doc cards — same capsule as the media strip,
+    /// tinted for the card surface instead of the media gradient.
     private var commentBar: some View {
         Button(action: onComment) {
             HStack(spacing: 8) {
@@ -881,21 +882,19 @@ struct ImmersivePostCard: View {
                 } else {
                     Image(systemName: "person.crop.circle.fill")
                         .font(.system(size: 18))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(Color.secondary)
                         .frame(width: 22, height: 22)
                 }
-                Text(post.replyCount > 0 ? "Join the conversation…" : "Add a comment…")
-                    .font(.system(.subheadline, design: font))
-                    .foregroundStyle(.secondary)
+                Text("Add a comment…")
+                    .font(.system(.caption, design: font, weight: .medium))
+                    .foregroundStyle(Color.secondary)
                     .lineLimit(1)
                 Spacer(minLength: 0)
-                Image(systemName: "chevron.up")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(.tertiary)
             }
-            .padding(.horizontal, 4)
-            .frame(height: 36)
-            .contentShape(Rectangle())
+            .padding(.horizontal, 12)
+            .frame(height: 34)
+            .background(Color.primary.opacity(0.06), in: Capsule())
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .gesture(

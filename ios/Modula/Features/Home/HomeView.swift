@@ -40,14 +40,19 @@ struct HomeView: View {
                                 .tint(app.appearance.accent.color)
                                 .accessibilityIdentifier("home.open-reels")
                             }
-                            // The header "+" is the single create entry on Home.
-                            StoryTray(groups: StoryStore.homeTrayGroups(app.stories.trayGroups), compact: true) { group in
-                                Task { await openStory(group) }
+                            // The header "+" is the single create entry on Home. With no stories
+                            // the tray collapses so the first post sits right under this row.
+                            let trayGroups = StoryStore.homeTrayGroups(app.stories.trayGroups)
+                            if !trayGroups.isEmpty {
+                                StoryTray(groups: trayGroups, compact: true) { group in
+                                    Task { await openStory(group) }
+                                }
+                                .padding(.horizontal, -ModulaLayout.contentInset)
+                                // Bleed to the screen edges but start the first story on the
+                                // content inset (it used to sit 4pt from the edge).
+                                .contentMargins(.horizontal, ModulaLayout.contentInset, for: .scrollContent)
+                                .transition(.opacity)
                             }
-                            .padding(.horizontal, -ModulaLayout.contentInset)
-                            // Bleed to the screen edges but start the first story on the
-                            // content inset (it used to sit 4pt from the edge).
-                            .contentMargins(.horizontal, ModulaLayout.contentInset, for: .scrollContent)
                         }
                         if app.home.isOfflineHint && !state.items.isEmpty {
                             offlineBanner
