@@ -233,8 +233,18 @@ struct RootView: View {
 
 struct RouteView: View {
     let route: AppRoute
+    /// Card the user tapped to get here (Activity / Discover / Product Hub), captured once.
+    @State private var heroID: String?
+
+    init(route: AppRoute) {
+        self.route = route
+        _heroID = State(initialValue: ModulaHeroMorph.consume(route))
+    }
+
     var body: some View {
-        destination.modulaSoftScrollEdge()
+        destination
+            .modulaSoftScrollEdge()
+            .modifier(ModulaHeroDestinationModifier(heroID: heroID))
     }
 
     @ViewBuilder

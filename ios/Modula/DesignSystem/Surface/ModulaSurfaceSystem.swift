@@ -236,6 +236,77 @@ extension View {
     }
 }
 
+// MARK: Hero morph (tap a card → zoom into its detail)
+
+/// One-shot hand-off between a tapped card and the route it pushes. The card arms
+/// its source id; `RouteView` consumes it once for that exact route and zooms out
+/// of the card. Unarmed pushes (Home feed etc.) keep the standard push.
+@MainActor enum ModulaHeroMorph {
+    private static var pending: (route: AppRoute, id: String, at: Date)?
+
+    static func arm(_ id: String, for route: AppRoute) {
+        pending = (route, id, Date())
+    }
+
+    static func disarm() { pending = nil }
+
+    static func consume(_ route: AppRoute) -> String? {
+        guard let armed = pending, armed.route == route, Date().timeIntervalSince(armed.at) < 1.5 else { return nil }
+        pending = nil
+        return armed.id
+    }
+
+    static func sourceID(scope: String, kind: String, key: String) -> String {
+        "hero.\(scope).\(kind).\(key)"
+    }
+}
+
+private struct ModulaHeroScopeKey: EnvironmentKey {
+    static let defaultValue = "root"
+}
+
+extension EnvironmentValues {
+    /// Disambiguates hero ids when the same item renders in several mounted lists
+    /// (Discover keeps every visited scope alive under an opacity switch).
+    var modulaHeroScope: String {
+        get { self[ModulaHeroScopeKey.self] }
+        set { self[ModulaHeroScopeKey.self] = newValue }
+    }
+}
+
+private struct ModulaHeroSourceModifier: ViewModifier {
+    let kind: String
+    let key: String
+    @Environment(\.routeTransitionNamespace) private var namespace
+    @Environment(\.modulaHeroScope) private var scope
+
+    func body(content: Content) -> some View {
+        content.modulaZoomSource(id: ModulaHeroMorph.sourceID(scope: scope, kind: kind, key: key), namespace: namespace)
+    }
+}
+
+/// Applied by `RouteView`: zooms the pushed screen out of the armed card.
+struct ModulaHeroDestinationModifier: ViewModifier {
+    let heroID: String?
+    @Environment(\.routeTransitionNamespace) private var namespace
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+
+    func body(content: Content) -> some View {
+        content.modulaZoomDestination(
+            id: heroID ?? "hero.none",
+            namespace: heroID == nil ? nil : namespace,
+            reduceMotion: ModulaEffectGate.reduceMotion(systemReduceMotion)
+        )
+    }
+}
+
+extension View {
+    /// Marks this card as the morph source for `kind`/`key` in the current hero scope.
+    func modulaHeroSource(_ kind: String, key: String) -> some View {
+        modifier(ModulaHeroSourceModifier(kind: kind, key: key))
+    }
+}
+
 private struct ShellChromeMetricsKey: EnvironmentKey {
     static let defaultValue = ShellChromeMetrics(
         bottomBarHeight: 0,

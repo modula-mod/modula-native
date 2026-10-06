@@ -55,9 +55,13 @@ struct DiscoverTopicCard: View {
     var rank: Int?
     var action: () -> Void
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.modulaHeroScope) private var heroScope
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            ModulaHeroMorph.arm(ModulaHeroMorph.sourceID(scope: heroScope, kind: "topic", key: topic.id), for: .search(.section(.topics, topic.query)))
+            action()
+        } label: {
             ZStack(alignment: .bottomLeading) {
                 DiscoverTopicArtwork(seed: topic.id)
                     .accessibilityHidden(true)
@@ -83,8 +87,14 @@ struct DiscoverTopicCard: View {
             }
             .frame(width: 168, height: 132 * app.appearance.density.spacingScale)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(LinearGradient(colors: [.white.opacity(0.28), .white.opacity(0.04)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.75)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .modulaHeroSource("topic", key: topic.id)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.modulaPressTilt)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityIdentifier("discover.topic.\(topic.id)")
     }
@@ -100,15 +110,34 @@ struct DiscoverTopicCard: View {
 private struct DiscoverTopicArtwork: View {
     let seed: String
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+
+    /// Stable per-topic hue shift so the grid isn't one colour.
+    private var hueShift: Double {
+        Double(seed.unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) % 997 }) / 997.0 * 0.18 - 0.09
+    }
 
     var body: some View {
+        let accent = app.appearance.accent.color
+        let drift = !ModulaEffectGate.reduceMotion(systemReduceMotion)
         GeometryReader { proxy in
             ZStack {
                 Color.black
                 Circle()
-                    .fill(app.appearance.accent.color.opacity(0.42))
+                    .fill(RadialGradient(colors: [accent.modulaAdjusted(hue: hueShift).opacity(0.62), accent.opacity(0.12)], center: .center, startRadius: 4, endRadius: proxy.size.width * 0.5))
                     .frame(width: proxy.size.width * 0.9)
-                    .offset(x: proxy.size.width * 0.28, y: -proxy.size.height * 0.3)
+                    .blur(radius: 6)
+                    .phaseAnimator(drift ? [false, true] : [false]) { view, phase in
+                        view.offset(
+                            x: proxy.size.width * (phase ? 0.18 : 0.3),
+                            y: -proxy.size.height * (phase ? 0.18 : 0.32)
+                        )
+                    } animation: { _ in .easeInOut(duration: 5.5) }
+                Circle()
+                    .fill(accent.modulaAdjusted(hue: -hueShift, brightness: 1.15).opacity(0.22))
+                    .frame(width: proxy.size.width * 0.5)
+                    .blur(radius: 14)
+                    .offset(x: -proxy.size.width * 0.3, y: proxy.size.height * 0.34)
                 Circle()
                     .stroke(Color.white.opacity(0.18), lineWidth: 1)
                     .frame(width: proxy.size.width * 0.55)
@@ -128,10 +157,14 @@ struct DiscoverPersonRow: View {
     var onOpen: () -> Void
     var onFollow: () -> Void
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.modulaHeroScope) private var heroScope
 
     var body: some View {
         HStack(spacing: 12) {
-            Button(action: onOpen) {
+            Button {
+                ModulaHeroMorph.arm(ModulaHeroMorph.sourceID(scope: heroScope, kind: "person", key: person.routeID), for: .profile(person.routeID, .overview))
+                onOpen()
+            } label: {
                 HStack(spacing: 12) {
                     ModulaAvatar(initials: person.initials, url: person.avatarURL, size: 44)
                     VStack(alignment: .leading, spacing: 2) {
@@ -160,21 +193,20 @@ struct DiscoverPersonRow: View {
                     Spacer(minLength: 0)
                 }
                 .contentShape(Rectangle())
+                .modulaHeroSource("person", key: person.routeID)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: nil))
             .accessibilityLabel("\(person.displayName), @\(person.handle)")
 
             Button(action: onFollow) {
-                Text(person.followState.title)
-                    .font(.caption.weight(.semibold))
+                DiscoverFollowLabel(person: person, busy: followBusy)
                     .padding(.horizontal, 12)
                     .frame(minHeight: 44)
-                    .foregroundStyle(person.isFollowing ? Color.secondary : Color.white)
                     .background(
                         Capsule().fill(person.isFollowing ? Color.primary.opacity(0.08) : app.appearance.accent.color)
                     )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.modulaPress)
             .disabled(followBusy)
             .accessibilityLabel(person.followState.title)
             .accessibilityIdentifier("discover.follow.\(person.routeID)")
@@ -191,11 +223,25 @@ struct DiscoverPersonCard: View {
     var onFollow: () -> Void
     @Environment(AppEnvironment.self) private var app
 
+    @Environment(\.modulaHeroScope) private var heroScope
+
     var body: some View {
+        let accent = app.appearance.accent.color
         VStack(spacing: 10) {
-            Button(action: onOpen) {
+            Button {
+                ModulaHeroMorph.arm(ModulaHeroMorph.sourceID(scope: heroScope, kind: "person-card", key: person.routeID), for: .profile(person.routeID, .overview))
+                onOpen()
+            } label: {
                 VStack(spacing: 8) {
                     ModulaAvatar(initials: person.initials, url: person.avatarURL, size: 56)
+                        .padding(3)
+                        .background(
+                            Circle().stroke(
+                                AngularGradient(colors: [accent, accent.modulaAdjusted(hue: 0.08), accent.opacity(0.3), accent], center: .center),
+                                lineWidth: 2
+                            )
+                        )
+                        .shadow(color: accent.opacity(0.35), radius: 8, y: 2)
                     Text(person.displayName)
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
@@ -205,22 +251,49 @@ struct DiscoverPersonCard: View {
                         .lineLimit(1)
                 }
                 .frame(width: 118)
+                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(ModulaPressStyle(scale: 0.95))
             Button(action: onFollow) {
-                Text(person.followState.title)
-                    .font(.caption.weight(.semibold))
+                DiscoverFollowLabel(person: person, busy: followBusy)
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
             .buttonStyle(.bordered)
-            .tint(app.appearance.accent.color)
+            .tint(accent)
             .disabled(followBusy)
             .accessibilityLabel(person.followState.title)
         }
         .padding(12)
         .frame(width: 142)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
+        .modulaHeroSource("person-card", key: person.routeID)
+        .modulaCarouselReveal()
         .accessibilityIdentifier("discover.person-card.\(person.routeID)")
+    }
+}
+
+/// Follow/Following text that cross-fades and pops a glyph when the state flips.
+struct DiscoverFollowLabel: View {
+    let person: DiscoverPerson
+    var busy: Bool
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if busy {
+                ProgressView().controlSize(.mini)
+            } else {
+                Image(systemName: person.isFollowing ? "checkmark" : "plus")
+                    .font(.caption2.weight(.bold))
+                    .contentTransition(.symbolEffect(.replace))
+                    .symbolEffect(.bounce, value: person.isFollowing)
+            }
+            Text(person.followState.title)
+                .font(.caption.weight(.semibold))
+                .contentTransition(.interpolate)
+        }
+        .foregroundStyle(person.isFollowing ? Color.secondary : Color.white)
+        .animation(.snappy, value: person.isFollowing)
     }
 }
 
@@ -268,8 +341,10 @@ struct DiscoverTopicShelf: View {
                 HStack(spacing: 10) {
                     ForEach(Array(topics.enumerated()), id: \.element.id) { item in
                         DiscoverTopicCard(topic: item.element, rank: item.offset + 1) { onOpen(item.element) }
+                            .modulaCarouselReveal()
                     }
                 }
+                .padding(.vertical, 4)
             }
         }
     }
@@ -279,13 +354,17 @@ struct DiscoverPostCard: View {
     let post: DiscoverPost
     var action: () -> Void
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.modulaHeroScope) private var heroScope
 
     private var resolvedEngagement: PostEngagement? {
         app.posts.post(id: post.id)?.engagement
     }
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            ModulaHeroMorph.arm(ModulaHeroMorph.sourceID(scope: heroScope, kind: "post", key: post.id), for: .post(post.id, .root))
+            action()
+        } label: {
             VStack(alignment: .leading, spacing: 10) {
                 if let author = post.author {
                     HStack(spacing: 10) {
@@ -312,23 +391,45 @@ struct DiscoverPostCard: View {
                 if let media = post.media {
                     DiscoverMediaPreview(media: media)
                 }
-                HStack(spacing: 16) {
+                HStack(spacing: 8) {
                     let likes = resolvedEngagement?.likeCount ?? post.likeCount
                     let replies = resolvedEngagement?.replyCount ?? post.replyCount
+                    let liked = resolvedEngagement?.liked == true
                     if let likes {
-                        Label("\(likes)", systemImage: resolvedEngagement?.liked == true ? "heart.fill" : "heart")
+                        Label {
+                            Text("\(likes)").contentTransition(.numericText(value: Double(likes)))
+                        } icon: {
+                            Image(systemName: liked ? "heart.fill" : "heart")
+                                .foregroundStyle(liked ? Color.pink : Color.secondary)
+                                .symbolEffect(.bounce, value: liked)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.primary.opacity(0.05), in: Capsule())
                     }
                     if let replies {
-                        Label("\(replies)", systemImage: "bubble.right")
+                        Label {
+                            Text("\(replies)").contentTransition(.numericText(value: Double(replies)))
+                        } icon: {
+                            Image(systemName: "bubble.right")
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.primary.opacity(0.05), in: Capsule())
                     }
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
             .padding(.vertical, 12 * app.appearance.density.spacingScale)
-            // Lighter Discover geometry — avoid grey rounded cards for every row.
+            .padding(.horizontal, 14)
+            // One soft glass sheet per post instead of a grey box.
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .modulaHeroSource("post", key: post.id)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: nil))
+        .modulaScrollReveal()
         .accessibilityLabel(post.text ?? "Post")
         .accessibilityIdentifier("discover.post.\(post.id)")
     }

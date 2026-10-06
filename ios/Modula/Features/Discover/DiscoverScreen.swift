@@ -83,6 +83,7 @@ struct DiscoverScreen: View {
             .modulaPullContentEffects()
         }
         .modulaSoftScrollEdge()
+        .environment(\.modulaHeroScope, "discover.\(scope.rawValue)")
         .modulaShellPullActions(liftsAboveContent: false) {
             await app.discover.refresh(scope)
             HapticEngine.shared.play(.confirmation)

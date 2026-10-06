@@ -47,6 +47,8 @@ final class NavigationCoordinator {
     }
     func open(_ route: AppRoute) {
         if let tab = route.tab {
+            // A tab switch lands on another stack; the tapped card isn't there to morph from.
+            if tab != selectedTab { ModulaHeroMorph.disarm() }
             selectedTab = tab
             if isContextRoot(route) { roots[tab] = route; return }
         }

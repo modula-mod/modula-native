@@ -401,9 +401,13 @@ struct ProductCard: View {
     var action: () -> Void
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.modulaHeroScope) private var heroScope
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            ModulaHeroMorph.arm(ModulaHeroMorph.sourceID(scope: heroScope, kind: "product", key: product.id), for: .productHub(.module(product.id, .overview)))
+            action()
+        } label: {
             HStack(spacing: 15) {
                 ProductArtwork(product: product, size: 64)
                 VStack(alignment: .leading, spacing: 3) {
@@ -420,13 +424,25 @@ struct ProductCard: View {
                     .foregroundStyle(product.installable || installed ? app.appearance.accent.color : .secondary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
-                    .background(Color.primary.opacity(0.07), in: Capsule())
+                    .modulaGlass(in: Capsule(), interactive: false, tint: (product.installable || installed) ? app.appearance.accent.color.opacity(0.14) : nil)
                     .accessibilityHidden(true)
             }
             .padding(14)
-            .background(ModulaPalette.resolve(app.appearance, scheme: scheme).surface, in: RoundedRectangle(cornerRadius: 21, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 21, style: .continuous).stroke(.primary.opacity(0.065)))
+            .background {
+                let surface = ModulaPalette.resolve(app.appearance, scheme: scheme).surface
+                ZStack {
+                    RoundedRectangle(cornerRadius: 21, style: .continuous).fill(surface)
+                    // Faint accent wash from the icon side ties the card to its artwork.
+                    RoundedRectangle(cornerRadius: 21, style: .continuous)
+                        .fill(LinearGradient(colors: [app.appearance.accent.color.opacity(scheme == .dark ? 0.10 : 0.06), .clear], startPoint: .leading, endPoint: .center))
+                }
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 21, style: .continuous)
+                    .stroke(LinearGradient(colors: [.primary.opacity(0.10), .primary.opacity(0.04)], startPoint: .top, endPoint: .bottom), lineWidth: 0.75)
+            )
             .contentShape(RoundedRectangle(cornerRadius: 21, style: .continuous))
+            .modulaHeroSource("product", key: product.id)
         }
         .buttonStyle(.modulaPress)
         .accessibilityElement(children: .combine)
@@ -449,9 +465,10 @@ struct ProductShelf: View {
                 Text(title).font(.title2.bold())
                 if let subtitle { Text(subtitle).font(.subheadline).foregroundStyle(.secondary) }
             }
-            ForEach(products) { product in
+            ForEach(Array(products.enumerated()), id: \.element.id) { index, product in
                 ProductCard(product: product, installed: installedIDs.contains(product.id)) { action(product) }
                     .modulaScrollReveal(depth: true)
+                    .modulaPageEntrance(delay: min(Double(index), 6) * 0.04)
             }
         }
     }
@@ -461,9 +478,13 @@ struct ProductHero: View {
     let product: CatalogueProduct
     var action: () -> Void
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.modulaHeroScope) private var heroScope
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            ModulaHeroMorph.arm(ModulaHeroMorph.sourceID(scope: heroScope, kind: "product-hero", key: product.id), for: .productHub(.module(product.id, .overview)))
+            action()
+        } label: {
             ZStack(alignment: .bottomLeading) {
                 ProductBackdrop(product: product)
                     .modulaHeroSheen(intensity: 0.55)
@@ -487,7 +508,13 @@ struct ProductHero: View {
             }
             .frame(height: 280)
             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .stroke(LinearGradient(colors: [.white.opacity(0.32), .white.opacity(0.04)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.8)
+            )
+            .shadow(color: app.appearance.accent.color.opacity(0.22), radius: 18, y: 10)
             .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .modulaHeroSource("product-hero", key: product.id)
         }
         .buttonStyle(.modulaPressTilt)
         .modulaScrollReveal(depth: true)
@@ -523,6 +550,7 @@ struct ProductHubView: View {
         }
         .modulaSoftScrollEdge()
         .modulaShellPullActions { await app.catalogue.load() }
+        .environment(\.modulaHeroScope, "hub.\(String(describing: route))")
         .navigationTitle("Product Hub")
         .navigationBarTitleDisplayMode(.large)
         .searchable(text: $query, prompt: "Search Product Hub")
@@ -561,6 +589,9 @@ struct ProductHubView: View {
             Label("Signed in as \(account.primaryHandle)", systemImage: "checkmark.seal.fill")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .modulaGlass(in: Capsule(), interactive: false)
                 .accessibilityIdentifier("account.ready")
         } else {
             Button("Sign in to Modula") { app.navigation.open(.auth(.login)) }

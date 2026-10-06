@@ -55,10 +55,21 @@ struct ActivityScreen: View {
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: 8) {
                 if let unread = state.unreadCount, unread > 0 {
-                    Text("\(unread) unread items")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(app.appearance.accent.color)
-                        .padding(.top, 4)
+                    Label {
+                        Text("\(unread) unread items")
+                            .contentTransition(.numericText(value: Double(unread)))
+                    } icon: {
+                        Image(systemName: "bell.badge.fill")
+                            .symbolEffect(.bounce, value: unread)
+                    }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(app.appearance.accent.color)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .modulaGlass(in: Capsule(), interactive: false, tint: app.appearance.accent.color.opacity(0.12))
+                    .padding(.top, 4)
+                    .animation(.snappy, value: unread)
+                    .modulaPageEntrance()
                 }
                 switch state.loadState {
                 case .loading where state.events.isEmpty:
@@ -109,6 +120,7 @@ struct ActivityScreen: View {
             .padding(.bottom, 28)
             .modulaPullContentEffects()
         }
+        .environment(\.modulaHeroScope, "activity.\(mode.rawValue)")
         .modulaSoftScrollEdge()
         .modulaShellPullActions {
             await app.activity.refresh(mode, signedIn: true)

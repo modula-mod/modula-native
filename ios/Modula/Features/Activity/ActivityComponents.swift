@@ -20,11 +20,64 @@ struct ActivityRelativeTime {
 
 struct ActivityUnreadIndicator: View {
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     var body: some View {
+        let accent = app.appearance.accent.color
         Circle()
-            .fill(app.appearance.accent.color)
+            .fill(accent)
             .frame(width: 7, height: 7)
+            .shadow(color: accent.opacity(0.7), radius: 4)
+            .background {
+                if !ModulaEffectGate.reduceMotion(systemReduceMotion) {
+                    Circle()
+                        .fill(accent.opacity(0.35))
+                        .phaseAnimator([false, true]) { view, phase in
+                            view.scaleEffect(phase ? 2.4 : 1).opacity(phase ? 0 : 0.8)
+                        } animation: { phase in
+                            phase ? .easeOut(duration: 1.4) : .linear(duration: 0.01).delay(0.6)
+                        }
+                }
+            }
             .accessibilityHidden(true)
+    }
+}
+
+/// Small glass-rimmed glyph on the actor avatar saying what happened.
+struct ActivityKindBadge: View {
+    let kind: ActivityEventKind
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let style = Self.style(for: kind, accent: app.appearance.accent.color)
+        Image(systemName: style.symbol)
+            .font(.system(size: 9, weight: .bold))
+            .foregroundStyle(.white)
+            .frame(width: 19, height: 19)
+            .background(
+                Circle().fill(LinearGradient(colors: [style.tint, style.tint.opacity(0.75)], startPoint: .top, endPoint: .bottom))
+            )
+            .overlay(Circle().stroke(ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas, lineWidth: 2))
+            .shadow(color: style.tint.opacity(0.45), radius: 3, y: 1)
+            .accessibilityHidden(true)
+    }
+
+    static func style(for kind: ActivityEventKind, accent: Color) -> (symbol: String, tint: Color) {
+        switch kind {
+        case .reaction: ("face.smiling.inverse", .orange)
+        case .like: ("heart.fill", .pink)
+        case .comment: ("bubble.left.fill", .blue)
+        case .mention: ("at", .purple)
+        case .repost: ("arrow.2.squarepath", .green)
+        case .share: ("paperplane.fill", .teal)
+        case .follow: ("person.fill.badge.plus", accent)
+        case .followAccepted: ("person.fill.checkmark", accent)
+        case .followRequest: ("person.crop.circle.badge.questionmark", .indigo)
+        case .teamInvite: ("person.3.fill", .indigo)
+        case .moduleEvent: ("shippingbox.fill", .mint)
+        case .moduleUpdate: ("arrow.down.circle.fill", .mint)
+        case .system, .unknown: ("bell.fill", .gray)
+        }
     }
 }
 
@@ -70,7 +123,9 @@ struct ActivitySubjectPreview: View {
                     }
                 }
                 .frame(width: 52, height: 52)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
             } else if let text = preview.text, !text.isEmpty {
                 Text(text)
                     .font(.caption)
@@ -89,9 +144,12 @@ struct ActivitySectionHeader: View {
         Text(title)
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(.secondary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
+            .modulaGlass(in: Capsule(), interactive: false)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 8)
-            .padding(.bottom, 2)
+            .padding(.top, 12)
+            .padding(.bottom, 4)
             .accessibilityAddTraits(.isHeader)
     }
 }
@@ -134,6 +192,10 @@ struct ActivityRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             ActivityActorStack(actors: event.primaryActors, size: 40)
+                .overlay(alignment: .bottomTrailing) {
+                    ActivityKindBadge(kind: event.kind)
+                        .offset(x: 4, y: 4)
+                }
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(titleText)
@@ -165,9 +227,21 @@ struct ActivityRow: View {
                 ActivitySubjectPreview(preview: preview)
             }
         }
-        .padding(.vertical, 10 * app.appearance.density.spacingScale)
-        .padding(.horizontal, 2)
-        .background(event.isRead ? Color.clear : app.appearance.accent.color.opacity(0.05))
+        .padding(.vertical, 11 * app.appearance.density.spacingScale)
+        .padding(.horizontal, 10)
+        .background {
+            if !event.isRead {
+                let accent = app.appearance.accent.color
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(LinearGradient(colors: [accent.opacity(0.11), accent.opacity(0.03)], startPoint: .leading, endPoint: .trailing))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(LinearGradient(colors: [accent.opacity(0.28), .clear], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.75)
+                    )
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.35), value: event.isRead)
         // Settings → Focus → "Dim Activity list" while an iOS Focus filter is on;
         // mentions stay bright when "Still allow @mentions" is on.
         .opacity(dimmedForFocus ? 0.5 : 1)
@@ -203,6 +277,7 @@ struct ActivityTimeline: View {
     var loadingMore: Bool
     /// Request row currently accepting/declining; its controls are disabled.
     var busyEventID: ActivityEventID? = nil
+    @Environment(\.modulaHeroScope) private var heroScope
 
     var body: some View {
         LazyVStack(alignment: .leading, spacing: 0) {
@@ -211,6 +286,9 @@ struct ActivityTimeline: View {
                 ForEach(group.events) { event in
                     let busy = busyEventID == event.id
                     Button {
+                        if let route = event.destination.route {
+                            ModulaHeroMorph.arm(ModulaHeroMorph.sourceID(scope: heroScope, kind: "activity", key: event.id), for: route)
+                        }
                         onOpen(event)
                     } label: {
                         ActivityRow(
@@ -220,8 +298,10 @@ struct ActivityTimeline: View {
                             onAccept: { onAccept(event) },
                             onDecline: { onDecline(event) }
                         )
+                        .modulaHeroSource("activity", key: event.id)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(ModulaPressStyle(scale: 0.982, haptic: nil))
+                    .modulaScrollReveal()
                     .disabled(busy)
                     .opacity(busy ? 0.6 : 1)
                     .accessibilityValue(busy ? "Updating" : "")
@@ -244,7 +324,7 @@ struct ActivityTimeline: View {
                                 .tint(app.appearance.accent.color)
                         }
                     }
-                    Divider().opacity(0.35)
+                    Divider().opacity(0.22).padding(.leading, 62)
                 }
             }
             if hasMore {
