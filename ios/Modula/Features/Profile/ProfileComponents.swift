@@ -76,6 +76,13 @@ struct ProfileCover: View {
                     }
                 }
 
+                // Animated banner overlay (v2) — aurora drift + spark particles.
+                ProfileBannerFX(accent: tint ?? app.appearance.accent.color)
+                    .frame(width: width, height: coverHeight + stretch)
+                    .opacity(0.55 + 0.25 * Double(1 - dissolve))
+                    .blendMode(.plusLighter)
+                    .allowsHitTesting(false)
+
                 // Liquid bottom fade — soft multi-stop dissolve into canvas (mockup cloud seam).
                 liquidBottomFade
                     .frame(height: coverHeight * 0.58)
@@ -1099,6 +1106,36 @@ struct ProfileAvatarFrame: Identifiable, Hashable, Sendable {
         case sparkle(Color)
         case neon(Color)
         case mascotPaw(Color)
+        case shimmer(Color)
+        case auroraPulse
+        case flame
+        case orbit(Color)
+        case neonPulse(Color)
+        case seasonal(String) // spring/summer/autumn/winter
+    }
+
+    enum Rarity: String, Hashable, Sendable {
+        case common, uncommon, rare, epic, legendary
+        var title: String { rawValue.capitalized }
+        var tint: Color {
+            switch self {
+            case .common: .secondary
+            case .uncommon: Color(hex: "#34C759")
+            case .rare: Color(hex: "#3478F6")
+            case .epic: Color(hex: "#AF52DE")
+            case .legendary: Color(hex: "#FF9F0A")
+            }
+        }
+    }
+
+    var rarity: Rarity {
+        switch kind {
+        case .none, .softRing, .dashed: .common
+        case .dualRing, .pixels, .hex, .mascotPaw: .uncommon
+        case .gradient, .sparkle, .laurels, .neon, .shimmer: .rare
+        case .orbit, .neonPulse, .seasonal: .epic
+        case .auroraPulse, .flame: .legendary
+        }
     }
 
     static let none = ProfileAvatarFrame(id: "none", title: "None", kind: .none)
@@ -1119,6 +1156,13 @@ struct ProfileAvatarFrame: Identifiable, Hashable, Sendable {
         .init(id: "sparkle.pink", title: "Sparkle", kind: .sparkle(Color(hex: "#FF2D55"))),
         .init(id: "neon.cyan", title: "Neon", kind: .neon(Color(hex: "#00F5FF"))),
         .init(id: "paw.purple", title: "Paw", kind: .mascotPaw(Color(hex: "#AF52DE"))),
+        .init(id: "anim.shimmer", title: "Shimmer", kind: .shimmer(Color(hex: "#E8D5FF"))),
+        .init(id: "anim.aurora", title: "Aurora Live", kind: .auroraPulse),
+        .init(id: "anim.flame", title: "Flame", kind: .flame),
+        .init(id: "anim.orbit", title: "Orbit", kind: .orbit(Color(hex: "#5AC8FA"))),
+        .init(id: "anim.neonpulse", title: "Neon Pulse", kind: .neonPulse(Color(hex: "#00F5FF"))),
+        .init(id: "anim.spring", title: "Spring", kind: .seasonal("spring")),
+        .init(id: "anim.winter", title: "Winter", kind: .seasonal("winter")),
     ]
 
     static func frame(id: String) -> ProfileAvatarFrame {
@@ -1207,8 +1251,8 @@ struct ModulaDecoratedAvatar<Content: View>: View {
         switch frame.kind {
         case .none: 0
         case .softRing, .dashed: 4
-        case .dualRing, .gradient, .neon, .sparkle: 6
-        case .pixels, .laurels, .hex, .mascotPaw: 8
+        case .dualRing, .gradient, .neon, .sparkle, .shimmer, .neonPulse: 6
+        case .pixels, .laurels, .hex, .mascotPaw, .orbit, .auroraPulse, .flame, .seasonal: 8
         }
     }
 
@@ -1221,6 +1265,7 @@ struct ModulaDecoratedAvatar<Content: View>: View {
                     .padding(ringPad)
                     .background { frameBackground }
                     .overlay { frameOverlay }
+                    .overlay { animatedFrameLayer }
 
                 if presence != .offline {
                     presencePip
@@ -1254,6 +1299,14 @@ struct ModulaDecoratedAvatar<Content: View>: View {
                 AngularGradient(colors: colors, center: .center),
                 lineWidth: 4
             )
+        case .shimmer(let color), .neonPulse(let color), .orbit(let color):
+            Circle().strokeBorder(color.opacity(0.3), lineWidth: 3)
+        case .auroraPulse:
+            Circle().strokeBorder(AngularGradient(colors: [.purple, .pink, .cyan, .purple], center: .center), lineWidth: 4)
+        case .flame:
+            Circle().strokeBorder(Color.orange.opacity(0.4), lineWidth: 3)
+        case .seasonal:
+            Circle().strokeBorder(Color.primary.opacity(0.2), lineWidth: 2)
         }
     }
 
@@ -1322,6 +1375,91 @@ struct ModulaDecoratedAvatar<Content: View>: View {
                 .font(.system(size: size * 0.16, weight: .bold))
                 .foregroundStyle(color)
                 .offset(x: size * 0.38, y: -size * 0.38)
+        case .shimmer, .auroraPulse, .flame, .orbit, .neonPulse, .seasonal:
+            EmptyView() // driven by animatedFrameLayer
+        }
+    }
+
+
+    @ViewBuilder
+    private var animatedFrameLayer: some View {
+        let still = ModulaEffectGate.reduceMotion(reduceMotion)
+        switch frame.kind {
+        case .shimmer(let color):
+            TimelineView(.animation(minimumInterval: 1/24, paused: still)) { context in
+                let t = still ? 0 : context.date.timeIntervalSinceReferenceDate
+                Circle()
+                    .strokeBorder(
+                        AngularGradient(colors: [color.opacity(0.15), color, color.opacity(0.15)], center: .center, angle: .degrees(t * 80)),
+                        lineWidth: 3
+                    )
+            }
+        case .auroraPulse:
+            TimelineView(.animation(minimumInterval: 1/24, paused: still)) { context in
+                let t = still ? 0 : context.date.timeIntervalSinceReferenceDate
+                Circle()
+                    .strokeBorder(
+                        AngularGradient(colors: [.purple, .pink, .cyan, .mint, .purple], center: .center, angle: .degrees(t * 45)),
+                        lineWidth: 4
+                    )
+                    .shadow(color: .purple.opacity(still ? 0 : 0.35 + 0.25 * sin(t * 2)), radius: 10)
+            }
+        case .flame:
+            TimelineView(.animation(minimumInterval: 1/24, paused: still)) { context in
+                let t = still ? 0 : context.date.timeIntervalSinceReferenceDate
+                ZStack {
+                    Circle().strokeBorder(Color.orange.opacity(0.7), lineWidth: 2.5)
+                    ForEach(0..<6, id: \.self) { i in
+                        Capsule()
+                            .fill(LinearGradient(colors: [.yellow, .orange, .red.opacity(0.01)], startPoint: .bottom, endPoint: .top))
+                            .frame(width: 5, height: 12 + CGFloat(sin(t * 6 + Double(i))) * 4)
+                            .offset(y: -(size / 2 + ringPad + 2))
+                            .rotationEffect(.degrees(Double(i) * 60 + (still ? 0 : sin(t * 3 + Double(i)) * 8)))
+                    }
+                }
+            }
+        case .orbit(let color):
+            TimelineView(.animation(minimumInterval: 1/30, paused: still)) { context in
+                let t = still ? 0 : context.date.timeIntervalSinceReferenceDate
+                ZStack {
+                    Circle().strokeBorder(color.opacity(0.35), lineWidth: 1.5)
+                    ForEach(0..<3, id: \.self) { i in
+                        Circle()
+                            .fill(color)
+                            .frame(width: 6, height: 6)
+                            .offset(x: (size / 2 + ringPad - 2) * cos(t * (1.2 + Double(i) * 0.25) + Double(i) * 2))
+                            .offset(y: (size / 2 + ringPad - 2) * sin(t * (1.2 + Double(i) * 0.25) + Double(i) * 2))
+                            .shadow(color: color.opacity(0.8), radius: 4)
+                    }
+                }
+            }
+        case .neonPulse(let color):
+            TimelineView(.animation(minimumInterval: 1/24, paused: still)) { context in
+                let t = still ? 0 : context.date.timeIntervalSinceReferenceDate
+                let pulse = still ? 0.6 : 0.45 + 0.45 * (0.5 + 0.5 * sin(t * 3))
+                Circle()
+                    .strokeBorder(color, lineWidth: 2.5)
+                    .shadow(color: color.opacity(pulse), radius: 8 + pulse * 10)
+                    .shadow(color: color.opacity(pulse * 0.5), radius: 18)
+            }
+        case .seasonal(let season):
+            TimelineView(.animation(minimumInterval: 1/24, paused: still)) { context in
+                let t = still ? 0 : context.date.timeIntervalSinceReferenceDate
+                let symbol = season == "winter" ? "snowflake" : "leaf.fill"
+                let tint: Color = season == "winter" ? .cyan : Color(hex: "#34C759")
+                ZStack {
+                    Circle().strokeBorder(tint.opacity(0.55), lineWidth: 2)
+                    ForEach(0..<5, id: \.self) { i in
+                        Image(systemName: symbol)
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(tint)
+                            .offset(y: -(size / 2 + ringPad))
+                            .rotationEffect(.degrees(Double(i) * 72 + (still ? 0 : t * 20)))
+                    }
+                }
+            }
+        default:
+            EmptyView()
         }
     }
 
@@ -1348,6 +1486,7 @@ struct ModulaDecoratedAvatar<Content: View>: View {
         .padding(.vertical, 4)
         .background(color, in: Capsule())
         .overlay(Capsule().strokeBorder(.white.opacity(0.35), lineWidth: 0.8))
+        .shadow(color: reduceMotion ? .clear : color.opacity(0.55), radius: 8, y: 1)
         .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
         .accessibilityLabel(label)
     }
@@ -1371,6 +1510,7 @@ struct ProfileAvatarOverlayEditor: View {
                     section("Frame") {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 10)], spacing: 10) {
                             ForEach(ProfileAvatarFrame.catalog) { item in
+                                // Animated thumbnails via ModulaDecoratedAvatar (Reduce Motion freezes layers).
                                 Button {
                                     store.setFrame(item.id)
                                     HapticEngine.shared.play(.selection)
@@ -1387,6 +1527,10 @@ struct ProfileAvatarOverlayEditor: View {
                                         Text(item.title)
                                             .font(.caption2.weight(.semibold))
                                             .foregroundStyle(store.frameID == item.id ? app.appearance.accent.color : .secondary)
+                                            .lineLimit(1)
+                                        Text(item.rarity.title)
+                                            .font(.caption2.weight(.bold))
+                                            .foregroundStyle(item.rarity.tint)
                                             .lineLimit(1)
                                     }
                                     .padding(8)
@@ -1531,5 +1675,37 @@ struct ProfileAvatarOverlayEditor: View {
             .background(store.badge == badge ? color : Color.primary.opacity(0.06), in: Capsule())
         }
         .buttonStyle(.plain)
+    }
+}
+
+
+/// Animated particles / aurora wash for profile cover headers. Frozen under Reduce Motion.
+struct ProfileBannerFX: View {
+    var accent: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var body: some View {
+        let still = ModulaEffectGate.reduceMotion(reduceMotion)
+        TimelineView(.animation(minimumInterval: 1/24, paused: still)) { context in
+            let t = still ? 0 : context.date.timeIntervalSinceReferenceDate
+            ZStack {
+                LinearGradient(
+                    colors: [accent.opacity(0.35), .clear, Color.pink.opacity(0.2)],
+                    startPoint: UnitPoint(x: 0.2 + 0.1 * sin(t * 0.4), y: 0),
+                    endPoint: UnitPoint(x: 0.8, y: 1)
+                )
+                ForEach(0..<10, id: \.self) { i in
+                    Circle()
+                        .fill(i.isMultiple(of: 2) ? accent.opacity(0.55) : Color.white.opacity(0.45))
+                        .frame(width: CGFloat(3 + i % 3), height: CGFloat(3 + i % 3))
+                        .offset(
+                            x: CGFloat(sin(t * 0.7 + Double(i)) * 140),
+                            y: CGFloat(cos(t * 0.5 + Double(i) * 0.7) * 40) - 20
+                        )
+                        .blur(radius: still ? 0 : 0.5)
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
