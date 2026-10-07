@@ -518,6 +518,14 @@ struct StoryFilter: Identifiable, Hashable, Sendable {
         .init(id: "fade", title: "Fade", systemImage: "cloud.fill"),
         .init(id: "noir", title: "Noir", systemImage: "moon.fill"),
         .init(id: "chrome", title: "Chrome", systemImage: "sparkles"),
+        .init(id: "dramatic", title: "Drama", systemImage: "theatermasks.fill"),
+        .init(id: "sepia", title: "Sepia", systemImage: "camera.filters"),
+        .init(id: "bloom", title: "Bloom", systemImage: "sun.haze.fill"),
+        .init(id: "vignette", title: "Vignette", systemImage: "circle.dashed"),
+        .init(id: "instant", title: "Instant", systemImage: "camera.fill"),
+        .init(id: "process", title: "Process", systemImage: "drop.fill"),
+        .init(id: "tonal", title: "Tonal", systemImage: "circle.righthalf.filled"),
+        .init(id: "transfer", title: "Retro", systemImage: "film.fill"),
     ]
 }
 
@@ -564,6 +572,46 @@ enum StoryFilterEngine {
             let f = CIFilter.photoEffectChrome()
             f.inputImage = ci
             output = f.outputImage
+        case "dramatic":
+            let f = CIFilter.colorControls()
+            f.inputImage = ci
+            f.contrast = 1.35
+            f.saturation = 0.85
+            f.brightness = -0.03
+            output = f.outputImage
+        case "sepia":
+            let f = CIFilter.sepiaTone()
+            f.inputImage = ci
+            f.intensity = 0.85
+            output = f.outputImage
+        case "bloom":
+            let f = CIFilter.bloom()
+            f.inputImage = ci
+            f.radius = 12
+            f.intensity = 0.7
+            output = f.outputImage?.cropped(to: ci.extent)
+        case "vignette":
+            let f = CIFilter.vignette()
+            f.inputImage = ci
+            f.intensity = 1.2
+            f.radius = 1.6
+            output = f.outputImage
+        case "instant":
+            let f = CIFilter.photoEffectInstant()
+            f.inputImage = ci
+            output = f.outputImage
+        case "process":
+            let f = CIFilter.photoEffectProcess()
+            f.inputImage = ci
+            output = f.outputImage
+        case "tonal":
+            let f = CIFilter.photoEffectTonal()
+            f.inputImage = ci
+            output = f.outputImage
+        case "transfer":
+            let f = CIFilter.photoEffectTransfer()
+            f.inputImage = ci
+            output = f.outputImage
         default:
             output = ci
         }
@@ -572,29 +620,523 @@ enum StoryFilterEngine {
     }
 }
 
-// MARK: - Stickers
+// MARK: - Create Story v2 — model
 
-struct StoryStickerPlacement: Identifiable, Hashable, Sendable {
-    let id: String
-    var emoji: String
-    /// Normalised 0…1 within the preview.
-    var x: CGFloat
-    var y: CGFloat
-    var scale: CGFloat
-
-    static let palette: [String] = ["😀", "😍", "🔥", "✨", "🎉", "💜", "🦋", "🌟", "👑", "🐾", "😎", "🫶"]
+enum StoryTextStyle: String, CaseIterable, Identifiable, Sendable {
+    case classic, strong, typewriter, serif, neon, outline
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .classic: "Classic"
+        case .strong: "Strong"
+        case .typewriter: "Type"
+        case .serif: "Editor"
+        case .neon: "Neon"
+        case .outline: "Outline"
+        }
+    }
+    var font: Font {
+        switch self {
+        case .classic: .system(size: 30, weight: .bold, design: .rounded)
+        case .strong: .system(size: 32, weight: .black, design: .default)
+        case .typewriter: .system(size: 24, weight: .medium, design: .monospaced)
+        case .serif: .system(size: 30, weight: .semibold, design: .serif)
+        case .neon: .system(size: 30, weight: .heavy, design: .rounded)
+        case .outline: .system(size: 32, weight: .black, design: .rounded)
+        }
+    }
 }
 
-// MARK: - Composer (replaces the grey "Add a photo" sheet)
+enum StoryTextBackground: String, CaseIterable, Sendable {
+    case none, solid, soft
+    var symbol: String {
+        switch self {
+        case .none: "character"
+        case .solid: "character.textbox"
+        case .soft: "square.fill.text.grid.1x2"
+        }
+    }
+}
+
+enum StoryTextAlign: String, CaseIterable, Sendable {
+    case center, leading, trailing
+    var text: TextAlignment {
+        switch self {
+        case .center: .center
+        case .leading: .leading
+        case .trailing: .trailing
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .center: "text.aligncenter"
+        case .leading: "text.alignleft"
+        case .trailing: "text.alignright"
+        }
+    }
+}
+
+struct StoryTextSpec: Equatable, Sendable {
+    var text: String = ""
+    var style: StoryTextStyle = .classic
+    var colorHex: String = "#FFFFFF"
+    var background: StoryTextBackground = .none
+    var alignment: StoryTextAlign = .center
+}
+
+struct StoryLayer: Identifiable, Equatable {
+    enum Content: Equatable {
+        case emoji(String)
+        case animated(String)
+        case mascot(String)
+        case gif(URL)
+        case text(StoryTextSpec)
+        case location(String)
+        case mention(String)
+        case poll(question: String, a: String, b: String)
+        case question(String)
+        case countdown(title: String, date: Date)
+        case music(title: String, artist: String)
+
+        var isInteractive: Bool {
+            switch self {
+            case .location, .mention, .poll, .question, .countdown, .music: true
+            default: false
+            }
+        }
+    }
+    let id: String
+    var content: Content
+    var x: CGFloat = 0.5
+    var y: CGFloat = 0.42
+    var scale: CGFloat = 1
+    var rotation: Double = 0
+}
+
+enum StoryBrush: String, CaseIterable, Identifiable, Sendable {
+    case pen, marker, neon, eraser
+    var id: String { rawValue }
+    var title: String { rawValue.capitalized }
+    var symbol: String {
+        switch self {
+        case .pen: "pencil.tip"
+        case .marker: "highlighter"
+        case .neon: "wand.and.rays"
+        case .eraser: "eraser"
+        }
+    }
+}
+
+struct StoryDrawStroke: Identifiable, Equatable, Sendable {
+    let id: String
+    var points: [CGPoint]
+    var colorHex: String
+    var width: CGFloat
+    var brush: StoryBrush
+}
+
+struct StoryGradientBG: Identifiable, Hashable, Sendable {
+    let id: String
+    let title: String
+    let hexes: [String]
+    var colors: [Color] { hexes.map { Color(hex: $0) } }
+    static let catalog: [StoryGradientBG] = [
+        .init(id: "sunset", title: "Sunset", hexes: ["#FF6B6B", "#FFD93D", "#FF8E53"]),
+        .init(id: "ocean", title: "Ocean", hexes: ["#667EEA", "#764BA2"]),
+        .init(id: "mint", title: "Mint", hexes: ["#11998E", "#38EF7D"]),
+        .init(id: "candy", title: "Candy", hexes: ["#F093FB", "#F5576C"]),
+        .init(id: "sky", title: "Sky", hexes: ["#4FACFE", "#00F2FE"]),
+        .init(id: "aurora", title: "Aurora", hexes: ["#0F2027", "#2C5364", "#36D1DC"]),
+        .init(id: "peach", title: "Peach", hexes: ["#FFECD2", "#FCB69F"]),
+        .init(id: "noir", title: "Noir", hexes: ["#232526", "#414345"]),
+    ]
+}
+
+enum StoryCollageLayout: String, CaseIterable, Identifiable, Sendable {
+    case twoRows, twoColumns, threeRows, grid
+    var id: String { rawValue }
+    var slots: Int {
+        switch self {
+        case .twoRows, .twoColumns: 2
+        case .threeRows: 3
+        case .grid: 4
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .twoRows: "rectangle.split.1x2"
+        case .twoColumns: "rectangle.split.2x1"
+        case .threeRows: "rectangle.split.3x1"
+        case .grid: "rectangle.split.2x2"
+        }
+    }
+    var title: String {
+        switch self {
+        case .twoRows: "Stack"
+        case .twoColumns: "Side by side"
+        case .threeRows: "Triptych"
+        case .grid: "Grid"
+        }
+    }
+    func rects(in size: CGSize) -> [CGRect] {
+        let w = size.width, h = size.height
+        switch self {
+        case .twoRows: return [CGRect(x: 0, y: 0, width: w, height: h / 2), CGRect(x: 0, y: h / 2, width: w, height: h / 2)]
+        case .twoColumns: return [CGRect(x: 0, y: 0, width: w / 2, height: h), CGRect(x: w / 2, y: 0, width: w / 2, height: h)]
+        case .threeRows: return (0..<3).map { CGRect(x: 0, y: h * CGFloat($0) / 3, width: w, height: h / 3) }
+        case .grid: return [
+            CGRect(x: 0, y: 0, width: w / 2, height: h / 2), CGRect(x: w / 2, y: 0, width: w / 2, height: h / 2),
+            CGRect(x: 0, y: h / 2, width: w / 2, height: h / 2), CGRect(x: w / 2, y: h / 2, width: w / 2, height: h / 2),
+        ]
+        }
+    }
+}
+
+enum StoryMusicCatalog {
+    static let tracks: [(title: String, artist: String)] = [
+        ("Midnight Drive", "Modula FM"), ("Soft Focus", "Studio Waves"), ("Neon Pulse", "City Lights"),
+        ("Golden Hour", "Sunroom"), ("Low Battery", "Lo-Fi Lab"), ("Afterglow", "Night Bus"),
+        ("Paper Planes", "Loft Tapes"), ("Slow Motion", "Velvet Room"),
+    ]
+}
+
+/// Decodes GIF data into an animated UIImage (frames capped for memory).
+enum StoryGIFDecoder {
+    static func animatedImage(from data: Data, maxFrames: Int = 48, maxPixel: CGFloat = 360) -> UIImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return UIImage(data: data) }
+        let count = CGImageSourceGetCount(source)
+        guard count > 1 else { return UIImage(data: data) }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+        ]
+        var frames: [UIImage] = []
+        var duration: Double = 0
+        let step = max(1, count / maxFrames)
+        for i in stride(from: 0, to: count, by: step) {
+            guard let cg = CGImageSourceCreateThumbnailAtIndex(source, i, options as CFDictionary) else { continue }
+            frames.append(UIImage(cgImage: cg))
+            let props = CGImageSourceCopyPropertiesAtIndex(source, i, nil) as? [CFString: Any]
+            let gif = props?[kCGImagePropertyGIFDictionary] as? [CFString: Any]
+            let delay = (gif?[kCGImagePropertyGIFUnclampedDelayTime] as? Double) ?? (gif?[kCGImagePropertyGIFDelayTime] as? Double) ?? 0.08
+            duration += max(delay, 0.02) * Double(step)
+        }
+        guard !frames.isEmpty else { return UIImage(data: data) }
+        return UIImage.animatedImage(with: frames, duration: duration)
+    }
+}
+
+private struct StoryAnimatedImageView: UIViewRepresentable {
+    let image: UIImage
+    func makeUIView(context: Context) -> UIImageView {
+        let view = UIImageView()
+        view.contentMode = .scaleAspectFit
+        view.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        view.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        return view
+    }
+    func updateUIView(_ uiView: UIImageView, context: Context) {
+        if uiView.image !== image { uiView.image = image }
+        if image.images != nil, !uiView.isAnimating { uiView.startAnimating() }
+    }
+}
+
+// MARK: - Create Story v2 — shared render views (edit stage + baking)
+
+struct StoryBackgroundView: View {
+    var image: UIImage?
+    var gradient: StoryGradientBG?
+    var collage: StoryCollageLayout?
+    var collageImages: [UIImage] = []
+    var showsPlaceholders = true
+
+    var body: some View {
+        GeometryReader { geo in
+            if let collage {
+                ZStack(alignment: .topLeading) {
+                    Color.black
+                    ForEach(Array(collage.rects(in: geo.size).enumerated()), id: \.offset) { index, rect in
+                        Group {
+                            if index < collageImages.count {
+                                Image(uiImage: collageImages[index])
+                                    .resizable()
+                                    .scaledToFill()
+                            } else if showsPlaceholders {
+                                ZStack {
+                                    Color(white: 0.14)
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 26, weight: .semibold))
+                                        .foregroundStyle(.white.opacity(0.55))
+                                }
+                            } else {
+                                Color(white: 0.1)
+                            }
+                        }
+                        .frame(width: max(rect.width - 3, 1), height: max(rect.height - 3, 1))
+                        .clipped()
+                        .offset(x: rect.minX + 1.5, y: rect.minY + 1.5)
+                    }
+                }
+            } else if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .clipped()
+            } else if let gradient {
+                LinearGradient(colors: gradient.colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+            } else {
+                Color(white: 0.08)
+            }
+        }
+    }
+}
+
+struct StoryDrawingCanvas: View {
+    var strokes: [StoryDrawStroke]
+    var body: some View {
+        Canvas { context, size in
+            for stroke in strokes {
+                guard let first = stroke.points.first else { continue }
+                var path = Path()
+                path.move(to: CGPoint(x: first.x * size.width, y: first.y * size.height))
+                if stroke.points.count == 1 {
+                    path.addLine(to: CGPoint(x: first.x * size.width + 0.1, y: first.y * size.height + 0.1))
+                }
+                for point in stroke.points.dropFirst() {
+                    path.addLine(to: CGPoint(x: point.x * size.width, y: point.y * size.height))
+                }
+                let colour = Color(hex: stroke.colorHex)
+                switch stroke.brush {
+                case .pen:
+                    context.stroke(path, with: .color(colour), style: StrokeStyle(lineWidth: stroke.width, lineCap: .round, lineJoin: .round))
+                case .marker:
+                    context.stroke(path, with: .color(colour.opacity(0.5)), style: StrokeStyle(lineWidth: stroke.width * 2.6, lineCap: .square, lineJoin: .round))
+                case .neon:
+                    context.drawLayer { layer in
+                        layer.addFilter(.blur(radius: stroke.width * 1.4))
+                        layer.stroke(path, with: .color(colour), style: StrokeStyle(lineWidth: stroke.width * 2.2, lineCap: .round, lineJoin: .round))
+                    }
+                    context.stroke(path, with: .color(colour), style: StrokeStyle(lineWidth: stroke.width, lineCap: .round, lineJoin: .round))
+                    context.stroke(path, with: .color(.white.opacity(0.9)), style: StrokeStyle(lineWidth: max(1, stroke.width * 0.35), lineCap: .round, lineJoin: .round))
+                case .eraser:
+                    var eraser = context
+                    eraser.blendMode = .clear
+                    eraser.stroke(path, with: .color(.black), style: StrokeStyle(lineWidth: stroke.width * 3, lineCap: .round, lineJoin: .round))
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+struct StoryLayerView: View {
+    let layer: StoryLayer
+    var gif: UIImage?
+    var isBaking = false
+    var accent: Color = Color(hex: "#7656D6")
+
+    var body: some View {
+        switch layer.content {
+        case .emoji(let emoji):
+            Text(emoji).font(.system(size: 72))
+        case .animated(let raw):
+            if let style = ModulaAnimatedSticker.Style(rawValue: raw) {
+                ModulaAnimatedSticker(style: style, size: 120)
+            }
+        case .mascot(let raw):
+            if let kind = ModulaMascotKind(rawValue: raw) {
+                ModulaMascotSticker(kind: kind, size: 130)
+            }
+        case .gif:
+            Group {
+                if let gif {
+                    if isBaking {
+                        Image(uiImage: gif.images?.first ?? gif).resizable().scaledToFit()
+                    } else {
+                        StoryAnimatedImageView(image: gif)
+                    }
+                } else {
+                    ProgressView().tint(.white)
+                }
+            }
+            .frame(width: 160, height: 160 * ((gif?.size.height ?? 160) / max(gif?.size.width ?? 160, 1)))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        case .text(let spec):
+            textView(spec)
+        case .location(let place):
+            Label(place.uppercased(), systemImage: "mappin.and.ellipse")
+                .font(.system(size: 17, weight: .heavy, design: .rounded))
+                .foregroundStyle(LinearGradient(colors: [Color(hex: "#7656D6"), Color(hex: "#FF2D55")], startPoint: .leading, endPoint: .trailing))
+                .padding(.horizontal, 14).padding(.vertical, 9)
+                .background(Color.white, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
+        case .mention(let handle):
+            Text("@" + handle.trimmingCharacters(in: CharacterSet(charactersIn: "@")).uppercased())
+                .font(.system(size: 18, weight: .heavy, design: .rounded))
+                .foregroundStyle(LinearGradient(colors: [Color(hex: "#FF9500"), Color(hex: "#FF2D55")], startPoint: .leading, endPoint: .trailing))
+                .padding(.horizontal, 14).padding(.vertical, 9)
+                .background(Color.white, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
+        case .poll(let question, let a, let b):
+            VStack(spacing: 10) {
+                Text(question)
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 6)
+                VStack(spacing: 6) {
+                    pollOption(a)
+                    pollOption(b)
+                }
+                .padding(10)
+                .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .frame(width: 230)
+            .shadow(color: .black.opacity(0.25), radius: 8, y: 3)
+        case .question(let prompt):
+            VStack(spacing: 0) {
+                Text(prompt)
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 14).padding(.vertical, 12)
+                    .frame(maxWidth: .infinity)
+                    .background(LinearGradient(colors: [accent, Color(hex: "#FF2D55")], startPoint: .leading, endPoint: .trailing))
+                Text("Type something…")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .padding(12)
+                    .frame(maxWidth: .infinity)
+                    .background(Color(white: 0.94))
+            }
+            .frame(width: 230)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .shadow(color: .black.opacity(0.25), radius: 8, y: 3)
+        case .countdown(let title, let date):
+            VStack(spacing: 6) {
+                Text(title.uppercased())
+                    .font(.system(size: 13, weight: .heavy, design: .rounded))
+                    .foregroundStyle(accent)
+                Text(date, format: .dateTime.day().month(.abbreviated).hour().minute())
+                    .font(.system(size: 22, weight: .bold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(.black)
+                Label("Countdown", systemImage: "timer")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 18).padding(.vertical, 14)
+            .frame(minWidth: 200)
+            .background(Color.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .shadow(color: .black.opacity(0.25), radius: 8, y: 3)
+        case .music(let title, let artist):
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(LinearGradient(colors: [accent, Color(hex: "#FF2D55")], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    Image(systemName: "music.note").font(.system(size: 16, weight: .bold)).foregroundStyle(.white)
+                }
+                .frame(width: 38, height: 38)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title).font(.system(size: 15, weight: .bold)).lineLimit(1)
+                    Text(artist).font(.system(size: 12, weight: .medium)).opacity(0.75).lineLimit(1)
+                }
+                HStack(alignment: .bottom, spacing: 2) {
+                    ForEach([10.0, 16, 8, 14], id: \.self) { h in
+                        Capsule().frame(width: 3, height: h)
+                    }
+                }
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10).padding(.vertical, 8)
+            .background(Color.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.25), lineWidth: 0.8))
+        }
+    }
+
+    private func pollOption(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 15, weight: .semibold, design: .rounded))
+            .foregroundStyle(accent)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 9)
+            .background(Color(white: 0.94), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func textView(_ spec: StoryTextSpec) -> some View {
+        let colour = Color(hex: spec.colorHex)
+        let darkOnColour = StoryTextContrast.prefersDarkText(hex: spec.colorHex)
+        let foreground: Color = spec.background == .solid ? (darkOnColour ? .black : .white) : colour
+        let display = spec.text.isEmpty ? "Tap to type" : (spec.style == .strong ? spec.text.uppercased() : spec.text)
+        return Text(display)
+            .font(spec.style.font)
+            .multilineTextAlignment(spec.alignment.text)
+            .foregroundStyle(foreground)
+            .shadow(color: spec.style == .neon ? colour.opacity(0.95) : .clear, radius: 10)
+            .shadow(color: spec.style == .neon ? colour.opacity(0.6) : .clear, radius: 22)
+            .shadow(color: spec.style == .outline ? .black : .clear, radius: 0, x: 1.5, y: 1.5)
+            .shadow(color: spec.style == .outline ? .black : .clear, radius: 0, x: -1.5, y: -1.5)
+            .shadow(color: spec.background == .none && spec.style != .neon && spec.style != .outline ? .black.opacity(0.35) : .clear, radius: 4, y: 1)
+            .padding(.horizontal, spec.background == .none ? 4 : 12)
+            .padding(.vertical, spec.background == .none ? 2 : 6)
+            .background {
+                switch spec.background {
+                case .none: Color.clear
+                case .solid: RoundedRectangle(cornerRadius: 10, style: .continuous).fill(colour)
+                case .soft: RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.black.opacity(0.45))
+                }
+            }
+            .frame(maxWidth: 300)
+            .fixedSize(horizontal: false, vertical: true)
+            .opacity(spec.text.isEmpty ? 0.7 : 1)
+    }
+}
+
+/// Everything that is flattened into the published JPEG (WYSIWYG with the edit canvas).
+struct StoryBakeView: View {
+    let size: CGSize
+    var image: UIImage?
+    var gradient: StoryGradientBG?
+    var collage: StoryCollageLayout?
+    var collageImages: [UIImage]
+    var strokes: [StoryDrawStroke]
+    var layers: [StoryLayer]
+    var gifs: [String: UIImage]
+    var accent: Color
+
+    var body: some View {
+        ZStack {
+            StoryBackgroundView(image: image, gradient: gradient, collage: collage, collageImages: collageImages, showsPlaceholders: false)
+            StoryDrawingCanvas(strokes: strokes)
+            ForEach(layers) { layer in
+                StoryLayerView(layer: layer, gif: gifs[layer.id], isBaking: true, accent: accent)
+                    .scaleEffect(layer.scale)
+                    .rotationEffect(.degrees(layer.rotation))
+                    .position(x: layer.x * size.width, y: layer.y * size.height)
+            }
+        }
+        .frame(width: size.width, height: size.height)
+        .clipped()
+    }
+}
+
+// MARK: - Create Story v2 — composer
 
 @MainActor
 struct StoryCreateView: View {
     @Environment(AppEnvironment.self) private var app
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    private var reduceMotion: Bool { ModulaEffectGate.reduceMotion(systemReduceMotion) }
+
     @State private var pickerItems: [PhotosPickerItem] = []
+    @State private var collagePickerItems: [PhotosPickerItem] = []
     @State private var showsCamera = true
     @State private var sourceImage: UIImage?
     @State private var filteredPreview: UIImage?
+    @State private var filterThumbs: [String: UIImage] = [:]
     @State private var prepared: PreparedImage?
     @State private var caption = ""
     @State private var busy = false
@@ -604,15 +1146,81 @@ struct StoryCreateView: View {
     @State private var restored = false
     @State private var draftID = "story-primary"
     @State private var filter = StoryFilter.catalog[0]
-    @State private var stickers: [StoryStickerPlacement] = []
-    @State private var toolTab: ToolTab = .filters
     @State private var videoURL: URL?
     @State private var toast: String?
 
-    private enum ToolTab: String, CaseIterable { case filters = "Filters", stickers = "Stickers" }
+    // v2 canvas state
+    @State private var canvasSize = CGSize(width: 390, height: 693)
+    @State private var gradientBG: StoryGradientBG?
+    @State private var collageLayout: StoryCollageLayout?
+    @State private var collageImages: [UIImage] = []
+    @State private var layers: [StoryLayer] = []
+    @State private var gifImages: [String: UIImage] = [:]
+    @State private var strokes: [StoryDrawStroke] = []
+    @State private var activeStroke: StoryDrawStroke?
+    @State private var brush: StoryBrush = .pen
+    @State private var drawColorHex = "#FFFFFF"
+    @State private var drawWidth: CGFloat = 6
+    @State private var tool: Tool?
+    @State private var sheet: StorySheet?
+    @State private var editingTextID: String?
+    @State private var textSpec = StoryTextSpec()
+    @FocusState private var textFocused: Bool
+    @State private var draggingID: String?
+    @State private var overTrash = false
+    @State private var dragBase: [String: CGPoint] = [:]
+    @State private var scaleBase: [String: CGFloat] = [:]
+    @State private var rotationBase: [String: Double] = [:]
+    @State private var bakeTask: Task<Void, Never>?
+    @State private var interactiveNoticeShown = false
+
+    // sticker sheet + forms
+    @State private var stickerTab: StickerTab = .emoji
+    @State private var gifQuery = ""
+    @State private var gifs: [ModulaGif] = []
+    @State private var gifStatus: String?
+    @State private var formA = ""
+    @State private var formB = ""
+    @State private var formC = ""
+    @State private var formDate = Date().addingTimeInterval(86_400)
+
+    private static let canvasSpace = "story.canvas"
+    private static let palette = ["#FFFFFF", "#000000", "#FF2D55", "#FF9500", "#FFD60A", "#30D158", "#64D2FF", "#0A84FF", "#BF5AF2", "#FF6FB5"]
+    private static let emoji = ["😀", "😍", "🥹", "😂", "🔥", "✨", "🎉", "💜", "🦋", "🌟", "👑", "🐾", "😎", "🫶", "💫", "🎵", "🌈", "⚡", "🍓", "☕️", "🌙", "🌸", "🍕", "🏝️"]
+
+    private enum Tool: String, CaseIterable, Identifiable {
+        case draw, music, filters, layout
+        var id: String { rawValue }
+    }
+
+    private enum StickerTab: String, CaseIterable, Identifiable {
+        case emoji = "Emoji", animated = "Animated", mascot = "Mascots", gif = "GIFs"
+        var id: String { rawValue }
+    }
+
+    private enum StorySheet: String, Identifiable {
+        case stickers, location, mention, poll, question, countdown
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .stickers: "Stickers"
+            case .location: "Location"
+            case .mention: "Mention"
+            case .poll: "Poll"
+            case .question: "Question"
+            case .countdown: "Countdown"
+            }
+        }
+    }
 
     private var canPublishVideo: Bool { app.stories.capabilities.video }
-    private var hasMedia: Bool { sourceImage != nil || videoURL != nil }
+    private var hasMedia: Bool { sourceImage != nil || videoURL != nil || gradientBG != nil || collageLayout != nil }
+    private var canShare: Bool {
+        if collageLayout != nil && collageImages.isEmpty { return false }
+        return prepared != nil
+    }
+    private var accent: Color { app.appearance.accent.color }
+    private var spring: Animation { reduceMotion ? .easeOut(duration: 0.14) : .spring(response: 0.3, dampingFraction: 0.84) }
 
     var body: some View {
         Group {
@@ -634,7 +1242,7 @@ struct StoryCreateView: View {
             ToolbarItem(placement: .cancellationAction) {
                 if hasMedia && !showsCamera {
                     Button("Retake") {
-                        withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.34, dampingFraction: 0.82)) {
+                        withAnimation(spring) {
                             clearMedia()
                             showsCamera = true
                         }
@@ -646,6 +1254,9 @@ struct StoryCreateView: View {
         .onChange(of: pickerItems) { _, items in
             Task { await loadPicker(items) }
         }
+        .onChange(of: collagePickerItems) { _, items in
+            Task { await loadCollage(items) }
+        }
         .task {
             await restoreDraft()
             #if DEBUG
@@ -655,7 +1266,10 @@ struct StoryCreateView: View {
         .onChange(of: caption) { _, _ in saveDraft() }
         .onChange(of: visibility) { _, _ in saveDraft() }
         .onChange(of: filter) { _, _ in refilter() }
-        .onDisappear { if !published { saveDraft(); app.drafts.flush() } }
+        .onDisappear {
+            bakeTask?.cancel()
+            if !published { saveDraft(); app.drafts.flush() }
+        }
         .overlay(alignment: .bottom) {
             if let message = toast ?? app.stories.actionError ?? app.drafts.saveError {
                 ModulaErrorBanner(message: message, identifier: "story.create.error") {
@@ -663,6 +1277,12 @@ struct StoryCreateView: View {
                     app.stories.setActionError(nil)
                 }
             }
+        }
+        .sheet(item: $sheet) { item in
+            sheetContent(item)
+                .presentationDetents(item == .stickers ? [.medium, .large] : [.height(item == .poll || item == .countdown ? 340 : 240)])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(.ultraThinMaterial)
         }
         .accessibilityIdentifier("story.create")
         .accessibilityValue(RouteSerializer.serialize(.stories(.create)))
@@ -674,18 +1294,34 @@ struct StoryCreateView: View {
 
             if showsCamera || !hasMedia {
                 captureStage
+                    .transition(reduceMotion ? .opacity : .scale(scale: 0.97).combined(with: .opacity))
             } else {
                 editStage
+                    .transition(reduceMotion ? .opacity : .scale(scale: 1.02).combined(with: .opacity))
             }
 
-            VStack(spacing: 0) {
-                Spacer(minLength: 0)
-                if hasMedia && !showsCamera {
-                    toolChrome
+            if editingTextID == nil {
+                VStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    if hasMedia && !showsCamera, let tool {
+                        toolChrome(tool)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                    bottomBar
                 }
-                bottomBar
+                .opacity(draggingID == nil ? 1 : 0)
+                .animation(.easeOut(duration: 0.15), value: draggingID == nil)
+            }
+
+            if editingTextID != nil {
+                textEditorOverlay
+                    .transition(.opacity)
             }
         }
+        .animation(spring, value: showsCamera)
+        .animation(spring, value: hasMedia)
+        .animation(spring, value: tool)
+        .animation(spring, value: editingTextID)
     }
 
     // MARK: Capture
@@ -693,7 +1329,7 @@ struct StoryCreateView: View {
     private var captureStage: some View {
         VStack(spacing: 12) {
             ModulaInlineCamera(
-                modes: canPublishVideo ? [.photo, .video] : [.photo],
+                modes: canPublishVideo ? [.photo, .boomerang, .handsFree, .video] : [.photo, .boomerang, .handsFree],
                 idPrefix: "story.camera",
                 height: 480,
                 maxVideoSeconds: 15,
@@ -706,49 +1342,85 @@ struct StoryCreateView: View {
                         sourceImage = nil
                         filteredPreview = nil
                         prepared = nil
+                        gradientBG = nil
+                        collageLayout = nil
                         showsCamera = false
                         HapticEngine.shared.play(.success)
                     } else {
-                        toast = "Video stories aren’t available yet — share a photo instead."
-                        HapticEngine.shared.play(.failure)
+                        app.navigation.flash("Video, Boomerang and Hands-free stories are coming soon", symbol: "sparkles")
+                        HapticEngine.shared.play(.warning)
                     }
                 },
                 onClose: {
-                    // Keep library path available; dismiss only the live camera card.
-                    withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .snappy) { showsCamera = false }
-                }
+                    withAnimation(spring) { showsCamera = false }
+                },
+                timerOptions: [3, 10]
             )
             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
             .padding(.horizontal, 12)
             .padding(.top, 8)
 
-            libraryChip
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    PhotosPicker(selection: $pickerItems, maxSelectionCount: 1, matching: .any(of: [.images, .videos])) {
+                        Label("Library", systemImage: "photo.on.rectangle")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 16)
+                            .frame(height: 44)
+                            .background(.ultraThinMaterial, in: Capsule())
+                            .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 0.8))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("story.create.library")
+
+                    Button {
+                        startTextStory()
+                    } label: { captureChip("Create", symbol: "textformat") }
+                    .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
+                    .accessibilityIdentifier("story.create.textOnly")
+
+                    Button {
+                        withAnimation(spring) {
+                            clearMedia()
+                            collageLayout = .grid
+                            showsCamera = false
+                            tool = .layout
+                        }
+                        HapticEngine.shared.play(.selection)
+                    } label: { captureChip("Layout", symbol: "rectangle.split.2x2") }
+                    .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
+                    .accessibilityIdentifier("story.create.layout")
+
+                    Button {
+                        app.navigation.flash("AR face effects are coming soon", symbol: "face.dashed")
+                        HapticEngine.shared.play(.selection)
+                    } label: { captureChip("Face effects", symbol: "face.dashed") }
+                    .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
+                }
+                .padding(.horizontal, 16)
+            }
+            .disabled(busy)
             Spacer(minLength: 0)
         }
     }
 
-    private var libraryChip: some View {
-        PhotosPicker(selection: $pickerItems, maxSelectionCount: canPublishVideo ? 4 : 1, matching: .any(of: [.images, .videos])) {
-            Label("Photo library", systemImage: "photo.on.rectangle")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16)
-                .frame(height: 44)
-                .background(.ultraThinMaterial, in: Capsule())
-                .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 0.8))
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("story.create.library")
-        .disabled(busy)
+    private func captureChip(_ title: String, symbol: String) -> some View {
+        Label(title, systemImage: symbol)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16)
+            .frame(height: 44)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 0.8))
     }
 
-    // MARK: Edit
+    // MARK: Edit stage
 
     private var editStage: some View {
         GeometryReader { geo in
             ZStack {
                 if let videoURL {
-                    // Video stories (when enabled): show a still placeholder + filename.
                     VStack(spacing: 12) {
                         Image(systemName: "video.fill")
                             .font(.system(size: 44, weight: .semibold))
@@ -760,124 +1432,797 @@ struct StoryCreateView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color(white: 0.12))
-                } else if let image = filteredPreview ?? sourceImage {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: geo.size.width, height: geo.size.height)
-                        .clipped()
+                } else {
+                    StoryBackgroundView(
+                        image: filteredPreview ?? sourceImage,
+                        gradient: gradientBG,
+                        collage: collageLayout,
+                        collageImages: collageImages
+                    )
+                    .onTapGesture {
+                        if gradientBG != nil, collageLayout == nil, tool != .draw { beginText() }
+                    }
                 }
 
-                ForEach(stickers) { sticker in
-                    Text(sticker.emoji)
-                        .font(.system(size: 44 * sticker.scale))
-                        .position(
-                            x: sticker.x * geo.size.width,
-                            y: sticker.y * geo.size.height
-                        )
-                        .gesture(
-                            DragGesture()
-                                .onChanged { value in
-                                    if let i = stickers.firstIndex(where: { $0.id == sticker.id }) {
-                                        stickers[i].x = min(max(value.location.x / max(geo.size.width, 1), 0.05), 0.95)
-                                        stickers[i].y = min(max(value.location.y / max(geo.size.height, 1), 0.05), 0.95)
-                                    }
-                                }
-                        )
-                        .onLongPressGesture {
-                            stickers.removeAll { $0.id == sticker.id }
-                            HapticEngine.shared.play(.selection)
+                StoryDrawingCanvas(strokes: strokes + (activeStroke.map { [$0] } ?? []))
+
+                ForEach(layers) { layer in
+                    StoryLayerView(layer: layer, gif: gifImages[layer.id], accent: accent)
+                        .scaleEffect(layer.scale * (draggingID == layer.id && overTrash ? 0.45 : 1))
+                        .rotationEffect(.degrees(layer.rotation))
+                        .opacity(editingTextID == layer.id ? 0 : (draggingID == layer.id && overTrash ? 0.6 : 1))
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if case .text(let spec) = layer.content {
+                                editingTextID = layer.id
+                                textSpec = spec
+                                HapticEngine.shared.play(.selection)
+                            }
                         }
+                        .gesture(layerGesture(layer.id))
+                        .position(x: layer.x * geo.size.width, y: layer.y * geo.size.height)
+                        .allowsHitTesting(tool != .draw && editingTextID == nil)
+                        .animation(.snappy(duration: 0.18), value: overTrash)
+                        .transition(reduceMotion ? .opacity : .scale(scale: 0.4).combined(with: .opacity))
+                }
+
+                if tool == .draw {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .gesture(drawGesture(in: geo.size))
+                }
+
+                if draggingID != nil {
+                    trashZone
+                        .position(x: geo.size.width / 2, y: geo.size.height - 110)
+                        .transition(.scale.combined(with: .opacity))
+                }
+
+                if editingTextID == nil && draggingID == nil {
+                    toolRail
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        .padding(.top, 12)
+                        .padding(.trailing, 10)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
+            .coordinateSpace(name: Self.canvasSpace)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .onAppear { canvasSize = geo.size }
+            .onChange(of: geo.size) { _, size in canvasSize = size }
         }
-        .ignoresSafeArea(edges: .bottom)
+        .animation(spring, value: layers.count)
+        .animation(.snappy(duration: 0.2), value: draggingID)
     }
 
-    // MARK: Tools + bar
+    private var trashZone: some View {
+        Image(systemName: "trash")
+            .font(.system(size: overTrash ? 24 : 20, weight: .semibold))
+            .foregroundStyle(overTrash ? Color.white : Color.white.opacity(0.9))
+            .frame(width: overTrash ? 70 : 56, height: overTrash ? 70 : 56)
+            .background(overTrash ? Color.red.opacity(0.9) : Color.black.opacity(0.45), in: Circle())
+            .overlay(Circle().strokeBorder(.white.opacity(0.6), lineWidth: 1.5))
+            .animation(.snappy(duration: 0.18), value: overTrash)
+            .accessibilityLabel("Drop here to delete")
+    }
 
-    private var toolChrome: some View {
+    private var toolRail: some View {
         VStack(spacing: 10) {
-            Picker("Tools", selection: $toolTab) {
-                ForEach(ToolTab.allCases, id: \.self) { tab in
-                    Text(tab.rawValue).tag(tab)
+            railButton("textformat", label: "Text", active: false) { beginText() }
+            railButton("face.smiling", label: "Stickers", active: false) {
+                sheet = .stickers
+            }
+            railButton("scribble.variable", label: "Draw", active: tool == .draw) { toggle(.draw) }
+            railButton("music.note", label: "Music", active: tool == .music) { toggle(.music) }
+            railButton("camera.filters", label: "Filters", active: tool == .filters) { toggle(.filters) }
+            railButton("rectangle.split.2x2", label: "Layout", active: tool == .layout) {
+                if collageLayout == nil {
+                    withAnimation(spring) {
+                        if let image = sourceImage { collageImages = [image] }
+                        collageLayout = .twoRows
+                        gradientBG = nil
+                    }
+                    scheduleBake()
+                }
+                toggle(.layout)
+            }
+            railButton("arrow.down.to.line", label: "Save to Photos", active: false) {
+                Task { await saveToPhotos() }
+            }
+        }
+    }
+
+    private func railButton(_ symbol: String, label: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            HapticEngine.shared.play(.selection)
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(active ? Color.black : Color.white)
+                .frame(width: 44, height: 44)
+                .background {
+                    if active { Circle().fill(.white) } else { Circle().fill(.ultraThinMaterial) }
+                }
+                .overlay(Circle().strokeBorder(.white.opacity(active ? 0 : 0.22), lineWidth: 0.8))
+                .shadow(color: .black.opacity(0.2), radius: 4, y: 1)
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(active ? .isSelected : [])
+    }
+
+    private func toggle(_ next: Tool) {
+        withAnimation(spring) { tool = tool == next ? nil : next }
+    }
+
+    // MARK: Gestures
+
+    private func layerGesture(_ id: String) -> some Gesture {
+        let drag = DragGesture(minimumDistance: 2, coordinateSpace: .named(Self.canvasSpace))
+            .onChanged { value in
+                guard let i = layers.firstIndex(where: { $0.id == id }) else { return }
+                if dragBase[id] == nil {
+                    dragBase[id] = CGPoint(x: layers[i].x, y: layers[i].y)
+                    draggingID = id
+                    HapticEngine.shared.play(.lightImpact)
+                }
+                let base = dragBase[id] ?? .zero
+                let w = max(canvasSize.width, 1), h = max(canvasSize.height, 1)
+                layers[i].x = min(max(base.x + value.translation.width / w, 0.02), 0.98)
+                layers[i].y = min(max(base.y + value.translation.height / h, 0.02), 0.98)
+                let over = isOverTrash(value.location)
+                if over != overTrash {
+                    overTrash = over
+                    HapticEngine.shared.play(.dragThreshold)
                 }
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 16)
+            .onEnded { value in
+                dragBase[id] = nil
+                if isOverTrash(value.location) {
+                    withAnimation(spring) {
+                        layers.removeAll { $0.id == id }
+                        gifImages[id] = nil
+                    }
+                    HapticEngine.shared.play(.drop)
+                }
+                draggingID = nil
+                overTrash = false
+                scheduleBake()
+            }
+        let pinch = MagnifyGesture()
+            .onChanged { value in
+                guard let i = layers.firstIndex(where: { $0.id == id }) else { return }
+                if scaleBase[id] == nil { scaleBase[id] = layers[i].scale }
+                layers[i].scale = min(max((scaleBase[id] ?? 1) * value.magnification, 0.3), 4)
+            }
+            .onEnded { _ in scaleBase[id] = nil; scheduleBake() }
+        let rotate = RotateGesture()
+            .onChanged { value in
+                guard let i = layers.firstIndex(where: { $0.id == id }) else { return }
+                if rotationBase[id] == nil { rotationBase[id] = layers[i].rotation }
+                layers[i].rotation = (rotationBase[id] ?? 0) + value.rotation.degrees
+            }
+            .onEnded { _ in rotationBase[id] = nil; scheduleBake() }
+        return drag.simultaneously(with: pinch.simultaneously(with: rotate))
+    }
 
-            if toolTab == .filters {
-                filterStrip
-            } else {
-                stickerStrip
+    private func isOverTrash(_ location: CGPoint) -> Bool {
+        let centre = CGPoint(x: canvasSize.width / 2, y: canvasSize.height - 110)
+        return hypot(location.x - centre.x, location.y - centre.y) < 64
+    }
+
+    private func drawGesture(in size: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                let point = CGPoint(
+                    x: min(max(value.location.x / max(size.width, 1), 0), 1),
+                    y: min(max(value.location.y / max(size.height, 1), 0), 1)
+                )
+                if activeStroke == nil {
+                    activeStroke = StoryDrawStroke(id: UUID().uuidString, points: [point], colorHex: drawColorHex, width: drawWidth, brush: brush)
+                } else if let last = activeStroke?.points.last,
+                          hypot((point.x - last.x) * size.width, (point.y - last.y) * size.height) > 1.5 {
+                    activeStroke?.points.append(point)
+                }
+            }
+            .onEnded { _ in
+                if let stroke = activeStroke {
+                    strokes.append(stroke)
+                    scheduleBake()
+                }
+                activeStroke = nil
+            }
+    }
+
+    // MARK: Text editor
+
+    private var textEditorOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.55)
+                .ignoresSafeArea()
+                .onTapGesture { commitText() }
+
+            VStack(spacing: 14) {
+                HStack {
+                    Button {
+                        textSpec.alignment = next(textSpec.alignment)
+                        HapticEngine.shared.play(.selection)
+                    } label: { editorIcon(textSpec.alignment.symbol) }
+                    .accessibilityLabel("Alignment")
+                    Button {
+                        textSpec.background = next(textSpec.background)
+                        HapticEngine.shared.play(.selection)
+                    } label: { editorIcon(textSpec.background.symbol) }
+                    .accessibilityLabel("Text background")
+                    Spacer()
+                    Button("Done") { commitText() }
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .frame(height: 40)
+                        .modulaGlass(in: Capsule(), interactive: true, tint: accent, prominent: true)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
+
+                Spacer(minLength: 0)
+
+                TextField("Start typing…", text: $textSpec.text, axis: .vertical)
+                    .font(textSpec.style.font)
+                    .multilineTextAlignment(textSpec.alignment.text)
+                    .foregroundStyle(textSpec.background == .solid ? (StoryTextContrast.prefersDarkText(hex: textSpec.colorHex) ? Color.black : .white) : Color(hex: textSpec.colorHex))
+                    .tint(Color(hex: textSpec.colorHex))
+                    .lineLimit(1...6)
+                    .focused($textFocused)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background {
+                        if textSpec.background == .solid {
+                            RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(hex: textSpec.colorHex))
+                        }
+                    }
+                    .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
+                    .padding(.horizontal, 24)
+
+                Spacer(minLength: 0)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(StoryTextStyle.allCases) { style in
+                            Button {
+                                textSpec.style = style
+                                HapticEngine.shared.play(.selection)
+                            } label: {
+                                Text(style.title)
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(textSpec.style == style ? Color.black : Color.white)
+                                    .padding(.horizontal, 14)
+                                    .frame(height: 34)
+                                    .background(textSpec.style == style ? Color.white : Color.white.opacity(0.16), in: Capsule())
+                            }
+                            .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+                colourRow(selection: textSpec.colorHex) { textSpec.colorHex = $0 }
+            }
+            .padding(.vertical, 14)
+        }
+        .onAppear { textFocused = true }
+    }
+
+    private func editorIcon(_ symbol: String) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 40, height: 40)
+            .background(Color.white.opacity(0.16), in: Circle())
+            .contentTransition(.symbolEffect(.replace))
+    }
+
+    private func next<T: CaseIterable & Equatable>(_ value: T) -> T {
+        let all = Array(T.allCases)
+        let i = all.firstIndex(of: value) ?? 0
+        return all[(i + 1) % all.count]
+    }
+
+    private func colourRow(selection: String, onPick: @escaping (String) -> Void) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(Self.palette, id: \.self) { hex in
+                    Button {
+                        onPick(hex)
+                        HapticEngine.shared.play(.selection)
+                    } label: {
+                        Circle()
+                            .fill(Color(hex: hex))
+                            .frame(width: 28, height: 28)
+                            .overlay(Circle().strokeBorder(.white, lineWidth: selection == hex ? 3 : 1.2))
+                            .scaleEffect(selection == hex ? 1.12 : 1)
+                            .animation(.snappy(duration: 0.18), value: selection)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Colour \(hex)")
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+        }
+    }
+
+    private func beginText() {
+        let layer = StoryLayer(id: UUID().uuidString, content: .text(StoryTextSpec(colorHex: textSpec.colorHex)), x: 0.5, y: 0.4)
+        textSpec = StoryTextSpec(style: textSpec.style, colorHex: textSpec.colorHex, background: textSpec.background, alignment: textSpec.alignment)
+        withAnimation(spring) {
+            layers.append(layer)
+            editingTextID = layer.id
+        }
+    }
+
+    private func commitText() {
+        guard let id = editingTextID else { return }
+        let trimmed = textSpec.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        withAnimation(spring) {
+            if let i = layers.firstIndex(where: { $0.id == id }) {
+                if trimmed.isEmpty {
+                    layers.remove(at: i)
+                } else {
+                    var spec = textSpec
+                    spec.text = trimmed
+                    layers[i].content = .text(spec)
+                }
+            }
+            editingTextID = nil
+        }
+        textFocused = false
+        scheduleBake()
+    }
+
+    private func startTextStory() {
+        withAnimation(spring) {
+            clearMedia()
+            gradientBG = StoryGradientBG.catalog.randomElement() ?? StoryGradientBG.catalog[0]
+            showsCamera = false
+            tool = .filters
+        }
+        HapticEngine.shared.play(.selection)
+        beginText()
+    }
+
+    // MARK: Tool chrome
+
+    @ViewBuilder
+    private func toolChrome(_ tool: Tool) -> some View {
+        VStack(spacing: 10) {
+            switch tool {
+            case .draw: drawChrome
+            case .music: musicChrome
+            case .filters: filtersChrome
+            case .layout: layoutChrome
             }
         }
         .padding(.vertical, 10)
-        .background(.ultraThinMaterial.opacity(0.92))
+        .frame(maxWidth: .infinity)
+        .background(.ultraThinMaterial.opacity(0.94))
     }
 
-    private var filterStrip: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(StoryFilter.catalog) { item in
+    private var drawChrome: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 8) {
+                ForEach(StoryBrush.allCases) { item in
                     Button {
-                        filter = item
+                        brush = item
                         HapticEngine.shared.play(.selection)
                     } label: {
-                        VStack(spacing: 6) {
-                            ZStack {
-                                Circle()
-                                    .fill(filterThumb(item))
-                                    .frame(width: 52, height: 52)
-                                    .overlay {
-                                        Circle().strokeBorder(filter.id == item.id ? Color.white : Color.white.opacity(0.25), lineWidth: filter.id == item.id ? 2.5 : 1)
-                                    }
-                                Image(systemName: item.systemImage)
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(.white)
-                            }
-                            Text(item.title)
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(filter.id == item.id ? Color.white : Color.white.opacity(0.7))
-                        }
+                        Label(item.title, systemImage: item.symbol)
+                            .labelStyle(.iconOnly)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(brush == item ? Color.black : Color.white)
+                            .frame(width: 44, height: 44)
+                            .background(brush == item ? Color.white : Color.white.opacity(0.14), in: Circle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
                     .accessibilityLabel(item.title)
-                    .accessibilityAddTraits(filter.id == item.id ? .isSelected : [])
                 }
+                Slider(value: $drawWidth, in: 2...22)
+                    .tint(.white)
+                Button {
+                    if !strokes.isEmpty { strokes.removeLast(); scheduleBake() }
+                    HapticEngine.shared.play(.selection)
+                } label: {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .background(Color.white.opacity(0.14), in: Circle())
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
+                .disabled(strokes.isEmpty)
+                .opacity(strokes.isEmpty ? 0.4 : 1)
+                .accessibilityLabel("Undo stroke")
             }
             .padding(.horizontal, 16)
+            if brush != .eraser {
+                colourRow(selection: drawColorHex) { drawColorHex = $0 }
+            }
         }
     }
 
-    private var stickerStrip: some View {
+    private var musicChrome: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(StoryStickerPlacement.palette, id: \.self) { emoji in
+                ForEach(StoryMusicCatalog.tracks, id: \.title) { track in
                     Button {
-                        stickers.append(
-                            StoryStickerPlacement(
-                                id: UUID().uuidString,
-                                emoji: emoji,
-                                x: 0.5,
-                                y: 0.45,
-                                scale: 1
-                            )
-                        )
-                        HapticEngine.shared.play(.selection)
+                        addLayer(.music(title: track.title, artist: track.artist), y: 0.78)
+                        app.navigation.flash("Music playback in stories is coming soon — sticker added", symbol: "music.note")
                     } label: {
-                        Text(emoji)
-                            .font(.system(size: 32))
-                            .frame(width: 52, height: 52)
-                            .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        HStack(spacing: 8) {
+                            Image(systemName: "music.note")
+                                .font(.system(size: 13, weight: .bold))
+                                .frame(width: 30, height: 30)
+                                .background(accent.opacity(0.85), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(track.title).font(.caption.weight(.bold)).lineLimit(1)
+                                Text(track.artist).font(.caption2).opacity(0.75).lineLimit(1)
+                            }
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .frame(width: 160, alignment: .leading)
+                        .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Add \(emoji) sticker")
+                    .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
                 }
             }
             .padding(.horizontal, 16)
         }
     }
+
+    @ViewBuilder
+    private var filtersChrome: some View {
+        if sourceImage != nil && collageLayout == nil {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(StoryFilter.catalog) { item in
+                        Button {
+                            filter = item
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            VStack(spacing: 6) {
+                                Group {
+                                    if let thumb = filterThumbs[item.id] {
+                                        Image(uiImage: thumb).resizable().scaledToFill()
+                                    } else {
+                                        Color.white.opacity(0.2)
+                                    }
+                                }
+                                .frame(width: 54, height: 54)
+                                .clipShape(Circle())
+                                .overlay {
+                                    Circle().strokeBorder(filter.id == item.id ? Color.white : Color.white.opacity(0.25), lineWidth: filter.id == item.id ? 2.5 : 1)
+                                }
+                                .scaleEffect(filter.id == item.id ? 1.06 : 1)
+                                Text(item.title)
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(filter.id == item.id ? Color.white : Color.white.opacity(0.7))
+                            }
+                            .animation(.snappy(duration: 0.18), value: filter)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(item.title)
+                        .accessibilityAddTraits(filter.id == item.id ? .isSelected : [])
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        } else {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(StoryGradientBG.catalog) { item in
+                        Button {
+                            withAnimation(spring) {
+                                gradientBG = item
+                                collageLayout = nil
+                            }
+                            scheduleBake()
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            VStack(spacing: 6) {
+                                Circle()
+                                    .fill(LinearGradient(colors: item.colors, startPoint: .topLeading, endPoint: .bottomTrailing))
+                                    .frame(width: 54, height: 54)
+                                    .overlay {
+                                        Circle().strokeBorder(gradientBG?.id == item.id ? Color.white : Color.white.opacity(0.25), lineWidth: gradientBG?.id == item.id ? 2.5 : 1)
+                                    }
+                                Text(item.title)
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(gradientBG?.id == item.id ? Color.white : Color.white.opacity(0.7))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(item.title) background")
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    private var layoutChrome: some View {
+        HStack(spacing: 10) {
+            ForEach(StoryCollageLayout.allCases) { item in
+                Button {
+                    withAnimation(spring) {
+                        collageLayout = item
+                        gradientBG = nil
+                        if collageImages.count > item.slots { collageImages = Array(collageImages.prefix(item.slots)) }
+                    }
+                    scheduleBake()
+                    HapticEngine.shared.play(.selection)
+                } label: {
+                    Image(systemName: item.symbol)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(collageLayout == item ? Color.black : Color.white)
+                        .frame(width: 44, height: 44)
+                        .background(collageLayout == item ? Color.white : Color.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
+                .accessibilityLabel(item.title)
+            }
+            Spacer(minLength: 0)
+            PhotosPicker(selection: $collagePickerItems, maxSelectionCount: (collageLayout ?? .grid).slots, matching: .images) {
+                Label("Photos", systemImage: "plus")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 14)
+                    .frame(height: 40)
+                    .background(Color.white, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("story.create.layout.photos")
+        }
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: Sheets
+
+    @ViewBuilder
+    private func sheetContent(_ item: StorySheet) -> some View {
+        switch item {
+        case .stickers: stickerSheet
+        case .location:
+            formSheet(item, fields: { glassField("Where are you?", text: $formA) }) {
+                addLayer(.location(formA))
+            }
+        case .mention:
+            formSheet(item, fields: { glassField("@username", text: $formA) }) {
+                addLayer(.mention(formA))
+            }
+        case .poll:
+            formSheet(item, fields: {
+                glassField("Ask a question…", text: $formA)
+                glassField("Option 1 (Yes)", text: $formB)
+                glassField("Option 2 (No)", text: $formC)
+            }) {
+                addLayer(.poll(question: formA, a: formB.isEmpty ? "Yes" : formB, b: formC.isEmpty ? "No" : formC))
+            }
+        case .question:
+            formSheet(item, fields: { glassField("Ask me a question", text: $formA) }) {
+                addLayer(.question(formA.isEmpty ? "Ask me a question" : formA))
+            }
+        case .countdown:
+            formSheet(item, fields: {
+                glassField("Countdown name", text: $formA)
+                DatePicker("Ends", selection: $formDate, in: Date()..., displayedComponents: [.date, .hourAndMinute])
+                    .padding(.horizontal, 4)
+            }) {
+                addLayer(.countdown(title: formA.isEmpty ? "Countdown" : formA, date: formDate))
+            }
+        }
+    }
+
+    private func glassField(_ prompt: String, text: Binding<String>) -> some View {
+        TextField(prompt, text: text)
+            .textFieldStyle(.plain)
+            .padding(.horizontal, 14)
+            .frame(height: 46)
+            .modulaGlass(in: Capsule(), interactive: true)
+    }
+
+    private func formSheet<Fields: View>(_ item: StorySheet, @ViewBuilder fields: () -> Fields, onAdd: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(item.title).font(.headline)
+            fields()
+            Button {
+                onAdd()
+                sheet = nil
+                noticeInteractive()
+            } label: {
+                Text("Add to story").font(.headline).frame(maxWidth: .infinity).frame(height: 48)
+            }
+            .buttonStyle(.plain)
+            .modulaGlass(in: Capsule(), interactive: true, tint: accent, prominent: true, specular: true)
+            .disabled(item != .question && item != .countdown && item != .poll && formA.trimmingCharacters(in: .whitespaces).isEmpty)
+        }
+        .padding(20)
+        .onAppear {
+            formA = ""; formB = ""; formC = ""
+        }
+    }
+
+    private var stickerSheet: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                ModulaFlowLayout(spacing: 8) {
+                    interactiveChip("Location", symbol: "mappin.and.ellipse") { sheet = .location }
+                    interactiveChip("Mention", symbol: "at") { sheet = .mention }
+                    interactiveChip("Poll", symbol: "chart.bar.xaxis") { sheet = .poll }
+                    interactiveChip("Question", symbol: "questionmark.bubble") { sheet = .question }
+                    interactiveChip("Countdown", symbol: "timer") { sheet = .countdown }
+                    interactiveChip("Music", symbol: "music.note") {
+                        sheet = nil
+                        withAnimation(spring) { tool = .music }
+                    }
+                }
+
+                Picker("Sticker type", selection: $stickerTab) {
+                    ForEach(StickerTab.allCases) { tab in Text(tab.rawValue).tag(tab) }
+                }
+                .pickerStyle(.segmented)
+
+                switch stickerTab {
+                case .emoji:
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 56), spacing: 8)], spacing: 8) {
+                        ForEach(Self.emoji, id: \.self) { emoji in
+                            Button { addLayer(.emoji(emoji)); sheet = nil } label: {
+                                Text(emoji).font(.system(size: 36)).frame(width: 56, height: 56)
+                            }
+                            .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
+                            .accessibilityLabel("Add \(emoji)")
+                        }
+                    }
+                case .animated:
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 76), spacing: 8)], spacing: 8) {
+                        ForEach(ModulaAnimatedSticker.Style.allCases) { style in
+                            Button { addLayer(.animated(style.rawValue)); sheet = nil } label: {
+                                ModulaAnimatedSticker(style: style, size: 72)
+                            }
+                            .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
+                        }
+                    }
+                case .mascot:
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 84), spacing: 8)], spacing: 8) {
+                        ForEach(ModulaMascotKind.allCases) { kind in
+                            Button { addLayer(.mascot(kind.rawValue)); sheet = nil } label: {
+                                VStack(spacing: 4) {
+                                    ModulaMascotSticker(kind: kind, size: 76)
+                                    Text(kind.name).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+                                }
+                            }
+                            .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
+                        }
+                    }
+                case .gif:
+                    gifSection
+                }
+            }
+            .padding(20)
+        }
+    }
+
+    private func interactiveChip(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            HapticEngine.shared.play(.selection)
+        } label: {
+            Label(title, systemImage: symbol)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(accent)
+                .padding(.horizontal, 14)
+                .frame(height: 38)
+                .background(Color(uiColor: .systemBackground), in: Capsule())
+                .overlay(Capsule().strokeBorder(accent.opacity(0.35), lineWidth: 1))
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
+    }
+
+    private var gifSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TextField("Search GIFs", text: $gifQuery)
+                .textFieldStyle(.plain)
+                .submitLabel(.search)
+                .padding(.horizontal, 14)
+                .frame(height: 44)
+                .modulaGlass(in: Capsule(), interactive: true)
+                .onSubmit { Task { await loadGifs() } }
+            if let gifStatus {
+                Text(gifStatus).font(.footnote).foregroundStyle(.secondary)
+            }
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
+                ForEach(gifs) { gif in
+                    Button {
+                        Task { await addGif(gif) }
+                        sheet = nil
+                    } label: {
+                        AsyncImage(url: gif.previewURL) { phase in
+                            if let image = phase.image {
+                                image.resizable().scaledToFill()
+                            } else {
+                                ModulaShimmerBlock()
+                            }
+                        }
+                        .frame(height: 96)
+                        .frame(maxWidth: .infinity)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    }
+                    .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
+                    .accessibilityLabel(gif.title ?? "GIF")
+                }
+            }
+        }
+        .task { if gifs.isEmpty { await loadGifs() } }
+    }
+
+    private func loadGifs() async {
+        let repo = GreenfieldGifRepository(client: app.client)
+        do {
+            let query = gifQuery.trimmingCharacters(in: .whitespaces)
+            let result = query.isEmpty ? try await repo.trending() : try await repo.search(query)
+            gifs = result.items
+            gifStatus = result.items.isEmpty ? "No GIFs found." : nil
+        } catch ModulaGifError.notConfigured {
+            gifStatus = "GIF stickers are coming soon."
+        } catch {
+            gifStatus = "Couldn’t load GIFs."
+        }
+    }
+
+    private func addGif(_ gif: ModulaGif) async {
+        let id = UUID().uuidString
+        withAnimation(spring) {
+            layers.append(StoryLayer(id: id, content: .gif(gif.url), x: 0.5, y: 0.45))
+        }
+        HapticEngine.shared.play(.selection)
+        let data: Data?
+        if let d = try? await app.client.mediaData(from: gif.url, maximumBytes: 12_000_000) {
+            data = d
+        } else {
+            data = try? await URLSession.shared.data(from: gif.url).0
+        }
+        guard let data else {
+            layers.removeAll { $0.id == id }
+            toast = "Couldn’t load that GIF."
+            return
+        }
+        let image = await Task.detached(priority: .userInitiated) { StoryGIFDecoder.animatedImage(from: data) }.value
+        if let image {
+            gifImages[id] = image
+            scheduleBake()
+        } else {
+            layers.removeAll { $0.id == id }
+        }
+    }
+
+    private func addLayer(_ content: StoryLayer.Content, y: CGFloat = 0.42) {
+        let jitter = CGFloat.random(in: -0.04...0.04)
+        withAnimation(spring) {
+            layers.append(StoryLayer(id: UUID().uuidString, content: content, x: 0.5 + jitter, y: y + jitter, rotation: content.isInteractive ? 0 : Double.random(in: -8...8)))
+        }
+        HapticEngine.shared.play(.selection)
+        scheduleBake()
+    }
+
+    private func noticeInteractive() {
+        guard !interactiveNoticeShown else { return }
+        interactiveNoticeShown = true
+        app.navigation.flash("Live polls, questions, mentions and countdowns are coming soon — they post as part of the image", symbol: "sparkles")
+    }
+
+    // MARK: Bottom bar
 
     private var bottomBar: some View {
         VStack(spacing: 10) {
@@ -893,14 +2238,21 @@ struct StoryCreateView: View {
                         .disabled(busy)
 
                     Menu {
-                        Button("Everyone") { visibility = "public" }
-                        Button("Followers") { visibility = "followers" }
+                        Button { visibility = "public" } label: { Label("Everyone", systemImage: "globe") }
+                        Button { visibility = "followers" } label: { Label("Followers", systemImage: "person.2") }
+                        Button {
+                            if app.stories.capabilities.privacy {
+                                visibility = "close_friends"
+                            } else {
+                                app.navigation.flash("Close Friends stories are coming soon", symbol: "star.circle")
+                            }
+                        } label: { Label("Close Friends", systemImage: "star.circle.fill") }
                     } label: {
-                        Label(visibility == "followers" ? "Followers" : "Everyone", systemImage: "person.2")
+                        Label(audienceTitle, systemImage: audienceSymbol)
                             .font(.caption.weight(.semibold))
                             .padding(.horizontal, 12)
                             .frame(height: 44)
-                            .modulaGlass(in: Capsule(), interactive: true)
+                            .modulaGlass(in: Capsule(), interactive: true, tint: visibility == "close_friends" ? Color.green : nil)
                     }
                     .disabled(busy)
                     .accessibilityLabel("Audience")
@@ -910,9 +2262,7 @@ struct StoryCreateView: View {
             HStack(spacing: 12) {
                 if !showsCamera {
                     Button {
-                        withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.34, dampingFraction: 0.82)) {
-                            showsCamera = true
-                        }
+                        withAnimation(spring) { showsCamera = true }
                         HapticEngine.shared.play(.selection)
                     } label: {
                         Image(systemName: "camera.fill")
@@ -920,7 +2270,7 @@ struct StoryCreateView: View {
                             .frame(width: 48, height: 48)
                             .modulaGlass(in: Circle(), interactive: true)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
                     .accessibilityLabel("Open camera")
 
                     PhotosPicker(selection: $pickerItems, maxSelectionCount: 1, matching: .images) {
@@ -944,7 +2294,7 @@ struct StoryCreateView: View {
                         if busy {
                             ProgressView().tint(.white)
                         } else {
-                            Text("Share")
+                            Label("Share", systemImage: "arrow.up.circle.fill")
                                 .font(.headline)
                         }
                     }
@@ -952,10 +2302,10 @@ struct StoryCreateView: View {
                     .frame(height: 48)
                     .padding(.horizontal, 10)
                 }
-                .buttonStyle(.plain)
-                .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color, prominent: true, specular: true)
-                .disabled((prepared == nil && videoURL == nil) || busy || showsCamera)
-                .opacity((prepared == nil && videoURL == nil) || showsCamera ? 0.45 : 1)
+                .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
+                .modulaGlass(in: Capsule(), interactive: true, tint: accent, prominent: true, specular: true)
+                .disabled(!canShare || busy || showsCamera)
+                .opacity(!canShare || showsCamera ? 0.45 : 1)
                 .accessibilityIdentifier("story.create.share")
             }
         }
@@ -969,53 +2319,134 @@ struct StoryCreateView: View {
         }
     }
 
-    // MARK: Helpers
-
-    private func filterThumb(_ item: StoryFilter) -> Color {
-        switch item.id {
-        case "vivid": Color.orange
-        case "warm": Color.red.opacity(0.85)
-        case "cool": Color.cyan.opacity(0.85)
-        case "mono", "noir": Color.gray
-        case "fade": Color.purple.opacity(0.7)
-        case "chrome": Color.yellow.opacity(0.8)
-        default: Color.white.opacity(0.25)
+    private var audienceTitle: String {
+        switch visibility {
+        case "followers": "Followers"
+        case "close_friends": "Close Friends"
+        default: "Everyone"
         }
     }
 
+    private var audienceSymbol: String {
+        switch visibility {
+        case "followers": "person.2"
+        case "close_friends": "star.circle.fill"
+        default: "globe"
+        }
+    }
+
+    // MARK: Media + baking
+
     private func clearMedia() {
+        bakeTask?.cancel()
         sourceImage = nil
         filteredPreview = nil
+        filterThumbs = [:]
         prepared = nil
         draftMedia = nil
         videoURL = nil
-        stickers = []
+        gradientBG = nil
+        collageLayout = nil
+        collageImages = []
+        layers = []
+        gifImages = [:]
+        strokes = []
+        activeStroke = nil
+        editingTextID = nil
+        tool = nil
         filter = StoryFilter.catalog[0]
     }
 
     private func refilter() {
         guard let sourceImage else { return }
         filteredPreview = StoryFilterEngine.apply(filter, to: sourceImage)
-        Task { await bakePrepared() }
+        scheduleBake(delay: 0)
+    }
+
+    /// Downsamples off the main thread so filters and baking stay instant.
+    private func downsampled(_ image: UIImage, maxPixel: CGFloat = 2160) async -> UIImage {
+        let longest = max(image.size.width, image.size.height) * image.scale
+        guard longest > maxPixel else { return image }
+        let ratio = maxPixel / longest
+        let target = CGSize(width: image.size.width * image.scale * ratio, height: image.size.height * image.scale * ratio)
+        return await image.byPreparingThumbnail(ofSize: target) ?? image
     }
 
     private func accept(image: UIImage) async {
-        sourceImage = image
+        let base = await downsampled(image)
+        sourceImage = base
         videoURL = nil
-        filteredPreview = StoryFilterEngine.apply(filter, to: image)
-        showsCamera = false
-        await bakePrepared()
+        gradientBG = nil
+        collageLayout = nil
+        collageImages = []
+        filteredPreview = StoryFilterEngine.apply(filter, to: base)
+        withAnimation(spring) { showsCamera = false }
         HapticEngine.shared.play(.success)
+        scheduleBake(delay: 0)
+        if let thumb = await base.byPreparingThumbnail(ofSize: CGSize(width: 140, height: 140)) {
+            var thumbs: [String: UIImage] = [:]
+            for item in StoryFilter.catalog { thumbs[item.id] = StoryFilterEngine.apply(item, to: thumb) }
+            filterThumbs = thumbs
+        }
+    }
+
+    private func loadCollage(_ items: [PhotosPickerItem]) async {
+        guard !items.isEmpty else { return }
+        collagePickerItems = []
+        var images: [UIImage] = []
+        for item in items {
+            if let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) {
+                images.append(await downsampled(image, maxPixel: 1440))
+            }
+        }
+        let slots = (collageLayout ?? .grid).slots
+        withAnimation(spring) {
+            if collageLayout == nil { collageLayout = images.count >= 4 ? .grid : (images.count == 3 ? .threeRows : .twoRows) }
+            collageImages = Array((collageImages + images).suffix(slots))
+        }
+        HapticEngine.shared.play(.success)
+        scheduleBake(delay: 0)
+    }
+
+    private func scheduleBake(delay: Double = 0.35) {
+        bakeTask?.cancel()
+        bakeTask = Task { @MainActor in
+            if delay > 0 { try? await Task.sleep(for: .seconds(delay)) }
+            guard !Task.isCancelled else { return }
+            await bakePrepared()
+        }
+    }
+
+    private func renderComposite() -> UIImage? {
+        guard videoURL == nil else { return nil }
+        let base = filteredPreview ?? sourceImage
+        guard base != nil || gradientBG != nil || (collageLayout != nil && !collageImages.isEmpty) else { return nil }
+        let size = CGSize(width: max(canvasSize.width, 1), height: max(canvasSize.height, 1))
+        let view = StoryBakeView(
+            size: size,
+            image: base,
+            gradient: gradientBG,
+            collage: collageLayout,
+            collageImages: collageImages,
+            strokes: strokes,
+            layers: layers,
+            gifs: gifImages,
+            accent: accent
+        )
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 1080 / size.width
+        renderer.isOpaque = true
+        return renderer.uiImage
     }
 
     private func bakePrepared() async {
-        guard let base = filteredPreview ?? sourceImage else { return }
-        let composited = bakeStickers(onto: base)
-        guard let data = composited.jpegData(compressionQuality: 0.92) else { return }
+        guard let composited = renderComposite(),
+              let data = composited.jpegData(compressionQuality: 0.92) else { return }
         do {
             let image = try await MediaPreparation.jpegStrippingMetadata(
                 data, maxPixel: StoryUploadBudget.targetLongEdge, quality: StoryUploadBudget.preferredQuality
             )
+            guard !Task.isCancelled else { return }
             prepared = image
             if let accountID = app.auth.account?.accountId {
                 draftMedia = try app.draftMedia.importJPEG(image.data, accountID: accountID, width: image.width, height: image.height)
@@ -1026,26 +2457,16 @@ struct StoryCreateView: View {
         }
     }
 
-    private func bakeStickers(onto image: UIImage) -> UIImage {
-        guard !stickers.isEmpty else { return image }
-        let size = image.size
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = image.scale
-        let renderer = UIGraphicsImageRenderer(size: size, format: format)
-        return renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: size))
-            for sticker in stickers {
-                let font = UIFont.systemFont(ofSize: 72 * sticker.scale)
-                let attrs: [NSAttributedString.Key: Any] = [.font: font]
-                let text = sticker.emoji as NSString
-                let textSize = text.size(withAttributes: attrs)
-                let origin = CGPoint(
-                    x: sticker.x * size.width - textSize.width / 2,
-                    y: sticker.y * size.height - textSize.height / 2
-                )
-                text.draw(at: origin, withAttributes: attrs)
-            }
+    private func saveToPhotos() async {
+        bakeTask?.cancel()
+        await bakePrepared()
+        guard let prepared else {
+            app.navigation.flash("Nothing to save yet", symbol: "exclamationmark.triangle")
+            return
         }
+        let saved = await ModulaPhotoLibrarySaver.save(prepared.data)
+        app.navigation.flash(saved ? "Saved to Photos" : "Couldn’t save to Photos", symbol: saved ? "photo.badge.checkmark" : "exclamationmark.triangle")
+        HapticEngine.shared.play(saved ? .saveComplete : .failure)
     }
 
     private func loadPicker(_ items: [PhotosPickerItem]) async {
@@ -1054,6 +2475,10 @@ struct StoryCreateView: View {
         if let data = try? await item.loadTransferable(type: Data.self),
            let image = UIImage(data: data) {
             await accept(image: image)
+            return
+        }
+        if !canPublishVideo {
+            app.navigation.flash("Video stories are coming soon — pick a photo", symbol: "video.slash")
             return
         }
         app.stories.setActionError("Couldn’t open that item. Try a photo.")
@@ -1065,10 +2490,13 @@ struct StoryCreateView: View {
             HapticEngine.shared.play(.failure)
             return
         }
-        guard let prepared else { return }
         busy = true
         defer { busy = false }
-        if await app.stories.publish(image: prepared, caption: caption, visibility: visibility) {
+        bakeTask?.cancel()
+        await bakePrepared()
+        guard let prepared else { return }
+        let audience = visibility == "close_friends" && !app.stories.capabilities.privacy ? "followers" : visibility
+        if await app.stories.publish(image: prepared, caption: caption, visibility: audience) {
             published = true
             app.drafts.discardStory(id: draftID)
             app.navigation.close()
@@ -1112,7 +2540,7 @@ struct StoryCreateView: View {
             return
         }
         caption = saved.caption
-        visibility = saved.visibility == "followers" ? "followers" : "public"
+        visibility = ["followers", "close_friends"].contains(saved.visibility ?? "") ? (saved.visibility ?? "public") : "public"
         draftMedia = saved.media
         guard let media = saved.media else {
             showsCamera = true
@@ -1133,6 +2561,36 @@ struct StoryCreateView: View {
             app.stories.setActionError("The draft photo couldn’t be restored. Choose it again to continue.")
             showsCamera = true
         }
+    }
+}
+
+// MARK: - Shared press + shimmer primitives
+
+/// Skeleton placeholder with a soft travelling highlight (static under Reduce Motion).
+struct ModulaShimmerBlock: View {
+    var cornerRadius: CGFloat = 10
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @State private var phase: CGFloat = -1
+
+    var body: some View {
+        let still = ModulaEffectGate.reduceMotion(systemReduceMotion)
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(Color.primary.opacity(0.08))
+            .overlay {
+                if !still {
+                    GeometryReader { geo in
+                        LinearGradient(colors: [.clear, Color.white.opacity(0.28), .clear], startPoint: .leading, endPoint: .trailing)
+                            .frame(width: geo.size.width * 0.6)
+                            .offset(x: phase * geo.size.width * 1.4)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                }
+            }
+            .onAppear {
+                guard !still else { return }
+                withAnimation(.linear(duration: 1.15).repeatForever(autoreverses: false)) { phase = 1 }
+            }
+            .accessibilityHidden(true)
     }
 }
 

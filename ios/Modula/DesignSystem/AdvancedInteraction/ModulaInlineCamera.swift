@@ -5,7 +5,7 @@ import UIKit
 /// Shared inline camera card (Nodus chat + comment composer): live preview, shutter, flip,
 /// flash, close, and optional short-video mode. Results go back as a UIImage or a movie file URL.
 struct ModulaInlineCamera: View {
-    enum Mode: String, CaseIterable { case photo = "Photo", video = "Video" }
+    enum Mode: String, CaseIterable { case photo = "Photo", video = "Video", boomerang = "Boomerang", handsFree = "Hands-free" }
 
     var modes: [Mode] = [.photo]
     var idPrefix = "camera"
@@ -14,8 +14,13 @@ struct ModulaInlineCamera: View {
     var onPhoto: (UIImage) -> Void
     var onVideo: ((URL) -> Void)? = nil
     var onClose: () -> Void
+    /// Self-timer choices (seconds). Empty hides the timer control.
+    var timerOptions: [Int] = []
 
     @StateObject private var camera = ModulaInlineCameraSession()
+    @State private var timerSeconds = 0
+    @State private var countdown: Int?
+    @State private var countdownTask: Task<Void, Never>?
     @State private var mode: Mode = .photo
     @State private var flash: AVCaptureDevice.FlashMode = .off
     @State private var flashPulse = false
@@ -25,6 +30,15 @@ struct ModulaInlineCamera: View {
         ZStack {
             preview
             if flashPulse { Color.white.opacity(0.85).transition(.opacity) }
+            if let countdown {
+                Text("\(countdown)")
+                    .font(.system(size: 96, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.4), radius: 12)
+                    .contentTransition(.numericText(countsDown: true))
+                    .transition(.scale.combined(with: .opacity))
+                    .accessibilityLabel("Capturing in \(countdown)")
+            }
             VStack(spacing: 0) {
                 HStack(spacing: 8) {
                     control("xmark", label: "Close camera", id: "\(idPrefix).close", action: onClose)
@@ -38,6 +52,15 @@ struct ModulaInlineCamera: View {
                             .transition(.scale.combined(with: .opacity))
                     }
                     Spacer()
+                    if !timerOptions.isEmpty {
+                        control(timerSeconds == 0 ? "timer" : "\(timerSeconds).circle", label: timerSeconds == 0 ? "Timer off" : "Timer \(timerSeconds) seconds", id: "\(idPrefix).timer") {
+                            let cycle = [0] + timerOptions
+                            let i = cycle.firstIndex(of: timerSeconds) ?? 0
+                            timerSeconds = cycle[(i + 1) % cycle.count]
+                            HapticEngine.shared.play(.selection)
+                        }
+                        .disabled(camera.isRecording || countdown != nil)
+                    }
                     control(flashSymbol, label: "Flash \(flashLabel)", id: "\(idPrefix).flash") {
                         flash = switch flash { case .off: .auto; case .auto: .on; default: .off }
                         HapticEngine.shared.play(.selection)
@@ -49,8 +72,32 @@ struct ModulaInlineCamera: View {
                     .disabled(camera.isRecording)
                 }
                 Spacer()
+                if modes.count > 2 {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 2) {
+                            ForEach(modes, id: \.self) { item in
+                                Button {
+                                    guard !camera.isRecording, countdown == nil else { return }
+                                    withAnimation(.snappy(duration: 0.22)) { mode = item }
+                                    HapticEngine.shared.play(.selection)
+                                } label: {
+                                    Text(item.rawValue).font(.caption.weight(.bold))
+                                        .foregroundStyle(mode == item ? .black : .white)
+                                        .padding(.horizontal, 10).frame(height: 28)
+                                        .background { if mode == item { Capsule().fill(.white) } }
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityAddTraits(mode == item ? .isSelected : [])
+                            }
+                        }
+                        .padding(3)
+                        .background(.ultraThinMaterial, in: Capsule())
+                    }
+                    .fixedSize(horizontal: true, vertical: false)
+                    .padding(.bottom, 8)
+                }
                 HStack {
-                    if modes.count > 1 {
+                    if modes.count == 2 {
                         HStack(spacing: 2) {
                             ForEach(modes, id: \.self) { item in
                                 Button {
@@ -89,9 +136,9 @@ struct ModulaInlineCamera: View {
         .accessibilityIdentifier(idPrefix)
         .onAppear {
             mode = modes.first ?? .photo
-            camera.start(withAudio: modes.contains(.video))
+            camera.start(withAudio: modes.contains(where: { $0 != .photo }))
         }
-        .onDisappear { camera.stop() }
+        .onDisappear { countdownTask?.cancel(); countdown = nil; camera.stop() }
         .onChange(of: camera.finishedVideo) { _, url in
             if let url { onVideo?(url); camera.finishedVideo = nil }
         }
@@ -99,20 +146,23 @@ struct ModulaInlineCamera: View {
 
     private var shutter: some View {
         Button {
-            switch mode {
-            case .photo:
-                camera.capture(flash: flash) { image in onPhoto(image) }
-                withAnimation(.easeOut(duration: 0.08)) { flashPulse = true }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { withAnimation(.easeIn(duration: 0.2)) { flashPulse = false } }
-                HapticEngine.shared.play(.actionConfirmed)
-            case .video:
-                if camera.isRecording { camera.stopRecording() } else { camera.startRecording(torch: flash == .on, maxSeconds: maxVideoSeconds) }
-                HapticEngine.shared.play(.lightImpact)
+            if countdown != nil {
+                countdownTask?.cancel()
+                withAnimation(.snappy(duration: 0.2)) { countdown = nil }
+                HapticEngine.shared.play(.selection)
+                return
             }
+            if camera.isRecording {
+                camera.stopRecording()
+                HapticEngine.shared.play(.lightImpact)
+                return
+            }
+            let delay = mode == .handsFree ? max(timerSeconds, 3) : timerSeconds
+            if delay > 0 { startCountdown(delay) } else { fire() }
         } label: {
             ZStack {
                 Circle().strokeBorder(.white, lineWidth: 4).frame(width: 64, height: 64)
-                if mode == .video {
+                if mode != .photo {
                     RoundedRectangle(cornerRadius: camera.isRecording ? 6 : 26, style: .continuous)
                         .fill(.red)
                         .frame(width: camera.isRecording ? 26 : 52, height: camera.isRecording ? 26 : 52)
@@ -121,7 +171,7 @@ struct ModulaInlineCamera: View {
                         .overlay { Circle().stroke(app.appearance.accent.color, lineWidth: 2).padding(3) }
                 }
                 if camera.isRecording {
-                    Circle().trim(from: 0, to: min(camera.recordedSeconds / maxVideoSeconds, 1))
+                    Circle().trim(from: 0, to: min(camera.recordedSeconds / recordLimit, 1))
                         .stroke(.red, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                         .frame(width: 64, height: 64)
@@ -132,8 +182,39 @@ struct ModulaInlineCamera: View {
         }
         .buttonStyle(.plain)
         .disabled(!camera.isReady)
-        .accessibilityLabel(mode == .photo ? "Take photo" : (camera.isRecording ? "Stop recording" : "Record video"))
+        .accessibilityLabel(mode == .photo ? "Take photo" : (camera.isRecording ? "Stop recording" : "Record \(mode.rawValue)"))
         .accessibilityIdentifier("\(idPrefix).shutter")
+    }
+
+    private var recordLimit: Double { mode == .boomerang ? 1.5 : maxVideoSeconds }
+
+    private func fire() {
+        switch mode {
+        case .photo:
+            camera.capture(flash: flash) { image in onPhoto(image) }
+            withAnimation(.easeOut(duration: 0.08)) { flashPulse = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { withAnimation(.easeIn(duration: 0.2)) { flashPulse = false } }
+            HapticEngine.shared.play(.actionConfirmed)
+        case .video, .handsFree, .boomerang:
+            camera.startRecording(torch: flash == .on, maxSeconds: recordLimit)
+            HapticEngine.shared.play(.lightImpact)
+        }
+    }
+
+    private func startCountdown(_ seconds: Int) {
+        countdownTask?.cancel()
+        withAnimation(.snappy(duration: 0.2)) { countdown = seconds }
+        countdownTask = Task { @MainActor in
+            var left = seconds
+            while left > 0 {
+                HapticEngine.shared.play(.selection)
+                try? await Task.sleep(for: .seconds(1))
+                if Task.isCancelled { return }
+                left -= 1
+                withAnimation(.snappy(duration: 0.2)) { countdown = left > 0 ? left : nil }
+            }
+            fire()
+        }
     }
 
     private var flashSymbol: String {
