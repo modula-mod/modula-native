@@ -186,7 +186,7 @@ struct ImmersivePostCard: View {
         .accessibilityAction(named: "Save", onSave)
         .accessibilityAction(named: "Share") { share() }
         .accessibilityAction(named: "Open Author", onOpenAuthor)
-        .accessibilityAction(named: "More actions") { PostMenuCenter.shared.present(menuRequest(anchor: moreFrame)) }
+        .accessibilityAction(named: "More actions") { }
         .accessibilityAction(named: "Who reacted") { openReactors() }
         .sheet(isPresented: $showsReactionGrid) {
             ReactionGridSheet { emoji in
@@ -637,21 +637,7 @@ struct ImmersivePostCard: View {
         .padding(.trailing, max(10, trailingInteractionInset * 0.35 + 6))
         .padding(.bottom, 36)
         // Swipe down on the rail: the menu grows out of where the finger is; keep sliding to pick.
-        .gesture(
-            DragGesture(minimumDistance: PostGestureThresholds.dragActivationDistance, coordinateSpace: .global)
-                .onChanged { value in
-                    let center = PostMenuCenter.shared
-                    if !center.isPresented {
-                        let vertical = value.translation.height
-                        guard vertical > PostGestureThresholds.railMorphThreshold * 0.6,
-                              vertical > abs(value.translation.width) * PostGestureThresholds.verticalDominanceRatio else { return }
-                        let point = value.location
-                        center.present(menuRequest(anchor: CGRect(x: point.x - 22, y: point.y - 22, width: 44, height: 44)), tracking: true)
-                    }
-                    center.track(value.location)
-                }
-                .onEnded { _ in PostMenuCenter.shared.release() }
-        )
+
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Post actions")
         .accessibilityIdentifier("post.action.rail.\(post.id)")

@@ -96,6 +96,99 @@ enum PostContextActions {
     }
 }
 
+
+// MARK: - Post options (same visual language as tab-bar accessory Options Menu)
+
+/// Shared post-options content for `Menu` / `contextMenu`.
+/// Matches `ShellAccessoryHost.moreMenu`: native Liquid Glass card, section headers,
+/// accent-tinted SF Symbols + labels. Do not replace with a custom dark panel.
+struct PostOptionsMenuContent: View {
+    let post: SocialPost
+    var isOwn: Bool
+    var capabilities: PostBackendCapabilities = .production
+    var onSelect: (String) -> Void
+
+    private var handle: String? { post.author?.handle }
+
+    var body: some View {
+        Section {
+            Button("Share", systemImage: "square.and.arrow.up") { onSelect("share") }
+            Button("Copy link", systemImage: "link") { onSelect("copy-link") }
+            Button(post.saved ? "Saved" : "Save", systemImage: post.saved ? "bookmark.fill" : "bookmark") { onSelect("save") }
+            Button("Collection", systemImage: "rectangle.stack.badge.plus") { onSelect("save-collection") }
+        }
+
+        if isOwn {
+            Section("Your post") {
+                Button("View Post Interactions", systemImage: "chart.bar") { onSelect("interactions") }
+                if capabilities.editOwnPost {
+                    Button("Edit post", systemImage: "pencil") { onSelect("edit-post") }
+                }
+                if capabilities.deleteOwnPost {
+                    Button("Delete post", systemImage: "trash", role: .destructive) { onSelect("delete") }
+                }
+            }
+        } else {
+            Section("Post") {
+                Button("Not interested in this post", systemImage: "eye.slash") { onSelect("not-interested") }
+                Button("View Post Interactions", systemImage: "chart.bar") { onSelect("interactions") }
+                Button("Turn on notifications", systemImage: "bell") { onSelect("notify") }
+                Button("Hide post", systemImage: "rectangle.slash") { onSelect("hide") }
+            }
+            Section("Safety") {
+                Button("Report post", systemImage: "flag", role: .destructive) { onSelect("report") }
+                Button("Mark as spam", systemImage: "exclamationmark.circle") { onSelect("spam") }
+                Button("Request Community Note", systemImage: "megaphone") { onSelect("community-note") }
+            }
+            if let handle {
+                Section {
+                    Menu {
+                        Button("Follow", systemImage: "person.badge.plus") { onSelect("follow-author") }
+                        Button("Add/remove from Lists", systemImage: "list.bullet.rectangle") { onSelect("lists-author") }
+                        if capabilities.muteAuthor {
+                            Button("Mute", systemImage: "speaker.slash") { onSelect("mute-author") }
+                        }
+                        Button("Block", systemImage: "hand.raised", role: .destructive) { onSelect("block-author") }
+                    } label: {
+                        Label("@\(handle)", systemImage: "person.crop.circle")
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// "…" control that opens the same native Options-style Menu as the tab-bar accessory.
+struct PostOptionsMenuButton<Label: View>: View {
+    let post: SocialPost
+    var isOwn: Bool
+    var capabilities: PostBackendCapabilities = .production
+    var onSelect: (String) -> Void
+    @ViewBuilder var label: () -> Label
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        Menu {
+            PostOptionsMenuContent(
+                post: post,
+                isOwn: isOwn,
+                capabilities: capabilities,
+                onSelect: { id in
+                    // Nested Menu dismiss can race; hop to next turn like other shell Menus.
+                    DispatchQueue.main.async { onSelect(id) }
+                }
+            )
+        } label: {
+            label()
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .accessibilityLabel("More actions")
+        .accessibilityHint("Shows post options")
+    }
+}
+
+
 // MARK: - Liquid Glass post menu (morphs out of its source)
 
 /// What the glass menu can call back into on the card that opened it.
@@ -181,13 +274,8 @@ final class PostMenuCenter {
 
 /// Mount once at the root, above tabs and chrome.
 struct PostMenuHost: View {
-    var body: some View {
-        let center = PostMenuCenter.shared
-        if let request = center.request {
-            PostMenuOverlay(request: request, center: center)
-                .id(request.id)
-        }
-    }
+    /// Native Options-style Menu/contextMenu only — no custom dark morph overlay.
+    var body: some View { EmptyView() }
 }
 
 private enum PostMenuStage: Equatable { case main, user, confirmReport, confirmBlock, confirmDelete }
@@ -737,6 +825,8 @@ enum PostMenuExecutor {
         case "hide":
             hide(post, app: app)
             app.navigation.flash("Post hidden", symbol: "eye.slash")
+        case "report":
+            report(post, category: "other", details: "Post \(post.id)", app: app, done: "Thanks, report sent")
         case "spam":
             report(post, category: "spam", details: "Post \(post.id) marked as spam", app: app, done: "Marked as spam")
         case let value where value.hasPrefix("report:"):
@@ -757,6 +847,9 @@ enum PostMenuExecutor {
                     app.navigation.flash("Muted @\(author.handle)", symbol: "speaker.slash")
                 }
             }
+        case "block-author":
+            // Native Menu has no multi-stage confirm; block immediately with toast.
+            fallthrough
         case "block-confirmed":
             guard let author = post.author else { return }
             Task {
@@ -771,6 +864,8 @@ enum PostMenuExecutor {
             } else {
                 app.navigation.open(.post(post.id, .edit))
             }
+        case "delete":
+            fallthrough
         case "delete-confirmed":
             if let host = hooks.onContextAction {
                 host(ModulaContextAction(id: "delete", title: "Delete post", role: .destructive))
@@ -803,82 +898,52 @@ enum PostMenuExecutor {
 
 // MARK: - Menu sources
 
-/// "…" that opens the glass menu on tap, or press-and-drag straight onto an item.
-/// Uses a real `Button` so it works in toolbars (native `Menu` / `contextMenu` replaced).
+/// Compatibility wrapper: same entry API as before, but opens the native Options-style Menu
+/// (tab-bar accessory visual language) instead of the custom dark morph panel.
 struct PostMenuButton<Label: View>: View {
     var makeRequest: (CGRect) -> PostMenuRequest
     @ViewBuilder var label: () -> Label
+    @Environment(AppEnvironment.self) private var app
     @State private var frame: CGRect = .zero
-    @State private var dragging = false
 
     var body: some View {
-        Button {
-            guard !dragging else { return }
-            PostMenuCenter.shared.present(makeRequest(frame))
-        } label: {
-            label()
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: 0.18, maximumDistance: 12)
-                .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
-                .onChanged { value in
-                    guard case .second(true, let drag) = value else { return }
-                    dragging = true
-                    let center = PostMenuCenter.shared
-                    if !center.isPresented { center.present(makeRequest(frame), tracking: true) }
-                    if let drag { center.track(drag.location) }
-                }
-                .onEnded { _ in
-                    PostMenuCenter.shared.release()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { dragging = false }
-                }
+        let request = makeRequest(frame == .zero ? CGRect(x: 0, y: 0, width: 44, height: 44) : frame)
+        PostOptionsMenuButton(
+            post: request.post,
+            isOwn: request.isOwn,
+            capabilities: app.postActions.capabilities,
+            onSelect: { id in
+                PostMenuExecutor.run(id, request: request, app: app)
+            },
+            label: label
         )
-        .accessibilityLabel("More actions")
-        .accessibilityHint("Opens post actions")
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
     }
 }
 
-/// Long-press anywhere on a card: the menu grows out of the touch point; keep the finger down and slide to pick.
+/// Long-press uses the system context menu — same Liquid Glass card language as the
+/// tab-bar accessory Options Menu (not a custom dark panel).
 struct PostMenuLongPress: ViewModifier {
     var enabled: Bool = true
     var makeRequest: (CGRect) -> PostMenuRequest
-    @State private var frame: CGRect = .zero
-    @State private var pending: Task<Void, Never>?
+    @Environment(AppEnvironment.self) private var app
 
     func body(content: Content) -> some View {
-        content
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
-            .simultaneousGesture(
-                LongPressGesture(minimumDuration: 0.5, maximumDistance: 10)
-                    .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
-                    .onChanged { value in
-                        guard enabled, case .second(true, let drag) = value else { return }
-                        let center = PostMenuCenter.shared
-                        guard !center.longPressSuppressed else { return }
-                        if let drag {
-                            pending?.cancel()
-                            if !center.isPresented {
-                                let point = drag.startLocation
-                                center.present(makeRequest(CGRect(x: point.x - 22, y: point.y - 22, width: 44, height: 44)), tracking: true)
-                            }
-                            center.track(drag.location)
-                        } else if !center.isPresented, pending == nil {
-                            // Finger perfectly still: open from the card's centre.
-                            pending = Task { @MainActor in
-                                try? await Task.sleep(for: .milliseconds(120))
-                                guard !Task.isCancelled, !center.isPresented, !center.longPressSuppressed else { return }
-                                center.present(makeRequest(CGRect(x: frame.midX - 22, y: frame.midY - 22, width: 44, height: 44)), tracking: true)
-                            }
+        let sample = makeRequest(.zero)
+        content.contextMenu {
+            if enabled {
+                PostOptionsMenuContent(
+                    post: sample.post,
+                    isOwn: sample.isOwn,
+                    capabilities: app.postActions.capabilities,
+                    onSelect: { id in
+                        DispatchQueue.main.async {
+                            PostMenuExecutor.run(id, request: makeRequest(.zero), app: app)
                         }
                     }
-                    .onEnded { _ in
-                        pending = nil
-                        PostMenuCenter.shared.release()
-                    }
-            )
+                )
+            }
+        }
     }
 }
 
