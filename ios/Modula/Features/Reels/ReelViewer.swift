@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ReelsRouteView: View {
     let route: ReelsRoute
@@ -29,15 +30,13 @@ struct ReelFeedView: View {
     /// Bottom edge of the top bar in screen space, so page controls
     /// (full-screen button) are laid out below it instead of under it.
     @State private var topBarBottom: CGFloat = 0
+    @State private var feedTab: ReelFeedTab = .forYou
 
     var body: some View {
         Group {
             switch app.reels.loadState {
             case .loading where app.reels.items.isEmpty:
-                ZStack {
-                    Color.black.ignoresSafeArea()
-                    ProgressView().tint(.white)
-                }
+                ReelLoadingShimmer()
             case .failed(let message) where app.reels.items.isEmpty:
                 ModulaErrorState(message: message) {
                     Task { await app.reels.refresh() }
@@ -69,9 +68,7 @@ struct ReelFeedView: View {
                 ModulaGlassIconButton(title: "Back", systemImage: "chevron.left", foreground: .white) {
                     app.navigation.close()
                 }
-                Text("Reels")
-                    .font(.title2.weight(.bold))
-                    .shadow(color: .black.opacity(0.45), radius: 6, y: 1)
+                ReelFeedTabs(tab: $feedTab)
                 Spacer()
                 Button {
                     HapticEngine.shared.play(.navigation)
@@ -119,6 +116,9 @@ struct ReelFeedView: View {
         .sheet(isPresented: $showsComments) {
             if let reel = current, reel.postID != nil {
                 PostCommentsSheet(postID: reel.postID ?? reel.id)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+                    .presentationBackgroundInteraction(.enabled(upThrough: .medium))
             }
         }
         .fullScreenCover(item: $expandedVideo) { attachment in
@@ -157,6 +157,7 @@ struct ReelFeedView: View {
             .scrollTargetLayout()
         }
         .modulaSoftScrollEdge()
+        .refreshable { await app.reels.refresh() }
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: Binding(
             get: { app.reels.activeID },
@@ -186,40 +187,118 @@ struct ReelPageView: View {
     var onExpand: () -> Void
     @Environment(AppEnvironment.self) private var app
     @State private var heartBurst = 0
+    @State private var heartPoint: CGPoint? = nil
+    @State private var clearDisplay = false
+    @State private var showsQuickMenu = false
+    @State private var captionsOn = true
+    @State private var edgeBoost = false
 
     var body: some View {
         ZStack {
             poster
+            // KEEP: module/video permission gate — do not remove or "fix".
             if let attachment = reel.attachment, app.reels.capabilities.videoPlayback {
                 ModulaVideoSurface(attachment: attachment, coordinator: coordinator, onExpand: onExpand,
                                    height: nil, cornerRadius: 0, allowsPlayback: isActive,
                                    controlsTopInset: controlsTopInset)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .scaleEffect(false ? 0.72 : 1, anchor: .top)
+                    .clipShape(RoundedRectangle(cornerRadius: false ? 18 : 0, style: .continuous))
             }
-            LinearGradient(
-                stops: [
-                    .init(color: .clear, location: 0),
-                    .init(color: .clear, location: 0.52),
-                    .init(color: .black.opacity(0.35), location: 0.72),
-                    .init(color: .black.opacity(0.86), location: 1)
-                ],
-                startPoint: .top, endPoint: .bottom
-            )
-            .allowsHitTesting(false)
-            DoubleTapHeartBurst(trigger: heartBurst)
-            ReelOverlay(reel: resolved, shareRoute: shareRoute, onComment: onComment)
+            if !clearDisplay {
+                LinearGradient(
+                    stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: .clear, location: 0.52),
+                        .init(color: .black.opacity(0.35), location: 0.72),
+                        .init(color: .black.opacity(0.86), location: 1)
+                    ],
+                    startPoint: .top, endPoint: .bottom
+                )
+                .allowsHitTesting(false)
+            }
+            DoubleTapHeartBurst(trigger: heartBurst, point: heartPoint)
+            if !clearDisplay {
+                HStack(alignment: .bottom, spacing: 0) {
+                    ReelCaptionBlock(reel: reel)
+                        .padding(.leading, 14)
+                        .padding(.bottom, 56)
+                    Spacer(minLength: 8)
+                    ReelTikTokRail(
+                        reel: reel,
+                        post: resolved,
+                        onComment: onComment,
+                        onShare: {
+                            app.navigation.presented = .universalShare(.post(
+                                id: resolved.id,
+                                authorName: resolved.author?.displayName,
+                                excerpt: resolved.text,
+                                hasMedia: true
+                            ))
+                        }
+                    )
+                }
                 .frame(maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, 48)
+                .transition(.opacity)
+            }
+            if edgeBoost {
+                Text("2×")
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14).padding(.vertical, 8)
+                    .modulaGlass(in: Capsule(), interactive: false, tint: .black.opacity(0.35))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .padding(.top, controlsTopInset + 12)
+                    .allowsHitTesting(false)
+            }
+            if showsQuickMenu {
+                Color.black.opacity(0.35).ignoresSafeArea().onTapGesture { showsQuickMenu = false }
+                ReelQuickMenu(
+                    rate: 1,
+                    captionsOn: captionsOn,
+                    clearDisplay: clearDisplay,
+                    onRate: { app.navigation.flash(String(format: "Speed %.1g×", $0), symbol: "gauge.with.needle") },
+                    onNotInterested: {
+                        app.postActions.hideLocally(resolved)
+                        app.navigation.flash("We'll show fewer like this", symbol: "eye.slash")
+                    },
+                    onSave: { Task { await app.postActions.toggleSave(resolved) } },
+                    onToggleCaptions: { captionsOn.toggle() },
+                    onToggleClear: { clearDisplay.toggle() },
+                    onDismiss: { showsQuickMenu = false }
+                )
+            }
         }
         .contentShape(Rectangle())
-        // Double-tap anywhere to like (never unlikes), with the feed's heart burst.
-        .simultaneousGesture(TapGesture(count: 2).onEnded {
-            guard ModulaPreferences.doubleTapToLike else { return }
-            let post = resolved
-            if !post.liked { Task { await app.postActions.toggleLike(post) } }
-            HapticEngine.shared.play(.lightImpact)
-            heartBurst += 1
-        })
+        .simultaneousGesture(
+            SpatialTapGesture(count: 2).onEnded { event in
+                guard ModulaPreferences.doubleTapToLike else { return }
+                heartPoint = event.location
+                let post = resolved
+                if !post.liked { Task { await app.postActions.toggleLike(post) } }
+                HapticEngine.shared.play(.lightImpact)
+                heartBurst += 1
+            }
+        )
+        .onLongPressGesture(minimumDuration: 0.45) {
+            HapticEngine.shared.play(.contextOpen)
+            showsQuickMenu = true
+        }
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    // Hold left/right edge for 2× speed flash (visual; playback rate via toast if controller not exposed here).
+                    let w = UIScreen.main.bounds.width
+                    let onEdge = value.startLocation.x < 28 || value.startLocation.x > w - 28
+                    if onEdge, value.translation == .zero || abs(value.translation.width) < 8 {
+                        if !edgeBoost {
+                            edgeBoost = true
+                            HapticEngine.shared.play(.selection)
+                        }
+                    }
+                }
+                .onEnded { _ in edgeBoost = false }
+        )
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityAction(named: "Open creator") {

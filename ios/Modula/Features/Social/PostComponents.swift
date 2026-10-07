@@ -697,47 +697,72 @@ enum PostRendererRegistry {
 /// Settings → Battery & Data → Extra motion reduction) swaps the pop for a fade.
 struct DoubleTapHeartBurst: View {
     let trigger: Int
+    /// When set, hearts appear at this point in the view (TikTok-style). Nil = centre.
+    var point: CGPoint? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var visible = false
-    @State private var particleSeed = 0
+    @State private var hearts: [Heart] = []
+
+    private struct Heart: Identifiable, Equatable {
+        let id: Int
+        let point: CGPoint?
+        let rotation: Double
+        var alive = true
+    }
 
     var body: some View {
-        ZStack {
-            if visible && !calm {
-                ForEach(0..<8, id: \.self) { index in
-                    Image(systemName: "heart.fill")
-                        .font(.system(size: 14 + CGFloat(index % 3) * 4, weight: .bold))
-                        .foregroundStyle(Color(red: 1, green: 0.27, blue: 0.4).opacity(0.9))
-                        .offset(particleOffset(index))
-                        .opacity(visible ? 0.15 : 1)
-                        .animation(calm ? nil : .easeOut(duration: 0.55), value: visible)
+        GeometryReader { geo in
+            ZStack {
+                ForEach(hearts) { heart in
+                    let origin = heart.point ?? CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
+                    ZStack {
+                        if !calm {
+                            ForEach(0..<8, id: \.self) { index in
+                                Image(systemName: "heart.fill")
+                                    .font(.system(size: 12 + CGFloat(index % 3) * 3, weight: .bold))
+                                    .foregroundStyle(Color(red: 1, green: 0.27, blue: 0.4).opacity(0.85))
+                                    .offset(particleOffset(index, seed: heart.id, alive: heart.alive))
+                            }
+                        }
+                        Image(systemName: "heart.fill")
+                            .font(.system(size: 88, weight: .bold))
+                            .foregroundStyle(.white)
+                            .shadow(color: .black.opacity(0.35), radius: 14, y: 4)
+                            .rotationEffect(.degrees(heart.rotation))
+                            .scaleEffect(heart.alive ? 1 : (calm ? 1 : 0.35))
+                            .opacity(heart.alive ? 1 : 0)
+                    }
+                    .position(origin)
+                    .animation(calm ? .easeOut(duration: 0.15) : .spring(response: 0.26, dampingFraction: 0.52), value: heart.alive)
                 }
             }
-            Image(systemName: "heart.fill")
-                .font(.system(size: 88, weight: .bold))
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.35), radius: 14, y: 4)
-                .scaleEffect(visible ? 1 : (calm ? 1 : 0.4))
-                .opacity(visible ? 1 : 0)
+            .frame(width: geo.size.width, height: geo.size.height)
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
-        .onChange(of: trigger) { _, _ in
-            particleSeed = trigger
-            withAnimation(calm ? .easeOut(duration: 0.15) : .spring(response: 0.26, dampingFraction: 0.52)) { visible = true }
+        .onChange(of: trigger) { _, value in
+            guard value > 0 else { return }
+            let rotation = Double.random(in: -28...28)
+            let heart = Heart(id: value, point: point, rotation: rotation, alive: true)
+            hearts.append(heart)
+            // Cap stacked hearts so long tap-spam stays light.
+            if hearts.count > 6 { hearts.removeFirst(hearts.count - 6) }
             Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(calm ? 400 : 720))
-                withAnimation(.easeOut(duration: 0.28)) { visible = false }
+                try? await Task.sleep(for: .milliseconds(calm ? 400 : 780))
+                if let idx = hearts.firstIndex(where: { $0.id == heart.id }) {
+                    withAnimation(.easeOut(duration: 0.28)) { hearts[idx].alive = false }
+                }
+                try? await Task.sleep(for: .milliseconds(320))
+                hearts.removeAll { $0.id == heart.id }
             }
         }
     }
 
     private var calm: Bool { reduceMotion || ModulaPreferences.extraMotionReduction }
 
-    private func particleOffset(_ index: Int) -> CGSize {
-        let angle = Double(index) / 8 * .pi * 2 + Double(particleSeed) * 0.3
-        let radius = visible ? 56.0 + Double(index % 3) * 10 : 8
-        return CGSize(width: cos(angle) * radius, height: sin(angle) * radius - (visible ? 12 : 0))
+    private func particleOffset(_ index: Int, seed: Int, alive: Bool) -> CGSize {
+        let angle = Double(index) / 8 * .pi * 2 + Double(seed) * 0.3
+        let radius = alive ? 56.0 + Double(index % 3) * 10 : 8
+        return CGSize(width: cos(angle) * radius, height: sin(angle) * radius - (alive ? 12 : 0))
     }
 }
 
