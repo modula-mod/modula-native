@@ -30,6 +30,7 @@ final class ActivityStore {
     ]
     private(set) var actionError: String?
     var isOfflineHint = false
+    private(set) var dismissedIDs: Set<ActivityEventID> = Set(UserDefaults.standard.stringArray(forKey: "activity.dismissed.v1") ?? [])
 
     init(client: GreenfieldClient) {
         self.repository = GreenfieldActivityRepository(client: client)
@@ -174,6 +175,16 @@ final class ActivityStore {
     }
 
     func clearActionError() { actionError = nil }
+
+    func dismiss(_ events: [ActivityEvent], mode: ActivityMode) {
+        for event in events { removeLocally(event.id, mode: mode) }
+        dismissedIDs.formUnion(events.map(\.id))
+        UserDefaults.standard.set(Array(dismissedIDs.prefix(800)), forKey: "activity.dismissed.v1")
+    }
+
+    func markRead(_ events: [ActivityEvent], mode: ActivityMode) async {
+        for event in events where !event.isRead { await markRead(event, mode: mode) }
+    }
 
     // MARK: - Local mutations
 

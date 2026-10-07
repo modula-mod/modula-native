@@ -4,6 +4,7 @@ struct ActivityScreen: View {
     let mode: ActivityMode
     @Environment(AppEnvironment.self) private var app
     @State private var requestBusyID: ActivityEventID?
+    @State private var chip: ActivityChip = .all
 
     var body: some View {
         Group {
@@ -52,110 +53,95 @@ struct ActivityScreen: View {
 
     private var signedIn: some View {
         let state = app.activity.state(for: mode)
+        let dismissed = app.activity.dismissedIDs
+        let visible = state.events.filter { !dismissed.contains($0.id) }
+        let shown = visible.filter(chip.matches)
+        let unread = state.unreadCount ?? visible.filter { !$0.isRead }.count
         return ScrollView {
-            LazyVStack(alignment: .leading, spacing: 8) {
-                if let unread = state.unreadCount, unread > 0 {
-                    Label {
-                        Text("\(unread) unread items")
-                            .contentTransition(.numericText(value: Double(unread)))
-                    } icon: {
-                        Image(systemName: "bell.badge.fill")
-                            .symbolEffect(.bounce, value: unread)
-                    }
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(app.appearance.accent.color)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
-                    .modulaGlass(in: Capsule(), interactive: false, tint: app.appearance.accent.color.opacity(0.12))
-                    .padding(.top, 4)
-                    .animation(.snappy, value: unread)
-                    .modulaPageEntrance()
+            LazyVStack(alignment: .leading, spacing: 12, pinnedViews: [.sectionHeaders]) {
+                ActivityPulseHeader(events: visible, unread: unread) {
+                    Task { await app.activity.markAllRead(mode: mode) }
                 }
-                switch state.loadState {
-                case .loading where state.events.isEmpty:
-                    skeleton
-                case .failed(let message) where state.events.isEmpty:
-                    ModulaErrorState(message: message) {
-                        Task { await app.activity.refresh(mode, signedIn: true) }
+                .padding(.horizontal, ModulaLayout.contentInset)
+                .padding(.top, 4)
+                .modulaPageEntrance()
+                Section {
+                    Group {
+                        switch state.loadState {
+                        case .loading where state.events.isEmpty:
+                            ActivityCardSkeleton()
+                        case .failed(let message) where state.events.isEmpty:
+                            ModulaErrorState(message: message) {
+                                Task { await app.activity.refresh(mode, signedIn: true) }
+                            }
+                            .padding(.top, 40)
+                            .accessibilityIdentifier("activity.error")
+                        case _ where shown.isEmpty:
+                            empty.padding(.top, 20)
+                        default:
+                            ActivityClusterFeed(
+                                events: shown, mode: mode, onOpen: open,
+                                onMarkRead: { events in Task { await app.activity.markRead(events, mode: mode) } },
+                                onDelete: { events in
+                                    withAnimation(.snappy(duration: 0.3)) { app.activity.dismiss(events, mode: mode) }
+                                    app.navigation.flash(events.count > 1 ? "\(events.count) notifications removed" : "Notification removed", symbol: "trash")
+                                },
+                                onAccept: { event in
+                                    guard requestBusyID == nil else { return }
+                                    Task { requestBusyID = event.id; await app.activity.accept(event); requestBusyID = nil }
+                                },
+                                onDecline: { event in
+                                    guard requestBusyID == nil else { return }
+                                    Task { requestBusyID = event.id; await app.activity.decline(event); requestBusyID = nil }
+                                },
+                                onLoadMore: { Task { await app.activity.loadMore(mode) } },
+                                hasMore: state.nextCursor != nil && chip == .all,
+                                loadingMore: state.loadState == .loadingMore,
+                                busyEventID: requestBusyID
+                            )
+                            .id(chip)
+                        }
                     }
-                    .padding(.top, 40)
-                    .accessibilityIdentifier("activity.error")
-                case _ where state.events.isEmpty:
-                    empty
-                        .padding(.top, 28)
-                default:
-                    ActivityTimeline(
-                        events: state.events,
-                        mode: mode,
-                        onOpen: open,
-                        onMarkRead: { event in
-                            Task { await app.activity.markRead(event, mode: mode) }
-                        },
-                        onAccept: { event in
-                            guard requestBusyID == nil else { return }
-                            Task {
-                                requestBusyID = event.id
-                                await app.activity.accept(event)
-                                requestBusyID = nil
-                            }
-                        },
-                        onDecline: { event in
-                            guard requestBusyID == nil else { return }
-                            Task {
-                                requestBusyID = event.id
-                                await app.activity.decline(event)
-                                requestBusyID = nil
-                            }
-                        },
-                        onLoadMore: {
-                            Task { await app.activity.loadMore(mode) }
-                        },
-                        hasMore: state.nextCursor != nil,
-                        loadingMore: state.loadState == .loadingMore,
-                        busyEventID: requestBusyID
-                    )
+                    .padding(.horizontal, ModulaLayout.contentInset)
+                } header: {
+                    if mode == .all { ActivityChipBar(selection: $chip, unread: chipUnread(visible)) }
                 }
             }
-            .padding(.horizontal, ModulaLayout.contentInset)
+            .animation(.snappy(duration: 0.32), value: chip)
             .padding(.bottom, 28)
             .modulaPullContentEffects()
         }
         .environment(\.modulaHeroScope, "activity.\(mode.rawValue)")
         .modulaSoftScrollEdge()
-        .modulaShellPullActions {
-            await app.activity.refresh(mode, signedIn: true)
+        .modulaShellPullActions { await app.activity.refresh(mode, signedIn: true) }
+    }
+
+    private func chipUnread(_ events: [ActivityEvent]) -> [ActivityChip: Int] {
+        var out: [ActivityChip: Int] = [:]
+        for chip in ActivityChip.allCases where chip != .all {
+            out[chip] = events.filter { !$0.isRead && chip.matches($0) }.count
         }
+        return out
     }
 
     private var empty: some View {
         let copy: (String, String, String) = {
-            switch mode {
-            case .all: ("You're caught up.", "New activity will appear here.", "bell")
-            case .mentions: ("No mentions yet.", "When someone mentions you, you'll see it here.", "at")
-            case .requests: ("No pending requests.", "Follow and connection requests show up here.", "person.badge.plus")
+            switch (mode, chip) {
+            case (.all, .mentions): ("No mentions yet.", "When someone mentions you, you'll see it here.", "at")
+            case (.all, .likes): ("No likes yet.", "Reactions to your posts land here.", "heart")
+            case (.all, .follows): ("No new followers.", "New followers will show up here.", "person.2")
+            case (.all, .modules): ("No module updates.", "Installs and updates for your modules appear here.", "shippingbox")
+            case (.all, _): ("You're caught up.", "New activity will appear here.", "bell")
+            case (.mentions, _): ("No mentions yet.", "When someone mentions you, you'll see it here.", "at")
+            case (.requests, _): ("No pending requests.", "Follow and connection requests show up here.", "person.badge.plus")
             }
         }()
-        return ModulaEmptyState(title: copy.0, message: copy.1, symbol: copy.2)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .accessibilityIdentifier("activity.empty.\(mode.rawValue)")
-    }
-
-    private var skeleton: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            ForEach(0..<4, id: \.self) { _ in
-                HStack(spacing: 12) {
-                    Circle().fill(Color.primary.opacity(0.08)).frame(width: 40, height: 40)
-                    VStack(alignment: .leading, spacing: 6) {
-                        RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.08)).frame(height: 12)
-                        RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.06)).frame(width: 160, height: 10)
-                    }
-                }
-            }
-        }
-        .padding(.top, 12)
-        .accessibilityIdentifier("activity.loading")
-        .redacted(reason: .placeholder)
+        return ActivityLivelyEmptyState(
+            title: copy.0, message: copy.1, symbol: copy.2,
+            actionTitle: "Find people to follow",
+            action: { app.navigation.open(.discover(.people)); HapticEngine.shared.play(.navigation) }
+        )
+        .accessibilityIdentifier("activity.empty.\(mode.rawValue)")
     }
 
     private func open(_ event: ActivityEvent) {

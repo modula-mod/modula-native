@@ -419,12 +419,7 @@ struct ProductCard: View {
                     PublisherLabel(name: product.publisherName)
                 }
                 Spacer(minLength: 6)
-                Text(installed ? "OPEN" : (product.installable ? "GET" : "SOON"))
-                    .font(.footnote.weight(.bold))
-                    .foregroundStyle(product.installable || installed ? app.appearance.accent.color : .secondary)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
-                    .modulaGlass(in: Capsule(), interactive: false, tint: (product.installable || installed) ? app.appearance.accent.color.opacity(0.14) : nil)
+                ProductGetOpenControl(product: product, installed: installed)
                     .accessibilityHidden(true)
             }
             .padding(14)
@@ -449,6 +444,112 @@ struct ProductCard: View {
         .accessibilityLabel("\(product.name), \(product.publisherName)")
         .accessibilityValue(installed ? "Installed" : (product.installable ? "Available" : "Coming soon"))
         .accessibilityIdentifier("product.\(product.moduleId)")
+    }
+}
+
+
+struct ProductGetOpenControl: View {
+    let product: CatalogueProduct
+    let installed: Bool
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var spin = false
+    private var busy: Bool {
+        switch app.catalogue.operations[product.id] {
+        case .installing, .updating: true
+        default: false
+        }
+    }
+    var body: some View {
+        let accent = app.appearance.accent.color
+        ZStack {
+            if busy {
+                Circle().trim(from: 0, to: 0.72)
+                    .stroke(accent, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                    .frame(width: 36, height: 36)
+                    .rotationEffect(.degrees(spin ? 360 : 0))
+                    .animation(ModulaEffectGate.reduceMotion(reduceMotion) ? nil : .linear(duration: 0.9).repeatForever(autoreverses: false), value: spin)
+                    .onAppear { spin = true }.onDisappear { spin = false }
+                Image(systemName: "arrow.down").font(.caption.weight(.bold)).foregroundStyle(accent)
+            } else {
+                Text(installed ? "OPEN" : (product.installable ? "GET" : "SOON"))
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(product.installable || installed ? accent : .secondary)
+                    .padding(.horizontal, 14).padding(.vertical, 6)
+                    .modulaGlass(in: Capsule(), interactive: false, tint: (product.installable || installed) ? accent.opacity(0.14) : nil)
+            }
+        }
+        .frame(minWidth: 52, minHeight: 36)
+        .accessibilityLabel(busy ? "Installing" : (installed ? "Open" : (product.installable ? "Get" : "Coming soon")))
+    }
+}
+
+struct ProductCategoryChips: View {
+    let products: [CatalogueProduct]
+    var onOpen: (String) -> Void
+    @Environment(AppEnvironment.self) private var app
+    private var kinds: [String] {
+        var seen = Set<String>(); var out: [String] = []
+        for p in products {
+            let k = p.productKind.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !k.isEmpty, seen.insert(k).inserted else { continue }
+            out.append(k)
+        }
+        return out
+    }
+    var body: some View {
+        let accent = app.appearance.accent.color
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Categories").font(.title3.bold())
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(kinds, id: \.self) { kind in
+                        Button { onOpen(kind); HapticEngine.shared.play(.selection) } label: {
+                            Text(kind.capitalized).font(.subheadline.weight(.semibold))
+                                .padding(.horizontal, 14).padding(.vertical, 9)
+                                .modulaGlass(in: Capsule(), interactive: true, tint: accent.opacity(0.12))
+                        }
+                        .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+                        .accessibilityIdentifier("product-hub.category.\(kind)")
+                    }
+                }
+            }.scrollClipDisabled()
+        }
+    }
+}
+
+struct ProductRankedList: View {
+    var title: String; var subtitle: String? = nil
+    var products: [CatalogueProduct]; var installedIDs: Set<String>
+    var action: (CatalogueProduct) -> Void
+    @Environment(AppEnvironment.self) private var app
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.title2.bold())
+                if let subtitle { Text(subtitle).font(.subheadline).foregroundStyle(.secondary) }
+            }
+            ForEach(Array(products.enumerated()), id: \.element.id) { index, product in
+                Button { action(product) } label: {
+                    HStack(spacing: 12) {
+                        Text("\(index + 1)").font(.title3.weight(.bold)).monospacedDigit()
+                            .foregroundStyle(index < 3 ? app.appearance.accent.color : .secondary).frame(width: 28)
+                        ProductArtwork(product: product, size: 52)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(product.name).font(.headline).foregroundStyle(.primary).lineLimit(1)
+                            Text(product.publisherName).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                        Spacer(minLength: 6)
+                        ProductGetOpenControl(product: product, installed: installedIDs.contains(product.id))
+                    }
+                    .padding(12)
+                    .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: false)
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: nil))
+                .modulaScrollReveal()
+                .accessibilityLabel("\(index + 1). \(product.name)")
+            }
+        }
     }
 }
 
@@ -488,25 +589,32 @@ struct ProductHero: View {
             ZStack(alignment: .bottomLeading) {
                 ProductBackdrop(product: product)
                     .modulaHeroSheen(intensity: 0.55)
-                LinearGradient(colors: [.clear, .black.opacity(0.72)], startPoint: .center, endPoint: .bottom)
-                HStack(alignment: .bottom, spacing: 14) {
-                    ProductArtwork(product: product, size: 64)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("FEATURED")
+                LinearGradient(colors: [.clear, .black.opacity(0.15), .black.opacity(0.82)], startPoint: .top, endPoint: .bottom)
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Text("TODAY")
                             .font(.caption2.weight(.bold))
-                            .foregroundStyle(.white.opacity(0.72))
-                        Text(product.name).font(.title2.bold())
-                        Text(product.description)
-                            .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.82))
-                            .lineLimit(2)
+                            .tracking(1.2)
+                            .foregroundStyle(.white.opacity(0.85))
+                            .padding(.horizontal, 10).padding(.vertical, 5)
+                            .modulaGlass(in: Capsule(), interactive: false, tint: .white.opacity(0.14))
+                        Spacer()
+                        ProductArtwork(product: product, size: 44)
+                            .shadow(color: .black.opacity(0.35), radius: 8, y: 4)
                     }
-                    Spacer(minLength: 0)
-                }
-                .foregroundStyle(.white)
-                .padding(18)
+                    Spacer(minLength: 12)
+                    Text(product.name).font(.largeTitle.bold()).foregroundStyle(.white).lineLimit(2)
+                        .shadow(color: .black.opacity(0.35), radius: 8, y: 2)
+                    Text(product.description).font(.subheadline).foregroundStyle(.white.opacity(0.88)).lineLimit(3).padding(.top, 6)
+                    HStack(spacing: 8) {
+                        Text(product.publisherName).font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.7))
+                        Spacer()
+                        Text("Read story").font(.caption.weight(.bold)).foregroundStyle(.white)
+                        Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.white.opacity(0.8))
+                    }.padding(.top, 14)
+                }.padding(20)
             }
-            .frame(height: 280)
+            .frame(height: 340)
             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
@@ -604,17 +712,35 @@ struct ProductHubView: View {
             ModulaLoadingState(title: "Loading Product Hub…")
         } else if let error = app.catalogue.error, app.catalogue.products.isEmpty {
             ModulaErrorState(message: error) { Task { await app.catalogue.load() } }
-        } else {
-            if query.isEmpty, let vault = app.catalogue.product("digital.modula.vault-notes") {
-                ProductHero(product: vault) { open(vault) }
+        } else if query.isEmpty {
+            let featured = app.catalogue.product("digital.modula.vault-notes")
+                ?? app.catalogue.products.first(where: \.installable)
+                ?? app.catalogue.products.first
+            if let featured {
+                ProductHero(product: featured) { open(featured) }
+                    .modulaPageEntrance()
             }
+            ProductCategoryChips(products: app.catalogue.products) { kind in
+                app.navigation.open(.productHub(.category(kind)))
+            }
+            ProductRankedList(
+                title: "Top modules",
+                subtitle: "Ranked by availability and publisher",
+                products: Array(app.catalogue.products.sorted { lhs, rhs in
+                    (lhs.installable ? 0 : 1, lhs.name) < (rhs.installable ? 0 : 1, rhs.name)
+                }.prefix(8)),
+                installedIDs: app.catalogue.installedIDs,
+                action: open
+            )
             ProductShelf(
-                title: query.isEmpty ? "From Modula" : "Results",
-                subtitle: query.isEmpty ? "Available modules" : nil,
+                title: "From Modula",
+                subtitle: "Every module from the registry",
                 products: visible,
                 installedIDs: app.catalogue.installedIDs,
                 action: open
             )
+        } else {
+            ProductShelf(title: "Results", products: visible, installedIDs: app.catalogue.installedIDs, action: open)
         }
     }
 

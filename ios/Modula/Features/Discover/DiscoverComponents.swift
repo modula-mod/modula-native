@@ -6,11 +6,15 @@ struct DiscoverSearchEntry: View {
     var onRefresh: () -> Void
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.modulaHeroScope) private var heroScope
 
     var body: some View {
         let opaque = reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
         HStack(spacing: 0) {
-            Button(action: action) {
+            Button {
+                ModulaHeroMorph.arm(ModulaHeroMorph.sourceID(scope: heroScope, kind: "search", key: "entry"), for: .search(.root(nil)))
+                action()
+            } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
                         .font(.body.weight(.semibold))
@@ -25,6 +29,7 @@ struct DiscoverSearchEntry: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .modulaHeroSource("search", key: "entry")
             .accessibilityLabel("Search people, posts, topics, modules")
             .accessibilityIdentifier("discover.search-entry")
             .accessibilityHint("Opens Search")
@@ -107,7 +112,7 @@ struct DiscoverTopicCard: View {
     }
 }
 
-private struct DiscoverTopicArtwork: View {
+struct DiscoverTopicArtwork: View {
     let seed: String
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
@@ -540,5 +545,69 @@ struct DiscoverSkeleton: View {
                 .fill(Color.primary.opacity(0.06))
                 .frame(height: 96)
         }
+    }
+}
+
+
+enum DiscoverSearchRecents {
+    private static let key = "discover.search.recents.v1"
+    static func load() -> [String] { UserDefaults.standard.stringArray(forKey: key) ?? [] }
+    static func record(_ query: String) {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2 else { return }
+        var items = load().filter { $0.caseInsensitiveCompare(trimmed) != .orderedSame }
+        items.insert(trimmed, at: 0)
+        UserDefaults.standard.set(Array(items.prefix(12)), forKey: key)
+    }
+    static func clear() { UserDefaults.standard.removeObject(forKey: key) }
+}
+
+struct DiscoverSearchIdle: View {
+    var onPickRecent: (String) -> Void
+    var onPickSuggestion: (String) -> Void
+    @Environment(AppEnvironment.self) private var app
+    private var recents: [String] { DiscoverSearchRecents.load() }
+    private var suggestions: [String] {
+        let topics = app.discover.trending.dashboard?.topics.prefix(6).map(\.label) ?? []
+        return topics.isEmpty ? ["Design", "Modules", "Reels", "Creators", "AI", "Stories"] : Array(topics)
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            if !recents.isEmpty {
+                HStack {
+                    Text("Recent").font(.title3.bold()); Spacer()
+                    Button("Clear") { DiscoverSearchRecents.clear(); HapticEngine.shared.play(.selection) }
+                        .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                }
+                ForEach(recents, id: \.self) { item in
+                    Button { onPickRecent(item) } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "clock.arrow.circlepath").foregroundStyle(.secondary)
+                                .frame(width: 28, height: 28).modulaGlass(in: Circle(), interactive: false)
+                            Text(item).font(.body).foregroundStyle(.primary); Spacer()
+                            Image(systemName: "arrow.up.left").font(.caption).foregroundStyle(.tertiary)
+                        }.padding(.vertical, 6).contentShape(Rectangle())
+                    }.buttonStyle(ModulaPressStyle(scale: 0.98, haptic: .selection))
+                }
+            }
+            Text("Suggested").font(.title3.bold())
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(suggestions, id: \.self) { item in
+                        Button { onPickSuggestion(item); HapticEngine.shared.play(.selection) } label: {
+                            Text(item).font(.subheadline.weight(.semibold))
+                                .padding(.horizontal, 14).padding(.vertical, 9)
+                                .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color.opacity(0.12))
+                        }.buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+                    }
+                }
+            }.scrollClipDisabled()
+            ContentUnavailableView {
+                Label("Search Modula", systemImage: "magnifyingglass")
+            } description: { Text("People, posts, modules, and topics — one field.") }
+            .frame(minHeight: 120)
+        }
+        .modulaPageEntrance()
+        .accessibilityIdentifier("search.idle")
     }
 }

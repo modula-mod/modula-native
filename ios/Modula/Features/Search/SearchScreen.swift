@@ -55,12 +55,7 @@ struct SearchScreen: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
                 if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && chromeScope != .topics {
-                    ContentUnavailableView {
-                        Label("Search Modula", systemImage: "magnifyingglass")
-                    } description: {
-                        Text("Search people, posts, modules, and topics from one native field.")
-                    }
-                    .frame(minHeight: 280)
+                    DiscoverSearchIdle(onPickRecent: { query = $0 }, onPickSuggestion: { query = $0 })
                 } else {
                     results
                 }
@@ -87,6 +82,7 @@ struct SearchScreen: View {
         .task {
             if !query.isEmpty || chromeScope == .topics {
                 await app.discover.performSearch(query: query, section: chromeScope.section)
+                DiscoverSearchRecents.record(query)
             }
         }
         .onDisappear { searchTask?.cancel() }
@@ -217,6 +213,7 @@ struct SearchScreen: View {
             try? await Task.sleep(nanoseconds: 280_000_000)
             guard !Task.isCancelled else { return }
             await app.discover.performSearch(query: query, section: chromeScope.section)
+            DiscoverSearchRecents.record(query)
         }
     }
 

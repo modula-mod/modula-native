@@ -80,6 +80,7 @@
 		63CC3E79BDCFF0F138189C2B /* ModulaLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4000338D069CCD91CB36D32 /* ModulaLog.swift */; };
 		67A5698FD3DAF53049D07C73 /* IntelligenceExecutionKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9835AA81D7D5E62C87948FE5 /* IntelligenceExecutionKind.swift */; };
 		72C4D78F9C1D0E3C2FD3BB95 /* ActivityComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDA1C8662B298F425D5FC310 /* ActivityComponents.swift */; };
+		E79A781ECF6B4DBD88C72C5B /* ActivityRedesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD60DAFD3B7F4EEEB33301B9 /* ActivityRedesign.swift */; };
 		7D7AABC4EB1C0A2313444D79 /* ModuleEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435419F8D75EB3FA37353703 /* ModuleEnvironment.swift */; };
 		7F0E4764560ACE3663B3525E /* IntelligenceCapability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64E0C1CE1DD2D90E75B3DF62 /* IntelligenceCapability.swift */; };
 		82685269B61760190FAE127E /* NodusMemoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F03524A18CE8AF15E324949F /* NodusMemoryView.swift */; };
@@ -507,6 +508,7 @@
 		BB8E23944EDA4143B0141E3D /* Pods-Modula.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modula.debug.xcconfig"; path = "Target Support Files/Pods-Modula/Pods-Modula.debug.xcconfig"; sourceTree = "<group>"; };
 		BC3695AE2813EB68FE1AE272 /* NodusKnowledgeModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusKnowledgeModels.swift; path = Core/Intelligence/Nodus/Knowledge/NodusKnowledgeModels.swift; sourceTree = "<group>"; };
 		BDA1C8662B298F425D5FC310 /* ActivityComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityComponents.swift; path = Features/Activity/ActivityComponents.swift; sourceTree = "<group>"; };
+		DD60DAFD3B7F4EEEB33301B9 /* ActivityRedesign.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityRedesign.swift; path = Features/Activity/ActivityRedesign.swift; sourceTree = "<group>"; };
 		BEF0F5DFEB2FC30D2769C391 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		C086A4FED95A41F19B257A39 /* N1FixtureCredentials.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = N1FixtureCredentials.swift; path = Core/Authentication/N1FixtureCredentials.swift; sourceTree = "<group>"; };
 		C3C0363819593AB6B8477B79 /* Pods-Modula.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modula.release.xcconfig"; path = "Target Support Files/Pods-Modula/Pods-Modula.release.xcconfig"; sourceTree = "<group>"; };
@@ -1049,6 +1051,8 @@
 				C3DC1AD1EDCCBBF93362A45C /* ActivityRepository.swift */,
 				8BB4C8A7DBAF1068946F2678 /* ActivityStore.swift */,
 				BDA1C8662B298F425D5FC310 /* ActivityComponents.swift */,
+
+				DD60DAFD3B7F4EEEB33301B9 /* ActivityRedesign.swift */,
 				A5E0D5A04B04831431C46FFA /* ActivityScreen.swift */,
 				EECC47A5007CE1E5BB063A97 /* ShellAccessory.swift */,
 				E10100000000000000000001 /* DiscoverModels.swift */,
@@ -1626,6 +1630,8 @@
 				4154C7AA00AF7AB56F7031B3 /* ActivityRepository.swift in Sources */,
 				8792C88AC2427176A7389799 /* ActivityStore.swift in Sources */,
 				72C4D78F9C1D0E3C2FD3BB95 /* ActivityComponents.swift in Sources */,
+
+				E79A781ECF6B4DBD88C72C5B /* ActivityRedesign.swift in Sources */,
 				22CC6AB6F1DCAECE01085714 /* ActivityScreen.swift in Sources */,
 				B7E661790BD11DE3A721C204 /* ShellAccessory.swift in Sources */,
 				E20100000000000000000001 /* DiscoverModels.swift in Sources */,
