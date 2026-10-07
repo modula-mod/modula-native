@@ -65,7 +65,8 @@ struct SavedView: View {
                                 },
                                 // Same single-active-video policy as Home, so saved
                                 // videos don't all autoplay at once.
-                                videoCoordinator: videoCoordinator
+                                videoCoordinator: videoCoordinator,
+                                style: .immersive
                             )
                                 .contextMenu {
                                     Button("Unsave", systemImage: "bookmark.slash", role: .destructive) {

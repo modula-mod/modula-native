@@ -109,6 +109,7 @@ final class PostCommentsStore {
             isSending = false
             HapticEngine.shared.play(.success)
             MascotProgressStore.shared.record(.comment)
+            ModulaMascotEvent.post(.comment)
             return true
         } catch {
             // Preserve draft on failure.

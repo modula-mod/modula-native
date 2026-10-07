@@ -19,16 +19,16 @@ enum ModulaMotion {
         guard !reduceMotion, !ModulaPreferences.extraMotionReduction else { return .easeOut(duration: 0.12) }
         switch personality {
         case .calm:
-            return .easeOut(duration: role == .navigation || role == .presentation ? 0.22 : 0.16)
+            return .easeOut(duration: role == .navigation || role == .presentation ? 0.2 : 0.14)
         case .standard:
             switch role {
             case .instantFeedback: return .easeOut(duration: 0.1)
-            case .selection, .contentTransition: return .snappy(duration: 0.28, extraBounce: 0.05)
-            case .interactiveGesture: return .interactiveSpring(response: 0.32, dampingFraction: 0.86)
-            default: return .spring(duration: 0.38, bounce: 0.16)
+            case .selection, .contentTransition: return .snappy(duration: 0.22, extraBounce: 0.05)
+            case .interactiveGesture: return .interactiveSpring(response: 0.26, dampingFraction: 0.86)
+            default: return .spring(duration: 0.3, bounce: 0.16)
             }
         case .expressive:
-            return .spring(duration: role == .instantFeedback ? 0.18 : 0.5, bounce: 0.28)
+            return .spring(duration: role == .instantFeedback ? 0.16 : 0.42, bounce: 0.28)
         }
     }
 }

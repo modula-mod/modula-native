@@ -1208,3 +1208,35 @@ struct MascotSparkleShape: Shape {
         return p
     }
 }
+
+
+// MARK: - App-wide mascot reactions
+
+/// Lightweight event bus so every on-screen mascot reacts to what the user just did.
+enum ModulaMascotEvent: String, Sendable {
+    case like, save, repost, share, follow, published, refresh, comment, failure
+
+    static let notification = Notification.Name("modulaMascotEvent")
+
+    static func post(_ event: ModulaMascotEvent) {
+        let raw = event.rawValue
+        Task { @MainActor in
+            NotificationCenter.default.post(name: notification, object: nil, userInfo: ["event": raw])
+        }
+    }
+}
+
+extension MascotBrain {
+    func handle(_ event: ModulaMascotEvent) {
+        switch event {
+        case .like: hop(burst: .hearts); react(.pleased)
+        case .save: hop(burst: .sparkle); react(.happy)
+        case .repost, .share: hop(burst: .pop); react(.excited)
+        case .follow: hop(burst: .confetti, height: 14); react(.celebrate)
+        case .published: celebrate()
+        case .refresh: hop(burst: nil, height: 7); react(.curious)
+        case .comment: hop(burst: .pop, height: 6); react(.speaking)
+        case .failure: burst(.tear); react(.sad)
+        }
+    }
+}

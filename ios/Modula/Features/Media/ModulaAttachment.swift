@@ -230,10 +230,27 @@ struct ModulaRemoteImage<Content: View>: View {
     let cacheKey: String
     var maximumPixelSize: CGFloat = 1_600
     var retryID = 0
-    @ViewBuilder let content: (ModulaRemoteImagePhase) -> Content
+    let content: (ModulaRemoteImagePhase) -> Content
 
     @Environment(AppEnvironment.self) private var app
-    @State private var phase: ModulaRemoteImagePhase = .loading
+    @State private var phase: ModulaRemoteImagePhase
+
+    init(
+        url: URL?,
+        cacheKey: String,
+        maximumPixelSize: CGFloat = 1_600,
+        retryID: Int = 0,
+        @ViewBuilder content: @escaping (ModulaRemoteImagePhase) -> Content
+    ) {
+        self.url = url
+        self.cacheKey = cacheKey
+        self.maximumPixelSize = maximumPixelSize
+        self.retryID = retryID
+        self.content = content
+        // Seed from the memory cache so re-appearing cells render instantly (no loading flash).
+        let cached = MainActor.assumeIsolated { ModulaRemoteImageCache.shared.image(for: cacheKey) }
+        _phase = State(initialValue: cached.map { .success($0) } ?? .loading)
+    }
 
     var body: some View {
         content(phase)
@@ -260,7 +277,7 @@ struct ModulaRemoteImage<Content: View>: View {
             }
             try Task.checkCancellation()
             let maximumPixelSize = maximumPixelSize
-            guard let image = await Task.detached(priority: .utility, operation: {
+            guard let image = await Task.detached(priority: .userInitiated, operation: {
                 ModulaRemoteImageDecoder.downsample(data: data, maximumPixelSize: maximumPixelSize)
             }).value else {
                 phase = .failure("The image could not be decoded.")
@@ -279,6 +296,24 @@ struct ModulaRemoteImage<Content: View>: View {
         let cacheKey: String
         let url: URL?
         let retryID: Int
+    }
+}
+
+/// Warms the shared image cache for content that is about to scroll on screen.
+enum ModulaImagePrefetcher {
+    @MainActor private static var requested = Set<String>()
+
+    @MainActor static func prefetch(url: URL?, cacheKey: String, maximumPixelSize: CGFloat, client: GreenfieldClient) {
+        guard let url, !requested.contains(cacheKey), ModulaRemoteImageCache.shared.image(for: cacheKey) == nil else { return }
+        requested.insert(cacheKey)
+        if requested.count > 600 { requested.removeAll(keepingCapacity: true) }
+        Task(priority: .utility) { @MainActor in
+            guard let data = try? await ModulaRemoteImagePipeline.shared.data(for: cacheKey, fetch: { try await client.mediaData(from: url) }) else { return }
+            guard let image = await Task.detached(priority: .utility, operation: {
+                ModulaRemoteImageDecoder.downsample(data: data, maximumPixelSize: maximumPixelSize)
+            }).value else { return }
+            ModulaRemoteImageCache.shared.insert(image, for: cacheKey)
+        }
     }
 }
 
@@ -307,8 +342,8 @@ private final class ModulaRemoteImageCache {
     private let storage = NSCache<NSString, UIImage>()
 
     private init() {
-        storage.countLimit = 120
-        storage.totalCostLimit = 96 * 1_024 * 1_024
+        storage.countLimit = 260
+        storage.totalCostLimit = 160 * 1_024 * 1_024
     }
 
     func image(for key: String) -> UIImage? {

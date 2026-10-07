@@ -2498,6 +2498,7 @@ struct StoryCreateView: View {
         let audience = visibility == "close_friends" && !app.stories.capabilities.privacy ? "followers" : visibility
         if await app.stories.publish(image: prepared, caption: caption, visibility: audience) {
             published = true
+            ModulaMascotEvent.post(.published)
             app.drafts.discardStory(id: draftID)
             app.navigation.close()
             HapticEngine.shared.play(.success)

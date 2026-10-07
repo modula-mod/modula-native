@@ -181,7 +181,7 @@ struct ModulaPressStyle: ButtonStyle {
                 perspective: 0.6
             )
             .brightness(pressed ? -0.035 : 0)
-            .animation(reduce ? nil : .spring(response: 0.28, dampingFraction: 0.62), value: pressed)
+            .animation(reduce ? nil : .spring(response: 0.2, dampingFraction: 0.66), value: pressed)
             .onChange(of: pressed) { _, isPressed in
                 if isPressed, let haptic { HapticEngine.shared.play(haptic) }
             }

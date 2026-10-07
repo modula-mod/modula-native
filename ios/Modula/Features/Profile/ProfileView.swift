@@ -230,7 +230,11 @@ struct ProfileView: View {
                     offset: context.geometry.contentOffset.y
                 )
             }
-            .refreshable { await refreshCurrent() }
+            .refreshable {
+                await refreshCurrent()
+                HapticEngine.shared.play(.lightImpact)
+                ModulaMascotEvent.post(.refresh)
+            }
             #if DEBUG
             .scrollPosition($debugScrollPosition)
             .task(id: profile != nil) {
@@ -945,7 +949,8 @@ struct ProfileView: View {
             onOpenModule: { module in
                 app.navigation.push(.productHub(.module(module.id, .overview)))
                 HapticEngine.shared.play(.navigation)
-            }
+            },
+            style: .immersive
         )
         .accessibilityIdentifier("profile.post.\(resolved.id)")
     }
@@ -1160,6 +1165,7 @@ struct ProfileView: View {
                 handleHint: person.handle,
                 signedIn: app.auth.isSignedIn
             )
+            ModulaMascotEvent.post(.follow)
         }
     }
 
@@ -1175,6 +1181,8 @@ struct ProfileView: View {
                 handleHint: profile.handle,
                 signedIn: app.auth.isSignedIn
             )
+            HapticEngine.shared.play(.followComplete)
+            ModulaMascotEvent.post(.follow)
         }
     }
 

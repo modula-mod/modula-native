@@ -78,6 +78,7 @@ struct ProfilePostGrid: View {
     var tint: Color
     var onOpen: (SocialPost) -> Void
     var onReachEnd: (() -> Void)? = nil
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 3), count: 3), spacing: 3) {
@@ -86,6 +87,17 @@ struct ProfilePostGrid: View {
                     ProfilePostTile(post: post, tint: tint)
                 }
                 .buttonStyle(ModulaPressStyle(scale: 0.95))
+                // Long-press peek: large preview + quick actions without leaving the grid.
+                .contextMenu {
+                    Button("Open post", systemImage: "arrow.up.forward.square") { onOpen(post) }
+                    Button("Copy link", systemImage: "link") {
+                        UIPasteboard.general.url = ModulaShareLink.post(post.id)
+                        HapticEngine.shared.play(.success)
+                    }
+                } preview: {
+                    ProfilePostPeek(post: post, tint: tint)
+                        .environment(app)
+                }
                 .modulaScrollReveal()
                 .onAppear {
                     if post.id == posts.last?.id { onReachEnd?() }
@@ -208,5 +220,48 @@ struct ProfilePostGridSkeleton: View {
         .modulaShimmer()
         .accessibilityLabel("Loading posts")
         .accessibilityIdentifier("profile.posts.loading")
+    }
+}
+
+
+/// Context-menu peek for a profile grid tile (sharper image + caption + likes).
+struct ProfilePostPeek: View {
+    let post: SocialPost
+    var tint: Color
+
+    private var mediaURL: URL? {
+        guard let media = post.primaryMedia else { return nil }
+        return media.previewURL ?? media.thumbnailURL ?? media.url
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ZStack {
+                ProfilePostTile(post: post, tint: tint)
+                if let mediaURL {
+                    ModulaRemoteImage(url: mediaURL, cacheKey: "peek:\(mediaURL.path)", maximumPixelSize: 1_100) { phase in
+                        if case .success(let image) = phase {
+                            Image(uiImage: image).resizable().scaledToFill()
+                                .transition(.opacity)
+                        }
+                    }
+                }
+            }
+            .frame(width: 320, height: 320)
+            .clipped()
+            if let text = post.text, !text.isEmpty {
+                Text(text)
+                    .font(.subheadline)
+                    .lineLimit(3)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 10)
+            }
+            Label("\(post.likeCount)", systemImage: post.liked ? "heart.fill" : "heart")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(post.liked ? Color.pink : Color.secondary)
+                .padding(14)
+        }
+        .frame(width: 320)
+        .background(Color(uiColor: .systemBackground))
     }
 }

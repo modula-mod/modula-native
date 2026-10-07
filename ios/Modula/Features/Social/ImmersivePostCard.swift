@@ -1283,10 +1283,7 @@ struct SmartCropImage: View {
                         }
                     }
                 case .loading:
-                    ZStack {
-                        Color(white: 0.14)
-                        ProgressView().tint(.white)
-                    }
+                    Color(white: 0.14).modulaShimmer()
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height)

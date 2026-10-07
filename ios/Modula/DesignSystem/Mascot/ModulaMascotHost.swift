@@ -205,6 +205,11 @@ struct ModulaLiveMascot: View {
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
         .onAppear { visible = true; context.start(); brain.jiggle = kind == .tofu ? 0.05 : 0.025; syncMotion() }
         .onDisappear { visible = false; syncMotion() }
+        .onReceive(NotificationCenter.default.publisher(for: ModulaMascotEvent.notification)) { note in
+            guard visible, animated, let raw = note.userInfo?["event"] as? String,
+                  let event = ModulaMascotEvent(rawValue: raw) else { return }
+            brain.handle(event)
+        }
         .onChange(of: reduceMotion) { _, _ in syncMotion() }
         .onChange(of: animated) { _, _ in syncMotion() }
     }

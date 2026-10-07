@@ -79,6 +79,8 @@ struct HomeView: View {
             .modulaShellPullActions {
                 await app.home.refresh(mode, signedIn: app.auth.isSignedIn)
                 await app.stories.refresh()
+                HapticEngine.shared.play(.lightImpact)
+                ModulaMascotEvent.post(.refresh)
             }
 
             if state.newerAvailable {
@@ -250,6 +252,7 @@ struct HomeView: View {
                         onOpenPost: { openPost(resolved) },
                         onOpenAuthor: { openAuthor(resolved) },
                         onLike: {
+                            if !resolved.liked { ModulaMascotEvent.post(.like) }
                             Task { await app.home.toggleLike(resolved, mode: mode) }
                         },
                         onComment: {
@@ -257,13 +260,16 @@ struct HomeView: View {
                             HapticEngine.shared.play(.contextOpen)
                         },
                         onRepost: {
+                            ModulaMascotEvent.post(.repost)
                             Task { await app.home.toggleRepost(resolved, mode: mode) }
                         },
                         onSave: {
+                            if !resolved.saved { ModulaMascotEvent.post(.save) }
                             Task { await app.home.toggleSave(resolved, mode: mode) }
                         },
                         onShare: {
                             // Settings → Sharing decides copy / iOS sheet / Modula sheet.
+                            ModulaMascotEvent.post(.share)
                             PostSharing.share(resolved, app: app)
                         },
                         onContextAction: { action in
@@ -285,6 +291,7 @@ struct HomeView: View {
                     .modulaEdgeFlow()
                     .modulaScrollReveal()
                     .onAppear {
+                        prefetchAhead(after: post)
                         if post.id == state.items.suffix(3).first?.id || post.id == state.items.last?.id {
                             Task { await app.home.loadMore(mode) }
                         }
@@ -573,6 +580,28 @@ struct HomeView: View {
             }
         default:
             break
+        }
+    }
+}
+
+
+// MARK: - Image prefetch (keeps the next cards' photos decoded before they scroll in)
+
+extension HomeView {
+    fileprivate func prefetchAhead(after post: SocialPost) {
+        let items = app.home.visiblePosts(for: mode)
+        guard let index = items.firstIndex(where: { $0.id == post.id }) else { return }
+        for next in items.dropFirst(index + 1).prefix(4) {
+            for media in next.media.prefix(2) {
+                let attachment = ModulaPostMapper.attachment(media)
+                guard attachment.kind == .image else { continue }
+                ModulaImagePrefetcher.prefetch(
+                    url: attachment.bestPreviewURL ?? attachment.playableURL,
+                    cacheKey: "attachment:\(attachment.id):feed-image",
+                    maximumPixelSize: 2_000,
+                    client: app.client
+                )
+            }
         }
     }
 }
