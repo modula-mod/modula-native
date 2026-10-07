@@ -341,6 +341,17 @@ struct ModulaAvatar: View {
     /// Person's name for VoiceOver ("Ada Lovelace, profile photo").
     var name: String? = nil
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.modulaSuppressOwnFrame) private var suppressOwnFrame
+
+    /// The signed-in user's own photo carries their "open to" arc frame everywhere.
+    /// Reads only the small overlay store (not ProfileStore sessions), so avatars don't
+    /// re-render on every profile mutation.
+    private var isOwnAvatar: Bool {
+        let overlays = ProfileAvatarOverlayStore.shared
+        guard !suppressOwnFrame, size >= 24, let url, overlays.badge != nil,
+              let own = overlays.ownAvatarURL else { return false }
+        return url == own
+    }
 
     var body: some View {
         Group {
@@ -362,6 +373,12 @@ struct ModulaAvatar: View {
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
+        .overlay {
+            if isOwnAvatar {
+                ProfileOwnAvatarArcOverlay(size: size)
+            }
+        }
+        .onAppear { ProfileAvatarOverlayStore.shared.bind(accountID: app.auth.account?.accountId) }
         .accessibilityLabel(name.map { "\($0), profile photo" } ?? "Profile photo")
         .accessibilityAddTraits(.isImage)
     }

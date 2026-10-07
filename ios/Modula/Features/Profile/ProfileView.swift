@@ -27,6 +27,10 @@ struct ProfileView: View {
     /// Dominant colour of the real avatar image; tints the aurora hero and glow ring.
     @State private var avatarTint: Color?
     @State private var contentTab: ProfileContentTab = .posts
+    @State private var shelf: ProfileShelfTab = .posts
+    @State private var showsFrames = false
+    @Namespace private var shelfNamespace
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @AppStorage("profile.postLayout") private var postLayoutRaw = ProfilePostLayout.grid.rawValue
     #if DEBUG
     /// DEBUG-only: `--debug-autoscroll` scrolls the page for screen recordings.
@@ -72,6 +76,11 @@ struct ProfileView: View {
             await app.stories.loadIfNeeded()
         }
         .task(id: profile?.avatarURL) {
+            if isOwnProfile, let profile {
+                // Lets every ModulaAvatar of "me" carry the open-to arc frame.
+                ProfileAvatarOverlayStore.shared.bind(accountID: app.auth.account?.accountId)
+                ProfileAvatarOverlayStore.shared.noteOwnAvatar(profile.avatarURL)
+            }
             guard let url = profile?.avatarURL else {
                 avatarTint = nil
                 return
@@ -158,6 +167,11 @@ struct ProfileView: View {
             ProfileActivityShareView(url: item.url) {
                 activityShare = nil
             }
+        }
+        .sheet(isPresented: $showsFrames) {
+            ProfileAvatarOverlayEditor()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
         .overlay(alignment: .top) {
             if copiedBanner {
@@ -275,21 +289,8 @@ struct ProfileView: View {
                     .accessibilityLabel(compactTitle)
                 }
             }
-            if isOwnProfile {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Edit Profile", systemImage: "pencil") {
-                        openSection(.edit)
-                    }
-                    .accessibilityIdentifier("profile.edit.cta")
-                }
-            }
+            // Edit profile / Share profile live in-page as Liquid Glass buttons.
             if let profile {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Share Profile", systemImage: "square.and.arrow.up") {
-                        presentShare(profile)
-                    }
-                    .accessibilityIdentifier("profile.share")
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         ForEach(ProfileContextActions.moreMenu(isOwn: isOwnProfile)) { action in
@@ -397,51 +398,95 @@ struct ProfileView: View {
     // MARK: - Overview
 
     private func overview(_ profile: ModulaProfile) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
             hero(profile)
 
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 18) {
                 if app.profile.visitorPreviewActive, isOwnProfile {
                     ProfileVisitorPreviewBanner {
                         app.profile.setVisitorPreview(false)
                     }
                 }
-                primaryActions(profile)
+
+                ProfileInfoChips(profile: profile)
                     .modulaPageEntrance(delay: 0.04)
+
+                let mutuals = mutualFollowers(profile)
+                if !mutuals.isEmpty {
+                    ProfileMutualFollowersLine(people: mutuals) {
+                        openSection(.followers)
+                    }
+                    .transition(.opacity)
+                }
+
                 metrics(profile)
                     .modulaPageEntrance(delay: 0.08)
 
-                if let focus = profile.focusStatus {
-                    Label(focus.message ?? focus.label, systemImage: "circle.fill")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .labelStyle(.titleAndIcon)
-                        .symbolRenderingMode(.hierarchical)
-                        .accessibilityIdentifier("profile.focus")
-                }
+                heroActions(profile)
+                    .modulaPageEntrance(delay: 0.1)
 
-                ProfileAboutGrid(profile: profile)
+                highlights(profile)
                     .modulaPageEntrance(delay: 0.12)
 
-                contentTabs(profile)
-                    .modulaPageEntrance(delay: 0.16)
+                if !session.modules.items.isEmpty {
+                    ProfileFeaturedModulesRow(
+                        products: session.modules.items,
+                        installedIDs: app.catalogue.installedIDs,
+                        onOpen: openModule,
+                        onSeeAll: { openSection(.modules) }
+                    )
+                    .modulaPageEntrance(delay: 0.14)
+                }
+
+                linksPreviewSection(profile)
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.leading, leadingInteractionInset)
             .padding(.trailing, trailingInteractionInset)
-            .padding(.top, 8)
+            .padding(.top, 14)
+            .padding(.bottom, 14)
+
+            Section {
+                shelfContent(profile)
+                    .padding(.horizontal, ModulaLayout.contentInset)
+                    .padding(.leading, leadingInteractionInset)
+                    .padding(.trailing, trailingInteractionInset)
+                    .padding(.top, 8)
+            } header: {
+                shelfBar(profile)
+            }
+        }
+        .task(id: profile.id) {
+            await loadMutuals(profile)
         }
     }
 
     private func hero(_ profile: ModulaProfile) -> some View {
         VStack(alignment: .leading, spacing: 0) {
+            heroMedia(profile)
+            ProfileIdentityBlock(profile: profile, showsFollowsYou: !isOwnProfile)
+                .padding(.horizontal, ModulaLayout.contentInset)
+                .padding(.leading, leadingInteractionInset)
+                .padding(.trailing, trailingInteractionInset)
+                .padding(.top, 10)
+        }
+        .padding(.top, 0)
+        .accessibilitySortPriority(100)
+    }
+
+    /// Stretchy/parallax cover with the avatar nested in its concave notch. The mascot
+    /// sits at the trailing end of the avatar row, below the banner, so it never collides
+    /// with the avatar, the seam, or the handle.
+    private func heroMedia(_ profile: ModulaProfile) -> some View {
+        let avatarSize = ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass)
+        return VStack(alignment: .leading, spacing: 0) {
             ProfileCover(
                 coverURL: profile.coverURL,
                 coverColour: profile.coverColour,
                 tint: heroTint,
                 scrollProgress: headerProgress,
-                pocketCenterX: ModulaLayout.contentInset + ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass) / 2,
-                pocketRadius: ProfileIdentityMetrics.carveRadius(avatarSize: ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass)),
+                pocketCenterX: ModulaLayout.contentInset + avatarSize / 2,
+                pocketRadius: ProfileIdentityMetrics.carveRadius(avatarSize: avatarSize),
                 onTap: { openCoverViewer(profile) },
                 contextActions: ProfileContextActions.coverMenu(isOwn: isOwnProfile, hasCover: profile.coverURL != nil),
                 onContextAction: { handleContextAction($0, profile: profile) }
@@ -452,29 +497,332 @@ struct ProfileView: View {
                 onTap: { openAvatarViewer(profile) },
                 onStoryTap: { openProfileStory(profile) },
                 storyRing: storyRing(for: profile),
-                contextActions: ProfileContextActions.avatarMenu(
-                    isOwn: isOwnProfile,
-                    hasPhoto: profile.avatarURL != nil
-                ),
+                contextActions: avatarActions(profile),
                 onContextAction: { handleContextAction($0, profile: profile) }
             )
-            .overlay(alignment: .topLeading) {
+            .overlay(alignment: .trailing) {
                 if isOwnProfile && showProfileMascot {
-                    ProfileMascotChip(size: 28)
-                        .offset(
-                            x: ModulaLayout.contentInset + ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass) + 6,
-                            y: -ProfileIdentityMetrics.overlap(avatarSize: ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass)) + 4
-                        )
+                    ProfileMascotChip(size: 30)
+                        .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
+                        .accessibilityIdentifier("profile.mascot")
                 }
             }
-            ProfileIdentityBlock(profile: profile)
-                .padding(.horizontal, ModulaLayout.contentInset)
-                .padding(.leading, leadingInteractionInset)
-                .padding(.trailing, trailingInteractionInset)
-                .padding(.top, 4)
         }
-        .padding(.top, 0)
-        .accessibilitySortPriority(100)
+    }
+
+    private func avatarActions(_ profile: ModulaProfile) -> [ModulaContextAction] {
+        var actions = ProfileContextActions.avatarMenu(isOwn: isOwnProfile, hasPhoto: profile.avatarURL != nil)
+        if isOwnProfile {
+            actions.insert(
+                ModulaContextAction(id: "frames", title: "Frames & status", systemImage: "person.crop.circle.badge.checkmark"),
+                at: 0
+            )
+        }
+        return actions
+    }
+
+    private func heroActions(_ profile: ModulaProfile) -> some View {
+        ProfileHeroActions(
+            isOwn: isOwnProfile,
+            tint: heroTint,
+            followTitle: profile.followState.title,
+            isFollowing: profile.isFollowing,
+            followBusy: followBusy,
+            messageTitle: messageActionTitle,
+            moreActions: isOwnProfile ? [] : ProfileContextActions.moreMenu(isOwn: false),
+            onEdit: { openSection(.edit) },
+            onShare: { presentShare(profile) },
+            onCode: {
+                showsModulaCode = true
+                HapticEngine.shared.play(.selection)
+            },
+            onFollow: {
+                Task { await toggleFollowPrimary(profile) }
+            },
+            onMessage: { openMessaging(for: profile) },
+            onNotify: {
+                app.navigation.flash("Profile notifications are coming soon", symbol: "bell.badge")
+            },
+            onMore: { handleContextAction($0, profile: profile) }
+        )
+        .accessibilitySortPriority(90)
+    }
+
+    // MARK: - Highlights / mutuals / links
+
+    @ViewBuilder
+    private func highlights(_ profile: ModulaProfile) -> some View {
+        let items = highlightItems(profile)
+        if !items.isEmpty {
+            ProfileHighlightsRow(items: items, tint: heroTint)
+        }
+    }
+
+    private func highlightItems(_ profile: ModulaProfile) -> [ProfileHighlightItem] {
+        var items: [ProfileHighlightItem] = []
+        if let group = app.stories.groups.first(where: { $0.author.id == profile.id || $0.author.handle == profile.handle }),
+           group.hasStories, !group.isComposerPlaceholder {
+            items.append(ProfileHighlightItem(
+                id: "live",
+                title: "Story",
+                symbol: "play.fill",
+                imageURL: profile.avatarURL,
+                initials: profile.initials,
+                action: { openProfileStory(profile) }
+            ))
+        }
+        if isOwnProfile {
+            items.append(ProfileHighlightItem(
+                id: "new",
+                title: "New",
+                symbol: "plus",
+                action: {
+                    app.navigation.flash("Story highlights are coming soon", symbol: "sparkles")
+                }
+            ))
+        }
+        return items
+    }
+
+    private func mutualFollowers(_ profile: ModulaProfile) -> [ModulaProfile] {
+        guard !isOwnProfile, let accountHandle else { return [] }
+        let mine = app.profile.session(for: .me, handleHint: accountHandle).following.items
+        let theirs = session.followers.items
+        guard !mine.isEmpty, !theirs.isEmpty else { return [] }
+        let followed = Set(mine.map { $0.handle.lowercased() })
+        return theirs.filter {
+            followed.contains($0.handle.lowercased())
+                && $0.handle.caseInsensitiveCompare(accountHandle) != .orderedSame
+        }
+    }
+
+    /// First page of my following + their followers → "Followed by …" (real data).
+    private func loadMutuals(_ profile: ModulaProfile) async {
+        guard !isOwnProfile, app.auth.isSignedIn, let accountHandle else { return }
+        await app.profile.loadFollowingIfNeeded(.me, handle: accountHandle)
+        await app.profile.loadFollowersIfNeeded(identity, handle: profile.handle)
+    }
+
+    @ViewBuilder
+    private func linksPreviewSection(_ profile: ModulaProfile) -> some View {
+        let links = Array(profile.publicLinks.prefix(3))
+        if !links.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                ProfilePreviewHeader(title: "Links", showsSeeAll: profile.publicLinks.count > 3) {
+                    openSection(.links)
+                }
+                VStack(spacing: 0) {
+                    ForEach(links) { link in
+                        linkRow(link)
+                            .padding(.horizontal, 14)
+                        if link.id != links.last?.id {
+                            Divider().padding(.leading, 54)
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
+                .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
+            }
+            .accessibilityIdentifier("profile.links")
+        }
+    }
+
+    // MARK: - Sticky shelf (Posts / Media / Modules / Saved·Liked)
+
+    private var shelfTabs: [ProfileShelfTab] {
+        isOwnProfile ? [.posts, .media, .modules, .saved] : [.posts, .media, .modules, .liked]
+    }
+
+    private func shelfBar(_ profile: ModulaProfile) -> some View {
+        let tabs = shelfTabs
+        let selected = tabs.contains(shelf) ? shelf : .posts
+        let stickTop = ProfileFullBleedMetrics.windowSafeAreaTop + 52
+        let reduce = ModulaEffectGate.reduceMotion(systemReduceMotion)
+        return HStack(spacing: 10) {
+            HStack(spacing: 2) {
+                ForEach(tabs) { tab in
+                    let isSelected = tab == selected
+                    Button {
+                        guard tab != selected else { return }
+                        withAnimation(reduce ? nil : .spring(response: 0.34, dampingFraction: 0.82)) {
+                            shelf = tab
+                        }
+                        HapticEngine.shared.play(.selection)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: tab.symbol)
+                                .font(.subheadline.weight(.semibold))
+                            if isSelected {
+                                Text(tab.title)
+                                    .font(.subheadline.weight(.semibold))
+                                    .lineLimit(1)
+                                    .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .leading)))
+                            }
+                        }
+                        .foregroundStyle(isSelected ? heroTint : Color.secondary)
+                        .padding(.horizontal, isSelected ? 14 : 12)
+                        .frame(height: 38)
+                        .background {
+                            if isSelected {
+                                Capsule()
+                                    .fill(heroTint.opacity(0.16))
+                                    .matchedGeometryEffect(id: "shelf.pill", in: shelfNamespace)
+                            }
+                        }
+                        .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(tab.title)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                    .accessibilityIdentifier("profile.tab.\(tab.rawValue)")
+                }
+            }
+            .padding(3)
+            .modulaGlass(in: Capsule(), interactive: false, specular: true)
+
+            Spacer(minLength: 0)
+
+            if selected.usesLayout {
+                ProfilePostLayoutToggle(layout: postLayout, tint: heroTint)
+                    .padding(2)
+                    .modulaGlass(in: Capsule(), interactive: false)
+                    .transition(.opacity)
+            }
+        }
+        .padding(.horizontal, ModulaLayout.contentInset)
+        .padding(.leading, leadingInteractionInset)
+        .padding(.trailing, trailingInteractionInset)
+        .padding(.vertical, 8)
+        // Pinned header: slide it down so it rests just below the status bar / nav buttons.
+        .visualEffect { content, proxy in
+            let minY = proxy.frame(in: .scrollView).minY
+            return content.offset(y: max(0, stickTop - minY))
+        }
+        .zIndex(1)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("profile.tabs")
+    }
+
+    @ViewBuilder
+    private func shelfContent(_ profile: ModulaProfile) -> some View {
+        let selected = shelfTabs.contains(shelf) ? shelf : .posts
+        Group {
+            switch selected {
+            case .posts: postsShelf(profile, mediaOnly: false)
+            case .media: postsShelf(profile, mediaOnly: true)
+            case .modules: modulesTab(profile)
+            case .saved: savedShelf
+            case .liked: likedShelf
+            }
+        }
+        .id(selected)
+        .transition(.asymmetric(
+            insertion: .opacity.combined(with: .offset(y: 10)),
+            removal: .opacity
+        ))
+        .task(id: selected) {
+            guard selected == .modules else { return }
+            await app.profile.loadModulesIfNeeded(
+                identity,
+                handle: profile.handle,
+                featuredIDs: profile.featuredModuleIds,
+                catalogue: app.catalogue.products
+            )
+        }
+    }
+
+    private func postsShelf(_ profile: ModulaProfile, mediaOnly: Bool) -> some View {
+        let all = session.posts.items.isEmpty ? session.overviewPreviewPosts : session.posts.items
+        let items = mediaOnly ? all.filter { $0.hasMedia } : all
+        return VStack(alignment: .leading, spacing: 12) {
+            if items.isEmpty {
+                if case .loading = session.posts.loadState {
+                    ProfilePostGridSkeleton()
+                } else if mediaOnly {
+                    ModulaEmptyState(
+                        title: "No media yet",
+                        message: isOwnProfile
+                            ? "Photos and videos you post will collect here."
+                            : "Photos and videos from this profile will appear here.",
+                        symbol: "photo.on.rectangle"
+                    )
+                    .padding(.vertical, 8)
+                } else {
+                    emptyPosts(isOwn: isOwnProfile, compact: true)
+                }
+            } else if postLayout.wrappedValue == .grid {
+                ProfilePostGrid(
+                    posts: items,
+                    tint: heroTint,
+                    onOpen: { post in
+                        app.navigation.open(.post(post.id, .root))
+                        HapticEngine.shared.play(.navigation)
+                    },
+                    onReachEnd: {
+                        Task { await app.profile.loadMorePosts(identity, handle: profile.handle) }
+                    }
+                )
+            } else {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(items) { post in
+                        postCard(post, compactAuthor: true)
+                            .modulaScrollReveal()
+                            .onAppear {
+                                if post.id == items.last?.id {
+                                    Task { await app.profile.loadMorePosts(identity, handle: profile.handle) }
+                                }
+                            }
+                        Divider().opacity(0.35)
+                    }
+                }
+            }
+        }
+        .accessibilityIdentifier(mediaOnly ? "profile.preview.media" : "profile.preview.posts")
+    }
+
+    private var savedShelf: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "bookmark.fill")
+                .font(.system(size: 26, weight: .semibold))
+                .foregroundStyle(heroTint)
+                .frame(width: 64, height: 64)
+                .modulaGlass(in: Circle(), interactive: false, tint: heroTint)
+            Text("Only you can see what you’ve saved")
+                .font(.headline)
+                .multilineTextAlignment(.center)
+            Text("Saved posts and your collections live in Saved.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button {
+                app.navigation.open(.saved(.root))
+                HapticEngine.shared.play(.navigation)
+            } label: {
+                Label("Open Saved", systemImage: "bookmark")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 22)
+                    .frame(height: 44)
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
+            .modulaGlass(in: Capsule(), interactive: true, tint: heroTint, prominent: true, specular: true)
+            .padding(.top, 4)
+            .accessibilityIdentifier("profile.saved.open")
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 28)
+        .accessibilityIdentifier("profile.preview.saved")
+    }
+
+    private var likedShelf: some View {
+        ModulaEmptyState(
+            title: "Likes aren’t public yet",
+            message: "Posts this profile likes will show here once Modula supports public likes.",
+            symbol: "heart"
+        )
+        .padding(.vertical, 8)
+        .accessibilityIdentifier("profile.preview.liked")
     }
 
     @ViewBuilder
@@ -846,41 +1194,9 @@ struct ProfileView: View {
 
     private func sectionHero(_ profile: ModulaProfile) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            ProfileCover(
-                coverURL: profile.coverURL,
-                coverColour: profile.coverColour,
-                tint: heroTint,
-                scrollProgress: headerProgress,
-                pocketCenterX: ModulaLayout.contentInset + ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass) / 2,
-                pocketRadius: ProfileIdentityMetrics.carveRadius(avatarSize: ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass)),
-                onTap: { openCoverViewer(profile) },
-                contextActions: ProfileContextActions.coverMenu(isOwn: isOwnProfile, hasCover: profile.coverURL != nil),
-                onContextAction: { handleContextAction($0, profile: profile) }
-            )
-            ProfileAvatarPocket(
-                profile: profile,
-                tint: heroTint,
-                onTap: { openAvatarViewer(profile) },
-                onStoryTap: { openProfileStory(profile) },
-                storyRing: storyRing(for: profile),
-                contextActions: ProfileContextActions.avatarMenu(
-                    isOwn: isOwnProfile,
-                    hasPhoto: profile.avatarURL != nil
-                ),
-                onContextAction: { handleContextAction($0, profile: profile) }
-            )
-            .overlay(alignment: .topLeading) {
-                if isOwnProfile && showProfileMascot {
-                    ProfileMascotChip(size: 28)
-                        .offset(
-                            x: ModulaLayout.contentInset + ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass) + 6,
-                            y: -ProfileIdentityMetrics.overlap(avatarSize: ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass)) + 4
-                        )
-                }
-            }
+            heroMedia(profile)
             VStack(alignment: .leading, spacing: 16) {
-                ProfileIdentityBlock(profile: profile)
-                primaryActions(profile)
+                ProfileIdentityBlock(profile: profile, showsFollowsYou: !isOwnProfile)
                 ProfileActionsRow(
                     profile: profile,
                     selected: section,
@@ -890,9 +1206,10 @@ struct ProfileView: View {
                     onFollowing: { openSection(.following) },
                     onModules: { openSection(.modules) }
                 )
+                heroActions(profile)
             }
             .padding(.horizontal, ModulaLayout.contentInset)
-            .padding(.top, 4)
+            .padding(.top, 10)
             .padding(.leading, leadingInteractionInset)
             .padding(.trailing, trailingInteractionInset)
             .padding(.bottom, 12)
@@ -1239,8 +1556,11 @@ struct ProfileView: View {
         }
     }
 
+    /// Only a real, live story rings the avatar — never the composer "+" placeholder.
     private func storyRing(for profile: ModulaProfile) -> StoryRingState? {
-        app.stories.groups.first { $0.author.id == profile.id || $0.author.handle == profile.handle }?.ring
+        guard let group = app.stories.groups.first(where: { $0.author.id == profile.id || $0.author.handle == profile.handle }),
+              group.hasStories, !group.isComposerPlaceholder else { return nil }
+        return group.ring
     }
 
     private func openProfileStory(_ profile: ModulaProfile) {
@@ -1282,6 +1602,9 @@ struct ProfileView: View {
             HapticEngine.shared.play(.navigation)
         case "edit":
             openSection(.edit)
+        case "frames":
+            showsFrames = true
+            HapticEngine.shared.play(.selection)
         case "mute":
             Task {
                 await app.profile.mute(identity: identity, handleHint: profile.handle)
@@ -1380,4 +1703,35 @@ private struct ProfileActivityShareView: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+/// Sticky profile shelf tabs. Posts / Media / Modules are real data; Saved (own) opens
+/// the Saved library; Liked (others) is a stub until likes are public.
+private enum ProfileShelfTab: String, Hashable, Identifiable {
+    case posts, media, modules, saved, liked
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .posts: "Posts"
+        case .media: "Media"
+        case .modules: "Modules"
+        case .saved: "Saved"
+        case .liked: "Liked"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .posts: "square.grid.2x2"
+        case .media: "photo.on.rectangle"
+        case .modules: "shippingbox"
+        case .saved: "bookmark"
+        case .liked: "heart"
+        }
+    }
+
+    /// Grid / list toggle applies to post-based shelves.
+    var usesLayout: Bool { self == .posts || self == .media }
 }

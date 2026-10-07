@@ -129,6 +129,9 @@ struct ImmersivePostCard: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.trailingInteractionInset) private var trailingInteractionInset
     @Environment(\.openURL) private var openURL
+    /// The app's real scheme. Media stages force `.dark` for legibility over photos, but the
+    /// post menu must present in the app scheme so it reads like the accessory Options menu.
+    @Environment(\.colorScheme) private var appScheme
 
     @State private var heartBurst = 0
     @State private var page: Int? = 0
@@ -263,8 +266,12 @@ struct ImmersivePostCard: View {
     private func mediaStage(_ canonical: ModulaPost, pages: [ModulaAttachment], current: Int, isVideo: Bool) -> some View {
         let expandable: ModulaAttachment? = isVideo ? pages[current] : nil
         return mediaStageBase(pages: pages)
-            // Long-press the media: the glass menu grows out of the touch point.
+            .environment(\.colorScheme, .dark)
+            // Long-press the media: native Options-style menu. Its scheme comes from the app,
+            // not the forced-dark stage, so it never renders as a see-through dark panel over
+            // the Tools accessory and tab bar.
             .postMenuLongPress(enabled: !showsReactions && !suppressHeartTap) { menuRequest(anchor: $0) }
+            .environment(\.colorScheme, appScheme)
             .overlay(alignment: .top) { mediaHeader(canonical, pages: pages, current: current) }
             .overlay(alignment: .bottomLeading) { captionBlock(canonical, pages: pages, current: current, isVideo: isVideo) }
             .overlay(alignment: .bottomTrailing) { rail(expandable: expandable, gallery: pages) }
@@ -409,7 +416,7 @@ struct ImmersivePostCard: View {
                     .modulaGlass(in: Capsule(), interactive: false)
                     .accessibilityLabel("Item \(current + 1) of \(pages.count)")
             }
-            moreButton
+            moreButton(onMedia: true)
         }
         .padding(.horizontal, 12)
         .padding(.top, 12)
@@ -475,15 +482,27 @@ struct ImmersivePostCard: View {
         }
     }
 
-    /// Tap to open; press and drag to slide straight onto an item.
-    private var moreButton: some View {
-        PostMenuButton(makeRequest: { menuRequest(anchor: $0) }) {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 15, weight: .bold))
+    /// "…" opens the native Options-style menu. The glass disc is a sibling *behind* a plain
+    /// Menu label (not the label itself), and the Menu gets the app's colour scheme: the menu
+    /// then presents above the Tools accessory / tab bar instead of morphing out of a glass
+    /// element inside the clipped, forced-dark media card.
+    private func moreButton(onMedia: Bool) -> some View {
+        ZStack {
+            Circle()
+                .fill(Color.clear)
                 .frame(width: 36, height: 36)
-                .modulaGlass(in: Circle(), specular: true)
-                .frame(width: PostGestureThresholds.minimumHitTarget, height: PostGestureThresholds.minimumHitTarget)
+                .modulaGlass(in: Circle(), interactive: false, specular: true)
+                .accessibilityHidden(true)
+            PostMenuButton(makeRequest: { menuRequest(anchor: $0) }) {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(onMedia ? Color.white : Color.primary)
+                    .frame(width: PostGestureThresholds.minimumHitTarget, height: PostGestureThresholds.minimumHitTarget)
+                    .contentShape(Circle())
+            }
+            .environment(\.colorScheme, appScheme)
         }
+        .frame(width: PostGestureThresholds.minimumHitTarget, height: PostGestureThresholds.minimumHitTarget)
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { moreFrame = $0 }
         .accessibilityIdentifier("post.more.\(post.id)")
     }
@@ -1097,7 +1116,7 @@ struct ImmersivePostCard: View {
             HStack(alignment: .center, spacing: 10) {
                 authorButton(canonical, onMedia: false)
                 Spacer(minLength: 6)
-                moreButton
+                moreButton(onMedia: false)
             }
             .padding(.horizontal, 14)
             .padding(.top, 12)

@@ -84,59 +84,147 @@ struct ModulaProfileCodeView: View {
 
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @State private var copied = false
+    @State private var appeared = false
+
+    private var accent: Color { app.appearance.accent.color }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                HStack(spacing: 8) {
-                    Image(systemName: "m.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(app.appearance.accent.color)
-                    Text("Modula")
-                        .font(.title3.weight(.bold))
-                }
-
-                ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 72)
-                VStack(spacing: 4) {
-                    Text(profile.displayName)
-                        .font(.title2.weight(.bold))
-                    Text("@\(profile.handle)")
-                        .font(.subheadline)
+            ScrollView {
+                VStack(spacing: 22) {
+                    card
+                        .scaleEffect(appeared || ModulaEffectGate.reduceMotion(systemReduceMotion) ? 1 : 0.94)
+                        .opacity(appeared ? 1 : 0)
+                    actions
+                    Text("Anyone who scans this opens your public Modula profile.")
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                 }
-
-                if let image = Self.qrImage(for: profile.shareURL.absoluteString) {
-                    Image(uiImage: image)
-                        .interpolation(.none)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 220, height: 220)
-                        .padding(16)
-                        .background(Color.white, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                        .accessibilityLabel("Modula Code for @\(profile.handle)")
-                        .accessibilityHint("QR code opens the public profile link")
-                }
-
-                Text(profile.shareURL.absoluteString)
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .multilineTextAlignment(.center)
-
-                Spacer()
+                .padding(20)
+                .frame(maxWidth: 480)
+                .frame(maxWidth: .infinity)
             }
-            .padding(24)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(ModulaPalette.resolve(app.appearance, scheme: scheme).canvas.ignoresSafeArea())
+            .background(
+                ZStack {
+                    ModulaPalette.resolve(app.appearance, scheme: scheme).canvas
+                    ModulaAuroraBackground(tint: accent, secondary: nil, intensity: 0.6)
+                        .opacity(0.5)
+                }
+                .ignoresSafeArea()
+            )
             .modulaSoftScrollEdge()
-            .navigationTitle("My Modula Code")
+            .navigationTitle("Profile card")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done", action: onDismiss)
                 }
             }
+            .onAppear {
+                withAnimation(ModulaEffectGate.reduceMotion(systemReduceMotion) ? nil : .spring(response: 0.45, dampingFraction: 0.8)) {
+                    appeared = true
+                }
+            }
         }
         .accessibilityIdentifier("profile.modulaCode")
+    }
+
+    /// QR profile card in Modula Liquid Glass.
+    private var card: some View {
+        VStack(spacing: 16) {
+            HStack(spacing: 8) {
+                Image(systemName: "m.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(accent)
+                Text("Modula")
+                    .font(.headline.weight(.bold))
+                Spacer()
+            }
+
+            HStack(spacing: 14) {
+                ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 64, name: profile.displayName)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 5) {
+                        Text(profile.displayName)
+                            .font(.title3.weight(.bold))
+                            .lineLimit(1)
+                        if profile.isVerified {
+                            Image(systemName: "checkmark.seal.fill")
+                                .foregroundStyle(accent)
+                                .accessibilityLabel("Verified account")
+                        }
+                    }
+                    Text("@\(profile.handle)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+
+            if let image = Self.qrImage(for: Self.qrPayload(for: profile)) {
+                Image(uiImage: image)
+                    .interpolation(.none)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 220, height: 220)
+                    .padding(16)
+                    .background(Color.white, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
+                    .accessibilityLabel("Modula Code for @\(profile.handle)")
+                    .accessibilityHint("QR code opens the public profile link")
+            }
+
+            Text(profile.shareURL.absoluteString)
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .padding(20)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 32, style: .continuous), interactive: false, specular: true)
+    }
+
+    private var actions: some View {
+        ModulaGlassGroup(spacing: 10) {
+            HStack(spacing: 10) {
+                ShareLink(item: profile.shareURL) {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 48)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .modulaGlass(in: Capsule(), interactive: true, tint: accent, prominent: true, specular: true)
+                .accessibilityIdentifier("profile.card.share")
+
+                Button {
+                    UIPasteboard.general.string = profile.shareURL.absoluteString
+                    HapticEngine.shared.play(.confirmation)
+                    withAnimation(.snappy) { copied = true }
+                    Task {
+                        try? await Task.sleep(for: .seconds(1.4))
+                        withAnimation(.snappy) { copied = false }
+                    }
+                } label: {
+                    Label(copied ? "Copied" : "Copy link", systemImage: copied ? "checkmark" : "link")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .contentTransition(.symbolEffect(.replace))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 48)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .modulaGlass(in: Capsule(), interactive: true, specular: true)
+                .accessibilityIdentifier("profile.card.copy")
+            }
+        }
     }
 
     /// Encodes only the canonical public profile URL — never session/auth material.

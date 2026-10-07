@@ -28,14 +28,14 @@ enum PostContextActions {
         return [
             .init(id: "share", title: "Share", systemImage: "square.and.arrow.up"),
             .init(id: "copy-link", title: "Copy link", systemImage: "link"),
-            .init(id: "save", title: saved ? "Saved" : "Save", systemImage: saved ? "bookmark.fill" : "bookmark"),
-            .init(id: "save-collection", title: "Collection", systemImage: "rectangle.stack.badge.plus"),
+            .init(id: "send-message", title: "Send in message", systemImage: "paperplane"),
+            .init(id: "save", title: saved ? "Remove from Saved" : "Save", systemImage: saved ? "bookmark.fill" : "bookmark"),
+            .init(id: "save-collection", title: "Add to collection", systemImage: "rectangle.stack.badge.plus"),
             .init(id: "not-interested", title: "Not interested in this post", systemImage: "eye.slash"),
-            .init(id: "interactions", title: "View Post Interactions", systemImage: "chart.bar"),
-            .init(id: "notify", title: "Turn on notifications", systemImage: "bell"),
             .init(id: "hide", title: "Hide post", systemImage: "rectangle.slash"),
+            .init(id: "notify", title: "Turn on notifications", systemImage: "bell"),
             .init(id: "report", title: "Report post", systemImage: "flag", role: .destructive),
-            .init(id: "spam", title: "Mark as spam", systemImage: "exclamationmark.circle"),
+            .init(id: "spam", title: "Mark as spam", systemImage: "exclamationmark.octagon", role: .destructive),
             .init(id: "community-note", title: "Request Community Note", systemImage: "megaphone"),
         ]
     }
@@ -100,8 +100,9 @@ enum PostContextActions {
 // MARK: - Post options (same visual language as tab-bar accessory Options Menu)
 
 /// Shared post-options content for `Menu` / `contextMenu`.
-/// Matches `ShellAccessoryHost.moreMenu`: native Liquid Glass card, section headers,
-/// accent-tinted SF Symbols + labels. Do not replace with a custom dark panel.
+/// Matches `ShellAccessoryHost.moreMenu`: native Liquid Glass card, accent-tinted SF Symbols.
+/// Top level stays at 5–6 rows; everything else lives one level down in submenus.
+/// Do not replace with a custom dark panel.
 struct PostOptionsMenuContent: View {
     let post: SocialPost
     var isOwn: Bool
@@ -111,47 +112,62 @@ struct PostOptionsMenuContent: View {
     private var handle: String? { post.author?.handle }
 
     var body: some View {
-        Section {
-            Button("Share", systemImage: "square.and.arrow.up") { onSelect("share") }
+        Menu {
+            Button("Share via…", systemImage: "square.and.arrow.up") { onSelect("share") }
             Button("Copy link", systemImage: "link") { onSelect("copy-link") }
-            Button(post.saved ? "Saved" : "Save", systemImage: post.saved ? "bookmark.fill" : "bookmark") { onSelect("save") }
-            Button("Collection", systemImage: "rectangle.stack.badge.plus") { onSelect("save-collection") }
+            Button("Send in message", systemImage: "paperplane") { onSelect("send-message") }
+        } label: {
+            Label("Share", systemImage: "square.and.arrow.up")
+        }
+
+        if !isOwn || capabilities.save {
+            Menu {
+                Button(post.saved ? "Remove from Saved" : "Save", systemImage: post.saved ? "bookmark.slash" : "bookmark") {
+                    onSelect("save")
+                }
+                Button("Add to collection…", systemImage: "rectangle.stack.badge.plus") { onSelect("save-collection") }
+            } label: {
+                Label(post.saved ? "Saved" : "Save", systemImage: post.saved ? "bookmark.fill" : "bookmark")
+            }
         }
 
         if isOwn {
-            Section("Your post") {
-                Button("View Post Interactions", systemImage: "chart.bar") { onSelect("interactions") }
-                if capabilities.editOwnPost {
-                    Button("Edit post", systemImage: "pencil") { onSelect("edit-post") }
-                }
-                if capabilities.deleteOwnPost {
+            Button("Post interactions", systemImage: "chart.bar") { onSelect("interactions") }
+            if capabilities.editOwnPost {
+                Button("Edit post", systemImage: "pencil") { onSelect("edit-post") }
+            }
+            if capabilities.deleteOwnPost {
+                Section {
                     Button("Delete post", systemImage: "trash", role: .destructive) { onSelect("delete") }
                 }
             }
         } else {
-            Section("Post") {
-                Button("Not interested in this post", systemImage: "eye.slash") { onSelect("not-interested") }
-                Button("View Post Interactions", systemImage: "chart.bar") { onSelect("interactions") }
-                Button("Turn on notifications", systemImage: "bell") { onSelect("notify") }
-                Button("Hide post", systemImage: "rectangle.slash") { onSelect("hide") }
-            }
-            Section("Safety") {
-                Button("Report post", systemImage: "flag", role: .destructive) { onSelect("report") }
-                Button("Mark as spam", systemImage: "exclamationmark.circle") { onSelect("spam") }
-                Button("Request Community Note", systemImage: "megaphone") { onSelect("community-note") }
-            }
             if let handle {
-                Section {
-                    Menu {
-                        Button("Follow", systemImage: "person.badge.plus") { onSelect("follow-author") }
-                        Button("Add/remove from Lists", systemImage: "list.bullet.rectangle") { onSelect("lists-author") }
-                        if capabilities.muteAuthor {
-                            Button("Mute", systemImage: "speaker.slash") { onSelect("mute-author") }
-                        }
-                        Button("Block", systemImage: "hand.raised", role: .destructive) { onSelect("block-author") }
-                    } label: {
-                        Label("@\(handle)", systemImage: "person.crop.circle")
+                Menu {
+                    Button("Follow", systemImage: "person.badge.plus") { onSelect("follow-author") }
+                    if capabilities.muteAuthor {
+                        Button("Mute", systemImage: "speaker.slash") { onSelect("mute-author") }
                     }
+                    Button("Add to lists", systemImage: "list.bullet.rectangle") { onSelect("lists-author") }
+                    Button("Block", systemImage: "hand.raised", role: .destructive) { onSelect("block-author") }
+                } label: {
+                    Label("@\(handle)", systemImage: "person.crop.circle")
+                }
+            }
+            Menu {
+                Button("Not interested in this post", systemImage: "eye.slash") { onSelect("not-interested") }
+                Button("Hide post", systemImage: "rectangle.slash") { onSelect("hide") }
+                Button("Turn on notifications", systemImage: "bell") { onSelect("notify") }
+            } label: {
+                Label("Not interested", systemImage: "eye.slash")
+            }
+            Section {
+                Menu {
+                    Button("Report post", systemImage: "flag", role: .destructive) { onSelect("report") }
+                    Button("Mark as spam", systemImage: "exclamationmark.octagon", role: .destructive) { onSelect("spam") }
+                    Button("Request Community Note", systemImage: "megaphone") { onSelect("community-note") }
+                } label: {
+                    Label("Report", systemImage: "flag")
                 }
             }
         }
@@ -182,6 +198,7 @@ struct PostOptionsMenuButton<Label: View>: View {
             label()
         }
         .menuStyle(.button)
+        .menuOrder(.fixed)
         .buttonStyle(.plain)
         .accessibilityLabel("More actions")
         .accessibilityHint("Shows post options")
@@ -798,6 +815,15 @@ enum PostMenuExecutor {
         case "copy-link":
             UIPasteboard.general.string = post.shareURL.absoluteString
             app.navigation.flash("Link copied", symbol: "link")
+        case "send-message":
+            // No "attach post to DM" endpoint yet: copy the link and open a new message.
+            UIPasteboard.general.string = post.shareURL.absoluteString
+            if app.messaging.capabilities.send {
+                app.navigation.push(.messages(.new))
+                app.navigation.flash("Link copied — paste it into your message", symbol: "paperplane")
+            } else {
+                app.navigation.flash("Link copied. Messaging is coming soon", symbol: "paperplane")
+            }
         case "save":
             hooks.onSave()
         case "save-collection":
