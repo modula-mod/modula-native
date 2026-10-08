@@ -168,6 +168,8 @@ enum ModulaMascotSettings {
     static let nodusKey = "composer.mascot.show.nodus"
     static let commentsKey = "composer.mascot.show.comments"
     static let otherKey = "composer.mascot.show.other"
+    /// Home companion (walks the bottom edge of Home). On by default.
+    static let homeCompanionKey = "composer.mascot.show.homeCompanion"
     static let soundsKey = "composer.mascot.sounds"
     static let debugPremiumKey = "composer.mascot.debugPremium"
     static let celebrationKey = "composer.mascot.lastCelebration"

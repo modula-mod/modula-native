@@ -34,12 +34,13 @@ enum PostSharing {
         switch method() {
         case .copyLink:
             UIPasteboard.general.string = post.shareURL.absoluteString
-            HapticEngine.shared.play(.lightImpact)
+            ModulaHapticTexture.play(.share)
             app.navigation.flash("Link copied", symbol: "link")
         case .systemSheet:
             presentSystemSheet(items: [shareText(for: post)])
-            HapticEngine.shared.play(.lightImpact)
+            ModulaHapticTexture.play(.share)
         case .modulaSheet:
+            ModulaHapticTexture.play(.share)
             app.navigation.presented = .universalShare(.post(
                 id: post.id,
                 authorName: post.author?.displayName,

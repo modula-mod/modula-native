@@ -43,6 +43,8 @@ struct RootView: View {
         .overlay { ShellSidebarHost() }
         // Liquid Glass post menu: above tabs and chrome so it can blur the whole screen.
         .overlay { PostMenuHost() }
+        .overlay { CommandPaletteHost() }
+        .overlay { CelebrationHost() }
         .sheet(item: $navigation.presented) { presentation in
             ModulaSheet { PresentationView(presentation: presentation) }
         }
@@ -85,8 +87,7 @@ struct RootView: View {
         }
         .modulaCommandKeyboard(
             onCommandK: {
-                app.navigation.presented = .commandCenter
-                HapticEngine.shared.play(.contextOpen)
+                CommandPaletteCenter.shared.present()
             },
             onCommandN: {
                 app.navigation.presented = .createPicker

@@ -350,3 +350,266 @@ struct CreateActionPicker: View {
         }
     }
 }
+
+
+// MARK: - Command palette (glass, global)
+
+/// Shared switch for the glass command palette. Opened by pulling down and sliding left
+/// on any feed (the existing pull chooser's "Command" slot), long-pressing the Tools
+/// accessory, or ⌘K. Doesn't fight system pull-down or pull-to-refresh.
+@MainActor @Observable
+final class CommandPaletteCenter {
+    static let shared = CommandPaletteCenter()
+    private(set) var isPresented = false
+
+    func present() {
+        guard !isPresented else { return }
+        isPresented = true
+        HapticEngine.shared.play(.contextOpen)
+    }
+
+    func dismiss() { isPresented = false }
+}
+
+/// Mount once at the root, above tabs and chrome.
+struct CommandPaletteHost: View {
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    private var center: CommandPaletteCenter { CommandPaletteCenter.shared }
+
+    var body: some View {
+        let calm = ModulaEffectGate.reduceMotion(systemReduceMotion)
+        ZStack(alignment: .top) {
+            if center.isPresented {
+                CommandPaletteView()
+                    .transition(calm ? .opacity : .asymmetric(
+                        insertion: .move(edge: .top).combined(with: .opacity).combined(with: .scale(scale: 0.96, anchor: .top)),
+                        removal: .opacity.combined(with: .scale(scale: 0.98, anchor: .top))
+                    ))
+            }
+        }
+        .animation(calm ? .easeOut(duration: 0.15) : .spring(response: 0.4, dampingFraction: 0.84), value: center.isPresented)
+    }
+}
+
+struct CommandPaletteView: View {
+    @Environment(AppEnvironment.self) private var app
+    @FocusState private var focused: Bool
+    @State private var query = ""
+    @State private var searchTask: Task<Void, Never>?
+    @State private var dragY: CGFloat = 0
+
+    private var trimmed: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    private var commands: [ModulaCommand] {
+        let all = CommandRegistry.visible(capabilities: app.commandCapabilities())
+        if trimmed.isEmpty {
+            return Array(CommandRegistry.emptyQuerySections(context: .global, capabilities: app.commandCapabilities(), recentIDs: app.commandRecents.recentIDs)
+                .flatMap(\.commands).prefix(6))
+        }
+        return Array(CommandMatcher.match(query: query, in: all, recentIDs: app.commandRecents.recentIDs).map(\.command).prefix(6))
+    }
+
+    private var hits: [SearchHit] {
+        guard !trimmed.isEmpty, app.discover.search.query == trimmed else { return [] }
+        return app.discover.search.results
+    }
+
+    private var people: [SearchHit] { Array(hits.filter { $0.entityType == "profile" }.prefix(4)) }
+    private var posts: [SearchHit] { Array(hits.filter { $0.entityType == "post" }.prefix(4)) }
+    private var modules: [CatalogueProduct] {
+        guard !trimmed.isEmpty else { return [] }
+        let local = app.catalogue.products.filter { $0.name.localizedCaseInsensitiveContains(trimmed) }
+        let remoteIDs = hits.compactMap(\.moduleID)
+        let remote = remoteIDs.compactMap { app.catalogue.product($0) }.filter { r in !local.contains(where: { $0.id == r.id }) }
+        return Array((local + remote).prefix(4))
+    }
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .overlay(Color.black.opacity(0.25))
+                .ignoresSafeArea()
+                .onTapGesture { close() }
+                .accessibilityLabel("Close command palette")
+                .accessibilityAddTraits(.isButton)
+
+            VStack(spacing: 0) {
+                field
+                    .padding(12)
+                Divider().opacity(0.4)
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        if !people.isEmpty { section("People") { ForEach(people) { personRow($0) } } }
+                        if !posts.isEmpty { section("Posts") { ForEach(posts) { postRow($0) } } }
+                        if !modules.isEmpty { section("Modules") { ForEach(modules) { moduleRow($0) } } }
+                        if !commands.isEmpty {
+                            section(trimmed.isEmpty ? "Suggested" : "Commands & Settings") {
+                                ForEach(commands) { command in
+                                    CommandRow(command: command) { run(command) }
+                                }
+                            }
+                        }
+                        if !trimmed.isEmpty {
+                            Button {
+                                app.navigation.open(.search(.root(trimmed)))
+                                close()
+                            } label: {
+                                Label("Search everything for “\(trimmed)”", systemImage: "magnifyingglass")
+                                    .font(.subheadline.weight(.semibold))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(12)
+                                    .modulaGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous), interactive: true)
+                            }
+                            .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: .navigation))
+                        }
+                        if app.discover.search.loadState == .loading, !trimmed.isEmpty {
+                            ProgressView().frame(maxWidth: .infinity)
+                        }
+                    }
+                    .padding(12)
+                }
+                .scrollDismissesKeyboard(.interactively)
+                .frame(maxHeight: 460)
+            }
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 28, style: .continuous), interactive: false, specular: true)
+            .shadow(color: .black.opacity(0.25), radius: 30, y: 14)
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            .offset(y: min(dragY, 0))
+            .gesture(
+                DragGesture(minimumDistance: 12)
+                    .onChanged { dragY = $0.translation.height }
+                    .onEnded { value in
+                        if value.translation.height < -60 { close() }
+                        withAnimation(.spring(duration: 0.3)) { dragY = 0 }
+                    }
+            )
+        }
+        .onAppear { focused = true }
+        .onChange(of: query) { _, _ in schedule() }
+        .onDisappear { searchTask?.cancel() }
+        .onKeyPress(.escape) { close(); return .handled }
+        .accessibilityAddTraits(.isModal)
+        .accessibilityAction(.escape) { close() }
+        .accessibilityIdentifier("command.palette")
+    }
+
+    private var field: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            TextField("Search posts, people, modules, settings", text: $query)
+                .textFieldStyle(.plain)
+                .focused($focused)
+                .submitLabel(.search)
+                .autocorrectionDisabled()
+                .onSubmit {
+                    if let first = commands.first, trimmed.isEmpty || hits.isEmpty { run(first) }
+                    else if !trimmed.isEmpty { app.navigation.open(.search(.root(trimmed))); close() }
+                }
+            if !query.isEmpty {
+                Button { query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear")
+            }
+        }
+        .padding(.horizontal, 16)
+        .frame(height: 48)
+        .modulaGlass(in: Capsule(), interactive: true)
+    }
+
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title.uppercased())
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.secondary)
+                .padding(.leading, 10)
+            content()
+        }
+    }
+
+    private func row(icon: AnyView, title: String, subtitle: String?, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                icon.frame(width: 32, height: 32)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.body.weight(.medium)).lineLimit(1)
+                    if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .frame(minHeight: 48)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: .navigation))
+    }
+
+    private func personRow(_ hit: SearchHit) -> some View {
+        let person = hit.person
+        return row(
+            icon: AnyView(ModulaAvatar(initials: String((person?.displayName ?? hit.title).prefix(1)), url: person?.avatarURL, size: 32, name: person?.displayName ?? hit.title)),
+            title: person?.displayName ?? hit.title,
+            subtitle: person.map { "@\($0.handle)" } ?? hit.handle.map { "@\($0)" }
+        ) { open(hit) }
+    }
+
+    private func postRow(_ hit: SearchHit) -> some View {
+        row(
+            icon: AnyView(Image(systemName: "text.bubble").font(.body.weight(.semibold))),
+            title: hit.post?.text ?? hit.title,
+            subtitle: hit.post?.author.map { "@\($0.handle)" } ?? hit.excerpt
+        ) { open(hit) }
+    }
+
+    private func moduleRow(_ product: CatalogueProduct) -> some View {
+        row(
+            icon: AnyView(ProductArtwork(product: product, size: 32)),
+            title: product.name,
+            subtitle: app.catalogue.installedIDs.contains(product.id) ? "Installed" : "Module"
+        ) {
+            app.navigation.open(.productHub(.module(product.id, .overview)))
+            close()
+        }
+    }
+
+    private func open(_ hit: SearchHit) {
+        guard let destination = hit.destination else { return }
+        app.navigation.open(destination)
+        close()
+    }
+
+    private func schedule() {
+        searchTask?.cancel()
+        let text = trimmed
+        guard !text.isEmpty else { return }
+        searchTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(260))
+            guard !Task.isCancelled else { return }
+            await app.discover.performSearch(query: text, section: nil)
+        }
+    }
+
+    private func run(_ command: ModulaCommand) {
+        let outcome = CommandExecutor.execute(command, navigation: app.navigation, signedIn: app.auth.isSignedIn) { presentation in
+            app.navigation.presented = presentation
+        }
+        switch outcome {
+        case .executed:
+            app.commandRecents.record(command)
+            HapticEngine.shared.play(.confirmation)
+            close()
+        case .requiresSignIn(let route):
+            close()
+            app.navigation.requestAuthentication(returningTo: route)
+        case .unavailable, .unsupported:
+            ModulaHapticTexture.play(.error)
+            app.navigation.flash("“\(command.title)” isn’t available right now.", symbol: "exclamationmark.circle")
+        }
+    }
+
+    private func close() {
+        focused = false
+        CommandPaletteCenter.shared.dismiss()
+    }
+}

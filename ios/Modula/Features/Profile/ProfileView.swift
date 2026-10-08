@@ -408,6 +408,13 @@ struct ProfileView: View {
                     }
                 }
 
+                if isOwnProfile, !ProfileAvatarOverlayStore.shared.buildingStatus.isEmpty {
+                    ProfileBuildingStatusLine(text: ProfileAvatarOverlayStore.shared.buildingStatus) {
+                        showsFrames = true
+                    }
+                    .transition(.opacity)
+                }
+
                 ProfileInfoChips(profile: profile)
                     .modulaPageEntrance(delay: 0.04)
 

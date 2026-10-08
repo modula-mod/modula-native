@@ -212,13 +212,30 @@ struct ShellAccessorySystemSlot: View {
             activity: app.activity,
             signedIn: app.auth.isSignedIn
         )
-        return HStack(spacing: 8) {
+        // Minimised on scroll: the Tools accessory compacts into a single pill.
+        return HStack(spacing: 7) {
             Image(systemName: config.symbol)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 22, height: 22)
+                .background(app.appearance.accent.color.gradient, in: Circle())
+                .symbolEffect(.bounce, value: config.symbol)
+                .contentTransition(.symbolEffect(.replace))
             Text(config.title)
                 .lineLimit(1)
+                .contentTransition(.interpolate)
+            Image(systemName: "chevron.up")
+                .font(.system(size: 9, weight: .heavy))
+                .foregroundStyle(.secondary)
         }
         .font(.subheadline.weight(.semibold))
+        .padding(.leading, 4)
+        .padding(.trailing, 10)
         .frame(maxWidth: .infinity)
+        .transition(.blurReplace.combined(with: .scale(0.86)))
+        .animation(.snappy(duration: 0.28), value: config.title)
+        .contentShape(Capsule())
+        .onLongPressGesture(minimumDuration: 0.5) { CommandPaletteCenter.shared.present() }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(config.title)
         .accessibilityIdentifier("tab.accessory")
@@ -463,7 +480,12 @@ struct ShellAccessoryHost: View {
         .dynamicTypeSize(...DynamicTypeSize.large)
         .contentTransition(.interpolate)
         .animation(.snappy(duration: 0.28), value: config.title)
+        // Long-press anywhere on the Tools accessory: glass command palette.
+        .simultaneousGesture(LongPressGesture(minimumDuration: 0.5).onEnded { _ in
+            CommandPaletteCenter.shared.present()
+        })
         .accessibilityElement(children: .contain)
+        .accessibilityAction(named: "Command palette") { CommandPaletteCenter.shared.present() }
         .accessibilityIdentifier("tab.accessory")
     }
 
@@ -625,6 +647,10 @@ struct ModulaTabBar: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Blob edges in tab units. The leading edge of travel moves first and the
+    /// trailing edge follows, so the glass stretches across and settles (liquid morph).
+    @State private var blobLead: CGFloat = -1
+    @State private var blobTrail: CGFloat = -1
 
     var body: some View {
         @Bindable var navigation = app.navigation
@@ -654,14 +680,6 @@ struct ModulaTabBar: View {
                             .minimumScaleFactor(0.78)
                     }
                     .frame(maxWidth: .infinity, minHeight: 44)
-                    .background {
-                        if selected {
-                            Capsule()
-                                .fill(app.appearance.accent.color.opacity(0.14))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 3)
-                        }
-                    }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -670,13 +688,94 @@ struct ModulaTabBar: View {
                 .accessibilityIdentifier("tab.\(tab.rawValue)")
             }
         }
+        .background { tabBlob(selectedIndex: tabIndex(navigation.selectedTab)) }
         .padding(.horizontal, embedded ? 2 : 4)
         .padding(.vertical, embedded ? 2 : 3)
         .frame(maxWidth: 560)
+        .onAppear {
+            let index = tabIndex(navigation.selectedTab)
+            blobLead = index
+            blobTrail = index
+        }
+        .onChange(of: navigation.selectedTab) { old, new in
+            morphBlob(from: tabIndex(old), to: tabIndex(new))
+        }
         .modifier(TabBarChrome(embedded: embedded, opaque: reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency))
         .dynamicTypeSize(...DynamicTypeSize.large)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Global navigation")
+    }
+}
+
+extension ModulaTabBar {
+    fileprivate func tabIndex(_ tab: AppTab) -> CGFloat {
+        CGFloat(AppTab.allCases.firstIndex(of: tab) ?? 0)
+    }
+
+    fileprivate func morphBlob(from: CGFloat, to: CGFloat) {
+        guard from != to else { return }
+        if reduceMotion || ModulaPreferences.extraMotionReduction {
+            withAnimation(.easeOut(duration: 0.15)) { blobLead = to; blobTrail = to }
+            return
+        }
+        // Front edge snaps toward the new tab, back edge follows a beat later: stretch → settle.
+        withAnimation(.spring(response: 0.26, dampingFraction: 0.82)) {
+            if to > from { blobTrail = to } else { blobLead = to }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.07) {
+            withAnimation(.spring(response: 0.46, dampingFraction: 0.7)) {
+                blobLead = to
+                blobTrail = to
+            }
+        }
+    }
+
+    @ViewBuilder
+    fileprivate func tabBlob(selectedIndex: CGFloat) -> some View {
+        let lead = blobLead < 0 ? selectedIndex : blobLead
+        let trail = blobTrail < 0 ? selectedIndex : blobTrail
+        let accent = app.appearance.accent.color
+        ModulaTabBlobShape(lead: lead, trail: trail, count: CGFloat(AppTab.allCases.count))
+            .fill(accent.opacity(0.15))
+            .overlay {
+                ModulaTabBlobShape(lead: lead, trail: trail, count: CGFloat(AppTab.allCases.count))
+                    .stroke(
+                        LinearGradient(colors: [.white.opacity(0.42), .white.opacity(0.04)], startPoint: .top, endPoint: .bottom),
+                        lineWidth: 0.75
+                    )
+            }
+            .shadow(color: accent.opacity(0.18), radius: 8, y: 2)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
+/// Capsule spanning tab `lead`…`trail` (fractional while animating). Squeezes a little
+/// vertically while stretched so the glass reads as liquid rather than a sliding pill.
+struct ModulaTabBlobShape: Shape {
+    var lead: CGFloat
+    var trail: CGFloat
+    var count: CGFloat
+
+    var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get { AnimatablePair(lead, trail) }
+        set { lead = newValue.first; trail = newValue.second }
+    }
+
+    nonisolated func path(in rect: CGRect) -> Path {
+        guard count > 0 else { return Path() }
+        let slot = rect.width / count
+        let low = min(lead, trail), high = max(lead, trail)
+        let stretch = min(high - low, 1.5)
+        let inset: CGFloat = 5
+        let squeeze = stretch * 2.5
+        let frame = CGRect(
+            x: rect.minX + low * slot + inset,
+            y: rect.minY + 3 + squeeze,
+            width: max((high - low + 1) * slot - inset * 2, 1),
+            height: max(rect.height - 6 - squeeze * 2, 1)
+        )
+        return Capsule(style: .continuous).path(in: frame)
     }
 }
 

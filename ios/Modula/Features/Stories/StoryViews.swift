@@ -118,6 +118,8 @@ struct StoryTray: View {
                     } label: {
                         VStack(spacing: compact ? 4 : 6) {
                             StoryAvatar(group: group, size: avatarSize, accent: app.appearance.accent.color)
+                                // Zoom source: the ring expands into the story and shrinks back on dismiss.
+                                .modulaHeroSource("story", key: group.id)
                             Text(group.isOwn ? "Your story" : group.author.displayName)
                                 .font(compact ? .caption2 : .caption)
                                 .lineLimit(1)
@@ -2499,6 +2501,7 @@ struct StoryCreateView: View {
         if await app.stories.publish(image: prepared, caption: caption, visibility: audience) {
             published = true
             ModulaMascotEvent.post(.published)
+            CelebrationCenter.shared.reach(.firstStory)
             app.drafts.discardStory(id: draftID)
             app.navigation.close()
             HapticEngine.shared.play(.success)

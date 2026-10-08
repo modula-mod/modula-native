@@ -527,6 +527,8 @@ final class CreationStudioStore {
             drafts.markPublished(id: draft.id)
             publishError = nil
             HapticEngine.shared.play(.success)
+            // Only fires if the account had no posts when first seen (see CelebrationCenter).
+            CelebrationCenter.shared.reach(.firstPost)
             return post
         } catch is CancellationError {
             uploadFraction = nil

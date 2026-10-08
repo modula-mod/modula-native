@@ -288,7 +288,7 @@ struct ModulaShellPullActionsModifier: ViewModifier {
         content.modulaPullActions(
             onRefresh: onRefresh,
             onCommand: {
-                app.navigation.presented = .commandCenter
+                CommandPaletteCenter.shared.present()
             },
             onSearch: {
                 app.navigation.open(.search(.root(nil)))

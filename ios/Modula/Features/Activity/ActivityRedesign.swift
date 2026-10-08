@@ -96,7 +96,14 @@ struct ActivityCluster: Identifiable, Hashable {
         default: return "\(n[0]) and \(n.count - 1) others"
         }
     }
-    var voiceOver: String { "\(who) \(lead.descriptionText). \(isRead ? "Read" : "Unread")." }
+    var voiceOver: String { "\(stackHeadline ?? who) \(stackHeadline == nil ? lead.descriptionText : ""). \(isRead ? "Read" : "Unread")." }
+    /// Stacked cards read as one headline: "12 people liked your post".
+    var isStack: Bool { events.count > 1 }
+    var stackHeadline: String? {
+        guard events.count > 1 else { return nil }
+        if actors.count >= 2 { return "\(actors.count) people \(lead.descriptionText)" }
+        return "\(who) · \(events.count) updates"
+    }
     private static func groupKey(_ e: ActivityEvent) -> String? {
         let s = e.subject?.id ?? "\(e.destination)"
         switch e.kind {
@@ -275,7 +282,12 @@ struct ActivityClusterCard: View {
         .accessibilityElement(children: .contain).accessibilityLabel(cluster.voiceOver)
         .accessibilityIdentifier("activity.row.\(lead.id)")
     }
-    private var title: Text { Text(cluster.who).fontWeight(.semibold) + Text(" \(lead.descriptionText)").foregroundStyle(.secondary) }
+    private var title: Text {
+        if let headline = cluster.stackHeadline, cluster.actors.count >= 2 {
+            return Text(headline).fontWeight(.semibold)
+        }
+        return Text(cluster.who).fontWeight(.semibold) + Text(" \(lead.descriptionText)").foregroundStyle(.secondary)
+    }
     private var timeLine: some View {
         HStack(spacing: 5) {
             let st = ActivityKindBadge.style(for: lead.kind, accent: app.appearance.accent.color)
@@ -549,14 +561,25 @@ struct ActivityClusterFeed: View {
     var onAccept: (ActivityEvent) -> Void; var onDecline: (ActivityEvent) -> Void
     var onLoadMore: () -> Void; var hasMore: Bool; var loadingMore: Bool
     var busyEventID: ActivityEventID? = nil
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    /// Stacked clusters the user fanned out.
+    @State private var expanded: Set<String> = []
+    private var calm: Bool { ModulaEffectGate.reduceMotion(systemReduceMotion) }
+
     var body: some View {
         LazyVStack(alignment: .leading, spacing: 10) {
             ForEach(sections, id: \.section) { group in
                 ActivitySectionHeader(title: group.section.title)
                 ForEach(group.clusters) { cluster in
                     let lead = cluster.lead; let busy = busyEventID == lead.id
+                    let stacks = cluster.isStack && mode != .requests
+                    let isOpen = expanded.contains(cluster.id)
                     ActivitySwipeRow(isRead: cluster.isRead, onMarkRead: { onMarkRead(cluster.events) }, onDelete: { onDelete(cluster.events) }) {
                         Button {
+                            if stacks {
+                                toggle(cluster)
+                                return
+                            }
                             if let route = lead.destination.route {
                                 ModulaHeroMorph.arm(ModulaHeroMorph.sourceID(scope: heroScope, kind: "activity", key: lead.id), for: route)
                             }
@@ -564,9 +587,24 @@ struct ActivityClusterFeed: View {
                         } label: {
                             ActivityClusterCard(cluster: cluster, showRequestActions: mode == .requests && lead.kind.isRequest,
                                                 busy: busy, onAccept: { onAccept(lead) }, onDecline: { onDecline(lead) })
+                            .overlay(alignment: .topTrailing) {
+                                if stacks {
+                                    Image(systemName: "chevron.down")
+                                        .font(.caption2.weight(.bold))
+                                        .foregroundStyle(.secondary)
+                                        .rotationEffect(.degrees(isOpen ? 180 : 0))
+                                        .padding(10)
+                                        .accessibilityHidden(true)
+                                }
+                            }
+                            .background(alignment: .bottom) {
+                                if stacks && !isOpen { ActivityStackPlates(depth: min(cluster.events.count - 1, 2)) }
+                            }
+                            .padding(.bottom, stacks && !isOpen ? CGFloat(min(cluster.events.count - 1, 2)) * 6 : 0)
                             .modulaHeroSource("activity", key: lead.id)
                         }
                         .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: nil)).disabled(busy).opacity(busy ? 0.6 : 1)
+                        .accessibilityHint(stacks ? (isOpen ? "Collapses the stack" : "Fans out \(cluster.events.count) notifications") : "")
                     }
                     .modulaScrollReveal()
                     .contextMenu {
@@ -575,6 +613,9 @@ struct ActivityClusterFeed: View {
                             Button("Open Profile", systemImage: "person.crop.circle") { app.navigation.push(.profile(a.id, .overview)) }
                         }
                         Button("Delete", systemImage: "trash", role: .destructive) { onDelete(cluster.events) }
+                    }
+                    if stacks && isOpen {
+                        fannedEvents(cluster)
                     }
                 }
             }
@@ -588,6 +629,59 @@ struct ActivityClusterFeed: View {
             }
         }
     }
+    private func toggle(_ cluster: ActivityCluster) {
+        HapticEngine.shared.play(expanded.contains(cluster.id) ? .selection : .contextOpen)
+        withAnimation(calm ? .easeOut(duration: 0.15) : .spring(response: 0.42, dampingFraction: 0.8)) {
+            if expanded.contains(cluster.id) {
+                expanded.remove(cluster.id)
+            } else {
+                expanded.insert(cluster.id)
+                onMarkRead(cluster.events)
+            }
+        }
+    }
+
+    /// The stack fans out into its individual notifications, each sliding out from
+    /// under the one above (staggered), and collapses back on a second tap.
+    @ViewBuilder
+    private func fannedEvents(_ cluster: ActivityCluster) -> some View {
+        let shown = Array(cluster.events.prefix(12).enumerated())
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(shown, id: \.element.id) { index, event in
+                Button {
+                    if let route = event.destination.route {
+                        ModulaHeroMorph.arm(ModulaHeroMorph.sourceID(scope: heroScope, kind: "activity", key: event.id), for: route)
+                    }
+                    onMarkRead([event]); onOpen(event)
+                } label: {
+                    ActivityClusterCard(cluster: ActivityCluster(events: [event]))
+                        .scaleEffect(0.97, anchor: .leading)
+                        .modulaHeroSource("activity", key: event.id)
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: .selection))
+                .transition(
+                    calm ? .opacity : .asymmetric(
+                        insertion: .offset(y: -CGFloat(index + 1) * 26)
+                            .combined(with: .scale(scale: 0.92, anchor: .top))
+                            .combined(with: .opacity)
+                            .animation(.spring(response: 0.44, dampingFraction: 0.78).delay(Double(index) * 0.035)),
+                        removal: .offset(y: -CGFloat(index + 1) * 18).combined(with: .opacity)
+                    )
+                )
+            }
+            if cluster.events.count > 12 {
+                Text("and \(cluster.events.count - 12) more")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 18)
+            }
+        }
+        .padding(.leading, 14)
+        .overlay(alignment: .leading) {
+            Capsule().fill(Color.primary.opacity(0.08)).frame(width: 2).padding(.vertical, 6).padding(.leading, 4)
+        }
+    }
+
     private var sections: [(section: ActivityTimelineSection, clusters: [ActivityCluster])] {
         var buckets: [ActivityTimelineSection: [ActivityEvent]] = [:]
         for e in events {
@@ -602,6 +696,27 @@ struct ActivityClusterFeed: View {
             guard let ev = buckets[sec], !ev.isEmpty else { return nil }
             return (sec, ActivityCluster.build(ev))
         }
+    }
+}
+
+/// Paper-stack plates peeking out under a grouped notification card.
+struct ActivityStackPlates: View {
+    var depth: Int
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            ForEach((1...max(depth, 1)).reversed(), id: \.self) { level in
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(Color.primary.opacity(0.035))
+                    .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
+                    .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Color.primary.opacity(0.06), lineWidth: 0.5))
+                    .padding(.horizontal, CGFloat(level) * 10)
+                    .frame(height: 40)
+                    .offset(y: CGFloat(level) * 6)
+                    .opacity(1 - Double(level) * 0.25)
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 

@@ -15,6 +15,15 @@ struct HomeView: View {
     /// tray then "folds" into a small avatar stack beside the title.
     @State private var storyTrayFolded = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.modulaHeroScope) private var heroScope
+    @Environment(\.colorScheme) private var colorScheme
+    /// Ambient colour: the post most on screen tints the page background.
+    @State private var ambientPostID: SocialPostID?
+    @State private var ambientColor: Color?
+    /// Comments pulled down collapse into this floating bubble; tap it to reopen.
+    @State private var commentsBubble: SocialPost?
+    @State private var lastCommentsPost: SocialPost?
+    @State private var bubbleExpiry: Task<Void, Never>?
 
     var body: some View {
         let state = app.home.state(for: mode)
@@ -76,6 +85,9 @@ struct HomeView: View {
                     storyTrayFolded = folded
                 }
             }
+            .onScrollPhaseChange { _, phase in
+                if phase == .interacting { HomeMascotCompanion.noteActivity() }
+            }
             .modulaShellPullActions {
                 await app.home.refresh(mode, signedIn: app.auth.isSignedIn)
                 await app.stories.refresh()
@@ -89,6 +101,14 @@ struct HomeView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
+        .overlay(alignment: .bottom) {
+            HomeMascotCompanion()
+                .padding(.horizontal, 8)
+                .frame(height: 260)
+                .frame(maxHeight: .infinity, alignment: .bottom)
+        }
+        .background { ambientLayer }
+        .task(id: ambientPostID) { await updateAmbient() }
         .modulaCanvas()
         .modulaSoftScrollEdge()
         .navigationTitle("Modula")
@@ -141,8 +161,20 @@ struct HomeView: View {
                 }
             }
         }
-        .sheet(item: $commentsPost) { post in
+        .sheet(item: $commentsPost, onDismiss: collapseCommentsToBubble) { post in
             PostCommentsSheet(postID: post.id, commentCount: post.replyCount, postAuthorID: post.author?.id)
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if let bubble = commentsBubble {
+                CommentsFloatingBubble(post: app.posts.resolved(bubble), accent: app.appearance.accent.color) {
+                    reopenComments(bubble)
+                } onClose: {
+                    withAnimation(.spring(duration: 0.3)) { commentsBubble = nil }
+                }
+                .padding(.trailing, 16 + trailingInteractionInset)
+                .padding(.bottom, 70)
+                .transition(reduceMotion ? .opacity : .scale(scale: 0.2, anchor: .bottomTrailing).combined(with: .opacity))
+            }
         }
         .confirmationDialog(
             "Report this post?",
@@ -256,8 +288,7 @@ struct HomeView: View {
                             Task { await app.home.toggleLike(resolved, mode: mode) }
                         },
                         onComment: {
-                            commentsPost = resolved
-                            HapticEngine.shared.play(.contextOpen)
+                            openComments(resolved)
                         },
                         onRepost: {
                             ModulaMascotEvent.post(.repost)
@@ -285,11 +316,29 @@ struct HomeView: View {
                         videoCoordinator: videoCoordinator,
                         style: .immersive
                     )
+                    // Swipe left = save, right = share. Off for multi-image carousels so paging wins.
+                    .modifier(PostSwipeActions(
+                        enabled: resolved.media.count <= 1,
+                        saved: resolved.saved,
+                        accent: app.appearance.accent.color,
+                        onSave: {
+                            if !resolved.saved { ModulaMascotEvent.post(.save) }
+                            Task { await app.home.toggleSave(resolved, mode: mode) }
+                            app.navigation.flash(resolved.saved ? "Removed from Saved" : "Saved", symbol: resolved.saved ? "bookmark.slash" : "bookmark.fill")
+                        },
+                        onShare: {
+                            ModulaMascotEvent.post(.share)
+                            PostSharing.share(resolved, app: app)
+                        }
+                    ))
                     // Posts run full width and flow around the Edge Picker bulge.
                     .padding(.trailing, -trailingInteractionInset)
                     .padding(.leading, -leadingInteractionInset)
                     .modulaEdgeFlow()
                     .modulaScrollReveal()
+                    .onScrollVisibilityChange(threshold: 0.55) { visible in
+                        if visible { ambientPostID = resolved.id }
+                    }
                     .onAppear {
                         prefetchAhead(after: post)
                         if post.id == state.items.suffix(3).first?.id || post.id == state.items.last?.id {
@@ -476,9 +525,78 @@ struct HomeView: View {
 
     private func openStory(_ group: StoryGroup) async {
         if let route = await app.stories.destination(for: group) {
+            // Ring → full story zoom (and swipe down shrinks it back into the ring).
+            ModulaHeroMorph.arm(ModulaHeroMorph.sourceID(scope: heroScope, kind: "story", key: group.id), for: route)
             app.navigation.push(route)
             HapticEngine.shared.play(.navigation)
         }
+    }
+
+    // MARK: Comments bubble
+
+    private func openComments(_ post: SocialPost) {
+        bubbleExpiry?.cancel()
+        withAnimation(.spring(duration: 0.3)) { commentsBubble = nil }
+        lastCommentsPost = post
+        commentsPost = post
+        HapticEngine.shared.play(.contextOpen)
+    }
+
+    private func reopenComments(_ post: SocialPost) {
+        HapticEngine.shared.play(.lightImpact)
+        openComments(post)
+    }
+
+    private func collapseCommentsToBubble() {
+        guard let post = lastCommentsPost else { return }
+        lastCommentsPost = nil
+        withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.45, dampingFraction: 0.7)) {
+            commentsBubble = post
+        }
+        bubbleExpiry?.cancel()
+        bubbleExpiry = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(25))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.3)) { commentsBubble = nil }
+        }
+    }
+
+    // MARK: Ambient colour
+
+    /// Soft wash of the on-screen post's dominant colour. Sampled from a tiny thumbnail
+    /// through the shared image pipeline and cached (`ModulaImageTint`). Off with Reduce Motion.
+    @ViewBuilder
+    private var ambientLayer: some View {
+        if let ambientColor, !ModulaEffectGate.reduceMotion(reduceMotion) {
+            Rectangle()
+                .fill(ambientColor.opacity(colorScheme == .dark ? 0.26 : 0.16))
+                .mask(
+                    LinearGradient(
+                        stops: [.init(color: .black, location: 0), .init(color: .black.opacity(0.45), location: 0.45), .init(color: .clear, location: 1)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+                .transition(.opacity)
+        }
+    }
+
+    private func updateAmbient() async {
+        guard !ModulaEffectGate.reduceMotion(reduceMotion), let id = ambientPostID,
+              let post = app.home.visiblePosts(for: mode).first(where: { $0.id == id }) else { return }
+        // Debounce flings: only settle on posts that stay on screen.
+        try? await Task.sleep(for: .milliseconds(220))
+        guard !Task.isCancelled else { return }
+        let media = app.posts.resolved(post).media.first
+        guard let media, let url = media.thumbnailURL ?? media.previewURL ?? (media.isVideo ? nil : media.url) else {
+            withAnimation(.easeInOut(duration: 0.9)) { ambientColor = nil }
+            return
+        }
+        let colour = await ModulaImageTint.tint(for: url, cacheKey: "ambient:\(url.path)", client: app.client)
+        guard !Task.isCancelled else { return }
+        withAnimation(.easeInOut(duration: 0.9)) { ambientColor = colour }
     }
 
     private func openPost(_ post: SocialPost) {
@@ -603,5 +721,173 @@ extension HomeView {
                 )
             }
         }
+    }
+}
+
+
+// MARK: - Post swipe actions
+
+/// Horizontal swipe on a feed post: left saves, right shares. The pan only begins for
+/// clearly horizontal movement away from both screen edges (back-swipe + Edge Picker),
+/// and child gestures (media scrubbing, carousels) keep priority.
+struct PostSwipeActions: ViewModifier {
+    var enabled: Bool
+    var saved: Bool
+    var accent: Color
+    var onSave: () -> Void
+    var onShare: () -> Void
+    @AppStorage("gestures.postSwipeActions") private var allowed = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var offset: CGFloat = 0
+    @State private var armed = false
+    private let threshold: CGFloat = 92
+
+    func body(content: Content) -> some View {
+        if enabled && allowed {
+            content
+                .offset(x: offset)
+                .background {
+                    HStack {
+                        if offset > 0 { cue("square.and.arrow.up", "Share", accent, offset) }
+                        Spacer(minLength: 0)
+                        if offset < 0 { cue(saved ? "bookmark.slash.fill" : "bookmark.fill", saved ? "Unsave" : "Save", .orange, -offset) }
+                    }
+                    .padding(.horizontal, 22)
+                    .allowsHitTesting(false)
+                }
+                .gesture(PostSwipePan(onChange: changed, onEnd: ended))
+        } else {
+            content
+        }
+    }
+
+    private func cue(_ symbol: String, _ title: String, _ tint: Color, _ reveal: CGFloat) -> some View {
+        let p = min(reveal / threshold, 1)
+        return VStack(spacing: 4) {
+            Image(systemName: symbol)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: 48, height: 48)
+                .background(Circle().fill(tint).shadow(color: tint.opacity(0.5), radius: armed ? 10 : 3))
+                .scaleEffect(armed ? 1.12 : 0.6 + 0.4 * p)
+            Text(title).font(.caption2.weight(.semibold)).foregroundStyle(tint)
+        }
+        .opacity(Double(p))
+        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: armed)
+        .accessibilityHidden(true)
+    }
+
+    private func changed(_ dx: CGFloat) {
+        offset = abs(dx) > threshold ? (dx > 0 ? 1 : -1) * (threshold + (abs(dx) - threshold) * 0.3) : dx
+        let now = abs(dx) > threshold
+        if now != armed {
+            armed = now
+            HapticEngine.shared.play(now ? .dragThreshold : .selection)
+        }
+    }
+
+    private func ended(_ dx: CGFloat, _ velocity: CGFloat) {
+        let commit = abs(dx) > threshold || (abs(dx) > 50 && abs(velocity) > 1000)
+        if commit {
+            if dx < 0 { onSave() } else { onShare() }
+        }
+        armed = false
+        withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.38, dampingFraction: 0.72)) { offset = 0 }
+    }
+}
+
+struct PostSwipePan: UIGestureRecognizerRepresentable {
+    var onChange: (CGFloat) -> Void
+    var onEnd: (CGFloat, CGFloat) -> Void
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
+
+    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+        let pan = UIPanGestureRecognizer()
+        pan.delegate = context.coordinator
+        pan.maximumNumberOfTouches = 1
+        return pan
+    }
+
+    func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context: Context) {
+        let dx = recognizer.translation(in: recognizer.view).x
+        switch recognizer.state {
+        case .changed: onChange(dx)
+        case .ended: onEnd(dx, recognizer.velocity(in: recognizer.view).x)
+        case .cancelled, .failed: onEnd(0, 0)
+        default: break
+        }
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        func gestureRecognizerShouldBegin(_ gesture: UIGestureRecognizer) -> Bool {
+            guard let pan = gesture as? UIPanGestureRecognizer, let window = pan.view?.window else { return false }
+            let start = pan.location(in: window).x
+            // Leave both edges to system back-swipe and the Edge Picker.
+            if start < 32 || start > window.bounds.width - 40 { return false }
+            let v = pan.velocity(in: pan.view)
+            return abs(v.x) > abs(v.y) * 2
+        }
+
+        /// Never steal from horizontal scroll views (carousels, story tray).
+        func gestureRecognizer(_ gesture: UIGestureRecognizer, shouldBeRequiredToFailBy other: UIGestureRecognizer) -> Bool {
+            if let scroll = other.view as? UIScrollView, other == scroll.panGestureRecognizer {
+                return scroll.contentSize.width > scroll.bounds.width + 1
+            }
+            return false
+        }
+    }
+}
+
+/// Collapsed comments: a glass bubble that floats over Home until tapped or dismissed.
+struct CommentsFloatingBubble: View {
+    let post: SocialPost
+    var accent: Color
+    var onOpen: () -> Void
+    var onClose: () -> Void
+    @State private var drag: CGSize = .zero
+
+    var body: some View {
+        Button(action: onOpen) {
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: "bubble.left.and.bubble.right.fill")
+                    .font(.system(size: 19, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 56, height: 56)
+                    .background(Circle().fill(accent.gradient))
+                    .modulaGlass(in: Circle(), interactive: true, tint: accent.opacity(0.25))
+                    .shadow(color: accent.opacity(0.45), radius: 14, y: 6)
+                if post.replyCount > 0 {
+                    Text(post.replyCount > 99 ? "99+" : "\(post.replyCount)")
+                        .font(.caption2.weight(.bold).monospacedDigit())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(.red))
+                        .offset(x: 6, y: -4)
+                }
+            }
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+        .offset(drag)
+        .gesture(
+            DragGesture(minimumDistance: 8)
+                .onChanged { drag = $0.translation }
+                .onEnded { value in
+                    // Fling it away to dismiss; otherwise it springs home.
+                    if abs(value.translation.width) > 90 || value.translation.height > 90 {
+                        onClose()
+                    }
+                    withAnimation(.spring(duration: 0.3)) { drag = .zero }
+                }
+        )
+        .contextMenu {
+            Button("Open comments", systemImage: "bubble.left.and.bubble.right", action: onOpen)
+            Button("Dismiss", systemImage: "xmark", action: onClose)
+        }
+        .accessibilityLabel("Comments, \(post.replyCount)")
+        .accessibilityHint("Reopens the comments you were reading")
+        .accessibilityAction(named: "Dismiss", onClose)
+        .accessibilityIdentifier("home.comments.bubble")
     }
 }

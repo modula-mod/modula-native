@@ -62,6 +62,8 @@ final class PostActionController {
                 engagement.reactionCount = max(0, engagement.reactionCount - 1)
             }
         }
+        // Instant, optimistic texture (the network round-trip used to delay the tap).
+        if nextLiked { ModulaHapticTexture.play(.like) }
 
         do {
             if nextLiked {
@@ -70,7 +72,6 @@ final class PostActionController {
                 try await repository.unlike(postID: current.id)
             }
             guard likeGeneration[current.id] == generation else { return }
-            HapticEngine.shared.play(.lightImpact)
             lastError = nil
         } catch {
             guard likeGeneration[current.id] == generation else { return }
@@ -143,6 +144,7 @@ final class PostActionController {
         saveGeneration[current.id] = generation
 
         state.applyEngagement(postID: current.id) { $0.saved = nextSaved }
+        if nextSaved { ModulaHapticTexture.play(.save) } else { HapticEngine.shared.play(.selection) }
 
         do {
             if nextSaved {
@@ -151,7 +153,6 @@ final class PostActionController {
                 try await repository.unsave(postID: current.id)
             }
             guard saveGeneration[current.id] == generation else { return }
-            HapticEngine.shared.play(.saveComplete)
             lastError = nil
         } catch {
             guard saveGeneration[current.id] == generation else { return }
@@ -173,6 +174,7 @@ final class PostActionController {
             engagement.reposted = next
             engagement.repostCount = max(0, engagement.repostCount + (next ? 1 : -1))
         }
+        if next { ModulaHapticTexture.play(.repost) } else { HapticEngine.shared.play(.selection) }
 
         do {
             if next {
@@ -181,7 +183,6 @@ final class PostActionController {
                 try await repository.unrepost(postID: current.id)
             }
             guard repostGeneration[current.id] == generation else { return }
-            HapticEngine.shared.play(.confirmation)
             lastError = nil
         } catch {
             guard repostGeneration[current.id] == generation else { return }

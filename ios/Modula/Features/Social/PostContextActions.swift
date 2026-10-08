@@ -815,6 +815,19 @@ enum PostMenuExecutor {
         case "copy-link":
             UIPasteboard.general.string = post.shareURL.absoluteString
             app.navigation.flash("Link copied", symbol: "link")
+        case let value where value.hasPrefix("react:"):
+            let reaction = SocialReaction(parsing: String(value.dropFirst("react:".count)))
+            let current = app.posts.resolved(post)
+            let active = current.viewerReaction ?? (current.liked ? .like : nil)
+            let next: SocialReaction? = active == reaction ? nil : reaction
+            if next != nil {
+                ModulaMascotEvent.post(.like)
+                ModulaHapticTexture.play(.like)
+            }
+            Task {
+                await app.postActions.setReaction(current, reaction: next)
+                app.home.syncVisibleEngagement()
+            }
         case "send-message":
             // No "attach post to DM" endpoint yet: copy the link and open a new message.
             UIPasteboard.general.string = post.shareURL.absoluteString
@@ -956,20 +969,145 @@ struct PostMenuLongPress: ViewModifier {
 
     func body(content: Content) -> some View {
         let sample = makeRequest(.zero)
+        let caps = app.postActions.capabilities
+        let run: (String) -> Void = { id in
+            DispatchQueue.main.async {
+                PostMenuExecutor.run(id, request: makeRequest(.zero), app: app)
+            }
+        }
+        // Live preview: the post lifts into a glass card; the reaction palette sits on
+        // top of the menu, so the opening finger can slide straight onto a reaction
+        // (iMessage tapback style) and lift to commit. Empty items (disabled) = no menu,
+        // and the content keeps its identity either way.
         content.contextMenu {
             if enabled {
+                if caps.like {
+                    PostReactionPalette(
+                        current: sample.post.viewerReaction ?? (sample.post.liked ? .like : nil),
+                        reactions: caps.multiReactions ? SocialReaction.allCases : [.like],
+                        onSelect: run
+                    )
+                }
                 PostOptionsMenuContent(
                     post: sample.post,
                     isOwn: sample.isOwn,
-                    capabilities: app.postActions.capabilities,
-                    onSelect: { id in
-                        DispatchQueue.main.async {
-                            PostMenuExecutor.run(id, request: makeRequest(.zero), app: app)
-                        }
-                    }
+                    capabilities: caps,
+                    onSelect: run
                 )
             }
+        } preview: {
+            PostLivePreview(post: app.posts.resolved(sample.post), accent: app.appearance.accent.color)
         }
+    }
+}
+
+/// Horizontal reaction row at the top of the long-press menu. Uses the system palette
+/// style so drag-to-select works like any other menu item.
+struct PostReactionPalette: View {
+    var current: SocialReaction?
+    var reactions: [SocialReaction]
+    var onSelect: (String) -> Void
+
+    var body: some View {
+        ControlGroup {
+            ForEach(reactions, id: \.self) { reaction in
+                Button {
+                    onSelect("react:\(reaction.rawValue)")
+                } label: {
+                    Label(
+                        current == reaction ? "Remove \(reaction.accessibilityName)" : reaction.accessibilityName,
+                        systemImage: current == reaction ? "checkmark.circle.fill" : reaction.systemImage
+                    )
+                }
+            }
+        }
+        .controlGroupStyle(.palette)
+    }
+}
+
+/// Context-menu preview: a compact glass card of the post (author, text, first image,
+/// engagement). Self-contained — no app environment needed in the preview host.
+struct PostLivePreview: View {
+    let post: SocialPost
+    var accent: Color
+
+    var body: some View {
+        let media = post.media.first
+        let imageURL = media.flatMap { $0.thumbnailURL ?? $0.previewURL ?? ($0.isVideo ? nil : $0.url) }
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Circle()
+                    .fill(accent.gradient)
+                    .frame(width: 34, height: 34)
+                    .overlay {
+                        Text(String((post.author?.displayName ?? "?").prefix(1)).uppercased())
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(.white)
+                    }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(post.author?.displayName ?? "Post")
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                    if let handle = post.author?.handle {
+                        Text("@\(handle) · \(post.createdAt.formatted(.relative(presentation: .named)))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            if let text = post.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
+                Text(text)
+                    .font(.callout)
+                    .lineLimit(imageURL == nil ? 8 : 3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let imageURL {
+                AsyncImage(url: imageURL) { phase in
+                    if let image = phase.image {
+                        image.resizable().scaledToFill()
+                    } else {
+                        Rectangle().fill(accent.opacity(0.18))
+                    }
+                }
+                .frame(height: 210)
+                .frame(maxWidth: .infinity)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(alignment: .topTrailing) {
+                    if media?.isVideo == true {
+                        Image(systemName: "play.fill")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(7)
+                            .background(.ultraThinMaterial, in: Circle())
+                            .padding(8)
+                    }
+                }
+            }
+            HStack(spacing: 14) {
+                Label("\(max(post.likeCount, post.engagement.reactionCount))", systemImage: post.viewerReaction?.systemImage ?? (post.liked ? "heart.fill" : "heart"))
+                    .foregroundStyle(post.liked || post.viewerReaction != nil ? accent : .secondary)
+                Label("\(post.replyCount)", systemImage: "bubble.right")
+                if post.saved { Label("Saved", systemImage: "bookmark.fill") }
+                Spacer(minLength: 0)
+            }
+            .font(.caption.weight(.semibold).monospacedDigit())
+            .foregroundStyle(.secondary)
+        }
+        .padding(16)
+        .frame(width: 330)
+        .background {
+            ZStack {
+                Rectangle().fill(.regularMaterial)
+                LinearGradient(colors: [accent.opacity(0.16), .clear], startPoint: .topLeading, endPoint: .bottomTrailing)
+            }
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(LinearGradient(colors: [.white.opacity(0.5), .white.opacity(0.06)], startPoint: .top, endPoint: .bottom), lineWidth: 0.8)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 }
 

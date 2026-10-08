@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import CoreHaptics
 
 enum ModulaSpacing { static let xxs = 4.0; static let xs = 8.0; static let sm = 12.0; static let md = 16.0; static let lg = 24.0; static let xl = 32.0 }
 enum ModulaRadius { static let small = 10.0; static let medium = 16.0; static let large = 24.0 }
@@ -77,11 +78,120 @@ extension HapticSemantic {
             UIImpactFeedbackGenerator(style: intensity == .strong ? .heavy : intensity == .light ? .light : .medium).impactOccurred()
         case .drop:
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-        case .confirmation, .success, .followComplete, .saveComplete:
+        case .saveComplete:
+            ModulaHapticTexture.play(.save)
+        case .confirmation, .success, .followComplete:
             UINotificationFeedbackGenerator().notificationOccurred(.success)
         case .warning:
             UINotificationFeedbackGenerator().notificationOccurred(.warning)
         case .failure:
+            ModulaHapticTexture.play(.error)
+        }
+    }
+}
+
+/// Haptic texture: one distinct, recognisable pattern per social action, all in one place.
+/// CoreHaptics on supported hardware, UIKit feedback generators otherwise. Respects
+/// Settings → Haptics intensity (off / light / standard / strong).
+enum ModulaHapticTexture: String, CaseIterable, Sendable {
+    /// Heartbeat: soft tap → firm tap.
+    case like
+    /// Bookmark snap: short soft press, then a crisp click.
+    case save
+    /// Three rising ticks (round-trip arrows).
+    case repost
+    /// Whoosh: a quick swell that releases into a light tick.
+    case share
+    /// Double buzz with a low rumble.
+    case error
+
+    @MainActor static func play(_ texture: ModulaHapticTexture) {
+        ModulaHapticTexturePlayer.shared.play(texture)
+    }
+}
+
+@MainActor final class ModulaHapticTexturePlayer {
+    static let shared = ModulaHapticTexturePlayer()
+    private var engine: CHHapticEngine?
+    private let supportsHaptics = CHHapticEngine.capabilitiesForHardware().supportsHaptics
+
+    func play(_ texture: ModulaHapticTexture) {
+        let setting = HapticEngine.shared.intensityProvider()
+        guard setting != .off else { return }
+        let scale: Float = setting == .strong ? 1 : (setting == .light ? 0.55 : 0.82)
+        guard supportsHaptics, let engine = preparedEngine() else {
+            fallback(texture, setting: setting)
+            return
+        }
+        do {
+            let pattern = try CHHapticPattern(events: Self.events(texture, scale: scale), parameters: [])
+            let player = try engine.makePlayer(with: pattern)
+            try player.start(atTime: CHHapticTimeImmediate)
+        } catch {
+            self.engine = nil
+            fallback(texture, setting: setting)
+        }
+    }
+
+    private func preparedEngine() -> CHHapticEngine? {
+        if let engine {
+            try? engine.start()
+            return engine
+        }
+        guard let created = try? CHHapticEngine() else { return nil }
+        created.isAutoShutdownEnabled = true
+        created.playsHapticsOnly = true
+        do { try created.start() } catch { return nil }
+        engine = created
+        return created
+    }
+
+    private static func tap(_ time: TimeInterval, _ intensity: Float, _ sharpness: Float, _ scale: Float) -> CHHapticEvent {
+        CHHapticEvent(eventType: .hapticTransient, parameters: [
+            CHHapticEventParameter(parameterID: .hapticIntensity, value: min(1, intensity * scale)),
+            CHHapticEventParameter(parameterID: .hapticSharpness, value: sharpness)
+        ], relativeTime: time)
+    }
+
+    private static func hum(_ time: TimeInterval, _ duration: TimeInterval, _ intensity: Float, _ sharpness: Float, _ scale: Float) -> CHHapticEvent {
+        CHHapticEvent(eventType: .hapticContinuous, parameters: [
+            CHHapticEventParameter(parameterID: .hapticIntensity, value: min(1, intensity * scale)),
+            CHHapticEventParameter(parameterID: .hapticSharpness, value: sharpness)
+        ], relativeTime: time, duration: duration)
+    }
+
+    private static func events(_ texture: ModulaHapticTexture, scale: Float) -> [CHHapticEvent] {
+        switch texture {
+        case .like:
+            [tap(0, 0.5, 0.35, scale), tap(0.085, 1, 0.6, scale)]
+        case .save:
+            [hum(0, 0.07, 0.35, 0.1, scale), tap(0.08, 0.95, 0.95, scale)]
+        case .repost:
+            [tap(0, 0.4, 0.45, scale), tap(0.06, 0.65, 0.6, scale), tap(0.12, 0.9, 0.75, scale)]
+        case .share:
+            [hum(0, 0.14, 0.45, 0.25, scale), tap(0.15, 0.6, 0.9, scale)]
+        case .error:
+            [tap(0, 1, 0.2, scale), tap(0.11, 1, 0.2, scale), hum(0.2, 0.12, 0.55, 0.05, scale)]
+        }
+    }
+
+    private func fallback(_ texture: ModulaHapticTexture, setting: AppearanceStore.HapticIntensity) {
+        switch texture {
+        case .like:
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.085) {
+                UIImpactFeedbackGenerator(style: setting == .light ? .light : .medium).impactOccurred()
+            }
+        case .save:
+            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        case .repost:
+            UISelectionFeedbackGenerator().selectionChanged()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.07) {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            }
+        case .share:
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.8)
+        case .error:
             UINotificationFeedbackGenerator().notificationOccurred(.error)
         }
     }

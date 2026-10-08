@@ -1029,6 +1029,7 @@ struct ComposerMascotSettingsSection: View {
     @AppStorage(ModulaMascotSettings.nodusKey) private var nodus = true
     @AppStorage(ModulaMascotSettings.commentsKey) private var comments = false
     @AppStorage(ModulaMascotSettings.otherKey) private var other = false
+    @AppStorage(ModulaMascotSettings.homeCompanionKey) private var homeCompanion = true
     @AppStorage(ModulaMascotSettings.soundsKey) private var sounds = true
     @AppStorage(ModulaMascotSettings.debugPremiumKey) private var debugPremium = false
     @State private var previewText = ""
@@ -1061,6 +1062,8 @@ struct ComposerMascotSettingsSection: View {
                 Toggle("Nodus", isOn: $nodus)
                 Toggle("Comment inputs", isOn: $comments)
                 Toggle("Other composers", isOn: $other)
+                Toggle("Home companion", isOn: $homeCompanion)
+                    .accessibilityHint("Your mascot walks along the bottom of Home, peeks over posts and naps when idle.")
             }
         }
         Section {
@@ -1194,5 +1197,436 @@ struct ComposerMascotSettingsSection: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Mascot off")
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+// MARK: - Home companion
+
+/// The user's mascot as a Home companion: strolls along the bottom edge, peeks up over the
+/// feed, naps when nothing is happening and can be dragged anywhere (drop it near the bottom
+/// to send it walking again). Off switch: Settings → Chats → Composer → "Home companion".
+struct HomeMascotCompanion: View {
+    @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
+    @AppStorage(ModulaMascotSettings.homeCompanionKey) private var enabled = true
+    /// Parked position as fractions of the Home area; negative = walking the bottom edge.
+    @AppStorage("home.companion.parkX") private var parkX = -1.0
+    @AppStorage("home.companion.parkY") private var parkY = -1.0
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var brain = MascotBrain()
+    @State private var x: CGFloat = 0.84
+    @State private var facesLeft = false
+    @State private var lift: CGFloat = 0
+    @State private var drag: CGSize = .zero
+    @State private var dragging = false
+    @State private var napping = false
+    private var wardrobe = MascotWardrobeStore.shared
+    private let size: CGFloat = 28
+
+    /// Last time the user did something on Home (scroll, tap, reaction).
+    @MainActor static var lastActivity = Date()
+    @MainActor static func noteActivity() { lastActivity = Date() }
+
+    private var calm: Bool { ModulaEffectGate.reduceMotion(systemReduceMotion) }
+
+    var body: some View {
+        let selection = MascotSelection.resolve(raw: kindRaw)
+        if enabled, selection != .off {
+            GeometryReader { geo in
+                let box = CGSize(width: size * 2.6, height: size * 2.4)
+                let parked = parkX >= 0 && parkY >= 0
+                let base: CGPoint = parked
+                    ? CGPoint(x: min(max(parkX * geo.size.width, box.width / 2), geo.size.width - box.width / 2),
+                              y: min(max(parkY * geo.size.height, box.height / 2), geo.size.height - box.height / 2))
+                    : CGPoint(x: min(max(x * geo.size.width, box.width / 2), geo.size.width - box.width / 2),
+                              y: geo.size.height - box.height / 2 + 6 - lift)
+                MascotDressedLive(selection: selection, size: size, brain: brain, showsShadow: true, outfit: wardrobe.outfit)
+                    .scaleEffect(x: facesLeft ? -1 : 1, y: 1)
+                    .frame(width: box.width, height: box.height)
+                    .scaleEffect(dragging ? 1.14 : 1)
+                    .contentShape(Circle().inset(by: size * 0.3))
+                    .position(x: base.x + drag.width, y: base.y + drag.height)
+                    .onTapGesture {
+                        Self.noteActivity()
+                        wake()
+                        brain.hop(burst: .sparkle)
+                        MascotSound.shared.play(.hop)
+                        HapticEngine.shared.play(.lightImpact)
+                    }
+                    .gesture(
+                        DragGesture(minimumDistance: 6, coordinateSpace: .local)
+                            .onChanged { value in
+                                if !dragging {
+                                    dragging = true
+                                    brain.react(.surprised)
+                                    HapticEngine.shared.play(.dragThreshold)
+                                }
+                                drag = value.translation
+                            }
+                            .onEnded { value in
+                                let end = CGPoint(x: base.x + value.translation.width, y: base.y + value.translation.height)
+                                var t = Transaction(); t.disablesAnimations = true
+                                withTransaction(t) {
+                                    drag = .zero
+                                    if end.y > geo.size.height - box.height * 1.1 {
+                                        // Dropped on the bottom edge: back to strolling from here.
+                                        parkX = -1; parkY = -1
+                                        x = max(0, min(1, end.x / max(geo.size.width, 1)))
+                                    } else {
+                                        parkX = Double(max(0, min(1, end.x / max(geo.size.width, 1))))
+                                        parkY = Double(max(0, min(1, end.y / max(geo.size.height, 1))))
+                                    }
+                                }
+                                withAnimation(.spring(duration: 0.35, bounce: 0.4)) { dragging = false }
+                                brain.hop(burst: .pop, height: 8)
+                                HapticEngine.shared.play(.drop)
+                                Self.noteActivity()
+                            }
+                    )
+                    .contextMenu {
+                        if parked {
+                            Button("Walk along the bottom", systemImage: "figure.walk") {
+                                parkX = -1; parkY = -1
+                                brain.hop(burst: .sparkle)
+                            }
+                        }
+                        Button("Hide Home companion", systemImage: "eye.slash") {
+                            withAnimation(.smooth) { enabled = false }
+                        }
+                    }
+                    .accessibilityElement()
+                    .accessibilityLabel("Mascot companion")
+                    .accessibilityValue(napping ? "Napping" : "Awake")
+                    .accessibilityHint("Double-tap to make it hop. Drag to move it.")
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityAction(named: "Hide Home companion") { enabled = false }
+            }
+            .transition(.opacity)
+            .task(id: scenePhase) {
+                guard scenePhase == .active else { return }
+                await live()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: ModulaMascotEvent.notification)) { _ in
+                Self.noteActivity()
+                wake()
+            }
+        }
+    }
+
+    private func wake() {
+        guard napping else { return }
+        napping = false
+        brain.react(.wave)
+    }
+
+    /// Ambient behaviour loop: stroll, peek or look around; after ~40s of no activity it
+    /// stops and the brain drifts off to sleep by itself (the brain naps after ~28s idle).
+    private func live() async {
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .seconds(Double.random(in: 5.5...10)))
+            guard !Task.isCancelled else { return }
+            if Date().timeIntervalSince(Self.lastActivity) > 40 {
+                napping = true
+                continue
+            }
+            if napping { wake() }
+            guard !dragging, !calm, parkX < 0 else { continue }
+            let roll = Double.random(in: 0...1)
+            if roll < 0.55 {
+                await walk()
+            } else if roll < 0.85 {
+                await peek()
+            } else {
+                brain.react(.curious)
+            }
+        }
+    }
+
+    private func walk() async {
+        let target = CGFloat.random(in: 0.08...0.92)
+        let distance = abs(target - x)
+        guard distance > 0.1 else { return }
+        facesLeft = target < x
+        let duration = Double(distance) * 6.5
+        withAnimation(.linear(duration: duration)) { x = target }
+        var walked = 0.0
+        while walked < duration, !Task.isCancelled, !dragging {
+            brain.hop(burst: nil, height: 3)
+            try? await Task.sleep(for: .milliseconds(300))
+            walked += 0.3
+        }
+    }
+
+    private func peek() async {
+        withAnimation(.spring(duration: 0.55, bounce: 0.35)) { lift = 44 }
+        brain.react(.curious)
+        try? await Task.sleep(for: .seconds(1.8))
+        if Bool.random() { brain.wave() }
+        try? await Task.sleep(for: .seconds(0.8))
+        withAnimation(.smooth(duration: 0.5)) { lift = 0 }
+    }
+}
+
+// MARK: - Celebration moments
+
+/// Milestones worth a moment of delight. Each is shown once per account and remembered on-device.
+enum ModulaMilestone: Hashable, Sendable {
+    case firstPost
+    case firstStory
+    case followers(Int)
+    case streak(Int)
+
+    static let followerSteps = [10, 100, 1000]
+    static let streakSteps = [3, 7, 30]
+
+    var id: String {
+        switch self {
+        case .firstPost: "first-post"
+        case .firstStory: "first-story"
+        case .followers(let n): "followers-\(n)"
+        case .streak(let n): "streak-\(n)"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .firstPost: "Your first post is live!"
+        case .firstStory: "First story, shared!"
+        case .followers(let n): "\(n.formatted()) followers"
+        case .streak(let n): "\(n)-day streak"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .firstPost: "Welcome to the conversation. Your mascot is thrilled."
+        case .firstStory: "It disappears in 24 hours — but this moment won’t."
+        case .followers(let n): n >= 1000 ? "A whole community. Thank you for building here." : "People want to see what you make next."
+        case .streak(let n): "You’ve opened Modula \(n) days in a row."
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .firstPost: "sparkles"
+        case .firstStory: "circle.dashed.inset.filled"
+        case .followers: "person.3.fill"
+        case .streak: "flame.fill"
+        }
+    }
+}
+
+@MainActor @Observable
+final class CelebrationCenter {
+    static let shared = CelebrationCenter()
+    private(set) var current: ModulaMilestone?
+    @ObservationIgnored private var queue: [ModulaMilestone] = []
+    @ObservationIgnored var accountKey = "anon"
+
+    private var seenKey: String { "celebrations.seen.v1.\(accountKey)" }
+    private var baselineKey: String { "celebrations.baseline.v1.\(accountKey)" }
+
+    private var seen: Set<String> {
+        get { Set(UserDefaults.standard.stringArray(forKey: seenKey) ?? []) }
+        set { UserDefaults.standard.set(Array(newValue), forKey: seenKey) }
+    }
+
+    func hasSeen(_ milestone: ModulaMilestone) -> Bool { seen.contains(milestone.id) }
+
+    /// Shows the milestone once (queued if another is on screen).
+    func reach(_ milestone: ModulaMilestone) {
+        guard !hasSeen(milestone) else { return }
+        seen.insert(milestone.id)
+        if current == nil {
+            current = milestone
+        } else {
+            queue.append(milestone)
+        }
+    }
+
+    func dismiss() {
+        current = nil
+        guard !queue.isEmpty else { return }
+        let next = queue.removeFirst()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.current = next
+        }
+    }
+
+    /// First sighting of the account's numbers: milestones already passed are recorded
+    /// silently, so long-time users aren't congratulated for old news.
+    func baselineIfNeeded(followers: Int, posts: Int) {
+        guard !UserDefaults.standard.bool(forKey: baselineKey) else { return }
+        UserDefaults.standard.set(true, forKey: baselineKey)
+        var marked = seen
+        for step in ModulaMilestone.followerSteps where followers >= step {
+            marked.insert(ModulaMilestone.followers(step).id)
+        }
+        if posts > 0 { marked.insert(ModulaMilestone.firstPost.id) }
+        seen = marked
+    }
+
+    func followersChanged(from old: Int?, to new: Int) {
+        guard let old, new > old else { return }
+        for step in ModulaMilestone.followerSteps where old < step && new >= step {
+            reach(.followers(step))
+        }
+    }
+
+    func streakChanged(_ streak: Int) {
+        if ModulaMilestone.streakSteps.contains(streak) { reach(.streak(streak)) }
+    }
+}
+
+/// Mount once at the root. Confetti + a dancing mascot + a glass card; tap or wait to dismiss.
+struct CelebrationHost: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    private var center: CelebrationCenter { CelebrationCenter.shared }
+
+    private func syncBaseline() {
+        center.accountKey = app.auth.account?.accountId ?? "anon"
+        guard let profile = app.profile.ownProfile else { return }
+        center.baselineIfNeeded(followers: profile.followerCount, posts: profile.postCount)
+    }
+
+    var body: some View {
+        let calm = ModulaEffectGate.reduceMotion(systemReduceMotion)
+        ZStack {
+            if let milestone = center.current {
+                CelebrationMoment(milestone: milestone, calm: calm) { center.dismiss() }
+                    .id(milestone.id)
+                    .transition(calm ? .opacity : .scale(scale: 0.85).combined(with: .opacity))
+            }
+        }
+        .animation(calm ? .easeOut(duration: 0.15) : .spring(response: 0.45, dampingFraction: 0.72), value: center.current)
+        .onAppear { syncBaseline() }
+        .onChange(of: app.auth.account?.accountId) { _, _ in syncBaseline() }
+        .onChange(of: app.profile.ownProfile?.id) { _, _ in syncBaseline() }
+        .onChange(of: app.profile.ownProfile?.followerCount) { old, new in
+            guard let new else { return }
+            syncBaseline()
+            center.followersChanged(from: old, to: new)
+        }
+        .task(id: scenePhase) {
+            guard scenePhase == .active, app.auth.isSignedIn else { return }
+            MascotProgressStore.shared.touchDay()
+            center.streakChanged(MascotProgressStore.shared.streak)
+        }
+    }
+}
+
+private struct CelebrationMoment: View {
+    let milestone: ModulaMilestone
+    var calm: Bool
+    var onDismiss: () -> Void
+    @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
+    @Environment(AppEnvironment.self) private var app
+    @State private var brain = MascotBrain()
+    private var wardrobe = MascotWardrobeStore.shared
+
+    init(milestone: ModulaMilestone, calm: Bool, onDismiss: @escaping () -> Void) {
+        self.milestone = milestone
+        self.calm = calm
+        self.onDismiss = onDismiss
+    }
+
+    var body: some View {
+        let accent = app.appearance.accent.color
+        let selection = MascotSelection.resolve(raw: kindRaw)
+        ZStack {
+            Color.black.opacity(0.28)
+                .ignoresSafeArea()
+                .onTapGesture(perform: onDismiss)
+                .accessibilityHidden(true)
+            if !calm {
+                ConfettiBurst(colors: [accent, .pink, .yellow, .mint, .orange, .purple])
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+            }
+            VStack(spacing: 14) {
+                if selection != .off {
+                    MascotDressedLive(selection: selection, size: 56, brain: brain, outfit: wardrobe.outfit)
+                        .frame(height: 120)
+                } else {
+                    Image(systemName: milestone.symbol)
+                        .font(.system(size: 44, weight: .bold))
+                        .foregroundStyle(accent.gradient)
+                        .symbolEffect(.bounce, options: .repeat(2))
+                        .frame(height: 90)
+                }
+                Text(milestone.title)
+                    .font(.title2.bold())
+                    .multilineTextAlignment(.center)
+                Text(milestone.subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                Button(action: onDismiss) {
+                    Text("Yay!")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, minHeight: 46)
+                        .background(Capsule().fill(accent.gradient))
+                        .modulaGlass(in: Capsule(), interactive: true, tint: accent.opacity(0.3))
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: .selection))
+                .accessibilityIdentifier("celebration.dismiss")
+            }
+            .padding(24)
+            .frame(maxWidth: 340)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 32, style: .continuous), interactive: false, specular: true)
+            .shadow(color: accent.opacity(0.35), radius: 30, y: 12)
+            .padding(24)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(.isModal)
+        .accessibilityLabel("\(milestone.title). \(milestone.subtitle)")
+        .accessibilityAction(.escape, onDismiss)
+        .task {
+            HapticEngine.shared.play(.success)
+            if !calm {
+                brain.celebrate()
+                MascotSound.shared.play(.pop)
+                try? await Task.sleep(for: .seconds(1.4))
+                brain.dance()
+                brain.hop(burst: .confetti, height: 14)
+            }
+            try? await Task.sleep(for: .seconds(4.2))
+            guard !Task.isCancelled else { return }
+            onDismiss()
+        }
+    }
+}
+
+/// One-shot confetti burst from the top centre; stops drawing after ~3s.
+struct ConfettiBurst: View {
+    var colors: [Color]
+    @State private var start = Date()
+    private let count = 90
+    private let lifetime = 3.2
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: Date().timeIntervalSince(start) > lifetime)) { timeline in
+            let t = timeline.date.timeIntervalSince(start)
+            Canvas { context, size in
+                guard t < lifetime else { return }
+                for i in 0..<count {
+                    let seed = Double(i) * 12.9898
+                    let angle = -Double.pi / 2 + sin(seed) * 1.15
+                    let speed = 380 + 260 * abs(sin(seed * 1.7))
+                    let x = size.width / 2 + CGFloat(cos(angle) * speed * t) + CGFloat(sin(t * 3 + seed) * 18)
+                    let y = size.height * 0.28 + CGFloat(sin(angle) * speed * t + 520 * t * t)
+                    let life = max(0, 1 - t / lifetime)
+                    var piece = Path(roundedRect: CGRect(x: -4, y: -2, width: 8, height: 4), cornerRadius: 1)
+                    piece = piece.applying(CGAffineTransform(rotationAngle: CGFloat(seed + t * 8)).concatenating(CGAffineTransform(translationX: x, y: y)))
+                    context.opacity = life
+                    context.fill(piece, with: .color(colors[i % max(colors.count, 1)]))
+                }
+            }
+        }
+        .onAppear { start = Date() }
+        .accessibilityHidden(true)
     }
 }

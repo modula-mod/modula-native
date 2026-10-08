@@ -438,6 +438,12 @@ struct ProfileAvatarPocket: View {
                             }
                         }
                         .shadow(color: (tint ?? .black).opacity(0.25), radius: 12, y: 4)
+                        .overlay {
+                            if isOwnProfile, let badge = overlayStore.badge {
+                                ProfileFrameShimmer(color: badge.resolvedColor(customHex: overlayStore.customBadgeColorHex))
+                                    .padding(-5)
+                            }
+                        }
 
                     if let storyRing {
                         StoryRing(state: storyRing, size: avatarSize, accent: app.appearance.accent.color, showsAddBadge: false)
@@ -1639,6 +1645,8 @@ final class ProfileAvatarOverlayStore {
     /// The signed-in user's avatar URL, remembered so `ModulaAvatar` can spot "my photo"
     /// anywhere without observing ProfileStore.
     private(set) var ownAvatarURL: URL?
+    /// "Currently building …" status line with a live dot (on-device until the API has it).
+    private(set) var buildingStatus: String = ""
 
     private var accountKey: String = "anon"
     private var boundKey: String?
@@ -1685,6 +1693,11 @@ final class ProfileAvatarOverlayStore {
         persist()
     }
 
+    func setBuildingStatus(_ text: String) {
+        buildingStatus = String(text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(60))
+        persist()
+    }
+
     /// Frames picker "Apply": commits every choice at once.
     func apply(
         frameID: String,
@@ -1713,6 +1726,7 @@ final class ProfileAvatarOverlayStore {
             presence = .offline
             badgeVisibility = .everyone
             ownAvatarURL = nil
+            buildingStatus = ""
             return
         }
         frameID = decoded.frameID
@@ -1722,6 +1736,7 @@ final class ProfileAvatarOverlayStore {
         customBadgeColorHex = decoded.customHex
         badgeVisibility = decoded.visibility.flatMap(ProfileFrameVisibility.init(rawValue:)) ?? .everyone
         ownAvatarURL = decoded.ownAvatar.flatMap(URL.init(string:))
+        buildingStatus = decoded.building ?? ""
     }
 
     private func persist() {
@@ -1732,7 +1747,8 @@ final class ProfileAvatarOverlayStore {
             customLabel: customBadgeLabel,
             customHex: customBadgeColorHex,
             visibility: badgeVisibility.rawValue,
-            ownAvatar: ownAvatarURL?.absoluteString
+            ownAvatar: ownAvatarURL?.absoluteString,
+            building: buildingStatus.isEmpty ? nil : buildingStatus
         )
         if let data = try? JSONEncoder().encode(payload) {
             UserDefaults.standard.set(data, forKey: defaultsKey)
@@ -1748,6 +1764,7 @@ final class ProfileAvatarOverlayStore {
         /// Added with arc frames; optional so v1 payloads still decode.
         var visibility: String?
         var ownAvatar: String?
+        var building: String?
     }
 }
 
@@ -2234,6 +2251,7 @@ struct ProfileAvatarOverlayEditor: View {
     @State private var customHex: String = "#3478F6"
     @State private var presence: ProfilePresenceStatus = .offline
     @State private var visibility: ProfileFrameVisibility = .everyone
+    @State private var building: String = ""
     @State private var loaded = false
     @Namespace private var selection
 
@@ -2248,6 +2266,7 @@ struct ProfileAvatarOverlayEditor: View {
             || badge != store.badge
             || presence != store.presence
             || visibility != store.badgeVisibility
+            || building.trimmingCharacters(in: .whitespacesAndNewlines) != store.buildingStatus
             || (badge == .custom && (customLabel != store.customBadgeLabel || customHex != store.customBadgeColorHex))
     }
 
@@ -2262,6 +2281,7 @@ struct ProfileAvatarOverlayEditor: View {
                             .transition(.opacity.combined(with: .move(edge: .top)))
                     }
                     visibilitySection
+                    buildingSection
                     ringSection
                     presenceSection
                     Text("Frames are saved on this device for now and show wherever your avatar appears in Modula. Other people will see them once Modula’s profile service supports frames.")
@@ -2584,6 +2604,7 @@ struct ProfileAvatarOverlayEditor: View {
                 presence: presence,
                 visibility: visibility
             )
+            store.setBuildingStatus(building)
             HapticEngine.shared.play(.success)
             app.navigation.flash(badge == nil ? "Frame removed" : "Frame applied", symbol: "person.crop.circle.badge.checkmark")
         }
@@ -2600,6 +2621,34 @@ struct ProfileAvatarOverlayEditor: View {
         customHex = store.customBadgeColorHex
         presence = store.presence
         visibility = store.badgeVisibility
+        building = store.buildingStatus
+    }
+
+    private var buildingSection: some View {
+        section("Currently building", subtitle: "A status line with a live dot under your name. Leave empty to hide it.") {
+            HStack(spacing: 10) {
+                ProfileLiveDot(color: .green)
+                TextField("e.g. a habit tracker module", text: $building)
+                    .textFieldStyle(.plain)
+                    .submitLabel(.done)
+                    .onChange(of: building) { _, value in
+                        if value.count > 60 { building = String(value.prefix(60)) }
+                    }
+                if !building.isEmpty {
+                    Button {
+                        building = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear status")
+                }
+            }
+            .padding(.horizontal, 16)
+            .frame(height: 46)
+            .modulaGlass(in: Capsule(), interactive: true)
+            .accessibilityIdentifier("profile.frames.building")
+        }
     }
 
     private func section<Content: View>(_ title: String, subtitle: String?, @ViewBuilder content: () -> Content) -> some View {
@@ -2836,5 +2885,93 @@ struct ProfileOwnAvatarArcOverlay: View {
             .allowsHitTesting(false)
             .accessibilityHidden(true)
             .onAppear { store.bind(accountID: app.auth.account?.accountId) }
+    }
+}
+
+
+// MARK: - Profile glow + building status
+
+/// Slow light sweep around an avatar wearing an active frame. Static glow with Reduce Motion.
+struct ProfileFrameShimmer: View {
+    var color: Color
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @State private var spin = false
+
+    var body: some View {
+        let calm = ModulaEffectGate.reduceMotion(systemReduceMotion)
+        Circle()
+            .strokeBorder(
+                AngularGradient(
+                    colors: [.clear, .clear, color.opacity(0.5), .white.opacity(0.9), color.opacity(0.8), .clear, .clear],
+                    center: .center
+                ),
+                lineWidth: 3
+            )
+            .rotationEffect(.degrees(spin ? 360 : 0))
+            .blur(radius: 1)
+            .shadow(color: color.opacity(0.5), radius: 8)
+            .opacity(calm ? 0.4 : 1)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+            .onAppear {
+                guard !calm else { return }
+                withAnimation(.linear(duration: 3.6).repeatForever(autoreverses: false)) { spin = true }
+            }
+    }
+}
+
+/// Pulsing "live" dot.
+struct ProfileLiveDot: View {
+    var color: Color
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @State private var pulse = false
+
+    var body: some View {
+        let calm = ModulaEffectGate.reduceMotion(systemReduceMotion)
+        ZStack {
+            Circle()
+                .fill(color.opacity(0.35))
+                .frame(width: 16, height: 16)
+                .scaleEffect(pulse ? 1.25 : 0.6)
+                .opacity(pulse ? 0 : 0.9)
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+                .shadow(color: color.opacity(0.7), radius: 3)
+        }
+        .frame(width: 16, height: 16)
+        .accessibilityHidden(true)
+        .onAppear {
+            guard !calm else { return }
+            withAnimation(.easeOut(duration: 1.4).repeatForever(autoreverses: false)) { pulse = true }
+        }
+    }
+}
+
+/// "Building …" line under the profile identity (own profile; on-device for now).
+struct ProfileBuildingStatusLine: View {
+    let text: String
+    var onEdit: (() -> Void)? = nil
+
+    var body: some View {
+        Button {
+            onEdit?()
+        } label: {
+            HStack(spacing: 8) {
+                ProfileLiveDot(color: .green)
+                (Text("Building ").foregroundStyle(.secondary) + Text(text).fontWeight(.semibold))
+                    .font(.subheadline)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .modulaGlass(in: Capsule(), interactive: onEdit != nil)
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: .selection))
+        .disabled(onEdit == nil)
+        .accessibilityLabel("Currently building \(text)")
+        .accessibilityIdentifier("profile.building")
     }
 }
