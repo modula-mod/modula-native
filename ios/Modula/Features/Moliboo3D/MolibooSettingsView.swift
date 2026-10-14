@@ -579,37 +579,149 @@ private struct MolibooHubBackButton: View {
     }
 }
 
-/// One-time welcome moment (also replayable from Settings → Moliboo).
+/// One-time welcome moment (also replayable from Settings → Moliboo): a magical, animated intro over the dreamy /
+/// night ambient sky. Three swipe pages (meet, dress up, care), characters float in with a bob and tilt parallax,
+/// text reveals in a stagger, and on "Let's go" the chosen Moliboo grows into the hero spot before the sheet closes.
+/// Reduce Motion: no float, bob, parallax or morph; content simply appears.
 struct MolibooWelcomeSheet: View {
     var done: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(MolibooSettings.animationsKey) private var playful = true
+    @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
     @State private var appear = false
-    private let trio: [ModulaMascotKind] = [.pip, .pebble, .moss]
+    @State private var page = 0
+    @State private var launching = false
+    @State private var bob = false
+    @Namespace private var morph
+    private var motionOn: Bool { playful && !reduceMotion }
+    /// Registered characters only (portraits when 3D assets exist, 2D otherwise).
+    private var trio: [String] {
+        let ids = MolibooRegistry.available3D.map(\.id)
+        let pick = ["pip", "pebble", "moss"].filter { ids.isEmpty || ids.contains($0) }
+        return pick.isEmpty ? Array(ids.prefix(3)) : pick
+    }
+    private let pages: [(String, String, String)] = [
+        ("Little friends, big feelings.", "Meet your Moliboo. It notices what you do and keeps you company across Modula.", "heart.fill"),
+        ("Dress them up.", "Hats, outfits and backgrounds in the Studio, in real 3D. Save looks and share photos.", "tshirt.fill"),
+        ("Care for them.", "Play, feed and tuck them in. Their mood and your bond grow day by day.", "leaf.fill")
+    ]
 
     var body: some View {
-        VStack(spacing: 22) {
-            Spacer()
-            Image("MoliboosLogo").resizable().scaledToFit().frame(height: 44).accessibilityLabel("Moliboos")
-            HStack(spacing: 18) {
-                ForEach(Array(trio.enumerated()), id: \.offset) { i, k in
-                    ModulaMascotFigure(kind: k, pose: .still(), size: 40)
-                        .offset(y: appear ? 0 : 40)
-                        .opacity(appear ? 1 : 0)
-                        .animation(playful && !reduceMotion ? .spring(response: 0.5, dampingFraction: 0.6).delay(Double(i) * 0.12) : nil, value: appear)
+        ZStack {
+            MolibooAmbientBackground(ambience: .night, animated: motionOn, fps: 20, density: 0.9)
+                .overlay(MolibooAmbientBackground(ambience: .dreamy, animated: motionOn, fps: 12, showsSky: false, density: 0.5).opacity(0.7))
+                .ignoresSafeArea()
+            VStack(spacing: 18) {
+                Image("MoliboosLogo").resizable().scaledToFit().frame(height: 52)
+                    .shadow(color: .white.opacity(0.7), radius: 8).shadow(color: Color(red: 0.6, green: 0.5, blue: 1).opacity(0.8), radius: 22)
+                    .scaleEffect(appear ? 1 : 0.8).opacity(appear ? 1 : 0)
+                    .accessibilityLabel("Moliboos")
+                    .padding(.top, 36)
+                stage.frame(height: 220)
+                TabView(selection: $page) {
+                    ForEach(pages.indices, id: \.self) { i in pageText(i).tag(i) }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .always))
+                .frame(height: 190)
+                .opacity(launching ? 0 : 1)
+                Spacer(minLength: 0)
+                Button(action: go) {
+                    Text(page < pages.count - 1 ? "Next" : "Let’s go").font(.headline).foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, minHeight: 54).contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .modulaGlass(in: Capsule(), interactive: true, tint: Color(red: 0.45, green: 0.35, blue: 0.95), prominent: true, specular: true)
+                .shadow(color: Color(red: 0.5, green: 0.4, blue: 1).opacity(0.6), radius: 18, y: 6)
+                .padding(.horizontal, 28)
+                .accessibilityIdentifier("moliboo.welcome.go")
+                if page < pages.count - 1 {
+                    Button("Skip") { finish() }.font(.subheadline.weight(.semibold)).foregroundStyle(.white.opacity(0.75))
+                        .accessibilityIdentifier("moliboo.welcome.skip")
                 }
             }
-            Text("Little friends, big feelings.").font(.title2.weight(.bold)).multilineTextAlignment(.center)
-            Text("Pick your Moliboo, dress it up in the Studio and it’ll keep you company across Modula.")
-                .font(.body).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.horizontal, 24)
-            Spacer()
-            Button(action: done) { Text("Let’s go").frame(maxWidth: .infinity) }
-                .buttonStyle(.borderedProminent).controlSize(.large).padding(.horizontal, 24)
-                .accessibilityIdentifier("moliboo.welcome.go")
+            .padding(.bottom, 24)
         }
-        .padding(.bottom, 24)
+        .environment(\.colorScheme, .dark)
         .presentationDetents([.large])
-        .onAppear { appear = true }
+        .presentationBackground(.clear)
+        .onAppear {
+            withAnimation(motionOn ? .spring(response: 0.7, dampingFraction: 0.75) : nil) { appear = true }
+            if motionOn { bob = true }
+        }
         .sensoryFeedback(.success, trigger: appear)
+        .sensoryFeedback(.selection, trigger: page)
+    }
+
+    /// The floating trio; with "Let's go" the selected one grows into the hero spot (matched geometry morph).
+    private var stage: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            ZStack {
+                Ellipse().fill(RadialGradient(colors: [Color(red: 0.6, green: 0.9, blue: 1).opacity(0.45), .clear], center: .center, startRadius: 4, endRadius: 140))
+                    .frame(width: 280, height: 80).offset(y: 86)
+                if launching {
+                    art(hero).matchedGeometryEffect(id: hero, in: morph).frame(width: 190, height: 190)
+                } else {
+                    ForEach(Array(trio.enumerated()), id: \.element) { i, id in
+                        let center = i == 1
+                        art(id)
+                            .matchedGeometryEffect(id: id, in: morph)
+                            .frame(width: center ? 150 : 104, height: center ? 150 : 104)
+                            .offset(x: CGFloat(i - 1) * w * 0.3 + CGFloat(page - 1) * -10 * CGFloat(i - 1),
+                                    y: (center ? -6 : 22) + (bob ? -6 : 4) * (i == 1 ? 1 : 0.7))
+                            .offset(y: appear ? 0 : 160)
+                            .opacity(appear ? 1 : 0)
+                            .animation(motionOn ? .spring(response: 0.8, dampingFraction: 0.62).delay(0.15 + Double(i) * 0.12) : nil, value: appear)
+                            .animation(motionOn ? .easeInOut(duration: 1.6 + Double(i) * 0.3).repeatForever(autoreverses: true) : nil, value: bob)
+                            .animation(motionOn ? .spring(response: 0.5, dampingFraction: 0.8) : nil, value: page)
+                            .onTapGesture { kindRaw = id }
+                            .overlay(alignment: .bottom) {
+                                if id == hero { Circle().fill(.white).frame(width: 6, height: 6).offset(y: 10) }
+                            }
+                    }
+                }
+            }
+            .frame(width: w, height: geo.size.height)
+        }
+        .accessibilityHidden(true)
+    }
+
+    private var hero: String { trio.contains(kindRaw) ? kindRaw : (trio.dropFirst().first ?? trio.first ?? "pip") }
+
+    @ViewBuilder private func art(_ id: String) -> some View {
+        if let img = MolibooPortrait.image(for: id) {
+            Image(uiImage: img).resizable().interpolation(.high).scaledToFit()
+                .shadow(color: .black.opacity(0.35), radius: 10, y: 8)
+                .shadow(color: (ModulaMascotKind(rawValue: id)?.palette.light ?? .white).opacity(0.5), radius: 16)
+        } else if let k = ModulaMascotKind(rawValue: id) {
+            ModulaMascotFigure(kind: k, pose: .still(), size: 60)
+        }
+    }
+
+    private func pageText(_ i: Int) -> some View {
+        let p = pages[i]
+        let shown = appear && page == i
+        return VStack(spacing: 10) {
+            Image(systemName: p.2).font(.title3).foregroundStyle(.pink)
+                .opacity(shown ? 1 : 0).offset(y: shown ? 0 : 10)
+                .animation(motionOn ? .easeOut(duration: 0.4).delay(0.05) : nil, value: shown)
+            Text(p.0).font(.system(.title2, design: .rounded).weight(.heavy)).foregroundStyle(.white).multilineTextAlignment(.center)
+                .opacity(shown ? 1 : 0).offset(y: shown ? 0 : 14)
+                .animation(motionOn ? .easeOut(duration: 0.45).delay(0.15) : nil, value: shown)
+            Text(p.1).font(.body).foregroundStyle(.white.opacity(0.8)).multilineTextAlignment(.center).padding(.horizontal, 28)
+                .opacity(shown ? 1 : 0).offset(y: shown ? 0 : 14)
+                .animation(motionOn ? .easeOut(duration: 0.45).delay(0.3) : nil, value: shown)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func go() {
+        if page < pages.count - 1 { withAnimation(motionOn ? .spring : nil) { page += 1 } } else { finish() }
+    }
+
+    private func finish() {
+        guard motionOn else { done(); return }
+        withAnimation(.spring(response: 0.55, dampingFraction: 0.72)) { launching = true }
+        Task { try? await Task.sleep(for: .milliseconds(650)); done() }
     }
 }

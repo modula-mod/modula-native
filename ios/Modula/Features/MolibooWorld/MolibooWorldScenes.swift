@@ -336,3 +336,11 @@ struct MolibooSpringPressStyle: ButtonStyle {
             .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.55), value: configuration.isPressed)
     }
 }
+
+extension View {
+    /// Soft feathered edges for character art and illustrations (radial fade instead of a hard cut-off).
+    func molibooSoftEdges(_ strength: CGFloat = 0.18) -> some View {
+        mask(RadialGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 1 - strength), .init(color: .clear, location: 1)],
+                            center: .center, startRadius: 0, endRadius: 60).scaleEffect(1.25))
+    }
+}

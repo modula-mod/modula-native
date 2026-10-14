@@ -8,7 +8,7 @@ struct SettingsGroup<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 11) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.headline)
+                ModulaBrandTitle(title: title, height: 18).font(.headline)
                 if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary) }
             }
             ModulaCard { content }

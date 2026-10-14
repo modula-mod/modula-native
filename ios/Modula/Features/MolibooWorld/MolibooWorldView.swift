@@ -35,6 +35,7 @@ struct MolibooWorldView: View {
     @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
     @FocusState private var composerFocused: Bool
     @State private var didApplyDebugKind = false
+    @Namespace private var zoomNS
     @Namespace private var glassNS
     #if DEBUG
     @AppStorage("moliboo.world.debugHour") private var debugHour = -1
@@ -195,6 +196,8 @@ struct MolibooWorldView: View {
                     .accessibilityHint("Tap to bounce, double-tap to chat, hold to switch Moliboo")
                     .accessibilityAddTraits(.isButton)
                     .accessibilityIdentifier("world.stage")
+                    // Studio / Wardrobe / Photo zoom out of the character itself (real morph, not a cut).
+                    .matchedTransitionSource(id: "world.hero", in: zoomNS) { $0.clipShape(Circle()) }
             }
             .overlay(alignment: .topLeading) { floatingNav }
             .overlay(alignment: .topTrailing) { statusPanel.padding(.top, 104) }
@@ -486,8 +489,9 @@ struct MolibooWorldView: View {
         return Button { withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.6)) { kindRaw = id } } label: {
             VStack(spacing: 4) {
                 if let img = MolibooPortrait.image(for: id) {
-                    Image(uiImage: img).resizable().scaledToFit().frame(height: 70)
+                    Image(uiImage: img).resizable().interpolation(.high).scaledToFit().frame(height: 70)
                         .shadow(color: .black.opacity(0.2), radius: 3, y: 2)
+                        .molibooSoftEdges()
                 }
                 Text(MolibooRegistry.descriptor(for: id)?.displayName ?? id.capitalized).font(.caption.weight(.bold))
                 if ModulaMascotKind(rawValue: id)?.isPremium == true {
@@ -553,9 +557,9 @@ struct MolibooWorldView: View {
 
     @ViewBuilder private func destination(_ r: Route) -> some View {
         switch r {
-        case .studio(let id): MolibooLivingStudioView(characterID: id)
-        case .wardrobe(let id): MolibooLivingStudioView(characterID: id, initialPanel: .wardrobe)
-        case .photo(let id): MolibooLivingStudioView(characterID: id, startInPhoto: true)
+        case .studio(let id): MolibooLivingStudioView(characterID: id).navigationTransition(.zoom(sourceID: "world.hero", in: zoomNS))
+        case .wardrobe(let id): MolibooLivingStudioView(characterID: id, initialPanel: .wardrobe).navigationTransition(.zoom(sourceID: "world.hero", in: zoomNS))
+        case .photo(let id): MolibooLivingStudioView(characterID: id, startInPhoto: true).navigationTransition(.zoom(sourceID: "world.hero", in: zoomNS))
         case .settings: MolibooSettingsView()
         }
     }
