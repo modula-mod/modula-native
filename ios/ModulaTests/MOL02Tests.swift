@@ -25,9 +25,10 @@ final class MOL02Tests: XCTestCase {
     func testRegistryIsGenericAndRequiresBundledAsset() throws {
         XCTAssertTrue(MolibooRegistry.has3D("pip"))
         XCTAssertTrue(MolibooRegistry.has3D("pebble"))
-        XCTAssertFalse(MolibooRegistry.has3D("moss"), "no asset yet ⇒ 2D")
+        XCTAssertTrue(MolibooRegistry.has3D("moss"))
+        XCTAssertFalse(MolibooRegistry.has3D("tofu"), "no asset yet ⇒ 2D")
         XCTAssertFalse(MolibooRegistry.has3D("unknown"))
-        XCTAssertEqual(Set(MolibooRegistry.available3D.map(\.id)), ["pip", "pebble"])
+        XCTAssertEqual(Set(MolibooRegistry.available3D.map(\.id)), ["pip", "moss", "pebble"])
         // Manifest says there is an asset but the file is not bundled ⇒ no 3D (2D fallback), never another character.
         let ghost = MolibooCharacterDescriptor(id: "ghost", canonicalNumber: 99, displayName: "Ghost", family: "test", asset: "Ghost_NotBundled",
                                                assetSHA256: nil, sourceVersion: nil, anchors: [], expressions: [], fps: 30, clips: [:], attachments: [:])
@@ -70,6 +71,46 @@ final class MOL02Tests: XCTestCase {
         XCTAssertEqual(cap.parent?.name, "anchor_head")
         c.yaw = 1.2
         XCTAssertEqual(cap.parent?.name, "anchor_head")
+        c.unequip(wardrobeItemID: capID)
+        XCTAssertNil(c.equipped[capID])
+    }
+
+    // MARK: Moss (#002)
+
+    func testMossManifestEntry() throws {
+        let m = try MolibooManifest.bundled(.main)
+        let d = try XCTUnwrap(m.character(id: "moss"))
+        XCTAssertEqual(d.canonicalNumber, 2)
+        XCTAssertEqual(d.asset, "Moss")
+        XCTAssertEqual(d.sourceVersion, "moss-v1.0")
+        XCTAssertEqual(d.assetSHA256, "9bb82d67d154d166f3e478ebb1d9de5525e1206ed13ef93174fff3c3828225cd")
+        XCTAssertEqual(Set(d.expressions), Set(MolibooExpression.allCases))
+        for c in ["idle_bob", "wobble", "tap", "slow_blink", "cheek_puff", "measured_hop"] { XCTAssertNotNil(d.clips[c], c) }
+        XCTAssertNil(d.clips["gill_flutter"], "Pip's personality must not leak into Moss")
+        guard case .compatible(let cfg) = m.compatibility(item: capID, character: "moss") else { return XCTFail("Moss wears the Signature Cap") }
+        XCTAssertEqual(cfg.anchor, "anchor_head")
+    }
+
+    func testMossLoadsAnimatesExpressesAndWearsCap() async throws {
+        let m = try MolibooManifest.bundled(.main)
+        let d = try XCTUnwrap(MolibooRegistry.descriptor(for: "moss", manifest: m))
+        let c = MolibooSceneController(descriptor: d)
+        c.cosmetics = m.cosmetics
+        await c.load()
+        defer { c.stop() }
+        XCTAssertFalse(c.loadFailed)
+        XCTAssertEqual(c.character?.name, "Moss_Root")
+        XCTAssertNotNil(c.character?.findEntity(named: "Moss_Body"))
+        XCTAssertNil(c.character?.findEntity(named: "Pebble_Body"))
+        XCTAssertNil(c.character?.findEntity(named: "Pip_Body"))
+        for a in d.anchors { XCTAssertNotNil(c.anchor(a), "missing \(a)") }
+        for clip in ["idle_bob", "blink", "wobble", "tap", "slow_blink", "cheek_puff", "measured_hop"] { XCTAssertTrue(c.playClip(clip), clip) }
+        for e in MolibooExpression.allCases where e != .blink {
+            c.setExpression(e); XCTAssertEqual(c.lastAction, "clip:" + e.clipName)
+        }
+        let ok = await c.equip(wardrobeItemID: capID)
+        XCTAssertTrue(ok)
+        XCTAssertEqual(c.equipped[capID]?.parent?.name, "anchor_head")
         c.unequip(wardrobeItemID: capID)
         XCTAssertNil(c.equipped[capID])
     }

@@ -1,0 +1,57 @@
+{
+ "fps": 30,
+ "clips": {
+  "idle_bob": {
+   "start": 1,
+   "end": 60
+  },
+  "blink": {
+   "start": 61,
+   "end": 72
+  },
+  "wobble": {
+   "start": 73,
+   "end": 102
+  },
+  "tap": {
+   "start": 103,
+   "end": 130
+  },
+  "expr_idle": {
+   "start": 131,
+   "end": 136
+  },
+  "expr_happy": {
+   "start": 137,
+   "end": 142
+  },
+  "expr_excited": {
+   "start": 143,
+   "end": 148
+  },
+  "expr_surprised": {
+   "start": 149,
+   "end": 154
+  },
+  "expr_sleepy": {
+   "start": 155,
+   "end": 160
+  },
+  "expr_sad": {
+   "start": 161,
+   "end": 166
+  },
+  "slow_blink": {
+   "start": 167,
+   "end": 206
+  },
+  "cheek_puff": {
+   "start": 207,
+   "end": 242
+  },
+  "measured_hop": {
+   "start": 243,
+   "end": 274
+  }
+ }
+}

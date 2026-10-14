@@ -49,11 +49,13 @@ final class MOL02PipAcceptanceUITests: XCTestCase {
         app.buttons["Wobble"].tap(); waitState(app, 5) { $0["last"] == "wobble" }
         app.buttons["Bounce"].tap(); waitState(app, 5) { $0["last"] == "clip:tap" }
         app.descendants(matching: .any)["moliboo3d.view"].tap(); waitState(app, 5) { $0["reacts"] == "1" }
-        app.buttons["moliboo3d.hatToggle"].tap(); waitState(app, 10) { $0["cap"] == "1" }
-        app.buttons["moliboo3d.hatToggle"].tap(); waitState(app, 10) { $0["cap"] == "0" }
+        // Cap toggle round-trip from whatever the persisted outfit restored (tests don't save, so state is not leaked).
+        let cap0 = state(app)["cap"] ?? "0", cap1 = cap0 == "1" ? "0" : "1"
+        app.buttons["moliboo3d.hatToggle"].tap(); waitState(app, 10) { $0["cap"] == cap1 }
+        app.buttons["moliboo3d.hatToggle"].tap(); waitState(app, 10) { $0["cap"] == cap0 }
     }
 
-    func testStudioOffersPipIn3DOnlyWithFlagAndMossStays2D() {
+    func testStudioOffersPipIn3DOnlyWithFlagAndTofuStays2D() {
         var app = launch(kind: "pip", ["-MOL01Studio"], flag: false)
         XCTAssertTrue(app.descendants(matching: .any)["mol01.studio.ready"].waitForExistence(timeout: 20))
         XCTAssertFalse(app.buttons["moliboo3d.entry"].exists, "flag off ⇒ 2D only")
@@ -65,9 +67,9 @@ final class MOL02PipAcceptanceUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Pip 3D"].waitForExistence(timeout: 20))
         waitState(app) { $0["loaded"] == "1" && $0["failed"] == "0" }
         app.terminate()
-        app = launch(kind: "moss", ["-MOL01Studio"])
+        app = launch(kind: "tofu", ["-MOL01Studio"])
         XCTAssertTrue(app.descendants(matching: .any)["mol01.studio.ready"].waitForExistence(timeout: 20))
         sleep(2)
-        XCTAssertFalse(app.buttons["moliboo3d.entry"].exists, "Moss has no asset yet ⇒ no 3D entry, no Pebble substitute")
+        XCTAssertFalse(app.buttons["moliboo3d.entry"].exists, "Tofu has no asset yet ⇒ no 3D entry, no Pebble substitute")
     }
 }

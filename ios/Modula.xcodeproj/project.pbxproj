@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		A0MOL01ACC0000000000000B /* MOL01AcceptanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0MOL01ACC0000000000000F /* MOL01AcceptanceUITests.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E105 /* MOL02PipAcceptanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E106 /* MOL02PipAcceptanceUITests.swift */; };
+		A1B2C3D4E5F6A7B8C9D0E109 /* MOL02MossAcceptanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E110 /* MOL02MossAcceptanceUITests.swift */; };
 		17ACCE3135E58A0DA2856DAF /* MOL01Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 775DC34FE761435741076D26 /* MOL01Tests.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E103 /* MOL02Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E104 /* MOL02Tests.swift */; };
 		23F9F9582ACCE39AAB61C618 /* MolibooBrand.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 53094F3F0B318C54A1D1D505 /* MolibooBrand.xcassets */; };
@@ -16,6 +17,7 @@
 		A2A2BE71267DED53B4FFA8D4 /* Accessory_Cap_MolibooSignature.usdz in Resources */ = {isa = PBXBuildFile; fileRef = 5F95087BC6F29AA6A8605B9A /* Accessory_Cap_MolibooSignature.usdz */; };
 		00E6E714F85A061C99754480 /* Pebble.usdz in Resources */ = {isa = PBXBuildFile; fileRef = 2142D575079AC30ACF5E8A4D /* Pebble.usdz */; };
 		A1B2C3D4E5F6A7B8C9D0E101 /* Pip.usdz in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E102 /* Pip.usdz */; };
+		A1B2C3D4E5F6A7B8C9D0E107 /* Moss.usdz in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E108 /* Moss.usdz */; };
 		B0DDD288F6D69B4EAEF85306 /* MolibooCosmetics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2D3FB6B9F571FF6C9ACE953 /* MolibooCosmetics.swift */; };
 		A1MOLIBOOSETTINGS00000B1 /* MolibooSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1MOLIBOOSETTINGS00000F1 /* MolibooSettingsView.swift */; };
 		7E8776094BCA5DE7D8DF07C5 /* MOL01DebugHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E8A5BFD9BC0EE7D5D4BC164 /* MOL01DebugHarness.swift */; };
@@ -382,6 +384,7 @@
 /* Begin PBXFileReference section */
 		A0MOL01ACC0000000000000F /* MOL01AcceptanceUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL01AcceptanceUITests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E106 /* MOL02PipAcceptanceUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL02PipAcceptanceUITests.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6A7B8C9D0E110 /* MOL02MossAcceptanceUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL02MossAcceptanceUITests.swift; sourceTree = "<group>"; };
 		775DC34FE761435741076D26 /* MOL01Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL01Tests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E104 /* MOL02Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL02Tests.swift; sourceTree = "<group>"; };
 		53094F3F0B318C54A1D1D505 /* MolibooBrand.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = MolibooBrand.xcassets; path = Resources/Moliboo3D/MolibooBrand.xcassets; sourceTree = "<group>"; };
@@ -389,6 +392,7 @@
 		5F95087BC6F29AA6A8605B9A /* Accessory_Cap_MolibooSignature.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Accessory_Cap_MolibooSignature.usdz; path = Resources/Moliboo3D/Accessory_Cap_MolibooSignature.usdz; sourceTree = "<group>"; };
 		2142D575079AC30ACF5E8A4D /* Pebble.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Pebble.usdz; path = Resources/Moliboo3D/Pebble.usdz; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E102 /* Pip.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Pip.usdz; path = Resources/Moliboo3D/Pip.usdz; sourceTree = "<group>"; };
+		A1B2C3D4E5F6A7B8C9D0E108 /* Moss.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Moss.usdz; path = Resources/Moliboo3D/Moss.usdz; sourceTree = "<group>"; };
 		A2D3FB6B9F571FF6C9ACE953 /* MolibooCosmetics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooCosmetics.swift; path = Features/Moliboo3D/MolibooCosmetics.swift; sourceTree = "<group>"; };
 		A1MOLIBOOSETTINGS00000F1 /* MolibooSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooSettingsView.swift; path = Features/Moliboo3D/MolibooSettingsView.swift; sourceTree = "<group>"; };
 		7E8A5BFD9BC0EE7D5D4BC164 /* MOL01DebugHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MOL01DebugHarness.swift; path = Features/Moliboo3D/MOL01DebugHarness.swift; sourceTree = "<group>"; };
@@ -828,6 +832,7 @@
 				9AA9CD0861813EF42C424B9A /* NativeLaunchTests.swift */,
 				A0MOL01ACC0000000000000F /* MOL01AcceptanceUITests.swift */,
 				A1B2C3D4E5F6A7B8C9D0E106 /* MOL02PipAcceptanceUITests.swift */,
+				A1B2C3D4E5F6A7B8C9D0E110 /* MOL02MossAcceptanceUITests.swift */,
 			);
 			path = ModulaUITests;
 			sourceTree = "<group>";
@@ -1059,6 +1064,7 @@
 				5F95087BC6F29AA6A8605B9A /* Accessory_Cap_MolibooSignature.usdz */,
 				2142D575079AC30ACF5E8A4D /* Pebble.usdz */,
 				A1B2C3D4E5F6A7B8C9D0E102 /* Pip.usdz */,
+				A1B2C3D4E5F6A7B8C9D0E108 /* Moss.usdz */,
 				6D9171C8595DD0F57E983884 /* Localizable.xcstrings */,
 				35DD2D0F98FBF95AC2D68618 /* ModulaBridge.swift */,
 				11C7225BC261899B6AA2414A /* ModulaHostBridge.mm */,
@@ -1333,6 +1339,7 @@
 				A2A2BE71267DED53B4FFA8D4 /* Accessory_Cap_MolibooSignature.usdz in Resources */,
 				00E6E714F85A061C99754480 /* Pebble.usdz in Resources */,
 				A1B2C3D4E5F6A7B8C9D0E101 /* Pip.usdz in Resources */,
+				A1B2C3D4E5F6A7B8C9D0E107 /* Moss.usdz in Resources */,
 				8847C56025B5FF23E6A2F4CB /* Localizable.xcstrings in Resources */,
 				A7C9B3B1BD7B84C45951A4CE /* manifests.json in Resources */,
 			);
@@ -1463,6 +1470,7 @@
 				3DFCE2030F6AC41D3386B2F5 /* NativeLaunchTests.swift in Sources */,
 				A0MOL01ACC0000000000000B /* MOL01AcceptanceUITests.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E105 /* MOL02PipAcceptanceUITests.swift in Sources */,
+				A1B2C3D4E5F6A7B8C9D0E109 /* MOL02MossAcceptanceUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

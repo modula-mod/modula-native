@@ -107,14 +107,97 @@
       "canonicalNumber": 2,
       "displayName": "Moss",
       "family": "originals",
-      "asset": null,
-      "assetSHA256": null,
-      "sourceVersion": null,
-      "anchors": [],
-      "expressions": [],
+      "asset": "Moss",
+      "assetSHA256": "9bb82d67d154d166f3e478ebb1d9de5525e1206ed13ef93174fff3c3828225cd",
+      "sourceVersion": "moss-v1.0",
+      "anchors": [
+        "anchor_head",
+        "anchor_face",
+        "anchor_back",
+        "anchor_neck",
+        "anchor_base"
+      ],
+      "expressions": [
+        "idle",
+        "blink",
+        "happy",
+        "excited",
+        "surprised",
+        "sleepy",
+        "sad"
+      ],
       "fps": 30,
-      "clips": {},
-      "attachments": {}
+      "clips": {
+        "idle_bob": {
+          "start": 1,
+          "end": 60
+        },
+        "blink": {
+          "start": 61,
+          "end": 72
+        },
+        "wobble": {
+          "start": 73,
+          "end": 102
+        },
+        "tap": {
+          "start": 103,
+          "end": 130
+        },
+        "expr_idle": {
+          "start": 131,
+          "end": 136
+        },
+        "expr_happy": {
+          "start": 137,
+          "end": 142
+        },
+        "expr_excited": {
+          "start": 143,
+          "end": 148
+        },
+        "expr_surprised": {
+          "start": 149,
+          "end": 154
+        },
+        "expr_sleepy": {
+          "start": 155,
+          "end": 160
+        },
+        "expr_sad": {
+          "start": 161,
+          "end": 166
+        },
+        "slow_blink": {
+          "start": 167,
+          "end": 206
+        },
+        "cheek_puff": {
+          "start": 207,
+          "end": 242
+        },
+        "measured_hop": {
+          "start": 243,
+          "end": 274
+        }
+      },
+      "attachments": {
+        "cap.moliboo.signature": {
+          "offset": [
+            0.0,
+            0.0,
+            0.002
+          ],
+          "rotationDegrees": [
+            -6.0,
+            0.0,
+            -8.0
+          ],
+          "scale": 0.95,
+          "anchor": "anchor_head",
+          "compatible": true
+        }
+      }
     },
     {
       "id": "nimbus",
