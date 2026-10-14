@@ -26,7 +26,7 @@ final class MOL03CollectionUITests: XCTestCase {
             guard item.waitForExistence(timeout: 5) else { return false }
             item.tap()
         }
-        guard app.navigationBars["Moliboo"].waitForExistence(timeout: 20) else { return false }
+        guard app.descendants(matching: .any)["moliboo.hub.logo"].waitForExistence(timeout: 20) else { return false }
         for _ in 0..<8 where !(e.exists && e.isHittable) { app.swipeUp() }
         return e.exists && e.isHittable
     }
