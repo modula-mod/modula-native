@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import RealityKit
 import simd
+import UIKit
 
 /// Owns the live entity graph of one Moliboo character: expressions, idle animation, equipment and interaction reactions.
 @MainActor @Observable
@@ -82,6 +83,7 @@ final class MolibooSceneController {
             let s = 0.2 / max(bounds.extents.x, 0.001)
             e.scale = [s, s, s]
             e.position = [-bounds.center.x * s, -bounds.min.y * s - 0.05, -bounds.center.z * s]
+            Self.attachContactShadow(under: e, on: root)
             e.generateCollisionShapes(recursive: true)
             e.components.set(InputTargetComponent())
             startIdle()
@@ -95,6 +97,17 @@ final class MolibooSceneController {
     static func disableShadows(_ e: Entity) {
         if e.components[ModelComponent.self] != nil { e.components.set(DynamicLightShadowComponent(castsShadow: false)) }
         e.children.forEach(disableShadows)
+    }
+
+    /// Soft oval under the character. Cheap substitute for the DynamicLightShadow we opted out of; keeps the model grounded.
+    static func attachContactShadow(under character: Entity, on root: Entity) {
+        let mesh = MeshResource.generatePlane(width: 0.14, depth: 0.09)
+        let blob = ModelEntity(mesh: mesh, materials: [UnlitMaterial(color: .init(white: 0, alpha: 0.18))])
+        blob.name = "ContactShadow"
+        blob.orientation = simd_quatf(angle: -.pi / 2, axis: [1, 0, 0])
+        let bounds = character.visualBounds(relativeTo: root)
+        blob.position = [bounds.center.x, bounds.min.y + 0.0005, bounds.center.z]
+        root.addChild(blob)
     }
 
     private static func countMeshes(_ e: Entity) -> Int {
