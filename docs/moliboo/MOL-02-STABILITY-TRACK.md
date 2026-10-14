@@ -160,3 +160,10 @@ Frame timing is delivered to the shown controller (`recordFrame`). Grounding sha
   bg/fg UI test passed. MOLBENCH: cold 1031 ms, warm 3 ms, switch(Pip cold) 1303 ms, footprint 97→102→101→101 MB.
   MOL-01/02 UI suites running on 9F8B55ED before the PR.
 - The shadows-off PR branch `perf/shadows-off` has an uncommitted soft contact-shadow blob (`attachContactShadow`), still to be built and verified.
+- 16:25 BST: shadows-off confirmation finished: 15/20 passed (crashes in iterations 1, 5, 10, 11; iteration 8 failed without a crash).
+  Combined with round 4 that is 23/30 (77%) vs the 4/10 baseline: fewer crashes, but NOT a fix. Note: runs 16-20 ran on a rebuilt
+  binary that included the contact-shadow blob (an accidental rebuild into the same derivedData).
+  Shipped as PR #39 (squash ba7cf77) after the MOL-01/02 UI suites passed 14/14.
+- Workstream B merged as PR #38 (0442d59): unit tests 24/24, UI 14/14.
+- Onboarding fix merged earlier as PR #37 (6a65415).
+- Remaining: intermittent RealityKit/Metal crash on the simulator (about 1 in 5 lifecycle-20x runs with shadows off). Needs a device repro to separate it from the simulator Metal stack.
