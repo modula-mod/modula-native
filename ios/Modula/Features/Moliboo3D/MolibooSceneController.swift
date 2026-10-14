@@ -72,6 +72,7 @@ final class MolibooSceneController {
             loadWasCached = MolibooAssetLoader.isCached(asset)
             let e = try await MolibooAssetLoader.loadEntity(asset)
             guard !isStopped else { return }   // view left while loading: never attach to a torn-down scene
+            Self.disableShadows(e)
             e.name = descriptor.displayName + "_Root"
             root.addChild(e)
             character = e
@@ -87,6 +88,13 @@ final class MolibooSceneController {
         } catch {
             loadFailed = true
         }
+    }
+
+    /// Stability experiment (MOL-02 track): no light in the scene uses shadows, but RealityKit's MeshShadowSystem still tracks
+    /// every model. Opting out removes that system from the per-open add/remove path.
+    static func disableShadows(_ e: Entity) {
+        if e.components[ModelComponent.self] != nil { e.components.set(DynamicLightShadowComponent(castsShadow: false)) }
+        e.children.forEach(disableShadows)
     }
 
     private static func countMeshes(_ e: Entity) -> Int {
@@ -253,6 +261,7 @@ final class MolibooSceneController {
               let anchor = anchor(cfg.anchor),
               let e = try? await MolibooAssetLoader.loadEntity(cosmetic.asset, isCosmetic: true) else { return false }
         guard !isStopped, equipped[id] == nil else { return equipped[id] != nil }
+        Self.disableShadows(e)
         e.name = "Cosmetic_\(id)"
         anchor.addChild(e)   // child of the anchor ⇒ follows rotation, bob, wobble and tap animation
         e.transform = .identity
