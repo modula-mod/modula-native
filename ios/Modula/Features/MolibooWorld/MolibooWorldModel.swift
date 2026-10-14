@@ -3,6 +3,14 @@ import SwiftUI
 
 /// MOL-03 Living World: what the companion is feeling. Drives the stage pose, glow and copy.
 enum MolibooEmotion: String, CaseIterable, Codable, Sendable {
+    /// Emoji the composer's attach button inserts (a real draft edit, not a fake attachment).
+    var emoji: String {
+        switch self {
+        case .calm: "😌"; case .happy: "😊"; case .excited: "🤩"; case .curious: "🤔"
+        case .thinking: "💭"; case .sleepy: "😴"; case .tired: "🥱"; case .sad: "🥺"
+        }
+    }
+
     case calm, happy, excited, curious, thinking, sleepy, tired, sad
 
     var label: String {
