@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import RealityKit
 import simd
+import UIKit
 
 /// Owns the live entity graph of one Moliboo character: expressions, idle animation, equipment and interaction reactions.
 @MainActor @Observable
@@ -72,6 +73,7 @@ final class MolibooSceneController {
             loadWasCached = MolibooAssetLoader.isCached(asset)
             let e = try await MolibooAssetLoader.loadEntity(asset)
             guard !isStopped, !Task.isCancelled else { return }   // view left / cancelled: never attach to a torn-down scene
+            Self.disableShadows(e)
             e.name = descriptor.displayName + "_Root"
             root.addChild(e)
             character = e
@@ -81,12 +83,31 @@ final class MolibooSceneController {
             let s = 0.2 / max(bounds.extents.x, 0.001)
             e.scale = [s, s, s]
             e.position = [-bounds.center.x * s, -bounds.min.y * s - 0.05, -bounds.center.z * s]
+            Self.attachContactShadow(under: e, on: root)
             e.generateCollisionShapes(recursive: true)
             e.components.set(InputTargetComponent())
             startIdle()
         } catch {
             loadFailed = true
         }
+    }
+
+    /// Stability experiment (MOL-02 track): no light in the scene uses shadows, but RealityKit's MeshShadowSystem still tracks
+    /// every model. Opting out removes that system from the per-open add/remove path.
+    static func disableShadows(_ e: Entity) {
+        if e.components[ModelComponent.self] != nil { e.components.set(DynamicLightShadowComponent(castsShadow: false)) }
+        e.children.forEach(disableShadows)
+    }
+
+    /// Soft oval under the character. Cheap substitute for the DynamicLightShadow we opted out of; keeps the model grounded.
+    static func attachContactShadow(under character: Entity, on root: Entity) {
+        let mesh = MeshResource.generatePlane(width: 0.14, depth: 0.09)
+        let blob = ModelEntity(mesh: mesh, materials: [UnlitMaterial(color: .init(white: 0, alpha: 0.18))])
+        blob.name = "ContactShadow"
+        blob.orientation = simd_quatf(angle: -.pi / 2, axis: [1, 0, 0])
+        let bounds = character.visualBounds(relativeTo: root)
+        blob.position = [bounds.center.x, bounds.min.y + 0.0005, bounds.center.z]
+        root.addChild(blob)
     }
 
     private static func countMeshes(_ e: Entity) -> Int {
@@ -253,6 +274,7 @@ final class MolibooSceneController {
               let anchor = anchor(cfg.anchor),
               let e = try? await MolibooAssetLoader.loadEntity(cosmetic.asset, isCosmetic: true) else { return false }
         guard !isStopped, !Task.isCancelled, equipped[id] == nil else { return equipped[id] != nil }
+        Self.disableShadows(e)
         e.name = "Cosmetic_\(id)"
         anchor.addChild(e)   // child of the anchor ⇒ follows rotation, bob, wobble and tap animation
         e.transform = .identity
