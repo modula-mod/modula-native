@@ -91,3 +91,16 @@ These 35 tests passed in one run, with 0 failures:
   - MOL03 every-character framing
 
   All 3 passed on rerun, so they are **flaky**. In a later run the MOL03 idle/Reduced Motion test also crashed once, then passed on rerun.
+
+### After merging main (PR #35: renderer teardown hardening + load-once templates)
+- Full regression: 55 passed, 4 failed.
+  - Crashed: MOL03 framing and MOL03 idle/Reduced Motion.
+  - Tofu loads: the app was not running.
+  - MOL01 lifecycle 20x: the entry button never came back.
+- Rerun of those 4: lifecycle and framing passed; Tofu and idle/Reduced Motion crashed again.
+- I symbolicated the 6 crash reports from the two runs. None has an app frame. They are the same RealityKit/SwiftUI corruption family: `objc_release` on PAC-poisoned pointers, CoreRE `makeMetalTypeInfo` / MaterialBuilder, SwiftUI `destroy for Image.Resolved`, and one in caulk. That family is tracked in `MOL-02-STABILITY-TRACK.md`.
+- On this long-lived simulator the crash rate is noticeably higher during long UI runs. This is **not** a release-stability PASS.
+- Lifecycle perf (this sim, after #35):
+  - load: 1319 ms cold, then 2–5 ms warm
+  - footprint: 298.5 → 317.6 MB over 21 opens (+19.1 MB)
+  - average frame: 58.9 / 53.3 ms on the simulator
