@@ -1,0 +1,189 @@
+{
+ "id": "bolt",
+ "name": "Bolt",
+ "number": "014",
+ "canonicalId": "moliboo.originals.bolt",
+ "rigFamily": "rounded-cube",
+ "sourceVersion": "bolt-v1.0",
+ "seed": 14,
+ "body": {
+  "type": "box",
+  "W": 0.052,
+  "D": 0.046,
+  "H": 0.056,
+  "bevel": 0.012,
+  "pillow": 0.02
+ },
+ "palette": {
+  "ramp": [
+   [
+    0.0,
+    [
+     0.2,
+     0.22,
+     0.25
+    ]
+   ],
+   [
+    0.4,
+    [
+     0.13,
+     0.14,
+     0.17
+    ]
+   ],
+   [
+    1.0,
+    [
+     0.09,
+     0.1,
+     0.12
+    ]
+   ]
+  ],
+  "from": 0.0,
+  "to": 0.112,
+  "cloud": 0.03,
+  "rough": 0.4,
+  "coat": 0.5,
+  "sss": 0.0
+ },
+ "face": {
+  "eyeStyle": "pixel",
+  "eyeZ": 0.074,
+  "eyeX": 0.017,
+  "eyeR": 0.0072,
+  "eyeAspect": 1.25,
+  "eyeColor": [
+   0.25,
+   0.95,
+   1.0
+  ],
+  "eyeEmit": 2.5,
+  "irisColor": [
+   0.25,
+   0.95,
+   1.0
+  ],
+  "screen": {
+   "w": 0.04,
+   "h": 0.025,
+   "z": 0.07,
+   "color": [
+    0.03,
+    0.07,
+    0.09
+   ],
+   "emit": 0.15
+  },
+  "mouth": {
+   "z": 0.058,
+   "width": 0.0075,
+   "smile": 0.0012
+  },
+  "mouthColor": [
+   0.25,
+   0.95,
+   1.0
+  ],
+  "mouthEmit": 2.0
+ },
+ "parts": [
+  {
+   "kind": "antenna",
+   "x": 0.034,
+   "r": 0.0016,
+   "len": 0.026,
+   "tip": 0.0042,
+   "metal": [
+    0.55,
+    0.58,
+    0.62
+   ],
+   "light": [
+    0.2,
+    0.95,
+    0.9
+   ]
+  },
+  {
+   "kind": "bolts",
+   "z": 0.064,
+   "r": 0.0055,
+   "depth": 0.006,
+   "metal": [
+    0.16,
+    0.62,
+    0.62
+   ]
+  },
+  {
+   "kind": "seams",
+   "z": [
+    0.032
+   ],
+   "color": [
+    0.16,
+    0.55,
+    0.56
+   ]
+  },
+  {
+   "kind": "limbs",
+   "at": [
+    [
+     -0.038,
+     -0.028
+    ],
+    [
+     0.038,
+     -0.028
+    ],
+    [
+     -0.038,
+     0.028
+    ],
+    [
+     0.038,
+     0.028
+    ]
+   ],
+   "r": [
+    0.011,
+    0.011,
+    0.007
+   ],
+   "z": 0.004,
+   "color": [
+    0.18,
+    0.58,
+    0.58
+   ]
+  }
+ ],
+ "anchors": {
+  "head": [
+   -0.012,
+   0.0
+  ]
+ },
+ "personality": [
+  "antenna_flash",
+  "servo_tilt"
+ ],
+ "cap": {
+  "offset": [
+   0.0,
+   0.0,
+   -0.003
+  ],
+  "rotationDegrees": [
+   -6.0,
+   0.0,
+   -4.0
+  ],
+  "scale": 0.85,
+  "compatible": true
+ },
+ "correctionPass": 1
+}
