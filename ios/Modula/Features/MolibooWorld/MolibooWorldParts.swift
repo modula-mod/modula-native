@@ -111,7 +111,7 @@ struct MolibooStageCharacter: View {
         let live = animating && stage.awake
         ZStack {
             Ellipse().fill(Color(red: 0.36, green: 0.55, blue: 0.30).gradient)
-                .frame(width: 170, height: 46).offset(y: 92)
+                .frame(width: 170, height: 46).offset(y: 78)
                 .shadow(color: .black.opacity(0.25), radius: 8, y: 4)
             if emotion == .thinking {
                 Circle().fill(RadialGradient(colors: [.cyan.opacity(0.55), .clear], center: .center, startRadius: 10, endRadius: 120))

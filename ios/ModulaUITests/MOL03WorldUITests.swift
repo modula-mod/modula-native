@@ -6,7 +6,8 @@ final class MOL03WorldUITests: XCTestCase {
 
     private func launch(_ kind: String = "pebble", extra: [String] = [], reset: Bool = true) -> XCUIApplication {
         let app = XCUIApplication()
-        var args = ["--uitest-skip-first-run", "-composer.mascot.kind", kind, "-dev.moliboo.native3D", "YES",
+        // Kind via the DEBUG hook (writes the real setting), not the argument domain, so in-app switching sticks.
+        var args = ["--uitest-skip-first-run", "-MOLWorldKind", kind, "-dev.moliboo.native3D", "YES",
                     "--debug-settings-route", "/settings/moliboo", "-moliboo.onboarded.v1", "YES"]
         if reset { args += ["-moliboo.care.v1.\(kind)", ""] }
         app.launchArguments = args + extra
@@ -56,8 +57,7 @@ final class MOL03WorldUITests: XCTestCase {
         app.swipeUp()
         for a in ["sleep", "play", "clean", "feed"] { XCTAssertTrue(app.buttons["world.activity.\(a)"].waitForExistence(timeout: 5), a) }
         let pebbleTile = app.buttons["world.collection.pebble"]
-        scrollTo(app, pebbleTile)
-        XCTAssertTrue(pebbleTile.exists)
+        XCTAssertTrue(pebbleTile.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["world.collection.bubbles"].exists, "no unregistered characters")
         shot("home-scrolled")
     }
@@ -92,10 +92,8 @@ final class MOL03WorldUITests: XCTestCase {
         sprout.tap()
         XCTAssertEqual(wait(app) { $0["char"] == "sprout" }["char"], "sprout")
         app.terminate()
-        let again = launch("sprout", reset: false)
-        _ = again
         let relaunched = XCUIApplication(); relaunched.launchArguments = ["--uitest-skip-first-run", "-dev.moliboo.native3D", "YES", "--debug-settings-route", "/settings/moliboo", "-moliboo.onboarded.v1", "YES"]
-        again.terminate(); relaunched.launch()
+        relaunched.launch()
         XCTAssertEqual(wait(relaunched) { $0["char"] == "sprout" }["char"], "sprout", "selection persists across launches")
     }
 
@@ -109,7 +107,7 @@ final class MOL03WorldUITests: XCTestCase {
         let s1 = wait(app) { $0["xp"] != s0["xp"] }
         XCTAssertGreaterThan(Int(s1["xp"] ?? "0")!, Int(s0["xp"] ?? "0")!)
         XCTAssertLessThan(Int(s1["energy"] ?? "0")!, Int(s0["energy"] ?? "0")!)
-        XCTAssertTrue(app.staticTexts["world.toast"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["world.toast"].waitForExistence(timeout: 3))
         app.buttons["world.activity.sleep"].tap()
         let s2 = wait(app) { $0["asleep"] == "1" }
         XCTAssertEqual(s2["asleep"], "1"); XCTAssertEqual(s2["emotion"], "sleepy")
@@ -120,7 +118,7 @@ final class MOL03WorldUITests: XCTestCase {
         // Persisted across relaunch.
         let xp = wait(app) { _ in true }["xp"]
         app.terminate()
-        let relaunched = XCUIApplication(); relaunched.launchArguments = ["--uitest-skip-first-run", "-composer.mascot.kind", "pebble", "-dev.moliboo.native3D", "YES", "--debug-settings-route", "/settings/moliboo", "-moliboo.onboarded.v1", "YES"]
+        let relaunched = XCUIApplication(); relaunched.launchArguments = ["--uitest-skip-first-run", "-dev.moliboo.native3D", "YES", "--debug-settings-route", "/settings/moliboo", "-moliboo.onboarded.v1", "YES"]
         relaunched.launch()
         XCTAssertEqual(wait(relaunched) { $0["xp"] == xp }["xp"], xp, "care state persists")
     }

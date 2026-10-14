@@ -35,6 +35,7 @@ struct MolibooWorldView: View {
     @State private var toast: String?
     @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
     @FocusState private var composerFocused: Bool
+    @State private var didApplyDebugKind = false
     #if DEBUG
     @AppStorage("moliboo.world.debugHour") private var debugHour = -1
     #endif
@@ -84,6 +85,9 @@ struct MolibooWorldView: View {
         .sheet(isPresented: $showSwitcher) { switcher.presentationDetents([.medium]) }
         .sheet(item: $sheet) { s in sectionSheet(s).presentationDetents([.medium, .large]) }
         .task {
+            #if DEBUG
+            if let k = MOL03DebugHarness.arg("-MOLWorldKind"), !didApplyDebugKind { didApplyDebugKind = true; kindRaw = k }
+            #endif
             if chat == nil { chat = MolibooChatModel(backend: MolibooIntelligenceChatBackend(service: app.intelligence)) }
             care.refresh(characterID)
             stage.wake(allowed: motionAllowed)
@@ -134,7 +138,7 @@ struct MolibooWorldView: View {
     private var stageArea: some View {
         ZStack(alignment: .topLeading) {
             HStack(alignment: .top, spacing: 8) {
-                Color.clear.frame(width: navCollapsed ? 44 : 104)
+                Color.clear.frame(width: navCollapsed ? 44 : 112)
                 MolibooStageCharacter(characterID: characterID, emotion: emotion, stage: stage, animating: motionAllowed,
                                       gaze: chat?.isTyping == true ? 1 : 0)
                     .frame(maxWidth: .infinity).frame(height: 230)
@@ -159,10 +163,10 @@ struct MolibooWorldView: View {
                 Button { open(s) } label: {
                     HStack(spacing: 8) {
                         Image(systemName: s.symbol).frame(width: 20)
-                        if !navCollapsed { Text(s.title).font(.footnote.weight(.semibold)).lineLimit(1) }
+                        if !navCollapsed { Text(s.title).font(.footnote.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.75) }
                     }
                     .padding(.horizontal, 10).frame(height: 36)
-                    .frame(maxWidth: navCollapsed ? 44 : 104, alignment: .leading)
+                    .frame(maxWidth: navCollapsed ? 44 : 112, alignment: .leading)
                     .background(s == .home ? AnyShapeStyle(.white.opacity(0.35)) : AnyShapeStyle(.clear), in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
@@ -170,7 +174,7 @@ struct MolibooWorldView: View {
             }
             Button { withAnimation(reduceMotion ? nil : .snappy) { navCollapsed.toggle() } } label: {
                 Image(systemName: navCollapsed ? "chevron.right" : "chevron.left").font(.caption.weight(.bold))
-                    .frame(width: navCollapsed ? 44 : 104, height: 24)
+                    .frame(width: navCollapsed ? 44 : 112, height: 24)
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("world.nav.toggle").accessibilityLabel(navCollapsed ? "Expand menu" : "Collapse menu")
