@@ -44,6 +44,8 @@ struct MolibooRoomBackdrop: View {
                 }
                 .allowsHitTesting(false)
             }
+            .frame(width: w, height: geo.size.height, alignment: .top)
+            .clipped()
         }
         .ignoresSafeArea()
         .accessibilityHidden(true)

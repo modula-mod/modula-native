@@ -124,7 +124,7 @@ struct MolibooWorldView: View {
     private var header: some View {
         ModulaGlassGroup(spacing: 10) {
             ZStack {
-                Image("MoliboosLogo").resizable().scaledToFit().frame(height: 58)
+                Image("MoliboosLogo").resizable().scaledToFit().frame(maxWidth: 200).frame(height: 50)
                     .shadow(color: .white.opacity(0.55), radius: 1, y: -1)          // glossy top edge
                     .shadow(color: .black.opacity(0.25), radius: 6, y: 4)
                     .overlay(alignment: .topTrailing) {
@@ -166,12 +166,14 @@ struct MolibooWorldView: View {
     // MARK: Stage
 
     private var stageArea: some View {
-        ZStack(alignment: .topLeading) {
-            HStack(alignment: .top, spacing: 6) {
-                Color.clear.frame(width: navCollapsed ? 52 : 116)
+        // The character is laid out as an overlay on a flexible spacer so its art (pedestal glow is wider than a
+        // small phone's content column) never widens the page; nav and stats float over its edges.
+        Color.clear.frame(maxWidth: .infinity).frame(height: 300)
+            .overlay {
                 MolibooStageCharacter(characterID: characterID, emotion: emotion, stage: stage, animating: motionAllowed,
                                       gaze: chat?.isTyping == true ? 1 : 0)
-                    .frame(maxWidth: .infinity).frame(height: 300)
+                    .frame(width: 300, height: 300)
+                    .offset(x: navCollapsed ? 0 : 14)
                     .contentShape(Rectangle())
                     .onTapGesture(count: 2) { composerFocused = true; stage.react(.curious, allowed: motionAllowed) }
                     .onTapGesture { stage.bounce(allowed: motionAllowed); care.interact(characterID, mood: 1, bond: 1) }
@@ -181,11 +183,9 @@ struct MolibooWorldView: View {
                     .accessibilityHint("Tap to bounce, double-tap to chat, hold to switch Moliboo")
                     .accessibilityAddTraits(.isButton)
                     .accessibilityIdentifier("world.stage")
-                Color.clear.frame(width: 70)
             }
-            floatingNav
-            statusPanel.frame(maxWidth: .infinity, alignment: .trailing).padding(.top, 104)
-        }
+            .overlay(alignment: .topLeading) { floatingNav }
+            .overlay(alignment: .topTrailing) { statusPanel.padding(.top, 104) }
     }
 
     private var floatingNav: some View {
