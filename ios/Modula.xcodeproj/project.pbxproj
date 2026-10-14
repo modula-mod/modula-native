@@ -13,6 +13,7 @@
 		7BDF21E5F8D2925DD163E0DF /* moliboo_manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 96CD403C58D3542711764A10 /* moliboo_manifest.json */; };
 		A2A2BE71267DED53B4FFA8D4 /* Accessory_Cap_MolibooSignature.usdz in Resources */ = {isa = PBXBuildFile; fileRef = 5F95087BC6F29AA6A8605B9A /* Accessory_Cap_MolibooSignature.usdz */; };
 		00E6E714F85A061C99754480 /* Pebble.usdz in Resources */ = {isa = PBXBuildFile; fileRef = 2142D575079AC30ACF5E8A4D /* Pebble.usdz */; };
+		A1B2C3D4E5F6A7B8C9D0E101 /* Pip.usdz in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E102 /* Pip.usdz */; };
 		B0DDD288F6D69B4EAEF85306 /* MolibooCosmetics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2D3FB6B9F571FF6C9ACE953 /* MolibooCosmetics.swift */; };
 		A1MOLIBOOSETTINGS00000B1 /* MolibooSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1MOLIBOOSETTINGS00000F1 /* MolibooSettingsView.swift */; };
 		7E8776094BCA5DE7D8DF07C5 /* MOL01DebugHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E8A5BFD9BC0EE7D5D4BC164 /* MOL01DebugHarness.swift */; };
@@ -383,6 +384,7 @@
 		96CD403C58D3542711764A10 /* moliboo_manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = moliboo_manifest.json; path = Resources/Moliboo3D/moliboo_manifest.json; sourceTree = "<group>"; };
 		5F95087BC6F29AA6A8605B9A /* Accessory_Cap_MolibooSignature.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Accessory_Cap_MolibooSignature.usdz; path = Resources/Moliboo3D/Accessory_Cap_MolibooSignature.usdz; sourceTree = "<group>"; };
 		2142D575079AC30ACF5E8A4D /* Pebble.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Pebble.usdz; path = Resources/Moliboo3D/Pebble.usdz; sourceTree = "<group>"; };
+		A1B2C3D4E5F6A7B8C9D0E102 /* Pip.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Pip.usdz; path = Resources/Moliboo3D/Pip.usdz; sourceTree = "<group>"; };
 		A2D3FB6B9F571FF6C9ACE953 /* MolibooCosmetics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooCosmetics.swift; path = Features/Moliboo3D/MolibooCosmetics.swift; sourceTree = "<group>"; };
 		A1MOLIBOOSETTINGS00000F1 /* MolibooSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooSettingsView.swift; path = Features/Moliboo3D/MolibooSettingsView.swift; sourceTree = "<group>"; };
 		7E8A5BFD9BC0EE7D5D4BC164 /* MOL01DebugHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MOL01DebugHarness.swift; path = Features/Moliboo3D/MOL01DebugHarness.swift; sourceTree = "<group>"; };
@@ -1050,6 +1052,7 @@
 				96CD403C58D3542711764A10 /* moliboo_manifest.json */,
 				5F95087BC6F29AA6A8605B9A /* Accessory_Cap_MolibooSignature.usdz */,
 				2142D575079AC30ACF5E8A4D /* Pebble.usdz */,
+				A1B2C3D4E5F6A7B8C9D0E102 /* Pip.usdz */,
 				6D9171C8595DD0F57E983884 /* Localizable.xcstrings */,
 				35DD2D0F98FBF95AC2D68618 /* ModulaBridge.swift */,
 				11C7225BC261899B6AA2414A /* ModulaHostBridge.mm */,
@@ -1323,6 +1326,7 @@
 				7BDF21E5F8D2925DD163E0DF /* moliboo_manifest.json in Resources */,
 				A2A2BE71267DED53B4FFA8D4 /* Accessory_Cap_MolibooSignature.usdz in Resources */,
 				00E6E714F85A061C99754480 /* Pebble.usdz in Resources */,
+				A1B2C3D4E5F6A7B8C9D0E101 /* Pip.usdz in Resources */,
 				8847C56025B5FF23E6A2F4CB /* Localizable.xcstrings in Resources */,
 				A7C9B3B1BD7B84C45951A4CE /* manifests.json in Resources */,
 			);
