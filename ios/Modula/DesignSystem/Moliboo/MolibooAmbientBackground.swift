@@ -51,6 +51,9 @@ struct MolibooAmbientBackground: View {
     /// Draw the sky gradient. Turn off to layer just the particles over other art.
     var showsSky = true
     var density: Double = 1
+    /// Where the night moon sits (unit point in the view). Move it so it never sits behind foreground chrome such as a logo.
+    var moon: UnitPoint = UnitPoint(x: 0.78, y: 0.16)
+    var moonScale: Double = 1
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
@@ -66,11 +69,13 @@ struct MolibooAmbientBackground: View {
                     g.fill(Path(CGRect(origin: .zero, size: size)),
                            with: .linearGradient(Gradient(colors: ambience.sky), startPoint: .zero, endPoint: CGPoint(x: 0, y: size.height)))
                 }
-                MolibooAmbientPainter(size: size, t: t, density: density).draw(ambience, in: &g)
+                MolibooAmbientPainter(size: size, t: t, density: density, moonAt: moon, moonScale: moonScale).draw(ambience, in: &g)
             }
         }
         .onAppear { onScreen = true }
         .onDisappear { onScreen = false }
+        // A scene, not chrome: always paint the same dark/light sky regardless of the system appearance.
+        .environment(\.colorScheme, ambience.isDark ? .dark : .light)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
         .accessibilityIdentifier("moliboo.ambient.\(ambience.rawValue)")
@@ -82,6 +87,8 @@ struct MolibooAmbientPainter {
     let size: CGSize
     let t: Double
     var density: Double = 1
+    var moonAt: UnitPoint = UnitPoint(x: 0.78, y: 0.16)
+    var moonScale: Double = 1
 
     private func rnd(_ i: Int, _ salt: Double) -> Double {
         let x = sin(Double(i) * 12.9898 + salt * 78.233) * 43758.5453
@@ -94,7 +101,7 @@ struct MolibooAmbientPainter {
     func draw(_ a: MolibooAmbience, in g: inout GraphicsContext) {
         switch a {
         case .night:
-            glow(&g, at: CGPoint(x: w * 0.78, y: h * 0.16), radius: min(w, h) * 0.30, color: Color(red: 0.85, green: 0.88, blue: 1), alpha: 0.35)
+            glow(&g, at: CGPoint(x: w * moonAt.x, y: h * moonAt.y), radius: min(w, h) * 0.30 * moonScale, color: Color(red: 0.85, green: 0.88, blue: 1), alpha: 0.35)
             moon(&g)
             stars(&g)
             shootingStar(&g)
@@ -121,7 +128,7 @@ struct MolibooAmbientPainter {
     }
 
     private func moon(_ g: inout GraphicsContext) {
-        let r = min(w, h) * 0.07, p = CGPoint(x: w * 0.78, y: h * 0.16)
+        let r = min(w, h) * 0.07 * moonScale, p = CGPoint(x: w * moonAt.x, y: h * moonAt.y)
         g.fill(Path(ellipseIn: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2)), with: .color(Color(red: 0.98, green: 0.97, blue: 0.9)))
         g.fill(Path(ellipseIn: CGRect(x: p.x - r * 0.35, y: p.y - r * 0.5, width: r * 0.4, height: r * 0.4)), with: .color(Color(red: 0.88, green: 0.87, blue: 0.82).opacity(0.7)))
     }

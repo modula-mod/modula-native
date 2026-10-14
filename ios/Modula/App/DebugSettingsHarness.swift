@@ -12,6 +12,8 @@ import SwiftUI
 enum DebugSettingsHarness {
     static var route: AppRoute? {
         let args = ProcessInfo.processInfo.arguments
+        // `--debug-moliboo-hub`: straight to the Moliboo hub (Settings → Moliboo), e.g. for device screenshots.
+        if args.contains("--debug-moliboo-hub") { return RouteParser.parse("/settings/moliboo") }
         guard let index = args.firstIndex(of: "--debug-settings-route"), args.indices.contains(index + 1) else {
             return nil
         }
@@ -77,9 +79,9 @@ struct MolibooPickerHarnessView: View {
     @State private var text = ""
     var body: some View {
         ZStack(alignment: .bottom) {
-            MolibooAmbientBackground(ambience: .resolved(), showsSky: true).opacity(0.35).ignoresSafeArea()
+            MolibooAmbientBackground(ambience: .resolved(), showsSky: true).ignoresSafeArea()
             VStack(alignment: .leading, spacing: 10) {
-                Text("Comments").font(.title2.weight(.bold))
+                Text("Comments").font(.title2.weight(.bold)).foregroundStyle(MolibooAmbience.resolved().isDark ? .white : .primary)
                 Spacer()
                 HStack(spacing: 8) {
                     TextField("Add a comment…", text: $text)
@@ -100,6 +102,7 @@ struct MolibooPickerHarnessView: View {
             }
             .padding(16)
         }
+        .environment(\.colorScheme, MolibooAmbience.resolved().isDark ? .dark : .light)
         .accessibilityIdentifier("moliboo.picker.harness")
     }
 }
