@@ -46,7 +46,6 @@ struct MolibooLivingStudioView: View {
     private var descriptor: MolibooCharacterDescriptor? { MolibooRegistry.manifest?.character(id: characterID) }
 
     var body: some View {
-        let _ = Self._printChanges() // MOLDIAG
         ZStack {
             stageBackground
             VStack(spacing: 0) {
