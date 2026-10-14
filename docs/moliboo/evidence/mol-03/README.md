@@ -31,3 +31,24 @@ In the first full run, three tests crashed the app inside the renderer teardown:
 - `MOL03 testEveryThreeDCharacter…`
 
 This is the known intermittent crash family: SwiftUI gesture/Image teardown, and Metal/CoreRE dealloc. It is owned by fix/mol-01-3d-crash (PR #32). All three passed on rerun, so they are reported as **flaky**, not fixed.
+
+# MOL-03 Workstream C — collection, companions, Settings
+
+| File | Shows |
+|---|---|
+| settings-moliboo-links.png | Settings → Moliboo: "Open Pip's Studio" + "Collection" links |
+| collection-top.png | Collection: 25 Originals, pre-rendered portraits + "3D" badge for Pip/Moss/Pebble/Tofu/Bolt, "Coming later" for the rest |
+| collection-scrolled.png | Collection, scrolled |
+
+These screenshots were written by `MOL03CollectionUITests` with `TEST_RUNNER_MOL03_SHOTS` set, using real XCUIScreen captures.
+
+Composer and Home companions use the portrait with a gentle bob when the flag is on. They don't load RealityKit, and the portrait stays static under Reduced Motion.
+
+Portraits come from `Tools/moliboo/engine/render_portraits.py`. They are rendered in Blender from the shipped USDZs: 512², transparent, AgX.
+
+## Tests (C)
+These 35 tests passed in one run, with 0 failures:
+- `MOL03CollectionTests` (portrait for every 3D character, none for the others; all 25 Originals)
+- `MOL03CollectionUITests` (Settings → Collection badges → tap Pip opens the Studio; Settings → "Open Studio")
+- `MOL03StudioTests`, `MOL02Tests`, `MOL01Tests`
+- `MOL03StudioScenarioUITests`, `MOL02PipAcceptanceUITests`

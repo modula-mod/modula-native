@@ -520,6 +520,8 @@ struct ModulaComposerMascot: View {
         Group {
             if let custom {
                 CustomLiveMascot(mascot: custom, size: size, busy: busy, touch: picking ? nil : touch, brain: brain, outfit: wardrobe.outfit)
+            } else if MolibooPortrait.usesPortrait(kind.rawValue) {
+                MolibooPortraitCompanion(characterID: kind.rawValue, size: size, animated: !busy)   // MOL-03: lightweight 3D look
             } else {
                 ModulaLiveMascot(kind: kind, size: size, busy: busy, touch: picking ? nil : touch, brain: brain, outfit: wardrobe.outfit)
             }
@@ -1240,7 +1242,13 @@ struct HomeMascotCompanion: View {
                               y: min(max(parkY * geo.size.height, box.height / 2), geo.size.height - box.height / 2))
                     : CGPoint(x: min(max(x * geo.size.width, box.width / 2), geo.size.width - box.width / 2),
                               y: geo.size.height - box.height / 2 + 6 - lift)
-                MascotDressedLive(selection: selection, size: size, brain: brain, showsShadow: true, outfit: wardrobe.outfit)
+                Group {
+                    if MolibooPortrait.usesPortrait(kindRaw) {
+                        MolibooPortraitCompanion(characterID: kindRaw, size: size, animated: !napping)   // MOL-03: lightweight 3D look
+                    } else {
+                        MascotDressedLive(selection: selection, size: size, brain: brain, showsShadow: true, outfit: wardrobe.outfit)
+                    }
+                }
                     .scaleEffect(x: facesLeft ? -1 : 1, y: 1)
                     .frame(width: box.width, height: box.height)
                     .scaleEffect(dragging ? 1.14 : 1)
