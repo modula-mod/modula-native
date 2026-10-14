@@ -46,7 +46,7 @@ enum PDFInlineLab {
 struct PDFInlineLabView: View {
     @State private var opened: ModulaAttachment?
     private let posts: [(String, ModulaAttachment)] = [
-        ("Our new design system is live. Swipe through the highlights 👇", PDFInlineLab.attachment(id: "lab-pdf-1", name: "Modula Design System.pdf", pages: 8)),
+        ("Our new design system is live. Swipe through the highlights.", PDFInlineLab.attachment(id: "lab-pdf-1", name: "Modula Design System.pdf", pages: 8)),
         ("Q3 roadmap, short version.", PDFInlineLab.attachment(id: "lab-pdf-2", name: "Roadmap Q3.pdf", pages: 5))
     ]
 
