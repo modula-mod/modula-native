@@ -109,7 +109,7 @@ enum SettingsRegistry {
     private static func isRoot(_ route: SettingsRoute) -> Bool {
         switch route {
         case .root, .account(.root), .appearance(.root), .personalisation(.root),
-             .intelligence(.root), .chats(.root), .audio(.root),
+             .intelligence(.root), .chats(.root), .moliboo, .audio(.root),
              .language(.root), .media(.root), .feed(.root), .battery(.root), .safety(.root),
              .camera(.root), .gestures(.root), .finder(.root), .sharing(.root),
              .location(.root), .widgets(.root), .labs(.root), .photos(.root),
@@ -184,6 +184,7 @@ enum SettingsRegistry {
             item(.intelligence(.knowledge), "Knowledge", "Local knowledge surfaces", "books.vertical", .implemented, terms: ["knowledge", "corpus"]),
             item(.intelligence(.privacy), "Intelligence Privacy", "Local-only fail-closed policy", "hand.raised.fill", .implemented, terms: ["privacy", "local-only"]),
             item(.intelligence(.tools), "Tools", "Registered intelligence tools", "wrench.and.screwdriver", .implemented, terms: ["tools", "tool registry"]),
+            item(.moliboo, "Moliboo", "Choose, dress up, 3D, motion and sounds", "pawprint.fill", .implemented, terms: ["moliboo", "moliboos", "mascot", "companion", "wardrobe", "studio", "pebble", "3d"]),
             item(.chats(.root), "Chats", "Composer, previews and chat privacy", "bubble.left.and.bubble.right", .implemented, terms: ["chats", "messages", "messaging"]),
             item(.chats(.composer), "Composer", "Enter to send and spell check", "keyboard", .implemented, terms: ["composer", "enter to send"]),
             item(.chats(.previews), "Chat Previews", "Media and link previews", "eye", .implemented, terms: ["previews", "links"]),

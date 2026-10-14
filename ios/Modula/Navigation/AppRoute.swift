@@ -129,6 +129,7 @@ enum SettingsRoute: Hashable {
     case personalisation(PersonalisationSettingsRoute)
     case intelligence(IntelligenceSettingsRoute)
     case chats(ChatsSettingsRoute)
+    case moliboo
     case audio(AudioSettingsRoute)
     case language(LanguageSettingsRoute)
     case media(MediaSettingsRoute)
@@ -405,6 +406,7 @@ enum RouteParser {
         case "connectors": return ConnectorsSettingsRoute(rawValue: tail).map { .settings(.connectors($0)) }
         case "integrations": return IntegrationsSettingsRoute(rawValue: tail).map { .settings(.integrations($0)) }
         case "monetisation": return MonetisationSettingsRoute(rawValue: tail).map { .settings(.monetisation($0)) }
+        case "moliboo": return .settings(.moliboo)
         case "chats": return ChatsSettingsRoute(rawValue: tail).map { .settings(.chats($0)) }
         case "audio": return AudioSettingsRoute(rawValue: tail).map { .settings(.audio($0)) }
         case "language": return LanguageSettingsRoute(rawValue: tail).map { .settings(.language($0)) }
@@ -581,6 +583,7 @@ enum RouteSerializer {
         case .connectors(let r): setting("connectors", r.rawValue)
         case .integrations(let r): setting("integrations", r.rawValue)
         case .monetisation(let r): setting("monetisation", r.rawValue)
+        case .moliboo: setting("moliboo", "root")
         case .chats(let r): setting("chats", r.rawValue)
         case .audio(let r): setting("audio", r.rawValue)
         case .language(let r): setting("language", r.rawValue)
