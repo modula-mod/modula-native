@@ -8,7 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		A0MOL01ACC0000000000000B /* MOL01AcceptanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0MOL01ACC0000000000000F /* MOL01AcceptanceUITests.swift */; };
+		A1B2C3D4E5F6A7B8C9D0E105 /* MOL02PipAcceptanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E106 /* MOL02PipAcceptanceUITests.swift */; };
 		17ACCE3135E58A0DA2856DAF /* MOL01Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 775DC34FE761435741076D26 /* MOL01Tests.swift */; };
+		A1B2C3D4E5F6A7B8C9D0E103 /* MOL02Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E104 /* MOL02Tests.swift */; };
 		23F9F9582ACCE39AAB61C618 /* MolibooBrand.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 53094F3F0B318C54A1D1D505 /* MolibooBrand.xcassets */; };
 		7BDF21E5F8D2925DD163E0DF /* moliboo_manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 96CD403C58D3542711764A10 /* moliboo_manifest.json */; };
 		A2A2BE71267DED53B4FFA8D4 /* Accessory_Cap_MolibooSignature.usdz in Resources */ = {isa = PBXBuildFile; fileRef = 5F95087BC6F29AA6A8605B9A /* Accessory_Cap_MolibooSignature.usdz */; };
@@ -379,7 +381,9 @@
 
 /* Begin PBXFileReference section */
 		A0MOL01ACC0000000000000F /* MOL01AcceptanceUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL01AcceptanceUITests.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6A7B8C9D0E106 /* MOL02PipAcceptanceUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL02PipAcceptanceUITests.swift; sourceTree = "<group>"; };
 		775DC34FE761435741076D26 /* MOL01Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL01Tests.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6A7B8C9D0E104 /* MOL02Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL02Tests.swift; sourceTree = "<group>"; };
 		53094F3F0B318C54A1D1D505 /* MolibooBrand.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = MolibooBrand.xcassets; path = Resources/Moliboo3D/MolibooBrand.xcassets; sourceTree = "<group>"; };
 		96CD403C58D3542711764A10 /* moliboo_manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = moliboo_manifest.json; path = Resources/Moliboo3D/moliboo_manifest.json; sourceTree = "<group>"; };
 		5F95087BC6F29AA6A8605B9A /* Accessory_Cap_MolibooSignature.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Accessory_Cap_MolibooSignature.usdz; path = Resources/Moliboo3D/Accessory_Cap_MolibooSignature.usdz; sourceTree = "<group>"; };
@@ -791,6 +795,7 @@
 				L40100000000000000000003 /* OnboardingLandingTests.swift */,
 				F70100000000000000000004 /* EffectKitTests.swift */,
 				775DC34FE761435741076D26 /* MOL01Tests.swift */,
+				A1B2C3D4E5F6A7B8C9D0E104 /* MOL02Tests.swift */,
 				R40100000000000000000050 /* SettingsRealFeaturesTests.swift */,
 				Q40100000000000000000006 /* SettingsServiceTests.swift */,
 				N40100000000000000000012 /* N4CTests.swift */,
@@ -822,6 +827,7 @@
 			children = (
 				9AA9CD0861813EF42C424B9A /* NativeLaunchTests.swift */,
 				A0MOL01ACC0000000000000F /* MOL01AcceptanceUITests.swift */,
+				A1B2C3D4E5F6A7B8C9D0E106 /* MOL02PipAcceptanceUITests.swift */,
 			);
 			path = ModulaUITests;
 			sourceTree = "<group>";
@@ -1456,6 +1462,7 @@
 			files = (
 				3DFCE2030F6AC41D3386B2F5 /* NativeLaunchTests.swift in Sources */,
 				A0MOL01ACC0000000000000B /* MOL01AcceptanceUITests.swift in Sources */,
+				A1B2C3D4E5F6A7B8C9D0E105 /* MOL02PipAcceptanceUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1467,6 +1474,7 @@
 				L50100000000000000000003 /* OnboardingLandingTests.swift in Sources */,
 				F70200000000000000000004 /* EffectKitTests.swift in Sources */,
 				17ACCE3135E58A0DA2856DAF /* MOL01Tests.swift in Sources */,
+				A1B2C3D4E5F6A7B8C9D0E103 /* MOL02Tests.swift in Sources */,
 				R50100000000000000000050 /* SettingsRealFeaturesTests.swift in Sources */,
 				Q50100000000000000000006 /* SettingsServiceTests.swift in Sources */,
 				C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */,
