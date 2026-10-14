@@ -63,16 +63,16 @@ struct MolibooWorldView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            MolibooWorldBackdrop(period: period, scrollY: scrollY, animating: motionAllowed && stage.awake)
+            if shows("backdrop") { MolibooWorldBackdrop(period: period, scrollY: scrollY, animating: motionAllowed && stage.awake) }
             ScrollView {
                 VStack(spacing: 16) {
-                    header
-                    stageArea
-                    identityCard
-                    composer
-                    quickActions
-                    activities
-                    collection
+                    if shows("header") { header }
+                    if shows("stage") { stageArea }
+                    if shows("identity") { identityCard }
+                    if shows("composer") { composer }
+                    if shows("quick") { quickActions }
+                    if shows("activities") { activities }
+                    if shows("collection") { collection }
                 }
                 .padding(.horizontal, 16).padding(.bottom, 28)
             }
@@ -90,10 +90,10 @@ struct MolibooWorldView: View {
             #endif
             if chat == nil { chat = MolibooChatModel(backend: MolibooIntelligenceChatBackend(service: app.intelligence)) }
             care.refresh(characterID)
-            stage.wake(allowed: motionAllowed, for: min(3, MolibooStageState.awakeSeconds))   // brief hello, then settle
+            stage.wake(allowed: motionAllowed, for: MolibooStageState.launchWakeSeconds)   // brief hello, then settle
         }
         .onChange(of: scenePhase) { _, p in
-            if p == .active { care.refresh(characterID); stage.wake(allowed: motionAllowed, for: min(3, MolibooStageState.awakeSeconds)) } else { stage.sleepNow() }
+            if p == .active { care.refresh(characterID); stage.wake(allowed: motionAllowed, for: MolibooStageState.launchWakeSeconds) } else { stage.sleepNow() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
             lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
@@ -103,6 +103,14 @@ struct MolibooWorldView: View {
         .onDisappear { stage.sleepNow(); chat?.cancel() }
         #if DEBUG
         .overlay(alignment: .bottomTrailing) { probe }
+        #endif
+    }
+
+    private func shows(_ s: String) -> Bool {
+        #if DEBUG
+        return !(MOL03DebugHarness.arg("-MOLWorldHide")?.split(separator: ",").contains(Substring(s)) ?? false)
+        #else
+        return true
         #endif
     }
 
@@ -508,6 +516,14 @@ struct MolibooWorldView: View {
 @MainActor
 @Observable
 final class MolibooStageState {
+    /// Brief hello on appear/foreground. UI tests pass -MOLWorldNoLaunchWake so XCTest snapshots never race the wake animation.
+    static var launchWakeSeconds: Double {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-MOLWorldNoLaunchWake") { return 0 }
+        #endif
+        return min(3, awakeSeconds)
+    }
+
     private(set) var awake = false
     private(set) var transient: MolibooEmotion?
     private(set) var bounceToken = 0

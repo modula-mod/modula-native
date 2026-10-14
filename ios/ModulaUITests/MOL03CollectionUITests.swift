@@ -5,7 +5,7 @@ final class MOL03CollectionUITests: XCTestCase {
 
     private func launch(_ extra: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["--uitest-skip-first-run", "-composer.mascot.kind", "pip", "-dev.moliboo.native3D", "YES",
+        app.launchArguments = ["--uitest-skip-first-run", "-MOLWorldNoLaunchWake", "-composer.mascot.kind", "pip", "-dev.moliboo.native3D", "YES",
                                "--debug-settings-route", "/settings/moliboo", "-moliboo.onboarded.v1", "YES"] + extra
         app.launch()
         return app

@@ -7,7 +7,7 @@ final class MOL03WorldUITests: XCTestCase {
     private func launch(_ kind: String = "pebble", extra: [String] = [], reset: Bool = true) -> XCUIApplication {
         let app = XCUIApplication()
         // Kind via the DEBUG hook (writes the real setting), not the argument domain, so in-app switching sticks.
-        var args = ["--uitest-skip-first-run", "-MOLWorldKind", kind, "-dev.moliboo.native3D", "YES",
+        var args = ["--uitest-skip-first-run", "-MOLWorldNoLaunchWake", "-MOLWorldKind", kind, "-dev.moliboo.native3D", "YES",
                     "--debug-settings-route", "/settings/moliboo", "-moliboo.onboarded.v1", "YES"]
         if reset { args += ["-moliboo.care.v1.\(kind)", ""] }
         app.launchArguments = args + extra
@@ -92,7 +92,7 @@ final class MOL03WorldUITests: XCTestCase {
         sprout.tap()
         XCTAssertEqual(wait(app) { $0["char"] == "sprout" }["char"], "sprout")
         app.terminate()
-        let relaunched = XCUIApplication(); relaunched.launchArguments = ["--uitest-skip-first-run", "-dev.moliboo.native3D", "YES", "--debug-settings-route", "/settings/moliboo", "-moliboo.onboarded.v1", "YES"]
+        let relaunched = XCUIApplication(); relaunched.launchArguments = ["--uitest-skip-first-run", "-MOLWorldNoLaunchWake", "-dev.moliboo.native3D", "YES", "--debug-settings-route", "/settings/moliboo", "-moliboo.onboarded.v1", "YES"]
         relaunched.launch()
         XCTAssertEqual(wait(relaunched) { $0["char"] == "sprout" }["char"], "sprout", "selection persists across launches")
     }
@@ -118,7 +118,7 @@ final class MOL03WorldUITests: XCTestCase {
         // Persisted across relaunch.
         let xp = wait(app) { _ in true }["xp"]
         app.terminate()
-        let relaunched = XCUIApplication(); relaunched.launchArguments = ["--uitest-skip-first-run", "-dev.moliboo.native3D", "YES", "--debug-settings-route", "/settings/moliboo", "-moliboo.onboarded.v1", "YES"]
+        let relaunched = XCUIApplication(); relaunched.launchArguments = ["--uitest-skip-first-run", "-MOLWorldNoLaunchWake", "-dev.moliboo.native3D", "YES", "--debug-settings-route", "/settings/moliboo", "-moliboo.onboarded.v1", "YES"]
         relaunched.launch()
         XCTAssertEqual(wait(relaunched) { $0["xp"] == xp }["xp"], xp, "care state persists")
     }
