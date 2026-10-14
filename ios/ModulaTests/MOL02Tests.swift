@@ -27,9 +27,10 @@ final class MOL02Tests: XCTestCase {
         XCTAssertTrue(MolibooRegistry.has3D("pebble"))
         XCTAssertTrue(MolibooRegistry.has3D("moss"))
         XCTAssertTrue(MolibooRegistry.has3D("tofu"))
-        XCTAssertFalse(MolibooRegistry.has3D("bolt"), "no asset yet ⇒ 2D")
+        XCTAssertTrue(MolibooRegistry.has3D("bolt"))
+        XCTAssertFalse(MolibooRegistry.has3D("nimbus"), "no asset yet ⇒ 2D")
         XCTAssertFalse(MolibooRegistry.has3D("unknown"))
-        XCTAssertEqual(Set(MolibooRegistry.available3D.map(\.id)), ["pip", "moss", "pebble", "tofu"])
+        XCTAssertEqual(Set(MolibooRegistry.available3D.map(\.id)), ["pip", "moss", "pebble", "tofu", "bolt"])
         // Manifest says there is an asset but the file is not bundled ⇒ no 3D (2D fallback), never another character.
         let ghost = MolibooCharacterDescriptor(id: "ghost", canonicalNumber: 99, displayName: "Ghost", family: "test", asset: "Ghost_NotBundled",
                                                assetSHA256: nil, sourceVersion: nil, anchors: [], expressions: [], fps: 30, clips: [:], attachments: [:])
@@ -151,6 +152,43 @@ final class MOL02Tests: XCTestCase {
         }
         for a in d.anchors { XCTAssertNotNil(c.anchor(a), "missing \(a)") }
         for clip in ["idle_bob", "blink", "wobble", "tap", "cube_squash", "exuberant_bounce"] { XCTAssertTrue(c.playClip(clip), clip) }
+        for x in MolibooExpression.allCases where x != .blink { c.setExpression(x); XCTAssertEqual(c.lastAction, "clip:" + x.clipName) }
+        let ok = await c.equip(wardrobeItemID: capID)
+        XCTAssertTrue(ok)
+        XCTAssertEqual(c.equipped[capID]?.parent?.name, "anchor_head")
+        c.unequip(wardrobeItemID: capID)
+    }
+
+    // MARK: Bolt (#014)
+
+    func testBoltManifestEntry() throws {
+        let m = try MolibooManifest.bundled(.main)
+        let d = try XCTUnwrap(m.character(id: "bolt"))
+        XCTAssertEqual(d.canonicalNumber, 14)
+        XCTAssertEqual(d.asset, "Bolt")
+        XCTAssertEqual(d.sourceVersion, "bolt-v1.0")
+        XCTAssertEqual(d.assetSHA256, "7565bb3e3f5aad138313c615f254b2b14b7426e98131c95b4d93b33951a54ec3")
+        XCTAssertEqual(Set(d.expressions), Set(MolibooExpression.allCases))
+        for c in ["idle_bob", "wobble", "tap", "antenna_flash", "servo_tilt"] { XCTAssertNotNil(d.clips[c], c) }
+        guard case .compatible(let cfg) = m.compatibility(item: capID, character: "bolt") else { return XCTFail("Bolt wears the Signature Cap") }
+        XCTAssertEqual(cfg.anchor, "anchor_head")
+    }
+
+    func testBoltRobotPartsLoadAnimateAndWearCap() async throws {
+        let m = try MolibooManifest.bundled(.main)
+        let d = try XCTUnwrap(MolibooRegistry.descriptor(for: "bolt", manifest: m))
+        let c = MolibooSceneController(descriptor: d)
+        c.cosmetics = m.cosmetics
+        await c.load()
+        defer { c.stop() }
+        XCTAssertFalse(c.loadFailed)
+        XCTAssertEqual(c.character?.name, "Bolt_Root")
+        for part in ["Bolt_Body", "Bolt_Screen", "Bolt_AntennaStalk", "Bolt_AntennaTip", "Bolt_Bolt_L", "Bolt_Bolt_R", "Bolt_Eye_L", "Bolt_Eye_R"] {
+            XCTAssertNotNil(c.character?.findEntity(named: part), "missing \(part)")
+        }
+        XCTAssertNil(c.character?.findEntity(named: "Pebble_Body"))
+        for a in d.anchors { XCTAssertNotNil(c.anchor(a), "missing \(a)") }
+        for clip in ["idle_bob", "blink", "wobble", "tap", "antenna_flash", "servo_tilt"] { XCTAssertTrue(c.playClip(clip), clip) }
         for x in MolibooExpression.allCases where x != .blink { c.setExpression(x); XCTAssertEqual(c.lastAction, "clip:" + x.clipName) }
         let ok = await c.equip(wardrobeItemID: capID)
         XCTAssertTrue(ok)
