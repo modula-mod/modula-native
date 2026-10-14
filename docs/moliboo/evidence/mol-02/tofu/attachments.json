@@ -1,0 +1,19 @@
+{
+ "tofu": {
+  "cap.moliboo.signature": {
+   "offset": [
+    0.0,
+    0.0,
+    -0.004
+   ],
+   "rotationDegrees": [
+    -6.0,
+    0.0,
+    -14.0
+   ],
+   "scale": 1.0,
+   "compatible": true,
+   "anchor": "anchor_head"
+  }
+ }
+}
