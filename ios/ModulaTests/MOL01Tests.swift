@@ -54,7 +54,7 @@ final class MOL01Tests: XCTestCase {
         guard case .compatible(let cfg) = m.compatibility(item: capID, character: "pebble") else { return XCTFail("Pebble must be compatible") }
         XCTAssertEqual(cfg.anchor, "anchor_head")
         XCTAssertEqual(cfg.rotationDegrees.count, 3); XCTAssertEqual(cfg.offset.count, 3); XCTAssertGreaterThan(cfg.scale, 0)
-        for id in MolibooCosmetics.originals where !["pebble", "pip", "moss", "tofu"].contains(id) {   // MOL-02 adds Pip, Moss and Tofu; see MOL02Tests
+        for id in MolibooCosmetics.originals where !["pebble", "pip", "moss", "tofu", "bolt"].contains(id) {   // MOL-02 adds Pip, Moss, Tofu and Bolt; see MOL02Tests
             XCTAssertEqual(m.compatibility(item: capID, character: id), .notCompatible, "\(id) has no config ⇒ not compatible")
         }
         XCTAssertEqual(m.compatibility(item: capID, character: "unknown"), .notCompatible)
