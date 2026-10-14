@@ -392,7 +392,7 @@ struct ModulaStickerPicker: View {
 
     private var sections: [Section] {
         [Section(id: "animated", title: "Animated", icon: "sparkles", isSymbol: true),
-         Section(id: "mascots", title: "Mascots", icon: "pawprint.fill", isSymbol: true)]
+         Section(id: "mascots", title: "Moliboos", icon: "pawprint.fill", isSymbol: true)]
         + packs.map { Section(id: $0.id, title: $0.title, icon: $0.icon, isSymbol: false) }
         + custom.packs.map { Section(id: "custom.\($0.id)", title: $0.title, icon: $0.emoji.first ?? "⭐️", isSymbol: false) }
         + [Section(id: "mine", title: "My packs", icon: "plus.square.on.square", isSymbol: true)]

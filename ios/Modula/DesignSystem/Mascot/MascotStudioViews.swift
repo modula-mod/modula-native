@@ -112,7 +112,7 @@ struct MascotStudioView: View {
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Mascot Studio")
+        .navigationTitle("Moliboo Studio")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) { coinPill }
@@ -270,7 +270,7 @@ struct MascotStudioView: View {
 
     @ViewBuilder private var livePreview: some View {
         if case .off = selection {
-            ContentUnavailableView("Mascot off", systemImage: "eye.slash", description: Text("Pick a mascot in Composer settings."))
+            ContentUnavailableView("Moliboo off", systemImage: "eye.slash", description: Text("Pick a Moliboo in Settings → Moliboo."))
         } else {
             MascotDressedLive(selection: selection, size: 84, brain: brain, outfit: wardrobe.outfit)
         }
@@ -650,7 +650,7 @@ struct MascotStudioView: View {
 
     private var customPanel: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Create up to \(CustomMascotStore.maxCount) custom mascots. They stay on this device and wear the same wardrobe.")
+            Text("Create up to \(CustomMascotStore.maxCount) custom Moliboos. They stay on this device and wear the same wardrobe.")
                 .font(.caption).foregroundStyle(.secondary)
 
             ForEach(customs.items) { custom in
@@ -681,7 +681,7 @@ struct MascotStudioView: View {
                 guard customs.items.count < CustomMascotStore.maxCount else { return }
                 editingCustom = .fresh()
             } label: {
-                Label(customs.items.count >= CustomMascotStore.maxCount ? "Limit reached" : "Create custom mascot", systemImage: "plus")
+                Label(customs.items.count >= CustomMascotStore.maxCount ? "Limit reached" : "Create custom Moliboo", systemImage: "plus")
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
@@ -1113,7 +1113,7 @@ struct CustomMascotEditor: View {
                 }
             }
         }
-        .navigationTitle("Custom mascot")
+        .navigationTitle("Custom Moliboo")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -1217,7 +1217,7 @@ struct MascotAssistantSettingsSection: View {
     private var assistantMascotPicker: some View {
         let outfit = MascotWardrobeStore.shared.outfit
         return VStack(alignment: .leading, spacing: 6) {
-            Text("Assistant mascot").font(.subheadline.weight(.semibold))
+            Text("Assistant Moliboo").font(.subheadline.weight(.semibold))
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(ModulaMascotKind.allCases) { kind in
@@ -1270,7 +1270,7 @@ struct MascotAssistantSettingsSection: View {
             TextField("Bio", text: Binding(get: { store.context.bio }, set: { store.context.bio = $0; store.persistContext() }), axis: .vertical)
                 .lineLimit(2...3)
                 .textFieldStyle(.roundedBorder)
-            TextField("Notes for the mascot", text: Binding(get: { store.context.notes }, set: { store.context.notes = $0; store.persistContext() }), axis: .vertical)
+            TextField("Notes for the Moliboo", text: Binding(get: { store.context.notes }, set: { store.context.notes = $0; store.persistContext() }), axis: .vertical)
                 .lineLimit(2...4)
                 .textFieldStyle(.roundedBorder)
             Toggle("Birthday", isOn: $hasBirthday)
@@ -1359,7 +1359,7 @@ struct ProfileMascotChip: View {
             }
             .sheet(isPresented: $dressUp) { MascotDressUpSheet() }
             .onReceive(NotificationCenter.default.publisher(for: .mascotOutfitDidChange)) { _ in brain.outfitChanged() }
-            .accessibilityLabel("Your mascot")
+            .accessibilityLabel("Your Moliboo")
             .accessibilityHint("Long-press to dress up")
             .accessibilityIdentifier("profile.mascot")
             .onAppear {
@@ -1411,12 +1411,12 @@ struct MascotProfileSettingsSection: View {
 
     var body: some View {
         Section {
-            Toggle("Show mascot on Profile", isOn: $show)
-            Toggle("Use mascot as avatar", isOn: $asAvatar)
+            Toggle("Show Moliboo on Profile", isOn: $show)
+            Toggle("Use Moliboo as avatar", isOn: $asAvatar)
         } header: {
-            Text("Profile mascot")
+            Text("Profile Moliboo")
         } footer: {
-            Text("Your dressed mascot (and its scene) appears on your Profile. Long-press it there to open the wardrobe.")
+            Text("Your dressed Moliboo (and its scene) appears on your Profile. Long-press it there to open the wardrobe.")
         }
     }
 }

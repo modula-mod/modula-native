@@ -237,13 +237,13 @@ extension MascotRig {
         case .head, .face, .hand, .back, .aura, .ground, .scene, .frill:
             return .fits
         case .hair:
-            return canWearHair ? .fits : .none("Doesn’t fit this mascot")
+            return canWearHair ? .fits : .none("Doesn’t fit this Moliboo")
         case .torso:
-            return canWearTop ? .fits : .none("Doesn’t fit this mascot")
+            return canWearTop ? .fits : .none("Doesn’t fit this Moliboo")
         case .neck:
-            return canWearNeck ? .fits : .none("Doesn’t fit this mascot")
+            return canWearNeck ? .fits : .none("Doesn’t fit this Moliboo")
         case .legs:
-            return hasLegs ? .fits : .none("Doesn’t fit this mascot")
+            return hasLegs ? .fits : .none("Doesn’t fit this Moliboo")
         case .legsOrFrill:
             return hasLegs ? .fits : .adapted("Wears as a frilly skirt")
         case .feet:

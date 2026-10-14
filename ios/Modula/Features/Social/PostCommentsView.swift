@@ -1202,7 +1202,7 @@ struct PostCommentsView: View {
             O(id: "code", title: "Code", systemImage: "chevron.left.forwardslash.chevron.right", tint: .gray),
             O(id: "contact", title: "Contact", systemImage: "person.crop.circle.fill", tint: .brown),
             O(id: "audio", title: "Audio", systemImage: "music.note", tint: .orange),
-            O(id: "mascot", title: "Mascot", systemImage: "pawprint.fill", tint: .purple),
+            O(id: "mascot", title: "Moliboo", systemImage: "pawprint.fill", tint: .purple),
         ]
         if UIPasteboard.general.hasImages {
             options.append(O(id: "paste", title: "Paste", systemImage: "doc.on.clipboard.fill", tint: .pink))
