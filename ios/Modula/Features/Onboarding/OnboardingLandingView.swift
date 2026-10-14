@@ -37,19 +37,22 @@ struct OnboardingLandingView: View {
     }
 
     var body: some View {
-        TimelineView(.animation(paused: reduceMotion)) { context in
-            let time = reduceMotion
-                ? OnboardingLanding.staticTime
-                : context.date.timeIntervalSince(startDate) + OnboardingLanding.warmUp
-            ZStack {
-                LandingBackdrop(time: time)
+        // Only the drawn layers live inside the per-frame TimelineViews. The drag gesture, the
+        // "Let's go" button and the accessibility tree sit outside them, so their closures are built
+        // when state changes, not on every display-link tick. Rebuilding gesture/button closures at
+        // frame rate (even while the landing is covered by another presentation) let SwiftUI destroy
+        // a closure context that was already freed (MOL-02 stability track, EXC_BAD_ACCESS in
+        // __swift_closure_destructor for `dragGesture` / `continueButton`).
+        ZStack {
+            TimelineView(.animation(paused: reduceMotion)) { context in
+                LandingBackdrop(time: time(at: context.date))
                     .opacity(entrance.backdrop ? 1 : 0)
-                VStack(spacing: 0) {
-                    stage(time: time)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .ignoresSafeArea(edges: .top)
-                    copy
-                }
+            }
+            VStack(spacing: 0) {
+                stage
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .ignoresSafeArea(edges: .top)
+                copy
             }
         }
         .background(Color(hex: "#030608").ignoresSafeArea())
@@ -58,6 +61,12 @@ struct OnboardingLandingView: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("onboarding.landing")
         .onAppear(perform: playEntrance)
+    }
+
+    private func time(at date: Date) -> Double {
+        reduceMotion
+            ? OnboardingLanding.staticTime
+            : date.timeIntervalSince(startDate) + OnboardingLanding.warmUp
     }
 
     private func playEntrance() {
@@ -75,7 +84,19 @@ struct OnboardingLandingView: View {
 
     // MARK: Stage
 
-    private func stage(time: Double) -> some View {
+    private var stage: some View {
+        TimelineView(.animation(paused: reduceMotion)) { context in
+            stageFrame(time: time(at: context.date))
+        }
+        .contentShape(Rectangle())
+        .gesture(dragGesture)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(OnboardingLanding.accessibilitySummary)
+        .accessibilityAddTraits(.isImage)
+        .accessibilityIdentifier("onboarding.landing.cluster")
+    }
+
+    private func stageFrame(time: Double) -> some View {
         GeometryReader { proxy in
             let size = proxy.size
             let unit = min(size.width, 560) / 390
@@ -101,12 +122,6 @@ struct OnboardingLandingView: View {
             }
             .frame(width: size.width, height: size.height)
         }
-        .contentShape(Rectangle())
-        .gesture(dragGesture)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(OnboardingLanding.accessibilitySummary)
-        .accessibilityAddTraits(.isImage)
-        .accessibilityIdentifier("onboarding.landing.cluster")
     }
 
     /// Visible particles for this frame in screen space, far first so near bubbles draw on top.
