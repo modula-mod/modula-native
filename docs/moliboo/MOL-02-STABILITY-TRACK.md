@@ -73,3 +73,26 @@ before/after comparison is to rerun the lifecycle test on 8AAF71C9 with this bra
   (an animation-playback timebase that outlives its scene or entity during Studio open/close), separate from the onboarding closure churn.
 - Full MOL-01 + MOL-02 UI suites, one run: 13/13 passed, no crash.
 - Next: stop the animations (`stopAllAnimations`) and remove the entity graph from the scene before the RealityView goes away (`stop()`/`onDisappear`), and avoid starting a `playAnimation` after teardown. Then rerun the 10x test on 8AAF71C9.
+
+## Round 2: teardown hardening (c97f9ca), shared sim 8AAF71C9, 12:10–12:50 BST: NOT CLEAN, PR not merged
+Change: `stop()` now blocks new work (`isStopped`), cancels the queued animation tasks, stops every tracked
+playback plus `stopAllAnimations` on the character, the cosmetics and the root, and detaches the root and camera from the scene.
+Late `load`/`equip` results are dropped after stop, and the preview builds a fresh controller if it is shown again.
+
+20x lifecycle, 10 separate runs (`test-without-building`): **5 passed, 5 failed**. 3 app crashes (iterations 1, 7, 9),
+1 load failure (iteration 4: `failed=1`, so `Entity(contentsOf:)` threw), 1 lost connection to the test runner (iteration 6).
+MOL-01 + MOL-02 UI suites: 13/13 passed.
+
+App crash reports in this window:
+- 121123, 122146: Metal `MTLStructType`/`MTLBufferBinding` dealloc ← CoreRE `FunctionReflectionResult` / `FunctionReflectionCache` dtor
+  (← `MaterialBuilder` ← `MaterialAssetLoader::registerAsset` in earlier reports), with PAC-poisoned or protected addresses.
+- 122520: SwiftUICore `destroy for Image.Resolved` ← `objc_release` at 0x420.
+- 122106: inside XCTAutomationSupport `XCElementSnapshot recursivelyClearDataSource` in the app process (accessibility snapshot of a freed element).
+The TimebaseManager stack did not recur, but the corruption signature (freed objects found during RealityKit material
+registration and SwiftUI teardown) persists. Neither fix is sufficient.
+
+Next hypotheses (not yet tested):
+- Repeated material compilation for the same USDZ in a fresh RealityKit scene on every Studio open. Cache the loaded entity
+  (`Entity(contentsOf:)` once per asset, `clone(recursive:)` per open) so `MaterialAssetLoader` does not re-register.
+- Run the same 20x loop with 3D off, to confirm the SwiftUI/accessibility crashes need the 3D view at all.
+- ASan/Zombies on the 8AAF71C9 loop.
