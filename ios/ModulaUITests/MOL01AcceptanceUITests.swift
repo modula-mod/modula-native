@@ -135,4 +135,18 @@ final class MOL01AcceptanceUITests: XCTestCase {
         let a = XCTAttachment(string: line); a.lifetime = .keepAlways; add(a)
         XCTAssertLessThan(lastFP - firstFP, 60, "no unbounded growth across 20 open/close cycles")
     }
+
+    /// MOL-03 Workstream B: background → foreground keeps the 3D scene alive and rendering (frame count keeps rising).
+    func testBackgroundForegroundKeepsSceneRendering() {
+        let app = launch(["-MOL01Scene", "front"])
+        let s0 = waitState(app) { $0["loaded"] == "1" }
+        let f0 = Int(s0["frames"] ?? "0") ?? 0
+        XCUIDevice.shared.press(.home)
+        sleep(3)
+        app.activate()
+        let s1 = waitState(app, 15) { (Int($0["frames"] ?? "0") ?? 0) > f0 + 30 && $0["loaded"] == "1" }
+        XCTAssertEqual(s1["failed"], "0")
+        app.buttons["Wobble"].tap()
+        waitState(app, 5) { $0["last"] == "wobble" }
+    }
 }

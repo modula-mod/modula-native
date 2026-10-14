@@ -195,4 +195,69 @@ final class MOL02Tests: XCTestCase {
         XCTAssertEqual(c.equipped[capID]?.parent?.name, "anchor_head")
         c.unequip(wardrobeItemID: capID)
     }
+
+    // MARK: MOL-03 Workstream B: renderer benchmark + lifecycle
+
+    func testRendererBenchmarkSevenPoints() async throws {
+        let s = await MolibooRendererBenchmark.run(primary: "pebble", secondary: "pip")
+        let json = String(data: try JSONEncoder().encode(s), encoding: .utf8) ?? ""
+        print("MOLBENCH " + json)
+        XCTAssertGreaterThan(s.coldLoadMs, 0)
+        XCTAssertLessThanOrEqual(s.coldLoadMs, 1500, "cold load target")
+        XCTAssertLessThanOrEqual(s.warmLoadMs, 750, "warm load target")
+        XCTAssertGreaterThanOrEqual(s.cacheHits, 1, "warm reopen must hit the template cache")
+    }
+
+    func testTemplateCacheIsBounded() async throws {
+        MolibooAssetLoader.purge()
+        for id in ["pebble", "pip", "moss", "tofu", "bolt"] {
+            guard let d = MolibooRegistry.descriptor(for: id), let a = d.asset else { continue }
+            _ = try await MolibooAssetLoader.loadEntity(a)
+        }
+        let cached = ["Pebble", "Pip", "Moss", "Tofu", "Bolt"].filter(MolibooAssetLoader.isCached)
+        XCTAssertLessThanOrEqual(cached.count, MolibooAssetLoader.characterCapacity)
+        XCTAssertTrue(MolibooAssetLoader.isCached("Bolt"), "most recent stays cached")
+    }
+
+    func testCharacterSwitchTearsDownPrevious() async throws {
+        let m = try XCTUnwrap(MolibooRegistry.manifest)
+        let a = MolibooSceneController(descriptor: try XCTUnwrap(MolibooRegistry.descriptor(for: "pebble", manifest: m)))
+        a.cosmetics = m.cosmetics
+        await a.load()
+        let scene = Entity(); scene.addChild(a.root)
+        let b = MolibooSceneController(descriptor: try XCTUnwrap(MolibooRegistry.descriptor(for: "tofu", manifest: m)))
+        b.cosmetics = m.cosmetics
+        a.stop()
+        await b.load()
+        XCTAssertNil(a.root.parent, "previous character detached on switch")
+        XCTAssertTrue(a.isStopped)
+        let before = a.clipsPlayed
+        a.react(); a.wobble(); a.setExpression(.happy)
+        XCTAssertEqual(a.clipsPlayed, before, "no-op after stop")
+        XCTAssertNotNil(b.character)
+        b.stop()
+    }
+
+    func testLoadAfterStopDoesNotAttach() async throws {
+        MolibooAssetLoader.purge()
+        let m = try XCTUnwrap(MolibooRegistry.manifest)
+        let c = MolibooSceneController(descriptor: try XCTUnwrap(MolibooRegistry.descriptor(for: "moss", manifest: m)))
+        let t = Task { await c.load() }
+        c.stop()
+        t.cancel()
+        await t.value
+        XCTAssertNil(c.character, "stopped/cancelled load must not attach")
+        XCTAssertTrue(c.root.children.isEmpty)
+    }
+
+    func testNoPlaybackOrEquipAfterStop() async throws {
+        let m = try XCTUnwrap(MolibooRegistry.manifest)
+        let c = MolibooSceneController(descriptor: try XCTUnwrap(MolibooRegistry.descriptor(for: "pebble", manifest: m)))
+        c.cosmetics = m.cosmetics
+        await c.load()
+        c.stop()
+        XCTAssertFalse(c.playClip("idle_bob"))
+        let equipped = await c.equip(wardrobeItemID: MolibooCosmetics.signatureCapID)
+        XCTAssertFalse(equipped)
+    }
 }

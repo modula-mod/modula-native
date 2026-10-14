@@ -48,6 +48,7 @@
 		C5EC07A4256BA265D5439E1F /* Moliboo3DPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4B2945EA6CECC8CD2E4DB8 /* Moliboo3DPreview.swift */; };
 		65024A7BE7343D7286E380E5 /* MolibooSceneController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62C113FC2AE3A203D1E061F /* MolibooSceneController.swift */; };
 		58B7BEB801B2C8CA10790150 /* MolibooAssetLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CC502F9F7DADA021F6C1703 /* MolibooAssetLoader.swift */; };
+		5A7A6E0B1C2D3E4F50617301 /* MolibooRendererBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7A6E0B1C2D3E4F50617302 /* MolibooRendererBenchmark.swift */; };
 		C80264059B020C529FB8E431 /* MolibooCharacterDescriptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7068DEA589A7AE2DFCBE093E /* MolibooCharacterDescriptor.swift */; };
 		3F68A564E6A09107514875CE /* MolibooFeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = A278B9E952CA3FF760FDDDB0 /* MolibooFeatureFlags.swift */; };
 		C1DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift */; };
@@ -447,6 +448,7 @@
 		1C4B2945EA6CECC8CD2E4DB8 /* Moliboo3DPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Moliboo3DPreview.swift; path = Features/Moliboo3D/Moliboo3DPreview.swift; sourceTree = "<group>"; };
 		E62C113FC2AE3A203D1E061F /* MolibooSceneController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooSceneController.swift; path = Features/Moliboo3D/MolibooSceneController.swift; sourceTree = "<group>"; };
 		6CC502F9F7DADA021F6C1703 /* MolibooAssetLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooAssetLoader.swift; path = Features/Moliboo3D/MolibooAssetLoader.swift; sourceTree = "<group>"; };
+		5A7A6E0B1C2D3E4F50617302 /* MolibooRendererBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooRendererBenchmark.swift; path = Features/Moliboo3D/MolibooRendererBenchmark.swift; sourceTree = "<group>"; };
 		7068DEA589A7AE2DFCBE093E /* MolibooCharacterDescriptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooCharacterDescriptor.swift; path = Features/Moliboo3D/MolibooCharacterDescriptor.swift; sourceTree = "<group>"; };
 		A278B9E952CA3FF760FDDDB0 /* MolibooFeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooFeatureFlags.swift; path = Features/Moliboo3D/MolibooFeatureFlags.swift; sourceTree = "<group>"; };
 		C0DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommentAttachExtras.swift; path = Features/Social/CommentAttachExtras.swift; sourceTree = "<group>"; };
@@ -1070,6 +1072,7 @@
 				1C4B2945EA6CECC8CD2E4DB8 /* Moliboo3DPreview.swift */,
 				E62C113FC2AE3A203D1E061F /* MolibooSceneController.swift */,
 				6CC502F9F7DADA021F6C1703 /* MolibooAssetLoader.swift */,
+				5A7A6E0B1C2D3E4F50617302 /* MolibooRendererBenchmark.swift */,
 				7068DEA589A7AE2DFCBE093E /* MolibooCharacterDescriptor.swift */,
 				A278B9E952CA3FF760FDDDB0 /* MolibooFeatureFlags.swift */,
 				C08E3F07060BD5F1C2F6D22C8A /* MascotWardrobeLayers.swift */,
@@ -1714,6 +1717,7 @@
 				C5EC07A4256BA265D5439E1F /* Moliboo3DPreview.swift in Sources */,
 				65024A7BE7343D7286E380E5 /* MolibooSceneController.swift in Sources */,
 				58B7BEB801B2C8CA10790150 /* MolibooAssetLoader.swift in Sources */,
+				5A7A6E0B1C2D3E4F50617301 /* MolibooRendererBenchmark.swift in Sources */,
 				C80264059B020C529FB8E431 /* MolibooCharacterDescriptor.swift in Sources */,
 				3F68A564E6A09107514875CE /* MolibooFeatureFlags.swift in Sources */,
 				C18E3F07060BD5F1C2F6D22C8A /* MascotWardrobeLayers.swift in Sources */,
