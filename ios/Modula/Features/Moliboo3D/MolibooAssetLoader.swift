@@ -50,6 +50,7 @@ enum MolibooAssetLoader {
         }
         do {
             let template = try await task.value
+            if Task.isCancelled { inFlight[asset] = nil; throw CancellationError() }
             inFlight[asset] = nil
             if templates[asset] == nil { templates[asset] = template }
             touch(asset, isCosmetic: isCosmetic)
