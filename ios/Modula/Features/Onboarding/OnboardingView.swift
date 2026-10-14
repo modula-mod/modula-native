@@ -113,9 +113,7 @@ struct OnboardingView: View {
     }
 
     private var brand: some View {
-        Text("modula")
-            .font(.system(.title2, design: app.appearance.fontDesign).weight(.bold))
-            .foregroundStyle(.white)
+        ModulaWordmark(height: 26, onDark: true)
             .accessibilityHidden(true)
     }
 

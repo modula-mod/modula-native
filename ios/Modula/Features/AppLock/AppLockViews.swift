@@ -223,8 +223,7 @@ struct PrivacyCoverView: View {
             VStack(spacing: 12) {
                 Image(systemName: "lock.fill")
                     .font(.largeTitle)
-                Text("Modula")
-                    .font(.headline)
+                ModulaWordmark(height: 20, onDark: true)
             }
             .foregroundStyle(.white)
         }

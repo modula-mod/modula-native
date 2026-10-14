@@ -80,10 +80,7 @@ struct SignInView: View {
         VStack(spacing: compact ? ModulaSpacing.sm : ModulaSpacing.md) {
             SignInBrandMark(compact: compact)
             VStack(spacing: ModulaSpacing.xs) {
-                Text("modula")
-                    .font(.system(.subheadline, design: app.appearance.fontDesign).weight(.bold))
-                    .tracking(1.2)
-                    .foregroundStyle(app.appearance.accent.color)
+                ModulaWordmark(height: 20)
                     .accessibilityHidden(true)
                 Text("Welcome back")
                     .font(.system(.largeTitle, design: app.appearance.fontDesign).weight(.bold))
