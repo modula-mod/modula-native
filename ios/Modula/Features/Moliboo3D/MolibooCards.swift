@@ -538,7 +538,6 @@ struct MolibooPackOpeningView: View {
             .padding(20)
         }
         .preferredColorScheme(.dark)
-        .accessibilityIdentifier("pack.opening")
     }
 
     private var packView: some View {
@@ -723,7 +722,6 @@ struct MolibooLegendaryReveal: View {
                 .padding(.bottom, 50)
             }
         }
-        .accessibilityIdentifier("pack.legendary")
         .onAppear {
             HapticEngine.shared.play(.selection)
             withAnimation(animating ? .spring(response: 0.7, dampingFraction: 0.55) : nil) { crown = true }

@@ -32,17 +32,17 @@ final class MOL04CardsUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["cards.locked.pebble"].exists, "empty binder")
         open.tap()
 
-        let tear = app.buttons["pack.tear"]
-        XCTAssertTrue(tear.waitForExistence(timeout: 10), "sealed pack")
+        let tear = app.descendants(matching: .any)["pack.tear"]
+        if !tear.waitForExistence(timeout: 10) { print(app.debugDescription); XCTFail("sealed pack"); return }
         sleep(1); shot("cards-pack-sealed")
         tear.tap()
 
-        let cont = app.buttons["pack.legendary.continue"]
+        let cont = app.descendants(matching: .any)["pack.legendary.continue"]
         XCTAssertTrue(cont.waitForExistence(timeout: 15), "Legendary reveal")
         sleep(2); shot("cards-legendary-reveal")
         cont.tap()
 
-        let done = app.buttons["pack.done"]
+        let done = app.descendants(matching: .any)["pack.done"]
         XCTAssertTrue(done.waitForExistence(timeout: 10))
         done.tap()
 
