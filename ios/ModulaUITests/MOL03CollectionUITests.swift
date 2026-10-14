@@ -5,7 +5,7 @@ final class MOL03CollectionUITests: XCTestCase {
 
     private func launch(_ extra: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["--uitest-skip-first-run", "-composer.mascot.kind", "pip", "-dev.moliboo.native3D", "YES",
+        app.launchArguments = ["--uitest-skip-first-run", "-MOLWorldNoLaunchWake", "-composer.mascot.kind", "pip", "-dev.moliboo.native3D", "YES",
                                "--debug-settings-route", "/settings/moliboo", "-moliboo.onboarded.v1", "YES"] + extra
         app.launch()
         return app
@@ -18,6 +18,14 @@ final class MOL03CollectionUITests: XCTestCase {
     }
 
     private func reveal(_ app: XCUIApplication, _ e: XCUIElement) -> Bool {
+        // MOL-03 World: Settings → Moliboo opens the Living World; the classic settings form is behind "More".
+        let more = app.buttons["world.more"]
+        if more.waitForExistence(timeout: 20) {
+            more.tap()
+            let item = app.buttons["Moliboo settings"]
+            guard item.waitForExistence(timeout: 5) else { return false }
+            item.tap()
+        }
         guard app.navigationBars["Moliboo"].waitForExistence(timeout: 20) else { return false }
         for _ in 0..<8 where !(e.exists && e.isHittable) { app.swipeUp() }
         return e.exists && e.isHittable

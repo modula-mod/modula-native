@@ -50,7 +50,7 @@ struct SettingsDestinationHost: View {
         case .intelligence(let nested):
             IntelligenceSettingsHost(route: nested)
         case .moliboo:
-            MolibooSettingsView()
+            MolibooWorldView()
         case .chats(let nested):
             ChatsSettingsHost(route: nested)
         case .audio(let nested):

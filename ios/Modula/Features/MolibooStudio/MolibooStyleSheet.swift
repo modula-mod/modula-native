@@ -15,9 +15,12 @@ struct MolibooStyleSheet: View {
         self.onOutfitChange = onOutfitChange
     }
 
+    @State private var pose = MolibooStagePose()
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Style").font(.headline)
+            positionControls
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
                     ForEach(MolibooEnvironment.allCases) { e in
@@ -62,6 +65,22 @@ struct MolibooStyleSheet: View {
         guard let item = MascotWardrobeCatalog.item(id: capID) else { return }
         if controller.equipped[capID] != nil { wardrobe.equip(item) } else if wardrobe.outfit.contains(item) { wardrobe.unequip(item.slot) }
     }
+    /// Character positioning on the stage (size + height), persisted per character.
+    private var positionControls: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Label("Size", systemImage: "arrow.up.left.and.arrow.down.right").font(.caption.weight(.semibold)).frame(width: 74, alignment: .leading)
+                Slider(value: $pose.scale, in: MolibooStagePose.scaleRange).accessibilityIdentifier("studio.pose.scale")
+            }
+            HStack {
+                Label("Height", systemImage: "arrow.up.and.down").font(.caption.weight(.semibold)).frame(width: 74, alignment: .leading)
+                Slider(value: $pose.lift, in: MolibooStagePose.liftRange).accessibilityIdentifier("studio.pose.lift")
+                Button("Reset") { pose = MolibooStagePose() }.font(.caption).accessibilityIdentifier("studio.pose.reset")
+            }
+        }
+        .onAppear { pose = MolibooStagePose.load(for: controller.descriptor.id) }
+        .onChange(of: pose) { _, p in p.apply(to: controller); p.save(for: controller.descriptor.id) }
+    }
 }
 
 /// Photo-mode controls: a shutter. Chrome is hidden while the frame is captured.
@@ -86,5 +105,26 @@ struct MolibooPhotoControls: View {
         .padding(.bottom, 24)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("studio.photo.controls")
+    }
+
+}
+
+/// Stage position of the character (Studio "positioning"). Applied to the controller root, so wardrobe follows.
+struct MolibooStagePose: Codable, Equatable {
+    var scale: Double = 1
+    var lift: Double = 0
+    static let scaleRange: ClosedRange<Double> = 0.8...1.25
+    static let liftRange: ClosedRange<Double> = -0.03...0.03
+    static func key(_ id: String) -> String { "moliboo.studio.pose.\(id)" }
+    static func load(for id: String, defaults: UserDefaults = .standard) -> MolibooStagePose {
+        guard let d = defaults.data(forKey: key(id)), let p = try? JSONDecoder().decode(MolibooStagePose.self, from: d) else { return .init() }
+        return p
+    }
+    func save(for id: String, defaults: UserDefaults = .standard) {
+        if let d = try? JSONEncoder().encode(self) { defaults.set(d, forKey: Self.key(id)) }
+    }
+    @MainActor func apply(to c: MolibooSceneController) {
+        c.root.scale = .init(repeating: Float(scale))
+        c.root.position.y = Float(lift)
     }
 }

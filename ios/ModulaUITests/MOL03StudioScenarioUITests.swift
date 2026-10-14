@@ -7,7 +7,7 @@ final class MOL03StudioScenarioUITests: XCTestCase {
 
     private func launch(kind: String, reduceMotion: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["--uitest-skip-first-run", "-composer.mascot.kind", kind, "-dev.moliboo.native3D", "YES",
+        app.launchArguments = ["--uitest-skip-first-run", "-MOLWorldNoLaunchWake", "-composer.mascot.kind", kind, "-dev.moliboo.native3D", "YES",
                                "-moliboo.studio.forceReduceMotion", reduceMotion ? "YES" : "NO", "-MOL01Studio"]   // environment is NOT a launch arg: the argument domain would shadow the user's choice
         app.launch()
         return app

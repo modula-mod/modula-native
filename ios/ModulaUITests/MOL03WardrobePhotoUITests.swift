@@ -6,7 +6,7 @@ final class MOL03WardrobePhotoUITests: XCTestCase {
 
     private func launch(panel: String?) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["--uitest-skip-first-run", "-composer.mascot.kind", "pip", "-dev.moliboo.native3D", "YES",
+        app.launchArguments = ["--uitest-skip-first-run", "-MOLWorldNoLaunchWake", "-composer.mascot.kind", "pip", "-dev.moliboo.native3D", "YES",
                                "-moliboo.studio.forceReduceMotion", "NO", "-MOL03Studio", "pip"] + (panel.map { ["-MOL03Panel", $0] } ?? [])
         app.launch()
         return app
