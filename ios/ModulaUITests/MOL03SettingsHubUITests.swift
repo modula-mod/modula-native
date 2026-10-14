@@ -24,6 +24,12 @@ final class MOL03SettingsHubUITests: XCTestCase {
         try? XCUIScreen.main.screenshot().pngRepresentation.write(to: URL(fileURLWithPath: dir).appendingPathComponent("\(name).png"))
     }
 
+    private func selected(_ e: XCUIElement, timeout: TimeInterval = 5) -> Bool {
+        let end = Date().addingTimeInterval(timeout)
+        while Date() < end { if e.isSelected { return true }; usleep(200_000) }
+        return e.isSelected
+    }
+
     private func reveal(_ app: XCUIApplication, _ e: XCUIElement) {
         for _ in 0..<10 where !(e.exists && e.isHittable) { app.swipeUp(velocity: .slow) }
     }
@@ -41,7 +47,7 @@ final class MOL03SettingsHubUITests: XCTestCase {
         // Select Moss (free) and see the selection move.
         let moss = app.buttons["moliboo.hub.char.moss"]
         reveal(app, moss); moss.tap()
-        XCTAssertTrue(moss.wait(for: \.isSelected, toEqual: true, timeout: 5), "Moss selected")
+        XCTAssertTrue(selected(moss), "Moss selected")
         XCTAssertFalse(pebble.isSelected)
 
         // Settings segment scrolls to "Show Moliboo on"; toggles keep working.
@@ -78,7 +84,7 @@ final class MOL03SettingsHubUITests: XCTestCase {
         let sprout = app.buttons["moliboo.hub.char.sprout"]
         XCTAssertTrue(sprout.waitForExistence(timeout: 5))
         sprout.tap()
-        XCTAssertTrue(sprout.wait(for: \.isSelected, toEqual: true, timeout: 5))
+        XCTAssertTrue(selected(sprout))
         app.terminate()
         app = XCUIApplication()
         app.launchArguments = ["--uitest-skip-first-run", "-MOLWorldNoLaunchWake", "-dev.moliboo.native3D", "YES",

@@ -74,6 +74,14 @@ struct MolibooSettingsView: View {
             .background(Color(uiColor: .systemGroupedBackground))
             .ignoresSafeArea(edges: .top)
         }
+        .overlay(alignment: .top) {
+            GeometryReader { g in
+                Rectangle().fill(.bar).frame(height: g.safeAreaInsets.top).offset(y: -g.safeAreaInsets.top)
+            }
+            .frame(height: 0)
+            .opacity(scrollY > 330 ? 1 : 0).animation(.easeOut(duration: 0.2), value: scrollY > 330)
+            .allowsHitTesting(false).accessibilityHidden(true)
+        }
         .toolbar(.hidden, for: .navigationBar)
         .navigationTitle("Moliboo")
         .accessibilityIdentifier("settings.moliboo")
@@ -107,8 +115,10 @@ struct MolibooSettingsView: View {
                 HStack {
                     MolibooHubBackButton()
                     Spacer()
-                    Image("MoliboosLogo").resizable().scaledToFit().frame(height: 34)
-                        .shadow(color: .white.opacity(0.8), radius: 6)
+                    Image("MoliboosLogo").resizable().scaledToFit().frame(height: 30)
+                        .padding(.horizontal, 16).padding(.vertical, 8)
+                        .modulaGlass(in: Capsule(), interactive: false, specular: true)
+                        .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
                         .overlay(alignment: .topTrailing) {
                             Image(systemName: "sparkle").font(.system(size: 13, weight: .bold)).foregroundStyle(.yellow)
                                 .scaleEffect(heart ? 1.2 : 0.8).opacity(heart ? 1 : 0.6).offset(x: 10, y: -8)
@@ -147,9 +157,9 @@ struct MolibooSettingsView: View {
 
     private var stage: some View {
         ZStack {
-            MolibooMossRock(pulse: heart && motionOn).offset(y: 92)
+            MolibooMossRock(pulse: heart && motionOn).offset(y: 80)
             if let kind {
-                MolibooHubArt(kind: kind, size: 170)
+                MolibooHubArt(kind: kind, size: 170).offset(y: 14)
                     .offset(y: hop && motionOn ? -16 : 0)
                     .rotationEffect(.degrees(hop && motionOn ? -5 : 0))
                     .id(kind).transition(.scale.combined(with: .opacity))
@@ -226,9 +236,9 @@ struct MolibooSettingsView: View {
                 ForEach(MolibooHubSegment.allCases) { s in
                     Button { pick(s, proxy) } label: {
                         Label(s.title, systemImage: s.icon).labelStyle(.titleAndIcon)
-                            .font(.footnote.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.75)
+                            .font(.caption.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.6)
                             .foregroundStyle(segment == s ? Color.white : Color.primary)
-                            .padding(.horizontal, 8).frame(maxWidth: .infinity, minHeight: 40)
+                            .padding(.horizontal, 4).frame(maxWidth: .infinity, minHeight: 40)
                             .background {
                                 if segment == s {
                                     Capsule().fill(Color.clear)
@@ -478,18 +488,19 @@ struct MolibooSettingsView: View {
     }
 
     private func toggleCard(_ icon: String, _ c: Color, _ title: String, _ sub: String, _ on: Binding<Bool>, _ id: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon).font(.system(size: 16, weight: .semibold)).foregroundStyle(c)
-                .frame(width: 32, height: 32).background(Circle().fill(c.opacity(0.15)))
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(.footnote.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.8)
-                Text(sub).font(.caption2).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: icon).font(.system(size: 15, weight: .semibold)).foregroundStyle(c)
+                    .frame(width: 30, height: 30).background(Circle().fill(c.opacity(0.15)))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title).font(.footnote.weight(.semibold)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                    Text(sub).font(.caption2).foregroundStyle(.secondary).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
-            Toggle(title, isOn: on).labelsHidden().controlSize(.mini).scaleEffect(0.8)
-                .accessibilityIdentifier(id)
+            HStack { Spacer(); Toggle(title, isOn: on).labelsHidden().accessibilityIdentifier(id) }
         }
-        .padding(.horizontal, 10).frame(minHeight: 60)
+        .padding(10).frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
         .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: false)
     }
 
@@ -499,13 +510,13 @@ struct MolibooSettingsView: View {
                 Image(systemName: icon).font(.system(size: 16, weight: .semibold)).foregroundStyle(c)
                     .frame(width: 32, height: 32).background(Circle().fill(c.opacity(0.15)))
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(title).font(.footnote.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.75)
-                    Text(sub).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    Text(title).font(.footnote.weight(.semibold)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                    Text(sub).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.tertiary)
             }
-            .padding(.horizontal, 10).frame(minHeight: 60).contentShape(Rectangle())
+            .padding(.horizontal, 10).frame(maxWidth: .infinity, minHeight: 96).contentShape(Rectangle())
         }
         .buttonStyle(MolibooSpringPress(enabled: motionOn))
         .foregroundStyle(.primary)
