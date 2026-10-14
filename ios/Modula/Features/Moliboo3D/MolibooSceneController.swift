@@ -28,6 +28,26 @@ final class MolibooSceneController {
         frameCount += 1; frameTimeSum += dt; frameTimeMax = max(frameTimeMax, dt)
     }
     private var idleTask: Task<Void, Never>?
+    /// Teardown state (MOL-02 stability track): once stopped, nothing may start a clip, a move or a queued task,
+    /// because RealityKit can otherwise tick an animation timebase whose clock went away with the scene.
+    @ObservationIgnored private(set) var isStopped = false
+    @ObservationIgnored private var animationTasks: [Task<Void, Never>] = []
+    @ObservationIgnored private var playbacks: [AnimationPlaybackController] = []
+
+    /// Queued animation work is tracked so `stop()` can cancel it; every body re-checks `isStopped` after sleeping.
+    private func spawn(_ body: @escaping @MainActor (MolibooSceneController) async -> Void) {
+        guard !isStopped else { return }
+        animationTasks.removeAll { $0.isCancelled }
+        animationTasks.append(Task { [weak self] in
+            guard let self, !self.isStopped else { return }
+            await body(self)
+        })
+        if animationTasks.count > 32 { animationTasks.removeFirst(animationTasks.count - 32) }
+    }
+    private func track(_ c: AnimationPlaybackController) {
+        playbacks.removeAll { $0.isComplete || $0.isStopped }
+        playbacks.append(c)
+    }
     var yaw: Float = 0 { didSet { root.orientation = simd_quatf(angle: yaw, axis: [0, 1, 0]) } }
 
     static let accessoryOrientationCorrection = simd_quatf(angle: .pi / 2, axis: [1, 0, 0])
@@ -49,6 +69,7 @@ final class MolibooSceneController {
         do {
             guard let asset = descriptor.asset else { loadFailed = true; return }
             let e = try await MolibooAssetLoader.loadEntity(asset)
+            guard !isStopped else { return }   // view left while loading: never attach to a torn-down scene
             e.name = descriptor.displayName + "_Root"
             root.addChild(e)
             character = e
@@ -83,6 +104,7 @@ final class MolibooSceneController {
     private var shineParts: [String] { ["EyeShine_L", "EyeShine_R", "EyeShine2_L", "EyeShine2_R"].map { partPrefix + $0 } }
 
     func setExpression(_ e: MolibooExpression) {
+        guard !isStopped else { return }
         if e == .blink { blink(); return }
         expression = e
         if playClip(e.clipName, loop: true) { return }   // baked blend-shape pose (^ arcs, open mouth, …)
@@ -103,13 +125,15 @@ final class MolibooSceneController {
     }
 
     func blink() {
+        guard !isStopped else { return }
         if playClip("blink") { return }
         let parts = (eyeParts + shineParts).compactMap(part)
         let restore = parts.map { $0.transform.scale }
         parts.forEach { animate($0, scale: $0.transform.scale * SIMD3<Float>(1, 0.08, 1), duration: 0.07) }
-        Task {
+        spawn { me in
             try? await Task.sleep(for: .milliseconds(120))
-            for (p, s) in zip(parts, restore) { self.animate(p, scale: s, duration: 0.09) }
+            guard !me.isStopped else { return }
+            for (p, s) in zip(parts, restore) { me.animate(p, scale: s, duration: 0.09) }
         }
     }
 
@@ -117,48 +141,57 @@ final class MolibooSceneController {
     /// so callers can fall back to the procedural transform animation.
     @discardableResult
     func playClip(_ name: String, loop: Bool = false) -> Bool {
-        guard let c = character, let clip = descriptor.clips[name], let source = c.availableAnimations.first else { return false }
+        guard !isStopped, let c = character, let clip = descriptor.clips[name], let source = c.availableAnimations.first else { return false }
         let fps = Double(descriptor.fps)
         let view = AnimationView(source: source.definition, trimStart: Double(clip.start - 1) / fps, trimEnd: Double(clip.end - 1) / fps)
         guard let resource = try? AnimationResource.generate(with: view) else { return false }
-        c.playAnimation(loop ? resource.repeat() : resource, transitionDuration: 0.12)
+        track(c.playAnimation(loop ? resource.repeat() : resource, transitionDuration: 0.12))
         clipsPlayed += 1; if name != "blink" { lastAction = "clip:" + name }   // idle auto-blink must not mask user actions
         return true
     }
 
     func wobble() {
+        guard !isStopped else { return }
         defer { lastAction = "wobble" }
         if playClip("wobble") { return }
         guard let c = character else { return }
         let base = c.transform
-        Task {
+        spawn { me in
             for angle: Float in [0.12, -0.10, 0.06, 0] {
+                guard !me.isStopped else { return }
                 var t = base; t.rotation = simd_quatf(angle: angle, axis: [0, 0, 1]) * base.rotation
-                c.move(to: t, relativeTo: c.parent, duration: 0.12, timingFunction: .easeInOut)
+                me.track(c.move(to: t, relativeTo: c.parent, duration: 0.12, timingFunction: .easeInOut))
                 try? await Task.sleep(for: .milliseconds(120))
             }
         }
     }
 
     func bounce() {
+        guard !isStopped else { return }
         if playClip("tap") { return }
         guard let c = character else { return }
         let base = c.transform
-        Task {
+        spawn { me in
             var up = base; up.translation.y += 0.04; up.scale *= SIMD3<Float>(0.95, 1.08, 0.95)
-            c.move(to: up, relativeTo: c.parent, duration: 0.16, timingFunction: .easeOut)
+            me.track(c.move(to: up, relativeTo: c.parent, duration: 0.16, timingFunction: .easeOut))
             try? await Task.sleep(for: .milliseconds(160))
+            guard !me.isStopped else { return }
             var squash = base; squash.scale *= SIMD3<Float>(1.08, 0.9, 1.08)
-            c.move(to: squash, relativeTo: c.parent, duration: 0.14, timingFunction: .easeIn)
+            me.track(c.move(to: squash, relativeTo: c.parent, duration: 0.14, timingFunction: .easeIn))
             try? await Task.sleep(for: .milliseconds(140))
-            c.move(to: base, relativeTo: c.parent, duration: 0.12, timingFunction: .easeOut)
+            guard !me.isStopped else { return }
+            me.track(c.move(to: base, relativeTo: c.parent, duration: 0.12, timingFunction: .easeOut))
         }
     }
 
     /// Tap reaction: micro-smile + wobble ("I am here.")
     func react() {
+        guard !isStopped else { return }
         setExpression(.happy); bounce(); lastAction = "react"; reactCount += 1
-        Task { try? await Task.sleep(for: .seconds(1.2)); if self.expression == .happy { self.setExpression(.idle) } }
+        spawn { me in
+            try? await Task.sleep(for: .seconds(1.2))
+            if !me.isStopped, me.expression == .happy { me.setExpression(.idle) }
+        }
     }
 
     private func startIdle() {
@@ -166,15 +199,31 @@ final class MolibooSceneController {
         idleTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(Double.random(in: 2.5...4.5)))
+                guard !Task.isCancelled else { return }
                 self?.blink()
             }
         }
     }
-    func stop() { idleTask?.cancel(); frameSubscription?.cancel(); frameSubscription = nil }
+    /// Full teardown, called before the RealityView goes away: no new work, cancel queued tasks, stop every
+    /// playback (clips and transform moves) on the character and the cosmetics, then detach the graph from the scene.
+    func stop() {
+        guard !isStopped else { return }
+        isStopped = true
+        idleTask?.cancel(); idleTask = nil
+        animationTasks.forEach { $0.cancel() }; animationTasks.removeAll()
+        playbacks.forEach { $0.stop() }; playbacks.removeAll()
+        equipped.values.forEach { $0.stopAllAnimations(recursive: true) }
+        character?.stopAllAnimations(recursive: true)
+        root.stopAllAnimations(recursive: true)
+        frameSubscription?.cancel(); frameSubscription = nil
+        root.removeFromParent()
+        cameraEntity.removeFromParent()
+    }
 
     private func animate(_ e: Entity, scale: SIMD3<Float>, duration: TimeInterval) {
+        guard !isStopped else { return }
         var t = e.transform; t.scale = scale
-        e.move(to: t, relativeTo: e.parent, duration: duration, timingFunction: .easeInOut)
+        track(e.move(to: t, relativeTo: e.parent, duration: duration, timingFunction: .easeInOut))
     }
 
     // MARK: Equipment
@@ -201,6 +250,7 @@ final class MolibooSceneController {
               let cosmetic = cosmetics.first(where: { $0.wardrobeItemID == id }),
               let anchor = anchor(cfg.anchor),
               let e = try? await MolibooAssetLoader.loadEntity(cosmetic.asset) else { return false }
+        guard !isStopped, equipped[id] == nil else { return equipped[id] != nil }
         e.name = "Cosmetic_\(id)"
         anchor.addChild(e)   // child of the anchor ⇒ follows rotation, bob, wobble and tap animation
         e.transform = .identity
