@@ -71,7 +71,7 @@ final class MolibooSceneController {
             guard let asset = descriptor.asset else { loadFailed = true; return }
             loadWasCached = MolibooAssetLoader.isCached(asset)
             let e = try await MolibooAssetLoader.loadEntity(asset)
-            guard !isStopped else { return }   // view left while loading: never attach to a torn-down scene
+            guard !isStopped, !Task.isCancelled else { return }   // view left / cancelled: never attach to a torn-down scene
             e.name = descriptor.displayName + "_Root"
             root.addChild(e)
             character = e
@@ -252,7 +252,7 @@ final class MolibooSceneController {
               let cosmetic = cosmetics.first(where: { $0.wardrobeItemID == id }),
               let anchor = anchor(cfg.anchor),
               let e = try? await MolibooAssetLoader.loadEntity(cosmetic.asset, isCosmetic: true) else { return false }
-        guard !isStopped, equipped[id] == nil else { return equipped[id] != nil }
+        guard !isStopped, !Task.isCancelled, equipped[id] == nil else { return equipped[id] != nil }
         e.name = "Cosmetic_\(id)"
         anchor.addChild(e)   // child of the anchor ⇒ follows rotation, bob, wobble and tap animation
         e.transform = .identity
