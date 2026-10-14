@@ -34,8 +34,8 @@ final class MOL03CollectionUITests: XCTestCase {
         let pip = app.buttons["collection.pip"]
         XCTAssertTrue(pip.waitForExistence(timeout: 5))
         XCTAssertTrue(pip.label.contains("3D") && !pip.label.contains("coming later"), pip.label)
-        let nimbus = app.buttons["collection.nimbus"]
-        if nimbus.waitForExistence(timeout: 3) { XCTAssertTrue(nimbus.label.contains("coming later"), nimbus.label) }
+        let bloop = app.buttons["collection.bloop"]
+        if bloop.waitForExistence(timeout: 3) { XCTAssertTrue(bloop.label.contains("coming later"), bloop.label) }
         app.swipeUp(); shot("collection-scrolled"); app.swipeDown()
         pip.tap()
         XCTAssertTrue(app.descendants(matching: .any)["studio.rail.style"].waitForExistence(timeout: 20))

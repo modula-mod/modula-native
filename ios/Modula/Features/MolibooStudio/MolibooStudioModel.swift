@@ -57,6 +57,11 @@ struct MolibooFraming: Equatable, Sendable {
         case "moss": MolibooFraming(target: [0, 0.02, 0], eye: [0, 0.10, 0.72], fov: 40)    // wide and flat: lower target
         case "tofu": MolibooFraming(target: [0, 0.035, 0], eye: [0, 0.12, 0.64], fov: 40)
         case "bolt": MolibooFraming(target: [0, 0.055, 0], eye: [0, 0.13, 0.74], fov: 40)    // tall body + antenna
+        case "nimbus": MolibooFraming(target: [0, 0.05, 0], eye: [0, 0.12, 0.70], fov: 40)  // floats: frame a little higher
+        case "mochi": MolibooFraming(target: [0, 0.04, 0], eye: [0, 0.11, 0.66], fov: 40)
+        case "sprout": MolibooFraming(target: [0, 0.045, 0], eye: [0, 0.12, 0.70], fov: 40) // leaves above the head
+        case "ember": MolibooFraming(target: [0, 0.045, 0], eye: [0, 0.12, 0.70], fov: 40)  // flame crown
+        case "tuck": MolibooFraming(target: [0, 0.045, 0], eye: [0, 0.12, 0.72], fov: 40)   // wings widen the box
         default: .standard
         }
     }
@@ -75,6 +80,11 @@ struct MolibooIdlePersonality: Equatable, Sendable {
         case "moss": p = .init(clips: ["slow_blink", "cheek_puff", "measured_hop"], interval: 12...20, mood: "unbothered")
         case "tofu": p = .init(clips: ["cube_squash", "wobble", "exuberant_bounce"], interval: 8...14, mood: "clumsy")
         case "bolt": p = .init(clips: ["antenna_flash", "servo_tilt"], interval: 9...15, mood: "analytical")
+        case "nimbus": p = .init(clips: ["float_drift", "cloud_puff", "float_drift"], interval: 9...15, mood: "dreamy")
+        case "mochi": p = .init(clips: ["ear_twitch", "tail_curl", "slow_blink"], interval: 10...16, mood: "cosy")
+        case "sprout": p = .init(clips: ["leaf_sway", "exuberant_bounce", "leaf_sway"], interval: 8...13, mood: "curious")
+        case "ember": p = .init(clips: ["flicker", "exuberant_bounce", "flicker"], interval: 6...10, mood: "fiery")
+        case "tuck": p = .init(clips: ["wing_flap", "servo_tilt"], interval: 9...15, mood: "wise")
         default: p = .init(clips: ["idle_bob", "wobble"], interval: 10...16, mood: "steady")
         }
         // Only clips the asset really has; never guess.

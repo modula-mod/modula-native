@@ -29,6 +29,9 @@ struct MolibooLivingStudioView: View {
     @State private var photo: MolibooCapturedPhoto?
     @State private var shots = 0
     @State private var lastShotSubject = false
+    #if DEBUG
+    @State private var clipProbe = ""
+    #endif
     private var wardrobe = MascotWardrobeStore.shared
     private let capID = MolibooCosmetics.signatureCapID
 
@@ -311,6 +314,7 @@ struct MolibooLivingStudioView: View {
         director = dir
         if !c.loadFailed { dir.start() }
         #if DEBUG
+        if let clip = MOL03DebugHarness.arg("-MOL03Clip") { await measureClip(clip, controller: c, director: dir) }
         switch MOL03DebugHarness.panel {
         case "photo": photoMode = true
         case let p?: panel = Panel(rawValue: p)
@@ -320,9 +324,51 @@ struct MolibooLivingStudioView: View {
     }
 
     #if DEBUG
+    /// Plays one clip on the live stage and reports which entities (rigid parts) or skeleton joints actually moved.
+    private func measureClip(_ clip: String, controller c: MolibooSceneController, director dir: MolibooStudioDirector) async {
+        guard let root = c.character else { clipProbe = " clip=\(clip) played=0"; return }
+        dir.setPaused(true)
+        try? await Task.sleep(for: .milliseconds(400))
+        func snapshot() -> [String: [Float]] {
+            var out: [String: [Float]] = [:]
+            func walk(_ e: Entity, _ path: String) {
+                let t = e.transform
+                let w = e.position(relativeTo: nil)
+                out[path + e.name] = [t.translation.x, t.translation.y, t.translation.z, t.rotation.vector.x, t.rotation.vector.y, t.rotation.vector.z, t.rotation.vector.w, t.scale.x, t.scale.y, t.scale.z, w.x, w.y, w.z]
+                if let m = e as? ModelEntity, !m.jointNames.isEmpty {
+                    for (i, j) in m.jointTransforms.enumerated() {
+                        out["joint:" + e.name + "/" + (m.jointNames[i].split(separator: "/").last.map(String.init) ?? "\(i)")] =
+                            [j.translation.x, j.translation.y, j.translation.z, j.rotation.vector.x, j.rotation.vector.y, j.rotation.vector.z, j.rotation.vector.w, j.scale.x, j.scale.y, j.scale.z]
+                    }
+                }
+                for ch in e.children { walk(ch, path) }
+            }
+            walk(root, "")
+            return out
+        }
+        var played = false
+        var moved: [String: Float] = [:]
+        // Up to 3 attempts: right after load RealityKit may not yet have applied the first animation frame.
+        for _ in 0..<3 where moved.isEmpty {
+            let before = snapshot()
+            played = c.playClip(clip, loop: true)
+            for _ in 0..<16 {
+                try? await Task.sleep(for: .milliseconds(100))
+                for (k, v) in snapshot() {
+                    guard let b = before[k] else { continue }
+                    let d = zip(v, b).map { abs($0 - $1) }.max() ?? 0
+                    if d > 1e-4 { moved[k] = max(moved[k] ?? 0, d) }
+                }
+            }
+        }
+        let names = moved.keys.filter { !$0.hasPrefix("anchor_") }.sorted { moved[$0]! > moved[$1]! }.prefix(10)
+            .map { $0.replacingOccurrences(of: " ", with: "_") }
+        clipProbe = " clip=\(clip) played=\(played ? 1 : 0) moved=\(moved.count) parts=\(names.joined(separator: ","))"
+    }
+
     private var studioProbe: some View {
         let w = "wpv=\(session?.isPreviewing == true ? 1 : 0) wprev=\(session?.previewIDs.sorted().joined(separator: ",") ?? "") wsaved=\(wardrobe.outfit.equippedIDs.sorted().joined(separator: ",")) wundo=\(wardrobe.canUndo ? 1 : 0) wpresets=\(wardrobe.presets.count) wblocked=\(session?.blocked.count ?? 0) shots=\(shots) subject=\(lastShotSubject ? 1 : 0)"
-        let v = w + " char=\(characterID) env=\(environment.rawValue) panel=\(panel?.rawValue ?? "none") photo=\(photoMode ? 1 : 0) reactions=\(director?.reactionCount ?? 0) idle=\(director?.idleFired ?? 0) react=\(director?.lastReaction ?? "") nap=\(director?.napping == true ? 1 : 0) rm=\(reduceMotion ? 1 : 0) paused=\(director?.paused == true ? 1 : 0)"
+        let v = w + clipProbe + " char=\(characterID) env=\(environment.rawValue) panel=\(panel?.rawValue ?? "none") photo=\(photoMode ? 1 : 0) reactions=\(director?.reactionCount ?? 0) idle=\(director?.idleFired ?? 0) react=\(director?.lastReaction ?? "") nap=\(director?.napping == true ? 1 : 0) rm=\(reduceMotion ? 1 : 0) paused=\(director?.paused == true ? 1 : 0)"
         return Text(v).font(.system(size: 1)).opacity(0.01).frame(width: 1, height: 1)
             .accessibilityIdentifier("studio.state").accessibilityLabel(v)
     }

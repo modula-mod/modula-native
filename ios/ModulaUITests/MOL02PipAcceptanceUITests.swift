@@ -67,9 +67,9 @@ final class MOL02PipAcceptanceUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Pip"].waitForExistence(timeout: 20))
         waitState(app) { $0["loaded"] == "1" && $0["failed"] == "0" }
         app.terminate()
-        app = launch(kind: "nimbus", ["-MOL01Studio"])
+        app = launch(kind: "bloop", ["-MOL01Studio"])
         XCTAssertTrue(app.descendants(matching: .any)["mol01.studio.ready"].waitForExistence(timeout: 20))
         sleep(2)
-        XCTAssertFalse(app.buttons["moliboo3d.entry"].exists, "Nimbus has no asset yet ⇒ no 3D entry, no Pebble substitute")
+        XCTAssertFalse(app.buttons["moliboo3d.entry"].exists, "Bloop has no asset yet ⇒ no 3D entry, no Pebble substitute")
     }
 }
