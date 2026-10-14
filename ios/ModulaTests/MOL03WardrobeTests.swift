@@ -100,4 +100,19 @@ final class MOL03WardrobeTests: XCTestCase {
         XCTAssertFalse(MolibooPhotoCapture.showsSubject(img(blob: false)))
         XCTAssertTrue(MolibooPhotoCapture.showsSubject(img(blob: true)))
     }
+
+    /// Device crash regression: concurrent premium loads must share one NSBundleResourceRequest begin.
+    @MainActor
+    func testConcurrentPremiumPackRequestsBeginOnce() async {
+        async let a = MolibooWardrobeAssets.ensurePremium()
+        async let b = MolibooWardrobeAssets.ensurePremium()
+        async let c = MolibooWardrobeAssets.ensurePremium()
+        async let d = MolibooWardrobeAssets.ensurePremium()
+        async let e = MolibooWardrobeAssets.ensurePremium()
+        async let f = MolibooWardrobeAssets.ensurePremium()
+        let results = await [a, b, c, d, e, f]
+        XCTAssertEqual(results.count, 6)
+        XCTAssertEqual(Set(results).count, 1, "all callers must see the same outcome")
+    }
 }
+

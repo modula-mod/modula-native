@@ -84,6 +84,7 @@ enum MolibooWardrobeAssets {
     static let premiumTag = "moliboo.wardrobe.premium"
     enum LoadError: Error { case missing(String) }
     private static var premiumRequest: NSBundleResourceRequest?
+    private static var premiumTask: Task<Bool, Never>?
     private(set) static var premiumAvailable = false
 
     static func url(for asset: String, bundle: Bundle = .main) -> URL? {
@@ -96,12 +97,23 @@ enum MolibooWardrobeAssets {
     @discardableResult
     static func ensurePremium() async -> Bool {
         if premiumAvailable { return true }
-        let r = premiumRequest ?? NSBundleResourceRequest(tags: [premiumTag])
-        r.loadingPriority = NSBundleResourceRequestLoadingPriorityUrgent
-        premiumRequest = r
-        if await r.conditionallyBeginAccessingResources() { premiumAvailable = true; return true }
-        do { try await r.beginAccessingResources(); premiumAvailable = true } catch { premiumAvailable = false }
-        return premiumAvailable
+        // NSBundleResourceRequest may only be begun once: concurrent loads (several wardrobe items at Studio open)
+        // used to each call (conditionally)beginAccessing on the shared request, which throws
+        // NSInvalidArgumentException "beginAccessingResources was called more than once" on device (MOL device crash).
+        // All callers now await one shared task; a failed attempt clears it so a later call retries with a fresh request.
+        if let t = premiumTask { return await t.value }
+        let t = Task { @MainActor () -> Bool in
+            let r = NSBundleResourceRequest(tags: [premiumTag])
+            r.loadingPriority = NSBundleResourceRequestLoadingPriorityUrgent
+            premiumRequest = r
+            if await r.conditionallyBeginAccessingResources() { return true }
+            do { try await r.beginAccessingResources(); return true } catch { return false }
+        }
+        premiumTask = t
+        let ok = await t.value
+        premiumAvailable = ok
+        if !ok { premiumTask = nil; premiumRequest = nil }
+        return ok
     }
 
     static func load(_ asset: String) async throws -> Entity {
