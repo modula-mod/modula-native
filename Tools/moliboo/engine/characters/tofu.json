@@ -1,0 +1,141 @@
+{
+ "id": "tofu",
+ "name": "Tofu",
+ "number": "011",
+ "canonicalId": "moliboo.originals.tofu",
+ "rigFamily": "rounded-cube",
+ "sourceVersion": "tofu-v1.0",
+ "seed": 11,
+ "body": {
+  "type": "cube",
+  "W": 0.058,
+  "D": 0.05,
+  "H": 0.05,
+  "bevel": 0.016,
+  "pillow": 0.06
+ },
+ "palette": {
+  "ramp": [
+   [
+    0.0,
+    [
+     1.0,
+     0.95,
+     0.8
+    ]
+   ],
+   [
+    0.4,
+    [
+     0.98,
+     0.89,
+     0.68
+    ]
+   ],
+   [
+    1.0,
+    [
+     0.94,
+     0.82,
+     0.6
+    ]
+   ]
+  ],
+  "from": 0.0,
+  "to": 0.1,
+  "cloud": 0.05,
+  "rough": 0.5,
+  "coat": 0.25,
+  "sss": 0.25
+ },
+ "face": {
+  "eyeZ": 0.062,
+  "eyeX": 0.024,
+  "eyeR": 0.0125,
+  "eyeAspect": 1.1,
+  "irisColor": [
+   0.3,
+   0.22,
+   0.16
+  ],
+  "cheek": {
+   "x": 0.04,
+   "z": 0.046,
+   "r": 0.0095
+  },
+  "cheekColor": [
+   0.98,
+   0.55,
+   0.52
+  ],
+  "mouth": {
+   "z": 0.046,
+   "width": 0.008,
+   "smile": 0.0016
+  },
+  "mouthColor": [
+   0.4,
+   0.18,
+   0.14
+  ]
+ },
+ "parts": [
+  {
+   "kind": "limbs",
+   "at": [
+    [
+     -0.044,
+     -0.032
+    ],
+    [
+     0.044,
+     -0.032
+    ],
+    [
+     -0.044,
+     0.032
+    ],
+    [
+     0.044,
+     0.032
+    ]
+   ],
+   "r": [
+    0.012,
+    0.013,
+    0.007
+   ],
+   "z": 0.004,
+   "color": [
+    0.96,
+    0.84,
+    0.62
+   ]
+  }
+ ],
+ "anchors": {
+  "head": [
+   0.0,
+   0.0
+  ]
+ },
+ "personality": [
+  "cube_squash",
+  "exuberant_bounce"
+ ],
+ "cap": {
+  "offset": [
+   0.0,
+   0.0,
+   -0.004
+  ],
+  "rotationDegrees": [
+   -6.0,
+   0.0,
+   -14.0
+  ],
+  "scale": 1.0,
+  "compatible": true
+ },
+ "correctionPass": 1
+}
