@@ -60,7 +60,7 @@ final class MOL02TofuAcceptanceUITests: XCTestCase {
         let entry = app.buttons["moliboo3d.entry"]
         XCTAssertTrue(entry.waitForExistence(timeout: 20))
         entry.tap()
-        XCTAssertTrue(app.navigationBars["Tofu 3D"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.navigationBars["Tofu"].waitForExistence(timeout: 20))
         waitState(app) { $0["loaded"] == "1" && $0["failed"] == "0" }
     }
 }

@@ -49,14 +49,14 @@ struct MolibooFraming: Equatable, Sendable {
     var eye: SIMD3<Float>
     var fov: Float
 
-    static let standard = MolibooFraming(target: [0, 0.03, 0], eye: [0, 0.08, 0.42], fov: 40)
+    static let standard = MolibooFraming(target: [0, 0.03, 0], eye: [0, 0.11, 0.66], fov: 40)
 
     static func `for`(_ id: String) -> MolibooFraming {
         switch id {
-        case "pip": MolibooFraming(target: [0, 0.035, 0], eye: [0, 0.085, 0.40], fov: 40)    // gills widen the box: come closer
-        case "moss": MolibooFraming(target: [0, 0.02, 0], eye: [0, 0.075, 0.40], fov: 40)    // wide and flat: lower target
-        case "tofu": MolibooFraming(target: [0, 0.035, 0], eye: [0, 0.09, 0.43], fov: 40)
-        case "bolt": MolibooFraming(target: [0, 0.055, 0], eye: [0, 0.10, 0.50], fov: 40)    // tall body + antenna
+        case "pip": MolibooFraming(target: [0, 0.035, 0], eye: [0, 0.12, 0.70], fov: 40)    // gills widen the box: leave room for them
+        case "moss": MolibooFraming(target: [0, 0.02, 0], eye: [0, 0.10, 0.72], fov: 40)    // wide and flat: lower target
+        case "tofu": MolibooFraming(target: [0, 0.035, 0], eye: [0, 0.12, 0.64], fov: 40)
+        case "bolt": MolibooFraming(target: [0, 0.055, 0], eye: [0, 0.13, 0.74], fov: 40)    // tall body + antenna
         default: .standard
         }
     }
