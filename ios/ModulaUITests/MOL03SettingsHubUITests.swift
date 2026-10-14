@@ -67,16 +67,11 @@ final class MOL03SettingsHubUITests: XCTestCase {
         #endif
         let threeD = app.switches["moliboo.settings.3d"]; reveal(app, threeD)
         XCTAssertTrue(threeD.exists)
-        let coll = app.buttons["moliboo.settings.collection"]; reveal(app, coll)
         shot("hub-advanced")
         let replay = app.buttons["moliboo.hub.replay"]; reveal(app, replay)
         XCTAssertTrue(replay.exists, "Replay the welcome kept")
         shot("hub-bottom")
 
-        coll.tap()
-        XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: 15), "Collection opens")
-        app.navigationBars.buttons.firstMatch.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["moliboo.hub.logo"].waitForExistence(timeout: 10), "back on the hub")
     }
 
     func testHubSelectionPersistsAcrossLaunch() {

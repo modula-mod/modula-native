@@ -88,7 +88,7 @@ struct MolibooSettingsView: View {
         .navigationDestination(item: $route) { r in
             switch r {
             case .studio3D(let id): MolibooLivingStudioView(characterID: id)
-            case .studio(let tab): MascotStudioView(initialTab: tab)
+            case .studio(let tab): MolibooStudioEntry(tab: tab)
             case .collection: MolibooCollectionView()
             }
         }
@@ -127,7 +127,6 @@ struct MolibooSettingsView: View {
                     Spacer()
                     Menu {
                         Button { showOnboarding = true } label: { Label("Replay the welcome", systemImage: "party.popper") }
-                        Button { route = .collection } label: { Label("Collection", systemImage: "square.grid.3x3.fill") }
                     } label: {
                         Image(systemName: "ellipsis").font(.headline).foregroundStyle(.primary).frame(width: 44, height: 44)
                     }
@@ -332,12 +331,6 @@ struct MolibooSettingsView: View {
             ModulaGlassGroup {
                 LazyVGrid(columns: cards, spacing: 8) {
                     toggleCard("cube.transparent.fill", .blue, "3D Moliboos", native3D ? "Enable 3D characters" : "Classic 2D look", $native3D, "moliboo.settings.3d")
-                    if native3D, let d = MolibooRegistry.descriptor(for: kindRaw) {
-                        linkCard("sparkles", .pink, "Open \(d.displayName)'s Studio", "Customise \(d.displayName)", "moliboo.settings.studio") { route = .studio3D(d.id) }
-                    }
-                    if native3D {
-                        linkCard("square.grid.3x3.fill", .teal, "Collection", "View all Moliboos", "moliboo.settings.collection") { route = .collection }
-                    }
                 }
             }
             if native3D {

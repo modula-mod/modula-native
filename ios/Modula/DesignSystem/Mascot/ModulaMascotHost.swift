@@ -1123,12 +1123,12 @@ struct ComposerMascotSettingsSection: View {
         }
         Section {
             NavigationLink {
-                MascotStudioView(initialTab: .wardrobe)
+                MolibooStudioEntry(tab: .wardrobe)
             } label: {
                 Label("Moliboo Studio", systemImage: "tshirt.fill")
             }
             NavigationLink {
-                MascotStudioView(initialTab: .assistant)
+                MolibooStudioEntry(tab: .assistant)
             } label: {
                 Label("Assistant & keywords", systemImage: "bubble.left.and.text.bubble.right")
             }

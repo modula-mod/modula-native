@@ -7,10 +7,10 @@ struct MolibooLivingStudioView: View {
     let characterID: String
 
     enum Panel: String, Identifiable, CaseIterable {
-        case style, wardrobe, play, expressions
+        case style, wardrobe, play, expressions, more
         var id: String { rawValue }
-        var title: String { switch self { case .style: "Style"; case .wardrobe: "Wardrobe"; case .play: "Play"; case .expressions: "Expressions" } }
-        var symbol: String { switch self { case .style: "paintpalette.fill"; case .wardrobe: "tshirt.fill"; case .play: "gamecontroller.fill"; case .expressions: "face.smiling" } }
+        var title: String { switch self { case .style: "Style"; case .wardrobe: "Wardrobe"; case .play: "Play"; case .expressions: "Faces"; case .more: "More" } }
+        var symbol: String { switch self { case .style: "paintpalette.fill"; case .wardrobe: "tshirt.fill"; case .play: "gamecontroller.fill"; case .expressions: "face.smiling"; case .more: "sparkles.rectangle.stack" } }
     }
 
     @AppStorage("moliboo.studio.environment") private var envRaw = MolibooEnvironment.meadow.rawValue
@@ -37,8 +37,9 @@ struct MolibooLivingStudioView: View {
 
     private let initialPanel: Panel?
     private let startInPhoto: Bool
-    init(characterID: String, initialPanel: Panel? = nil, startInPhoto: Bool = false) {
-        self.characterID = characterID; self.initialPanel = initialPanel; self.startInPhoto = startInPhoto
+    private let moreTab: MascotStudioView.StudioTab
+    init(characterID: String, initialPanel: Panel? = nil, startInPhoto: Bool = false, moreTab: MascotStudioView.StudioTab = .rewards) {
+        self.characterID = characterID; self.initialPanel = initialPanel; self.startInPhoto = startInPhoto; self.moreTab = moreTab
     }
 
     private var environment: MolibooEnvironment { MolibooEnvironment(rawValue: envRaw) ?? .meadow }
@@ -265,8 +266,8 @@ struct MolibooLivingStudioView: View {
             sheet(for: p)
             Spacer(minLength: 0)
         }
-        .presentationDetents(p == .wardrobe ? [.medium, .large] : [.height(300), .medium])
-        .presentationBackgroundInteraction(.enabled(upThrough: p == .wardrobe ? .medium : .height(300)))
+        .presentationDetents(p == .wardrobe || p == .more ? [.medium, .large] : [.height(300), .medium])
+        .presentationBackgroundInteraction(.enabled(upThrough: p == .wardrobe || p == .more ? .medium : .height(300)))
         .presentationDragIndicator(.visible)
         // Liquid Glass at every detent (the default background turns opaque white at .large).
         .presentationBackground {
@@ -284,6 +285,10 @@ struct MolibooLivingStudioView: View {
             if let controller, let session { MolibooWardrobeSheet(controller: controller, session: session) }
         case .play: playSheet
         case .expressions: expressionsSheet
+        case .more:
+            // Coins, rewards, custom Moliboos, assistant, shuffle / save / share / clear: the old 2D Studio's
+            // features, now a section of this one Studio.
+            ScrollView { MascotStudioView(initialTab: moreTab, embedded: true).padding(.horizontal, 16).padding(.top, 8) }
         }
     }
 
@@ -419,15 +424,3 @@ struct MolibooLivingStudioView: View {
     #endif
 }
 
-/// Studio entry point (dev flag): opens the Living Studio for any 3D-capable character.
-struct MolibooLivingStudioEntryButton: View {
-    let characterID: String
-    var body: some View {
-        NavigationLink { MolibooLivingStudioView(characterID: characterID) } label: {
-            Label("Open 3D Studio · \(MolibooRegistry.descriptor(for: characterID)?.displayName ?? "Moliboo") (dev)", systemImage: "cube.transparent")
-                .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(.bordered)
-        .accessibilityIdentifier("moliboo3d.entry")
-    }
-}
