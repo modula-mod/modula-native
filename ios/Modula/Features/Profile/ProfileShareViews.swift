@@ -136,11 +136,7 @@ struct ModulaProfileCodeView: View {
     private var card: some View {
         VStack(spacing: 16) {
             HStack(spacing: 8) {
-                Image(systemName: "m.circle.fill")
-                    .font(.title3)
-                    .foregroundStyle(accent)
-                Text("Modula")
-                    .font(.headline.weight(.bold))
+                ModulaWordmark(height: 20)
                 Spacer()
             }
 

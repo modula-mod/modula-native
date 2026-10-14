@@ -10,8 +10,7 @@ struct AuthChrome<Content: View>: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Modula")
-                        .font(.title.bold())
+                    ModulaWordmark(height: 26)
                     Text(title)
                         .font(.largeTitle.bold())
                     Text(subtitle)

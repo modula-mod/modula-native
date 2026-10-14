@@ -1033,7 +1033,7 @@ struct MascotShareCard: View {
                     Text(itemsLine).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                 }
                 Spacer()
-                Text("modula").font(.headline.weight(.black)).foregroundStyle(.secondary)
+                ModulaWordmark(height: 16)
             }
             .padding(.horizontal, 6)
         }

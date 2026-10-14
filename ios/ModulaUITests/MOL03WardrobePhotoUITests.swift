@@ -73,7 +73,13 @@ final class MOL03WardrobePhotoUITests: XCTestCase {
         app.buttons["wardrobe.filter.3d"].tap()
         let capTile = app.buttons["wardrobe.item.cap.moliboo.signature"]
         XCTAssertTrue(capTile.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["wardrobe.item.hat.party"].exists, "MOL-03 E: generated fit table gives every catalog item a 3D fit on Pip")
+        // MOL-03 E: the generated fit table gives the party hat a 3D fit on Pip, so the 3D filter keeps it.
+        // Search for it (the grid is lazy: off-screen tiles don't exist), then clear the search again.
+        let search3D = app.textFields["wardrobe.search"]
+        search3D.tap(); search3D.typeText("party")
+        XCTAssertTrue(app.buttons["wardrobe.item.hat.party"].waitForExistence(timeout: 5), "party hat stays under the 3D filter")
+        app.buttons["wardrobe.search.clear"].tap()
+        XCTAssertTrue(capTile.waitForExistence(timeout: 5))
         capTile.tap()
         let m2 = wait(app, "moliboo3d.state", 10) { $0["cap"] == (capOn0 ? "0" : "1") }
         XCTAssertEqual(m2["loadms"], loadms, "preview must not reload the character")
