@@ -19,7 +19,12 @@ struct MolibooRoomBackdrop: View {
             let w = geo.size.width, top = geo.safeAreaInsets.top
             let lift = min(max(scrollY, -80), 600)
             ZStack(alignment: .top) {
-                LinearGradient(colors: wall + [deep, deep], startPoint: .top, endPoint: .bottom)
+                // The whole page is the scene: the shared ambient sky (stars / fireflies / petals) runs top to bottom,
+                // the room sits over its upper part, and the lower part fades into sky + mist, never a flat fill.
+                MolibooAmbientBackground(ambience: MolibooAmbience(rawValue: period.rawValue) ?? .night, animated: animating, fps: 12,
+                                         density: 0.6, moon: UnitPoint(x: 0.9, y: 0.05), moonScale: 0)
+                LinearGradient(colors: wall + [wall.last!.opacity(0)], startPoint: .top, endPoint: .bottom)
+                    .frame(height: top + Self.roomHeight).offset(y: -lift * 0.7)
                 // Far: window (slowest parallax).
                 window(w: w).offset(y: top + 40 - lift * 0.35)
                 // Warm lamp light pooling on the right.
@@ -30,8 +35,13 @@ struct MolibooRoomBackdrop: View {
                 // Floor: mossy rug under the pedestal fading into the deep backdrop for the cards below.
                 Ellipse().fill(RadialGradient(colors: [Color(red: 0.30, green: 0.45, blue: 0.26).opacity(0.75), .clear], center: .center, startRadius: 10, endRadius: w * 0.6))
                     .frame(width: w * 1.3, height: 160).offset(y: top + Self.roomHeight - 150 - lift * 0.7)
-                LinearGradient(colors: [.clear, deep.opacity(0.92), deep], startPoint: .top, endPoint: .bottom)
+                LinearGradient(colors: [.clear, deep.opacity(0.55), deep.opacity(0.25)], startPoint: .top, endPoint: .bottom)
                     .frame(height: 360).offset(y: top + Self.roomHeight - 90 - lift * 0.7)
+                // Low mist banks drifting past as you scroll.
+                ForEach(0..<3, id: \.self) { i in
+                    Ellipse().fill(Color.white.opacity(period.isDark ? 0.07 : 0.16)).frame(width: w * 1.4, height: 120).blur(radius: 30)
+                        .offset(x: CGFloat(i - 1) * w * 0.3, y: top + Self.roomHeight + CGFloat(i) * 260 - lift * (0.8 + Double(i) * 0.05))
+                }
                 // Near: plants + particles (the only animated layer).
                 TimelineView(.animation(minimumInterval: 1.0 / 20, paused: !animating)) { tl in
                     Canvas { ctx, size in
@@ -79,7 +89,7 @@ struct MolibooRoomBackdrop: View {
         return ZStack(alignment: .top) {
             ZStack(alignment: .top) {
                 LinearGradient(colors: period.sky, startPoint: .top, endPoint: .bottom)
-                celestial.offset(x: ww * 0.22, y: 60)
+                celestial.offset(x: ww * 0.30, y: 34)
                 Hills(seed: 1, amplitude: 18).fill(period.ground.opacity(0.55)).frame(height: wh * 0.45).offset(y: wh * 0.55)
                 Hills(seed: 3, amplitude: 22).fill(period.ground.opacity(0.9)).frame(height: wh * 0.4).offset(y: wh * 0.68)
                 // Light rays during the day.

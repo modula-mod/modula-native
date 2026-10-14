@@ -176,6 +176,11 @@ struct MolibooStageCharacter: View {
                 .shadow(color: .black.opacity(0.35), radius: 10, y: 8)
             Ellipse().fill(LinearGradient(colors: [Color(red: 0.50, green: 0.74, blue: 0.36), Color(red: 0.28, green: 0.52, blue: 0.24)], startPoint: .top, endPoint: .bottom))
                 .frame(width: 200, height: 44)
+            // Luminous rim light around the moss top and a soft halo under the character.
+            Ellipse().stroke(LinearGradient(colors: [Color(red: 0.75, green: 1, blue: 0.85).opacity(0.9), Color(red: 0.4, green: 0.9, blue: 0.8).opacity(0.2)], startPoint: .top, endPoint: .bottom), lineWidth: 2.5)
+                .frame(width: 202, height: 46).blur(radius: 1.2)
+            Ellipse().fill(RadialGradient(colors: [Color(red: 0.85, green: 1, blue: 0.9).opacity(0.55), .clear], center: .center, startRadius: 2, endRadius: 70))
+                .frame(width: 150, height: 34).offset(y: -6).blendMode(.screen)
             Canvas { ctx, size in
                 for i in 0..<26 {
                     let fi = Double(i)
@@ -192,7 +197,7 @@ struct MolibooStageCharacter: View {
 
     @ViewBuilder private var figure: some View {
         if let img = MolibooPortrait.image(for: characterID) {
-            Image(uiImage: img).resizable().scaledToFit().frame(width: 230, height: 230)
+            Image(uiImage: img).resizable().interpolation(.high).antialiased(true).scaledToFit().frame(width: 230, height: 230)
                 .shadow(color: .black.opacity(0.25), radius: 10, y: 8)
         } else if let kind = ModulaMascotKind(rawValue: characterID) {
             ModulaMascotFigure(kind: kind, pose: .still(), size: 110, outfit: MascotWardrobeStore.shared.outfit)

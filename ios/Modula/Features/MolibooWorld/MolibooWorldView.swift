@@ -80,6 +80,15 @@ struct MolibooWorldView: View {
                 .padding(.horizontal, 16).padding(.bottom, 28)
             }
             .scrollIndicators(.hidden)
+            // Clear the floating tab bar so the carousel is never covered.
+            .contentMargins(.bottom, 96, for: .scrollContent)
+            // Nothing scrolls under the clock: content fades out beneath a scene-coloured status-bar scrim.
+            .mask {
+                VStack(spacing: 0) {
+                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom).frame(height: 14)
+                    Color.black
+                }
+            }
             .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, y in if route == nil, abs(y - scrollY) >= 1 { scrollY = y } }
             if let toast { toastView(toast) }
         }
@@ -110,6 +119,9 @@ struct MolibooWorldView: View {
         .overlay(alignment: .bottomTrailing) { probe }
         #endif
     }
+
+    /// Tinted Liquid Glass for panels over the scene: a cool tint at night, warm white by day, plus a soft drop shadow.
+    private var glassTint: Color { period.isDark ? Color(red: 0.30, green: 0.32, blue: 0.70).opacity(0.28) : Color.white.opacity(0.22) }
 
     private func shows(_ s: String) -> Bool {
         #if DEBUG
@@ -212,8 +224,9 @@ struct MolibooWorldView: View {
                 .accessibilityIdentifier("world.nav.toggle").accessibilityLabel(navCollapsed ? "Expand menu" : "Collapse menu")
             }
             .padding(5)
-            .modulaGlass(in: RoundedRectangle(cornerRadius: 26), interactive: false, specular: true)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 26), interactive: false, tint: glassTint, specular: true)
             .modulaGlassID("world.nav", in: glassNS)
+            .shadow(color: .black.opacity(0.25), radius: 14, y: 8)
         }
         .foregroundStyle(period.isDark ? .white : .primary)
     }
@@ -225,8 +238,9 @@ struct MolibooWorldView: View {
             stat("star.fill", .orange, "Lv. \(careState.bondLevel)", "Bond", id: "bond")
         }
         .padding(.horizontal, 10).padding(.vertical, 12)
-        .frame(width: 100, alignment: .leading)
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 22), interactive: false, specular: true)
+        .frame(width: 104, alignment: .leading)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22), interactive: false, tint: period.isDark ? Color.black.opacity(0.30) : Color.white.opacity(0.35), specular: true)
+        .shadow(color: .black.opacity(0.28), radius: 14, y: 8)
         .foregroundStyle(period.isDark ? .white : .primary)
         .contentTransition(.numericText())
         .animation(reduceMotion ? nil : .spring, value: careState)
@@ -239,8 +253,9 @@ struct MolibooWorldView: View {
                 .background(tint.gradient, in: Circle())
                 .shadow(color: tint.opacity(0.5), radius: 4)
             VStack(alignment: .leading, spacing: 0) {
-                Text(value).font(.subheadline.weight(.bold)).monospacedDigit()
-                Text(label).font(.caption2).opacity(0.75)
+                Text(value).font(.subheadline.weight(.heavy)).monospacedDigit()
+                    .shadow(color: .black.opacity(period.isDark ? 0.45 : 0), radius: 2, y: 1)
+                Text(label).font(.caption2.weight(.semibold)).opacity(0.9)
             }
         }
         .accessibilityElement(children: .combine)
@@ -269,7 +284,7 @@ struct MolibooWorldView: View {
                     }
                     .font(.caption.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.8)
                     .padding(.horizontal, 10).padding(.vertical, 6)
-                    .background(.white.opacity(period.isDark ? 0.14 : 0.35), in: Capsule())
+                    .modulaGlass(in: Capsule(), interactive: false, tint: t.2.opacity(0.18))
                 }
             }
             .accessibilityIdentifier("world.identity.traits")
@@ -278,7 +293,8 @@ struct MolibooWorldView: View {
         .padding(.vertical, 18).padding(.horizontal, 14).frame(maxWidth: .infinity)
         .overlay(alignment: .topTrailing) { Image(systemName: "sparkle").foregroundStyle(teal.opacity(0.8)).padding(14) }
         .overlay(alignment: .bottomTrailing) { Image(systemName: "sparkle").font(.caption2).foregroundStyle(.white.opacity(0.6)).padding(18) }
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 28), interactive: false, specular: true)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 28), interactive: false, tint: glassTint, specular: true)
+        .shadow(color: .black.opacity(0.30), radius: 20, y: 10)
         .padding(.top, -6)
     }
 
@@ -318,7 +334,8 @@ struct MolibooWorldView: View {
                     }
                     .padding(6)
                     .foregroundStyle(period.isDark ? .white : .primary)
-                    .modulaGlass(in: Capsule(), interactive: false, specular: true)
+                    .modulaGlass(in: Capsule(), interactive: false, tint: glassTint, specular: true)
+                    .shadow(color: teal.opacity(period.isDark ? 0.25 : 0.12), radius: 16, y: 6)
                 }
                 chatStatus(chat)
             }
@@ -379,7 +396,8 @@ struct MolibooWorldView: View {
             .font(.footnote.weight(.semibold))
             .foregroundStyle(period.isDark ? .white : .primary)
             .padding(.horizontal, 14).padding(.vertical, 10)
-            .modulaGlass(in: Capsule(), interactive: true)
+            .modulaGlass(in: Capsule(), interactive: true, tint: tint.opacity(0.16))
+            .shadow(color: .black.opacity(0.18), radius: 8, y: 4)
         }
         .buttonStyle(MolibooSpringPressStyle())
         .accessibilityIdentifier("world.quick.\(id)")
@@ -418,7 +436,8 @@ struct MolibooWorldView: View {
             }
             .frame(width: 150)
             .foregroundStyle(period.isDark ? .white : .primary)
-            .modulaGlass(in: RoundedRectangle(cornerRadius: 22), interactive: true, specular: true)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 22), interactive: true, tint: glassTint, specular: true)
+            .shadow(color: .black.opacity(0.28), radius: 14, y: 8)
         }
         .buttonStyle(MolibooSpringPressStyle())
         .accessibilityIdentifier("world.activity.\(a.rawValue)")
@@ -476,9 +495,20 @@ struct MolibooWorldView: View {
                 }
             }
             .padding(.vertical, 10).padding(.horizontal, 6).frame(width: 92)
-            .foregroundStyle(period.isDark ? .white : .primary)
-            .modulaGlass(in: RoundedRectangle(cornerRadius: 20), interactive: true, tint: selected ? teal : nil)
-            .overlay(RoundedRectangle(cornerRadius: 20).stroke(selected ? teal : .clear, lineWidth: 2))
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+            .background {
+                // Character-coloured gradient card with a soft inner glow behind the portrait.
+                let pal = ModulaMascotKind(rawValue: id)?.palette
+                ZStack {
+                    LinearGradient(colors: [(pal?.light ?? .white).opacity(0.85), (pal?.dark ?? .indigo).opacity(0.85)], startPoint: .top, endPoint: .bottom)
+                    RadialGradient(colors: [.white.opacity(0.55), .clear], center: UnitPoint(x: 0.5, y: 0.32), startRadius: 2, endRadius: 52)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            }
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 20), interactive: true, tint: selected ? teal.opacity(0.35) : nil, specular: true)
+            .overlay(RoundedRectangle(cornerRadius: 20).stroke(selected ? teal : .white.opacity(0.35), lineWidth: selected ? 2 : 0.8))
+            .shadow(color: selected ? teal.opacity(0.75) : (ModulaMascotKind(rawValue: id)?.palette.mid ?? .clear).opacity(0.45), radius: selected ? 14 : 8, y: 4)
             .overlay(alignment: .topTrailing) {
                 if selected {
                     Image(systemName: "checkmark.circle.fill").font(.title3).foregroundStyle(.white, teal).padding(5)
