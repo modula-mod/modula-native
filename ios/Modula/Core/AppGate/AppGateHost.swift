@@ -33,7 +33,9 @@ struct AppGateHost: View {
     @ViewBuilder
     private var rootContent: some View {
         #if DEBUG
-        if let route = DebugSettingsHarness.route ?? DebugSettingsHarness.anyRoute {
+        if ProcessInfo.processInfo.arguments.contains("--debug-moliboo-picker") {
+            MolibooPickerHarnessView()
+        } else if let route = DebugSettingsHarness.route ?? DebugSettingsHarness.anyRoute {
             DebugSettingsHarnessView(route: route)
         } else {
             gatedContent

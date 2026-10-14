@@ -749,18 +749,18 @@ struct ModulaMascotPicker: View {
     private func hero(_ focus: ModulaMascotKind) -> some View {
         HStack(alignment: .center, spacing: 10) {
             ZStack {
-                Circle().fill(RadialGradient(colors: [focus.palette.light.opacity(0.95), focus.palette.mid.opacity(0.0)], center: .center, startRadius: 2, endRadius: 46))
-                    .frame(width: 84, height: 84)
+                Circle().fill(RadialGradient(colors: [focus.palette.light.opacity(0.95), focus.palette.mid.opacity(0.0)], center: .center, startRadius: 2, endRadius: 36))
+                    .frame(width: 64, height: 64)
                 TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || scenePhase != .active)) { ctx in
                     let t = reduceMotion ? 0 : ctx.date.timeIntervalSinceReferenceDate
-                    MolibooPickerArt(kind: focus, size: 72, brain: brains[focus] ?? MascotBrain())
+                    MolibooPickerArt(kind: focus, size: 58, brain: brains[focus] ?? MascotBrain())
                         .offset(y: CGFloat(sin(t * 2.2)) * 3)
                         .scaleEffect(x: 1 + CGFloat(sin(t * 2.2 + 1.2)) * 0.012, y: 1 - CGFloat(sin(t * 2.2 + 1.2)) * 0.012, anchor: .bottom)
                 }
                 .id(focus)
                 .transition(reduceMotion ? .opacity : .scale(scale: 0.6).combined(with: .opacity))
             }
-            .frame(width: 84, height: 84)
+            .frame(width: 64, height: 64)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(focus.name).font(.title3.weight(.bold)).foregroundStyle(ink)
@@ -779,7 +779,7 @@ struct ModulaMascotPicker: View {
             .accessibilityLabel("Close")
             .frame(maxHeight: .infinity, alignment: .top)
         }
-        .frame(height: 84)
+        .frame(height: 64)
         .animation(reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.7), value: focus)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("moliboo.picker.hero")

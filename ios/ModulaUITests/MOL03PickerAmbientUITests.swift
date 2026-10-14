@@ -18,7 +18,7 @@ final class MOL03PickerAmbientUITests: XCTestCase {
     }
 
     func testPickerOpensWithHeroCardsAndDressUp() {
-        let app = launch(route: "/settings/chats/composer", ambience: "night", extra: ["-MOLPickerOpen"])
+        let app = launch(route: "/settings/chats/composer", ambience: "night", extra: ["-MOLPickerOpen", "--debug-moliboo-picker"])
         let picker = app.descendants(matching: .any)["moliboo.picker"]
         XCTAssertTrue(picker.waitForExistence(timeout: 25), "picker opens from the composer avatar")
         XCTAssertTrue(app.descendants(matching: .any)["moliboo.picker.hero"].exists, "hero preview")
@@ -35,7 +35,7 @@ final class MOL03PickerAmbientUITests: XCTestCase {
     }
 
     func testPickerMorningLooks() {
-        let app = launch(route: "/settings/chats/composer", ambience: "morning", extra: ["-MOLPickerOpen"])
+        let app = launch(route: "/settings/chats/composer", ambience: "morning", extra: ["-MOLPickerOpen", "--debug-moliboo-picker"])
         XCTAssertTrue(app.descendants(matching: .any)["moliboo.picker"].waitForExistence(timeout: 25))
         sleep(1)
         shot("picker-morning")
