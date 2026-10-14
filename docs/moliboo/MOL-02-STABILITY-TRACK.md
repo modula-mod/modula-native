@@ -51,9 +51,9 @@ built only when state changes. Visuals and behaviour are unchanged (screenshot c
 New simulator `Crash-16Pro` (9F8B55ED…), separate derivedData `build/crash`.
 | Run | Before (main) | After (fix) |
 |---|---|---|
-| Plain `simctl` launches, `-MOL01Scene front`, 12 s each | 0/30 crashes | see PR |
-| `testRealGeometryExpressionsAndClips` iterations | 0/10 | — |
-| `testStudioLifecycle20xMemoryLoadAndFrames` iterations | 0/6 | see PR |
+| Plain `simctl` launches, `-MOL01Scene front`, 12 s each | 0/30 crashes (551eafd) | 0/30 (460f427+fix, also `--uitest-skip-first-run -dev.moliboo.native3D YES`) |
+| `testRealGeometryExpressionsAndClips` iterations | 0/10 (551eafd) | not rerun |
+| `testStudioLifecycle20xMemoryLoadAndFrames` iterations | 0/6 (b11e922) | 6/6 passed, 0 crashes |
 
 The crash did **not** reproduce on the fresh simulator before the fix. It reproduces on the long-lived,
 heavily loaded `iPhone 16 Pro` (8AAF71C9…): the 20x lifecycle test crashed 2/2 there at b11e922. So the decisive
