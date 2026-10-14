@@ -3,7 +3,7 @@ import Observation
 import RealityKit
 import simd
 
-/// Owns the live Pebble entity graph: expressions, idle animation, equipment and interaction reactions.
+/// Owns the live entity graph of one Moliboo character: expressions, idle animation, equipment and interaction reactions.
 @MainActor @Observable
 final class MolibooSceneController {
     let descriptor: MolibooCharacterDescriptor
@@ -49,7 +49,7 @@ final class MolibooSceneController {
         do {
             guard let asset = descriptor.asset else { loadFailed = true; return }
             let e = try await MolibooAssetLoader.loadEntity(asset)
-            e.name = "Pebble_Root"
+            e.name = descriptor.displayName + "_Root"
             root.addChild(e)
             character = e
             meshCount = Self.countMeshes(e)
@@ -77,8 +77,10 @@ final class MolibooSceneController {
     // Transform-driven on face parts (deterministic, no dependency on USD skel binding). The USDZ also carries
     // per-part blend shapes (blink/happy/sleepy/excited/surprised, mouth happy/excited/surprised/sleepy/sad/pout)
     // which the baked clips drive; see playClip.
-    private static let eyeParts = ["Pebble_Eye_L", "Pebble_Eye_R", "Pebble_Iris_L", "Pebble_Iris_R"]
-    private static let shineParts = ["Pebble_EyeShine_L", "Pebble_EyeShine_R", "Pebble_EyeShine2_L", "Pebble_EyeShine2_R"]
+    /// Part names follow the builders' `<DisplayName>_` prefix convention (Pebble_Eye_L, Pip_Eye_L, …).
+    private var partPrefix: String { descriptor.displayName + "_" }
+    private var eyeParts: [String] { ["Eye_L", "Eye_R", "Iris_L", "Iris_R"].map { partPrefix + $0 } }
+    private var shineParts: [String] { ["EyeShine_L", "EyeShine_R", "EyeShine2_L", "EyeShine2_R"].map { partPrefix + $0 } }
 
     func setExpression(_ e: MolibooExpression) {
         if e == .blink { blink(); return }
@@ -95,14 +97,14 @@ final class MolibooSceneController {
         case .sleepy: eye = [1, 0.45, 1]; shine = [0.4, 0.4, 1]; mouth = [0.6, 1, 0.3]
         case .sad: eye = [1, 0.9, 1]; shine = [1, 1, 1]; mouth = [1, 1, -1]
         }
-        Self.eyeParts.compactMap(part).forEach { animate($0, scale: eye, duration: 0.15) }
-        Self.shineParts.compactMap(part).forEach { animate($0, scale: shine, duration: 0.15) }
-        if let m = part("Pebble_Mouth") { animate(m, scale: mouth, duration: 0.18) }
+        eyeParts.compactMap(part).forEach { animate($0, scale: eye, duration: 0.15) }
+        shineParts.compactMap(part).forEach { animate($0, scale: shine, duration: 0.15) }
+        if let m = part(partPrefix + "Mouth") { animate(m, scale: mouth, duration: 0.18) }
     }
 
     func blink() {
         if playClip("blink") { return }
-        let parts = (Self.eyeParts + Self.shineParts).compactMap(part)
+        let parts = (eyeParts + shineParts).compactMap(part)
         let restore = parts.map { $0.transform.scale }
         parts.forEach { animate($0, scale: $0.transform.scale * SIMD3<Float>(1, 0.08, 1), duration: 0.07) }
         Task {
