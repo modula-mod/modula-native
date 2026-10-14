@@ -38,7 +38,7 @@ struct MolibooSettingsView: View {
                     NavigationLink { Moliboo3DPreview(characterID: d.id) } label: { Label("Meet 3D \(d.displayName)", systemImage: "sparkles") }
                 }
             } header: { Text("3D") } footer: {
-                Text(native3D ? "3D is ready for \(MolibooRegistry.available3D.map(\.displayName).joined(separator: " and ")). More Moliboos are on the way." : "Moliboos use the classic 2D look everywhere.")
+                Text(native3D ? "3D is ready for \(MolibooRegistry.available3D.map(\.displayName).formatted(.list(type: .and))). More Moliboos are on the way." : "Moliboos use the classic 2D look everywhere.")
             }
 
             Section {
