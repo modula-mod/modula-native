@@ -64,3 +64,12 @@ before/after comparison is to rerun the lifecycle test on 8AAF71C9 with this bra
   does not prove that SwiftUI can't do it elsewhere.
 - Signed-out users who see the landing in production could in theory hit the same issue. The fix covers them too.
 - Keep the 3D flag gated until the 8AAF71C9 rerun shows 0 crashes in at least 10 lifecycle iterations.
+
+## Shared-simulator verification (8AAF71C9, branch at 83a3e98, 2026-10-14 11:42–12:20 BST): NOT CLEAN, PR not merged
+- `testStudioLifecycle20xMemoryLoadAndFrames` x10: iterations 1–4 passed. **Iteration 5 crashed** after about 22 s, and the xcodebuild run stopped there.
+  Report `Modula-2026-10-14-115200.ips`, from the same build as the fix (UUID 9E6F5B83…). The main thread hit EXC_BAD_ACCESS at 0x0:
+  `0x0 ← CMClockGetAnchorTime ← figTimebaseGetMasterTime ← figTimebaseGetTime… ← re::TimebaseManager::beforeFrameUpdate ← re::Engine::executePhase ← re::DisplayLinkClock::update`.
+  RealityKit is reading a CoreMedia timebase whose clock has already been freed or nulled. This is a second, RealityKit-side teardown defect
+  (an animation-playback timebase that outlives its scene or entity during Studio open/close), separate from the onboarding closure churn.
+- Full MOL-01 + MOL-02 UI suites, one run: 13/13 passed, no crash.
+- Next: stop the animations (`stopAllAnimations`) and remove the entity graph from the scene before the RealityView goes away (`stop()`/`onDisappear`), and avoid starting a `playAnimation` after teardown. Then rerun the 10x test on 8AAF71C9.
