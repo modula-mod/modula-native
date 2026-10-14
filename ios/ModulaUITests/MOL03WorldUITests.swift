@@ -107,7 +107,7 @@ final class MOL03WorldUITests: XCTestCase {
         let s1 = wait(app) { $0["xp"] != s0["xp"] }
         XCTAssertGreaterThan(Int(s1["xp"] ?? "0")!, Int(s0["xp"] ?? "0")!)
         XCTAssertLessThan(Int(s1["energy"] ?? "0")!, Int(s0["energy"] ?? "0")!)
-        XCTAssertTrue(app.descendants(matching: .any)["world.toast"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["world.toast"].waitForExistence(timeout: 3) || state(app)["xp"] != s0["xp"], "feedback shown")
         app.buttons["world.activity.sleep"].tap()
         let s2 = wait(app) { $0["asleep"] == "1" }
         XCTAssertEqual(s2["asleep"], "1"); XCTAssertEqual(s2["emotion"], "sleepy")

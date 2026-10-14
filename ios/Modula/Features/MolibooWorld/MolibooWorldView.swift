@@ -90,10 +90,10 @@ struct MolibooWorldView: View {
             #endif
             if chat == nil { chat = MolibooChatModel(backend: MolibooIntelligenceChatBackend(service: app.intelligence)) }
             care.refresh(characterID)
-            stage.wake(allowed: motionAllowed)
+            stage.wake(allowed: motionAllowed, for: min(3, MolibooStageState.awakeSeconds))   // brief hello, then settle
         }
         .onChange(of: scenePhase) { _, p in
-            if p == .active { care.refresh(characterID); stage.wake(allowed: motionAllowed) } else { stage.sleepNow() }
+            if p == .active { care.refresh(characterID); stage.wake(allowed: motionAllowed, for: min(3, MolibooStageState.awakeSeconds)) } else { stage.sleepNow() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
             lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
@@ -522,12 +522,13 @@ final class MolibooStageState {
         return v > 0 ? v : 20
     }
 
-    func wake(allowed: Bool) {
+    func wake(allowed: Bool, for seconds: Double? = nil) {
         guard allowed else { sleepNow(); return }
         awake = true
         settleTask?.cancel()
+        let span = seconds ?? Self.awakeSeconds
         settleTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(Self.awakeSeconds))
+            try? await Task.sleep(for: .seconds(span))
             guard !Task.isCancelled else { return }
             self?.awake = false
         }
