@@ -18,6 +18,7 @@
 		FDC284496D5DDE2DAD15DDA7 /* MOL03StudioScenarioUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2F2D14BF452AED37D6578EE /* MOL03StudioScenarioUITests.swift */; };
 		17ACCE3135E58A0DA2856DAF /* MOL01Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 775DC34FE761435741076D26 /* MOL01Tests.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E103 /* MOL02Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E104 /* MOL02Tests.swift */; };
+		76DA8B4DAD6919F138D97A79 /* ModulaWordmarkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF51FB12DD2DA68F1C34C228 /* ModulaWordmarkTests.swift */; };
 		58CC373DCE8EFE4E753203E2 /* MOL03OriginalsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */; };
 		F75AE210476332DC70F54B1E /* MOL03WardrobeRigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */; };
 		21C0A4BE4E3DEE15DDC6FE50 /* MOL03WardrobeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AE2EFB23974BDCACBE76C96 /* MOL03WardrobeTests.swift */; };
@@ -434,6 +435,7 @@
 		A2F2D14BF452AED37D6578EE /* MOL03StudioScenarioUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL03StudioScenarioUITests.swift; sourceTree = "<group>"; };
 		775DC34FE761435741076D26 /* MOL01Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL01Tests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E104 /* MOL02Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL02Tests.swift; sourceTree = "<group>"; };
+		AF51FB12DD2DA68F1C34C228 /* ModulaWordmarkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModulaWordmarkTests.swift; sourceTree = "<group>"; };
 		30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03OriginalsTests.swift; sourceTree = "<group>"; };
 		C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WardrobeRigTests.swift; sourceTree = "<group>"; };
 		9AE2EFB23974BDCACBE76C96 /* MOL03WardrobeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WardrobeTests.swift; sourceTree = "<group>"; };
@@ -882,6 +884,7 @@
 				F70100000000000000000004 /* EffectKitTests.swift */,
 				775DC34FE761435741076D26 /* MOL01Tests.swift */,
 				A1B2C3D4E5F6A7B8C9D0E104 /* MOL02Tests.swift */,
+				AF51FB12DD2DA68F1C34C228 /* ModulaWordmarkTests.swift */,
 				30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */,
 				C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */,
 				9AE2EFB23974BDCACBE76C96 /* MOL03WardrobeTests.swift */,
@@ -1635,6 +1638,7 @@
 				F70200000000000000000004 /* EffectKitTests.swift in Sources */,
 				17ACCE3135E58A0DA2856DAF /* MOL01Tests.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E103 /* MOL02Tests.swift in Sources */,
+				76DA8B4DAD6919F138D97A79 /* ModulaWordmarkTests.swift in Sources */,
 				58CC373DCE8EFE4E753203E2 /* MOL03OriginalsTests.swift in Sources */,
 				F75AE210476332DC70F54B1E /* MOL03WardrobeRigTests.swift in Sources */,
 				21C0A4BE4E3DEE15DDC6FE50 /* MOL03WardrobeTests.swift in Sources */,
