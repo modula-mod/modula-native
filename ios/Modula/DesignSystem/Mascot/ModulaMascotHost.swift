@@ -698,6 +698,7 @@ struct ModulaMascotPicker: View {
     @State private var frames: [ModulaMascotKind: CGRect] = [:]
     @State private var brains: [ModulaMascotKind: MascotBrain] = Dictionary(uniqueKeysWithValues: ModulaMascotKind.allCases.map { ($0, MascotBrain()) })
     @State private var appeared = false
+    @State private var bob = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     private let ambience = MolibooAmbience.resolved()
@@ -734,11 +735,11 @@ struct ModulaMascotPicker: View {
         .frame(width: 5 * tile + 4 * gap + 20)
         .modulaGlass(in: RoundedRectangle(cornerRadius: 30, style: .continuous), interactive: false, specular: true)
         .background {
-            MolibooAmbientBackground(ambience: ambience, animated: appeared, fps: 20, density: 0.6)
+            MolibooAmbientBackground(ambience: ambience, animated: appeared, fps: 12, density: 0.45)
                 .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
         }
         .shadow(color: .black.opacity(0.22), radius: 24, y: 10)
-        .onAppear { appeared = true }
+        .onAppear { appeared = true; if !reduceMotion { bob = true } }
         .onChange(of: hovered) { _, kind in if let kind { brains[kind]?.hop(burst: nil, height: 6) } }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("moliboo.picker")
@@ -750,13 +751,12 @@ struct ModulaMascotPicker: View {
             ZStack {
                 Circle().fill(RadialGradient(colors: [focus.palette.light.opacity(0.95), focus.palette.mid.opacity(0.0)], center: .center, startRadius: 2, endRadius: 36))
                     .frame(width: 64, height: 64)
-                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || scenePhase != .active)) { ctx in
-                    let t = reduceMotion ? 0 : ctx.date.timeIntervalSinceReferenceDate
-                    MolibooPickerArt(kind: focus, size: 58, brain: brains[focus] ?? MascotBrain())
-                        .offset(y: CGFloat(sin(t * 2.2)) * 3)
-                        .scaleEffect(x: 1 + CGFloat(sin(t * 2.2 + 1.2)) * 0.012, y: 1 - CGFloat(sin(t * 2.2 + 1.2)) * 0.012, anchor: .bottom)
-                }
-                .id(focus)
+                // Idle bob as a repeating render-server animation: no per-frame body work.
+                MolibooPickerArt(kind: focus, size: 58, brain: brains[focus] ?? MascotBrain())
+                    .offset(y: bob ? -3 : 2)
+                    .scaleEffect(x: bob ? 0.99 : 1.015, y: bob ? 1.015 : 0.99, anchor: .bottom)
+                    .animation(reduceMotion || scenePhase != .active ? nil : .easeInOut(duration: 1.3).repeatForever(autoreverses: true), value: bob)
+                    .id(focus)
                 .transition(reduceMotion ? .opacity : .scale(scale: 0.6).combined(with: .opacity))
             }
             .frame(width: 64, height: 64)
