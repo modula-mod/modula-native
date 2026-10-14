@@ -35,7 +35,11 @@ struct MolibooLivingStudioView: View {
     private var wardrobe = MascotWardrobeStore.shared
     private let capID = MolibooCosmetics.signatureCapID
 
-    init(characterID: String) { self.characterID = characterID }
+    private let initialPanel: Panel?
+    private let startInPhoto: Bool
+    init(characterID: String, initialPanel: Panel? = nil, startInPhoto: Bool = false) {
+        self.characterID = characterID; self.initialPanel = initialPanel; self.startInPhoto = startInPhoto
+    }
 
     private var environment: MolibooEnvironment { MolibooEnvironment(rawValue: envRaw) ?? .meadow }
     private var reduceMotion: Bool { systemReduceMotion || forceReduceMotion }
@@ -313,6 +317,8 @@ struct MolibooLivingStudioView: View {
         let dir = MolibooStudioDirector(controller: c, reduceMotion: reduceMotion)
         director = dir
         if !c.loadFailed { dir.start() }
+        MolibooStagePose.load(for: d.id).apply(to: c)
+        if startInPhoto { photoMode = true } else if let initialPanel { panel = initialPanel }
         #if DEBUG
         if let clip = MOL03DebugHarness.arg("-MOL03Clip") { await measureClip(clip, controller: c, director: dir) }
         switch MOL03DebugHarness.panel {
