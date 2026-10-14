@@ -7,6 +7,18 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		17ACCE3135E58A0DA2856DAF /* MOL01Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 775DC34FE761435741076D26 /* MOL01Tests.swift */; };
+		23F9F9582ACCE39AAB61C618 /* MolibooBrand.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 53094F3F0B318C54A1D1D505 /* MolibooBrand.xcassets */; };
+		7BDF21E5F8D2925DD163E0DF /* moliboo_manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 96CD403C58D3542711764A10 /* moliboo_manifest.json */; };
+		A2A2BE71267DED53B4FFA8D4 /* Accessory_Cap_MolibooSignature.usdz in Resources */ = {isa = PBXBuildFile; fileRef = 5F95087BC6F29AA6A8605B9A /* Accessory_Cap_MolibooSignature.usdz */; };
+		00E6E714F85A061C99754480 /* Pebble.usdz in Resources */ = {isa = PBXBuildFile; fileRef = 2142D575079AC30ACF5E8A4D /* Pebble.usdz */; };
+		B0DDD288F6D69B4EAEF85306 /* MolibooCosmetics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2D3FB6B9F571FF6C9ACE953 /* MolibooCosmetics.swift */; };
+		7E8776094BCA5DE7D8DF07C5 /* MOL01DebugHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E8A5BFD9BC0EE7D5D4BC164 /* MOL01DebugHarness.swift */; };
+		C5EC07A4256BA265D5439E1F /* Moliboo3DPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4B2945EA6CECC8CD2E4DB8 /* Moliboo3DPreview.swift */; };
+		65024A7BE7343D7286E380E5 /* MolibooSceneController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62C113FC2AE3A203D1E061F /* MolibooSceneController.swift */; };
+		58B7BEB801B2C8CA10790150 /* MolibooAssetLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CC502F9F7DADA021F6C1703 /* MolibooAssetLoader.swift */; };
+		C80264059B020C529FB8E431 /* MolibooCharacterDescriptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7068DEA589A7AE2DFCBE093E /* MolibooCharacterDescriptor.swift */; };
+		3F68A564E6A09107514875CE /* MolibooFeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = A278B9E952CA3FF760FDDDB0 /* MolibooFeatureFlags.swift */; };
 		C1DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift */; };
 		C12F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift */; };
 		C17A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift in Sources */ = {isa = PBXBuildFile; fileRef = C07A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift */; };
@@ -363,6 +375,18 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		775DC34FE761435741076D26 /* MOL01Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL01Tests.swift; sourceTree = "<group>"; };
+		53094F3F0B318C54A1D1D505 /* MolibooBrand.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = MolibooBrand.xcassets; path = Resources/Moliboo3D/MolibooBrand.xcassets; sourceTree = "<group>"; };
+		96CD403C58D3542711764A10 /* moliboo_manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = moliboo_manifest.json; path = Resources/Moliboo3D/moliboo_manifest.json; sourceTree = "<group>"; };
+		5F95087BC6F29AA6A8605B9A /* Accessory_Cap_MolibooSignature.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Accessory_Cap_MolibooSignature.usdz; path = Resources/Moliboo3D/Accessory_Cap_MolibooSignature.usdz; sourceTree = "<group>"; };
+		2142D575079AC30ACF5E8A4D /* Pebble.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Pebble.usdz; path = Resources/Moliboo3D/Pebble.usdz; sourceTree = "<group>"; };
+		A2D3FB6B9F571FF6C9ACE953 /* MolibooCosmetics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooCosmetics.swift; path = Features/Moliboo3D/MolibooCosmetics.swift; sourceTree = "<group>"; };
+		7E8A5BFD9BC0EE7D5D4BC164 /* MOL01DebugHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MOL01DebugHarness.swift; path = Features/Moliboo3D/MOL01DebugHarness.swift; sourceTree = "<group>"; };
+		1C4B2945EA6CECC8CD2E4DB8 /* Moliboo3DPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Moliboo3DPreview.swift; path = Features/Moliboo3D/Moliboo3DPreview.swift; sourceTree = "<group>"; };
+		E62C113FC2AE3A203D1E061F /* MolibooSceneController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooSceneController.swift; path = Features/Moliboo3D/MolibooSceneController.swift; sourceTree = "<group>"; };
+		6CC502F9F7DADA021F6C1703 /* MolibooAssetLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooAssetLoader.swift; path = Features/Moliboo3D/MolibooAssetLoader.swift; sourceTree = "<group>"; };
+		7068DEA589A7AE2DFCBE093E /* MolibooCharacterDescriptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooCharacterDescriptor.swift; path = Features/Moliboo3D/MolibooCharacterDescriptor.swift; sourceTree = "<group>"; };
+		A278B9E952CA3FF760FDDDB0 /* MolibooFeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooFeatureFlags.swift; path = Features/Moliboo3D/MolibooFeatureFlags.swift; sourceTree = "<group>"; };
 		C0DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommentAttachExtras.swift; path = Features/Social/CommentAttachExtras.swift; sourceTree = "<group>"; };
 		C02F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaStickerExtras.swift; path = DesignSystem/AdvancedInteraction/ModulaStickerExtras.swift; sourceTree = "<group>"; };
 		C07A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaInlineCamera.swift; path = DesignSystem/AdvancedInteraction/ModulaInlineCamera.swift; sourceTree = "<group>"; };
@@ -760,6 +784,7 @@
 				A03100000000000000000007 /* POST03Tests.swift */,
 				L40100000000000000000003 /* OnboardingLandingTests.swift */,
 				F70100000000000000000004 /* EffectKitTests.swift */,
+				775DC34FE761435741076D26 /* MOL01Tests.swift */,
 				R40100000000000000000050 /* SettingsRealFeaturesTests.swift */,
 				Q40100000000000000000006 /* SettingsServiceTests.swift */,
 				N40100000000000000000012 /* N4CTests.swift */,
@@ -956,6 +981,13 @@
 				C08FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift */,
 				C0F05546B4D00806E53DCE68 /* ModulaMascot.swift */,
 				C0E6700BB572D50315F0DF090B /* MascotWardrobe.swift */,
+				A2D3FB6B9F571FF6C9ACE953 /* MolibooCosmetics.swift */,
+				7E8A5BFD9BC0EE7D5D4BC164 /* MOL01DebugHarness.swift */,
+				1C4B2945EA6CECC8CD2E4DB8 /* Moliboo3DPreview.swift */,
+				E62C113FC2AE3A203D1E061F /* MolibooSceneController.swift */,
+				6CC502F9F7DADA021F6C1703 /* MolibooAssetLoader.swift */,
+				7068DEA589A7AE2DFCBE093E /* MolibooCharacterDescriptor.swift */,
+				A278B9E952CA3FF760FDDDB0 /* MolibooFeatureFlags.swift */,
 				C08E3F07060BD5F1C2F6D22C8A /* MascotWardrobeLayers.swift */,
 				C0403BE7599E95D561F435C27E /* MascotCustom.swift */,
 				C0BAD833BF4AA294710BD47644 /* MascotAssistant.swift */,
@@ -1008,6 +1040,10 @@
 				2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */,
 				586EC2A3D1894A46296513D8 /* PrivacyInfo.xcprivacy */,
 				D4010000000000000000001A /* Assets.xcassets */,
+				53094F3F0B318C54A1D1D505 /* MolibooBrand.xcassets */,
+				96CD403C58D3542711764A10 /* moliboo_manifest.json */,
+				5F95087BC6F29AA6A8605B9A /* Accessory_Cap_MolibooSignature.usdz */,
+				2142D575079AC30ACF5E8A4D /* Pebble.usdz */,
 				6D9171C8595DD0F57E983884 /* Localizable.xcstrings */,
 				35DD2D0F98FBF95AC2D68618 /* ModulaBridge.swift */,
 				11C7225BC261899B6AA2414A /* ModulaHostBridge.mm */,
@@ -1277,6 +1313,10 @@
 			files = (
 				083850E345065E6A6AB4731F /* PrivacyInfo.xcprivacy in Resources */,
 				D5010000000000000000001A /* Assets.xcassets in Resources */,
+				23F9F9582ACCE39AAB61C618 /* MolibooBrand.xcassets in Resources */,
+				7BDF21E5F8D2925DD163E0DF /* moliboo_manifest.json in Resources */,
+				A2A2BE71267DED53B4FFA8D4 /* Accessory_Cap_MolibooSignature.usdz in Resources */,
+				00E6E714F85A061C99754480 /* Pebble.usdz in Resources */,
 				8847C56025B5FF23E6A2F4CB /* Localizable.xcstrings in Resources */,
 				A7C9B3B1BD7B84C45951A4CE /* manifests.json in Resources */,
 			);
@@ -1415,6 +1455,7 @@
 				A03200000000000000000007 /* POST03Tests.swift in Sources */,
 				L50100000000000000000003 /* OnboardingLandingTests.swift in Sources */,
 				F70200000000000000000004 /* EffectKitTests.swift in Sources */,
+				17ACCE3135E58A0DA2856DAF /* MOL01Tests.swift in Sources */,
 				R50100000000000000000050 /* SettingsRealFeaturesTests.swift in Sources */,
 				Q50100000000000000000006 /* SettingsServiceTests.swift in Sources */,
 				C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */,
@@ -1544,6 +1585,13 @@
 				C18FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift in Sources */,
 				C1F05546B4D00806E53DCE68 /* ModulaMascot.swift in Sources */,
 				C1E6700BB572D50315F0DF090B /* MascotWardrobe.swift in Sources */,
+				B0DDD288F6D69B4EAEF85306 /* MolibooCosmetics.swift in Sources */,
+				7E8776094BCA5DE7D8DF07C5 /* MOL01DebugHarness.swift in Sources */,
+				C5EC07A4256BA265D5439E1F /* Moliboo3DPreview.swift in Sources */,
+				65024A7BE7343D7286E380E5 /* MolibooSceneController.swift in Sources */,
+				58B7BEB801B2C8CA10790150 /* MolibooAssetLoader.swift in Sources */,
+				C80264059B020C529FB8E431 /* MolibooCharacterDescriptor.swift in Sources */,
+				3F68A564E6A09107514875CE /* MolibooFeatureFlags.swift in Sources */,
 				C18E3F07060BD5F1C2F6D22C8A /* MascotWardrobeLayers.swift in Sources */,
 				C1403BE7599E95D561F435C27E /* MascotCustom.swift in Sources */,
 				C1BAD833BF4AA294710BD47644 /* MascotAssistant.swift in Sources */,

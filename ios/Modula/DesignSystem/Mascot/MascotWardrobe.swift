@@ -189,6 +189,8 @@ enum MascotWardrobeCatalog {
             it("hat.catbeanie", .hat, "Cat-ear beanie", "Two pointy ears, extra cute.", .uncommon, "catbeanie", .coins(120), pattern: .knit, dyes: pastels + neutrals),
             it("hat.propeller", .hat, "Propeller cap", "Spins when you’re thinking hard.", .uncommon, "propeller", .coins(80), dyes: brights),
             it("hat.halo", .hat, "Halo", "A gentle glow for good vibes only.", .rare, "halo", .coins(150), dyes: [c(1.0, 0.88, 0.40), c(0.80, 0.92, 1.0), c(1.0, 0.70, 0.85)]),
+            // MOL-01: new first-party cosmetic (own stable ID; hat.party untouched). Common, free to all.
+            it("cap.moliboo.signature", .hat, "Moliboo Signature Cap", "A small curved blue cap with a pom-pom and a leafy sprig.", .common, "cap", dyes: [c(0.16, 0.24, 0.92), c(0.25, 0.52, 0.95), c(0.62, 0.40, 0.92)]),
             it("hat.bdaycrown", .hat, "Birthday crown", "Paper crown with tiny candles.", .epic, "bdaycrown", .achievement("birthday"), dyes: [c(1.0, 0.80, 0.30), c(0.98, 0.55, 0.72)]),
             it("hat.tophat", .hat, "Top hat", "Satin finish, impeccable manners.", .rare, "tophat", .premium, dyes: [c(0.12, 0.12, 0.16), c(0.45, 0.10, 0.18), c(0.92, 0.92, 0.95)]),
             it("hat.cowboy", .hat, "Cowboy hat", "Wide brim for wide horizons.", .rare, "cowboy", .premium, dyes: [c(0.62, 0.42, 0.26), c(0.18, 0.16, 0.16), c(0.95, 0.90, 0.80)]),
