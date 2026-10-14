@@ -17,7 +17,7 @@ struct ModulaLocalSticker: Hashable, Identifiable {
     var label: String {
         switch kind {
         case .anim: ModulaAnimatedSticker.Style(rawValue: value)?.label ?? "Sticker"
-        case .mascot: ModulaMascotKind(rawValue: value)?.name ?? "Mascot"
+        case .mascot: ModulaMascotKind(rawValue: value)?.name ?? "Moliboo"
         case .emoji: value
         }
     }
@@ -185,7 +185,7 @@ struct ModulaMascotSticker: View {
                 .frame(width: size, height: size)
                 .background(Circle().fill(kind.palette.light.opacity(0.35)))
         }
-        .accessibilityLabel("\(kind.name) mascot sticker")
+        .accessibilityLabel("\(kind.name) Moliboo sticker")
     }
 
     private func pose(_ t: Double) -> MascotPose {

@@ -512,7 +512,7 @@ struct ChatsSettingsHost: View {
                 ChatsPrivacyGraphic(receipts: readReceiptsDisplay)
                 SettingsGroup(title: "Open") {
                     VStack(spacing: 0) {
-                        SettingsNavigationRow(title: "Composer", subtitle: "Mascot, enter to send, spell check", symbol: "keyboard") {
+                        SettingsNavigationRow(title: "Composer", subtitle: "Moliboo, enter to send, spell check", symbol: "keyboard") {
                             app.navigation.open(.settings(.chats(.composer)))
                         }
                         SettingsDivider()

@@ -1280,7 +1280,7 @@ struct Lab30GalleryView: View {
                     ForEach(people) { p in Lab30Avatar(name: p.name, size: 40).lab30ProfilePeek(p) {} }
                     Text("Long-press").font(.caption).foregroundStyle(.secondary)
                 }
-                Lab30InlinePoll(pollID: "demo-poll", question: "Best mascot?", options: ["Pip", "Pebble", "Bolt"], seedVotes: [12, 30, 9])
+                Lab30InlinePoll(pollID: "demo-poll", question: "Best Moliboo?", options: ["Pip", "Pebble", "Bolt"], seedVotes: [12, 30, 9])
                 Lab30RichLinkCard(url: URL(string: "https://www.apple.com")!)
                 Lab30SeenBy(viewers: people)
                 NavigationLink("Pinch-out grid") {
@@ -1304,9 +1304,9 @@ struct Lab30GalleryView: View {
                 Button("Save as draft") { Lab30DraftTray.shared.save(reply); reply = "" }
                 Lab30DraftTrayView { reply = $0.text }.listRowInsets(EdgeInsets())
             }
-            Section("Mascot") {
+            Section("Moliboo") {
                 Lab30MascotEmptyState(title: "Nothing here yet", message: "When people post, it'll show up here.")
-                Text("Pull this list down for a mascot trick").font(.footnote).foregroundStyle(.secondary)
+                Text("Pull this list down for a Moliboo trick").font(.footnote).foregroundStyle(.secondary)
             }
             Section("Shell") {
                 Lab30QuickActionsShelf(actions: [

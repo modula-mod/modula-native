@@ -508,11 +508,11 @@ struct ModulaComposerMascot: View {
             }
             .sensoryFeedback(.selection, trigger: hovered)
             .accessibilityElement()
-            .accessibilityLabel("\(custom?.name ?? kind.name), composer mascot")
-            .accessibilityHint("Double-tap to chat. Hold to choose or dress up the mascot.")
+            .accessibilityLabel("\(custom?.name ?? kind.name), composer Moliboo")
+            .accessibilityHint("Double-tap to chat. Hold to choose or dress up the Moliboo.")
             .accessibilityAddTraits(.isButton)
             .accessibilityAction { chatting = true }
-            .accessibilityAction(named: "Choose mascot") { picking = true }
+            .accessibilityAction(named: "Choose Moliboo") { picking = true }
             .accessibilityIdentifier("composer.mascot")
     }
 
@@ -731,7 +731,7 @@ struct ModulaMascotPicker: View {
                 .buttonStyle(.plain)
                 .modulaGlass(in: Capsule(), interactive: true)
                 .padding(.top, 2)
-                .accessibilityLabel("Dress up mascot")
+                .accessibilityLabel("Dress up Moliboo")
             }
         }
         .padding(10)
@@ -816,11 +816,11 @@ struct MascotPremiumSheet: View {
                 .onTapGesture { brain.hop(); MascotSound.shared.play(.hop) }
             VStack(spacing: 6) {
                 MascotPremiumBadge(locked: true)
-                Text("\(kind.name) is a Premium mascot").font(.title3.weight(.bold))
+                Text("\(kind.name) is a Premium Moliboo").font(.title3.weight(.bold))
                 Text(kind.personality).font(.subheadline).foregroundStyle(.secondary)
             }
             VStack(alignment: .leading, spacing: 10) {
-                Label("All 15 mascots, with new friends over time", systemImage: "sparkles")
+                Label("All 15 Moliboos, with new friends over time", systemImage: "sparkles")
                 Label("Exclusive reactions and seasonal looks", systemImage: "wand.and.stars")
                 Label("Supports the people building Modula", systemImage: "heart")
             }
@@ -1045,7 +1045,7 @@ struct ComposerMascotSettingsSection: View {
             previewCard
                 .listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
         } header: {
-            Text("Mascot")
+            Text("Moliboo")
         } footer: {
             Text("Tap to hop, double-tap to chat, hold to swap. It watches you type, cheers when you send, glows while generating and picks up on your battery, the time of day and your connection.")
         }
@@ -1058,19 +1058,19 @@ struct ComposerMascotSettingsSection: View {
             .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
         }
         if kind != nil {
-            Section("Show mascot on") {
+            Section("Show Moliboo on") {
                 Toggle("Nodus", isOn: $nodus)
                 Toggle("Comment inputs", isOn: $comments)
                 Toggle("Other composers", isOn: $other)
                 Toggle("Home companion", isOn: $homeCompanion)
-                    .accessibilityHint("Your mascot walks along the bottom of Home, peeks over posts and naps when idle.")
+                    .accessibilityHint("Your Moliboo walks along the bottom of Home, peeks over posts and naps when idle.")
             }
         }
         Section {
             NavigationLink {
                 MascotStudioView(initialTab: .wardrobe)
             } label: {
-                Label("Mascot Studio", systemImage: "tshirt.fill")
+                Label("Moliboo Studio", systemImage: "tshirt.fill")
             }
             NavigationLink {
                 MascotStudioView(initialTab: .assistant)
@@ -1078,13 +1078,13 @@ struct ComposerMascotSettingsSection: View {
                 Label("Assistant & keywords", systemImage: "bubble.left.and.text.bubble.right")
             }
         } footer: {
-            Text("Dress up, create custom mascots, and set keyword draft-replies for comments on your posts.")
+            Text("Dress up, create custom Moliboos, and set keyword draft-replies for comments on your posts.")
         }
         MascotProfileSettingsSection()
         Section {
-            Toggle("Mascot sounds", isOn: $sounds)
+            Toggle("Moliboo sounds", isOn: $sounds)
             #if DEBUG
-            Toggle("Unlock Premium mascots (Debug)", isOn: $debugPremium)
+            Toggle("Unlock Premium Moliboos (Debug)", isOn: $debugPremium)
             #endif
         } footer: {
             Text("Short, quiet sounds that follow your silent switch.")
@@ -1100,7 +1100,7 @@ struct ComposerMascotSettingsSection: View {
     private var previewCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
-                Text(kind?.name ?? "Mascot off").font(.headline)
+                Text(kind?.name ?? "Moliboo off").font(.headline)
                 if let kind, kind.isPremium { MascotPremiumBadge(locked: !MascotEntitlements.isPremium) }
                 Spacer()
                 Button(previewBusy ? "Stop" : "Try thinking") { withAnimation(.snappy) { previewBusy.toggle() } }
@@ -1109,7 +1109,7 @@ struct ComposerMascotSettingsSection: View {
                     .controlSize(.small)
                     .disabled(kind == nil)
             }
-            Text(kind?.personality ?? "Pick a mascot below to bring the composer to life.")
+            Text(kind?.personality ?? "Pick a Moliboo below to bring the composer to life.")
                 .font(.subheadline).foregroundStyle(.secondary)
             HStack(spacing: 8) {
                 TextField("Type to see it watch…", text: $previewText)
@@ -1187,7 +1187,7 @@ struct ComposerMascotSettingsSection: View {
             VStack(spacing: 4) {
                 Image(systemName: "eye.slash").font(.system(size: 26)).foregroundStyle(.secondary).frame(height: 66)
                 Text("Off").font(.subheadline.weight(.semibold))
-                Text("No mascot").font(.caption2).foregroundStyle(.secondary).frame(minHeight: 26, alignment: .top)
+                Text("No Moliboo").font(.caption2).foregroundStyle(.secondary).frame(minHeight: 26, alignment: .top)
             }
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity)
@@ -1195,7 +1195,7 @@ struct ComposerMascotSettingsSection: View {
             .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 2))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Mascot off")
+        .accessibilityLabel("Moliboo off")
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
@@ -1295,7 +1295,7 @@ struct HomeMascotCompanion: View {
                         }
                     }
                     .accessibilityElement()
-                    .accessibilityLabel("Mascot companion")
+                    .accessibilityLabel("Moliboo companion")
                     .accessibilityValue(napping ? "Napping" : "Awake")
                     .accessibilityHint("Double-tap to make it hop. Drag to move it.")
                     .accessibilityAddTraits(.isButton)
@@ -1399,7 +1399,7 @@ enum ModulaMilestone: Hashable, Sendable {
 
     var subtitle: String {
         switch self {
-        case .firstPost: "Welcome to the conversation. Your mascot is thrilled."
+        case .firstPost: "Welcome to the conversation. Your Moliboo is thrilled."
         case .firstStory: "It disappears in 24 hours — but this moment won’t."
         case .followers(let n): n >= 1000 ? "A whole community. Thank you for building here." : "People want to see what you make next."
         case .streak(let n): "You’ve opened Modula \(n) days in a row."

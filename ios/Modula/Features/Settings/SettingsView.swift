@@ -227,6 +227,7 @@ struct SettingsView: View {
                                 Button("Modules") { feedMode = "modules" }
                             }
                             SettingsDivider()
+                            category("Moliboo", "Choose, dress up, 3D and more", "pawprint.fill", .moliboo); SettingsDivider()
                             category("Chats", "Composer, previews and chat privacy", "bubble.left.and.bubble.right", .chats(.root)); SettingsDivider()
                             category("Media", "Quality, camera and photos", "photo.on.rectangle.angled", .media(.root)); SettingsDivider()
                             category("Audio", "Playback, voice and haptics", "speaker.wave.2", .audio(.root)); SettingsDivider()

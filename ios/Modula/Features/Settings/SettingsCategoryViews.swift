@@ -49,6 +49,8 @@ struct SettingsDestinationHost: View {
             PersonalisationSettingsHost(route: nested)
         case .intelligence(let nested):
             IntelligenceSettingsHost(route: nested)
+        case .moliboo:
+            MolibooSettingsView()
         case .chats(let nested):
             ChatsSettingsHost(route: nested)
         case .audio(let nested):

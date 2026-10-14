@@ -14,7 +14,7 @@ struct MascotAchievement: Identifiable, Hashable, Sendable {
         MascotAchievement(id: "first_comment", title: "First words", detail: "Post your first comment.", symbol: "text.bubble.fill", rewardItemID: "acc.firstpin", rewardCoins: 50),
         MascotAchievement(id: "streak_7", title: "On a roll", detail: "Open Modula 7 days in a row.", symbol: "flame.fill", rewardItemID: "back.streakcape", rewardCoins: 150),
         MascotAchievement(id: "reactions_10", title: "Big heart", detail: "React to 10 posts or comments.", symbol: "heart.fill", rewardItemID: "aura.heartburst", rewardCoins: 100),
-        MascotAchievement(id: "birthday", title: "Birthday buddy", detail: "Visit your mascot on your birthday.", symbol: "gift.fill", rewardItemID: "hat.bdaycrown", rewardCoins: 200),
+        MascotAchievement(id: "birthday", title: "Birthday buddy", detail: "Visit your Moliboo on your birthday.", symbol: "gift.fill", rewardItemID: "hat.bdaycrown", rewardCoins: 200),
         MascotAchievement(id: "stylist", title: "Stylist", detail: "Save your first outfit preset.", symbol: "hanger", rewardItemID: nil, rewardCoins: 40),
     ]
     static func with(id: String) -> MascotAchievement? { all.first { $0.id == id } }
