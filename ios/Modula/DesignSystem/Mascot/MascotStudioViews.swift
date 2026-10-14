@@ -93,6 +93,9 @@ struct MascotStudioView: View {
             VStack(spacing: 16) {
                 previewCard
                 actionBar
+                if MolibooFeatureFlags.native3DEnabled, kindRaw == ModulaMascotKind.pebble.rawValue {
+                    Moliboo3DEntryButton()
+                }
                 Picker("Studio", selection: $tab) {
                     ForEach(StudioTab.allCases) { t in Text(t.title).tag(t) }
                 }

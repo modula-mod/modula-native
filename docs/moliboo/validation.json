@@ -1,0 +1,186 @@
+{
+ "Pebble_Body": {
+  "tris": 20224,
+  "shape_keys": []
+ },
+ "Pebble_Eye_L": {
+  "tris": 1520,
+  "shape_keys": [
+   "blink",
+   "happy",
+   "sleepy",
+   "excited",
+   "surprised"
+  ]
+ },
+ "Pebble_Iris_L": {
+  "tris": 1520,
+  "shape_keys": [
+   "blink",
+   "happy",
+   "sleepy",
+   "excited",
+   "surprised"
+  ]
+ },
+ "Pebble_EyeShine_L": {
+  "tris": 224,
+  "shape_keys": [
+   "blink",
+   "happy",
+   "sleepy",
+   "excited",
+   "surprised"
+  ]
+ },
+ "Pebble_EyeShine2_L": {
+  "tris": 120,
+  "shape_keys": [
+   "blink",
+   "happy",
+   "sleepy",
+   "excited",
+   "surprised"
+  ]
+ },
+ "Pebble_Cheek_L": {
+  "tris": 528,
+  "shape_keys": []
+ },
+ "Pebble_Eye_R": {
+  "tris": 1520,
+  "shape_keys": [
+   "blink",
+   "happy",
+   "sleepy",
+   "excited",
+   "surprised"
+  ]
+ },
+ "Pebble_Iris_R": {
+  "tris": 1520,
+  "shape_keys": [
+   "blink",
+   "happy",
+   "sleepy",
+   "excited",
+   "surprised"
+  ]
+ },
+ "Pebble_EyeShine_R": {
+  "tris": 224,
+  "shape_keys": [
+   "blink",
+   "happy",
+   "sleepy",
+   "excited",
+   "surprised"
+  ]
+ },
+ "Pebble_EyeShine2_R": {
+  "tris": 120,
+  "shape_keys": [
+   "blink",
+   "happy",
+   "sleepy",
+   "excited",
+   "surprised"
+  ]
+ },
+ "Pebble_Cheek_R": {
+  "tris": 528,
+  "shape_keys": []
+ },
+ "Pebble_Mouth": {
+  "tris": 132,
+  "shape_keys": [
+   "happy",
+   "excited",
+   "surprised",
+   "sleepy",
+   "sad",
+   "pout"
+  ]
+ },
+ "Hat_Crown": {
+  "tris": 2304,
+  "shape_keys": []
+ },
+ "Hat_Brim": {
+  "tris": 188,
+  "shape_keys": []
+ },
+ "Hat_Pom": {
+  "tris": 528,
+  "shape_keys": []
+ },
+ "Hat_Sprig_Stem": {
+  "tris": 28,
+  "shape_keys": []
+ },
+ "Hat_Leaf_0": {
+  "tris": 680,
+  "shape_keys": []
+ },
+ "Hat_Leaf_1": {
+  "tris": 680,
+  "shape_keys": []
+ },
+ "Hat_Leaf_2": {
+  "tris": 680,
+  "shape_keys": []
+ },
+ "Hat_Leaf_3": {
+  "tris": 680,
+  "shape_keys": []
+ },
+ "Hat_Leaf_4": {
+  "tris": 680,
+  "shape_keys": []
+ },
+ "_total_tris": 34628,
+ "_body_bounds_m": {
+  "min": [
+   -0.08754590898752213,
+   -0.06008780002593994,
+   3.317351365694776e-05
+  ],
+  "max": [
+   0.08790083974599838,
+   0.05983462557196617,
+   0.09800583869218826
+  ],
+  "size": [
+   0.1754467487335205,
+   0.11992242932319641,
+   0.09797266870737076
+  ]
+ },
+ "_anchors": {
+  "anchor_head": [
+   0.03999999910593033,
+   0.004000000189989805,
+   0.0900731012225151
+  ],
+  "anchor_face": [
+   0.0,
+   -0.05490833520889282,
+   0.057999998331069946
+  ],
+  "anchor_back": [
+   0.0,
+   0.05700000002980232,
+   0.05000000074505806
+  ],
+  "anchor_neck": [
+   0.0,
+   -0.0598636269569397,
+   0.029999999329447746
+  ],
+  "anchor_base": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ }
+}

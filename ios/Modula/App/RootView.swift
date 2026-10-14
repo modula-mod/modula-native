@@ -54,6 +54,9 @@ struct RootView: View {
         .overlay(alignment: .top) {
             if debugOverlays { ModulaDebugOverlay(route: navigation.currentRoute) }
         }
+        // Ideas30 #18: offline banner. #27: one-time "What's new" sheet (opens the 30-ideas gallery).
+        .overlay(alignment: .top) { Lab30OfflineBanner() }
+        .modifier(Lab30WhatsNewPresenter())
         .background(palette.canvas.ignoresSafeArea())
         .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
             ModulaRuntimePreferences.apply()

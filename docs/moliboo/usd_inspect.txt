@@ -1,0 +1,25 @@
+== assets/Pebble.usdz upAxis Y mpu 1.0 time 1.0 - 166.0 fps 30.0
+  xform /root
+  animated xform /root/Pebble samples 88
+  anchor /root/Pebble/anchor_back (0, 0.050000000745058074, -0.05700000002980231)
+  anchor /root/Pebble/anchor_base (0, 0, 0)
+  anchor /root/Pebble/anchor_face (0, 0.05799999833106993, 0.054908335208892836)
+  anchor /root/Pebble/anchor_neck (0, 0.029999999329447732, 0.059863626956939704)
+  SkelAnimation /root/Pebble/Pebble_Mouth/Skel/Anim ['happy', 'excited', 'surprised', 'sleepy', 'sad', 'pout'] samples 166
+  xform /root/Pebble/Pebble_Cheek_L
+  SkelAnimation /root/Pebble/Pebble_Iris_R/Skel/Anim ['blink', 'happy', 'sleepy', 'excited', 'surprised'] samples 166
+  anchor /root/Pebble/anchor_head (0.03999999910593033, 0.0900731012225151, -0.004000000189989785)
+  SkelAnimation /root/Pebble/Pebble_EyeShine2_R/Skel/Anim ['blink', 'happy', 'sleepy', 'excited', 'surprised'] samples 166
+  xform /root/Pebble/Pebble_Cheek_R
+  SkelAnimation /root/Pebble/Pebble_EyeShine_R/Skel/Anim ['blink', 'happy', 'sleepy', 'excited', 'surprised'] samples 166
+  SkelAnimation /root/Pebble/Pebble_EyeShine2_L/Skel/Anim ['blink', 'happy', 'sleepy', 'excited', 'surprised'] samples 166
+  SkelAnimation /root/Pebble/Pebble_Eye_R/Skel/Anim ['blink', 'happy', 'sleepy', 'excited', 'surprised'] samples 166
+  SkelAnimation /root/Pebble/Pebble_Iris_L/Skel/Anim ['blink', 'happy', 'sleepy', 'excited', 'surprised'] samples 166
+  SkelAnimation /root/Pebble/Pebble_EyeShine_L/Skel/Anim ['blink', 'happy', 'sleepy', 'excited', 'surprised'] samples 166
+  SkelAnimation /root/Pebble/Pebble_Eye_L/Skel/Anim ['blink', 'happy', 'sleepy', 'excited', 'surprised'] samples 166
+  xform /root/Pebble/Pebble_Body
+  texture @./textures/Pebble_BaseColor.png@
+== assets/Accessory_Cap_MolibooSignature.usdz upAxis Y mpu 1.0 time 0.0 - 0.0 fps 24.0
+  xform /root
+  xform /root/Accessory_Cap_MolibooSignature
+  xform /root/Accessory_Cap_MolibooSignature/Hat_Pivot
