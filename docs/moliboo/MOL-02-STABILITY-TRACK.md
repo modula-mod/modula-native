@@ -143,3 +143,8 @@ MolibooStageView(controller: c)         // SwiftUI host; put gestures/overlays o
 ```
 Frame timing is delivered to the shown controller (`recordFrame`). Grounding shadows are disabled.
 **Status: experimental, kept on `fix/mol-01-3d-crash` only (not in PR A)**, because it did not show a stability gain.
+- Long-lived stage, final: **8/10 passed, 2 crashed**, about the same as shadows-off alone. Its `testRealGeometryExpressionsAndClips` run passed.
+- **PR A (#35) merged to main as af1265d** (teardown hardening + load-once cache only). Tests on main 8fc76ac, sim 9F8B55ED:
+  unit tests pass except the known `PostSystemTests.testOwnVersusOtherContextMenus`; MOL-01/02 UI 13/13; MOL-03 UI 5/5. The lifecycle crash is recorded as flaky in the PR.
+- Still open (Workstream B): benchmark at the 7 section-11 points, frame pacing, character switching, cancellable loading,
+  background/switch lifecycle tests.
