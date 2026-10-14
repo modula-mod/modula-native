@@ -48,12 +48,7 @@ struct MolibooLivingStudioView: View {
         .toolbar(photoMode ? .hidden : .visible, for: .navigationBar)
         .navigationTitle(descriptor?.displayName ?? "Moliboo")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $panel) { p in
-            sheet(for: p)
-                .presentationDetents([.height(270), .medium])
-                .presentationBackgroundInteraction(.enabled(upThrough: .height(270)))
-                .presentationDragIndicator(.visible)
-        }
+        .sheet(item: $panel) { p in panelSheet(p) }
         #if DEBUG
         .overlay(alignment: .bottomLeading) {
             if let controller { MOL01StateProbe(controller: controller, wardrobeIDs: wardrobe.outfit.equippedIDs) }
@@ -63,7 +58,7 @@ struct MolibooLivingStudioView: View {
         .task { await setUp() }
         .onChange(of: reduceMotion) { _, v in director?.setReduceMotion(v) }
         .onChange(of: scenePhase) { _, p in director?.setPaused(p != .active) }
-        .onChange(of: panel) { _, p in director?.setPaused(p == .style) }   // trying things on: hold still
+        .onChange(of: panel) { _, p in director?.setPaused(Self.holdsStill(p)) }
         .onDisappear { director?.stop(); controller?.stop() }
     }
 
@@ -180,6 +175,34 @@ struct MolibooLivingStudioView: View {
         }
     }
 
+
+    /// Trying things on / posing: the idle personality holds still.
+    private static func holdsStill(_ p: Panel?) -> Bool {
+        guard let p else { return false }
+        return p == .style || p == .expressions
+    }
+
+    private func panelSheet(_ p: Panel) -> some View {
+        VStack(spacing: 0) {
+            // The sheet covers the rail, so it carries its own panel switcher.
+            Picker("Panel", selection: Binding(get: { p }, set: { panel = $0 })) {
+                ForEach(Panel.allCases) { q in Label(q.title, systemImage: q.symbol).tag(q) }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("studio.sheet.tabs")
+            .safeAreaInset(edge: .trailing) {
+                Button { panel = nil } label: { Image(systemName: "xmark.circle.fill").font(.title2).foregroundStyle(.secondary) }
+                    .accessibilityIdentifier("studio.sheet.close").accessibilityLabel("Close")
+            }
+            .padding(.horizontal, 20).padding(.top, 16)
+            sheet(for: p)
+            Spacer(minLength: 0)
+        }
+        .presentationDetents([.height(300), .medium])
+        .presentationBackgroundInteraction(.enabled(upThrough: .height(300)))
+        .presentationDragIndicator(.visible)
+    }
+
     @ViewBuilder private func sheet(for p: Panel) -> some View {
         switch p {
         case .style: styleSheet
@@ -244,6 +267,13 @@ struct MolibooLivingStudioView: View {
         let dir = MolibooStudioDirector(controller: c, reduceMotion: reduceMotion)
         director = dir
         if !c.loadFailed { dir.start() }
+        #if DEBUG
+        switch MOL03DebugHarness.panel {
+        case "photo": photoMode = true
+        case let p?: panel = Panel(rawValue: p)
+        case nil: break
+        }
+        #endif
     }
 
     #if DEBUG

@@ -5,10 +5,10 @@ import XCTest
 final class MOL03StudioScenarioUITests: XCTestCase {
     override func setUp() async throws { continueAfterFailure = false }
 
-    private func launch(kind: String, reduceMotion: Bool = false, env: String = "meadow") -> XCUIApplication {
+    private func launch(kind: String, reduceMotion: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--uitest-skip-first-run", "-composer.mascot.kind", kind, "-dev.moliboo.native3D", "YES",
-                               "-moliboo.studio.forceReduceMotion", reduceMotion ? "YES" : "NO", "-moliboo.studio.environment", env, "-MOL01Studio"]
+                               "-moliboo.studio.forceReduceMotion", reduceMotion ? "YES" : "NO", "-MOL01Studio"]   // environment is NOT a launch arg: the argument domain would shadow the user's choice
         app.launch()
         return app
     }
@@ -48,6 +48,16 @@ final class MOL03StudioScenarioUITests: XCTestCase {
 
     func testFullStudioScenarioPip() { scenario("pip") }
 
+    /// Switch taps inside a sheet can land during the detent animation; retry once before asserting.
+    private func toggle(_ app: XCUIApplication, _ sw: XCUIElement, until cond: ([String: String]) -> Bool) {
+        for _ in 0..<3 {
+            sw.tap()
+            let end = Date().addingTimeInterval(4)
+            while Date() < end { if cond(probe(app, "moliboo3d.state")) { return }; usleep(250_000) }
+        }
+        XCTFail("cap toggle never took effect: \(probe(app, "moliboo3d.state"))")
+    }
+
     private func scenario(_ kind: String) {
         let app = launch(kind: kind)
         openStudio(app, kind)
@@ -62,23 +72,21 @@ final class MOL03StudioScenarioUITests: XCTestCase {
             tapEventually(app.buttons["studio.env.\(env)"])
             wait(app) { $0["env"] == env }
         }
-        let cap = app.switches["studio.style.cap"]
+        let cap = app.buttons["studio.style.cap"]
         if cap.waitForExistence(timeout: 5) {
             let before = probe(app, "moliboo3d.state")["cap"] ?? "0"
-            cap.switches.firstMatch.exists ? cap.switches.firstMatch.tap() : cap.tap()
-            wait(app, "moliboo3d.state", 10) { $0["cap"] != before }
-            cap.switches.firstMatch.exists ? cap.switches.firstMatch.tap() : cap.tap()
-            wait(app, "moliboo3d.state", 10) { $0["cap"] == before }
+            toggle(app, cap, until: { $0["cap"] != before })
+            toggle(app, cap, until: { $0["cap"] == before })
         }
         // Expressions.
-        tapEventually(app.buttons["studio.rail.expressions"])
+        tapEventually(app.segmentedControls["studio.sheet.tabs"].buttons["Expressions"])
         wait(app) { $0["panel"] == "expressions" }
         for e in ["happy", "excited", "surprised", "sleepy", "sad", "idle"] {
             tapEventually(app.buttons["studio.expr.\(e)"])
             wait(app, "moliboo3d.state", 6) { $0["expr"] == e }
         }
         // Play.
-        tapEventually(app.buttons["studio.rail.play"])
+        tapEventually(app.segmentedControls["studio.sheet.tabs"].buttons["Play"])
         wait(app) { $0["panel"] == "play" }
         var reactions = Int(probe(app, "studio.state")["reactions"] ?? "0") ?? 0
         for p in ["pet", "hop", "dance", "peekaboo"] {
@@ -89,8 +97,7 @@ final class MOL03StudioScenarioUITests: XCTestCase {
         }
         tapEventually(app.buttons["studio.play.nap"])
         wait(app) { $0["nap"] == "1" }
-        // Close the sheet, wake with a stage tap.
-        app.swipeDown(velocity: .fast)
+        // Wake with a stage tap (the stage stays interactive under the sheet), then close the sheet.
         app.descendants(matching: .any)["moliboo3d.view"].firstMatch.tap()
         wait(app) { $0["nap"] == "0" && $0["react"] == "wake" }
         // Tap spam → exactly one dizzy, no crash, stage still responsive.
@@ -98,6 +105,8 @@ final class MOL03StudioScenarioUITests: XCTestCase {
         let stage = app.descendants(matching: .any)["moliboo3d.view"].firstMatch
         for _ in 0..<7 { stage.tap(); usleep(650_000) }
         wait(app, "studio.state", 8) { $0["react"] == "dizzy" || $0["react"] == "tap" }
+        tapEventually(app.buttons["studio.sheet.close"])
+        wait(app) { $0["panel"] == "none" }
         // Photo mode hides chrome.
         tapEventually(app.buttons["studio.rail.photo"])
         wait(app) { $0["photo"] == "1" }
@@ -114,9 +123,9 @@ final class MOL03StudioScenarioUITests: XCTestCase {
 
     func testEveryThreeDCharacterOpensWithItsOwnFraming() {
         for kind in ["moss", "tofu", "bolt", "pebble"] {
-            let app = launch(kind: kind, env: "studio")
+            let app = launch(kind: kind)
             openStudio(app, kind)
-            wait(app) { $0["env"] == "studio" }
+            XCTAssertNotNil(probe(app, "studio.state")["env"])
             app.terminate()
         }
     }

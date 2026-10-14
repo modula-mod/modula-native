@@ -49,8 +49,9 @@ final class MolibooStudioDirector {
     func fireIdle() -> Bool {
         guard !stopped, !paused, !napping, policy.idlePersonality, clock() >= busyUntil,
               let clip = personality.clips.randomElement() else { return false }
+        let held = controller.expression   // an idle beat never overrides the expression the user picked
         let ok = clip == "wobble" ? { controller.wobble(); return true }() : controller.playClip(clip)
-        if ok { idleFired += 1; settle(after: 1.6) }
+        if ok { idleFired += 1; settle(after: 1.6, to: held) }
         return ok
     }
 
@@ -95,8 +96,8 @@ final class MolibooStudioDirector {
         controller.setExpression(.surprised); later(0.6) { $0.controller.setExpression(.happy) }; settle(after: 1.6)
     }
 
-    private func settle(after s: Double) {
-        later(s) { me in if !me.napping { me.controller.setExpression(.idle) } }
+    private func settle(after s: Double, to e: MolibooExpression = .idle) {
+        later(s) { me in if !me.napping { me.controller.setExpression(e) } }
     }
 
     private func later(_ s: Double, _ body: @escaping @MainActor (MolibooStudioDirector) -> Void) {

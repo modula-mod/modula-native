@@ -34,12 +34,17 @@ struct MolibooStyleSheet: View {
             }
             if controller.isSupported(wardrobeItemID: capID) {
                 let on = controller.equipped[capID] != nil
-                Toggle(isOn: Binding(get: { on }, set: { want in
+                Button {
                     Task {
-                        if want { await controller.equip(wardrobeItemID: capID) } else { controller.unequip(wardrobeItemID: capID) }
+                        if on { controller.unequip(wardrobeItemID: capID) } else { await controller.equip(wardrobeItemID: capID) }
                         save()
                     }
-                })) { Label("Moliboo Signature Cap", systemImage: "graduationcap.fill") }
+                } label: {
+                    Label(on ? "Take off Signature Cap" : "Wear Signature Cap", systemImage: on ? "checkmark.circle.fill" : "graduationcap.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(on ? .green : .accentColor)
                 .accessibilityIdentifier("studio.style.cap")
             } else {
                 Label("No 3D cosmetics fit this Moliboo yet.", systemImage: "info.circle").font(.footnote).foregroundStyle(.secondary)
