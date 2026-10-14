@@ -736,7 +736,6 @@ struct ModulaMascotPicker: View {
         .background {
             MolibooAmbientBackground(ambience: ambience, animated: appeared, fps: 20, density: 0.6)
                 .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-                .opacity(0.9)
         }
         .shadow(color: .black.opacity(0.22), radius: 24, y: 10)
         .onAppear { appeared = true }
