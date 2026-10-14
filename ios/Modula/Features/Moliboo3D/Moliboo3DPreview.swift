@@ -28,14 +28,7 @@ struct Moliboo3DPreview: View {
                     .fill(LinearGradient(colors: [Color(red: 0.62, green: 0.70, blue: 0.80).opacity(0.45), .primary.opacity(0.04)],
                                          startPoint: .topLeading, endPoint: .bottomTrailing))
                 if let controller, !controller.loadFailed {
-                    RealityView { content in
-                        content.add(controller.root)
-                        content.add(controller.cameraEntity)
-                        content.camera = .virtual
-                        controller.frameSubscription = content.subscribe(to: SceneEvents.Update.self) { [weak controller] ev in
-                            MainActor.assumeIsolated { controller?.recordFrame(ev.deltaTime) }
-                        }
-                    }
+                    MolibooStageView(controller: controller)   // shared long-lived renderer (MOL-02 stability track)
                     .gesture(DragGesture()
                         .onChanged { v in controller.yaw = dragStart + Float(v.translation.width) * 0.012 }
                         .onEnded { _ in dragStart = controller.yaw })
@@ -94,7 +87,7 @@ struct Moliboo3DPreview: View {
         .navigationTitle("\(displayName) 3D")
         .navigationBarTitleDisplayMode(.inline)
         .task { await setUp() }
-        .onDisappear { controller?.stop() }
+        .onDisappear { if let c = controller { MolibooStage.shared.clear(c); c.stop() } }
     }
 
     private func setUp() async {
