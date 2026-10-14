@@ -33,6 +33,7 @@ struct ModulaApp: App {
                 }
                 .modifier(MOL01DebugCover())
                 .modifier(MOL01StudioCover())
+                .modifier(MOL03StudioCover())
                 #endif
                 .onContinueUserActivity(CSSearchableItemActionType) { activity in
                     guard let id = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String else { return }

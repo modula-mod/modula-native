@@ -64,7 +64,7 @@ final class MOL02PipAcceptanceUITests: XCTestCase {
         let entry = app.buttons["moliboo3d.entry"]
         XCTAssertTrue(entry.waitForExistence(timeout: 20))
         entry.tap()
-        XCTAssertTrue(app.navigationBars["Pip 3D"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.navigationBars["Pip"].waitForExistence(timeout: 20))
         waitState(app) { $0["loaded"] == "1" && $0["failed"] == "0" }
         app.terminate()
         app = launch(kind: "nimbus", ["-MOL01Studio"])
