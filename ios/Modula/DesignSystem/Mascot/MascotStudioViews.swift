@@ -94,7 +94,7 @@ struct MascotStudioView: View {
                 previewCard
                 actionBar
                 if MolibooFeatureFlags.native3DEnabled, MolibooRegistry.has3D(kindRaw) {
-                    Moliboo3DEntryButton(characterID: kindRaw)
+                    MolibooLivingStudioEntryButton(characterID: kindRaw)
                 }
                 Picker("Studio", selection: $tab) {
                     ForEach(StudioTab.allCases) { t in Text(t.title).tag(t) }
