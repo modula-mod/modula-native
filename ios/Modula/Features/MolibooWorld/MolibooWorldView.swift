@@ -20,6 +20,7 @@ struct MolibooWorldView: View {
 
     @Environment(AppEnvironment.self) private var app
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
     @AppStorage("moliboo.world.navCollapsed") private var navCollapsed = false
@@ -108,6 +109,11 @@ struct MolibooWorldView: View {
             Image("MoliboosLogo").resizable().scaledToFit().frame(height: 40)
                 .accessibilityLabel("Moliboos").accessibilityIdentifier("world.logo")
             HStack {
+                Button { dismiss() } label: {
+                    Image(systemName: "chevron.left").font(.headline).frame(width: 40, height: 40)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+                .accessibilityIdentifier("world.back").accessibilityLabel("Back")
                 Spacer()
                 Menu {
                     Button { route = .settings } label: { Label("Moliboo settings", systemImage: "gearshape") }
@@ -506,7 +512,11 @@ final class MolibooStageState {
     @ObservationIgnored private var settleTask: Task<Void, Never>?
     @ObservationIgnored private var blinkTask: Task<Void, Never>?
     @ObservationIgnored private var transientTask: Task<Void, Never>?
-    static let awakeSeconds: Double = 20
+    /// How long the stage keeps animating after the last interaction (test hook: `moliboo.world.awakeSeconds`).
+    static var awakeSeconds: Double {
+        let v = UserDefaults.standard.double(forKey: "moliboo.world.awakeSeconds")
+        return v > 0 ? v : 20
+    }
 
     func wake(allowed: Bool) {
         guard allowed else { sleepNow(); return }

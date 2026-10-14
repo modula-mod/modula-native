@@ -12,12 +12,14 @@
 		A1B2C3D4E5F6A7B8C9D0E109 /* MOL02MossAcceptanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E110 /* MOL02MossAcceptanceUITests.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E113 /* MOL02TofuAcceptanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E114 /* MOL02TofuAcceptanceUITests.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E117 /* MOL02BoltAcceptanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E118 /* MOL02BoltAcceptanceUITests.swift */; };
+		78F1133071E4CE06BFD5A6E8 /* MOL03WorldUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 471F7AF99CDC198799763F9B /* MOL03WorldUITests.swift */; };
 		A536B925EA5BECC1C2A7F339 /* MOL03OriginalsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 271267906D77E83307E9ECE3 /* MOL03OriginalsUITests.swift */; };
 		044358BD6CCD2FD5191A435A /* MOL03WardrobePhotoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AAF66C96894CCF6AA4C793E /* MOL03WardrobePhotoUITests.swift */; };
 		1F76AA4C8DC443FCB5FC1A88 /* MOL03CollectionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB25E8A04206BDEB7E638589 /* MOL03CollectionUITests.swift */; };
 		FDC284496D5DDE2DAD15DDA7 /* MOL03StudioScenarioUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2F2D14BF452AED37D6578EE /* MOL03StudioScenarioUITests.swift */; };
 		17ACCE3135E58A0DA2856DAF /* MOL01Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 775DC34FE761435741076D26 /* MOL01Tests.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E103 /* MOL02Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E104 /* MOL02Tests.swift */; };
+		62D3D0D71B5DC53EE0B5D964 /* MOL03WorldTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7C648C50ADD49BC9E0FB56 /* MOL03WorldTests.swift */; };
 		58CC373DCE8EFE4E753203E2 /* MOL03OriginalsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */; };
 		F75AE210476332DC70F54B1E /* MOL03WardrobeRigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */; };
 		21C0A4BE4E3DEE15DDC6FE50 /* MOL03WardrobeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AE2EFB23974BDCACBE76C96 /* MOL03WardrobeTests.swift */; };
@@ -430,12 +432,14 @@
 		A1B2C3D4E5F6A7B8C9D0E110 /* MOL02MossAcceptanceUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL02MossAcceptanceUITests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E114 /* MOL02TofuAcceptanceUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL02TofuAcceptanceUITests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E118 /* MOL02BoltAcceptanceUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL02BoltAcceptanceUITests.swift; sourceTree = "<group>"; };
+		471F7AF99CDC198799763F9B /* MOL03WorldUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL03WorldUITests.swift; sourceTree = "<group>"; };
 		271267906D77E83307E9ECE3 /* MOL03OriginalsUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL03OriginalsUITests.swift; sourceTree = "<group>"; };
 		3AAF66C96894CCF6AA4C793E /* MOL03WardrobePhotoUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL03WardrobePhotoUITests.swift; sourceTree = "<group>"; };
 		FB25E8A04206BDEB7E638589 /* MOL03CollectionUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL03CollectionUITests.swift; sourceTree = "<group>"; };
 		A2F2D14BF452AED37D6578EE /* MOL03StudioScenarioUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL03StudioScenarioUITests.swift; sourceTree = "<group>"; };
 		775DC34FE761435741076D26 /* MOL01Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL01Tests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E104 /* MOL02Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL02Tests.swift; sourceTree = "<group>"; };
+		3A7C648C50ADD49BC9E0FB56 /* MOL03WorldTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WorldTests.swift; sourceTree = "<group>"; };
 		30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03OriginalsTests.swift; sourceTree = "<group>"; };
 		C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WardrobeRigTests.swift; sourceTree = "<group>"; };
 		9AE2EFB23974BDCACBE76C96 /* MOL03WardrobeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WardrobeTests.swift; sourceTree = "<group>"; };
@@ -886,6 +890,7 @@
 				F70100000000000000000004 /* EffectKitTests.swift */,
 				775DC34FE761435741076D26 /* MOL01Tests.swift */,
 				A1B2C3D4E5F6A7B8C9D0E104 /* MOL02Tests.swift */,
+				3A7C648C50ADD49BC9E0FB56 /* MOL03WorldTests.swift */,
 				30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */,
 				C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */,
 				9AE2EFB23974BDCACBE76C96 /* MOL03WardrobeTests.swift */,
@@ -926,6 +931,7 @@
 				A1B2C3D4E5F6A7B8C9D0E110 /* MOL02MossAcceptanceUITests.swift */,
 				A1B2C3D4E5F6A7B8C9D0E114 /* MOL02TofuAcceptanceUITests.swift */,
 				A1B2C3D4E5F6A7B8C9D0E118 /* MOL02BoltAcceptanceUITests.swift */,
+				471F7AF99CDC198799763F9B /* MOL03WorldUITests.swift */,
 				271267906D77E83307E9ECE3 /* MOL03OriginalsUITests.swift */,
 				3AAF66C96894CCF6AA4C793E /* MOL03WardrobePhotoUITests.swift */,
 				FB25E8A04206BDEB7E638589 /* MOL03CollectionUITests.swift */,
@@ -1625,6 +1631,7 @@
 				A1B2C3D4E5F6A7B8C9D0E109 /* MOL02MossAcceptanceUITests.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E113 /* MOL02TofuAcceptanceUITests.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E117 /* MOL02BoltAcceptanceUITests.swift in Sources */,
+				78F1133071E4CE06BFD5A6E8 /* MOL03WorldUITests.swift in Sources */,
 				A536B925EA5BECC1C2A7F339 /* MOL03OriginalsUITests.swift in Sources */,
 				044358BD6CCD2FD5191A435A /* MOL03WardrobePhotoUITests.swift in Sources */,
 				1F76AA4C8DC443FCB5FC1A88 /* MOL03CollectionUITests.swift in Sources */,
@@ -1641,6 +1648,7 @@
 				F70200000000000000000004 /* EffectKitTests.swift in Sources */,
 				17ACCE3135E58A0DA2856DAF /* MOL01Tests.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E103 /* MOL02Tests.swift in Sources */,
+				62D3D0D71B5DC53EE0B5D964 /* MOL03WorldTests.swift in Sources */,
 				58CC373DCE8EFE4E753203E2 /* MOL03OriginalsTests.swift in Sources */,
 				F75AE210476332DC70F54B1E /* MOL03WardrobeRigTests.swift in Sources */,
 				21C0A4BE4E3DEE15DDC6FE50 /* MOL03WardrobeTests.swift in Sources */,

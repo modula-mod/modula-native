@@ -18,6 +18,14 @@ final class MOL03CollectionUITests: XCTestCase {
     }
 
     private func reveal(_ app: XCUIApplication, _ e: XCUIElement) -> Bool {
+        // MOL-03 World: Settings → Moliboo opens the Living World; the classic settings form is behind "More".
+        let more = app.buttons["world.more"]
+        if more.waitForExistence(timeout: 20) {
+            more.tap()
+            let item = app.buttons["Moliboo settings"]
+            guard item.waitForExistence(timeout: 5) else { return false }
+            item.tap()
+        }
         guard app.navigationBars["Moliboo"].waitForExistence(timeout: 20) else { return false }
         for _ in 0..<8 where !(e.exists && e.isHittable) { app.swipeUp() }
         return e.exists && e.isHittable
