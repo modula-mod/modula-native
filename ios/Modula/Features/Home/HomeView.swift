@@ -495,9 +495,7 @@ struct HomeView: View {
             Task { await openStory(first) }
         } label: {
             HStack(spacing: ModulaSpacing.xs) {
-                Text("Modula")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
+                ModulaWordmark(height: 17)
                 HStack(spacing: -8) {
                     ForEach(groups) { group in
                         ModulaAvatar(initials: group.author.initials, url: group.author.avatarURL, size: 24)

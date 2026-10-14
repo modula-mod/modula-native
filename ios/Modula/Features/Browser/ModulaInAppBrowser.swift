@@ -634,7 +634,7 @@ struct ModulaInAppBrowserView: View {
                     }
                 }
                 Spacer(minLength: 0)
-                Text("Modula").font(.headline.weight(.heavy)).accessibilityHidden(true)
+                ModulaWordmark(height: 16).accessibilityHidden(true)
             }
             if let text = post.text, !text.isEmpty {
                 Text(text).font(.subheadline).lineLimit(4).frame(maxWidth: .infinity, alignment: .leading)
