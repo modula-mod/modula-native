@@ -15,7 +15,8 @@ struct MolibooWorldBackdrop: View {
             let w = geo.size.width, h = geo.size.height
             ZStack(alignment: .top) {
                 LinearGradient(colors: period.sky, startPoint: .top, endPoint: .bottom)
-                celestial.offset(x: w * 0.28, y: 70 - scrollY * 0.05)
+                // Right of the character's head, below the header row: never behind the wordmark, ⋯ or the stats card.
+                celestial.offset(x: w * 0.18, y: 122 - scrollY * 0.05)
                 Hills(seed: 1, amplitude: 26).fill(period.ground.opacity(0.55))
                     .frame(height: h * 0.55).offset(y: h * 0.34 - scrollY * 0.12)
                 Hills(seed: 2, amplitude: 34).fill(period.ground.opacity(0.85))
@@ -36,7 +37,7 @@ struct MolibooWorldBackdrop: View {
 
     @ViewBuilder private var celestial: some View {
         switch period {
-        case .night: Circle().fill(Color(white: 0.96)).frame(width: 46).shadow(color: .white.opacity(0.6), radius: 18)
+        case .night: Circle().fill(Color(white: 0.96)).frame(width: 36).shadow(color: .white.opacity(0.6), radius: 18)
         case .evening: Circle().fill(Color(red: 1, green: 0.72, blue: 0.45)).frame(width: 70).blur(radius: 2).opacity(0.9)
         default: Circle().fill(Color(red: 1, green: 0.95, blue: 0.75)).frame(width: 64).shadow(color: .yellow.opacity(0.5), radius: 24)
         }

@@ -44,7 +44,8 @@ struct MolibooGardenScene: View {
             let w = geo.size.width, h = geo.size.height
             ZStack {
                 // Sky, light and particles: the shared moving background (paused off-screen / Reduce Motion).
-                MolibooAmbientBackground(ambience: ambience, animated: animating)
+                // Moon right of the character, clear of the centred logo capsule and the stats card.
+                MolibooAmbientBackground(ambience: ambience, animated: animating, moon: UnitPoint(x: 0.68, y: 0.36), moonScale: 0.8)
                 HStack(spacing: w * 0.06) {
                     ForEach(0..<4, id: \.self) { _ in
                         UnevenRoundedRectangle(topLeadingRadius: 40, topTrailingRadius: 40)

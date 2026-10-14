@@ -489,7 +489,11 @@ struct ModulaComposerMascot: View {
                 MascotProgressStore.shared.touchDay()
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("-MOLPickerOpen") {
-                    try? await Task.sleep(for: .milliseconds(600)); picking = true
+                    // Wait for the perch layout and any keyboard/scene settle (slower on device), then open; retry once.
+                    for delay in [1200, 1500] {
+                        try? await Task.sleep(for: .milliseconds(delay))
+                        if !picking { withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) { picking = true } }
+                    }
                 }
                 #endif
             }
@@ -739,6 +743,8 @@ struct ModulaMascotPicker: View {
                 .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
         }
         .shadow(color: .black.opacity(0.22), radius: 24, y: 10)
+        // The picker sits on its own scene sky, so its glass and ink follow the scene, not the system appearance.
+        .environment(\.colorScheme, ambience.isDark ? .dark : .light)
         .onAppear { appeared = true; if !reduceMotion { bob = true } }
         .onChange(of: hovered) { _, kind in if let kind { brains[kind]?.hop(burst: nil, height: 6) } }
         .accessibilityElement(children: .contain)
@@ -790,7 +796,7 @@ struct ModulaMascotPicker: View {
         let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
         return Button { onSelect(kind) } label: {
             VStack(spacing: 1) {
-                MolibooPickerArt(kind: kind, size: 42, brain: brains[kind] ?? MascotBrain())
+                MolibooPickerArt(kind: kind, size: 42, brain: brains[kind] ?? MascotBrain(), animated: isFocus)
                     .frame(width: tile, height: 46)
                     .scaleEffect(isFocus ? 1.16 : 1)
                 Text(kind.name).font(.system(size: 10, weight: .semibold)).foregroundStyle(Color.black.opacity(0.78)).lineLimit(1)
@@ -831,11 +837,13 @@ struct MolibooPickerArt: View {
     let kind: ModulaMascotKind
     var size: CGFloat
     var brain: MascotBrain
+    /// Live 2D art runs a 60 fps timeline plus CoreMotion tilt; only the focused tile/hero animates.
+    var animated = true
     var body: some View {
         if MolibooPortrait.usesPortrait(kind.rawValue), let img = MolibooPortrait.image(for: kind.rawValue) {
             Image(uiImage: img).resizable().interpolation(.medium).scaledToFit().frame(width: size, height: size)
         } else {
-            ModulaLiveMascot(kind: kind, size: size * 0.6, brain: brain, showsShadow: true, bubble: false)
+            ModulaLiveMascot(kind: kind, size: size * 0.6, brain: brain, showsShadow: true, animated: animated, bubble: false)
         }
     }
 }
