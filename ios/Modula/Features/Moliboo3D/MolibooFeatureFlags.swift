@@ -10,7 +10,7 @@ enum MolibooFeatureFlags {
     static let native3DDefault = false
     #endif
     static var native3DEnabled: Bool {
-        get { (UserDefaults.standard.object(forKey: native3DKey) as? Bool) ?? native3DDefault }
+        get { UserDefaults.standard.object(forKey: native3DKey) == nil ? native3DDefault : UserDefaults.standard.bool(forKey: native3DKey) }
         set { UserDefaults.standard.set(newValue, forKey: native3DKey) }
     }
 }
