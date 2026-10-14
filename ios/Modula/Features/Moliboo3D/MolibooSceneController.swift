@@ -14,6 +14,7 @@ final class MolibooSceneController {
     private(set) var loadFailed = false
     // Diagnostics (cheap; surfaced only by the DEBUG state probe for XCUITest acceptance).
     private(set) var loadMillis: Double = 0
+    private(set) var loadWasCached = false
     private(set) var meshCount = 0
     private(set) var clipsPlayed = 0
     private(set) var lastAction = ""
@@ -68,6 +69,7 @@ final class MolibooSceneController {
         defer { let d = ContinuousClock.now - t0; loadMillis = Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15 }
         do {
             guard let asset = descriptor.asset else { loadFailed = true; return }
+            loadWasCached = MolibooAssetLoader.isCached(asset)
             let e = try await MolibooAssetLoader.loadEntity(asset)
             guard !isStopped else { return }   // view left while loading: never attach to a torn-down scene
             e.name = descriptor.displayName + "_Root"
@@ -249,7 +251,7 @@ final class MolibooSceneController {
         guard case .compatible(let cfg) = compatibility(wardrobeItemID: id),
               let cosmetic = cosmetics.first(where: { $0.wardrobeItemID == id }),
               let anchor = anchor(cfg.anchor),
-              let e = try? await MolibooAssetLoader.loadEntity(cosmetic.asset) else { return false }
+              let e = try? await MolibooAssetLoader.loadEntity(cosmetic.asset, isCosmetic: true) else { return false }
         guard !isStopped, equipped[id] == nil else { return equipped[id] != nil }
         e.name = "Cosmetic_\(id)"
         anchor.addChild(e)   // child of the anchor ⇒ follows rotation, bob, wobble and tap animation
