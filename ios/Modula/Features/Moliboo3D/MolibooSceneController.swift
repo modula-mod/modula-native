@@ -17,11 +17,12 @@ final class MolibooSceneController {
     private(set) var meshCount = 0
     private(set) var clipsPlayed = 0
     private(set) var lastAction = ""
-    private(set) var frameCount = 0
-    private(set) var frameTimeSum: Double = 0
-    private(set) var frameTimeMax: Double = 0
+    private(set) var reactCount = 0
+    @ObservationIgnored private(set) var frameCount = 0
+    @ObservationIgnored private(set) var frameTimeSum: Double = 0
+    @ObservationIgnored private(set) var frameTimeMax: Double = 0
     /// Retained frame-timing subscription (a dropped EventSubscription crashes on scene teardown).
-    var frameSubscription: EventSubscription?
+    @ObservationIgnored var frameSubscription: EventSubscription?
     func recordFrame(_ dt: TimeInterval) {
         guard dt > 0, dt < 1 else { return }
         frameCount += 1; frameTimeSum += dt; frameTimeMax = max(frameTimeMax, dt)
@@ -154,7 +155,7 @@ final class MolibooSceneController {
 
     /// Tap reaction: micro-smile + wobble ("I am here.")
     func react() {
-        setExpression(.happy); bounce(); lastAction = "react"
+        setExpression(.happy); bounce(); lastAction = "react"; reactCount += 1
         Task { try? await Task.sleep(for: .seconds(1.2)); if self.expression == .happy { self.setExpression(.idle) } }
     }
 

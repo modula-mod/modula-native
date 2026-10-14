@@ -72,7 +72,7 @@ final class MOL01AcceptanceUITests: XCTestCase {
         for dy in [0.62, 0.7, 0.55, 0.78, 0.48] where !reacted {
             view.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: dy)).tap()
             usleep(600_000)
-            reacted = state(app)["last"] == "react"
+            reacted = (Int(state(app)["reacts"] ?? "0") ?? 0) > 0
         }
         XCTAssertTrue(reacted, "tap on Pebble triggers the react animation: \(state(app))")
     }
