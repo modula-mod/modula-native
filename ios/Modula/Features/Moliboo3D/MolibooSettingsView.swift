@@ -35,7 +35,12 @@ struct MolibooSettingsView: View {
                 Toggle(isOn: $native3D) { Label("3D Moliboos", systemImage: "cube.transparent") }
                     .accessibilityIdentifier("moliboo.settings.3d")
                 if native3D, let d = MolibooRegistry.descriptor(for: kindRaw) {
-                    NavigationLink { Moliboo3DPreview(characterID: d.id) } label: { Label("Meet 3D \(d.displayName)", systemImage: "sparkles") }
+                    NavigationLink { MolibooLivingStudioView(characterID: d.id) } label: { Label("Open \(d.displayName)'s Studio", systemImage: "sparkles") }
+                        .accessibilityIdentifier("moliboo.settings.studio")
+                }
+                if native3D {
+                    NavigationLink { MolibooCollectionView() } label: { Label("Collection", systemImage: "square.grid.3x3.fill") }
+                        .accessibilityIdentifier("moliboo.settings.collection")
                 }
             } header: { Text("3D") } footer: {
                 Text(native3D ? "3D is ready for \(MolibooRegistry.available3D.map(\.displayName).formatted(.list(type: .and))). More Moliboos are on the way." : "Moliboos use the classic 2D look everywhere.")
@@ -114,7 +119,9 @@ struct MolibooSettingsView: View {
                     VStack(spacing: 4) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.quaternary.opacity(0.5))
-                            if let k {
+                            if native3D, let img = MolibooPortrait.image(for: id) {
+                                Image(uiImage: img).resizable().scaledToFit().padding(4)
+                            } else if let k {
                                 ModulaMascotFigure(kind: k, pose: .still(), size: 22)
                             } else {
                                 Image(systemName: "questionmark").font(.title3.weight(.bold)).foregroundStyle(.tertiary)
