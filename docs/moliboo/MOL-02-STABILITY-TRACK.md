@@ -121,3 +121,25 @@ RealityKit/Metal simulator stack under rapid RealityView create/destroy. Not yet
 Open options: (a) keep one long-lived RealityView/scene for the app session instead of creating one per Studio open;
 (b) disable dynamic shadows (MeshShadowSystem appears in a stack); (c) run the 20x loop on the physical iPhone to tell a simulator-only defect from a product defect.
 PR #32 stays unmerged.
+
+## Round 4 (2026-10-14 13:55–14:45 BST, shared sim 8AAF71C9), progress notes
+- **Shadows off** (`DynamicLightShadowComponent(castsShadow:false)` on every model; commit "EXPERIMENT: opt Moliboo models out of dynamic shadows"):
+  20x lifecycle, 10 separate runs: **8 passed, 2 failed** (2 app crashes: SwiftUICore `destroy for Image.Resolved` at 0x420).
+  Better than round 3 (4/10), but the sample is small. The Studio worker's simulator (F135…) logged the same Metal-reflection and
+  CMClock-timebase crashes during this window, so the defect is not specific to this harness.
+- **Long-lived single view** (`MolibooStage`: one non-AR `ARView` for the whole session, re-parented into each screen; the preview swaps
+  `root`/`cameraEntity`; shadows off kept; commit 51898cf): renders correctly (screenshot checked). First 9 of 10 runs: **7 passed, 2 crashed**
+  (`destroy for Image.Resolved`; Metal `MTLStructMember` dealloc ← CoreRE `FunctionReflectionResult` dtor). **No clear improvement**: the crash
+  survives even with no RealityKit view/scene churn and with materials loaded only once.
+- Interpretation: the remaining crashes do not come from Moliboo3D's lifecycle. They look like memory corruption in the simulator's Metal path,
+  shared by RealityKit and SwiftUI rendering, and triggered only while a RealityKit renderer is active (3D-off loop: 5/5 clean).
+  This has not been tested on a physical device (phone not available).
+
+### MolibooStage API (for MolibooLivingStage)
+```swift
+MolibooStage.shared.show(controller)    // controller.root + cameraEntity become the stage content (replaces previous)
+MolibooStage.shared.clear(controller)   // call from onDisappear; no-op if another controller is showing
+MolibooStageView(controller: c)         // SwiftUI host; put gestures/overlays on it like RealityView
+```
+Frame timing is delivered to the shown controller (`recordFrame`). Grounding shadows are disabled.
+**Status: experimental, kept on `fix/mol-01-3d-crash` only (not in PR A)**, because it did not show a stability gain.
