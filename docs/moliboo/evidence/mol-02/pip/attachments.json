@@ -1,0 +1,19 @@
+{
+ "pip": {
+  "cap.moliboo.signature": {
+   "offset": [
+    0.0,
+    0.0,
+    -0.004
+   ],
+   "rotationDegrees": [
+    -8.0,
+    0.0,
+    -12.0
+   ],
+   "scale": 0.9,
+   "compatible": true,
+   "anchor": "anchor_head"
+  }
+ }
+}

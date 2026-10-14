@@ -14,14 +14,93 @@
       "canonicalNumber": 1,
       "displayName": "Pip",
       "family": "originals",
-      "asset": null,
-      "assetSHA256": null,
-      "sourceVersion": null,
-      "anchors": [],
-      "expressions": [],
+      "asset": "Pip",
+      "assetSHA256": "2c6a54a9a8b6bc690f41bb9afe1355ec30d73b3cf752b73b6a6f5ad9644a08ef",
+      "sourceVersion": "pip-v1.0",
+      "anchors": [
+        "anchor_head",
+        "anchor_face",
+        "anchor_back",
+        "anchor_neck",
+        "anchor_base"
+      ],
+      "expressions": [
+        "idle",
+        "blink",
+        "happy",
+        "excited",
+        "surprised",
+        "sleepy",
+        "sad"
+      ],
       "fps": 30,
-      "clips": {},
-      "attachments": {}
+      "clips": {
+        "idle_bob": {
+          "start": 1,
+          "end": 60
+        },
+        "blink": {
+          "start": 61,
+          "end": 72
+        },
+        "wobble": {
+          "start": 73,
+          "end": 102
+        },
+        "tap": {
+          "start": 103,
+          "end": 130
+        },
+        "expr_idle": {
+          "start": 131,
+          "end": 136
+        },
+        "expr_happy": {
+          "start": 137,
+          "end": 142
+        },
+        "expr_excited": {
+          "start": 143,
+          "end": 148
+        },
+        "expr_surprised": {
+          "start": 149,
+          "end": 154
+        },
+        "expr_sleepy": {
+          "start": 155,
+          "end": 160
+        },
+        "expr_sad": {
+          "start": 161,
+          "end": 166
+        },
+        "gill_flutter": {
+          "start": 167,
+          "end": 190
+        },
+        "exuberant_bounce": {
+          "start": 191,
+          "end": 222
+        }
+      },
+      "attachments": {
+        "cap.moliboo.signature": {
+          "offset": [
+            0.0,
+            0.0,
+            -0.004
+          ],
+          "rotationDegrees": [
+            -8.0,
+            0.0,
+            -12.0
+          ],
+          "scale": 0.9,
+          "anchor": "anchor_head",
+          "compatible": true
+        }
+      }
     },
     {
       "id": "moss",

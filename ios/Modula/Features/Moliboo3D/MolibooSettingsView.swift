@@ -34,11 +34,11 @@ struct MolibooSettingsView: View {
             Section {
                 Toggle(isOn: $native3D) { Label("3D Moliboos", systemImage: "cube.transparent") }
                     .accessibilityIdentifier("moliboo.settings.3d")
-                if native3D, kind == .pebble {
-                    NavigationLink { Moliboo3DPreview() } label: { Label("Meet 3D Pebble", systemImage: "sparkles") }
+                if native3D, let d = MolibooRegistry.descriptor(for: kindRaw) {
+                    NavigationLink { Moliboo3DPreview(characterID: d.id) } label: { Label("Meet 3D \(d.displayName)", systemImage: "sparkles") }
                 }
             } header: { Text("3D") } footer: {
-                Text(native3D ? "3D is ready for Pebble. More Moliboos are on the way." : "Moliboos use the classic 2D look everywhere.")
+                Text(native3D ? "3D is ready for \(MolibooRegistry.available3D.map(\.displayName).joined(separator: " and ")). More Moliboos are on the way." : "Moliboos use the classic 2D look everywhere.")
             }
 
             Section {

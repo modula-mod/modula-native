@@ -9,6 +9,12 @@ enum MOL01DebugHarness {
         guard let i = a.firstIndex(of: "-MOL01Scene"), i + 1 < a.count else { return nil }
         return a[i + 1]
     }
+    /// `-MOL01Character <id>` picks the character (default pebble, so MOL-01 scripts keep working).
+    static var character: String {
+        let a = ProcessInfo.processInfo.arguments
+        guard let i = a.firstIndex(of: "-MOL01Character"), i + 1 < a.count else { return "pebble" }
+        return a[i + 1]
+    }
 }
 
 /// Machine-readable live state for XCUITest acceptance (tiny, transparent, DEBUG only).
@@ -59,7 +65,7 @@ struct MOL01DebugCover: ViewModifier {
     @State private var shown = MOL01DebugHarness.scene != nil
     func body(content: Content) -> some View {
         content.fullScreenCover(isPresented: $shown) {
-            NavigationStack { Moliboo3DPreview(debugScene: MOL01DebugHarness.scene) }
+            NavigationStack { Moliboo3DPreview(characterID: MOL01DebugHarness.character, debugScene: MOL01DebugHarness.scene) }
         }
     }
 }

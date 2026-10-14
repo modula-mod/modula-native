@@ -1,0 +1,76 @@
+import XCTest
+import RealityKit
+@testable import Modula
+
+/// MOL-02 Milestone A: Pip (#001) through the generic, manifest-driven 3D path.
+@MainActor
+final class MOL02Tests: XCTestCase {
+    private let capID = MolibooCosmetics.signatureCapID
+
+    func testPipManifestEntry() throws {
+        let m = try MolibooManifest.bundled(.main)
+        let p = try XCTUnwrap(m.character(id: "pip"))
+        XCTAssertEqual(p.canonicalNumber, 1)
+        XCTAssertEqual(p.asset, "Pip")
+        XCTAssertEqual(p.sourceVersion, "pip-v1.0")
+        XCTAssertEqual(p.assetSHA256, "2c6a54a9a8b6bc690f41bb9afe1355ec30d73b3cf752b73b6a6f5ad9644a08ef")
+        XCTAssertEqual(Set(p.expressions), Set(MolibooExpression.allCases))
+        for e in MolibooExpression.allCases { XCTAssertNotNil(p.clips[e.clipName], "missing clip \(e.clipName)") }
+        for c in ["idle_bob", "wobble", "tap", "gill_flutter", "exuberant_bounce"] { XCTAssertNotNil(p.clips[c], c) }
+        guard case .compatible(let cfg) = m.compatibility(item: capID, character: "pip") else { return XCTFail("Pip wears the Signature Cap") }
+        XCTAssertEqual(cfg.anchor, "anchor_head")
+        XCTAssertEqual(m.compatibility(item: "hat.party", character: "pip"), .notCompatible)
+    }
+
+    func testRegistryIsGenericAndRequiresBundledAsset() throws {
+        XCTAssertTrue(MolibooRegistry.has3D("pip"))
+        XCTAssertTrue(MolibooRegistry.has3D("pebble"))
+        XCTAssertFalse(MolibooRegistry.has3D("moss"), "no asset yet ⇒ 2D")
+        XCTAssertFalse(MolibooRegistry.has3D("unknown"))
+        XCTAssertEqual(Set(MolibooRegistry.available3D.map(\.id)), ["pip", "pebble"])
+        // Manifest says there is an asset but the file is not bundled ⇒ no 3D (2D fallback), never another character.
+        let ghost = MolibooCharacterDescriptor(id: "ghost", canonicalNumber: 99, displayName: "Ghost", family: "test", asset: "Ghost_NotBundled",
+                                               assetSHA256: nil, sourceVersion: nil, anchors: [], expressions: [], fps: 30, clips: [:], attachments: [:])
+        let m = MolibooManifest(schemaVersion: 2, cosmetics: [], characters: [ghost])
+        XCTAssertNil(MolibooRegistry.descriptor(for: "ghost", manifest: m))
+    }
+
+    func testMissingAssetFailsLoadInsteadOfFallingBackToPebble() async {
+        let ghost = MolibooCharacterDescriptor(id: "ghost", canonicalNumber: 99, displayName: "Ghost", family: "test", asset: "Ghost_NotBundled",
+                                               assetSHA256: nil, sourceVersion: nil, anchors: [], expressions: [], fps: 30, clips: [:], attachments: [:])
+        let c = MolibooSceneController(descriptor: ghost)
+        await c.load()
+        XCTAssertTrue(c.loadFailed)
+        XCTAssertNil(c.character)
+        c.stop()
+    }
+
+    func testPipLoadsAnimatesExpressesAndWearsCap() async throws {
+        let m = try MolibooManifest.bundled(.main)
+        let d = try XCTUnwrap(MolibooRegistry.descriptor(for: "pip", manifest: m))
+        let c = MolibooSceneController(descriptor: d)
+        c.cosmetics = m.cosmetics
+        await c.load()
+        defer { c.stop() }
+        XCTAssertFalse(c.loadFailed)
+        XCTAssertEqual(c.character?.name, "Pip_Root")
+        XCTAssertNotNil(c.character?.findEntity(named: "Pip_Body"))
+        XCTAssertNil(c.character?.findEntity(named: "Pebble_Body"), "must be Pip, not Pebble")
+        for a in d.anchors { XCTAssertNotNil(c.anchor(a), "missing \(a)") }
+        XCTAssertFalse(c.character?.availableAnimations.isEmpty ?? true)
+        for clip in ["idle_bob", "blink", "wobble", "tap", "gill_flutter", "exuberant_bounce"] { XCTAssertTrue(c.playClip(clip), clip) }
+        for e in MolibooExpression.allCases where e != .blink {
+            c.setExpression(e); XCTAssertEqual(c.expression, e); XCTAssertEqual(c.lastAction, "clip:" + e.clipName)
+        }
+        c.react(); XCTAssertEqual(c.reactCount, 1)
+
+        let ok = await c.equip(wardrobeItemID: capID)
+        XCTAssertTrue(ok)
+        let cap = try XCTUnwrap(c.equipped[capID])
+        XCTAssertEqual(cap.parent?.name, "anchor_head")
+        c.yaw = 1.2
+        XCTAssertEqual(cap.parent?.name, "anchor_head")
+        c.unequip(wardrobeItemID: capID)
+        XCTAssertNil(c.equipped[capID])
+    }
+}

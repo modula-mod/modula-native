@@ -1,7 +1,7 @@
 import SwiftUI
 import RealityKit
 
-/// Interactive 3D Pebble preview (MOL-01). Uses the shared wardrobe store, so saving here = saving the outfit everywhere.
+/// Interactive 3D Moliboo preview (MOL-01/02), for any character the registry marks 3D-capable. Uses the shared wardrobe store, so saving here = saving the outfit everywhere.
 struct Moliboo3DPreview: View {
     @State private var controller: MolibooSceneController?
     @State private var dragStart: Float = 0
@@ -10,7 +10,9 @@ struct Moliboo3DPreview: View {
     private let hatID = MolibooCosmetics.signatureCapID
 
     private let debugScene: String?
-    init(debugScene: String? = nil) { self.debugScene = debugScene }
+    let characterID: String
+    init(characterID: String, debugScene: String? = nil) { self.characterID = characterID; self.debugScene = debugScene }
+    private var displayName: String { MolibooRegistry.manifest?.character(id: characterID)?.displayName ?? "Moliboo" }
 
     var body: some View {
         VStack(spacing: 14) {
@@ -41,8 +43,14 @@ struct Moliboo3DPreview: View {
                     .accessibilityIdentifier("moliboo3d.view")
                 } else if manifestError || controller?.loadFailed == true {
                     // Fallback: existing 2D renderer
-                    ModulaMascotFigure(kind: .pebble, pose: .still(), size: 80, outfit: wardrobe.outfit)
-                        .accessibilityIdentifier("moliboo3d.fallback2d")
+                    Group {
+                        if let kind = ModulaMascotKind(rawValue: characterID) {
+                            ModulaMascotFigure(kind: kind, pose: .still(), size: 80, outfit: wardrobe.outfit)
+                        } else {
+                            Image(systemName: "pawprint").font(.largeTitle)
+                        }
+                    }
+                    .accessibilityIdentifier("moliboo3d.fallback2d")
                 } else {
                     ProgressView()
                 }
@@ -83,7 +91,7 @@ struct Moliboo3DPreview: View {
         .overlay(alignment: .bottomLeading) { if let controller { MOL01StateProbe(controller: controller, wardrobeIDs: wardrobe.outfit.equippedIDs) } }
         #endif
         .padding(16)
-        .navigationTitle("Pebble 3D")
+        .navigationTitle("\(displayName) 3D")
         .navigationBarTitleDisplayMode(.inline)
         .task { await setUp() }
         .onDisappear { controller?.stop() }
@@ -91,7 +99,7 @@ struct Moliboo3DPreview: View {
 
     private func setUp() async {
         guard controller == nil else { return }
-        guard let m = try? MolibooManifest.bundled(), let d = m.character(id: "pebble") else { manifestError = true; return }
+        guard let m = MolibooRegistry.manifest, let d = MolibooRegistry.descriptor(for: characterID, manifest: m) else { manifestError = true; return }
         let c = MolibooSceneController(descriptor: d)
         c.cosmetics = m.cosmetics
         controller = c
@@ -127,11 +135,12 @@ struct Moliboo3DPreview: View {
     }
 }
 
-/// Studio entry point; shown only for Pebble when the dev flag is on.
+/// Studio entry point; shown for any 3D-capable character when the dev flag is on.
 struct Moliboo3DEntryButton: View {
+    let characterID: String
     var body: some View {
-        NavigationLink { Moliboo3DPreview() } label: {
-            Label("Open 3D Pebble (dev)", systemImage: "cube.transparent")
+        NavigationLink { Moliboo3DPreview(characterID: characterID) } label: {
+            Label("Open 3D \(MolibooRegistry.descriptor(for: characterID)?.displayName ?? "Moliboo") (dev)", systemImage: "cube.transparent")
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.bordered)
