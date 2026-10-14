@@ -20,6 +20,7 @@
 		A1B2C3D4E5F6A7B8C9D0E101 /* Pip.usdz in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E102 /* Pip.usdz */; };
 		A1B2C3D4E5F6A7B8C9D0E107 /* Moss.usdz in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E108 /* Moss.usdz */; };
 		A1B2C3D4E5F6A7B8C9D0E111 /* Tofu.usdz in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E112 /* Tofu.usdz */; };
+		A1B2C3D4E5F6A7B8C9D0E115 /* Bolt.usdz in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E116 /* Bolt.usdz */; };
 		B0DDD288F6D69B4EAEF85306 /* MolibooCosmetics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2D3FB6B9F571FF6C9ACE953 /* MolibooCosmetics.swift */; };
 		A1MOLIBOOSETTINGS00000B1 /* MolibooSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1MOLIBOOSETTINGS00000F1 /* MolibooSettingsView.swift */; };
 		7E8776094BCA5DE7D8DF07C5 /* MOL01DebugHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E8A5BFD9BC0EE7D5D4BC164 /* MOL01DebugHarness.swift */; };
@@ -397,6 +398,7 @@
 		A1B2C3D4E5F6A7B8C9D0E102 /* Pip.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Pip.usdz; path = Resources/Moliboo3D/Pip.usdz; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E108 /* Moss.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Moss.usdz; path = Resources/Moliboo3D/Moss.usdz; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E112 /* Tofu.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Tofu.usdz; path = Resources/Moliboo3D/Tofu.usdz; sourceTree = "<group>"; };
+		A1B2C3D4E5F6A7B8C9D0E116 /* Bolt.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Bolt.usdz; path = Resources/Moliboo3D/Bolt.usdz; sourceTree = "<group>"; };
 		A2D3FB6B9F571FF6C9ACE953 /* MolibooCosmetics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooCosmetics.swift; path = Features/Moliboo3D/MolibooCosmetics.swift; sourceTree = "<group>"; };
 		A1MOLIBOOSETTINGS00000F1 /* MolibooSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooSettingsView.swift; path = Features/Moliboo3D/MolibooSettingsView.swift; sourceTree = "<group>"; };
 		7E8A5BFD9BC0EE7D5D4BC164 /* MOL01DebugHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MOL01DebugHarness.swift; path = Features/Moliboo3D/MOL01DebugHarness.swift; sourceTree = "<group>"; };
@@ -1071,6 +1073,7 @@
 				A1B2C3D4E5F6A7B8C9D0E102 /* Pip.usdz */,
 				A1B2C3D4E5F6A7B8C9D0E108 /* Moss.usdz */,
 				A1B2C3D4E5F6A7B8C9D0E112 /* Tofu.usdz */,
+				A1B2C3D4E5F6A7B8C9D0E116 /* Bolt.usdz */,
 				6D9171C8595DD0F57E983884 /* Localizable.xcstrings */,
 				35DD2D0F98FBF95AC2D68618 /* ModulaBridge.swift */,
 				11C7225BC261899B6AA2414A /* ModulaHostBridge.mm */,
@@ -1347,6 +1350,7 @@
 				A1B2C3D4E5F6A7B8C9D0E101 /* Pip.usdz in Resources */,
 				A1B2C3D4E5F6A7B8C9D0E107 /* Moss.usdz in Resources */,
 				A1B2C3D4E5F6A7B8C9D0E111 /* Tofu.usdz in Resources */,
+				A1B2C3D4E5F6A7B8C9D0E115 /* Bolt.usdz in Resources */,
 				8847C56025B5FF23E6A2F4CB /* Localizable.xcstrings in Resources */,
 				A7C9B3B1BD7B84C45951A4CE /* manifests.json in Resources */,
 			);

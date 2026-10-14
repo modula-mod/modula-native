@@ -508,14 +508,93 @@
       "canonicalNumber": 14,
       "displayName": "Bolt",
       "family": "originals",
-      "asset": null,
-      "assetSHA256": null,
-      "sourceVersion": null,
-      "anchors": [],
-      "expressions": [],
+      "asset": "Bolt",
+      "assetSHA256": "7565bb3e3f5aad138313c615f254b2b14b7426e98131c95b4d93b33951a54ec3",
+      "sourceVersion": "bolt-v1.0",
+      "anchors": [
+        "anchor_head",
+        "anchor_face",
+        "anchor_back",
+        "anchor_neck",
+        "anchor_base"
+      ],
+      "expressions": [
+        "idle",
+        "blink",
+        "happy",
+        "excited",
+        "surprised",
+        "sleepy",
+        "sad"
+      ],
       "fps": 30,
-      "clips": {},
-      "attachments": {}
+      "clips": {
+        "idle_bob": {
+          "start": 1,
+          "end": 60
+        },
+        "blink": {
+          "start": 61,
+          "end": 72
+        },
+        "wobble": {
+          "start": 73,
+          "end": 102
+        },
+        "tap": {
+          "start": 103,
+          "end": 130
+        },
+        "expr_idle": {
+          "start": 131,
+          "end": 136
+        },
+        "expr_happy": {
+          "start": 137,
+          "end": 142
+        },
+        "expr_excited": {
+          "start": 143,
+          "end": 148
+        },
+        "expr_surprised": {
+          "start": 149,
+          "end": 154
+        },
+        "expr_sleepy": {
+          "start": 155,
+          "end": 160
+        },
+        "expr_sad": {
+          "start": 161,
+          "end": 166
+        },
+        "antenna_flash": {
+          "start": 167,
+          "end": 186
+        },
+        "servo_tilt": {
+          "start": 187,
+          "end": 216
+        }
+      },
+      "attachments": {
+        "cap.moliboo.signature": {
+          "offset": [
+            0.0,
+            0.0,
+            -0.003
+          ],
+          "rotationDegrees": [
+            -6.0,
+            0.0,
+            -4.0
+          ],
+          "scale": 0.85,
+          "anchor": "anchor_head",
+          "compatible": true
+        }
+      }
     },
     {
       "id": "glim",
