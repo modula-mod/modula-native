@@ -12,6 +12,20 @@ final class MolibooSceneController {
     private(set) var expression: MolibooExpression = .idle
     private(set) var equipped: [String: Entity] = [:]   // wardrobe item id → entity
     private(set) var loadFailed = false
+    // Diagnostics (cheap; surfaced only by the DEBUG state probe for XCUITest acceptance).
+    private(set) var loadMillis: Double = 0
+    private(set) var meshCount = 0
+    private(set) var clipsPlayed = 0
+    private(set) var lastAction = ""
+    private(set) var frameCount = 0
+    private(set) var frameTimeSum: Double = 0
+    private(set) var frameTimeMax: Double = 0
+    /// Retained frame-timing subscription (a dropped EventSubscription crashes on scene teardown).
+    var frameSubscription: EventSubscription?
+    func recordFrame(_ dt: TimeInterval) {
+        guard dt > 0, dt < 1 else { return }
+        frameCount += 1; frameTimeSum += dt; frameTimeMax = max(frameTimeMax, dt)
+    }
     private var idleTask: Task<Void, Never>?
     var yaw: Float = 0 { didSet { root.orientation = simd_quatf(angle: yaw, axis: [0, 1, 0]) } }
 
@@ -29,12 +43,15 @@ final class MolibooSceneController {
     let cameraEntity: PerspectiveCamera
 
     func load() async {
+        let t0 = ContinuousClock.now
+        defer { let d = ContinuousClock.now - t0; loadMillis = Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15 }
         do {
             guard let asset = descriptor.asset else { loadFailed = true; return }
             let e = try await MolibooAssetLoader.loadEntity(asset)
             e.name = "Pebble_Root"
             root.addChild(e)
             character = e
+            meshCount = Self.countMeshes(e)
             let bounds = e.visualBounds(relativeTo: root)
             // Center horizontally, sit on the ground plane, scale to ~0.2 m wide for preview.
             let s = 0.2 / max(bounds.extents.x, 0.001)
@@ -46,6 +63,10 @@ final class MolibooSceneController {
         } catch {
             loadFailed = true
         }
+    }
+
+    private static func countMeshes(_ e: Entity) -> Int {
+        (e.components[ModelComponent.self] == nil ? 0 : 1) + e.children.reduce(0) { $0 + countMeshes($1) }
     }
 
     func anchor(_ name: String) -> Entity? { character?.findEntity(named: name) }
@@ -98,10 +119,12 @@ final class MolibooSceneController {
         let view = AnimationView(source: source.definition, trimStart: Double(clip.start - 1) / fps, trimEnd: Double(clip.end - 1) / fps)
         guard let resource = try? AnimationResource.generate(with: view) else { return false }
         c.playAnimation(loop ? resource.repeat() : resource, transitionDuration: 0.12)
+        clipsPlayed += 1; if name != "blink" { lastAction = "clip:" + name }   // idle auto-blink must not mask user actions
         return true
     }
 
     func wobble() {
+        defer { lastAction = "wobble" }
         if playClip("wobble") { return }
         guard let c = character else { return }
         let base = c.transform
@@ -131,7 +154,7 @@ final class MolibooSceneController {
 
     /// Tap reaction: micro-smile + wobble ("I am here.")
     func react() {
-        setExpression(.happy); bounce()
+        setExpression(.happy); bounce(); lastAction = "react"
         Task { try? await Task.sleep(for: .seconds(1.2)); if self.expression == .happy { self.setExpression(.idle) } }
     }
 
@@ -144,7 +167,7 @@ final class MolibooSceneController {
             }
         }
     }
-    func stop() { idleTask?.cancel() }
+    func stop() { idleTask?.cancel(); frameSubscription?.cancel(); frameSubscription = nil }
 
     private func animate(_ e: Entity, scale: SIMD3<Float>, duration: TimeInterval) {
         var t = e.transform; t.scale = scale

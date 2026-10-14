@@ -30,11 +30,14 @@ struct Moliboo3DPreview: View {
                         content.add(controller.root)
                         content.add(controller.cameraEntity)
                         content.camera = .virtual
+                        controller.frameSubscription = content.subscribe(to: SceneEvents.Update.self) { [weak controller] ev in
+                            MainActor.assumeIsolated { controller?.recordFrame(ev.deltaTime) }
+                        }
                     }
                     .gesture(DragGesture()
                         .onChanged { v in controller.yaw = dragStart + Float(v.translation.width) * 0.012 }
                         .onEnded { _ in dragStart = controller.yaw })
-                    .gesture(SpatialTapGesture().targetedToAnyEntity().onEnded { _ in controller.react() })
+                    .simultaneousGesture(TapGesture().onEnded { controller.react() })   // tap Pebble (whole 3D stage; entity hit-test is unreliable with a custom virtual camera)
                     .accessibilityIdentifier("moliboo3d.view")
                 } else if manifestError || controller?.loadFailed == true {
                     // Fallback: existing 2D renderer
@@ -76,6 +79,9 @@ struct Moliboo3DPreview: View {
                 }
             }
         }
+        #if DEBUG
+        .overlay(alignment: .bottomLeading) { if let controller { MOL01StateProbe(controller: controller, wardrobeIDs: wardrobe.outfit.equippedIDs) } }
+        #endif
         .padding(16)
         .navigationTitle("Pebble 3D")
         .navigationBarTitleDisplayMode(.inline)

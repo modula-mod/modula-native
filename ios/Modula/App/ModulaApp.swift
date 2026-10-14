@@ -32,6 +32,7 @@ struct ModulaApp: App {
                     ModulaBrowserPresenter.shared.present(url, source: source)
                 }
                 .modifier(MOL01DebugCover())
+                .modifier(MOL01StudioCover())
                 #endif
                 .onContinueUserActivity(CSSearchableItemActionType) { activity in
                     guard let id = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String else { return }
