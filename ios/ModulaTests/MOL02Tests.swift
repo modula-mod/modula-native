@@ -28,9 +28,9 @@ final class MOL02Tests: XCTestCase {
         XCTAssertTrue(MolibooRegistry.has3D("moss"))
         XCTAssertTrue(MolibooRegistry.has3D("tofu"))
         XCTAssertTrue(MolibooRegistry.has3D("bolt"))
-        XCTAssertFalse(MolibooRegistry.has3D("nimbus"), "no asset yet ⇒ 2D")
+        XCTAssertFalse(MolibooRegistry.has3D("bloop"), "no asset yet ⇒ 2D")
         XCTAssertFalse(MolibooRegistry.has3D("unknown"))
-        XCTAssertEqual(Set(MolibooRegistry.available3D.map(\.id)), ["pip", "moss", "pebble", "tofu", "bolt"])
+        XCTAssertEqual(Set(MolibooRegistry.available3D.map(\.id)), ["pip", "moss", "pebble", "tofu", "bolt", "nimbus", "mochi", "sprout", "ember", "tuck"])
         // Manifest says there is an asset but the file is not bundled ⇒ no 3D (2D fallback), never another character.
         let ghost = MolibooCharacterDescriptor(id: "ghost", canonicalNumber: 99, displayName: "Ghost", family: "test", asset: "Ghost_NotBundled",
                                                assetSHA256: nil, sourceVersion: nil, anchors: [], expressions: [], fps: 30, clips: [:], attachments: [:])

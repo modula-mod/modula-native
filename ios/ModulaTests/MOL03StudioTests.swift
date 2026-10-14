@@ -3,7 +3,7 @@ import XCTest
 
 @MainActor
 final class MOL03StudioTests: XCTestCase {
-    private let ids3D = ["pip", "moss", "pebble", "tofu", "bolt"]
+    private let ids3D = ["pip", "moss", "pebble", "tofu", "bolt", "nimbus", "mochi", "sprout", "ember", "tuck"]
 
     func testFourDistinctEnvironments() {
         XCTAssertEqual(MolibooEnvironment.allCases.count, 4)

@@ -73,7 +73,7 @@ final class MOL03WardrobePhotoUITests: XCTestCase {
         app.buttons["wardrobe.filter.3d"].tap()
         let capTile = app.buttons["wardrobe.item.cap.moliboo.signature"]
         XCTAssertTrue(capTile.waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["wardrobe.item.hat.party"].exists, "3D filter hides 2D-only items")
+        XCTAssertTrue(app.buttons["wardrobe.item.hat.party"].exists, "MOL-03 E: generated fit table gives every catalog item a 3D fit on Pip")
         capTile.tap()
         let m2 = wait(app, "moliboo3d.state", 10) { $0["cap"] == (capOn0 ? "0" : "1") }
         XCTAssertEqual(m2["loadms"], loadms, "preview must not reload the character")

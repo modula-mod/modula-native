@@ -74,6 +74,44 @@ struct MolibooWardrobeFitTable: Codable, Equatable, Sendable {
     }
 }
 
+/// Where wardrobe item USDZs live. Free/earnable items ship in the app (`MolibooWardrobe/`); premium items are an
+/// On-Demand Resources pack (`MolibooWardrobePremium/`, tag `moliboo.wardrobe.premium`) fetched on first use, so they
+/// don't count against the initial download. Debug/simulator builds serve the pack locally.
+@MainActor
+enum MolibooWardrobeAssets {
+    static let bundledFolder = "MolibooWardrobe"
+    static let premiumFolder = "MolibooWardrobePremium"
+    static let premiumTag = "moliboo.wardrobe.premium"
+    enum LoadError: Error { case missing(String) }
+    private static var premiumRequest: NSBundleResourceRequest?
+    private(set) static var premiumAvailable = false
+
+    static func url(for asset: String, bundle: Bundle = .main) -> URL? {
+        bundle.url(forResource: asset, withExtension: "usdz", subdirectory: bundledFolder)
+            ?? bundle.url(forResource: asset, withExtension: "usdz", subdirectory: premiumFolder)
+            ?? bundle.url(forResource: asset, withExtension: "usdz")
+    }
+
+    /// Begins (once) and keeps access to the premium pack for the app's lifetime.
+    @discardableResult
+    static func ensurePremium() async -> Bool {
+        if premiumAvailable { return true }
+        let r = premiumRequest ?? NSBundleResourceRequest(tags: [premiumTag])
+        r.loadingPriority = NSBundleResourceRequestLoadingPriorityUrgent
+        premiumRequest = r
+        if await r.conditionallyBeginAccessingResources() { premiumAvailable = true; return true }
+        do { try await r.beginAccessingResources(); premiumAvailable = true } catch { premiumAvailable = false }
+        return premiumAvailable
+    }
+
+    static func load(_ asset: String) async throws -> Entity {
+        if url(for: asset) == nil { await ensurePremium() }
+        guard let u = url(for: asset) ?? premiumRequest?.bundle.url(forResource: asset, withExtension: "usdz", subdirectory: premiumFolder)
+        else { throw LoadError.missing(asset) }
+        return try await Entity(contentsOf: u)
+    }
+}
+
 /// Small LRU of loaded item templates; equips get `clone(recursive:)`. Concurrent requests share one load.
 @MainActor
 final class MolibooWardrobeAssetCache {
@@ -85,7 +123,7 @@ final class MolibooWardrobeAssetCache {
     private var inFlight: [String: Task<Entity, Error>] = [:]
     private(set) var loads = 0
 
-    init(capacity: Int = 6, loader: @escaping Loader = { try await MolibooAssetLoader.loadEntity($0) }) {
+    init(capacity: Int = 6, loader: @escaping Loader = { try await MolibooWardrobeAssets.load($0) }) {
         self.capacity = capacity
         self.loader = loader
     }

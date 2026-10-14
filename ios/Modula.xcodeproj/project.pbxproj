@@ -12,11 +12,13 @@
 		A1B2C3D4E5F6A7B8C9D0E109 /* MOL02MossAcceptanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E110 /* MOL02MossAcceptanceUITests.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E113 /* MOL02TofuAcceptanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E114 /* MOL02TofuAcceptanceUITests.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E117 /* MOL02BoltAcceptanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E118 /* MOL02BoltAcceptanceUITests.swift */; };
+		A536B925EA5BECC1C2A7F339 /* MOL03OriginalsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 271267906D77E83307E9ECE3 /* MOL03OriginalsUITests.swift */; };
 		044358BD6CCD2FD5191A435A /* MOL03WardrobePhotoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AAF66C96894CCF6AA4C793E /* MOL03WardrobePhotoUITests.swift */; };
 		1F76AA4C8DC443FCB5FC1A88 /* MOL03CollectionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB25E8A04206BDEB7E638589 /* MOL03CollectionUITests.swift */; };
 		FDC284496D5DDE2DAD15DDA7 /* MOL03StudioScenarioUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2F2D14BF452AED37D6578EE /* MOL03StudioScenarioUITests.swift */; };
 		17ACCE3135E58A0DA2856DAF /* MOL01Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 775DC34FE761435741076D26 /* MOL01Tests.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E103 /* MOL02Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E104 /* MOL02Tests.swift */; };
+		58CC373DCE8EFE4E753203E2 /* MOL03OriginalsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */; };
 		F75AE210476332DC70F54B1E /* MOL03WardrobeRigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */; };
 		21C0A4BE4E3DEE15DDC6FE50 /* MOL03WardrobeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AE2EFB23974BDCACBE76C96 /* MOL03WardrobeTests.swift */; };
 		95A2A40B751C33992987DF6A /* MOL03CollectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8415B91940EF56AAD117C257 /* MOL03CollectionTests.swift */; };
@@ -26,6 +28,19 @@
 		A2A2BE71267DED53B4FFA8D4 /* Accessory_Cap_MolibooSignature.usdz in Resources */ = {isa = PBXBuildFile; fileRef = 5F95087BC6F29AA6A8605B9A /* Accessory_Cap_MolibooSignature.usdz */; };
 		00E6E714F85A061C99754480 /* Pebble.usdz in Resources */ = {isa = PBXBuildFile; fileRef = 2142D575079AC30ACF5E8A4D /* Pebble.usdz */; };
 		A1B2C3D4E5F6A7B8C9D0E101 /* Pip.usdz in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E102 /* Pip.usdz */; };
+		244FBEA92D43D6D6D9284D59 /* MolibooWardrobePremium in Resources */ = {isa = PBXBuildFile; fileRef = DD9FCE5437AAD92B51AFB558 /* MolibooWardrobePremium */; settings = {ASSET_TAGS = ("moliboo.wardrobe.premium", ); }; };
+		72122BA903AA9E1111C090B9 /* MolibooWardrobe in Resources */ = {isa = PBXBuildFile; fileRef = 0A832714662FD46272477CD9 /* MolibooWardrobe */; };
+		2570C4484CF1884585A4AC77 /* moliboo_wardrobe_fits.json in Resources */ = {isa = PBXBuildFile; fileRef = 1D72EFF289F093333E3F0EBE /* moliboo_wardrobe_fits.json */; };
+		11C92B08560ABF4E5E258367 /* Portrait_Tuck.png in Resources */ = {isa = PBXBuildFile; fileRef = F5B6F1B5E596134C681CE0DB /* Portrait_Tuck.png */; };
+		7019A63E77E88FE89B0B41D7 /* Portrait_Ember.png in Resources */ = {isa = PBXBuildFile; fileRef = A7821284D147D0C3A689623E /* Portrait_Ember.png */; };
+		75C937BB2BD3052E681915E6 /* Portrait_Sprout.png in Resources */ = {isa = PBXBuildFile; fileRef = 934E733694CE54350C159430 /* Portrait_Sprout.png */; };
+		FF07AF3216B90D7233129F2A /* Portrait_Mochi.png in Resources */ = {isa = PBXBuildFile; fileRef = DC9286D90C905B2A29B8125F /* Portrait_Mochi.png */; };
+		1C1529BE5725FF3439E83320 /* Portrait_Nimbus.png in Resources */ = {isa = PBXBuildFile; fileRef = 4BFFAA2B102243121B59777B /* Portrait_Nimbus.png */; };
+		268E6BB48AC1E51070AA5E4C /* Tuck.usdz in Resources */ = {isa = PBXBuildFile; fileRef = 7541BC360060C244B9B9DCC2 /* Tuck.usdz */; };
+		6DAD2BD442F0C0CE2A670386 /* Ember.usdz in Resources */ = {isa = PBXBuildFile; fileRef = 11DC0ED74AC5CF4737477D7A /* Ember.usdz */; };
+		D63CA497C8F74FB49B26D05F /* Sprout.usdz in Resources */ = {isa = PBXBuildFile; fileRef = A2B4B833E2B7A753F56ED5AB /* Sprout.usdz */; };
+		B54BA696876066D4EE1B04FF /* Mochi.usdz in Resources */ = {isa = PBXBuildFile; fileRef = DB499EC255794BC1785E95B0 /* Mochi.usdz */; };
+		D0D474AB68F2C753B34A9185 /* Nimbus.usdz in Resources */ = {isa = PBXBuildFile; fileRef = 54E866BE1E32E89553A59828 /* Nimbus.usdz */; };
 		9C5E7BF4DA3A9AF764357B1F /* Portrait_Bolt.png in Resources */ = {isa = PBXBuildFile; fileRef = EA3F1A7E7D0253804FF22435 /* Portrait_Bolt.png */; };
 		A003F36BB4D49E05C44FCB8E /* Portrait_Tofu.png in Resources */ = {isa = PBXBuildFile; fileRef = 086132A77FDB0E101143DCA1 /* Portrait_Tofu.png */; };
 		014BDEEA4702DEC89777D5C6 /* Portrait_Pebble.png in Resources */ = {isa = PBXBuildFile; fileRef = FABEC6E73A0AFB71E8465981 /* Portrait_Pebble.png */; };
@@ -412,11 +427,13 @@
 		A1B2C3D4E5F6A7B8C9D0E110 /* MOL02MossAcceptanceUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL02MossAcceptanceUITests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E114 /* MOL02TofuAcceptanceUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL02TofuAcceptanceUITests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E118 /* MOL02BoltAcceptanceUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL02BoltAcceptanceUITests.swift; sourceTree = "<group>"; };
+		271267906D77E83307E9ECE3 /* MOL03OriginalsUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL03OriginalsUITests.swift; sourceTree = "<group>"; };
 		3AAF66C96894CCF6AA4C793E /* MOL03WardrobePhotoUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL03WardrobePhotoUITests.swift; sourceTree = "<group>"; };
 		FB25E8A04206BDEB7E638589 /* MOL03CollectionUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL03CollectionUITests.swift; sourceTree = "<group>"; };
 		A2F2D14BF452AED37D6578EE /* MOL03StudioScenarioUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL03StudioScenarioUITests.swift; sourceTree = "<group>"; };
 		775DC34FE761435741076D26 /* MOL01Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL01Tests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E104 /* MOL02Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL02Tests.swift; sourceTree = "<group>"; };
+		30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03OriginalsTests.swift; sourceTree = "<group>"; };
 		C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WardrobeRigTests.swift; sourceTree = "<group>"; };
 		9AE2EFB23974BDCACBE76C96 /* MOL03WardrobeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WardrobeTests.swift; sourceTree = "<group>"; };
 		8415B91940EF56AAD117C257 /* MOL03CollectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03CollectionTests.swift; sourceTree = "<group>"; };
@@ -426,6 +443,19 @@
 		5F95087BC6F29AA6A8605B9A /* Accessory_Cap_MolibooSignature.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Accessory_Cap_MolibooSignature.usdz; path = Resources/Moliboo3D/Accessory_Cap_MolibooSignature.usdz; sourceTree = "<group>"; };
 		2142D575079AC30ACF5E8A4D /* Pebble.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Pebble.usdz; path = Resources/Moliboo3D/Pebble.usdz; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E102 /* Pip.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Pip.usdz; path = Resources/Moliboo3D/Pip.usdz; sourceTree = "<group>"; };
+		DD9FCE5437AAD92B51AFB558 /* MolibooWardrobePremium */ = {isa = PBXFileReference; lastKnownFileType = folder; name = MolibooWardrobePremium; path = Resources/Moliboo3D/MolibooWardrobePremium; sourceTree = "<group>"; };
+		0A832714662FD46272477CD9 /* MolibooWardrobe */ = {isa = PBXFileReference; lastKnownFileType = folder; name = MolibooWardrobe; path = Resources/Moliboo3D/MolibooWardrobe; sourceTree = "<group>"; };
+		1D72EFF289F093333E3F0EBE /* moliboo_wardrobe_fits.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = moliboo_wardrobe_fits.json; path = Resources/Moliboo3D/moliboo_wardrobe_fits.json; sourceTree = "<group>"; };
+		F5B6F1B5E596134C681CE0DB /* Portrait_Tuck.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Portrait_Tuck.png; path = Resources/Moliboo3D/Portrait_Tuck.png; sourceTree = "<group>"; };
+		A7821284D147D0C3A689623E /* Portrait_Ember.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Portrait_Ember.png; path = Resources/Moliboo3D/Portrait_Ember.png; sourceTree = "<group>"; };
+		934E733694CE54350C159430 /* Portrait_Sprout.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Portrait_Sprout.png; path = Resources/Moliboo3D/Portrait_Sprout.png; sourceTree = "<group>"; };
+		DC9286D90C905B2A29B8125F /* Portrait_Mochi.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Portrait_Mochi.png; path = Resources/Moliboo3D/Portrait_Mochi.png; sourceTree = "<group>"; };
+		4BFFAA2B102243121B59777B /* Portrait_Nimbus.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Portrait_Nimbus.png; path = Resources/Moliboo3D/Portrait_Nimbus.png; sourceTree = "<group>"; };
+		7541BC360060C244B9B9DCC2 /* Tuck.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Tuck.usdz; path = Resources/Moliboo3D/Tuck.usdz; sourceTree = "<group>"; };
+		11DC0ED74AC5CF4737477D7A /* Ember.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Ember.usdz; path = Resources/Moliboo3D/Ember.usdz; sourceTree = "<group>"; };
+		A2B4B833E2B7A753F56ED5AB /* Sprout.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Sprout.usdz; path = Resources/Moliboo3D/Sprout.usdz; sourceTree = "<group>"; };
+		DB499EC255794BC1785E95B0 /* Mochi.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Mochi.usdz; path = Resources/Moliboo3D/Mochi.usdz; sourceTree = "<group>"; };
+		54E866BE1E32E89553A59828 /* Nimbus.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Nimbus.usdz; path = Resources/Moliboo3D/Nimbus.usdz; sourceTree = "<group>"; };
 		EA3F1A7E7D0253804FF22435 /* Portrait_Bolt.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Portrait_Bolt.png; path = Resources/Moliboo3D/Portrait_Bolt.png; sourceTree = "<group>"; };
 		086132A77FDB0E101143DCA1 /* Portrait_Tofu.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Portrait_Tofu.png; path = Resources/Moliboo3D/Portrait_Tofu.png; sourceTree = "<group>"; };
 		FABEC6E73A0AFB71E8465981 /* Portrait_Pebble.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Portrait_Pebble.png; path = Resources/Moliboo3D/Portrait_Pebble.png; sourceTree = "<group>"; };
@@ -850,6 +880,7 @@
 				F70100000000000000000004 /* EffectKitTests.swift */,
 				775DC34FE761435741076D26 /* MOL01Tests.swift */,
 				A1B2C3D4E5F6A7B8C9D0E104 /* MOL02Tests.swift */,
+				30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */,
 				C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */,
 				9AE2EFB23974BDCACBE76C96 /* MOL03WardrobeTests.swift */,
 				8415B91940EF56AAD117C257 /* MOL03CollectionTests.swift */,
@@ -889,6 +920,7 @@
 				A1B2C3D4E5F6A7B8C9D0E110 /* MOL02MossAcceptanceUITests.swift */,
 				A1B2C3D4E5F6A7B8C9D0E114 /* MOL02TofuAcceptanceUITests.swift */,
 				A1B2C3D4E5F6A7B8C9D0E118 /* MOL02BoltAcceptanceUITests.swift */,
+				271267906D77E83307E9ECE3 /* MOL03OriginalsUITests.swift */,
 				3AAF66C96894CCF6AA4C793E /* MOL03WardrobePhotoUITests.swift */,
 				FB25E8A04206BDEB7E638589 /* MOL03CollectionUITests.swift */,
 				A2F2D14BF452AED37D6578EE /* MOL03StudioScenarioUITests.swift */,
@@ -1132,6 +1164,19 @@
 				5F95087BC6F29AA6A8605B9A /* Accessory_Cap_MolibooSignature.usdz */,
 				2142D575079AC30ACF5E8A4D /* Pebble.usdz */,
 				A1B2C3D4E5F6A7B8C9D0E102 /* Pip.usdz */,
+				DD9FCE5437AAD92B51AFB558 /* MolibooWardrobePremium */,
+				0A832714662FD46272477CD9 /* MolibooWardrobe */,
+				1D72EFF289F093333E3F0EBE /* moliboo_wardrobe_fits.json */,
+				F5B6F1B5E596134C681CE0DB /* Portrait_Tuck.png */,
+				A7821284D147D0C3A689623E /* Portrait_Ember.png */,
+				934E733694CE54350C159430 /* Portrait_Sprout.png */,
+				DC9286D90C905B2A29B8125F /* Portrait_Mochi.png */,
+				4BFFAA2B102243121B59777B /* Portrait_Nimbus.png */,
+				7541BC360060C244B9B9DCC2 /* Tuck.usdz */,
+				11DC0ED74AC5CF4737477D7A /* Ember.usdz */,
+				A2B4B833E2B7A753F56ED5AB /* Sprout.usdz */,
+				DB499EC255794BC1785E95B0 /* Mochi.usdz */,
+				54E866BE1E32E89553A59828 /* Nimbus.usdz */,
 				EA3F1A7E7D0253804FF22435 /* Portrait_Bolt.png */,
 				086132A77FDB0E101143DCA1 /* Portrait_Tofu.png */,
 				FABEC6E73A0AFB71E8465981 /* Portrait_Pebble.png */,
@@ -1366,6 +1411,9 @@
 		EBDE83ED03DAF5CA2B5616B1 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				knownAssetTags = (
+					"moliboo.wardrobe.premium",
+				);
 				BuildIndependentTargetsInParallel = YES;
 				LastSwiftUpdateCheck = 1600;
 				LastUpgradeCheck = 2700;
@@ -1414,6 +1462,19 @@
 				A2A2BE71267DED53B4FFA8D4 /* Accessory_Cap_MolibooSignature.usdz in Resources */,
 				00E6E714F85A061C99754480 /* Pebble.usdz in Resources */,
 				A1B2C3D4E5F6A7B8C9D0E101 /* Pip.usdz in Resources */,
+				244FBEA92D43D6D6D9284D59 /* MolibooWardrobePremium in Resources */,
+				72122BA903AA9E1111C090B9 /* MolibooWardrobe in Resources */,
+				2570C4484CF1884585A4AC77 /* moliboo_wardrobe_fits.json in Resources */,
+				11C92B08560ABF4E5E258367 /* Portrait_Tuck.png in Resources */,
+				7019A63E77E88FE89B0B41D7 /* Portrait_Ember.png in Resources */,
+				75C937BB2BD3052E681915E6 /* Portrait_Sprout.png in Resources */,
+				FF07AF3216B90D7233129F2A /* Portrait_Mochi.png in Resources */,
+				1C1529BE5725FF3439E83320 /* Portrait_Nimbus.png in Resources */,
+				268E6BB48AC1E51070AA5E4C /* Tuck.usdz in Resources */,
+				6DAD2BD442F0C0CE2A670386 /* Ember.usdz in Resources */,
+				D63CA497C8F74FB49B26D05F /* Sprout.usdz in Resources */,
+				B54BA696876066D4EE1B04FF /* Mochi.usdz in Resources */,
+				D0D474AB68F2C753B34A9185 /* Nimbus.usdz in Resources */,
 				9C5E7BF4DA3A9AF764357B1F /* Portrait_Bolt.png in Resources */,
 				A003F36BB4D49E05C44FCB8E /* Portrait_Tofu.png in Resources */,
 				014BDEEA4702DEC89777D5C6 /* Portrait_Pebble.png in Resources */,
@@ -1555,6 +1616,7 @@
 				A1B2C3D4E5F6A7B8C9D0E109 /* MOL02MossAcceptanceUITests.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E113 /* MOL02TofuAcceptanceUITests.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E117 /* MOL02BoltAcceptanceUITests.swift in Sources */,
+				A536B925EA5BECC1C2A7F339 /* MOL03OriginalsUITests.swift in Sources */,
 				044358BD6CCD2FD5191A435A /* MOL03WardrobePhotoUITests.swift in Sources */,
 				1F76AA4C8DC443FCB5FC1A88 /* MOL03CollectionUITests.swift in Sources */,
 				FDC284496D5DDE2DAD15DDA7 /* MOL03StudioScenarioUITests.swift in Sources */,
@@ -1570,6 +1632,7 @@
 				F70200000000000000000004 /* EffectKitTests.swift in Sources */,
 				17ACCE3135E58A0DA2856DAF /* MOL01Tests.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E103 /* MOL02Tests.swift in Sources */,
+				58CC373DCE8EFE4E753203E2 /* MOL03OriginalsTests.swift in Sources */,
 				F75AE210476332DC70F54B1E /* MOL03WardrobeRigTests.swift in Sources */,
 				21C0A4BE4E3DEE15DDC6FE50 /* MOL03WardrobeTests.swift in Sources */,
 				95A2A40B751C33992987DF6A /* MOL03CollectionTests.swift in Sources */,

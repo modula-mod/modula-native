@@ -39,3 +39,12 @@ While the file is absent the table is empty, and only manifest cosmetics (the Si
   - Effects are transform-only (no particles, no material swaps), so they are cheap and safe at teardown.
   - Under Reduced Motion every effect becomes `none`.
 - **Loading:** lazy, so only worn items are loaded. A small LRU of templates (6) gives each equip a `clone(recursive:)`, and concurrent loads of the same asset are deduplicated. The character is never reloaded.
+
+## MOL-03 E — generated assets (trial integration)
+- Source: generated wardrobe pack (README in the asset drop); table `moliboo_wardrobe_fits.json` (~290 KB, pruned to the 656 assets actually referenced).
+- Anchors: `anchor_head|face|back|neck|base` (USDZ names, used verbatim).
+- Offsets are anchor-local, Z-up as authored; `rotationDegrees` already contains the +90° X export correction and is applied as-is (Blender XYZ, R = Rz·Ry·Rx). The rig adds no correction.
+- Body garments: per-character `variant` → `items[id].variants[variant]`; unknown labels (e.g. `shift-back`) fall back to the base asset.
+- Loading: lazy, per item, small clone cache; the character is never reloaded.
+- Size: free/earnable items bundled in `MolibooWardrobe/` (~7 MB); premium items in `MolibooWardrobePremium/` (~7 MB) tagged as On-Demand Resource `moliboo.wardrobe.premium`; loader tries bundle, then ODR (`NSBundleResourceRequest`). ODR delivery is not verified in simulator tests (premium files are reachable locally in Debug).
+- Known: Sprout/Ember have table cap fits ("adapted") while the manifest still marks the Signature Cap incompatible for them; 29 fits are being regenerated upstream and will replace the table in place.
