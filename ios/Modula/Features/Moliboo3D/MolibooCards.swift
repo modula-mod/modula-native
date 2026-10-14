@@ -291,12 +291,12 @@ struct MolibooTradingCardView: View {
                         Image(systemName: i < card.hearts ? "heart.fill" : "heart").font(.system(size: 10)).foregroundStyle(i < card.hearts ? Color.pink : .white.opacity(0.35))
                     }
                     Spacer()
-                    Image("MoliboosLogo").resizable().scaledToFit().frame(height: 12).opacity(0.9)
+                    Image("MoliboosLogo").resizable().scaledToFit().frame(height: 11).opacity(0.9).layoutPriority(-1)
                     Spacer()
                     ForEach(0..<card.rarity.gems, id: \.self) { _ in
                         Image(systemName: "diamond.fill").font(.system(size: 8)).foregroundStyle(card.rarity.glow)
                     }
-                    Text(card.rarity.title.uppercased()).font(.system(size: 9, weight: .heavy, design: .rounded)).foregroundStyle(card.rarity.glow)
+                    Text(card.rarity.title.uppercased()).font(.system(size: 9, weight: .heavy, design: .rounded)).foregroundStyle(card.rarity.glow).fixedSize()
                 }
             }
             .padding(12)
