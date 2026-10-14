@@ -485,7 +485,14 @@ struct ModulaComposerMascot: View {
 
     var body: some View {
         mascotChrome
-            .task { MascotProgressStore.shared.touchDay() }
+            .task {
+                MascotProgressStore.shared.touchDay()
+                #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("-MOLPickerOpen") {
+                    try? await Task.sleep(for: .milliseconds(600)); picking = true
+                }
+                #endif
+            }
             .onChange(of: text) { old, new in textChanged(old: old, new: new) }
             .onChange(of: attachmentCount) { old, new in
                 if new > old { brain.react(.surprised); MascotSound.shared.play(.pop); HapticEngine.shared.play(.lightImpact) }
@@ -543,7 +550,7 @@ struct ModulaComposerMascot: View {
                     }
                     .alignmentGuide(.bottom) { d in d[.bottom] + size * 0.75 }
                     .alignmentGuide(.trailing) { d in d[.trailing] - size * 0.55 }
-                    .transition(reduceMotion ? .opacity : .scale(scale: 0.12, anchor: .bottomTrailing).combined(with: .opacity))
+                    .transition(reduceMotion ? .opacity : .asymmetric(insertion: .scale(scale: 0.08, anchor: .bottomTrailing).combined(with: .opacity).combined(with: .offset(x: 10, y: 18)), removal: .scale(scale: 0.2, anchor: .bottomTrailing).combined(with: .opacity)))
                 }
             }
             .popover(isPresented: $chatting, arrowEdge: .bottom) {
@@ -560,7 +567,7 @@ struct ModulaComposerMascot: View {
                 brain.outfitChanged()
             }
             .animation(.spring(response: 0.42, dampingFraction: 0.68), value: kind)
-            .animation(.spring(response: 0.36, dampingFraction: 0.78), value: picking)
+            .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.42, dampingFraction: 0.72), value: picking)
     }
 
     private func wake() {
@@ -691,90 +698,122 @@ struct ModulaMascotPicker: View {
     @State private var frames: [ModulaMascotKind: CGRect] = [:]
     @State private var brains: [ModulaMascotKind: MascotBrain] = Dictionary(uniqueKeysWithValues: ModulaMascotKind.allCases.map { ($0, MascotBrain()) })
     @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    private let ambience = MolibooAmbience.resolved()
 
-    private let tile: CGFloat = 62
-    private var columns: [GridItem] { Array(repeating: GridItem(.fixed(tile), spacing: 4), count: 5) }
+    private let tile: CGFloat = 60
+    private let gap: CGFloat = 5
+    private var columns: [GridItem] { Array(repeating: GridItem(.fixed(tile), spacing: gap), count: 5) }
+    private var ink: Color { ambience.isDark ? .white : .primary }
+    private var subInk: Color { ambience.isDark ? .white.opacity(0.75) : .secondary }
 
     var body: some View {
         let focus = hovered ?? selected
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(focus.name).font(.headline)
-                        if focus.isPremium { MascotPremiumBadge(locked: !MascotEntitlements.isPremium) }
-                    }
-                    Text(focus.personality).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-                }
-                .animation(.smooth(duration: 0.18), value: focus)
-                Spacer(minLength: 8)
-                Button(action: onClose) {
-                    Image(systemName: "xmark").font(.caption.weight(.bold)).foregroundStyle(.secondary)
-                        .frame(width: 28, height: 28).background(Circle().fill(Color.primary.opacity(0.06)))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Close")
-            }
-            .padding(.horizontal, 6)
-            .frame(height: 44, alignment: .top)
-            LazyVGrid(columns: columns, spacing: 4) {
+            hero(focus)
+            LazyVGrid(columns: columns, spacing: gap) {
                 ForEach(Array(ModulaMascotKind.allCases.enumerated()), id: \.element) { index, kind in
                     tileView(kind, index: index)
                 }
             }
             if onDressUp != nil {
-                Button {
-                    onDressUp?()
-                } label: {
+                Button { onDressUp?() } label: {
                     Label("Dress up", systemImage: "tshirt.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity, minHeight: 36)
+                        .font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, minHeight: 38)
+                        .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
-                .modulaGlass(in: Capsule(), interactive: true)
-                .padding(.top, 2)
+                .modulaGlass(in: Capsule(), interactive: true, tint: focus.palette.dark, prominent: true, specular: true)
                 .accessibilityLabel("Dress up Moliboo")
+                .accessibilityIdentifier("moliboo.picker.dressup")
             }
         }
         .padding(10)
-        .frame(width: 5 * tile + 4 * 4 + 20)
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 30, style: .continuous), interactive: false)
-        .shadow(color: .black.opacity(0.2), radius: 24, y: 10)
+        .frame(width: 5 * tile + 4 * gap + 20)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 30, style: .continuous), interactive: false, specular: true)
+        .background {
+            MolibooAmbientBackground(ambience: ambience, animated: appeared, fps: 20, density: 0.6)
+                .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+                .opacity(0.9)
+        }
+        .shadow(color: .black.opacity(0.22), radius: 24, y: 10)
         .onAppear { appeared = true }
         .onChange(of: hovered) { _, kind in if let kind { brains[kind]?.hop(burst: nil, height: 6) } }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("moliboo.picker")
+    }
+
+    /// Hero preview of the focused character with a gentle idle bob (still under Reduce Motion).
+    private func hero(_ focus: ModulaMascotKind) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            ZStack {
+                Circle().fill(RadialGradient(colors: [focus.palette.light.opacity(0.95), focus.palette.mid.opacity(0.0)], center: .center, startRadius: 2, endRadius: 46))
+                    .frame(width: 84, height: 84)
+                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || scenePhase != .active)) { ctx in
+                    let t = reduceMotion ? 0 : ctx.date.timeIntervalSinceReferenceDate
+                    MolibooPickerArt(kind: focus, size: 72, brain: brains[focus] ?? MascotBrain())
+                        .offset(y: CGFloat(sin(t * 2.2)) * 3)
+                        .scaleEffect(x: 1 + CGFloat(sin(t * 2.2 + 1.2)) * 0.012, y: 1 - CGFloat(sin(t * 2.2 + 1.2)) * 0.012, anchor: .bottom)
+                }
+                .id(focus)
+                .transition(reduceMotion ? .opacity : .scale(scale: 0.6).combined(with: .opacity))
+            }
+            .frame(width: 84, height: 84)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(focus.name).font(.title3.weight(.bold)).foregroundStyle(ink)
+                    if focus.isPremium { MascotPremiumBadge(locked: !MascotEntitlements.isPremium) }
+                }
+                Text(focus.personality).font(.caption).foregroundStyle(subInk).lineLimit(2)
+            }
+            .animation(.smooth(duration: 0.18), value: focus)
+            Spacer(minLength: 4)
+            Button(action: onClose) {
+                Image(systemName: "xmark").font(.caption.weight(.bold)).foregroundStyle(ink)
+                    .frame(width: 30, height: 30).contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .modulaGlass(in: Circle(), specular: true)
+            .accessibilityLabel("Close")
+            .frame(maxHeight: .infinity, alignment: .top)
+        }
+        .frame(height: 84)
+        .animation(reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.7), value: focus)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("moliboo.picker.hero")
     }
 
     private func tileView(_ kind: ModulaMascotKind, index: Int) -> some View {
         let isFocus = kind == hovered
         let isSelected = kind == selected
+        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
         return Button { onSelect(kind) } label: {
-            VStack(spacing: 0) {
-                ModulaLiveMascot(kind: kind, size: 30, brain: brains[kind] ?? MascotBrain(), showsShadow: true, bubble: false)
-                    .frame(width: tile, height: 50)
-                    .scaleEffect(isFocus ? 1.18 : 1)
-                Text(kind.name).font(.caption2.weight(.semibold))
-                    .foregroundStyle(isSelected || isFocus ? .primary : .secondary)
+            VStack(spacing: 1) {
+                MolibooPickerArt(kind: kind, size: 42, brain: brains[kind] ?? MascotBrain())
+                    .frame(width: tile, height: 46)
+                    .scaleEffect(isFocus ? 1.16 : 1)
+                Text(kind.name).font(.system(size: 10, weight: .semibold)).foregroundStyle(Color.black.opacity(0.78)).lineLimit(1)
             }
-            .frame(width: tile, height: 70)
-            .background {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.primary.opacity(isFocus ? 0.10 : (isSelected ? 0.06 : 0)))
-            }
-            .overlay {
-                if isSelected {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.accentColor.opacity(0.75), lineWidth: 1.5)
-                }
-            }
+            .frame(width: tile, height: 66)
+            .background(shape.fill(LinearGradient(colors: [kind.palette.light, kind.palette.mid.opacity(0.75)], startPoint: .top, endPoint: .bottom)))
+            .overlay(shape.strokeBorder(isSelected ? Color.white : Color.white.opacity(0.5), lineWidth: isSelected ? 2 : 0.8))
+            .shadow(color: isSelected ? kind.palette.accent.opacity(0.85) : .clear, radius: isSelected ? 8 : 0)
             .overlay(alignment: .topTrailing) {
-                if kind.isPremium && !MascotEntitlements.isPremium {
-                    Image(systemName: "lock.fill").font(.system(size: 8, weight: .bold)).foregroundStyle(.white)
-                        .frame(width: 15, height: 15).background(Circle().fill(LinearGradient(colors: [.orange, .pink], startPoint: .top, endPoint: .bottom)))
+                if isSelected {
+                    Image(systemName: "checkmark").font(.system(size: 8, weight: .heavy)).foregroundStyle(.white)
+                        .frame(width: 16, height: 16).background(Circle().fill(Color.accentColor))
+                        .offset(x: 4, y: -4)
+                } else if kind.isPremium && !MascotEntitlements.isPremium {
+                    Image(systemName: "lock.fill").font(.system(size: 7, weight: .bold)).foregroundStyle(.white)
+                        .frame(width: 14, height: 14).background(Circle().fill(LinearGradient(colors: [.orange, .pink], startPoint: .top, endPoint: .bottom)))
                         .offset(x: -3, y: 3)
                 }
             }
-            .scaleEffect(appeared ? 1 : 0.5)
+            .scaleEffect(appeared ? (isFocus ? 1.06 : 1) : 0.5)
             .opacity(appeared ? 1 : 0)
-            .animation(.spring(response: 0.42, dampingFraction: 0.7).delay(Double(index) * 0.02), value: appeared)
+            .animation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.7).delay(Double(index) * 0.015), value: appeared)
             .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isFocus)
         }
         .buttonStyle(.plain)
@@ -783,7 +822,22 @@ struct ModulaMascotPicker: View {
             onFrames(frames)
         }
         .accessibilityLabel("\(kind.name)\(kind.isPremium ? ", Premium" : ""). \(kind.personality)")
+        .accessibilityIdentifier("moliboo.picker.tile.\(kind.rawValue)")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+/// Picker art: the approved portrait render when available (cheap static image), else the live 2D Moliboo.
+struct MolibooPickerArt: View {
+    let kind: ModulaMascotKind
+    var size: CGFloat
+    var brain: MascotBrain
+    var body: some View {
+        if MolibooPortrait.usesPortrait(kind.rawValue), let img = MolibooPortrait.image(for: kind.rawValue) {
+            Image(uiImage: img).resizable().interpolation(.medium).scaledToFit().frame(width: size, height: size)
+        } else {
+            ModulaLiveMascot(kind: kind, size: size * 0.6, brain: brain, showsShadow: true, bubble: false)
+        }
     }
 }
 
