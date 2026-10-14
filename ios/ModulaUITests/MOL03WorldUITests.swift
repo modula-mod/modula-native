@@ -151,8 +151,12 @@ final class MOL03WorldUITests: XCTestCase {
         XCTAssertTrue(app.buttons["wardrobe.slot.all"].waitForExistence(timeout: 20), "Wardrobe opens on the stage")
         shot("nav-wardrobe")
         app.navigationBars.buttons.firstMatch.tap()
-        app.buttons["world.nav.stickers"].tap()
-        XCTAssertTrue(app.buttons["stickers.happy"].waitForExistence(timeout: 5))
+        let stickers = app.buttons["world.nav.stickers"]
+        XCTAssertTrue(stickers.waitForExistence(timeout: 10))
+        for _ in 0..<20 where !stickers.isHittable { usleep(250_000) }   // back transition settles before tapping
+        stickers.tap()
+        if !app.buttons["stickers.happy"].waitForExistence(timeout: 5) { stickers.tap() }
+        XCTAssertTrue(app.buttons["stickers.happy"].waitForExistence(timeout: 10))
         app.buttons["stickers.happy"].tap()
         shot("nav-stickers")
         app.swipeDown(velocity: .fast)
