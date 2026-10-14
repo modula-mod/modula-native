@@ -52,3 +52,42 @@ These 35 tests passed in one run, with 0 failures:
 - `MOL03CollectionUITests` (Settings → Collection badges → tap Pip opens the Studio; Settings → "Open Studio")
 - `MOL03StudioTests`, `MOL02Tests`, `MOL01Tests`
 - `MOL03StudioScenarioUITests`, `MOL02PipAcceptanceUITests`
+
+# MOL-03 Workstream D: Wardrobe 2.0 + Photo
+
+| File | Shows |
+|---|---|
+| wardrobe-search-party.png | Wardrobe tab: search "party" narrows the grid to the Party cone |
+| wardrobe-3d-preview-cap.png | 3D filter, Signature Cap previewed live on Pip (no reload); camera raises Pip above the sheet |
+| wardrobe-saved-outfit.png | Saved outfits row |
+| photo-mode-shutter.png | Photo mode: chrome hidden, shutter |
+| photo-preview-share.png | Captured frame (contains the 3D character) + Share |
+
+**Wardrobe**
+- Search covers item names, blurbs, ids and slots. There are slot chips, an All/Owned filter and a 3D-only filter.
+- Tapping an item tries it on as a preview only. The 3D stage syncs to the preview through `controller.sync` and the fit-table rig, and the character is never reloaded (the UI test asserts `loadms` stays unchanged).
+- Apply is ownership-checked and can be undone through `MascotWardrobeStore`. Revert drops the preview, and Save stores the current look as an outfit preset.
+- IDs and ownership are unchanged. `cap.moliboo.signature` and `hat.party` stay separate items in the same hat slot, so one replaces the other.
+
+**Generic 3D wardrobe loader** (`MolibooWardrobeRig`, contract in `docs/moliboo/WARDROBE_FIT_TABLE.md`)
+- Each item has its own asset, plus a fit table per character and per slot (anchor, offset, rotation, scale, variant, hidden).
+- Equip effects are data-driven (pop_in, sparkle, bounce, shimmer), transform-only, and turn off under Reduced Motion.
+- Items load lazily, through a 6-entry LRU of templates with deduplicated loads.
+- The generated assets are not bundled yet; until they are, only the Signature Cap renders in 3D.
+
+**Photo**
+- The shutter hides the chrome and snapshots the window, including the RealityKit layer.
+- The preview sheet has a ShareLink.
+- `MolibooPhotoCapture.showsSubject` checks that the character is actually in the frame, and the UI test asserts `subject=1`.
+
+## Tests (D)
+- Unit tests:
+  - `MOL03WardrobeTests` (6): search/filters, preview/apply/undo/slot swap, saved outfits, unowned items are preview-only, cap kept separate from the Party cone, photo subject detection.
+  - `MOL03WardrobeRigTests` (5): fit resolution order, variants, hidden, effect fallback, LRU/dedupe/clone, lazy attach and sync, no work after stop.
+- `MOL03WardrobePhotoUITests` (2): pass.
+- Regression with D (one run): 51 passed and 3 crashed. The 3 crashes are the known RealityKit/SwiftUI crash family tracked in `MOL-02-STABILITY-TRACK.md`:
+  - MOL01 lifecycle 20x
+  - Moss loads/expresses
+  - MOL03 every-character framing
+
+  All 3 passed on rerun, so they are **flaky**. In a later run the MOL03 idle/Reduced Motion test also crashed once, then passed on rerun.
