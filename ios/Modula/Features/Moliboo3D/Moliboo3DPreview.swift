@@ -98,6 +98,7 @@ struct Moliboo3DPreview: View {
     }
 
     private func setUp() async {
+        if controller?.isStopped == true { controller = nil }   // re-shown after teardown: build a fresh scene
         guard controller == nil else { return }
         guard let m = MolibooRegistry.manifest, let d = MolibooRegistry.descriptor(for: characterID, manifest: m) else { manifestError = true; return }
         let c = MolibooSceneController(descriptor: d)
