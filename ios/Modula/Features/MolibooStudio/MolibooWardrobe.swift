@@ -80,6 +80,19 @@ final class MolibooWardrobeSession {
     func resync() { preview = store.outfit; lastTriedID = nil }
 }
 
+/// Shipped per-item renders (`MolibooWardrobe/Thumbs/WardrobeThumb_<id>.png`, rendered from the item USDZs), cached.
+@MainActor
+enum MolibooWardrobeThumbs {
+    private static let cache = NSCache<NSString, UIImage>()
+    static func image(_ id: String) -> UIImage? {
+        if let i = cache.object(forKey: id as NSString) { return i }
+        guard let url = Bundle.main.url(forResource: "WardrobeThumb_\(id)", withExtension: "png", subdirectory: "MolibooWardrobe/Thumbs"),
+              let i = UIImage(contentsOfFile: url.path) else { return nil }
+        cache.setObject(i, forKey: id as NSString)
+        return i
+    }
+}
+
 struct MolibooWardrobeSheet: View {
     let controller: MolibooSceneController
     @Bindable var session: MolibooWardrobeSession
@@ -154,9 +167,9 @@ struct MolibooWardrobeSheet: View {
 
     private func chip(_ title: String, on: Bool, id: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title).font(.caption.weight(.semibold)).padding(.horizontal, 10).padding(.vertical, 6)
-                .background(on ? Color.accentColor : Color.secondary.opacity(0.15), in: Capsule())
+            Text(title).font(.caption.weight(.semibold)).lineLimit(1).padding(.horizontal, 12).padding(.vertical, 7)
                 .foregroundStyle(on ? .white : .primary)
+                .modulaGlass(in: Capsule(), interactive: true, tint: on ? Color.accentColor : nil, prominent: on)
         }
         .buttonStyle(.plain).accessibilityIdentifier(id).accessibilityAddTraits(on ? .isSelected : [])
     }
@@ -193,7 +206,7 @@ struct MolibooWardrobeSheet: View {
                     Button { session.load(p) } label: {
                         Label(p.name, systemImage: "hanger").font(.caption.weight(.semibold))
                             .padding(.horizontal, 10).padding(.vertical, 6)
-                            .background(.thinMaterial, in: Capsule())
+                            .modulaGlass(in: Capsule(), interactive: true)
                     }
                     .buttonStyle(.plain)
                     .contextMenu { Button("Delete", role: .destructive) { session.delete(p) } }
@@ -210,8 +223,17 @@ struct MolibooWardrobeSheet: View {
         return Button { session.tryOn(item) } label: {
             VStack(spacing: 4) {
                 ZStack(alignment: .topTrailing) {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous).fill(item.tint.opacity(0.22))
-                        .overlay(Image(systemName: item.slot.symbol).font(.title3).foregroundStyle(item.tint))
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(LinearGradient(colors: [item.tint.opacity(0.35), item.tint.opacity(0.12)], startPoint: .top, endPoint: .bottom))
+                        .overlay {
+                            // Real per-item render (shipped thumbnails); the slot glyph only if an item has none.
+                            if let img = MolibooWardrobeThumbs.image(item.id) {
+                                Image(uiImage: img).resizable().interpolation(.high).scaledToFit().padding(6)
+                                    .shadow(color: .black.opacity(0.25), radius: 3, y: 2)
+                            } else {
+                                Image(systemName: item.slot.symbol).font(.title3).foregroundStyle(item.tint)
+                            }
+                        }
                     HStack(spacing: 2) {
                         if in3D { Text("3D").font(.system(size: 9, weight: .bold)).padding(3).background(Color.accentColor, in: Capsule()).foregroundStyle(.white) }
                         if !owned { Image(systemName: "lock.fill").font(.system(size: 9)).padding(3) }

@@ -79,14 +79,14 @@ final class MOL03StudioScenarioUITests: XCTestCase {
             toggle(app, cap, until: { $0["cap"] == before })
         }
         // Expressions.
-        tapEventually(app.segmentedControls["studio.sheet.tabs"].buttons["Expressions"])
+        tapEventually(app.buttons["studio.sheet.tab.expressions"])
         wait(app) { $0["panel"] == "expressions" }
         for e in ["happy", "excited", "surprised", "sleepy", "sad", "idle"] {
             tapEventually(app.buttons["studio.expr.\(e)"])
             wait(app, "moliboo3d.state", 6) { $0["expr"] == e }
         }
         // Play.
-        tapEventually(app.segmentedControls["studio.sheet.tabs"].buttons["Play"])
+        tapEventually(app.buttons["studio.sheet.tab.play"])
         wait(app) { $0["panel"] == "play" }
         var reactions = Int(probe(app, "studio.state")["reactions"] ?? "0") ?? 0
         for p in ["pet", "hop", "dance", "peekaboo"] {

@@ -60,6 +60,8 @@ struct MolibooLivingStudioView: View {
         .toolbar(photoMode ? .hidden : .visible, for: .navigationBar)
         .navigationTitle(descriptor?.displayName ?? "Moliboo")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarColorScheme(environment.isDark ? .dark : .light, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .sheet(item: $panel) { p in panelSheet(p) }
         .sheet(item: $photo) { ph in
             MolibooPhotoPreview(photo: ph, characterName: descriptor?.displayName ?? "Moliboo") { photo = nil }
@@ -100,9 +102,10 @@ struct MolibooLivingStudioView: View {
                 Text(descriptor?.displayName ?? "Moliboo").font(.title2.weight(.bold))
                 if let d = descriptor {
                     Text("#\(String(format: "%03d", d.canonicalNumber)) · \(director?.personality.mood.capitalized ?? "")")
-                        .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                        .font(.caption.weight(.semibold)).opacity(0.8)
                 }
             }
+            .shadow(color: .black.opacity(environment.isDark ? 0.4 : 0), radius: 3, y: 1)
             Spacer()
             Menu {
                 Picker("Environment", selection: $envRaw) {
@@ -112,7 +115,7 @@ struct MolibooLivingStudioView: View {
                 Label(environment.title, systemImage: environment.symbol)
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, 12).padding(.vertical, 8)
-                    .background(.ultraThinMaterial, in: Capsule())
+                    .modulaGlass(in: Capsule(), interactive: true, specular: true)
             }
             .accessibilityIdentifier("studio.envMenu")
         }
@@ -163,20 +166,24 @@ struct MolibooLivingStudioView: View {
             railButton("Photo", "camera.fill", id: "studio.rail.photo", selected: false) { panel = nil; photoMode = true }
         }
         .padding(10)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .padding(.horizontal, 14).padding(.bottom, 8)
+        .foregroundStyle(environment.isDark ? .white : .primary)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 26, style: .continuous), interactive: false,
+                     tint: environment.isDark ? Color.black.opacity(0.25) : Color.white.opacity(0.25), specular: true)
+        .shadow(color: .black.opacity(0.25), radius: 14, y: 6)
+        .environment(\.colorScheme, environment.isDark ? .dark : .light)
+        .padding(.horizontal, 14).padding(.bottom, 20)
     }
 
     private func railButton(_ title: String, _ symbol: String, id: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Image(systemName: symbol).font(.title3)
-                Text(title).font(.caption2.weight(.semibold))
+                Text(title).font(.caption2.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7)
             }
             .frame(maxWidth: .infinity, minHeight: 52)
-            .background(selected ? Color.accentColor.opacity(0.18) : .clear, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(selected ? Color.accentColor.opacity(0.32) : .clear, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(MolibooSpringPressStyle())
         .accessibilityIdentifier(id)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
@@ -232,10 +239,23 @@ struct MolibooLivingStudioView: View {
     private func panelSheet(_ p: Panel) -> some View {
         VStack(spacing: 0) {
             // The sheet covers the rail, so it carries its own panel switcher.
-            Picker("Panel", selection: Binding(get: { p }, set: { panel = $0 })) {
-                ForEach(Panel.allCases) { q in Label(q.title, systemImage: q.symbol).tag(q) }
+            ModulaGlassGroup(spacing: 6) {
+                HStack(spacing: 6) {
+                    ForEach(Panel.allCases) { q in
+                        Button { panel = q } label: {
+                            Label(q.title, systemImage: q.symbol)
+                                .font(.caption.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                                .padding(.horizontal, 8).frame(maxWidth: .infinity, minHeight: 34)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(q == p ? .white : .primary)
+                        .modulaGlass(in: Capsule(), interactive: true, tint: q == p ? Color.accentColor : nil, prominent: q == p)
+                        .accessibilityIdentifier("studio.sheet.tab.\(q.rawValue)")
+                        .accessibilityAddTraits(q == p ? .isSelected : [])
+                    }
+                }
             }
-            .pickerStyle(.segmented)
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("studio.sheet.tabs")
             .safeAreaInset(edge: .trailing) {
                 Button { panel = nil } label: { Image(systemName: "xmark.circle.fill").font(.title2).foregroundStyle(.secondary) }
@@ -248,6 +268,13 @@ struct MolibooLivingStudioView: View {
         .presentationDetents(p == .wardrobe ? [.medium, .large] : [.height(300), .medium])
         .presentationBackgroundInteraction(.enabled(upThrough: p == .wardrobe ? .medium : .height(300)))
         .presentationDragIndicator(.visible)
+        // Liquid Glass at every detent (the default background turns opaque white at .large).
+        .presentationBackground {
+            Rectangle().fill(.clear)
+                .modulaGlass(in: Rectangle(), interactive: false, tint: environment.isDark ? Color(red: 0.12, green: 0.12, blue: 0.3).opacity(0.35) : Color.white.opacity(0.2))
+                .ignoresSafeArea()
+        }
+        .environment(\.colorScheme, environment.isDark ? .dark : .light)
     }
 
     @ViewBuilder private func sheet(for p: Panel) -> some View {
@@ -266,9 +293,11 @@ struct MolibooLivingStudioView: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 10) {
                 ForEach(MolibooPlay.allCases) { play in
                     Button { director?.request(play.reaction) } label: {
-                        Label(play.title, systemImage: play.symbol).frame(maxWidth: .infinity)
+                        Label(play.title, systemImage: play.symbol).font(.subheadline.weight(.semibold))
+                            .lineLimit(1).minimumScaleFactor(0.7).frame(maxWidth: .infinity, minHeight: 40)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(MolibooSpringPressStyle())
+                    .modulaGlass(in: Capsule(), interactive: true, tint: Color.accentColor.opacity(0.22))
                     .accessibilityIdentifier("studio.play.\(play.rawValue)")
                 }
             }
@@ -283,10 +312,14 @@ struct MolibooLivingStudioView: View {
             Text("Expressions").font(.headline)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 10) {
                 ForEach(MolibooExpression.allCases, id: \.self) { e in
-                    Button(e.title) {
+                    Button {
                         if e == .blink { controller?.blink() } else { controller?.setExpression(e) }
+                    } label: {
+                        Text(e.title).font(.subheadline.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.65)
+                            .frame(maxWidth: .infinity, minHeight: 40)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(MolibooSpringPressStyle())
+                    .modulaGlass(in: Capsule(), interactive: true, tint: Color.pink.opacity(0.2))
                     .accessibilityIdentifier("studio.expr.\(e.rawValue)")
                 }
             }
