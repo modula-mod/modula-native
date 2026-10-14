@@ -1,0 +1,434 @@
+{
+  "schemaVersion": 2,
+  "cosmetics": [
+    {
+      "wardrobeItemID": "cap.moliboo.signature",
+      "asset": "Accessory_Cap_MolibooSignature",
+      "assetSHA256": "359fd73011bee9310bc7d7faaf79c40e6ae859a4cebe29d5517fcca8bda3b531",
+      "sourceVersion": "pebble-v2.2-frozen"
+    }
+  ],
+  "characters": [
+    {
+      "id": "pip",
+      "canonicalNumber": 1,
+      "displayName": "Pip",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "moss",
+      "canonicalNumber": 2,
+      "displayName": "Moss",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "nimbus",
+      "canonicalNumber": 3,
+      "displayName": "Nimbus",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "mochi",
+      "canonicalNumber": 4,
+      "displayName": "Mochi",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "sprout",
+      "canonicalNumber": 5,
+      "displayName": "Sprout",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "ember",
+      "canonicalNumber": 6,
+      "displayName": "Ember",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "tuck",
+      "canonicalNumber": 7,
+      "displayName": "Tuck",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "bloop",
+      "canonicalNumber": 8,
+      "displayName": "Bloop",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "bun",
+      "canonicalNumber": 9,
+      "displayName": "Bun",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "pebble",
+      "canonicalNumber": 10,
+      "displayName": "Pebble",
+      "family": "originals",
+      "asset": "Pebble",
+      "assetSHA256": "3a4c3da998a86b85d551695bb52eccd53efb036e3993e0762d52dc62acfa2303",
+      "sourceVersion": "pebble-v2.2-frozen",
+      "anchors": [
+        "anchor_head",
+        "anchor_face",
+        "anchor_back",
+        "anchor_neck",
+        "anchor_base"
+      ],
+      "expressions": [
+        "idle",
+        "blink",
+        "happy",
+        "excited",
+        "surprised",
+        "sleepy",
+        "sad"
+      ],
+      "fps": 30,
+      "clips": {
+        "idle_bob": {
+          "start": 1,
+          "end": 60
+        },
+        "blink": {
+          "start": 61,
+          "end": 72
+        },
+        "wobble": {
+          "start": 73,
+          "end": 102
+        },
+        "tap": {
+          "start": 103,
+          "end": 130
+        },
+        "expr_idle": {
+          "start": 131,
+          "end": 136
+        },
+        "expr_happy": {
+          "start": 137,
+          "end": 142
+        },
+        "expr_excited": {
+          "start": 143,
+          "end": 148
+        },
+        "expr_surprised": {
+          "start": 149,
+          "end": 154
+        },
+        "expr_sleepy": {
+          "start": 155,
+          "end": 160
+        },
+        "expr_sad": {
+          "start": 161,
+          "end": 166
+        }
+      },
+      "attachments": {
+        "cap.moliboo.signature": {
+          "offset": [
+            0.0,
+            0.0,
+            -0.0045
+          ],
+          "rotationDegrees": [
+            -8.0,
+            18.0,
+            -25.0
+          ],
+          "scale": 1.0,
+          "anchor": "anchor_head",
+          "compatible": true
+        }
+      }
+    },
+    {
+      "id": "tofu",
+      "canonicalNumber": 11,
+      "displayName": "Tofu",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "comet",
+      "canonicalNumber": 12,
+      "displayName": "Comet",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "puff",
+      "canonicalNumber": 13,
+      "displayName": "Puff",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "bolt",
+      "canonicalNumber": 14,
+      "displayName": "Bolt",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "glim",
+      "canonicalNumber": 15,
+      "displayName": "Glim",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "echo",
+      "canonicalNumber": 16,
+      "displayName": "Echo",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "quill",
+      "canonicalNumber": 17,
+      "displayName": "Quill",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "orbit",
+      "canonicalNumber": 18,
+      "displayName": "Orbit",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "prism",
+      "canonicalNumber": 19,
+      "displayName": "Prism",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "wisp",
+      "canonicalNumber": 20,
+      "displayName": "Wisp",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "doodle",
+      "canonicalNumber": 21,
+      "displayName": "Doodle",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "chime",
+      "canonicalNumber": 22,
+      "displayName": "Chime",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "rolo",
+      "canonicalNumber": 23,
+      "displayName": "Rolo",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "pogo",
+      "canonicalNumber": 24,
+      "displayName": "Pogo",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    },
+    {
+      "id": "fable",
+      "canonicalNumber": 25,
+      "displayName": "Fable",
+      "family": "originals",
+      "asset": null,
+      "assetSHA256": null,
+      "sourceVersion": null,
+      "anchors": [],
+      "expressions": [],
+      "fps": 30,
+      "clips": {},
+      "attachments": {}
+    }
+  ]
+}
