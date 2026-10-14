@@ -65,6 +65,22 @@ struct MolibooStyleSheet: View {
         guard let item = MascotWardrobeCatalog.item(id: capID) else { return }
         if controller.equipped[capID] != nil { wardrobe.equip(item) } else if wardrobe.outfit.contains(item) { wardrobe.unequip(item.slot) }
     }
+    /// Character positioning on the stage (size + height), persisted per character.
+    private var positionControls: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Label("Size", systemImage: "arrow.up.left.and.arrow.down.right").font(.caption.weight(.semibold)).frame(width: 74, alignment: .leading)
+                Slider(value: $pose.scale, in: MolibooStagePose.scaleRange).accessibilityIdentifier("studio.pose.scale")
+            }
+            HStack {
+                Label("Height", systemImage: "arrow.up.and.down").font(.caption.weight(.semibold)).frame(width: 74, alignment: .leading)
+                Slider(value: $pose.lift, in: MolibooStagePose.liftRange).accessibilityIdentifier("studio.pose.lift")
+                Button("Reset") { pose = MolibooStagePose() }.font(.caption).accessibilityIdentifier("studio.pose.reset")
+            }
+        }
+        .onAppear { pose = MolibooStagePose.load(for: controller.descriptor.id) }
+        .onChange(of: pose) { _, p in p.apply(to: controller); p.save(for: controller.descriptor.id) }
+    }
 }
 
 /// Photo-mode controls: a shutter. Chrome is hidden while the frame is captured.
@@ -91,22 +107,6 @@ struct MolibooPhotoControls: View {
         .accessibilityIdentifier("studio.photo.controls")
     }
 
-    /// Character positioning on the stage (size + height), persisted per character.
-    private var positionControls: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Label("Size", systemImage: "arrow.up.left.and.arrow.down.right").font(.caption.weight(.semibold)).frame(width: 74, alignment: .leading)
-                Slider(value: $pose.scale, in: MolibooStagePose.scaleRange).accessibilityIdentifier("studio.pose.scale")
-            }
-            HStack {
-                Label("Height", systemImage: "arrow.up.and.down").font(.caption.weight(.semibold)).frame(width: 74, alignment: .leading)
-                Slider(value: $pose.lift, in: MolibooStagePose.liftRange).accessibilityIdentifier("studio.pose.lift")
-                Button("Reset") { pose = MolibooStagePose() }.font(.caption).accessibilityIdentifier("studio.pose.reset")
-            }
-        }
-        .onAppear { pose = MolibooStagePose.load(for: controller.descriptor.id) }
-        .onChange(of: pose) { _, p in p.apply(to: controller); p.save(for: controller.descriptor.id) }
-    }
 }
 
 /// Stage position of the character (Studio "positioning"). Applied to the controller root, so wardrobe follows.
