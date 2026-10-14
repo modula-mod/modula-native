@@ -1,15 +1,18 @@
 import SwiftUI
 
-/// Style sheet (Living Studio). Environment + 3D cosmetics. Wardrobe 2.0 builds on this in its own PR.
+/// Style sheet (Living Studio). Environment + the Signature Cap quick toggle; the full wardrobe is its own panel.
 struct MolibooStyleSheet: View {
     let controller: MolibooSceneController
     @Binding var environment: String
     private var wardrobe = MascotWardrobeStore.shared
     private let capID = MolibooCosmetics.signatureCapID
 
-    init(controller: MolibooSceneController, environment: Binding<String>) {
+    var onOutfitChange: () -> Void = {}
+
+    init(controller: MolibooSceneController, environment: Binding<String>, onOutfitChange: @escaping () -> Void = {}) {
         self.controller = controller
         self._environment = environment
+        self.onOutfitChange = onOutfitChange
     }
 
     var body: some View {
@@ -38,6 +41,7 @@ struct MolibooStyleSheet: View {
                     Task {
                         if on { controller.unequip(wardrobeItemID: capID) } else { await controller.equip(wardrobeItemID: capID) }
                         save()
+                        onOutfitChange()
                     }
                 } label: {
                     Label(on ? "Take off Signature Cap" : "Wear Signature Cap", systemImage: on ? "checkmark.circle.fill" : "graduationcap.fill")
@@ -60,15 +64,27 @@ struct MolibooStyleSheet: View {
     }
 }
 
-/// Photo-mode controls; capture/share arrive with the Photo PR.
+/// Photo-mode controls: a shutter. Chrome is hidden while the frame is captured.
 struct MolibooPhotoControls: View {
     let characterName: String
+    var onCapture: () -> Void
     var body: some View {
-        Text("Photo mode · \(characterName)")
-            .font(.footnote.weight(.semibold))
-            .padding(.horizontal, 14).padding(.vertical, 8)
-            .background(.ultraThinMaterial, in: Capsule())
-            .padding(.bottom, 24)
-            .accessibilityIdentifier("studio.photo.controls")
+        VStack(spacing: 10) {
+            Button(action: onCapture) {
+                ZStack {
+                    Circle().fill(.white).frame(width: 66, height: 66)
+                    Circle().stroke(.white, lineWidth: 4).frame(width: 78, height: 78)
+                }
+                .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
+            }
+            .accessibilityIdentifier("studio.photo.capture")
+            .accessibilityLabel("Take photo of \(characterName)")
+            Text("Drag to turn · tap to say hi").font(.caption.weight(.semibold))
+                .padding(.horizontal, 12).padding(.vertical, 6)
+                .background(.ultraThinMaterial, in: Capsule())
+        }
+        .padding(.bottom, 24)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("studio.photo.controls")
     }
 }

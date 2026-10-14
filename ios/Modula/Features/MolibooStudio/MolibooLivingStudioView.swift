@@ -7,10 +7,10 @@ struct MolibooLivingStudioView: View {
     let characterID: String
 
     enum Panel: String, Identifiable, CaseIterable {
-        case style, play, expressions
+        case style, wardrobe, play, expressions
         var id: String { rawValue }
-        var title: String { switch self { case .style: "Style"; case .play: "Play"; case .expressions: "Expressions" } }
-        var symbol: String { switch self { case .style: "tshirt.fill"; case .play: "gamecontroller.fill"; case .expressions: "face.smiling" } }
+        var title: String { switch self { case .style: "Style"; case .wardrobe: "Wardrobe"; case .play: "Play"; case .expressions: "Expressions" } }
+        var symbol: String { switch self { case .style: "paintpalette.fill"; case .wardrobe: "tshirt.fill"; case .play: "gamecontroller.fill"; case .expressions: "face.smiling" } }
     }
 
     @AppStorage("moliboo.studio.environment") private var envRaw = MolibooEnvironment.meadow.rawValue
@@ -24,6 +24,11 @@ struct MolibooLivingStudioView: View {
     @State private var panel: Panel?
     @State private var photoMode = false
     @State private var dragStart: Float = 0
+    @State private var session: MolibooWardrobeSession?
+    @State private var capturing = false
+    @State private var photo: MolibooCapturedPhoto?
+    @State private var shots = 0
+    @State private var lastShotSubject = false
     private var wardrobe = MascotWardrobeStore.shared
     private let capID = MolibooCosmetics.signatureCapID
 
@@ -41,7 +46,7 @@ struct MolibooLivingStudioView: View {
                 stage
                 if !photoMode { rail.transition(.move(edge: .bottom).combined(with: .opacity)) }
             }
-            if photoMode { photoChrome }
+            if photoMode && !capturing { photoChrome }
         }
         .animation(reduceMotion ? nil : .snappy, value: photoMode)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: envRaw)
@@ -49,6 +54,9 @@ struct MolibooLivingStudioView: View {
         .navigationTitle(descriptor?.displayName ?? "Moliboo")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $panel) { p in panelSheet(p) }
+        .sheet(item: $photo) { ph in
+            MolibooPhotoPreview(photo: ph, characterName: descriptor?.displayName ?? "Moliboo") { photo = nil }
+        }
         #if DEBUG
         .overlay(alignment: .bottomLeading) {
             if let controller { MOL01StateProbe(controller: controller, wardrobeIDs: wardrobe.outfit.equippedIDs) }
@@ -56,10 +64,10 @@ struct MolibooLivingStudioView: View {
         }
         #endif
         .task { await setUp() }
-        .onChange(of: reduceMotion) { _, v in director?.setReduceMotion(v) }
+        .onChange(of: reduceMotion) { _, v in director?.setReduceMotion(v); session?.rig?.reduceMotion = v }
         .onChange(of: scenePhase) { _, p in director?.setPaused(p != .active) }
-        .onChange(of: panel) { _, p in director?.setPaused(Self.holdsStill(p)) }
-        .onDisappear { director?.stop(); controller?.stop() }
+        .onChange(of: panel) { _, p in director?.setPaused(Self.holdsStill(p)); frame(sheetOpen: p != nil, animated: true) }
+        .onDisappear { director?.stop(); session?.rig?.stop(); controller?.stop() }
     }
 
     // MARK: Pieces
@@ -171,7 +179,7 @@ struct MolibooLivingStudioView: View {
             }
             .padding()
             Spacer()
-            MolibooPhotoControls(characterName: descriptor?.displayName ?? "Moliboo")
+            MolibooPhotoControls(characterName: descriptor?.displayName ?? "Moliboo") { Task { await capture() } }
         }
     }
 
@@ -179,7 +187,34 @@ struct MolibooLivingStudioView: View {
     /// Trying things on / posing: the idle personality holds still.
     private static func holdsStill(_ p: Panel?) -> Bool {
         guard let p else { return false }
-        return p == .style || p == .expressions
+        return p == .style || p == .wardrobe || p == .expressions
+    }
+
+    /// Per-character framing; with a sheet up the camera tilts down and pulls back so the Moliboo sits above the sheet.
+    private func frame(sheetOpen: Bool, animated: Bool) {
+        guard let c = controller else { return }
+        let f = MolibooFraming.for(characterID)
+        c.cameraEntity.camera.fieldOfViewInDegrees = f.fov
+        let shift: SIMD3<Float> = sheetOpen ? [0, -(f.eye.z * 0.26), f.eye.z * 0.2] : .zero
+        let probe = Entity()
+        probe.look(at: f.target + [0, shift.y, 0], from: f.eye + shift, relativeTo: nil)
+        if animated && !reduceMotion {
+            c.cameraEntity.move(to: probe.transform, relativeTo: nil, duration: 0.35, timingFunction: .easeInOut)
+        } else {
+            c.cameraEntity.transform = probe.transform
+        }
+    }
+
+    /// Hide every piece of chrome, let a frame render, snapshot the window, then show the share preview.
+    private func capture() async {
+        capturing = true
+        try? await Task.sleep(for: .milliseconds(250))
+        let img = MolibooPhotoCapture.captureKeyWindow()
+        capturing = false
+        guard let img else { return }
+        shots += 1
+        lastShotSubject = MolibooPhotoCapture.showsSubject(img)
+        photo = MolibooCapturedPhoto(image: img)
     }
 
     private func panelSheet(_ p: Panel) -> some View {
@@ -198,14 +233,16 @@ struct MolibooLivingStudioView: View {
             sheet(for: p)
             Spacer(minLength: 0)
         }
-        .presentationDetents([.height(300), .medium])
-        .presentationBackgroundInteraction(.enabled(upThrough: .height(300)))
+        .presentationDetents(p == .wardrobe ? [.medium, .large] : [.height(300), .medium])
+        .presentationBackgroundInteraction(.enabled(upThrough: p == .wardrobe ? .medium : .height(300)))
         .presentationDragIndicator(.visible)
     }
 
     @ViewBuilder private func sheet(for p: Panel) -> some View {
         switch p {
         case .style: styleSheet
+        case .wardrobe:
+            if let controller, let session { MolibooWardrobeSheet(controller: controller, session: session) }
         case .play: playSheet
         case .expressions: expressionsSheet
         }
@@ -247,7 +284,7 @@ struct MolibooLivingStudioView: View {
 
     @ViewBuilder private var styleSheet: some View {
         if let controller {
-            MolibooStyleSheet(controller: controller, environment: $envRaw)
+            MolibooStyleSheet(controller: controller, environment: $envRaw) { session?.resync() }
         }
     }
 
@@ -258,12 +295,18 @@ struct MolibooLivingStudioView: View {
         guard let m = MolibooRegistry.manifest, let d = MolibooRegistry.descriptor(for: characterID, manifest: m) else { unavailable = true; return }
         let c = MolibooSceneController(descriptor: d)
         c.cosmetics = m.cosmetics
-        let f = MolibooFraming.for(d.id)
-        c.cameraEntity.camera.fieldOfViewInDegrees = f.fov
-        c.cameraEntity.look(at: f.target, from: f.eye, relativeTo: nil)
         controller = c
+        frame(sheetOpen: false, animated: false)
+        let ws = MolibooWardrobeSession(store: wardrobe)
+        session = ws
         await c.load()
         await c.sync(outfitItemIDs: wardrobe.outfit.equippedIDs)
+        if !c.loadFailed {
+            let rig = MolibooWardrobeRig(controller: c)
+            rig.reduceMotion = reduceMotion
+            ws.rig = rig
+            await rig.sync(wardrobe.outfit.equippedIDs.filter { !c.isSupported(wardrobeItemID: $0) })
+        }
         let dir = MolibooStudioDirector(controller: c, reduceMotion: reduceMotion)
         director = dir
         if !c.loadFailed { dir.start() }
@@ -278,7 +321,8 @@ struct MolibooLivingStudioView: View {
 
     #if DEBUG
     private var studioProbe: some View {
-        let v = "char=\(characterID) env=\(environment.rawValue) panel=\(panel?.rawValue ?? "none") photo=\(photoMode ? 1 : 0) reactions=\(director?.reactionCount ?? 0) idle=\(director?.idleFired ?? 0) react=\(director?.lastReaction ?? "") nap=\(director?.napping == true ? 1 : 0) rm=\(reduceMotion ? 1 : 0) paused=\(director?.paused == true ? 1 : 0)"
+        let w = "wpv=\(session?.isPreviewing == true ? 1 : 0) wprev=\(session?.previewIDs.sorted().joined(separator: ",") ?? "") wsaved=\(wardrobe.outfit.equippedIDs.sorted().joined(separator: ",")) wundo=\(wardrobe.canUndo ? 1 : 0) wpresets=\(wardrobe.presets.count) wblocked=\(session?.blocked.count ?? 0) shots=\(shots) subject=\(lastShotSubject ? 1 : 0)"
+        let v = w + " char=\(characterID) env=\(environment.rawValue) panel=\(panel?.rawValue ?? "none") photo=\(photoMode ? 1 : 0) reactions=\(director?.reactionCount ?? 0) idle=\(director?.idleFired ?? 0) react=\(director?.lastReaction ?? "") nap=\(director?.napping == true ? 1 : 0) rm=\(reduceMotion ? 1 : 0) paused=\(director?.paused == true ? 1 : 0)"
         return Text(v).font(.system(size: 1)).opacity(0.01).frame(width: 1, height: 1)
             .accessibilityIdentifier("studio.state").accessibilityLabel(v)
     }
