@@ -148,3 +148,9 @@ Frame timing is delivered to the shown controller (`recordFrame`). Grounding sha
   unit tests pass except the known `PostSystemTests.testOwnVersusOtherContextMenus`; MOL-01/02 UI 13/13; MOL-03 UI 5/5. The lifecycle crash is recorded as flaky in the PR.
 - Still open (Workstream B): benchmark at the 7 section-11 points, frame pacing, character switching, cancellable loading,
   background/switch lifecycle tests.
+
+## Round 5 notes (15:00– BST)
+- Onboarding fix split out as **#37**, merged. Tests on sim 9F8B55ED: unit tests (known PostSystem failure only); `SignInUITests` failed once
+  ("Manual sign-in did not reach the shell", after the landing step), then passed 2/2 with the fix and 1/1 on main, so it's **flaky**.
+- Shadows-off confirmation: 20 more runs in progress on 8AAF71C9 (branch `perf/shadows-off` on main af1265d).
+- Workstream B code drafted (`MolibooRendererBenchmark` 7-point suite, cancellable load/equip). It's parked in `crash-runs/wsb/` until the shadows run finishes.
