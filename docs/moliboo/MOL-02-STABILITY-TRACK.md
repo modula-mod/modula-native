@@ -154,3 +154,9 @@ Frame timing is delivered to the shown controller (`recordFrame`). Grounding sha
   ("Manual sign-in did not reach the shell", after the landing step), then passed 2/2 with the fix and 1/1 on main, so it's **flaky**.
 - Shadows-off confirmation: 20 more runs in progress on 8AAF71C9 (branch `perf/shadows-off` on main af1265d).
 - Workstream B code drafted (`MolibooRendererBenchmark` 7-point suite, cancellable load/equip). It's parked in `crash-runs/wsb/` until the shadows run finishes.
+- 15:52 BST: shadows-off confirmation at 9/14 passed so far (plus 8/10 in round 4, so 17/24 ≈ 71% vs 4/10 baseline). Run continues.
+- Workstream B pushed as `perf/workstream-b` (c99e6c6, on main 6a65415): `MolibooRendererBenchmark` (7 points), cancellable load/equip,
+  5 new unit lifecycle tests + a background/foreground UI test, `docs/moliboo/RENDERER-BENCHMARK.md`. MOL-01/02 unit tests 24/24 passed,
+  bg/fg UI test passed. MOLBENCH: cold 1031 ms, warm 3 ms, switch(Pip cold) 1303 ms, footprint 97→102→101→101 MB.
+  MOL-01/02 UI suites running on 9F8B55ED before the PR.
+- The shadows-off PR branch `perf/shadows-off` has an uncommitted soft contact-shadow blob (`attachContactShadow`), still to be built and verified.
