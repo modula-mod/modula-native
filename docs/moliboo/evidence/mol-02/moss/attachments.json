@@ -1,0 +1,19 @@
+{
+ "moss": {
+  "cap.moliboo.signature": {
+   "offset": [
+    0.0,
+    0.0,
+    0.002
+   ],
+   "rotationDegrees": [
+    -6.0,
+    0.0,
+    -8.0
+   ],
+   "scale": 0.95,
+   "compatible": true,
+   "anchor": "anchor_head"
+  }
+ }
+}

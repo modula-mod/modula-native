@@ -1,0 +1,171 @@
+{
+ "id": "moss",
+ "name": "Moss",
+ "number": "002",
+ "canonicalId": "moliboo.originals.moss",
+ "rigFamily": "round-organic",
+ "sourceVersion": "moss-v1.0",
+ "seed": 2,
+ "body": {
+  "type": "blob",
+  "W": 0.078,
+  "D": 0.06,
+  "H": 0.05,
+  "lean": 0.0,
+  "topSwell": 0.0,
+  "baseFlat": -0.6,
+  "lumps": 0.0004,
+  "bellyFlat": 0.2,
+  "joinSpheres": [
+   {
+    "at": [
+     -0.03,
+     -0.012,
+     0.05
+    ],
+    "r": [
+     0.02,
+     0.019,
+     0.02
+    ]
+   },
+   {
+    "at": [
+     0.03,
+     -0.012,
+     0.05
+    ],
+    "r": [
+     0.02,
+     0.019,
+     0.02
+    ]
+   }
+  ]
+ },
+ "palette": {
+  "ramp": [
+   [
+    0.0,
+    [
+     0.62,
+     0.82,
+     0.36
+    ]
+   ],
+   [
+    0.35,
+    [
+     0.36,
+     0.64,
+     0.24
+    ]
+   ],
+   [
+    1.0,
+    [
+     0.22,
+     0.48,
+     0.18
+    ]
+   ]
+  ],
+  "from": 0.0,
+  "to": 0.11,
+  "cloud": 0.07,
+  "rough": 0.42,
+  "coat": 0.35,
+  "sss": 0.15
+ },
+ "face": {
+  "eyeZ": 0.068,
+  "eyeX": 0.03,
+  "eyeR": 0.0125,
+  "eyeAspect": 1.0,
+  "irisColor": [
+   0.42,
+   0.3,
+   0.14
+  ],
+  "cheek": {
+   "x": 0.052,
+   "z": 0.036,
+   "r": 0.0095
+  },
+  "cheekColor": [
+   0.93,
+   0.55,
+   0.5
+  ],
+  "mouth": {
+   "z": 0.036,
+   "width": 0.017,
+   "smile": 0.0018
+  },
+  "mouthColor": [
+   0.24,
+   0.16,
+   0.1
+  ]
+ },
+ "parts": [
+  {
+   "kind": "limbs",
+   "at": [
+    [
+     -0.042,
+     -0.03
+    ],
+    [
+     0.042,
+     -0.03
+    ],
+    [
+     -0.046,
+     0.026
+    ],
+    [
+     0.046,
+     0.026
+    ]
+   ],
+   "r": [
+    0.014,
+    0.016,
+    0.007
+   ],
+   "z": 0.005,
+   "color": [
+    0.44,
+    0.68,
+    0.3
+   ]
+  }
+ ],
+ "anchors": {
+  "head": [
+   0.0,
+   0.0
+  ]
+ },
+ "personality": [
+  "slow_blink",
+  "cheek_puff",
+  "measured_hop"
+ ],
+ "cap": {
+  "offset": [
+   0.0,
+   0.0,
+   0.002
+  ],
+  "rotationDegrees": [
+   -6.0,
+   0.0,
+   -8.0
+  ],
+  "scale": 0.95,
+  "compatible": true
+ },
+ "correctionPass": 1
+}
