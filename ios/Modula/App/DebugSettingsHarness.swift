@@ -12,8 +12,6 @@ import SwiftUI
 enum DebugSettingsHarness {
     static var route: AppRoute? {
         let args = ProcessInfo.processInfo.arguments
-        // `--debug-moliboo-hub`: straight to the Moliboo hub (Settings → Moliboo), e.g. for device screenshots.
-        if args.contains("--debug-moliboo-hub") { return RouteParser.parse("/settings/moliboo") }
         guard let index = args.firstIndex(of: "--debug-settings-route"), args.indices.contains(index + 1) else {
             return nil
         }
