@@ -197,7 +197,7 @@ struct MolibooWorldView: View {
                     .accessibilityAddTraits(.isButton)
                     .accessibilityIdentifier("world.stage")
                     // Studio / Wardrobe / Photo zoom out of the character itself (real morph, not a cut).
-                    .matchedTransitionSource(id: "world.hero", in: zoomNS) { $0.clipShape(Circle()) }
+                    .matchedTransitionSource(id: "world.hero", in: zoomNS) { $0.clipShape(RoundedRectangle(cornerRadius: 40, style: .continuous)) }
             }
             .overlay(alignment: .topLeading) { floatingNav }
             .overlay(alignment: .topTrailing) { statusPanel.padding(.top, 104) }
