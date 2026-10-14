@@ -1,0 +1,19 @@
+{
+ "pebble": {
+  "cap.moliboo.signature": {
+   "offset": [
+    0.0,
+    0.0,
+    -0.0045
+   ],
+   "rotationDegrees": [
+    -8.0,
+    18.0,
+    -25.0
+   ],
+   "scale": 1.0,
+   "anchor": "anchor_head",
+   "compatible": true
+  }
+ }
+}
