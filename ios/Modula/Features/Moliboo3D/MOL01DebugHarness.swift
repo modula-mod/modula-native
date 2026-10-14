@@ -28,7 +28,7 @@ struct MOL01StateProbe: View {
     @ViewBuilder private var probe: some View {
         let c = controller
         let avg = c.frameCount > 0 ? c.frameTimeSum / Double(c.frameCount) * 1000 : 0
-        let v = "loaded=\(c.character != nil ? 1 : 0) failed=\(c.loadFailed ? 1 : 0) meshes=\(c.meshCount) anims=\(c.character?.availableAnimations.count ?? 0) expr=\(c.expression.rawValue) yaw=\(String(format: "%.2f", c.yaw)) cap=\(c.equipped[MolibooCosmetics.signatureCapID] != nil ? 1 : 0) saved=\(wardrobeIDs.contains(MolibooCosmetics.signatureCapID) ? 1 : 0) clips=\(c.clipsPlayed) reacts=\(c.reactCount) last=\(c.lastAction) loadms=\(Int(c.loadMillis)) frames=\(c.frameCount) avgms=\(String(format: "%.2f", avg)) maxms=\(String(format: "%.1f", c.frameTimeMax * 1000)) footprintMB=\(String(format: "%.1f", MOL01Memory.footprintMB()))"
+        let v = "loaded=\(c.character != nil ? 1 : 0) failed=\(c.loadFailed ? 1 : 0) meshes=\(c.meshCount) anims=\(c.character?.availableAnimations.count ?? 0) expr=\(c.expression.rawValue) yaw=\(String(format: "%.2f", c.yaw)) cap=\(c.equipped[MolibooCosmetics.signatureCapID] != nil ? 1 : 0) saved=\(wardrobeIDs.contains(MolibooCosmetics.signatureCapID) ? 1 : 0) clips=\(c.clipsPlayed) reacts=\(c.reactCount) last=\(c.lastAction) loadms=\(Int(c.loadMillis)) cached=\(c.loadWasCached ? 1 : 0) frames=\(c.frameCount) avgms=\(String(format: "%.2f", avg)) maxms=\(String(format: "%.1f", c.frameTimeMax * 1000)) footprintMB=\(String(format: "%.1f", MOL01Memory.footprintMB()))"
         Text(v).font(.system(size: 1)).opacity(0.01).frame(width: 1, height: 1)
             .accessibilityIdentifier("moliboo3d.state").accessibilityValue(v).accessibilityLabel(v)
     }
