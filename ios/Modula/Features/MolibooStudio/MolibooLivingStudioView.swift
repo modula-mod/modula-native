@@ -83,7 +83,12 @@ struct MolibooLivingStudioView: View {
         ZStack(alignment: .bottom) {
             LinearGradient(colors: environment.sky, startPoint: .top, endPoint: .bottom)
             Ellipse().fill(environment.floor.opacity(0.85)).frame(height: 220).offset(y: 90).blur(radius: 18)
-            if environment == .nightSky { StarField().allowsHitTesting(false) }
+            switch environment {
+            case .nightSky: MolibooAmbientBackground(ambience: .night, animated: !photoMode, showsSky: false)
+            case .meadow: MolibooAmbientBackground(ambience: .afternoon, animated: !photoMode, showsSky: false, density: 0.7)
+            case .cozyRoom: MolibooAmbientBackground(ambience: .dreamy, animated: !photoMode, showsSky: false, density: 0.6)
+            case .studio: EmptyView()
+            }
         }
         .ignoresSafeArea()
         .accessibilityIdentifier("studio.environment.\(environment.rawValue)")
@@ -379,20 +384,6 @@ struct MolibooLivingStudioView: View {
             .accessibilityIdentifier("studio.state").accessibilityLabel(v)
     }
     #endif
-}
-
-/// Night-sky sparkle (static positions; no animation under Reduced Motion because it never moves).
-private struct StarField: View {
-    var body: some View {
-        Canvas { ctx, size in
-            for i in 0..<60 {
-                let x = CGFloat((i * 73) % 997) / 997 * size.width
-                let y = CGFloat((i * 131) % 991) / 991 * size.height * 0.6
-                let r = CGFloat(1 + (i % 3))
-                ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: r, height: r)), with: .color(.white.opacity(0.4 + Double(i % 5) / 10)))
-            }
-        }
-    }
 }
 
 /// Studio entry point (dev flag): opens the Living Studio for any 3D-capable character.

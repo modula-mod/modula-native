@@ -69,4 +69,38 @@ struct DebugSettingsHarnessView: View {
         }
     }
 }
+
+/// `--debug-moliboo-picker`: a composer bar (as on a post's comments) with the real composer Moliboo, so the
+/// picker can be opened from the avatar with room above it. Add `-MOLPickerOpen` to open it on launch.
+struct MolibooPickerHarnessView: View {
+    @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
+    @State private var text = ""
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            MolibooAmbientBackground(ambience: .resolved(), showsSky: true).opacity(0.35).ignoresSafeArea()
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Comments").font(.title2.weight(.bold))
+                Spacer()
+                HStack(spacing: 8) {
+                    TextField("Add a comment…", text: $text)
+                        .textFieldStyle(.plain).padding(.horizontal, 14).frame(height: 44)
+                        .modulaGlass(in: Capsule(), interactive: false, specular: true)
+                        .modulaMascotPerch()
+                    ModulaGlassSendButton(title: "Send", ready: !text.isEmpty) { text = "" }
+                }
+                .overlayPreferenceValue(MascotPerchKey.self) { anchor in
+                    GeometryReader { proxy in
+                        if let kind = ModulaMascotKind(rawValue: kindRaw), let anchor {
+                            let bar = proxy[anchor]
+                            ModulaComposerMascot(kind: kind, busy: false, touch: nil, text: text, placement: .comments, size: 48) { kindRaw = $0.rawValue }
+                                .position(x: bar.maxX - 26 - 24 * kind.bodySize.width, y: bar.minY + 6 - kind.footFraction * 48)
+                        }
+                    }
+                }
+            }
+            .padding(16)
+        }
+        .accessibilityIdentifier("moliboo.picker.harness")
+    }
+}
 #endif
