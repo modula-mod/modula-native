@@ -430,102 +430,59 @@ struct ModulaPDFSurface: View {
     /// When true, sits flush inside a parent card (no second-card chrome).
     var embedded = false
     @Environment(AppEnvironment.self) private var app
+    @State private var download = AttachmentDownloadModel()
 
     private var corner: CGFloat { embedded ? 14 : ModulaRadius.medium }
 
-    var body: some View {
-        Button(action: onOpen) {
-            VStack(alignment: .leading, spacing: 0) {
-                PDFPreview(attachment: attachment)
-                    .frame(maxWidth: .infinity).frame(height: embedded ? 200 : 230)
-                    .background(Color.primary.opacity(embedded ? 0.03 : 0.05))
-                HStack(spacing: ModulaSpacing.sm) {
-                    Image(systemName: "doc.richtext.fill").foregroundStyle(app.appearance.accent.color)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(attachment.displayName).font(.subheadline.weight(.semibold)).lineLimit(2)
-                        Text(documentMetadata).font(.caption).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.tertiary)
-                }
-                .padding(ModulaSpacing.sm)
-            }
-            .background(Color.primary.opacity(embedded ? 0.04 : 0.035))
-            .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
-            .overlay {
-                if !embedded {
-                    RoundedRectangle(cornerRadius: corner, style: .continuous).stroke(Color.primary.opacity(0.08))
-                }
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(attachment.accessibilityLabel)
-        .accessibilityHint("Opens PDF viewer")
+    private var fileURL: URL? {
+        if case .downloaded(let url) = download.state { return url }
+        return nil
     }
 
-    private var documentMetadata: String {
-        [attachment.metadata.pageCount.map { "\($0) pages" }, attachment.byteSize.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }]
-            .compactMap { $0 }.joined(separator: " · ").nilIfEmpty ?? "PDF document"
+    private var failed: Bool {
+        if case .failed = download.state { return true }
+        return false
     }
-}
-
-private struct PDFPreview: View {
-    let attachment: ModulaAttachment
-    @State private var image: UIImage?
-    @State private var decodeFailed = false
-    @State private var download = AttachmentDownloadModel()
-    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        Group {
-            if let image {
-                Image(uiImage: image).resizable().scaledToFit()
-            } else {
-                switch (download.state, decodeFailed) {
-                case (.failed, _), (_, true):
-                    placeholder.overlay {
-                        Button("Retry PDF preview", systemImage: "arrow.clockwise") {
-                            Task {
-                                try? await app.attachmentDownloads.remove(attachment)
-                                decodeFailed = false
-                                download.retry(attachment, manager: app.attachmentDownloads)
-                            }
-                        }
-                        .font(.caption.weight(.semibold)).buttonStyle(.bordered)
-                    }
-                default:
-                    placeholder.overlay { ProgressView().controlSize(.small) }
+        ModulaPDFInlineCarousel(
+            attachment: attachment,
+            fileURL: fileURL,
+            failed: failed,
+            height: embedded ? 300 : 340,
+            onRetry: {
+                Task {
+                    try? await app.attachmentDownloads.remove(attachment)
+                    download.retry(attachment, manager: app.attachmentDownloads)
                 }
+            },
+            onOpen: { page in
+                PDFReaderStartPage.set(page, for: attachment.id)
+                onOpen()
+            }
+        )
+        .background(Color.primary.opacity(embedded ? 0.03 : 0.05))
+        .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
+        .overlay {
+            if !embedded {
+                RoundedRectangle(cornerRadius: corner, style: .continuous).stroke(Color.primary.opacity(0.08))
             }
         }
         .task(id: attachment.id) {
-            if let cached = ModulaThumbnailCache.shared.image(for: attachment.id) {
-                image = cached
-                return
-            }
             download.prepare(attachment, downloadsRemote: true, manager: app.attachmentDownloads)
         }
-        .onChange(of: download.state) { _, state in
-            guard case .downloaded(let local) = state else { return }
-            Task {
-                let thumbnail = await Task.detached(priority: .utility) { () -> UIImage? in
-                    guard let document = PDFDocument(url: local), let page = document.page(at: 0) else { return nil }
-                    return page.thumbnail(of: CGSize(width: 500, height: 620), for: .cropBox)
-                }.value
-                guard let thumbnail else {
-                    decodeFailed = true
-                    return
-                }
-                ModulaThumbnailCache.shared.insert(thumbnail, for: attachment.id)
-                decodeFailed = false
-                image = thumbnail
-            }
-        }
+        .onDisappear { download.cancel(attachment.id) }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(attachment.accessibilityLabel)
     }
+}
 
-    private var placeholder: some View {
-        ZStack { Color.primary.opacity(0.04); Image(systemName: "doc.text.image").font(.largeTitle).foregroundStyle(.tertiary) }
-    }
+/// Hands the tapped carousel page to the full-screen reader (consumed once).
+@MainActor
+enum PDFReaderStartPage {
+    private static var pages: [AttachmentID: Int] = [:]
+    static func set(_ page: Int, for id: AttachmentID) { pages[id] = max(0, page) }
+    static func take(for id: AttachmentID) -> Int { pages.removeValue(forKey: id) ?? 0 }
 }
 
 struct ModulaDocumentCard: View {

@@ -33,7 +33,9 @@ struct AppGateHost: View {
     @ViewBuilder
     private var rootContent: some View {
         #if DEBUG
-        if let route = DebugSettingsHarness.route ?? DebugSettingsHarness.anyRoute {
+        if PDFInlineLab.isEnabled {
+            PDFInlineLabView()
+        } else if let route = DebugSettingsHarness.route ?? DebugSettingsHarness.anyRoute {
             DebugSettingsHarnessView(route: route)
         } else {
             gatedContent
