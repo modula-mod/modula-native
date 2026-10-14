@@ -22,60 +22,67 @@ enum MolibooHubSegment: String, CaseIterable, Identifiable {
 struct MolibooGardenScene: View {
     var animating: Bool
     var parallax: CGFloat = 0
+    var ambience: MolibooAmbience = .resolved()
+
+    private var hillFar: Color {
+        switch ambience {
+        case .night: Color(red: 0.16, green: 0.24, blue: 0.30)
+        case .evening: Color(red: 0.50, green: 0.52, blue: 0.40)
+        default: Color(red: 0.62, green: 0.82, blue: 0.56)
+        }
+    }
+    private var hillNear: Color {
+        switch ambience {
+        case .night: Color(red: 0.10, green: 0.18, blue: 0.20)
+        case .evening: Color(red: 0.34, green: 0.42, blue: 0.30)
+        default: Color(red: 0.42, green: 0.70, blue: 0.40)
+        }
+    }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20, paused: !animating)) { ctx in
-            let t = animating ? ctx.date.timeIntervalSinceReferenceDate : 0
-            GeometryReader { geo in
-                let w = geo.size.width, h = geo.size.height
-                ZStack {
-                    LinearGradient(colors: [Color(red: 0.55, green: 0.78, blue: 0.98), Color(red: 0.86, green: 0.93, blue: 0.99), Color(red: 1.0, green: 0.93, blue: 0.86)],
-                                   startPoint: .top, endPoint: .bottom)
-                    // Sun glow
-                    RadialGradient(colors: [Color(red: 1, green: 0.96, blue: 0.8).opacity(0.95), .clear], center: .init(x: 0.72, y: 0.18), startRadius: 4, endRadius: w * 0.55)
-                    // Soft clouds
-                    ForEach(0..<3, id: \.self) { i in
-                        Capsule().fill(.white.opacity(0.75)).frame(width: w * (0.32 + 0.08 * Double(i)), height: 26 + 6 * Double(i))
-                            .blur(radius: 6)
-                            .position(x: (w * (0.2 + 0.33 * Double(i)) + CGFloat(t * (3 + Double(i)))).truncatingRemainder(dividingBy: w * 1.3) - w * 0.1,
-                                      y: h * (0.12 + 0.06 * Double(i)))
-                    }
-                    // Distant arches (ruined garden colonnade)
-                    HStack(spacing: w * 0.06) {
-                        ForEach(0..<4, id: \.self) { _ in
-                            UnevenRoundedRectangle(topLeadingRadius: 40, topTrailingRadius: 40)
-                                .stroke(Color(red: 0.86, green: 0.80, blue: 0.74).opacity(0.85), lineWidth: 9)
-                                .frame(width: w * 0.16, height: h * 0.42)
-                        }
-                    }
-                    .position(x: w * 0.5 + parallax * 0.2, y: h * 0.42)
-                    .blur(radius: 1.2)
-                    MolibooGardenHill(height: 0.40, wave: 0.05).fill(Color(red: 0.62, green: 0.82, blue: 0.56)).offset(x: parallax * 0.3)
-                    MolibooGardenHill(height: 0.26, wave: 0.07).fill(Color(red: 0.42, green: 0.70, blue: 0.40)).offset(x: parallax * 0.5)
-                    // Swaying flowers along the front edge
-                    ForEach(0..<9, id: \.self) { i in
-                        let x = w * (0.04 + 0.12 * Double(i))
-                        let sway = sin(t * 1.3 + Double(i)) * 6
-                        MolibooFlower(petal: [Color.pink, .white, Color(red: 1, green: 0.8, blue: 0.4), Color(red: 0.75, green: 0.6, blue: 1)][i % 4])
-                            .frame(width: 18, height: 34)
-                            .rotationEffect(.degrees(sway), anchor: .bottom)
-                            .position(x: x, y: h * (0.86 + 0.03 * Double(i % 3)))
-                    }
-                    // Drifting petals and dust
-                    ForEach(0..<12, id: \.self) { i in
-                        let seed = Double(i) * 1.618
-                        let px = (seed * 97).truncatingRemainder(dividingBy: 1) * w + CGFloat(sin(t * 0.5 + seed) * 16)
-                        let py = ((seed * 0.37 + t * 0.03 * (1 + Double(i % 3) * 0.4)).truncatingRemainder(dividingBy: 1)) * h
-                        Group {
-                            if i % 3 == 0 { Circle().fill(.white.opacity(0.8)).frame(width: 3, height: 3) }
-                            else { Ellipse().fill(Color.pink.opacity(0.7)).frame(width: 7, height: 4).rotationEffect(.degrees(t * 40 + seed * 50)) }
-                        }
-                        .position(x: px, y: py)
+        GeometryReader { geo in
+            let w = geo.size.width, h = geo.size.height
+            ZStack {
+                // Sky, light and particles: the shared moving background (paused off-screen / Reduce Motion).
+                // Moon right of the character, clear of the centred logo capsule and the stats card.
+                MolibooAmbientBackground(ambience: ambience, animated: animating, moon: UnitPoint(x: 0.68, y: 0.36), moonScale: 0.8)
+                HStack(spacing: w * 0.06) {
+                    ForEach(0..<4, id: \.self) { _ in
+                        UnevenRoundedRectangle(topLeadingRadius: 40, topTrailingRadius: 40)
+                            .stroke((ambience.isDark ? Color(white: 0.55) : Color(red: 0.86, green: 0.80, blue: 0.74)).opacity(ambience.isDark ? 0.35 : 0.85), lineWidth: 9)
+                            .frame(width: w * 0.16, height: h * 0.42)
                     }
                 }
+                .position(x: w * 0.5 + parallax * 0.2, y: h * 0.42)
+                .blur(radius: 1.2)
+                MolibooGardenHill(height: 0.40, wave: 0.05).fill(hillFar).offset(x: parallax * 0.3)
+                MolibooGardenHill(height: 0.26, wave: 0.07).fill(hillNear).offset(x: parallax * 0.5)
+                MolibooSwayingFlowers(animating: animating, dim: ambience.isDark)
             }
         }
         .accessibilityHidden(true)
+    }
+}
+
+/// Flowers along the front edge; its own low-rate timeline so the scene above stays static.
+struct MolibooSwayingFlowers: View {
+    var animating: Bool
+    var dim = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 15, paused: !animating || reduceMotion)) { ctx in
+            let t = animating && !reduceMotion ? ctx.date.timeIntervalSinceReferenceDate : 0
+            GeometryReader { geo in
+                let w = geo.size.width, h = geo.size.height
+                ForEach(0..<9, id: \.self) { i in
+                    MolibooFlower(petal: [Color.pink, .white, Color(red: 1, green: 0.8, blue: 0.4), Color(red: 0.75, green: 0.6, blue: 1)][i % 4])
+                        .frame(width: 18, height: 34)
+                        .rotationEffect(.degrees(sin(t * 1.3 + Double(i)) * 6), anchor: .bottom)
+                        .position(x: w * (0.04 + 0.12 * Double(i)), y: h * (0.86 + 0.03 * Double(i % 3)))
+                        .opacity(dim ? 0.7 : 1)
+                }
+            }
+        }
     }
 }
 

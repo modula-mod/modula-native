@@ -35,6 +35,11 @@ struct AppGateHost: View {
         #if DEBUG
         if PDFInlineLab.isEnabled {
             PDFInlineLabView()
+        } else if ProcessInfo.processInfo.arguments.contains("--debug-moliboo-picker") {
+            MolibooPickerHarnessView()
+        } else if ProcessInfo.processInfo.arguments.contains("--debug-moliboo-hub") {
+            // Straight to the Moliboo settings hub (World → ⋯ → Moliboo settings), e.g. for device screenshots.
+            NavigationStack { MolibooSettingsView() }
         } else if let route = DebugSettingsHarness.route ?? DebugSettingsHarness.anyRoute {
             DebugSettingsHarnessView(route: route)
         } else {
