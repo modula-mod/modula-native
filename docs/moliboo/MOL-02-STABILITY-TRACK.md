@@ -96,3 +96,28 @@ Next hypotheses (not yet tested):
   (`Entity(contentsOf:)` once per asset, `clone(recursive:)` per open) so `MaterialAssetLoader` does not re-register.
 - Run the same 20x loop with 3D off, to confirm the SwiftUI/accessibility crashes need the 3D view at all.
 - ASan/Zombies on the 8AAF71C9 loop.
+
+## Round 3 (2026-10-14 12:40–13:55 BST, shared sim 8AAF71C9)
+**3D-off isolation:** the same 21x Studio open/close loop, with the preview forced to the 2D fallback (temporary, uncommitted harness):
+**5/5 clean, 0 crash reports.** The RealityView or 3D scene is required for the crash.
+
+**ASan** (`-enableAddressSanitizer YES`, separate derivedData): 2 runs, 3 crashes. ASan printed **no** heap-use-after-free report.
+It only caught deadly signals (in SwiftUICore `ContentResponderHelper.update`, `destroy for Image.Resolved`, and the Metal reflection dealloc).
+So the bad free happens in uninstrumented system code (CoreRE/Metal/SwiftUI), not in app Swift code. Zombies were not run
+(XCUITest launches don't inherit scheme env vars without a test-code change).
+
+**Load-once cache** (676bbf1): `MolibooAssetLoader` keeps USDZ templates (cosmetics plus the 2 most recent characters, LRU, in-flight dedupe,
+purged on memory warning) and returns `clone(recursive:)`. Works: cold load 1.1–1.6 s, warm loads **2–4 ms**,
+footprint +12–16 MB over 21 opens (bounded).
+But stability did not improve: 20x lifecycle, 10 separate runs: **4 passed, 6 failed** (5 app crashes, 1 assertion after the app was lost).
+MOL-01 + MOL-02 suites: 11/13 passed. The lifecycle test and `testPipLoadsExpressesAnimatesAndWearsCap` failed in that run;
+Pip passed in both earlier suite runs, so treat it as **flaky**.
+Crash stacks this round: mostly SwiftUICore `destroy for Image.Resolved` → `objc_release` at 0x420 (AttributeGraph subgraph invalidation
+in the display-link render). One CoreRE `MeshShadowSystemStateImpl::didDependentComponentChange` during `addChild` in `MolibooSceneController.load()`.
+
+**Conclusion so far:** crashes need the 3D scene, are not in app-instrumented code, and survive teardown hardening and material caching.
+The signature (freed objects in SwiftUI image teardown, Metal reflection, RealityKit ECS) points to memory corruption inside the
+RealityKit/Metal simulator stack under rapid RealityView create/destroy. Not yet confirmed on a physical device.
+Open options: (a) keep one long-lived RealityView/scene for the app session instead of creating one per Studio open;
+(b) disable dynamic shadows (MeshShadowSystem appears in a stack); (c) run the 20x loop on the physical iPhone to tell a simulator-only defect from a product defect.
+PR #32 stays unmerged.
