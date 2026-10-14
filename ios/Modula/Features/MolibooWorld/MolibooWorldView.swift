@@ -62,6 +62,7 @@ struct MolibooWorldView: View {
     }
 
     var body: some View {
+        let _ = Self._printChanges() // MOLDIAG
         ZStack(alignment: .topLeading) {
             if shows("backdrop") { MolibooWorldBackdrop(period: period, scrollY: scrollY, animating: motionAllowed && stage.awake) }
             ScrollView {
@@ -77,7 +78,7 @@ struct MolibooWorldView: View {
                 .padding(.horizontal, 16).padding(.bottom, 28)
             }
             .scrollIndicators(.hidden)
-            .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, y in scrollY = y }
+            .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, y in if route == nil, abs(y - scrollY) >= 1 { scrollY = y } }
             if let toast { toastView(toast) }
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -87,6 +88,7 @@ struct MolibooWorldView: View {
         .task {
             #if DEBUG
             if let k = MOL03DebugHarness.arg("-MOLWorldKind"), !didApplyDebugKind { didApplyDebugKind = true; kindRaw = k }
+            if MOL03DebugHarness.arg("-MOLWorldPush") == "studio", route == nil { try? await Task.sleep(for: .seconds(2)); route = .studio(characterID) }
             #endif
             if chat == nil { chat = MolibooChatModel(backend: MolibooIntelligenceChatBackend(service: app.intelligence)) }
             care.refresh(characterID)
