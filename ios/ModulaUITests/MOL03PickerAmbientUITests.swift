@@ -63,4 +63,14 @@ final class MOL03PickerAmbientUITests: XCTestCase {
         sleep(3)
         shot("studio-env")
     }
+
+    func testHubLaunchFlagOpensHubDirectly() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitest-skip-first-run", "-MOLWorldNoLaunchWake", "-dev.moliboo.native3D", "YES",
+                               "-moliboo.onboarded.v1", "YES", "--debug-moliboo-hub", "-MOLAmbience", "night"]
+        app.launch()
+        XCTAssertTrue(app.descendants(matching: .any)["moliboo.hub.logo"].waitForExistence(timeout: 25), "--debug-moliboo-hub lands on the hub")
+        sleep(1)
+        shot("hub-night-flag")
+    }
 }
