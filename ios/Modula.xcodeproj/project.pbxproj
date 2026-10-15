@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		87FB5D4511AF4A7D9FCA8B8E /* PDFReaderV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 259E9F3382BC4EA5811690EC /* PDFReaderV2Tests.swift */; };
+		5446F9A7CFA04E0D940811DD /* PDFImmersiveReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA5B12DBD0541F38FC76EC2 /* PDFImmersiveReader.swift */; };
+		7ED9D8977FD243F1A81DFEED /* PDFReading.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BB21356FB1D4171B5159E7E /* PDFReading.swift */; };
 		838D878E1CDE4F0798B71159 /* PDFInlinePostUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B02FB311CBAA4285B556D18C /* PDFInlinePostUITests.swift */; };
 		647C9C0055154B72875252C7 /* PDFInlineCarouselTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA7F7ED971B64DE79A592E1E /* PDFInlineCarouselTests.swift */; };
 		4725F6109BFA4B45A3FAB4FD /* PDFInlineLab.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7E1CFA0E65045DBBB9D7870 /* PDFInlineLab.swift */; };
@@ -444,6 +447,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		259E9F3382BC4EA5811690EC /* PDFReaderV2Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PDFReaderV2Tests.swift; sourceTree = "<group>"; };
+		DAA5B12DBD0541F38FC76EC2 /* PDFImmersiveReader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PDFImmersiveReader.swift; path = Features/Social/PDFImmersiveReader.swift; sourceTree = "<group>"; };
+		7BB21356FB1D4171B5159E7E /* PDFReading.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PDFReading.swift; path = Features/Social/PDFReading.swift; sourceTree = "<group>"; };
 		B02FB311CBAA4285B556D18C /* PDFInlinePostUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PDFInlinePostUITests.swift; sourceTree = "<group>"; };
 		AA7F7ED971B64DE79A592E1E /* PDFInlineCarouselTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PDFInlineCarouselTests.swift; sourceTree = "<group>"; };
 		F7E1CFA0E65045DBBB9D7870 /* PDFInlineLab.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PDFInlineLab.swift; path = Features/Social/PDFInlineLab.swift; sourceTree = "<group>"; };
@@ -950,6 +956,7 @@
 				E30100000000000000000009 /* HomeFeedTests.swift */,
 				E30100000000000000000019 /* PostSystemTests.swift */,
 				AA7F7ED971B64DE79A592E1E /* PDFInlineCarouselTests.swift */,
+				259E9F3382BC4EA5811690EC /* PDFReaderV2Tests.swift */,
 				F00100000000000000000006 /* ProfileTests.swift */,
 				834A240ED776595650758ACA /* LI02IntelligenceTests.swift */,
 				A40300000000000000000002 /* LI03AppleProviderTests.swift */,
@@ -1020,6 +1027,8 @@
 				A03100000000000000000005 /* PostContentRenderer.swift */,
 				F7E1CFA0E65045DBBB9D7870 /* PDFInlineLab.swift */,
 				C60B54CD0D8A4495985F84DD /* PDFInlineCarousel.swift */,
+				DAA5B12DBD0541F38FC76EC2 /* PDFImmersiveReader.swift */,
+				7BB21356FB1D4171B5159E7E /* PDFReading.swift */,
 				A03100000000000000000006 /* ContentPostCatalogView.swift */,
 				084039C8EE9493F07C7F4946 /* AppEnvironment.swift */,
 				B8D0072715530545613031A3 /* ModulaApp.swift */,
@@ -1723,6 +1732,7 @@
 				E40100000000000000000009 /* HomeFeedTests.swift in Sources */,
 				E40100000000000000000019 /* PostSystemTests.swift in Sources */,
 				647C9C0055154B72875252C7 /* PDFInlineCarouselTests.swift in Sources */,
+				87FB5D4511AF4A7D9FCA8B8E /* PDFReaderV2Tests.swift in Sources */,
 				N50100000000000000000012 /* N4CTests.swift in Sources */,
 				V50100000000000000000003 /* ModuleVersionSwitchTests.swift in Sources */,
 				F10100000000000000000006 /* ProfileTests.swift in Sources */,
@@ -1750,6 +1760,8 @@
 				A03200000000000000000005 /* PostContentRenderer.swift in Sources */,
 				4725F6109BFA4B45A3FAB4FD /* PDFInlineLab.swift in Sources */,
 				498A2A6A47D9466587CF839C /* PDFInlineCarousel.swift in Sources */,
+				5446F9A7CFA04E0D940811DD /* PDFImmersiveReader.swift in Sources */,
+				7ED9D8977FD243F1A81DFEED /* PDFReading.swift in Sources */,
 				A03200000000000000000006 /* ContentPostCatalogView.swift in Sources */,
 				C5321327FFFE3ADE609BB112 /* AppEnvironment.swift in Sources */,
 				A50100000000000000000001 /* AppLaunchState.swift in Sources */,

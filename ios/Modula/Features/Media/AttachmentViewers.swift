@@ -123,61 +123,33 @@ struct ModulaPDFViewer: View {
     let attachment: ModulaAttachment
     var onDismiss: () -> Void
     @State private var download = AttachmentDownloadModel()
-    @State private var currentPage = 0
-    @State private var pageCount = 0
+    @State private var startPage: Int?
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        NavigationStack {
-            Group {
-                switch download.state {
-                case .downloaded(let url):
-                    ZStack(alignment: .bottom) {
-                        PDFKitView(url: url, currentPage: $currentPage, pageCount: $pageCount)
-                            .accessibilityLabel(attachment.accessibilityLabel)
-                            .accessibilityIdentifier("pdf.reader")
-                            .ignoresSafeArea(edges: .bottom)
-                        if pageCount > 0 {
-                            HStack(spacing: ModulaSpacing.sm) {
-                                Button("Previous page", systemImage: "chevron.left") { currentPage = max(0, currentPage - 1) }
-                                    .labelStyle(.iconOnly).disabled(currentPage == 0)
-                                Text("\(currentPage + 1) / \(pageCount)").font(.caption.monospacedDigit().weight(.semibold))
-                                    .accessibilityLabel("Page \(currentPage + 1) of \(pageCount)")
-                                Button("Next page", systemImage: "chevron.right") { currentPage = min(pageCount - 1, currentPage + 1) }
-                                    .labelStyle(.iconOnly).disabled(currentPage >= pageCount - 1)
-                            }
-                            .padding(.horizontal, ModulaSpacing.md).padding(.vertical, ModulaSpacing.xs)
-                            .modulaGlass(in: Capsule())
-                            .padding(.bottom, ModulaSpacing.sm)
-                            .accessibilityIdentifier("pdf.reader.controls")
-                        }
-                    }
-                case .downloading, .notDownloaded:
-                    ProgressView("Preparing PDF…")
-                case .failed(let message):
+        Group {
+            switch download.state {
+            case .downloaded(let url):
+                ModulaPDFImmersiveReader(url: url, key: attachment.id, title: attachment.displayName, startPage: startPage, onDismiss: onDismiss)
+            case .downloading, .notDownloaded:
+                ZStack { Color.black.ignoresSafeArea(); ProgressView("Preparing PDF…").tint(.white).foregroundStyle(.white) }
+            case .failed(let message):
+                NavigationStack {
                     ContentUnavailableView {
                         Label("PDF unavailable", systemImage: "doc.richtext")
                     } description: {
                         Text(message)
                     } actions: {
-                        Button("Retry", systemImage: "arrow.clockwise") {
-                            download.retry(attachment, manager: app.attachmentDownloads)
-                        }
-                        .buttonStyle(.borderedProminent)
+                        Button("Retry", systemImage: "arrow.clockwise") { download.retry(attachment, manager: app.attachmentDownloads) }
+                            .buttonStyle(.borderedProminent)
                     }
-                }
-            }
-            .navigationTitle(attachment.displayName)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Done", action: onDismiss) }
-                if case .downloaded(let url) = download.state {
-                    ToolbarItem(placement: .primaryAction) { ShareLink(item: url) }
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done", action: onDismiss) } }
                 }
             }
         }
         .task(id: attachment.id) {
-            currentPage = PDFReaderStartPage.take(for: attachment.id)
+            let page = PDFReaderStartPage.take(for: attachment.id)
+            startPage = page > 0 ? page : nil
             download.prepare(attachment, downloadsRemote: true, manager: app.attachmentDownloads)
         }
         .onDisappear { download.cancel(attachment.id) }

@@ -431,6 +431,10 @@ struct ModulaPDFSurface: View {
     var embedded = false
     @Environment(AppEnvironment.self) private var app
     @State private var download = AttachmentDownloadModel()
+    @State private var reader: PDFReaderLaunch?
+    @State private var readingVersion = 0
+    @Namespace private var zoomNamespace
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var corner: CGFloat { embedded ? 14 : ModulaRadius.medium }
 
@@ -456,9 +460,11 @@ struct ModulaPDFSurface: View {
                     download.retry(attachment, manager: app.attachmentDownloads)
                 }
             },
+            readingVersion: readingVersion,
             onOpen: { page in
-                PDFReaderStartPage.set(page, for: attachment.id)
-                onOpen()
+                // Open our own immersive reader (zoom morph from the card); fall back to the host viewer.
+                if let fileURL { reader = PDFReaderLaunch(url: fileURL, page: page) }
+                else { PDFReaderStartPage.set(page, for: attachment.id); onOpen() }
             }
         )
         .background(Color.primary.opacity(embedded ? 0.03 : 0.05))
@@ -468,13 +474,28 @@ struct ModulaPDFSurface: View {
                 RoundedRectangle(cornerRadius: corner, style: .continuous).stroke(Color.primary.opacity(0.08))
             }
         }
+        .matchedTransitionSource(id: attachment.id, in: zoomNamespace)
         .task(id: attachment.id) {
             download.prepare(attachment, downloadsRemote: true, manager: app.attachmentDownloads)
         }
-        .onDisappear { download.cancel(attachment.id) }
+        .onDisappear { if reader == nil { download.cancel(attachment.id) } }
+        .fullScreenCover(item: $reader, onDismiss: { readingVersion &+= 1 }) { launch in
+            let content = ModulaPDFImmersiveReader(url: launch.url, key: attachment.id, title: attachment.displayName, startPage: launch.page) { reader = nil }
+            if reduceMotion {
+                content
+            } else {
+                content.navigationTransition(.zoom(sourceID: attachment.id, in: zoomNamespace))
+            }
+        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(attachment.accessibilityLabel)
     }
+}
+
+struct PDFReaderLaunch: Identifiable, Hashable {
+    let id = UUID()
+    let url: URL
+    let page: Int
 }
 
 /// Hands the tapped carousel page to the full-screen reader (consumed once).
