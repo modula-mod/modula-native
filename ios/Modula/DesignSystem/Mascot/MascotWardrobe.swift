@@ -601,6 +601,8 @@ final class MascotWardrobeStore {
     // Delights
     @discardableResult
     func applyOutfitOfTheDayIfNeeded() -> Bool {
+        // When native 3D is active, preserve the user's clean character or explicit outfit rather than auto-equipping random items.
+        if MolibooFeatureFlags.native3DEnabled { return false }
         let key = "composer.mascot.ootd.\(MascotProgressStore.dayKey())"
         guard !UserDefaults.standard.bool(forKey: key) else { return false }
         UserDefaults.standard.set(true, forKey: key)

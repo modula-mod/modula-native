@@ -68,6 +68,7 @@ struct MolibooSettingsView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .contentMargins(.bottom, 96, for: .scrollContent)
             .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, y in
                 if route == nil, abs(y - scrollY) >= 2 { scrollY = y }
             }
@@ -387,35 +388,55 @@ struct MolibooSettingsView: View {
     private func characterCard(_ k: ModulaMascotKind) -> some View {
         let selected = kindRaw == k.rawValue
         let locked = !MascotEntitlements.canUse(k)
+        let has3D = MolibooRegistry.has3D(k.rawValue)
         return Button {
             if locked { premiumKind = k; HapticEngine.shared.play(.warning); return }
             withAnimation(motionOn ? .spring(response: 0.4, dampingFraction: 0.72) : nil) { kindRaw = k.rawValue }
             MascotSound.shared.play(.pick)
             HapticEngine.shared.play(.selection)
         } label: {
-            VStack(spacing: 3) {
-                MolibooHubArt(kind: k, size: 58)
-                Text(k.name).font(.footnote.weight(.bold)).lineLimit(1)
-                Text(k.personality).font(.system(size: 9)).foregroundStyle(.secondary).multilineTextAlignment(.center).lineLimit(2)
-                    .frame(minHeight: 22, alignment: .top)
-                if k.isPremium {
-                    Label(locked ? "Premium" : "Premium", systemImage: locked ? "lock.fill" : "crown.fill")
-                        .font(.system(size: 8, weight: .bold)).foregroundStyle(.orange)
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Capsule().fill(Color.orange.opacity(0.14)))
+            VStack(spacing: 4) {
+                MolibooHubArt(kind: k, size: 60)
+                Text(k.name)
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(Color.black.opacity(0.88))
+                    .lineLimit(1)
+                Text(k.personality)
+                    .font(.caption2)
+                    .foregroundStyle(Color.black.opacity(0.66))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    .frame(minHeight: 26, alignment: .top)
+                HStack(spacing: 3) {
+                    if has3D {
+                        Text("3D")
+                            .font(.caption2.weight(.heavy))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 5).padding(.vertical, 1.5)
+                            .background(Capsule().fill(Color(red: 0.21, green: 0.61, blue: 0.67)))
+                    }
+                    if k.isPremium {
+                        Label("Premium", systemImage: locked ? "lock.fill" : "crown.fill")
+                            .labelStyle(.iconOnly)
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.orange)
+                            .padding(.horizontal, 5).padding(.vertical, 2)
+                            .background(Capsule().fill(Color.orange.opacity(0.18)))
+                    }
                 }
             }
             .padding(.vertical, 8).padding(.horizontal, 4)
-            .frame(maxWidth: .infinity, minHeight: 138, alignment: .top)
+            .frame(maxWidth: .infinity, minHeight: 142, alignment: .top)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(LinearGradient(colors: [k.palette.light, k.palette.mid.opacity(0.75)], startPoint: .top, endPoint: .bottom))
+                    .fill(LinearGradient(colors: [k.palette.light, k.palette.mid.opacity(0.78)], startPoint: .top, endPoint: .bottom))
             )
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(selected ? Color.accentColor : Color.white.opacity(0.6), lineWidth: selected ? 2.5 : 1))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(selected ? Color(red: 0.21, green: 0.61, blue: 0.67) : Color.white.opacity(0.6), lineWidth: selected ? 2.5 : 1))
             .overlay(alignment: .topTrailing) {
                 if selected {
-                    Image(systemName: "checkmark").font(.system(size: 10, weight: .heavy)).foregroundStyle(.white)
-                        .frame(width: 20, height: 20).background(Circle().fill(Color.accentColor)).padding(5)
+                    Image(systemName: "checkmark").font(.caption2.weight(.heavy)).foregroundStyle(.white)
+                        .frame(width: 20, height: 20).background(Circle().fill(Color(red: 0.21, green: 0.61, blue: 0.67))).padding(5)
                         .transition(.scale.combined(with: .opacity))
                 }
             }

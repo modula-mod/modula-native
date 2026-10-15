@@ -312,6 +312,9 @@ final class MolibooSceneController {
         e.position = [o[0], o[1], o[2]]
         e.scale = [cfg.scale, cfg.scale, cfg.scale]
         equipped[id] = e
+        if !UIAccessibility.isReduceMotionEnabled {   // same equip burst as fit-table items
+            MolibooWardrobeRig.burst(.init(effect: .sparkle, duration: 0.45, overshoot: 1.15, pulses: 1), in: anchor, at: e)
+        }
         return true
     }
 

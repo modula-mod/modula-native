@@ -35,6 +35,8 @@
 		76DA8B4DAD6919F138D97A79 /* ModulaWordmarkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF51FB12DD2DA68F1C34C228 /* ModulaWordmarkTests.swift */; };
 		58CC373DCE8EFE4E753203E2 /* MOL03OriginalsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */; };
 		F75AE210476332DC70F54B1E /* MOL03WardrobeRigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */; };
+		E1D8999E32165077E380F65F /* MOL03WardrobeFitValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6F36F8A3D92BA8957963D0C /* MOL03WardrobeFitValidationTests.swift */; };
+		99CBEC9E23A4AF4672887C07 /* MolibooFitValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2F5AECF0C4381A87D0DDF7F /* MolibooFitValidator.swift */; };
 		21C0A4BE4E3DEE15DDC6FE50 /* MOL03WardrobeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AE2EFB23974BDCACBE76C96 /* MOL03WardrobeTests.swift */; };
 		95A2A40B751C33992987DF6A /* MOL03CollectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8415B91940EF56AAD117C257 /* MOL03CollectionTests.swift */; };
 		680D9256E1826DE4F3EAEA97 /* MOL03StudioTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06DB44C2F136EFCF899E8023 /* MOL03StudioTests.swift */; };
@@ -475,6 +477,8 @@
 		AF51FB12DD2DA68F1C34C228 /* ModulaWordmarkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModulaWordmarkTests.swift; sourceTree = "<group>"; };
 		30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03OriginalsTests.swift; sourceTree = "<group>"; };
 		C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WardrobeRigTests.swift; sourceTree = "<group>"; };
+		F6F36F8A3D92BA8957963D0C /* MOL03WardrobeFitValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WardrobeFitValidationTests.swift; sourceTree = "<group>"; };
+		B2F5AECF0C4381A87D0DDF7F /* MolibooFitValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MolibooFitValidator.swift; sourceTree = "<group>"; };
 		9AE2EFB23974BDCACBE76C96 /* MOL03WardrobeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WardrobeTests.swift; sourceTree = "<group>"; };
 		8415B91940EF56AAD117C257 /* MOL03CollectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03CollectionTests.swift; sourceTree = "<group>"; };
 		06DB44C2F136EFCF899E8023 /* MOL03StudioTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03StudioTests.swift; sourceTree = "<group>"; };
@@ -936,6 +940,8 @@
 				AF51FB12DD2DA68F1C34C228 /* ModulaWordmarkTests.swift */,
 				30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */,
 				C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */,
+				F6F36F8A3D92BA8957963D0C /* MOL03WardrobeFitValidationTests.swift */,
+				B2F5AECF0C4381A87D0DDF7F /* MolibooFitValidator.swift */,
 				9AE2EFB23974BDCACBE76C96 /* MOL03WardrobeTests.swift */,
 				8415B91940EF56AAD117C257 /* MOL03CollectionTests.swift */,
 				06DB44C2F136EFCF899E8023 /* MOL03StudioTests.swift */,
@@ -1718,6 +1724,8 @@
 				76DA8B4DAD6919F138D97A79 /* ModulaWordmarkTests.swift in Sources */,
 				58CC373DCE8EFE4E753203E2 /* MOL03OriginalsTests.swift in Sources */,
 				F75AE210476332DC70F54B1E /* MOL03WardrobeRigTests.swift in Sources */,
+				E1D8999E32165077E380F65F /* MOL03WardrobeFitValidationTests.swift in Sources */,
+				99CBEC9E23A4AF4672887C07 /* MolibooFitValidator.swift in Sources */,
 				21C0A4BE4E3DEE15DDC6FE50 /* MOL03WardrobeTests.swift in Sources */,
 				95A2A40B751C33992987DF6A /* MOL03CollectionTests.swift in Sources */,
 				680D9256E1826DE4F3EAEA97 /* MOL03StudioTests.swift in Sources */,

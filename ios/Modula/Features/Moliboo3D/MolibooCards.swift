@@ -37,7 +37,7 @@ enum MolibooCardRarity: String, CaseIterable, Codable, Comparable, Sendable {
         }
     }
     var glow: Color { frame[0] }
-    var glowRadius: CGFloat { [4, 10, 16, 24][rank] }
+    var glowRadius: CGFloat { [3, 7, 11, 16][rank] }
     var holoStrength: Double { [0.12, 0.28, 0.42, 0.6][rank] }
     var sparkleCount: Int { [6, 12, 20, 34][rank] }
     /// Pack roll weights (out of 100).
@@ -252,9 +252,9 @@ struct MolibooTradingCardView: View {
     var body: some View {
         ZStack {
             if faceDown { back } else {
-                // Metal holo foil scaled by rarity; Legendary adds a shimmer sweep. Still frame when not animating.
-                front.molibooHoloFoil(foilStrength, animated: animating)
-                    .modifier(MolibooLegendaryShimmer(on: card.rarity == .legendary, animated: animating))
+                // Metal holo foil scaled by rarity + live tilt; Legendary adds a shimmer sweep & specular rim. Still frame when not animating.
+                front.molibooHoloFoil(foilStrength, tilt: tilt, animated: animating)
+                    .modifier(MolibooLegendaryShimmer(on: card.rarity >= .rare, strength: card.rarity == .legendary ? 0.72 : 0.35, animated: animating))
             }
         }
         .frame(width: Self.base.width, height: Self.base.height)
@@ -292,7 +292,8 @@ struct MolibooTradingCardView: View {
                     }
                 }
                 .padding(.horizontal, 10).padding(.vertical, 7)
-                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.white.opacity(0.08)))
+                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.black.opacity(0.34)))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.white.opacity(0.14), lineWidth: 0.8))
                 HStack(spacing: 3) {
                     ForEach(0..<5, id: \.self) { i in
                         Image(systemName: i < card.hearts ? "heart.fill" : "heart").font(.system(size: 10)).foregroundStyle(i < card.hearts ? Color.pink : .white.opacity(0.35))
@@ -409,6 +410,7 @@ struct MolibooCardBinderView: View {
             }
             .padding(.horizontal, 16)
         }
+        .contentMargins(.bottom, 84, for: .scrollContent)
         .background(LinearGradient(colors: [Color(red: 0.10, green: 0.10, blue: 0.22), Color(red: 0.05, green: 0.16, blue: 0.20)], startPoint: .top, endPoint: .bottom).ignoresSafeArea())
         .navigationTitle("Cards")
         .navigationBarTitleDisplayMode(.inline)
@@ -742,8 +744,10 @@ struct MolibooLegendaryReveal: View {
 }
 
 private struct MolibooLegendaryShimmer: ViewModifier {
-    let on: Bool; let animated: Bool
+    let on: Bool
+    var strength: Double = 0.7
+    let animated: Bool
     func body(content: Content) -> some View {
-        if on { content.molibooShimmer(0.7, animated: animated) } else { content }
+        if on { content.molibooShimmer(strength, animated: animated) } else { content }
     }
 }

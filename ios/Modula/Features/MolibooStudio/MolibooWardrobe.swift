@@ -18,13 +18,19 @@ struct MolibooWardrobeQuery: Equatable, Sendable {
 
     func filter(_ items: [MascotWardrobeItem], owns: (MascotWardrobeItem) -> Bool, supports3D: (String) -> Bool) -> [MascotWardrobeItem] {
         let q = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return items.filter { item in
+        let matched = items.filter { item in
             if let slot, item.slot != slot { return false }
             if ownership == .owned, !owns(item) { return false }
             if only3D, !supports3D(item.id) { return false }
             if q.isEmpty { return true }
             return item.name.lowercased().contains(q) || item.blurb.lowercased().contains(q)
                 || item.id.lowercased().contains(q) || item.slot.title.lowercased().contains(q)
+        }
+        // Keep the hero first-party Signature Cap featured at the top of the grid when matched.
+        return matched.sorted { a, b in
+            if a.id == MolibooCosmetics.signatureCapID { return true }
+            if b.id == MolibooCosmetics.signatureCapID { return false }
+            return false
         }
     }
 }
@@ -99,7 +105,7 @@ struct MolibooWardrobeSheet: View {
     @State private var query = MolibooWardrobeQuery()
     @State private var saving = false
     @State private var outfitName = ""
-    private let columns = [GridItem(.adaptive(minimum: 92), spacing: 10)]
+    private let columns = [GridItem(.adaptive(minimum: 102), spacing: 10)]
 
     private var results: [MascotWardrobeItem] {
         query.filter(MascotWardrobeCatalog.all, owns: session.store.owns, supports3D: supports3D)
@@ -112,7 +118,10 @@ struct MolibooWardrobeSheet: View {
             HStack {
                 Text("Wardrobe").font(.headline)
                 Spacer()
-                Text("\(results.count) items").font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("wardrobe.count")
+                Text(results.count == 1 ? "1 item" : "\(results.count) items")
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("wardrobe.count")
             }
             TextField("Search hats, tops, colours…", text: $query.text)
                 .textFieldStyle(.roundedBorder).autocorrectionDisabled().textInputAutocapitalization(.never).submitLabel(.search)
@@ -130,8 +139,9 @@ struct MolibooWardrobeSheet: View {
                 LazyVGrid(columns: columns, spacing: 10) {
                     ForEach(results, id: \.id) { item in tile(item) }
                 }
-                .padding(.bottom, 20)
+                .padding(.bottom, 36)
             }
+            .contentMargins(.bottom, 28, for: .scrollContent)
             .scrollDismissesKeyboard(.immediately)
         }
         .padding(.horizontal, 20).padding(.top, 12)
@@ -240,9 +250,10 @@ struct MolibooWardrobeSheet: View {
                     }
                     .padding(4)
                 }
-                .frame(height: 58)
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(on ? Color.accentColor : .clear, lineWidth: 2))
-                Text(item.name).font(.caption2).lineLimit(1)
+                .frame(height: 64)
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(on ? Color(red: 0.21, green: 0.61, blue: 0.67) : .clear, lineWidth: 2))
+                Text(item.name).font(.caption2.weight(.semibold)).lineLimit(2).multilineTextAlignment(.center).minimumScaleFactor(0.85)
+                    .frame(minHeight: 26, alignment: .top)
             }
         }
         .buttonStyle(.plain)

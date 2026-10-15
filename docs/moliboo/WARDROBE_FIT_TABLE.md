@@ -48,3 +48,23 @@ While the file is absent the table is empty, and only manifest cosmetics (the Si
 - Loading: lazy, per item, small clone cache; the character is never reloaded.
 - Size: free/earnable items bundled in `MolibooWardrobe/` (~7 MB); premium items in `MolibooWardrobePremium/` (~7 MB) tagged as On-Demand Resource `moliboo.wardrobe.premium`; loader tries bundle, then ODR (`NSBundleResourceRequest`). ODR delivery is not verified in simulator tests (premium files are reachable locally in Debug).
 - Known: Sprout/Ember have table cap fits ("adapted") while the manifest still marks the Signature Cap incompatible for them; 29 fits are being regenerated upstream and will replace the table in place.
+
+## Fit validation (MOL-03 fits)
+- **Validator:** `ios/ModulaTests/MolibooFitValidator.swift`, run by `MOL03WardrobeFitValidationTests`. It loads each registered Original
+  (Pebble, Pip, Moss, Tofu, Bolt, Nimbus, Mochi, Sprout, Ember, Tuck) with each of the 195 items in RealityKit, offscreen, applies the
+  fit exactly as the rig does, and measures the item against the body surface (densely sampled, signed distance):
+  - **surface** items (hats, hair, face, wings, shoes, pins): touch the body, no floating gap over 2 mm; under 3 % of the item more than
+    3 mm inside; not mostly hidden in the body; parts stay joined (≤ 1.2 mm, which catches a cap's brim drifting off its dome).
+  - **wrap** items (tops, bottoms, outerwear, capes, necklaces, scarves): same contact and clipping rules, ≤ 25 % hidden, hug the
+    body (median stand-off ≤ 8 mm), readable height, and sit at the right height for their slot.
+  - **held** items touch the body side; **pets** stand on the ground within 20 mm of the character; **auras** stay within 40 mm;
+    **backgrounds** must not cut through the character or sit in front of it.
+  - **Proportions:** item size vs body size within per-kind limits.
+  - **Equip effect:** every item resolves a non-`none` effect, and equipping plays it, plus a burst of motes.
+- **`stretch`** (new, optional): `[sx, sy, sz]` per-axis multiplier on `scale` (item-local), so garments can hug wide or tall bodies.
+- **Backgrounds** use `rotationDegrees: [90, 0, 180]`, so the backdrop dome opens towards the camera. Before this it was placed over the
+  character, which is what made Pebble look like a translucent dome in Studio.
+- **Equip burst:** `MolibooWardrobeRig.burst` spawns 8 to 12 small unlit motes that fly out and fade (sparkle is gold, shimmer is pale
+  blue, pop and bounce are white). The Signature Cap path in `MolibooSceneController.equip` uses it too. It is off under Reduce Motion.
+- **Solver and contact sheets:** the offline tool (`~/Developer/.agent-xfer/fits/tool`) reuses the validator to slide, scale and
+  stretch each failing fit until it passes, then renders one contact sheet per character.

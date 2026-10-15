@@ -1,8 +1,9 @@
 import SwiftUI
 import RealityKit
 
-/// MOL-03 Living Studio: a living stage (per-character framing + environment), a header, an action rail
-/// (Style / Play / Expressions / Photo) and a contextual sheet. Dev-flagged; reached from Studio and Settings → Moliboo.
+/// MOL-03R Living Studio: persistent 3D stage (per-character framing + environment shaders + volumetric halo),
+/// crisp header, floating Liquid Glass action rail, and non-blocking sheets (Compact / Medium / 76% Expanded)
+/// so the active Moliboo remains visible on stage at all times.
 struct MolibooLivingStudioView: View {
     let characterID: String
 
@@ -22,6 +23,7 @@ struct MolibooLivingStudioView: View {
     @State private var director: MolibooStudioDirector?
     @State private var unavailable = false
     @State private var panel: Panel?
+    @State private var detent: PresentationDetent = .medium
     @Namespace private var segmentNS
     @State private var photoMode = false
     @State private var dragStart: Float = 0
@@ -30,11 +32,13 @@ struct MolibooLivingStudioView: View {
     @State private var photo: MolibooCapturedPhoto?
     @State private var shots = 0
     @State private var lastShotSubject = false
+    @State private var pulseTick = 0
     #if DEBUG
     @State private var clipProbe = ""
     #endif
     private var wardrobe = MascotWardrobeStore.shared
     private let capID = MolibooCosmetics.signatureCapID
+    private let teal = Color(red: 0.21, green: 0.61, blue: 0.67)
 
     private let initialPanel: Panel?
     private let startInPhoto: Bool
@@ -46,6 +50,7 @@ struct MolibooLivingStudioView: View {
     private var environment: MolibooEnvironment { MolibooEnvironment(rawValue: envRaw) ?? .meadow }
     private var reduceMotion: Bool { systemReduceMotion || forceReduceMotion }
     private var descriptor: MolibooCharacterDescriptor? { MolibooRegistry.manifest?.character(id: characterID) }
+    private var accentColor: Color { ModulaMascotKind(rawValue: characterID)?.palette.accent ?? teal }
 
     var body: some View {
         ZStack {
@@ -77,34 +82,70 @@ struct MolibooLivingStudioView: View {
         .task { await setUp() }
         .onChange(of: reduceMotion) { _, v in director?.setReduceMotion(v); session?.rig?.reduceMotion = v }
         .onChange(of: scenePhase) { _, p in director?.setPaused(p != .active) }
-        .onChange(of: panel) { _, p in director?.setPaused(Self.holdsStill(p)); frame(sheetOpen: p != nil, animated: true) }
+        .onChange(of: panel) { _, p in
+            director?.setPaused(Self.holdsStill(p))
+            frame(sheetOpen: p != nil, animated: true)
+        }
         .onDisappear { director?.stop(); session?.rig?.stop(); controller?.stop() }
     }
 
     // MARK: Pieces
 
     private var stageBackground: some View {
-        ZStack(alignment: .bottom) {
+        let live = !photoMode && !reduceMotion && scenePhase == .active
+        return ZStack(alignment: .bottom) {
             LinearGradient(colors: environment.sky, startPoint: .top, endPoint: .bottom)
-            Ellipse().fill(environment.floor.opacity(0.85)).frame(height: 220).offset(y: 90).blur(radius: 18)
             switch environment {
-            case .nightSky: MolibooAmbientBackground(ambience: .night, animated: !photoMode, showsSky: false)
-            case .meadow: MolibooAmbientBackground(ambience: .afternoon, animated: !photoMode, showsSky: false, density: 0.7)
-            case .cozyRoom: MolibooAmbientBackground(ambience: .dreamy, animated: !photoMode, showsSky: false, density: 0.6)
-            case .studio: EmptyView()
+            case .nightSky:
+                Color.clear.molibooNebula(0.85, animated: live)
+                MolibooAmbientBackground(ambience: .night, animated: live, showsSky: false)
+            case .meadow:
+                Color.clear.molibooSunbeams(Color(red: 1.0, green: 0.97, blue: 0.82), intensity: 0.85, animated: live)
+                MolibooAmbientBackground(ambience: .afternoon, animated: live, showsSky: false, density: 0.7)
+            case .cozyRoom:
+                Color.clear.molibooSunbeams(Color(red: 1.0, green: 0.88, blue: 0.72), intensity: 0.75, animated: live)
+                MolibooAmbientBackground(ambience: .dreamy, animated: live, showsSky: false, density: 0.6)
+            case .studio:
+                RadialGradient(colors: [.white.opacity(0.6), .clear], center: .center, startRadius: 10, endRadius: 320)
             }
+            // Volumetric stage halo + floor glow under the active Moliboo
+            Circle()
+                .fill(.clear)
+                .frame(width: 340, height: 340)
+                .molibooStageAura(accentColor, strength: environment.isDark ? 0.75 : 0.48, animated: live)
+                .offset(y: -90)
+            Ellipse()
+                .fill(environment.floor.opacity(0.88))
+                .frame(height: 220)
+                .molibooCaustics(teal.opacity(0.75), animated: live)
+                .offset(y: 90)
+                .blur(radius: 18)
         }
+        .molibooJoyPulse(trigger: pulseTick, tint: accentColor)
         .ignoresSafeArea()
         .accessibilityIdentifier("studio.environment.\(environment.rawValue)")
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(descriptor?.displayName ?? "Moliboo").font(.title2.weight(.bold))
-                if let d = descriptor {
-                    Text("#\(String(format: "%03d", d.canonicalNumber)) · \(director?.personality.mood.capitalized ?? "")")
-                        .font(.caption.weight(.semibold)).opacity(0.8)
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(descriptor?.displayName ?? "Moliboo")
+                        .font(.system(.title2, design: .rounded).weight(.heavy))
+                    if let d = descriptor {
+                        Text(String(format: "#%03d", d.canonicalNumber))
+                            .font(.caption2.weight(.bold).monospaced())
+                            .padding(.horizontal, 7).padding(.vertical, 3)
+                            .background(.ultraThinMaterial, in: Capsule())
+                    }
+                }
+                if let mood = director?.personality.mood {
+                    HStack(spacing: 5) {
+                        Circle().fill(teal).frame(width: 6, height: 6)
+                        Text("\(mood.capitalized) companion · \(controller?.expression.title ?? "Idle")")
+                            .font(.caption.weight(.semibold))
+                            .opacity(0.85)
+                    }
                 }
             }
             .shadow(color: .black.opacity(environment.isDark ? 0.4 : 0), radius: 3, y: 1)
@@ -116,8 +157,9 @@ struct MolibooLivingStudioView: View {
             } label: {
                 Label(environment.title, systemImage: environment.symbol)
                     .font(.subheadline.weight(.semibold))
-                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .padding(.horizontal, 14).padding(.vertical, 9)
                     .modulaGlass(in: Capsule(), interactive: true, specular: true)
+                    .molibooSpecularRim(0.45, animated: !reduceMotion)
             }
             .accessibilityIdentifier("studio.envMenu")
         }
@@ -139,8 +181,8 @@ struct MolibooLivingStudioView: View {
                 .gesture(DragGesture()
                     .onChanged { v in controller.yaw = dragStart + Float(v.translation.width) * 0.012 }
                     .onEnded { _ in dragStart = controller.yaw })
-                .simultaneousGesture(TapGesture().onEnded { director?.request(.tap) })
-                .simultaneousGesture(LongPressGesture(minimumDuration: 0.5).onEnded { _ in director?.request(.pet) })
+                .simultaneousGesture(TapGesture().onEnded { director?.request(.tap); pulseTick += 1 })
+                .simultaneousGesture(LongPressGesture(minimumDuration: 0.5).onEnded { _ in director?.request(.pet); pulseTick += 1 })
                 .accessibilityIdentifier("moliboo3d.view")
                 .accessibilityLabel("\(descriptor?.displayName ?? "Moliboo"). Tap to say hi, hold to pet, drag to turn.")
             } else if unavailable || controller?.loadFailed == true {
@@ -161,16 +203,19 @@ struct MolibooLivingStudioView: View {
     }
 
     private var rail: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             ForEach(Panel.allCases) { p in
-                railButton(p.title, p.symbol, id: "studio.rail.\(p.rawValue)", selected: panel == p) { panel = panel == p ? nil : p }
+                railButton(p.title, p.symbol, id: "studio.rail.\(p.rawValue)", selected: panel == p) {
+                    panel = panel == p ? nil : p
+                }
             }
             railButton("Photo", "camera.fill", id: "studio.rail.photo", selected: false) { panel = nil; photoMode = true }
         }
-        .padding(10)
+        .padding(8)
         .foregroundStyle(environment.isDark ? .white : .primary)
         .modulaGlass(in: RoundedRectangle(cornerRadius: 26, style: .continuous), interactive: false,
-                     tint: environment.isDark ? Color.black.opacity(0.25) : Color.white.opacity(0.25), specular: true)
+                     tint: environment.isDark ? Color.black.opacity(0.28) : Color.white.opacity(0.25), specular: true)
+        .molibooSpecularRim(0.4, animated: !reduceMotion)
         .shadow(color: .black.opacity(0.25), radius: 14, y: 6)
         .environment(\.colorScheme, environment.isDark ? .dark : .light)
         .padding(.horizontal, 14).padding(.bottom, 20)
@@ -179,11 +224,11 @@ struct MolibooLivingStudioView: View {
     private func railButton(_ title: String, _ symbol: String, id: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 4) {
-                Image(systemName: symbol).font(.title3)
-                Text(title).font(.caption2.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                Image(systemName: symbol).font(.headline)
+                Text(title).font(.caption2.weight(.bold)).lineLimit(1).minimumScaleFactor(0.75)
             }
             .frame(maxWidth: .infinity, minHeight: 52)
-            .background(selected ? Color.accentColor.opacity(0.32) : .clear, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(selected ? teal.opacity(0.35) : .clear, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
         .buttonStyle(MolibooSpringPressStyle())
         .accessibilityIdentifier(id)
@@ -196,6 +241,7 @@ struct MolibooLivingStudioView: View {
                 Spacer()
                 Button("Done") { photoMode = false }
                     .buttonStyle(.borderedProminent)
+                    .tint(teal)
                     .accessibilityIdentifier("studio.photo.done")
             }
             .padding()
@@ -204,19 +250,40 @@ struct MolibooLivingStudioView: View {
         }
     }
 
-
     /// Trying things on / posing: the idle personality holds still.
     private static func holdsStill(_ p: Panel?) -> Bool {
         guard let p else { return false }
         return p == .style || p == .wardrobe || p == .expressions
     }
 
-    /// Per-character framing; with a sheet up the camera tilts down and pulls back so the Moliboo sits above the sheet.
+    /// Compact detents for Expressions & Play (~28% height), Medium for Style/Wardrobe, and capped 76% Expanded
+    /// so the active 3D Moliboo remains visible above the sheet at every detent.
+    private static let compactDetent: PresentationDetent = .height(250)
+    private static let styleDetent: PresentationDetent = .height(300)
+    private static let expandedDetent: PresentationDetent = .fraction(0.76)
+
+    private static func detents(for p: Panel) -> Set<PresentationDetent> {
+        switch p {
+        case .expressions, .play: [compactDetent, .medium]
+        case .style: [styleDetent, .medium]
+        case .wardrobe, .more: [.medium, expandedDetent]
+        }
+    }
+
+    private static func defaultDetent(for p: Panel) -> PresentationDetent {
+        switch p {
+        case .expressions, .play: compactDetent
+        case .style: styleDetent
+        case .wardrobe, .more: .medium
+        }
+    }
+
+    /// Per-character framing; with a sheet up the camera tilts down and pulls back so the Moliboo sits cleanly in the upper stage.
     private func frame(sheetOpen: Bool, animated: Bool) {
         guard let c = controller else { return }
         let f = MolibooFraming.for(characterID)
         c.cameraEntity.camera.fieldOfViewInDegrees = f.fov
-        let shift: SIMD3<Float> = sheetOpen ? [0, -(f.eye.z * 0.26), f.eye.z * 0.2] : .zero
+        let shift: SIMD3<Float> = sheetOpen ? [0, -(f.eye.z * 0.25), f.eye.z * 0.18] : .zero
         let probe = Entity()
         probe.look(at: f.target + [0, shift.y, 0], from: f.eye + shift, relativeTo: nil)
         if animated && !reduceMotion {
@@ -240,16 +307,21 @@ struct MolibooLivingStudioView: View {
 
     private func panelSheet(_ p: Panel) -> some View {
         VStack(spacing: 0) {
-            // The sheet covers the rail, so it carries its own panel switcher.
-            // One top-level segmented control: a single glass track, the selected segment morphs between panels.
+            // Single top-level segmented control inside the sheet, with a close button on the trailing edge.
             HStack(spacing: 0) {
                 ForEach(Panel.allCases) { q in
-                    Button { withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { panel = q } } label: {
+                    Button {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            panel = q
+                        }
+                    } label: {
                         Text(q.title)
-                            .font(.footnote.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7)
-                            .frame(maxWidth: .infinity, minHeight: 32)
+                            .font(.footnote.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.75)
+                            .frame(maxWidth: .infinity, minHeight: 34)
                             .background {
-                                if q == p { Capsule().fill(Color.accentColor).matchedGeometryEffect(id: "studio.segment", in: segmentNS) }
+                                if q == p {
+                                    Capsule().fill(teal).matchedGeometryEffect(id: "studio.segment", in: segmentNS)
+                                }
                             }
                             .contentShape(Capsule())
                     }
@@ -264,20 +336,26 @@ struct MolibooLivingStudioView: View {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("studio.sheet.tabs")
             .safeAreaInset(edge: .trailing) {
-                Button { panel = nil } label: { Image(systemName: "xmark.circle.fill").font(.title2).foregroundStyle(.secondary) }
-                    .accessibilityIdentifier("studio.sheet.close").accessibilityLabel("Close")
+                Button { panel = nil } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 36, height: 36)
+                }
+                .accessibilityIdentifier("studio.sheet.close")
+                .accessibilityLabel("Close")
             }
-            .padding(.horizontal, 20).padding(.top, 16)
+            .padding(.horizontal, 18).padding(.top, 14)
+
             sheet(for: p)
             Spacer(minLength: 0)
         }
-        .presentationDetents(p == .wardrobe || p == .more ? [.medium, .large] : [.height(300), .medium])
-        .presentationBackgroundInteraction(.enabled(upThrough: p == .wardrobe || p == .more ? .medium : .height(300)))
+        .presentationDetents(p == .wardrobe || p == .more ? [.medium, .fraction(0.78)] : [.height(280), .medium])
+        .presentationBackgroundInteraction(.enabled(upThrough: p == .wardrobe || p == .more ? .medium : .height(280)))
         .presentationDragIndicator(.visible)
-        // Liquid Glass at every detent (the default background turns opaque white at .large).
         .presentationBackground {
             Rectangle().fill(.clear)
-                .modulaGlass(in: Rectangle(), interactive: false, tint: environment.isDark ? Color(red: 0.12, green: 0.12, blue: 0.3).opacity(0.35) : Color.white.opacity(0.2))
+                .modulaGlass(in: Rectangle(), interactive: false, tint: environment.isDark ? Color(red: 0.12, green: 0.12, blue: 0.3).opacity(0.38) : Color.white.opacity(0.22))
                 .ignoresSafeArea()
         }
         .environment(\.colorScheme, environment.isDark ? .dark : .light)
@@ -291,50 +369,87 @@ struct MolibooLivingStudioView: View {
         case .play: playSheet
         case .expressions: expressionsSheet
         case .more:
-            // Coins, rewards, custom Moliboos, assistant, shuffle / save / share / clear: the old 2D Studio's
-            // features, now a section of this one Studio.
-            ScrollView { MascotStudioView(initialTab: moreTab, embedded: true).padding(.horizontal, 16).padding(.top, 8) }
+            ScrollView {
+                MascotStudioView(initialTab: moreTab, embedded: true)
+                    .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 32)
+            }
         }
     }
 
     private var playSheet: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Play").font(.headline)
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Play with \(descriptor?.displayName ?? "Moliboo")").font(.subheadline.weight(.bold))
+                Spacer()
+                Text(director?.napping == true ? "Napping · Tap stage to wake" : "Tap an action to react")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                 ForEach(MolibooPlay.allCases) { play in
-                    Button { director?.request(play.reaction) } label: {
-                        Label(play.title, systemImage: play.symbol).font(.subheadline.weight(.semibold))
-                            .lineLimit(1).minimumScaleFactor(0.7).frame(maxWidth: .infinity, minHeight: 40)
+                    let active = director?.lastReaction == play.rawValue
+                    Button {
+                        director?.request(play.reaction)
+                        pulseTick += 1
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: play.symbol).font(.subheadline.weight(.bold))
+                            Text(play.title).font(.subheadline.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.75)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 42)
                     }
                     .buttonStyle(MolibooSpringPressStyle())
-                    .modulaGlass(in: Capsule(), interactive: true, tint: Color.accentColor.opacity(0.22))
+                    .modulaGlass(in: Capsule(), interactive: true, tint: active ? teal : teal.opacity(0.22), prominent: active)
                     .accessibilityIdentifier("studio.play.\(play.rawValue)")
+                    .accessibilityAddTraits(active ? .isSelected : [])
                 }
             }
-            Text(director?.napping == true ? "Shh… tap the stage to wake them up." : "Tap to say hi, hold to pet, drag to turn.")
-                .font(.footnote).foregroundStyle(.secondary)
         }
-        .padding(20)
+        .padding(.horizontal, 18).padding(.top, 12)
+    }
+
+    private func expressionSymbol(_ e: MolibooExpression) -> String {
+        switch e {
+        case .idle: "face.smiling"
+        case .blink: "eye.slash.fill"
+        case .happy: "heart.circle.fill"
+        case .excited: "sparkles"
+        case .surprised: "exclamationmark.circle.fill"
+        case .sleepy: "moon.zzz.fill"
+        case .sad: "cloud.drizzle.fill"
+        }
     }
 
     private var expressionsSheet: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Expressions").font(.headline)
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Expressions").font(.subheadline.weight(.bold))
+                Spacer()
+                Text("Active: \(controller?.expression.title ?? "Idle")")
+                    .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
                 ForEach(MolibooExpression.allCases, id: \.self) { e in
+                    let selected = controller?.expression == e && e != .blink
                     Button {
                         if e == .blink { controller?.blink() } else { controller?.setExpression(e) }
+                        pulseTick += 1
                     } label: {
-                        Text(e.title).font(.subheadline.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.65)
-                            .frame(maxWidth: .infinity, minHeight: 40)
+                        VStack(spacing: 3) {
+                            Image(systemName: expressionSymbol(e)).font(.subheadline.weight(.bold))
+                            Text(e.title).font(.caption.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 48)
                     }
                     .buttonStyle(MolibooSpringPressStyle())
-                    .modulaGlass(in: Capsule(), interactive: true, tint: Color.pink.opacity(0.2))
+                    .foregroundStyle(selected ? .white : .primary)
+                    .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: true,
+                                 tint: selected ? teal : Color.pink.opacity(0.18), prominent: selected)
                     .accessibilityIdentifier("studio.expr.\(e.rawValue)")
+                    .accessibilityAddTraits(selected ? .isSelected : [])
                 }
             }
         }
-        .padding(20)
+        .padding(.horizontal, 18).padding(.top, 12)
     }
 
     @ViewBuilder private var styleSheet: some View {
@@ -366,12 +481,21 @@ struct MolibooLivingStudioView: View {
         director = dir
         if !c.loadFailed { dir.start() }
         MolibooStagePose.load(for: d.id).apply(to: c)
-        if startInPhoto { photoMode = true } else if let initialPanel { panel = initialPanel }
+        if startInPhoto {
+            photoMode = true
+        } else if let initialPanel {
+            detent = Self.defaultDetent(for: initialPanel)
+            panel = initialPanel
+        }
         #if DEBUG
         if let clip = MOL03DebugHarness.arg("-MOL03Clip") { await measureClip(clip, controller: c, director: dir) }
         switch MOL03DebugHarness.panel {
         case "photo": photoMode = true
-        case let p?: panel = Panel(rawValue: p)
+        case let p?:
+            if let target = Panel(rawValue: p) {
+                detent = Self.defaultDetent(for: target)
+                panel = target
+            }
         case nil: break
         }
         #endif
@@ -402,7 +526,6 @@ struct MolibooLivingStudioView: View {
         }
         var played = false
         var moved: [String: Float] = [:]
-        // Up to 3 attempts: right after load RealityKit may not yet have applied the first animation frame.
         for _ in 0..<3 where moved.isEmpty {
             let before = snapshot()
             played = c.playClip(clip, loop: true)
@@ -428,4 +551,3 @@ struct MolibooLivingStudioView: View {
     }
     #endif
 }
-

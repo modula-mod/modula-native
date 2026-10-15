@@ -1,5 +1,6 @@
 import Foundation
 import RealityKit
+import UIKit
 
 // MARK: - Generic 3D wardrobe: per-item asset + per-character fit table + data-driven equip effects
 //
@@ -31,6 +32,8 @@ struct MolibooWardrobeFit: Codable, Equatable, Sendable {
     var offset: [Float] = [0, 0, 0]
     var rotationDegrees: [Float] = [0, 0, 0]
     var scale: Float = 1
+    /// Optional per-axis multiplier on `scale` (item-local), so body garments can hug wide or tall Originals.
+    var stretch: [Float]? = nil
     var variant: String? = nil
     var hidden: Bool = false                // explicit "doesn't fit this character"
 }
@@ -97,10 +100,6 @@ enum MolibooWardrobeAssets {
     @discardableResult
     static func ensurePremium() async -> Bool {
         if premiumAvailable { return true }
-        // NSBundleResourceRequest may only be begun once: concurrent loads (several wardrobe items at Studio open)
-        // used to each call (conditionally)beginAccessing on the shared request, which throws
-        // NSInvalidArgumentException "beginAccessingResources was called more than once" on device (MOL device crash).
-        // All callers now await one shared task; a failed attempt clears it so a later call retries with a fresh request.
         if let t = premiumTask { return await t.value }
         let t = Task { @MainActor () -> Bool in
             let r = NSBundleResourceRequest(tags: [premiumTag])
@@ -120,7 +119,9 @@ enum MolibooWardrobeAssets {
         if url(for: asset) == nil { await ensurePremium() }
         guard let u = url(for: asset) ?? premiumRequest?.bundle.url(forResource: asset, withExtension: "usdz", subdirectory: premiumFolder)
         else { throw LoadError.missing(asset) }
-        return try await Entity(contentsOf: u)
+        let entity = try await Entity(contentsOf: u)
+        MolibooSceneController.disableShadows(entity)
+        return entity
     }
 }
 
@@ -171,6 +172,7 @@ final class MolibooWardrobeRig {
     @ObservationIgnored let cache: MolibooWardrobeAssetCache
     private(set) var equipped: [String: Entity] = [:]
     private(set) var lastEffect: MolibooEquipEffect = .none
+    private(set) var lastBurstCount = 0
     var reduceMotion = false
     @ObservationIgnored private var stopped = false
 
@@ -197,13 +199,14 @@ final class MolibooWardrobeRig {
     func equip(_ itemID: String) async -> Bool {
         guard !stopped, equipped[itemID] == nil, let r = table.resolve(itemID: itemID, characterID: characterID),
               let parent = anchor(r.fit.anchor), let e = try? await cache.instance(r.asset), !stopped else { return false }
+        MolibooSceneController.disableShadows(e)
         e.name = "Wardrobe_\(itemID)"
         let rot = r.fit.rotationDegrees.map { $0 * .pi / 180 } + [0, 0, 0]
         var target = Transform.identity
         target.rotation = simd_quatf(angle: rot[2], axis: [0, 0, 1]) * simd_quatf(angle: rot[1], axis: [0, 1, 0]) * simd_quatf(angle: rot[0], axis: [1, 0, 0])
         let o = r.fit.offset + [0, 0, 0]
         target.translation = [o[0], o[1], o[2]]
-        target.scale = .init(repeating: r.fit.scale)
+        target.scale = r.fit.scaleVector
         parent.addChild(e)
         equipped[itemID] = e
         play(reduceMotion ? .init(effect: .none) : r.effect, on: e, target: target)
@@ -218,9 +221,11 @@ final class MolibooWardrobeRig {
         equipped.removeAll()
     }
 
-    /// Effects are transform-only (no particles/materials) so they're cheap and teardown-safe.
+    /// Effects animate the item's transform, plus a short burst of glowing motes (sparkle = star-coloured, pop/bounce =
+    /// soft white) that fly out and fade. The burst is a handful of tiny unlit spheres, removed after the effect.
     private func play(_ spec: MolibooEquipEffectSpec, on e: Entity, target: Transform) {
         lastEffect = spec.effect
+        if spec.effect != .none, let parent = e.parent { lastBurstCount = Self.burst(spec, in: parent, at: e) }
         let d = max(0.05, spec.duration)
         var peak = target; peak.scale = target.scale * spec.overshoot
         var start = target
@@ -253,6 +258,49 @@ final class MolibooWardrobeRig {
     }
 }
 
+@MainActor
+extension MolibooWardrobeRig {
+    static let burstName = "WardrobeBurst"
+
+    /// Spawns the equip burst around the item and returns how many motes it launched.
+    @discardableResult
+    static func burst(_ spec: MolibooEquipEffectSpec, in parent: Entity, at item: Entity) -> Int {
+        let count: Int
+        let color: UIColor
+        switch spec.effect {
+        case .none: return 0
+        case .sparkle: count = 12; color = UIColor(red: 1, green: 0.86, blue: 0.35, alpha: 1)
+        case .shimmer: count = 8; color = UIColor(red: 0.75, green: 0.9, blue: 1, alpha: 1)
+        case .popIn, .bounce: count = 8; color = UIColor(white: 1, alpha: 1)
+        }
+        let root = Entity(); root.name = Self.burstName
+        parent.addChild(root)
+        let center = item.visualBounds(relativeTo: parent).center
+        root.position = center.x.isFinite ? center : item.position
+        let worldScale = max(1e-4, parent.scale(relativeTo: nil).x)
+        let r: Float = 0.0022 / worldScale, spread: Float = 0.035 / worldScale
+        let mesh = MeshResource.generateSphere(radius: r)
+        let material = UnlitMaterial(color: color)
+        let life = max(0.35, spec.duration * 1.4)
+        for i in 0..<count {
+            let mote = ModelEntity(mesh: mesh, materials: [material])
+            root.addChild(mote)
+            let a = Float(i) / Float(count) * 2 * .pi
+            let up: Float = Float((i * 37) % 10) / 10 - 0.3
+            let dir = simd_normalize(SIMD3<Float>(cos(a), up, sin(a)))
+            var end = Transform.identity
+            end.translation = dir * spread * (0.7 + Float((i * 53) % 7) / 10)
+            end.scale = .init(repeating: 0.05)
+            mote.move(to: end, relativeTo: root, duration: life, timingFunction: .easeOut)
+        }
+        Task { @MainActor [weak root] in
+            try? await Task.sleep(for: .seconds(life + 0.05))
+            root?.removeFromParent()
+        }
+        return count
+    }
+}
+
 // MARK: - Tolerant decoding (omitted fields take their defaults; generated tables stay terse)
 
 extension MolibooEquipEffectSpec {
@@ -266,12 +314,19 @@ extension MolibooEquipEffectSpec {
 }
 
 extension MolibooWardrobeFit {
+    /// Uniform `scale` times the optional per-axis `stretch`.
+    var scaleVector: SIMD3<Float> {
+        let s = (stretch ?? [1, 1, 1]) + [1, 1, 1]
+        return SIMD3(s[0], s[1], s[2]) * scale
+    }
+
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         anchor = try c.decode(String.self, forKey: .anchor)
         offset = try c.decodeIfPresent([Float].self, forKey: .offset) ?? [0, 0, 0]
         rotationDegrees = try c.decodeIfPresent([Float].self, forKey: .rotationDegrees) ?? [0, 0, 0]
         scale = try c.decodeIfPresent(Float.self, forKey: .scale) ?? 1
+        stretch = try c.decodeIfPresent([Float].self, forKey: .stretch)
         variant = try c.decodeIfPresent(String.self, forKey: .variant)
         hidden = try c.decodeIfPresent(Bool.self, forKey: .hidden) ?? false
     }
