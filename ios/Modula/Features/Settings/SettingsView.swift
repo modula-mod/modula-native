@@ -1008,6 +1008,7 @@ struct ComponentCatalogView: View {
                             kind: .post,
                             capabilities: .production,
                             developerMode: true,
+                            accent: app.appearance.accent.color,
                             photoPicker: { EmptyView() },
                             videoPicker: { EmptyView() },
                             onTool: { _ in }

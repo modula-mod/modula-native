@@ -10,6 +10,7 @@ struct CreationStudioView: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @FocusState private var editorFocused: Bool
     @State private var store: CreationStudioStore?
     @State private var pickerItems: [PhotosPickerItem] = []
@@ -133,39 +134,65 @@ struct CreationStudioView: View {
     }
 
     private func header(_ store: CreationStudioStore) -> some View {
-        HStack(spacing: 12) {
-            Button(store.draft.isPublishing ? "Stop" : "Cancel") {
+        let accent = app.appearance.accent.color
+        return HStack(spacing: 12) {
+            Button {
                 if store.draft.isPublishing {
                     publishTask?.cancel()
                 } else {
                     exitTapped(store)
                 }
+            } label: {
+                Text(store.draft.isPublishing ? "Stop" : "Cancel")
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(store.draft.isPublishing ? Color.red.opacity(0.9) : Color.secondary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .modulaGlass(in: Capsule(), interactive: true, specular: true)
             }
-                .fontDesign(.default)
-                .accessibilitySortPriority(100)
-            Spacer()
+            .buttonStyle(.plain)
+            .fontDesign(.default)
+            .accessibilitySortPriority(100)
+
+            Spacer(minLength: 8)
+
             if app.drafts.saveError != nil {
                 Label("Not saved", systemImage: "exclamationmark.triangle")
-                    .font(.caption)
+                    .font(.caption.weight(.medium))
                     .foregroundStyle(.red)
                     .accessibilityLabel(app.drafts.saveError ?? "Draft not saved")
             } else {
                 DraftStatusView(saved: app.drafts.showSavedIndicator, publishing: store.draft.isPublishing)
                     .accessibilitySortPriority(20)
             }
-            Button(store.draft.kind.publishLabel) {
+
+            Button {
                 startPublishing(store)
+            } label: {
+                Text(store.draft.kind.publishLabel)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(store.canPublish ? Color.white : accent.opacity(0.55))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .modulaGlass(
+                        in: Capsule(),
+                        interactive: store.canPublish,
+                        tint: accent,
+                        prominent: store.canPublish,
+                        specular: true
+                    )
             }
-            .fontWeight(.semibold)
+            .buttonStyle(.plain)
             .fontDesign(.default)
             .disabled(!store.canPublish)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: store.canPublish)
             .accessibilityHint(store.publishHint ?? "Publishes this post")
             .accessibilitySortPriority(10)
             .accessibilityIdentifier("compose.publish")
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .font(.body)
+        .padding(.top, 6)
+        .padding(.bottom, 10)
     }
 
     private func composer(_ store: CreationStudioStore) -> some View {
@@ -221,15 +248,25 @@ struct CreationStudioView: View {
                 .padding(.bottom, 24)
             }
             .modulaSoftScrollEdge()
-            // Settings → Photos → "Explain Limited Library".
+            // Settings → Photos → "Explain Limited Library" — quiet secondary footnote.
             if ModulaPreferences.explainLimitedLibrary, store.draft.media.isEmpty,
                store.capabilities.toolEnabled(.photo) {
-                Label("Modula only sees the photos you pick — it never needs access to your whole library.", systemImage: "lock.shield")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 6)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "lock.fill")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .padding(.top, 1)
+                    Text("Modula only sees the photos you pick — it never needs access to your whole library.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .fontDesign(.default)
+                .padding(.horizontal, 18)
+                .padding(.top, 4)
+                .padding(.bottom, 2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .combine)
             }
             // Pinned above the tool dock so a failed publish is always visible,
             // instead of sitting at the bottom of a long draft in grey text.
@@ -248,37 +285,51 @@ struct CreationStudioView: View {
                 kind: store.draft.kind,
                 capabilities: store.capabilities,
                 developerMode: app.commandCapabilities().developerMode,
+                accent: app.appearance.accent.color,
                 photoPicker: {
-                    PhotosPicker(selection: $pickerItems, maxSelectionCount: store.capabilities.carouselPost ? (store.capabilities.maxMediaCount ?? 10) : 1, matching: .images) {
-                        VStack(spacing: 4) {
-                            Image(systemName: "photo")
-                            Text("Photo")
-                                .font(.caption2)
+                    let accent = app.appearance.accent.color
+                    HStack(spacing: 6) {
+                        PhotosPicker(
+                            selection: $pickerItems,
+                            maxSelectionCount: store.capabilities.carouselPost ? (store.capabilities.maxMediaCount ?? 10) : 1,
+                            matching: .images
+                        ) {
+                            CreationToolChipLabel(
+                                title: "Photo",
+                                symbol: "photo.on.rectangle.angled",
+                                accent: accent,
+                                enabled: store.capabilities.toolEnabled(.photo),
+                                emphasized: true
+                            )
                         }
-                        .frame(minWidth: 44, minHeight: 44)
-                    }
-                    .disabled(!store.capabilities.toolEnabled(.photo))
-                    if store.capabilities.toolEnabled(.photo), UIImagePickerController.isSourceTypeAvailable(.camera) {
-                        Button {
-                            showsCamera = true
-                        } label: {
-                            VStack(spacing: 4) {
-                                Image(systemName: "camera")
-                                Text("Camera").font(.caption2)
+                        .disabled(!store.capabilities.toolEnabled(.photo))
+                        if store.capabilities.toolEnabled(.photo), UIImagePickerController.isSourceTypeAvailable(.camera) {
+                            Button {
+                                showsCamera = true
+                            } label: {
+                                CreationToolChipLabel(
+                                    title: "Camera",
+                                    symbol: "camera.fill",
+                                    accent: accent,
+                                    enabled: true,
+                                    emphasized: true
+                                )
                             }
-                            .frame(minWidth: 44, minHeight: 44)
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Camera")
+                            .accessibilityIdentifier("compose.tool.camera")
                         }
-                        .accessibilityLabel("Camera")
-                        .accessibilityIdentifier("compose.tool.camera")
                     }
                 },
                 videoPicker: {
                     PhotosPicker(selection: $videoPickerItems, maxSelectionCount: 1, matching: .videos) {
-                        VStack(spacing: 4) {
-                            Image(systemName: "video")
-                            Text("Video").font(.caption2)
-                        }
-                        .frame(minWidth: 44, minHeight: 44)
+                        CreationToolChipLabel(
+                            title: "Video",
+                            symbol: "video.fill",
+                            accent: app.appearance.accent.color,
+                            enabled: store.capabilities.videoPost,
+                            emphasized: true
+                        )
                     }
                     .disabled(!store.capabilities.videoPost)
                 },
@@ -301,22 +352,26 @@ struct CreationStudioView: View {
     }
 
     private func authorRow(_ store: CreationStudioStore) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             ModulaAvatar(
                 initials: String((app.auth.account?.displayName ?? app.auth.account?.primaryHandle ?? "M").prefix(2)).uppercased(),
-                size: 36
+                size: 40,
+                name: app.auth.account?.displayName
             )
             AudiencePicker(selection: Binding(
                 get: { store.draft.audience },
                 set: { store.setAudience($0) }
             ))
             .accessibilitySortPriority(90)
-            Spacer()
+            Spacer(minLength: 0)
         }
+        .padding(.top, 4)
     }
 
     private func editor(_ store: CreationStudioStore) -> some View {
-        TextEditor(text: Binding(
+        let accent = app.appearance.accent.color
+        let stage = RoundedRectangle(cornerRadius: 24, style: .continuous)
+        return TextEditor(text: Binding(
             get: { store.draft.text },
             set: { store.handlePaste($0) }
         ))
@@ -326,18 +381,31 @@ struct CreationStudioView: View {
         .autocorrectionDisabled(!ModulaPreferences.composerAutocorrect)
         .textInputAutocapitalization(ModulaPreferences.composerAutoCapitalise ? .sentences : .never)
         .scrollContentBackground(.hidden)
-        .frame(minHeight: 180)
-        .padding(10)
-        // Shared Liquid Glass input surface (design system).
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
+        .frame(minHeight: 200)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
         .focused($editorFocused)
+        .background {
+            stage
+                .fill(accent.opacity(editorFocused ? (colorScheme == .dark ? 0.12 : 0.06) : 0.04))
+        }
+        .modulaGlass(in: stage, interactive: false, tint: editorFocused ? accent.opacity(0.22) : nil, specular: true)
+        .overlay {
+            stage.strokeBorder(
+                editorFocused ? accent.opacity(0.55) : Color.primary.opacity(0.08),
+                lineWidth: editorFocused ? 1.4 : 0.8
+            )
+        }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.22), value: editorFocused)
         .overlay(alignment: .topLeading) {
             if store.draft.text.isEmpty {
                 Text(placeholder(store))
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 18)
-                    .padding(.leading, 15)
+                    .font(.body)
+                    .foregroundStyle(.secondary.opacity(0.72))
+                    .padding(.top, 20)
+                    .padding(.leading, 18)
                     .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
         }
         .accessibilityLabel("Post text")
@@ -356,6 +424,7 @@ struct CreationStudioView: View {
             Text(store.pasteLinkSuggestion?.absoluteString ?? "")
         }
     }
+
 
     private func unavailable(_ store: CreationStudioStore) -> some View {
         ModulaEmptyState(

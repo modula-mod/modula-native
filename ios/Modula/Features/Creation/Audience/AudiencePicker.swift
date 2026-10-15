@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AudiencePicker: View {
     @Binding var selection: AudienceSelection
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         Menu {
@@ -16,20 +17,37 @@ struct AudiencePicker: View {
                 }
             }
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: 5) {
+                Image(systemName: audienceSymbol)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(app.appearance.accent.color)
                 Text(selection.title)
                     .font(.subheadline.weight(.semibold))
                 Image(systemName: "chevron.down")
-                    .font(.caption.weight(.semibold))
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(.thinMaterial, in: Capsule())
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .modulaGlass(
+                in: Capsule(),
+                interactive: true,
+                tint: app.appearance.accent.color.opacity(0.22),
+                specular: true
+            )
         }
         .accessibilityLabel("Audience")
         .accessibilityValue(selection.title)
         .accessibilityHint(selection.explanation)
         .accessibilityIdentifier("compose.audience")
         .fontDesign(.default)
+    }
+
+    private var audienceSymbol: String {
+        switch selection {
+        case .everyone: "globe"
+        case .followers: "person.2.fill"
+        case .onlyMe: "lock.fill"
+        }
     }
 }

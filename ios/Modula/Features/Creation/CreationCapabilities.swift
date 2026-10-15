@@ -113,11 +113,11 @@ enum CreationTool: String, CaseIterable, Identifiable, Sendable, Hashable {
 
     var symbol: String {
         switch self {
-        case .photo: "photo"
-        case .video: "video"
+        case .photo: "photo.on.rectangle.angled"
+        case .video: "video.fill"
         case .link: "link"
-        case .poll: "chart.bar.doc.horizontal"
-        case .more: "ellipsis"
+        case .poll: "chart.bar.fill"
+        case .more: "ellipsis.circle"
         }
     }
 
