@@ -745,6 +745,7 @@ extension HomeView {
 /// Horizontal swipe on a feed post: left shares, right saves. The pan only begins for
 /// clearly horizontal movement away from both screen edges (back-swipe + Edge Picker).
 /// Nested horizontal scroll views (PDF pages, galleries) keep priority.
+/// Disabled while a reaction/emoji picker is presented (`PostReactionPickerPresentedKey`).
 struct PostSwipeActions: ViewModifier {
     var enabled: Bool
     var saved: Bool
@@ -755,34 +756,48 @@ struct PostSwipeActions: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var offset: CGFloat = 0
     @State private var armed = false
+    @State private var reactionPickerPresented = false
     private var threshold: CGFloat { PostGestureThresholds.swipeCommitDistance }
+    /// Share/save pan is live only when settings allow it and no reaction picker is up.
+    private var swipeArmed: Bool { enabled && allowed && !reactionPickerPresented }
 
     func body(content: Content) -> some View {
-        if enabled && allowed {
-            content
-                .offset(x: reduceMotion ? 0 : offset)
-                .overlay {
-                    if reduceMotion, abs(offset) > 8 {
-                        (offset > 0 ? Color.orange : accent).opacity(0.16 * min(abs(offset) / threshold, 1))
-                            .allowsHitTesting(false)
-                    }
-                }
-                .background {
-                    HStack {
-                        if offset > 0 {
-                            cue(saved ? "bookmark.slash.fill" : "bookmark.fill", saved ? "Unsave" : "Save", .orange, offset)
-                        }
-                        Spacer(minLength: 0)
-                        if offset < 0 {
-                            cue("square.and.arrow.up", "Share", accent, -offset)
+        Group {
+            if enabled && allowed {
+                content
+                    .offset(x: (reduceMotion || reactionPickerPresented) ? 0 : offset)
+                    .overlay {
+                        if reduceMotion, !reactionPickerPresented, abs(offset) > 8 {
+                            (offset > 0 ? Color.orange : accent).opacity(0.16 * min(abs(offset) / threshold, 1))
+                                .allowsHitTesting(false)
                         }
                     }
-                    .padding(.horizontal, 22)
-                    .allowsHitTesting(false)
-                }
-                .gesture(PostSwipePan(onChange: changed, onEnd: ended))
-        } else {
-            content
+                    .background {
+                        HStack {
+                            if !reactionPickerPresented, offset > 0 {
+                                cue(saved ? "bookmark.slash.fill" : "bookmark.fill", saved ? "Unsave" : "Save", .orange, offset)
+                            }
+                            Spacer(minLength: 0)
+                            if !reactionPickerPresented, offset < 0 {
+                                cue("square.and.arrow.up", "Share", accent, -offset)
+                            }
+                        }
+                        .padding(.horizontal, 22)
+                        .allowsHitTesting(false)
+                    }
+                    // Keep the recognizer installed; flip `isEnabled` so an in-flight pan cancels
+                    // the moment the reaction picker preference becomes true.
+                    .gesture(PostSwipePan(isEnabled: swipeArmed, onChange: changed, onEnd: ended))
+            } else {
+                content
+            }
+        }
+        .onPreferenceChange(PostReactionPickerPresentedKey.self) { presented in
+            reactionPickerPresented = presented
+            if presented {
+                armed = false
+                offset = 0
+            }
         }
     }
 
@@ -803,6 +818,7 @@ struct PostSwipeActions: ViewModifier {
     }
 
     private func changed(_ dx: CGFloat) {
+        guard !reactionPickerPresented else { return }
         offset = abs(dx) > threshold ? (dx > 0 ? 1 : -1) * (threshold + (abs(dx) - threshold) * 0.3) : dx
         let now = abs(dx) > threshold
         if now != armed {
@@ -812,6 +828,12 @@ struct PostSwipeActions: ViewModifier {
     }
 
     private func ended(_ dx: CGFloat, _ velocity: CGFloat) {
+        // Picker took over — never commit share/save from a cancelled or leftover pan.
+        guard !reactionPickerPresented else {
+            armed = false
+            offset = 0
+            return
+        }
         let commit = abs(dx) > threshold || (abs(dx) > 50 && abs(velocity) > 1000)
         if commit {
             if dx < 0 { onShare() } else { onSave() }
@@ -822,6 +844,7 @@ struct PostSwipeActions: ViewModifier {
 }
 
 struct PostSwipePan: UIGestureRecognizerRepresentable {
+    var isEnabled: Bool = true
     var onChange: (CGFloat) -> Void
     var onEnd: (CGFloat, CGFloat) -> Void
 
@@ -831,7 +854,13 @@ struct PostSwipePan: UIGestureRecognizerRepresentable {
         let pan = UIPanGestureRecognizer()
         pan.delegate = context.coordinator
         pan.maximumNumberOfTouches = 1
+        pan.isEnabled = isEnabled
         return pan
+    }
+
+    func updateUIGestureRecognizer(_ recognizer: UIPanGestureRecognizer, context: Context) {
+        context.coordinator.isEnabled = isEnabled
+        recognizer.isEnabled = isEnabled
     }
 
     func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context: Context) {
@@ -845,7 +874,10 @@ struct PostSwipePan: UIGestureRecognizerRepresentable {
     }
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var isEnabled = true
+
         func gestureRecognizerShouldBegin(_ gesture: UIGestureRecognizer) -> Bool {
+            guard isEnabled else { return false }
             guard let pan = gesture as? UIPanGestureRecognizer, let window = pan.view?.window else { return false }
             let start = pan.location(in: window).x
             // Leave both edges to system back-swipe and the Edge Picker.

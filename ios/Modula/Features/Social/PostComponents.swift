@@ -546,6 +546,7 @@ struct PostActions: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Post actions")
+        .postReactionPickerPresented(showsReactionPicker)
         .overlay(alignment: .topLeading) {
             if showsReactionPicker {
                 PostReactionPicker(

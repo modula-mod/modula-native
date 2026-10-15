@@ -179,6 +179,8 @@ struct ImmersivePostCard: View {
         }
         .zIndex(showsReactions || !bursts.isEmpty ? 5 : 0)
         .padding(.vertical, 6)
+        // Gate post share/save pans while the dock or full emoji grid is up.
+        .postReactionPickerPresented(showsReactions || showsReactionGrid)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(post.voiceOverSummary)
         .accessibilityIdentifier("home.post.\(post.id)")

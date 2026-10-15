@@ -1,5 +1,21 @@
 import CoreGraphics
 import Foundation
+import SwiftUI
+
+/// Bubbles reaction/emoji picker presentation up to `PostSwipeActions` so share/save pans disable.
+struct PostReactionPickerPresentedKey: PreferenceKey {
+    static var defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) {
+        value = value || nextValue()
+    }
+}
+
+extension View {
+    /// Marks this subtree as presenting a reaction/emoji picker (or its long-press menu).
+    func postReactionPickerPresented(_ presented: Bool) -> some View {
+        preference(key: PostReactionPickerPresentedKey.self, value: presented)
+    }
+}
 
 /// Centralized gesture ownership thresholds for the post interaction system.
 enum PostGestureThresholds {
