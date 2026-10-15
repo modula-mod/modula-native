@@ -51,8 +51,10 @@ enum MolibooActivity: String, CaseIterable, Identifiable, Codable, Sendable {
     var title: String { switch self { case .sleep: "Sleep"; case .play: "Play"; case .clean: "Clean"; case .feed: "Feed" } }
     var subtitle: String {
         switch self {
-        case .sleep: "Rest to regain energy"; case .play: "Fun and minigames"
-        case .clean: "Keep them happy"; case .feed: "Give a treat"
+        case .sleep: "Regain energy"
+        case .play: "Fun & games"
+        case .clean: "Fresh & clean"
+        case .feed: "A little treat"
         }
     }
     var symbol: String { switch self { case .sleep: "moon.fill"; case .play: "gamecontroller.fill"; case .clean: "bubbles.and.sparkles.fill"; case .feed: "carrot.fill" } }

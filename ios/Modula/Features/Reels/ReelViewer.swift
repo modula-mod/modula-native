@@ -43,9 +43,9 @@ struct ReelFeedView: View {
                 }
             case _ where app.reels.items.isEmpty:
                 ModulaEmptyState(
-                    title: "Reels",
-                    message: "Short-form video will appear here when it’s available.",
-                    symbol: "play.rectangle"
+                    title: "No Reels yet",
+                    message: "When short videos land in your feed, they’ll show up here. Pull to refresh anytime.",
+                    symbol: "play.rectangle.on.rectangle"
                 )
             default:
                 paging

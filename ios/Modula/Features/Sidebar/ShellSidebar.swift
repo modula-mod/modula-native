@@ -179,15 +179,22 @@ struct ShellSidebarView: View {
         .background {
             ZStack {
                 palette.canvas
-                if !opaque {
-                    Rectangle().fill(.regularMaterial)
+                if opaque {
+                    Color(uiColor: .secondarySystemBackground).opacity(0.92)
+                } else {
+                    Rectangle().fill(.ultraThinMaterial)
+                    LinearGradient(
+                        colors: [app.appearance.accent.color.opacity(0.10), .clear],
+                        startPoint: .topLeading,
+                        endPoint: .center
+                    )
                 }
             }
             .ignoresSafeArea()
         }
         .overlay(alignment: .trailing) {
             Rectangle()
-                .fill(palette.separator)
+                .fill(palette.separator.opacity(0.7))
                 .frame(width: 1)
                 .ignoresSafeArea()
                 .accessibilityHidden(true)
@@ -203,22 +210,28 @@ struct ShellSidebarView: View {
             Button {
                 onSelect(.me(.overview), true)
             } label: {
-                VStack(alignment: .leading, spacing: 10) {
-                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 56)
-                    VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 12) {
+                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 60)
+                        .overlay(Circle().strokeBorder(app.appearance.accent.color.opacity(0.45), lineWidth: 2))
+                    VStack(alignment: .leading, spacing: 3) {
                         Text(profile.displayName)
-                            .font(.title3.weight(.semibold))
+                            .font(.title3.weight(.bold))
                             .foregroundStyle(.primary)
                             .lineLimit(2)
                         Text("@\(profile.handle)")
-                            .font(.subheadline)
+                            .font(.subheadline.weight(.medium))
                             .foregroundStyle(.secondary)
                     }
                     Text(headerMetrics(profile))
-                        .font(.caption.weight(.medium))
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.primary.opacity(0.06), in: Capsule())
                 }
+                .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)

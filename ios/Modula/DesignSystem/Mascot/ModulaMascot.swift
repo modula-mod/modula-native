@@ -40,6 +40,27 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// Dense-card blurb: fits a 2-column portrait without mid-word ellipsis.
+    var shortPersonality: String {
+        switch self {
+        case .pip: "Bubbly axolotl"
+        case .moss: "Calm pond frog"
+        case .nimbus: "Daydreamy cloud"
+        case .mochi: "Sleepy listener"
+        case .sprout: "Tiny seedling"
+        case .ember: "Tiny spark"
+        case .tuck: "Curious owl"
+        case .bloop: "Gentle jellyfish"
+        case .bun: "Floppy-eared bunny"
+        case .pebble: "Steady little stone"
+        case .tofu: "Wobbly optimist"
+        case .comet: "Speedy star"
+        case .puff: "Excited pufferfish"
+        case .bolt: "Pocket robot"
+        case .glim: "Late-night firefly"
+        }
+    }
+
     /// Short catchphrase used by the offline personality responder.
     var tic: String {
         switch self {

@@ -45,8 +45,8 @@ struct MolibooSettingsView: View {
     private var kind: ModulaMascotKind? { ModulaMascotKind(rawValue: kindRaw) }
     private var motionOn: Bool { playful && !reduceMotion }
     private var animating: Bool { motionOn && scenePhase == .active && route == nil }
-    private let grid = Array(repeating: GridItem(.flexible(), spacing: 8), count: 4)
-    private let cards = [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
+    private let grid = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+    private let cards = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
 
     private var kinds: [ModulaMascotKind] {
         var ks = ModulaMascotKind.allCases.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.personality.localizedCaseInsensitiveContains(search) }
@@ -279,65 +279,57 @@ struct MolibooSettingsView: View {
             if searching {
                 ModulaGlassSearchField(prompt: "Search Moliboos", text: $search).transition(.move(edge: .top).combined(with: .opacity))
             }
-            LazyVGrid(columns: grid, spacing: 8) {
+            LazyVGrid(columns: grid, spacing: 12) {
                 ForEach(kinds) { k in characterCard(k) }
             }
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 offCard.frame(maxWidth: .infinity)
                 createCard.frame(maxWidth: .infinity)
                 unlockBanner.frame(maxWidth: .infinity).layoutPriority(1)
             }
-            .frame(height: 104)
+            .frame(height: 88)
 
             if kind != nil {
                 sectionTitle("Show Moliboo on").id("hub.show")
-                ModulaGlassGroup {
-                    LazyVGrid(columns: cards, spacing: 8) {
-                        toggleCard("bubble.left.and.text.bubble.right.fill", .purple, "Nodus", "Your AI companion", $nodus, "moliboo.hub.show.nodus")
-                        toggleCard("text.bubble.fill", .blue, "Comment inputs", "Chats & comments", $comments, "moliboo.hub.show.comments")
-                        toggleCard("pencil.line", .teal, "Other composers", "Posts, notes, etc.", $other, "moliboo.hub.show.other")
-                        toggleCard("house.fill", .orange, "Home companion", "Walks along Home", $homeCompanion, "moliboo.hub.show.home")
-                            .accessibilityHint("Your Moliboo walks along the bottom of Home, peeks over posts and naps when idle.")
-                    }
+                LazyVGrid(columns: cards, spacing: 10) {
+                    toggleCard("bubble.left.and.text.bubble.right.fill", .purple, "Nodus", "Your AI companion", $nodus, "moliboo.hub.show.nodus")
+                    toggleCard("text.bubble.fill", .blue, "Comment inputs", "Chats & comments", $comments, "moliboo.hub.show.comments")
+                    toggleCard("pencil.line", .teal, "Other composers", "Posts, notes, etc.", $other, "moliboo.hub.show.other")
+                    toggleCard("house.fill", .orange, "Home companion", "Walks along Home", $homeCompanion, "moliboo.hub.show.home")
+                        .accessibilityHint("Your Moliboo walks along the bottom of Home, peeks over posts and naps when idle.")
                 }
             } else {
                 Color.clear.frame(height: 0).id("hub.show")
             }
 
-            HStack(spacing: 8) {
-                wideCard("tshirt.fill", .blue, "Moliboo Studio", "Dress up, create custom Moliboos and unlock new items.", art: kind, id: "moliboo.hub.studio") { route = .studio(.wardrobe) }
-                wideCard("bubble.left.and.text.bubble.right.fill", .teal, "Assistant & keywords", "Keyword draft-replies for comments on your posts.", art: nil, id: "moliboo.hub.assistant") { route = .studio(.assistant) }
+            HStack(spacing: 10) {
+                wideCard("tshirt.fill", .blue, "Moliboo Studio", "Dress up & unlock looks", art: kind, id: "moliboo.hub.studio") { route = .studio(.wardrobe) }
+                wideCard("bubble.left.and.text.bubble.right.fill", .teal, "Assistant", "Keyword draft-replies", art: nil, id: "moliboo.hub.assistant") { route = .studio(.assistant) }
             }
 
             if MolibooCardFlags.enabled {
-                wideCard("rectangle.portrait.on.rectangle.portrait.angled.fill", .orange, "Trading Cards", "Collect the Founding Collection. Open a free pack.", art: .pebble, id: "moliboo.hub.cards") { route = .cards }
+                wideCard("rectangle.portrait.on.rectangle.portrait.angled.fill", .orange, "Trading Cards", "Collect the Founding set", art: .pebble, id: "moliboo.hub.cards") { route = .cards }
             }
 
             sectionTitle("Profile Moliboo")
-            ModulaGlassGroup {
-                LazyVGrid(columns: cards, spacing: 8) {
-                    toggleCard("person.crop.circle.fill", .indigo, "Show on Profile", "With its scene", $showOnProfile, "moliboo.hub.profile.show")
-                    toggleCard("person.crop.square.fill", .pink, "Use as avatar", "Long-press for wardrobe", $asAvatar, "moliboo.hub.profile.avatar")
-                }
+            LazyVGrid(columns: cards, spacing: 10) {
+                toggleCard("person.crop.circle.fill", .indigo, "Show on Profile", "With its scene", $showOnProfile, "moliboo.hub.profile.show")
+                toggleCard("person.crop.square.fill", .pink, "Use as avatar", "Long-press for wardrobe", $asAvatar, "moliboo.hub.profile.avatar")
             }
 
             sectionTitle("Motion & feel")
-            ModulaGlassGroup {
-                LazyVGrid(columns: cards, spacing: 8) {
-                    toggleCard("figure.dance", .orange, "Playful animations", reduceMotion ? "Calm: Reduce Motion is on" : "Hops & celebrations", $playful, "moliboo.hub.playful")
-                    toggleCard("hand.tap.fill", .purple, "Haptics", "Little taps", $haptics, "moliboo.hub.haptics")
-                    toggleCard("speaker.wave.2.fill", .green, "Moliboo sounds", "Follow silent switch", $sounds, "moliboo.hub.sounds")
-                    #if DEBUG
-                    toggleCard("crown.fill", .yellow, "Unlock Premium", "Debug builds only", $debugPremium, "moliboo.hub.debugPremium")
-                    #endif
-                }
+            LazyVGrid(columns: cards, spacing: 10) {
+                toggleCard("figure.dance", .orange, "Playful animations", reduceMotion ? "Calm: Reduce Motion is on" : "Hops & celebrations", $playful, "moliboo.hub.playful")
+                toggleCard("hand.tap.fill", .purple, "Haptics", "Little taps", $haptics, "moliboo.hub.haptics")
+                toggleCard("speaker.wave.2.fill", .green, "Moliboo sounds", "Follow silent switch", $sounds, "moliboo.hub.sounds")
+                #if DEBUG
+                toggleCard("crown.fill", .yellow, "Unlock Premium", "Debug builds only", $debugPremium, "moliboo.hub.debugPremium")
+                #endif
             }
 
             sectionTitle("3D & Advanced")
-            ModulaGlassGroup {
-                LazyVGrid(columns: cards, spacing: 8) {
-                    toggleCard("cube.transparent.fill", .blue, "3D Moliboos", native3D ? "Enable 3D characters" : "Classic 2D look", $native3D, "moliboo.settings.3d")
-                }
+            LazyVGrid(columns: cards, spacing: 10) {
+                toggleCard("cube.transparent.fill", .blue, "3D Moliboos", native3D ? "Enable 3D characters" : "Classic 2D look", $native3D, "moliboo.settings.3d")
             }
             if native3D {
                 Text("3D is ready for \(MolibooRegistry.available3D.map(\.displayName).formatted(.list(type: .and))).")
@@ -395,52 +387,59 @@ struct MolibooSettingsView: View {
             MascotSound.shared.play(.pick)
             HapticEngine.shared.play(.selection)
         } label: {
-            VStack(spacing: 4) {
-                MolibooHubArt(kind: k, size: 60)
-                Text(k.name)
-                    .font(.footnote.weight(.bold))
-                    .foregroundStyle(Color.black.opacity(0.88))
-                    .lineLimit(1)
-                Text(k.personality)
-                    .font(.caption2)
-                    .foregroundStyle(Color.black.opacity(0.66))
-                    .multilineTextAlignment(.center)
+            VStack(alignment: .leading, spacing: 8) {
+                ZStack(alignment: .topTrailing) {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(LinearGradient(colors: [k.palette.light, k.palette.mid.opacity(0.82)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .overlay {
+                            MolibooHubArt(kind: k, size: 108)
+                                .padding(8)
+                        }
+                        .frame(height: 132)
+                    HStack(spacing: 4) {
+                        if selected {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.white)
+                                .padding(5)
+                                .background(Color(red: 0.21, green: 0.61, blue: 0.67), in: Circle())
+                        }
+                        if has3D {
+                            Text("3D")
+                                .font(.caption2.weight(.heavy))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 7).padding(.vertical, 3)
+                                .background(Capsule().fill(Color(red: 0.21, green: 0.61, blue: 0.67)))
+                        }
+                        if k.isPremium {
+                            Image(systemName: locked ? "lock.fill" : "crown.fill")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.orange)
+                                .padding(5)
+                                .background(Circle().fill(Color.orange.opacity(0.2)))
+                        }
+                    }
+                    .padding(8)
+                }
+                HStack(alignment: .firstTextBaseline) {
+                    Text(k.name).font(.subheadline.weight(.bold)).foregroundStyle(.primary).lineLimit(1)
+                    Spacer(minLength: 4)
+                    Text(String(format: "#%03d", (MolibooCosmetics.originals.firstIndex(of: k.rawValue) ?? 0) + 1))
+                        .font(.caption2.weight(.bold).monospaced())
+                        .foregroundStyle(.secondary)
+                }
+                Text(k.shortPersonality)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                     .lineLimit(2)
-                    .minimumScaleFactor(0.8)
-                    .frame(minHeight: 26, alignment: .top)
-                HStack(spacing: 3) {
-                    if has3D {
-                        Text("3D")
-                            .font(.caption2.weight(.heavy))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 5).padding(.vertical, 1.5)
-                            .background(Capsule().fill(Color(red: 0.21, green: 0.61, blue: 0.67)))
-                    }
-                    if k.isPremium {
-                        Label("Premium", systemImage: locked ? "lock.fill" : "crown.fill")
-                            .labelStyle(.iconOnly)
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(.orange)
-                            .padding(.horizontal, 5).padding(.vertical, 2)
-                            .background(Capsule().fill(Color.orange.opacity(0.18)))
-                    }
-                }
+                    .multilineTextAlignment(.leading)
+                    .frame(minHeight: 28, alignment: .topLeading)
             }
-            .padding(.vertical, 8).padding(.horizontal, 4)
-            .frame(maxWidth: .infinity, minHeight: 142, alignment: .top)
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(LinearGradient(colors: [k.palette.light, k.palette.mid.opacity(0.78)], startPoint: .top, endPoint: .bottom))
-            )
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(selected ? Color(red: 0.21, green: 0.61, blue: 0.67) : Color.white.opacity(0.6), lineWidth: selected ? 2.5 : 1))
-            .overlay(alignment: .topTrailing) {
-                if selected {
-                    Image(systemName: "checkmark").font(.caption2.weight(.heavy)).foregroundStyle(.white)
-                        .frame(width: 20, height: 20).background(Circle().fill(Color(red: 0.21, green: 0.61, blue: 0.67))).padding(5)
-                        .transition(.scale.combined(with: .opacity))
-                }
-            }
-            .scaleEffect(selected ? 1.0 : 0.97)
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(uiColor: .secondarySystemGroupedBackground)))
+            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(selected ? Color(red: 0.21, green: 0.61, blue: 0.67) : Color.primary.opacity(0.08), lineWidth: selected ? 2.5 : 1))
+            .shadow(color: selected ? Color(red: 0.21, green: 0.61, blue: 0.67).opacity(0.28) : .black.opacity(0.05), radius: selected ? 10 : 4, y: 3)
         }
         .buttonStyle(MolibooSpringPress(enabled: motionOn))
         .accessibilityIdentifier("moliboo.hub.char.\(k.rawValue)")
@@ -471,15 +470,18 @@ struct MolibooSettingsView: View {
 
     private var createCard: some View {
         Button { route = .studio(.custom) } label: {
-            VStack(spacing: 4) {
-                Image(systemName: "plus").font(.headline).foregroundStyle(.white).frame(width: 30, height: 30).background(Circle().fill(Color.blue.opacity(0.75)))
-                Text("Create\nCustom Moliboo").font(.system(size: 10, weight: .semibold)).multilineTextAlignment(.center).foregroundStyle(.blue)
+            VStack(spacing: 6) {
+                Image(systemName: "plus").font(.headline).foregroundStyle(.white).frame(width: 30, height: 30).background(Circle().fill(Color.blue.opacity(0.85)))
+                Text("Create").font(.footnote.weight(.bold)).foregroundStyle(.blue)
+                Text("Custom").font(.caption2.weight(.medium)).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.blue.opacity(0.5), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])))
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.blue.opacity(0.08)))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.blue.opacity(0.45), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])))
         }
         .buttonStyle(MolibooSpringPress(enabled: motionOn))
         .accessibilityIdentifier("moliboo.hub.create")
+        .accessibilityLabel("Create custom Moliboo")
     }
 
     private var unlockBanner: some View {
@@ -507,45 +509,62 @@ struct MolibooSettingsView: View {
     }
 
     private func toggleCard(_ icon: String, _ c: Color, _ title: String, _ sub: String, _ on: Binding<Bool>, _ id: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 8) {
-                Image(systemName: icon).font(.system(size: 15, weight: .semibold)).foregroundStyle(c)
-                    .frame(width: 30, height: 30).background(Circle().fill(c.opacity(0.15)))
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title).font(.footnote.weight(.semibold)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                    Text(sub).font(.caption2).foregroundStyle(.secondary).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                Image(systemName: icon).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
+                    .frame(width: 30, height: 30).background(Circle().fill(c.gradient))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(sub)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
             }
             HStack { Spacer(); Toggle(title, isOn: on).labelsHidden().accessibilityIdentifier(id) }
         }
-        .padding(10).frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
-        .molibooGlassBackground(RoundedRectangle(cornerRadius: 18, style: .continuous), tint: c.opacity(0.12))
+        .padding(12).frame(maxWidth: .infinity, minHeight: 100, alignment: .topLeading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(c.opacity(0.10)))
+        )
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(c.opacity(0.28), lineWidth: 1))
     }
 
     private func linkCard(_ icon: String, _ c: Color, _ title: String, _ sub: String, _ id: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: icon).font(.system(size: 16, weight: .semibold)).foregroundStyle(c)
-                    .frame(width: 32, height: 32).background(Circle().fill(c.opacity(0.15)))
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title).font(.footnote.weight(.semibold)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                    Text(sub).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
+                Image(systemName: icon).font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
+                    .frame(width: 32, height: 32).background(Circle().fill(c.gradient))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.footnote.weight(.bold)).foregroundStyle(.primary).lineLimit(2)
+                    Text(sub).font(.caption2.weight(.medium)).foregroundStyle(.secondary).lineLimit(2)
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.tertiary)
             }
-            .padding(.horizontal, 10).frame(maxWidth: .infinity, minHeight: 96).contentShape(Rectangle())
+            .padding(12).frame(maxWidth: .infinity, minHeight: 96).contentShape(Rectangle())
         }
         .buttonStyle(MolibooSpringPress(enabled: motionOn))
-        .foregroundStyle(.primary)
-        .molibooGlassBackground(RoundedRectangle(cornerRadius: 18, style: .continuous), tint: c.opacity(0.14), interactive: true)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(c.opacity(0.10)))
+        )
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(c.opacity(0.28), lineWidth: 1))
         .accessibilityIdentifier(id)
     }
 
     private func wideCard(_ icon: String, _ c: Color, _ title: String, _ sub: String, art: ModulaMascotKind?, id: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Image(systemName: icon).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
                         .frame(width: 30, height: 30).background(Circle().fill(c.gradient))
@@ -553,16 +572,23 @@ struct MolibooSettingsView: View {
                     if let art { MolibooHubArt(kind: art, size: 44) }
                     else { Image(systemName: "ellipsis.bubble.fill").font(.system(size: 26)).foregroundStyle(c.gradient) }
                 }
-                Text(title).font(.footnote.weight(.bold)).foregroundStyle(.primary).lineLimit(1).minimumScaleFactor(0.8)
-                Text(sub).font(.caption2).foregroundStyle(.secondary).lineLimit(2).multilineTextAlignment(.leading)
+                Text(title).font(.footnote.weight(.bold)).foregroundStyle(.primary).lineLimit(1)
+                Text(sub).font(.caption2.weight(.medium)).foregroundStyle(.secondary).lineLimit(2).multilineTextAlignment(.leading)
             }
-            .padding(10).frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
-            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(LinearGradient(colors: [c.opacity(0.42), c.opacity(0.12)], startPoint: .topLeading, endPoint: .bottomTrailing)))
+            .padding(12).frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
             .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(MolibooSpringPress(enabled: motionOn))
-        .molibooGlassBackground(RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true)
-        .shadow(color: c.opacity(0.25), radius: 10, y: 5)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(LinearGradient(colors: [c.opacity(0.28), c.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                )
+        )
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(c.opacity(0.35), lineWidth: 1))
+        .shadow(color: c.opacity(0.18), radius: 8, y: 4)
         .accessibilityIdentifier(id)
     }
 
