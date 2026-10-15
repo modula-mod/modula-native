@@ -18,6 +18,20 @@ final class NativeFoundationTests: XCTestCase {
         XCTAssertEqual(coordinator.currentRoute, .home(.following))
     }
 
+    func testIslandBannerMetricsPreferIslandSeedOnTallSafeArea() {
+        let island = IslandBannerMetrics.resolve(safeAreaTop: 59, containerWidth: 430)
+        XCTAssertEqual(island.style, .island)
+        XCTAssertEqual(island.seedWidth, 126)
+        XCTAssertLessThan(island.seedWidth, island.expandedWidth)
+
+        let notch = IslandBannerMetrics.resolve(safeAreaTop: 47, containerWidth: 390)
+        XCTAssertEqual(notch.style, .notch)
+
+        let bar = IslandBannerMetrics.resolve(safeAreaTop: 20, containerWidth: 375)
+        XCTAssertEqual(bar.style, .bar)
+        XCTAssertLessThan(bar.seedHeight, bar.expandedHeight)
+    }
+
     func testDeviceAppearancePersistence() {
         let name = "modula-test-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!

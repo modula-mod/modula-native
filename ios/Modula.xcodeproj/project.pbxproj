@@ -115,6 +115,7 @@
 		C11D7B0B13F8243B07F10A44 /* ComposerServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = C01D7B0B13F8243B07F10A44 /* ComposerServices.swift */; };
 		C14CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift */; };
 		C16FA2EE1AB23C72883DE0F4 /* ModulaGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06FA2EE1AB23C72883DE0F4 /* ModulaGlass.swift */; };
+		B50100000000000000000001 /* ModulaIslandBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40100000000000000000001 /* ModulaIslandBanner.swift */; };
 		A03200000000000000000008 /* ModulaAttachmentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000008 /* ModulaAttachmentPicker.swift */; };
 		A03200000000000000000007 /* POST03Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000007 /* POST03Tests.swift */; };
 		F70200000000000000000004 /* EffectKitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70100000000000000000004 /* EffectKitTests.swift */; };
@@ -557,6 +558,7 @@
 		C01D7B0B13F8243B07F10A44 /* ComposerServices.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ComposerServices.swift; path = Core/Composer/ComposerServices.swift; sourceTree = "<group>"; };
 		C04CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaComposerMediaPanel.swift; path = DesignSystem/AdvancedInteraction/ModulaComposerMediaPanel.swift; sourceTree = "<group>"; };
 		C06FA2EE1AB23C72883DE0F4 /* ModulaGlass.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaGlass.swift; path = DesignSystem/Glass/ModulaGlass.swift; sourceTree = "<group>"; };
+		B40100000000000000000001 /* ModulaIslandBanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaIslandBanner.swift; path = DesignSystem/Glass/ModulaIslandBanner.swift; sourceTree = "<group>"; };
 		A03100000000000000000008 /* ModulaAttachmentPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaAttachmentPicker.swift; path = Features/Media/ModulaAttachmentPicker.swift; sourceTree = "<group>"; };
 		A03100000000000000000007 /* POST03Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = POST03Tests.swift; sourceTree = "<group>"; };
 		F70100000000000000000004 /* EffectKitTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EffectKitTests.swift; sourceTree = "<group>"; };
@@ -1204,6 +1206,7 @@
 				C01D7B0B13F8243B07F10A44 /* ComposerServices.swift */,
 				C04CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift */,
 				C06FA2EE1AB23C72883DE0F4 /* ModulaGlass.swift */,
+				B40100000000000000000001 /* ModulaIslandBanner.swift */,
 				R40100000000000000000020 /* SettingsDecisionPages.swift */,
 				R40100000000000000000012 /* DownloadedMedia.swift */,
 				R40100000000000000000011 /* SettingsNotificationPages.swift */,
@@ -1907,6 +1910,7 @@
 				C11D7B0B13F8243B07F10A44 /* ComposerServices.swift in Sources */,
 				C14CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift in Sources */,
 				C16FA2EE1AB23C72883DE0F4 /* ModulaGlass.swift in Sources */,
+				B50100000000000000000001 /* ModulaIslandBanner.swift in Sources */,
 				R50100000000000000000020 /* SettingsDecisionPages.swift in Sources */,
 				R50100000000000000000012 /* DownloadedMedia.swift in Sources */,
 				R50100000000000000000011 /* SettingsNotificationPages.swift in Sources */,
