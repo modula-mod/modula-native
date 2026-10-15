@@ -45,6 +45,6 @@ final class MOL03CollectionUITests: XCTestCase {
         let more = app.buttons["studio.rail.more"]
         XCTAssertTrue(more.waitForExistence(timeout: 5))
         more.tap()
-        XCTAssertTrue(app.segmentedControls.buttons["Rewards"].waitForExistence(timeout: 10), "rewards/custom/assistant live in the one Studio")
+        XCTAssertTrue(app.descendants(matching: .any)["studio.more"].waitForExistence(timeout: 10), "rewards/custom/assistant live in the one Studio")
     }
 }

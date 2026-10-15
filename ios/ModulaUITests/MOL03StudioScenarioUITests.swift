@@ -34,9 +34,8 @@ final class MOL03StudioScenarioUITests: XCTestCase {
     }
 
     private func openStudio(_ app: XCUIApplication, _ kind: String) {
-        let entry = app.buttons["moliboo3d.entry"]
-        XCTAssertTrue(entry.waitForExistence(timeout: 25))
-        entry.tap()
+        // -MOL01Studio now opens the one Studio directly (no "Open 3D Studio (dev)" hop).
+        XCTAssertTrue(app.descendants(matching: .any)["moliboo3d.view"].waitForExistence(timeout: 25))
         wait(app) { $0["char"] == kind }
         wait(app, "moliboo3d.state", 25) { $0["loaded"] == "1" && $0["failed"] == "0" }
     }

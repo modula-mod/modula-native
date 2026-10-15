@@ -115,6 +115,8 @@ struct MascotStudioView: View {
             case .assistant: MascotAssistantSettingsSection()
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("studio.more")
         .onAppear {
             guard !didAppear else { return }
             didAppear = true
