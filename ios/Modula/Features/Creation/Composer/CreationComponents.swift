@@ -1,7 +1,98 @@
 import SwiftUI
 
-// MARK: - Tool dock
+// MARK: - Primary tool rail (redesign)
 
+enum CreationPrimaryAction: String, Identifiable, Hashable, Sendable {
+    case video
+    case more
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .video: "Video"
+        case .more: "More"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .video: "video.fill"
+        case .more: "ellipsis.circle.fill"
+        }
+    }
+}
+
+/// Bottom rail: shared Photo/Camera entry + Video + More. Link/Poll live in More
+/// so they never sit as dead grey icons.
+struct CreationComposerRail<VideoPicker: View>: View {
+    var accent: Color
+    @Binding var mediaStage: ComposeMediaStage
+    var videoEnabled: Bool
+    var glassNamespace: Namespace.ID
+    @ViewBuilder var videoPicker: () -> VideoPicker
+    var onMore: () -> Void
+
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ModulaGlassGroup(spacing: 10) {
+            HStack(alignment: .bottom, spacing: 8) {
+                ComposeMediaAttachEntry(
+                    stage: $mediaStage,
+                    accent: accent,
+                    glassNamespace: glassNamespace,
+                    idPrefix: "compose.media"
+                )
+
+                if videoEnabled {
+                    videoPicker()
+                        .accessibilityLabel("Video")
+                        .accessibilityIdentifier("compose.tool.video")
+                }
+
+                Button(action: onMore) {
+                    CreationToolChipLabel(
+                        title: "More",
+                        symbol: "ellipsis.circle.fill",
+                        accent: accent,
+                        enabled: true,
+                        emphasized: false
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("More options")
+                .accessibilityHint("Opens links, polls, files, and other options")
+                .accessibilityIdentifier("compose.tool.more")
+                .modulaGlassID("compose.rail.more", in: glassNamespace)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+        }
+        .background {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .overlay(alignment: .top) {
+                    LinearGradient(
+                        colors: [
+                            Color.primary.opacity(scheme == .dark ? 0.16 : 0.05),
+                            .clear
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 1)
+                }
+                .ignoresSafeArea(edges: .bottom)
+        }
+        .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.86), value: mediaStage)
+    }
+}
+
+/// Legacy dock kept for Settings catalog / tests that still pass `CreationTool`.
 struct CreationToolDock<PhotoPicker: View, VideoPicker: View>: View {
     var kind: CreationKind
     var capabilities: CreationCapabilities
@@ -12,58 +103,18 @@ struct CreationToolDock<PhotoPicker: View, VideoPicker: View>: View {
     var onTool: (CreationTool) -> Void
 
     @Environment(\.colorScheme) private var scheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        // Settings → Keyboard → "Swipe between composer tools": the dock scrolls
-        // sideways (paging by tool) instead of squeezing every tool into one row.
-        Group {
-            if ModulaPreferences.composerToolSwipe {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    dock.scrollTargetLayout()
-                }
-                .scrollTargetBehavior(.viewAligned)
-            } else {
-                dock
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background {
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .overlay(alignment: .top) {
-                    LinearGradient(
-                        colors: [
-                            Color.primary.opacity(scheme == .dark ? 0.18 : 0.06),
-                            .clear
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .frame(height: 1)
-                }
-                .ignoresSafeArea(edges: .bottom)
-        }
-    }
-
-    private var dock: some View {
         HStack(spacing: 6) {
             ForEach(CreationTool.allCases) { tool in
                 if capabilities.toolVisible(tool, kind: kind, developerMode: developerMode) {
                     if tool == .photo && capabilities.toolEnabled(.photo) {
                         photoPicker()
-                            .accessibilityLabel("Photo")
-                            .accessibilityIdentifier("compose.tool.photo")
                     } else if tool == .video && capabilities.toolEnabled(.video) {
                         videoPicker()
-                            .accessibilityLabel("Video")
-                            .accessibilityIdentifier("compose.tool.video")
                     } else {
                         let enabled = capabilities.toolEnabled(tool)
-                        Button {
-                            onTool(tool)
-                        } label: {
+                        Button { onTool(tool) } label: {
                             CreationToolChipLabel(
                                 title: tool.title,
                                 symbol: tool.symbol,
@@ -74,21 +125,30 @@ struct CreationToolDock<PhotoPicker: View, VideoPicker: View>: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(!developerMode && !enabled)
-                        .accessibilityLabel(tool.title)
-                        .accessibilityHint(enabled ? "Adds \(tool.title.lowercased())" : "Unavailable")
-                        .accessibilityIdentifier("compose.tool.\(tool.rawValue)")
                     }
                 }
             }
             Spacer(minLength: 0)
         }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: kind)
-        .accessibilityElement(children: .contain)
-        .accessibilitySortPriority(40)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .overlay(alignment: .top) {
+                    LinearGradient(
+                        colors: [Color.primary.opacity(scheme == .dark ? 0.18 : 0.06), .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 1)
+                }
+                .ignoresSafeArea(edges: .bottom)
+        }
     }
 }
 
-/// Shared chip for Photo / Camera / Video pickers and Link / Poll / More buttons.
+/// Shared chip for Video / More and legacy dock labels.
 struct CreationToolChipLabel: View {
     var title: String
     var symbol: String
@@ -104,7 +164,7 @@ struct CreationToolChipLabel: View {
                 .font(.system(size: 17, weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(foreground)
-                .frame(width: 40, height: 40)
+                .frame(width: 44, height: 44)
                 .modulaGlass(
                     in: Circle(),
                     interactive: enabled,
@@ -118,7 +178,7 @@ struct CreationToolChipLabel: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
         }
-        .frame(minWidth: 52, minHeight: 64)
+        .frame(minWidth: 56, minHeight: 66)
         .opacity(enabled ? 1 : 0.72)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
@@ -127,6 +187,232 @@ struct CreationToolChipLabel: View {
     private var foreground: Color {
         guard enabled else { return .secondary.opacity(scheme == .dark ? 0.55 : 0.45) }
         return emphasized ? accent : accent.opacity(scheme == .dark ? 0.95 : 0.88)
+    }
+}
+
+// MARK: - More options sheet
+
+enum CreationMoreOption: String, Identifiable, CaseIterable, Sendable {
+    case files
+    case link
+    case poll
+    case mentions
+    case hashtags
+    case schedule
+    case contentWarning
+    case location
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .files: "Files & audio"
+        case .link: "Link"
+        case .poll: "Poll"
+        case .mentions: "Mentions"
+        case .hashtags: "Hashtags"
+        case .schedule: "Schedule"
+        case .contentWarning: "Content warning"
+        case .location: "Location"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .files: "doc.fill"
+        case .link: "link"
+        case .poll: "chart.bar.fill"
+        case .mentions: "at"
+        case .hashtags: "number"
+        case .schedule: "calendar.badge.clock"
+        case .contentWarning: "exclamationmark.shield"
+        case .location: "location.fill"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .files: "Attach PDFs, audio, or documents"
+        case .link: "Add a URL to this post as text"
+        case .poll: "Draft a poll as text until SocialPost polls ship"
+        case .mentions: "Type @ to find people"
+        case .hashtags: "Type # for topic suggestions"
+        case .schedule: "Not available yet — drafts stay local"
+        case .contentWarning: "Not on the publish contract yet"
+        case .location: "Not on the SocialPost contract yet"
+        }
+    }
+}
+
+struct CreationMoreOptionsSheet: View {
+    var capabilities: CreationCapabilities
+    var accent: Color
+    var onFiles: () -> Void
+    var onLink: () -> Void
+    var onPoll: () -> Void
+    var onMentionsTip: () -> Void
+    var onHashtagsTip: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    optionRow(.files, available: capabilities.mediaUpload, action: {
+                        dismiss()
+                        onFiles()
+                    })
+                    optionRow(.link, available: true, action: {
+                        dismiss()
+                        onLink()
+                    })
+                    optionRow(.poll, available: true, action: {
+                        dismiss()
+                        onPoll()
+                    })
+                } header: {
+                    Text("Attach")
+                } footer: {
+                    Text("Photo and Camera live on the composer rail. Link and Poll insert into your draft as text until Greenfield structured types are enabled.")
+                }
+
+                Section {
+                    optionRow(.mentions, available: capabilities.mentionsLookup, action: {
+                        dismiss()
+                        onMentionsTip()
+                    })
+                    optionRow(.hashtags, available: capabilities.topicsLookup, action: {
+                        dismiss()
+                        onHashtagsTip()
+                    })
+                } header: {
+                    Text("Writing")
+                }
+
+                Section {
+                    placeholderRow(.schedule)
+                    placeholderRow(.contentWarning)
+                    placeholderRow(.location)
+                } header: {
+                    Text("Coming later")
+                } footer: {
+                    Text("These stay visible so the composer shows the roadmap — they don’t invent APIs or fake publish.")
+                }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("More")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .accessibilityIdentifier("compose.more.sheet")
+    }
+
+    private func optionRow(_ option: CreationMoreOption, available: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            label(option, badge: available ? nil : "Limited")
+        }
+        .disabled(!available && option != .link && option != .poll && option != .mentions && option != .hashtags)
+        .accessibilityIdentifier("compose.more.\(option.rawValue)")
+    }
+
+    private func placeholderRow(_ option: CreationMoreOption) -> some View {
+        label(option, badge: "Not yet")
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("compose.more.\(option.rawValue)")
+            .accessibilityHint(option.subtitle)
+    }
+
+    private func label(_ option: CreationMoreOption, badge: String?) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: option.symbol)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(accent)
+                .frame(width: 36, height: 36)
+                .modulaGlass(in: RoundedRectangle(cornerRadius: 10, style: .continuous), interactive: false, tint: accent.opacity(0.28), specular: true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(option.title)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Color.primary)
+                Text(option.subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+            if let badge {
+                Text(badge)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.secondary.opacity(0.12), in: Capsule())
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Suggestion rails
+
+struct CreationSuggestionRail: View {
+    var mentions: [ModulaComposerMention]
+    var hashtags: [String]
+    var accent: Color
+    var onMention: (ModulaComposerMention) -> Void
+    var onHashtag: (String) -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(mentions) { mention in
+                    Button {
+                        onMention(mention)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text("@\(mention.handle)")
+                                .font(.subheadline.weight(.semibold))
+                            if !mention.displayName.isEmpty {
+                                Text(mention.displayName)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .modulaGlass(in: Capsule(), interactive: true, tint: accent.opacity(0.22), specular: true)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("compose.mention.\(mention.handle)")
+                }
+                ForEach(hashtags, id: \.self) { tag in
+                    Button {
+                        onHashtag(tag)
+                    } label: {
+                        Text("#\(tag)")
+                            .font(.subheadline.weight(.semibold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .modulaGlass(in: Capsule(), interactive: true, tint: accent.opacity(0.22), specular: true)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("compose.hashtag.\(tag)")
+                }
+            }
+            .padding(.horizontal, 4)
+        }
+        .accessibilityIdentifier("compose.suggestions")
     }
 }
 
@@ -143,14 +429,31 @@ struct MediaAttachmentGrid: View {
     var reduceMotion: Bool
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(Array(media.enumerated()), id: \.element.id) { index, item in
-                    mediaCard(item, index: index, count: media.count)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(media.count == 1 ? "1 attachment" : "\(media.count) attachments")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Text("Hold for alt text, reorder, remove")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(Array(media.enumerated()), id: \.element.id) { index, item in
+                        mediaCard(item, index: index, count: media.count)
+                            .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
+                    }
                 }
             }
         }
+        .padding(12)
+        .background {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(.secondary.opacity(0.06))
+        }
         .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("compose.media.grid")
     }
 
     private func mediaCard(_ item: CreationMedia, index: Int, count: Int) -> some View {
@@ -163,7 +466,7 @@ struct MediaAttachmentGrid: View {
                     default: Rectangle().fill(.secondary.opacity(0.15))
                     }
                 }
-                .frame(width: 148, height: 148).clipped()
+                .frame(width: 168, height: 168).clipped()
             } else {
                 VStack(spacing: 8) {
                     Image(systemName: symbol(item.kind)).font(.title)
@@ -172,18 +475,35 @@ struct MediaAttachmentGrid: View {
                         ProgressView(value: progress).padding(.horizontal, 12)
                     }
                 }
-                .frame(width: 148, height: 148)
+                .frame(width: 168, height: 168)
                 .background(.secondary.opacity(0.10))
             }
-            Text("\(index + 1)")
-                .font(.caption.weight(.semibold))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(.ultraThinMaterial, in: Capsule())
-                .padding(8)
+            HStack {
+                Text("\(index + 1)")
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.ultraThinMaterial, in: Capsule())
+                Spacer()
+                Button {
+                    onRemove(item.id)
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(.white, .black.opacity(0.55))
+                        .font(.title3)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Remove attachment \(index + 1)")
+            }
+            .padding(8)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: index)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8)
+        }
+        .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.84), value: index)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label(item, index: index, count: count))
         .accessibilityHint("Actions available")
@@ -260,6 +580,7 @@ struct LinkPreviewEditor: View {
     var preview: LinkDraft?
     var editableMetadata: Bool
     var onChange: (String) -> Void
+    var footerNote: String? = nil
     @State private var field: String = ""
 
     var body: some View {
@@ -288,7 +609,14 @@ struct LinkPreviewEditor: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+            if let footerNote {
+                Text(footerNote)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
+        .padding(12)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
@@ -335,5 +663,65 @@ struct UploadProgressSurface: View {
         }
         .font(.footnote)
         .accessibilityIdentifier("compose.upload")
+    }
+}
+
+/// Local poll draft that inserts as readable text (honest until pollPost is true).
+struct CreationTextPollEditor: View {
+    @State private var poll: PollDraft
+    var maxOptions: Int
+    var accent: Color
+    var onInsert: (String) -> Void
+    var onCancel: () -> Void
+
+    init(maxOptions: Int, accent: Color, onInsert: @escaping (String) -> Void, onCancel: @escaping () -> Void) {
+        _poll = State(initialValue: PollDraft.blank(optionLimit: maxOptions))
+        self.maxOptions = maxOptions
+        self.accent = accent
+        self.onInsert = onInsert
+        self.onCancel = onCancel
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Local poll draft", systemImage: "chart.bar.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(accent)
+            Text("Structured polls aren’t on the SocialPost contract yet. Insert as text so people can reply — this does not invent a poll API.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            PollEditor(poll: poll, maxOptions: maxOptions) { poll = $0 }
+            HStack {
+                Button("Cancel", action: onCancel)
+                Spacer()
+                Button("Insert as text") {
+                    onInsert(Self.format(poll))
+                }
+                .fontWeight(.semibold)
+                .disabled(!canInsert)
+                .tint(accent)
+            }
+            .fontDesign(.default)
+        }
+        .padding(14)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .accessibilityIdentifier("compose.poll.local")
+    }
+
+    private var canInsert: Bool {
+        let options = poll.options.map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        return !poll.question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && options.count >= PollDraft.minimumOptions
+    }
+
+    static func format(_ poll: PollDraft) -> String {
+        let options = poll.options
+            .map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        var lines = ["📊 \(poll.question.trimmingCharacters(in: .whitespacesAndNewlines))"]
+        for (index, option) in options.enumerated() {
+            lines.append("\(index + 1). \(option)")
+        }
+        lines.append("(Text poll — reply with a number. Native polls coming later.)")
+        return lines.joined(separator: "\n")
     }
 }

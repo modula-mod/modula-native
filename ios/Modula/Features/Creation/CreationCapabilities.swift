@@ -37,6 +37,9 @@ struct CreationCapabilities: Sendable, Equatable {
         value.audioPost = true
         value.mediaUpload = true
         value.maxMediaCount = 10
+        // Same Greenfield search / suggest paths comments already use.
+        value.mentionsLookup = true
+        value.topicsLookup = true
         return value
     }()
 

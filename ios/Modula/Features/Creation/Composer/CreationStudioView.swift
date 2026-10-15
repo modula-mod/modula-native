@@ -12,13 +12,16 @@ struct CreationStudioView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @FocusState private var editorFocused: Bool
+    @Namespace private var glassMorph
     @State private var store: CreationStudioStore?
-    @State private var pickerItems: [PhotosPickerItem] = []
     @State private var videoPickerItems: [PhotosPickerItem] = []
-    @State private var showsCamera = false
+    @State private var mediaStage: ComposeMediaStage = .collapsed
     @State private var showFileImporter = false
-    @State private var moreExplanation: CreationTool?
+    @State private var showMoreOptions = false
+    @State private var localLinkURL = "https://"
+    @State private var appeared = false
     @State private var publishTask: Task<Void, Never>?
+    @State private var publishMorph = false
 
     init(route: ComposeRoute) {
         self.route = route
@@ -61,12 +64,19 @@ struct CreationStudioView: View {
                 composer(store)
             }
         }
+        .opacity(appeared ? 1 : 0)
+        .scaleEffect(appeared ? 1 : (reduceMotion ? 1 : 0.97))
         .accessibilityIdentifier("compose.studio")
         .navigationBarBackButtonHidden(true)
         .modulaSoftScrollEdge()
         .navigationTitle("")
         .toolbar(.hidden, for: .navigationBar)
         .scrollDismissesKeyboard(.interactively)
+        .onAppear {
+            withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.42, dampingFraction: 0.86)) {
+                appeared = true
+            }
+        }
         .onKeyPress(.escape) {
             exitTapped(store)
             return .handled
@@ -95,10 +105,29 @@ struct CreationStudioView: View {
             }
             .presentationDetents([.medium, .large])
         }
-        .onChange(of: pickerItems) { _, items in
-            guard !items.isEmpty else { return }
-            Task { await store.attachImages(items) }
-            pickerItems = []
+        .sheet(isPresented: $showMoreOptions) {
+            CreationMoreOptionsSheet(
+                capabilities: store.capabilities,
+                accent: app.appearance.accent.color,
+                onFiles: { showFileImporter = true },
+                onLink: {
+                    localLinkURL = "https://"
+                    store.showsLocalLinkEditor = true
+                    store.showsLocalPollEditor = false
+                },
+                onPoll: {
+                    store.showsLocalPollEditor = true
+                    store.showsLocalLinkEditor = false
+                },
+                onMentionsTip: {
+                    store.composerTip = "Type @ followed by a name — suggestions come from Greenfield search."
+                    editorFocused = true
+                },
+                onHashtagsTip: {
+                    store.composerTip = "Type # for topic suggestions from Greenfield."
+                    editorFocused = true
+                }
+            )
         }
         .onChange(of: videoPickerItems) { _, items in
             guard !items.isEmpty else { return }
@@ -119,17 +148,6 @@ struct CreationStudioView: View {
         ) { result in
             if case .success(let urls) = result { Task { await store.attachFiles(urls) } }
             if case .failure = result { store.publishError = "Couldn't open those files. Your draft is safe." }
-        }
-        .alert(
-            moreExplanation?.title ?? "Unavailable",
-            isPresented: Binding(
-                get: { moreExplanation != nil },
-                set: { if !$0 { moreExplanation = nil } }
-            )
-        ) {
-            Button("OK", role: .cancel) { moreExplanation = nil }
-        } message: {
-            Text(store.capabilities.unavailableReason[kindForTool(moreExplanation)] ?? "This tool isn’t available yet.")
         }
     }
 
@@ -174,6 +192,7 @@ struct CreationStudioView: View {
                     .foregroundStyle(store.canPublish ? Color.white : accent.opacity(0.55))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
+                    .scaleEffect(publishMorph ? 0.92 : 1)
                     .modulaGlass(
                         in: Capsule(),
                         interactive: store.canPublish,
@@ -181,11 +200,12 @@ struct CreationStudioView: View {
                         prominent: store.canPublish,
                         specular: true
                     )
+                    .modulaGlassID("compose.publish", in: glassMorph)
             }
             .buttonStyle(.plain)
             .fontDesign(.default)
             .disabled(!store.canPublish)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: store.canPublish)
+            .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.78), value: store.canPublish)
             .accessibilityHint(store.publishHint ?? "Publishes this post")
             .accessibilitySortPriority(10)
             .accessibilityIdentifier("compose.publish")
@@ -196,11 +216,48 @@ struct CreationStudioView: View {
     }
 
     private func composer(_ store: CreationStudioStore) -> some View {
-        VStack(spacing: 0) {
+        let accent = app.appearance.accent.color
+        return VStack(spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    authorRow(store)
-                    editor(store)
+                VStack(alignment: .leading, spacing: 18) {
+                    identityStage(store)
+
+                    writingCanvas(store)
+
+                    if !store.mentionSuggestions.isEmpty || !store.hashtagSuggestions.isEmpty {
+                        CreationSuggestionRail(
+                            mentions: store.mentionSuggestions,
+                            hashtags: store.hashtagSuggestions,
+                            accent: accent,
+                            onMention: store.applyMention,
+                            onHashtag: store.applyHashtag
+                        )
+                        .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                    }
+
+                    if mediaStage.isExpanded {
+                        ComposeMediaAttachStage(
+                            stage: $mediaStage,
+                            accent: accent,
+                            idPrefix: "compose.media",
+                            height: 300,
+                            maxSelectionCount: store.capabilities.carouselPost
+                                ? (store.capabilities.maxMediaCount ?? 10) : 1,
+                            matching: .images,
+                            cameraModes: store.capabilities.videoPost ? [.photo, .video] : [.photo],
+                            onPhotosPicked: { items in
+                                Task { await store.attachImages(items) }
+                            },
+                            onCameraPhoto: { image in
+                                Task { await store.attachCameraImage(image) }
+                            },
+                            onCameraVideo: { url in
+                                Task { await store.attachCameraVideo(url) }
+                            }
+                        )
+                        .modulaGlassID("compose.media.stage", in: glassMorph)
+                    }
+
                     if !store.draft.media.isEmpty {
                         MediaAttachmentGrid(
                             media: store.draft.media,
@@ -213,7 +270,41 @@ struct CreationStudioView: View {
                             reduceMotion: reduceMotion
                         )
                         .accessibilitySortPriority(70)
+                        .transition(reduceMotion ? .opacity : .scale(scale: 0.96).combined(with: .opacity))
                     }
+
+                    if store.showsLocalLinkEditor {
+                        LinkPreviewEditor(
+                            urlString: localLinkURL,
+                            preview: nil,
+                            editableMetadata: false,
+                            onChange: { localLinkURL = $0 },
+                            footerNote: "Adds the URL into your post as text. Structured link cards wait on Greenfield."
+                        )
+                        HStack {
+                            Button("Cancel") {
+                                store.showsLocalLinkEditor = false
+                            }
+                            Spacer()
+                            Button("Insert link") {
+                                store.insertLinkAsText(localLinkURL)
+                            }
+                            .fontWeight(.semibold)
+                            .disabled(localLinkURL.trimmingCharacters(in: .whitespacesAndNewlines).count < 8)
+                        }
+                        .fontDesign(.default)
+                        .padding(.horizontal, 4)
+                    }
+
+                    if store.showsLocalPollEditor {
+                        CreationTextPollEditor(
+                            maxOptions: store.capabilities.maxPollOptions ?? 4,
+                            accent: accent,
+                            onInsert: store.insertPollAsText,
+                            onCancel: { store.showsLocalPollEditor = false }
+                        )
+                    }
+
                     if store.capabilities.linkPost || store.draft.link != nil {
                         LinkPreviewEditor(
                             urlString: store.draft.link?.urlString ?? "",
@@ -222,6 +313,7 @@ struct CreationStudioView: View {
                             onChange: store.setLinkURL
                         )
                     }
+
                     if store.draft.kind == .poll || (store.capabilities.pollPost && store.draft.poll != nil) {
                         if let poll = store.draft.poll {
                             PollEditor(
@@ -231,6 +323,29 @@ struct CreationStudioView: View {
                             )
                         }
                     }
+
+                    if let tip = store.composerTip {
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: "lightbulb.fill")
+                                .foregroundStyle(accent)
+                            Text(tip)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                            Spacer(minLength: 0)
+                            Button {
+                                store.composerTip = nil
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(12)
+                        .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .transition(.opacity)
+                    }
+
                     if store.draft.state == .failed {
                         HStack {
                             Button("Retry") { startPublishing(store) }
@@ -238,6 +353,7 @@ struct CreationStudioView: View {
                         }
                         .fontDesign(.default)
                     }
+
                     UploadProgressSurface(
                         fraction: store.uploadFraction,
                         preparing: store.preparingMedia,
@@ -245,12 +361,21 @@ struct CreationStudioView: View {
                     )
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 24)
+                .padding(.bottom, 28)
+                .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.38, dampingFraction: 0.86), value: mediaStage)
+                .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.34, dampingFraction: 0.84), value: store.draft.media.count)
             }
             .modulaSoftScrollEdge()
-            // Settings → Photos → "Explain Limited Library" — quiet secondary footnote.
+            .simultaneousGesture(TapGesture().onEnded {
+                if mediaStage.isExpanded {
+                    withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.36, dampingFraction: 0.84)) {
+                        mediaStage = .collapsed
+                    }
+                }
+            })
+
             if ModulaPreferences.explainLimitedLibrary, store.draft.media.isEmpty,
-               store.capabilities.toolEnabled(.photo) {
+               store.capabilities.toolEnabled(.photo), !mediaStage.isExpanded {
                 HStack(alignment: .top, spacing: 6) {
                     Image(systemName: "lock.fill")
                         .font(.caption2.weight(.semibold))
@@ -268,8 +393,7 @@ struct CreationStudioView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityElement(children: .combine)
             }
-            // Pinned above the tool dock so a failed publish is always visible,
-            // instead of sitting at the bottom of a long draft in grey text.
+
             if let error = store.publishError {
                 ModulaErrorBanner(message: error, identifier: "compose.publish.error") {
                     store.publishError = nil
@@ -281,127 +405,89 @@ struct CreationStudioView: View {
                     AccessibilityNotification.Announcement(error).post()
                 }
             }
-            CreationToolDock(
-                kind: store.draft.kind,
-                capabilities: store.capabilities,
-                developerMode: app.commandCapabilities().developerMode,
-                accent: app.appearance.accent.color,
-                photoPicker: {
-                    let accent = app.appearance.accent.color
-                    HStack(spacing: 6) {
-                        PhotosPicker(
-                            selection: $pickerItems,
-                            maxSelectionCount: store.capabilities.carouselPost ? (store.capabilities.maxMediaCount ?? 10) : 1,
-                            matching: .images
-                        ) {
-                            CreationToolChipLabel(
-                                title: "Photo",
-                                symbol: "photo.on.rectangle.angled",
-                                accent: accent,
-                                enabled: store.capabilities.toolEnabled(.photo),
-                                emphasized: true
-                            )
-                        }
-                        .disabled(!store.capabilities.toolEnabled(.photo))
-                        if store.capabilities.toolEnabled(.photo), UIImagePickerController.isSourceTypeAvailable(.camera) {
-                            Button {
-                                showsCamera = true
-                            } label: {
-                                CreationToolChipLabel(
-                                    title: "Camera",
-                                    symbol: "camera.fill",
-                                    accent: accent,
-                                    enabled: true,
-                                    emphasized: true
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Camera")
-                            .accessibilityIdentifier("compose.tool.camera")
-                        }
-                    }
-                },
+
+            CreationComposerRail(
+                accent: accent,
+                mediaStage: $mediaStage,
+                videoEnabled: store.capabilities.videoPost,
+                glassNamespace: glassMorph,
                 videoPicker: {
                     PhotosPicker(selection: $videoPickerItems, maxSelectionCount: 1, matching: .videos) {
                         CreationToolChipLabel(
                             title: "Video",
                             symbol: "video.fill",
-                            accent: app.appearance.accent.color,
-                            enabled: store.capabilities.videoPost,
+                            accent: accent,
+                            enabled: true,
                             emphasized: true
                         )
                     }
-                    .disabled(!store.capabilities.videoPost)
                 },
-                onTool: { tool in
-                    handle(tool, store: store)
+                onMore: {
+                    editorFocused = false
+                    withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.34, dampingFraction: 0.86)) {
+                        mediaStage = .collapsed
+                    }
+                    showMoreOptions = true
                 }
             )
             .fontDesign(.default)
             .accessibilitySortPriority(40)
-            .fullScreenCover(isPresented: $showsCamera) {
-                ModulaCameraCaptureView(
-                    onCapture: { data, mimeType in
-                        showsCamera = false
-                        Task { await store.attachCapturedPhoto(data, mimeType: mimeType) }
-                    },
-                    onClose: { showsCamera = false }
-                )
-            }
         }
     }
 
-    private func authorRow(_ store: CreationStudioStore) -> some View {
+    private func identityStage(_ store: CreationStudioStore) -> some View {
         HStack(spacing: 12) {
             ModulaAvatar(
                 initials: String((app.auth.account?.displayName ?? app.auth.account?.primaryHandle ?? "M").prefix(2)).uppercased(),
-                size: 40,
+                size: 44,
                 name: app.auth.account?.displayName
             )
-            AudiencePicker(selection: Binding(
-                get: { store.draft.audience },
-                set: { store.setAudience($0) }
-            ))
-            .accessibilitySortPriority(90)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(app.auth.account?.displayName ?? app.auth.account?.primaryHandle ?? "You")
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                AudiencePicker(selection: Binding(
+                    get: { store.draft.audience },
+                    set: { store.setAudience($0) }
+                ))
+                .accessibilitySortPriority(90)
+            }
             Spacer(minLength: 0)
         }
         .padding(.top, 4)
     }
 
-    private func editor(_ store: CreationStudioStore) -> some View {
+    private func writingCanvas(_ store: CreationStudioStore) -> some View {
         let accent = app.appearance.accent.color
-        let stage = RoundedRectangle(cornerRadius: 24, style: .continuous)
+        let stage = RoundedRectangle(cornerRadius: 22, style: .continuous)
         return TextEditor(text: Binding(
             get: { store.draft.text },
             set: { store.handlePaste($0) }
         ))
         .font(.body)
         .fontDesign(app.appearance.fontDesign)
-        // Settings → Keyboard.
         .autocorrectionDisabled(!ModulaPreferences.composerAutocorrect)
         .textInputAutocapitalization(ModulaPreferences.composerAutoCapitalise ? .sentences : .never)
         .scrollContentBackground(.hidden)
-        .frame(minHeight: 200)
+        .frame(minHeight: 220)
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .focused($editorFocused)
         .background {
-            stage
-                .fill(accent.opacity(editorFocused ? (colorScheme == .dark ? 0.12 : 0.06) : 0.04))
+            stage.fill(colorScheme == .dark ? Color.white.opacity(0.04) : Color.black.opacity(0.03))
         }
-        .modulaGlass(in: stage, interactive: false, tint: editorFocused ? accent.opacity(0.22) : nil, specular: true)
         .overlay {
             stage.strokeBorder(
-                editorFocused ? accent.opacity(0.55) : Color.primary.opacity(0.08),
-                lineWidth: editorFocused ? 1.4 : 0.8
+                editorFocused ? accent.opacity(0.45) : Color.primary.opacity(0.08),
+                lineWidth: editorFocused ? 1.2 : 0.7
             )
         }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.22), value: editorFocused)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: editorFocused)
         .overlay(alignment: .topLeading) {
             if store.draft.text.isEmpty {
                 Text(placeholder(store))
-                    .font(.body)
-                    .foregroundStyle(.secondary.opacity(0.72))
+                    .font(.title3.weight(.regular))
+                    .foregroundStyle(.secondary.opacity(0.55))
                     .padding(.top, 20)
                     .padding(.leading, 18)
                     .allowsHitTesting(false)
@@ -423,8 +509,14 @@ struct CreationStudioView: View {
         } message: {
             Text(store.pasteLinkSuggestion?.absoluteString ?? "")
         }
+        .onChange(of: editorFocused) { _, focused in
+            if focused, mediaStage.isExpanded {
+                withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.34, dampingFraction: 0.86)) {
+                    mediaStage = .collapsed
+                }
+            }
+        }
     }
-
 
     private func unavailable(_ store: CreationStudioStore) -> some View {
         ModulaEmptyState(
@@ -444,27 +536,6 @@ struct CreationStudioView: View {
         }
     }
 
-    private func handle(_ tool: CreationTool, store: CreationStudioStore) {
-        if !store.capabilities.toolEnabled(tool) {
-            moreExplanation = tool
-            return
-        }
-        switch tool {
-        case .photo:
-            break
-        case .link:
-            if store.draft.link == nil {
-                store.setLinkURL("https://")
-            }
-        case .poll:
-            store.setPoll(store.draft.poll ?? PollDraft.blank(optionLimit: store.capabilities.maxPollOptions ?? 4))
-        case .video:
-            break
-        case .more:
-            showFileImporter = true
-        }
-    }
-
     private func bootstrap() {
         guard store == nil else { return }
         if let draftID {
@@ -480,7 +551,8 @@ struct CreationStudioView: View {
             mediaStore: app.draftMedia,
             publisher: app.publishing,
             uploader: app.mediaUploader,
-            capabilities: app.creationCapabilities
+            capabilities: app.creationCapabilities,
+            client: app.client
         )
         if accountID.isEmpty {
             created.publishError = "Sign in to compose. Drafts stay with your account."
@@ -497,11 +569,13 @@ struct CreationStudioView: View {
             }
             return
         }
+        if !reduceMotion {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) { publishMorph = true }
+        }
         app.postActions.ingest(post)
         app.home.ingestPublished(post)
         app.profile.ingestPublished(post)
         close()
-        // Settings → Creator → "Show insights tip after publish".
         if ModulaPreferences.creatorShowsInsightsHint {
             app.navigation.flash("Posted. See how it does in Settings → Creator → Insights.", symbol: "chart.line.uptrend.xyaxis")
         }
@@ -519,16 +593,6 @@ struct CreationStudioView: View {
         switch store.requestExit() {
         case .dismiss: close()
         case .prompt: break
-        }
-    }
-
-    private func kindForTool(_ tool: CreationTool?) -> CreationKind {
-        switch tool {
-        case .photo: .photo
-        case .video: .video
-        case .link: .link
-        case .poll: .poll
-        case .more, .none: kind
         }
     }
 
