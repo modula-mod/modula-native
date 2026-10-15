@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		838D878E1CDE4F0798B71159 /* PDFInlinePostUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B02FB311CBAA4285B556D18C /* PDFInlinePostUITests.swift */; };
+		647C9C0055154B72875252C7 /* PDFInlineCarouselTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA7F7ED971B64DE79A592E1E /* PDFInlineCarouselTests.swift */; };
+		4725F6109BFA4B45A3FAB4FD /* PDFInlineLab.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7E1CFA0E65045DBBB9D7870 /* PDFInlineLab.swift */; };
+		498A2A6A47D9466587CF839C /* PDFInlineCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C60B54CD0D8A4495985F84DD /* PDFInlineCarousel.swift */; };
 		A0MOL01ACC0000000000000B /* MOL01AcceptanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0MOL01ACC0000000000000F /* MOL01AcceptanceUITests.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E105 /* MOL02PipAcceptanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E106 /* MOL02PipAcceptanceUITests.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E109 /* MOL02MossAcceptanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E110 /* MOL02MossAcceptanceUITests.swift */; };
@@ -437,6 +441,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		B02FB311CBAA4285B556D18C /* PDFInlinePostUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PDFInlinePostUITests.swift; sourceTree = "<group>"; };
+		AA7F7ED971B64DE79A592E1E /* PDFInlineCarouselTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PDFInlineCarouselTests.swift; sourceTree = "<group>"; };
+		F7E1CFA0E65045DBBB9D7870 /* PDFInlineLab.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PDFInlineLab.swift; path = Features/Social/PDFInlineLab.swift; sourceTree = "<group>"; };
+		C60B54CD0D8A4495985F84DD /* PDFInlineCarousel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PDFInlineCarousel.swift; path = Features/Social/PDFInlineCarousel.swift; sourceTree = "<group>"; };
 		A0MOL01ACC0000000000000F /* MOL01AcceptanceUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL01AcceptanceUITests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E106 /* MOL02PipAcceptanceUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL02PipAcceptanceUITests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E110 /* MOL02MossAcceptanceUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL02MossAcceptanceUITests.swift; sourceTree = "<group>"; };
@@ -935,6 +943,7 @@
 				E1010000000000000000000A /* DiscoverTests.swift */,
 				E30100000000000000000009 /* HomeFeedTests.swift */,
 				E30100000000000000000019 /* PostSystemTests.swift */,
+				AA7F7ED971B64DE79A592E1E /* PDFInlineCarouselTests.swift */,
 				F00100000000000000000006 /* ProfileTests.swift */,
 				834A240ED776595650758ACA /* LI02IntelligenceTests.swift */,
 				A40300000000000000000002 /* LI03AppleProviderTests.swift */,
@@ -956,6 +965,7 @@
 				A1B2C3D4E5F6A7B8C9D0E118 /* MOL02BoltAcceptanceUITests.swift */,
 				35F1D3F0EE4EADF1CF62C7DA /* MOL03PickerAmbientUITests.swift */,
 				05594AC12F22DBDCED56C4CE /* MOL03SettingsHubUITests.swift */,
+				B02FB311CBAA4285B556D18C /* PDFInlinePostUITests.swift */,
 				5E18744FE79D44EEB5422B45 /* MOL04CardsUITests.swift */,
 				471F7AF99CDC198799763F9B /* MOL03WorldUITests.swift */,
 				271267906D77E83307E9ECE3 /* MOL03OriginalsUITests.swift */,
@@ -1002,6 +1012,8 @@
 				A03100000000000000000003 /* AttachmentViewers.swift */,
 				A03100000000000000000004 /* ModulaPostModels.swift */,
 				A03100000000000000000005 /* PostContentRenderer.swift */,
+				F7E1CFA0E65045DBBB9D7870 /* PDFInlineLab.swift */,
+				C60B54CD0D8A4495985F84DD /* PDFInlineCarousel.swift */,
 				A03100000000000000000006 /* ContentPostCatalogView.swift */,
 				084039C8EE9493F07C7F4946 /* AppEnvironment.swift */,
 				B8D0072715530545613031A3 /* ModulaApp.swift */,
@@ -1663,6 +1675,7 @@
 				A1B2C3D4E5F6A7B8C9D0E117 /* MOL02BoltAcceptanceUITests.swift in Sources */,
 				929CC2DCFFFC0BC5DAE061DA /* MOL03PickerAmbientUITests.swift in Sources */,
 				ECD753AFA25857E5171A9671 /* MOL03SettingsHubUITests.swift in Sources */,
+				838D878E1CDE4F0798B71159 /* PDFInlinePostUITests.swift in Sources */,
 				8597201344E341F88520A56D /* MOL04CardsUITests.swift in Sources */,
 				78F1133071E4CE06BFD5A6E8 /* MOL03WorldUITests.swift in Sources */,
 				A536B925EA5BECC1C2A7F339 /* MOL03OriginalsUITests.swift in Sources */,
@@ -1700,6 +1713,7 @@
 				E2010000000000000000000A /* DiscoverTests.swift in Sources */,
 				E40100000000000000000009 /* HomeFeedTests.swift in Sources */,
 				E40100000000000000000019 /* PostSystemTests.swift in Sources */,
+				647C9C0055154B72875252C7 /* PDFInlineCarouselTests.swift in Sources */,
 				N50100000000000000000012 /* N4CTests.swift in Sources */,
 				V50100000000000000000003 /* ModuleVersionSwitchTests.swift in Sources */,
 				F10100000000000000000006 /* ProfileTests.swift in Sources */,
@@ -1725,6 +1739,8 @@
 				A03200000000000000000003 /* AttachmentViewers.swift in Sources */,
 				A03200000000000000000004 /* ModulaPostModels.swift in Sources */,
 				A03200000000000000000005 /* PostContentRenderer.swift in Sources */,
+				4725F6109BFA4B45A3FAB4FD /* PDFInlineLab.swift in Sources */,
+				498A2A6A47D9466587CF839C /* PDFInlineCarousel.swift in Sources */,
 				A03200000000000000000006 /* ContentPostCatalogView.swift in Sources */,
 				C5321327FFFE3ADE609BB112 /* AppEnvironment.swift in Sources */,
 				A50100000000000000000001 /* AppLaunchState.swift in Sources */,
