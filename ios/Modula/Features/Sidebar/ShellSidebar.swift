@@ -293,11 +293,14 @@ struct ShellSidebarView: View {
     #endif
 
     private var footer: some View {
-        Text(versionLabel)
-            .font(.caption2)
-            .foregroundStyle(.tertiary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityLabel(versionLabel)
+        VStack(alignment: .leading, spacing: 6) {
+            ModulaWordmark(height: 16)
+            Text(versionLabel)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .accessibilityLabel(versionLabel)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var versionLabel: String {

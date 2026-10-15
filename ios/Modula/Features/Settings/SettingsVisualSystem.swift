@@ -603,7 +603,7 @@ struct ModuleOrbitGraphic: View {
     var body: some View {
         SettingsGraphicFrame(caption: "\(installedCount) installed on this account") {
             VStack(spacing: 10) {
-                Text("Modula").font(.caption.weight(.semibold)).foregroundStyle(app.appearance.accent.color)
+                ModulaWordmark(height: 14)
                 HStack(spacing: 12) {
                     ForEach(["Notes", "Tasks", "More"], id: \.self) { name in
                         Text(name)
