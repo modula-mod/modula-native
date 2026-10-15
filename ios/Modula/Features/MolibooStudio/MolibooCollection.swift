@@ -81,10 +81,10 @@ struct MolibooCollectionView: View {
             VStack(spacing: 6) {
                 ZStack(alignment: .topTrailing) {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(has3D ? AnyShapeStyle(LinearGradient(colors: [.accentColor.opacity(0.18), .accentColor.opacity(0.05)], startPoint: .top, endPoint: .bottom)) : AnyShapeStyle(.quaternary.opacity(0.5)))
+                        .fill(has3D ? AnyShapeStyle(LinearGradient(colors: [(ModulaMascotKind(rawValue: id)?.palette.light ?? .accentColor), (ModulaMascotKind(rawValue: id)?.palette.mid ?? .accentColor).opacity(0.7)], startPoint: .top, endPoint: .bottom)) : AnyShapeStyle(.quaternary.opacity(0.5)))
                     Group {
                         if has3D, let img = MolibooPortrait.image(for: id) {
-                            Image(uiImage: img).resizable().scaledToFit().padding(8)
+                            Image(uiImage: img).resizable().interpolation(.high).scaledToFit().padding(8).molibooPortraitEdge()
                         } else if let kind {
                             ModulaMascotFigure(kind: kind, pose: .still(), size: 30).opacity(0.7)
                         } else {

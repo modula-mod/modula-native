@@ -23,6 +23,9 @@ struct MolibooRoomBackdrop: View {
                 // the room sits over its upper part, and the lower part fades into sky + mist, never a flat fill.
                 MolibooAmbientBackground(ambience: MolibooAmbience(rawValue: period.rawValue) ?? .night, animated: animating, fps: 12,
                                          density: 0.6, moon: UnitPoint(x: 0.9, y: 0.05), moonScale: 0)
+                if period == .night {   // aurora / nebula band over the night sky (Metal, fps-capped, still frame under Reduce Motion)
+                    Color.clear.frame(height: 520).molibooNebula(0.8, animated: animating).allowsHitTesting(false)
+                }
                 LinearGradient(colors: wall + [wall.last!.opacity(0)], startPoint: .top, endPoint: .bottom)
                     .frame(height: top + Self.roomHeight).offset(y: -lift * 0.7)
                 // Far: window (slowest parallax).
@@ -31,7 +34,7 @@ struct MolibooRoomBackdrop: View {
                 RadialGradient(colors: [lamp.opacity(period.isDark ? 0.55 : 0.30), .clear], center: .center, startRadius: 4, endRadius: 190)
                     .frame(width: 380, height: 380).offset(x: w * 0.42, y: top + 30 - lift * 0.45)
                 // Mid: shelves with figurines.
-                shelf(w: w).offset(y: top + 112 - lift * 0.5)
+                shelf(w: w).opacity(0.55).blur(radius: 1.2).offset(y: top + 112 - lift * 0.5)   // quieter: chrome no longer floats over clutter
                 // Floor: mossy rug under the pedestal fading into the deep backdrop for the cards below.
                 Ellipse().fill(RadialGradient(colors: [Color(red: 0.30, green: 0.45, blue: 0.26).opacity(0.75), .clear], center: .center, startRadius: 10, endRadius: w * 0.6))
                     .frame(width: w * 1.3, height: 160).offset(y: top + Self.roomHeight - 150 - lift * 0.7)
@@ -172,14 +175,7 @@ enum MolibooRoomPainter {
     /// Potted monstera bottom-left, a fern bottom-right and a hanging vine top-right. `sway` 0 = perfectly still.
     static func plants(in ctx: inout GraphicsContext, w: CGFloat, top: CGFloat, t: Double, sway: Double) {
         let dark = Color(red: 0.20, green: 0.45, blue: 0.28), mid = Color(red: 0.30, green: 0.58, blue: 0.34), light = Color(red: 0.45, green: 0.72, blue: 0.42)
-        // Bottom-left potted plant.
-        let base1 = CGPoint(x: 26, y: top + 420)
-        let angles1: [Double] = [-78, -58, -38, -18, -66, -30, -8]
-        for (i, a) in angles1.enumerated() {
-            let s = sin(t * 0.9 + Double(i) * 0.7) * 3.0 * sway
-            leaf(&ctx, at: base1, angle: a + s, length: 62 + CGFloat(i % 3) * 14, width: 24, color: [dark, mid, light][i % 3])
-        }
-        pot(&ctx, at: base1, width: 40)
+        _ = dark   // (left potted plant removed: its leaves poked out of the left edge)
         // Bottom-right fern.
         let base2 = CGPoint(x: w - 30, y: top + 430)
         let angles2: [Double] = [-170, -150, -130, -110, -160, -125]

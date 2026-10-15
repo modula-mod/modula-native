@@ -22,6 +22,7 @@ struct MolibooLivingStudioView: View {
     @State private var director: MolibooStudioDirector?
     @State private var unavailable = false
     @State private var panel: Panel?
+    @Namespace private var segmentNS
     @State private var photoMode = false
     @State private var dragStart: Float = 0
     @State private var session: MolibooWardrobeSession?
@@ -240,22 +241,26 @@ struct MolibooLivingStudioView: View {
     private func panelSheet(_ p: Panel) -> some View {
         VStack(spacing: 0) {
             // The sheet covers the rail, so it carries its own panel switcher.
-            ModulaGlassGroup(spacing: 6) {
-                HStack(spacing: 6) {
-                    ForEach(Panel.allCases) { q in
-                        Button { panel = q } label: {
-                            Label(q.title, systemImage: q.symbol)
-                                .font(.caption.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7)
-                                .padding(.horizontal, 8).frame(maxWidth: .infinity, minHeight: 34)
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(q == p ? .white : .primary)
-                        .modulaGlass(in: Capsule(), interactive: true, tint: q == p ? Color.accentColor : nil, prominent: q == p)
-                        .accessibilityIdentifier("studio.sheet.tab.\(q.rawValue)")
-                        .accessibilityAddTraits(q == p ? .isSelected : [])
+            // One top-level segmented control: a single glass track, the selected segment morphs between panels.
+            HStack(spacing: 0) {
+                ForEach(Panel.allCases) { q in
+                    Button { withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { panel = q } } label: {
+                        Text(q.title)
+                            .font(.footnote.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                            .frame(maxWidth: .infinity, minHeight: 32)
+                            .background {
+                                if q == p { Capsule().fill(Color.accentColor).matchedGeometryEffect(id: "studio.segment", in: segmentNS) }
+                            }
+                            .contentShape(Capsule())
                     }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(q == p ? .white : .primary)
+                    .accessibilityIdentifier("studio.sheet.tab.\(q.rawValue)")
+                    .accessibilityAddTraits(q == p ? .isSelected : [])
                 }
             }
+            .padding(3)
+            .modulaGlass(in: Capsule(), interactive: false)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("studio.sheet.tabs")
             .safeAreaInset(edge: .trailing) {

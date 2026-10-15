@@ -71,7 +71,7 @@ struct MolibooSettingsView: View {
             .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, y in
                 if route == nil, abs(y - scrollY) >= 2 { scrollY = y }
             }
-            .background(Color(uiColor: .systemGroupedBackground))
+            .background { MolibooAmbientBackground(ambience: .dreamy, animated: false, fps: 1, density: 0.5, moon: UnitPoint(x: 0.9, y: 0.05), moonScale: 0).ignoresSafeArea() }
             .ignoresSafeArea(edges: .top)
         }
         .overlay(alignment: .top) {
@@ -83,7 +83,7 @@ struct MolibooSettingsView: View {
             .allowsHitTesting(false).accessibilityHidden(true)
         }
         .toolbar(.hidden, for: .navigationBar)
-        .navigationTitle("Moliboo")
+        .navigationTitle("Moliboo settings")
         .accessibilityIdentifier("settings.moliboo")
         .navigationDestination(item: $route) { r in
             switch r {
@@ -137,7 +137,7 @@ struct MolibooSettingsView: View {
                 .padding(.horizontal, 14).padding(.top, 58)
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Your\nMoliboos").font(.system(.largeTitle, design: .rounded).weight(.heavy))
+                        Text("Moliboo\nsettings").font(.system(.largeTitle, design: .rounded).weight(.heavy))
                             .foregroundStyle(.white).shadow(color: .black.opacity(0.25), radius: 4, y: 2)
                         Text("Small friends.\nBig moments.").font(.subheadline.weight(.semibold)).foregroundStyle(.white)
                             .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
@@ -409,7 +409,7 @@ struct MolibooSettingsView: View {
             .frame(maxWidth: .infinity, minHeight: 138, alignment: .top)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(LinearGradient(colors: [k.palette.light.opacity(0.95), k.palette.mid.opacity(0.35)], startPoint: .top, endPoint: .bottom))
+                    .fill(LinearGradient(colors: [k.palette.light, k.palette.mid.opacity(0.75)], startPoint: .top, endPoint: .bottom))
             )
             .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(selected ? Color.accentColor : Color.white.opacity(0.6), lineWidth: selected ? 2.5 : 1))
             .overlay(alignment: .topTrailing) {
@@ -499,7 +499,7 @@ struct MolibooSettingsView: View {
             HStack { Spacer(); Toggle(title, isOn: on).labelsHidden().accessibilityIdentifier(id) }
         }
         .padding(10).frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: false)
+        .molibooGlassBackground(RoundedRectangle(cornerRadius: 18, style: .continuous), tint: c.opacity(0.12))
     }
 
     private func linkCard(_ icon: String, _ c: Color, _ title: String, _ sub: String, _ id: String, _ action: @escaping () -> Void) -> some View {
@@ -518,7 +518,7 @@ struct MolibooSettingsView: View {
         }
         .buttonStyle(MolibooSpringPress(enabled: motionOn))
         .foregroundStyle(.primary)
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .molibooGlassBackground(RoundedRectangle(cornerRadius: 18, style: .continuous), tint: c.opacity(0.14), interactive: true)
         .accessibilityIdentifier(id)
     }
 
@@ -536,11 +536,12 @@ struct MolibooSettingsView: View {
                 Text(sub).font(.caption2).foregroundStyle(.secondary).lineLimit(2).multilineTextAlignment(.leading)
             }
             .padding(10).frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
-            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(LinearGradient(colors: [c.opacity(0.18), c.opacity(0.04)], startPoint: .topLeading, endPoint: .bottomTrailing)))
+            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(LinearGradient(colors: [c.opacity(0.42), c.opacity(0.12)], startPoint: .topLeading, endPoint: .bottomTrailing)))
             .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(MolibooSpringPress(enabled: motionOn))
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .molibooGlassBackground(RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true)
+        .shadow(color: c.opacity(0.25), radius: 10, y: 5)
         .accessibilityIdentifier(id)
     }
 
@@ -552,8 +553,8 @@ struct MolibooSettingsView: View {
                     Button { if k != nil { kindRaw = id } } label: {
                         VStack(spacing: 3) {
                             ZStack {
-                                RoundedRectangle(cornerRadius: 16, style: .continuous).fill((k?.palette.light ?? .gray).opacity(0.5))
-                                if native3D, let img = MolibooPortrait.image(for: id) { Image(uiImage: img).resizable().scaledToFit().padding(4) }
+                                RoundedRectangle(cornerRadius: 16, style: .continuous).fill(LinearGradient(colors: [k?.palette.light ?? .gray, (k?.palette.mid ?? .gray).opacity(0.8)], startPoint: .top, endPoint: .bottom))
+                                if native3D, let img = MolibooPortrait.image(for: id) { Image(uiImage: img).resizable().interpolation(.high).scaledToFit().padding(4).molibooPortraitEdge() }
                                 else if let k { ModulaMascotFigure(kind: k, pose: .still(), size: 22) }
                                 else { Image(systemName: "questionmark").font(.title3.weight(.bold)).foregroundStyle(.tertiary) }
                             }
@@ -590,6 +591,9 @@ private struct MolibooHubBackButton: View {
 /// Reduce Motion: no float, bob, parallax or morph; content simply appears.
 struct MolibooWelcomeSheet: View {
     var done: () -> Void
+    /// When shown inside the World, the chosen hero shares this namespace with the World's stage figure, so dismissing
+    /// morphs the welcome hero straight into the pedestal (true matched-geometry morph across the two screens).
+    var heroNS: Namespace.ID? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(MolibooSettings.animationsKey) private var playful = true
     @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
@@ -666,6 +670,7 @@ struct MolibooWelcomeSheet: View {
                     .frame(width: 280, height: 80).offset(y: 86)
                 if launching {
                     art(hero).matchedGeometryEffect(id: hero, in: morph).frame(width: 190, height: 190)
+                        .modifier(MolibooHeroMorph(ns: heroNS))
                 } else {
                     ForEach(Array(trio.enumerated()), id: \.element) { i, id in
                         let center = i == 1
@@ -726,7 +731,19 @@ struct MolibooWelcomeSheet: View {
 
     private func finish() {
         guard motionOn else { done(); return }
+        if heroNS != nil {   // World: grow into the hero spot, then hand the figure to the World stage
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) { launching = true }
+            Task { try? await Task.sleep(for: .milliseconds(420)); withAnimation(.spring(response: 0.7, dampingFraction: 0.78)) { done() } }
+            return
+        }
         withAnimation(.spring(response: 0.55, dampingFraction: 0.72)) { launching = true }
         Task { try? await Task.sleep(for: .milliseconds(650)); done() }
+    }
+}
+
+struct MolibooHeroMorph: ViewModifier {
+    let ns: Namespace.ID?
+    func body(content: Content) -> some View {
+        if let ns { content.matchedGeometryEffect(id: "moliboo.hero", in: ns) } else { content }
     }
 }
