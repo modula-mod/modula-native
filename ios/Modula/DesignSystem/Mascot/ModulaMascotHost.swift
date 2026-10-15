@@ -1175,7 +1175,7 @@ struct ComposerMascotSettingsSection: View {
             Text(kind?.personality ?? "Pick a Moliboo below to bring the composer to life.")
                 .font(.subheadline).foregroundStyle(.secondary)
             HStack(spacing: 8) {
-                TextField("Type to see it watch…", text: $previewText)
+                TextField("Chat with your Moliboo…", text: $previewText)
                     .textFieldStyle(.plain)
                     .padding(.horizontal, 14)
                     .frame(height: 44)

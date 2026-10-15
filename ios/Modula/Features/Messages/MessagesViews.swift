@@ -80,8 +80,8 @@ struct ConversationListView: View {
         case _ where items.isEmpty:
             ModulaEmptyState(
                 title: "No conversations yet",
-                message: "When someone messages you, it will show up here.",
-                symbol: "message"
+                message: "Start a chat from a profile, or wait for someone to message you.",
+                symbol: "bubble.left.and.bubble.right"
             )
         default:
             List {

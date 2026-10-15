@@ -15,16 +15,26 @@ struct PostReactionPicker: View {
     }
 
     var body: some View {
-        ModulaReactionBar(
-            items: candidates.map {
-                ModulaReactionItem(id: $0, title: $0.accessibilityName, systemImage: $0.systemImage)
-            },
-            selectedID: current,
-            compact: true,
-            maximumVisibleItems: 8,
-            onSelect: onSelect,
-            onOverflow: nil
-        )
+        VStack(alignment: .leading, spacing: 6) {
+            Text("React")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+            ModulaReactionBar(
+                items: candidates.map {
+                    ModulaReactionItem(id: $0, title: $0.accessibilityName, systemImage: $0.systemImage)
+                },
+                selectedID: current,
+                compact: false,
+                maximumVisibleItems: 8,
+                onSelect: onSelect,
+                onOverflow: nil
+            )
+        }
+        .padding(8)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(.white.opacity(0.22), lineWidth: 0.8))
+        .shadow(color: .black.opacity(0.22), radius: 16, y: 8)
         .accessibilityIdentifier("post.reaction.picker")
     }
 }

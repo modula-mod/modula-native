@@ -156,7 +156,7 @@ struct MolibooCollectionView: View {
         let selected = kindRaw == id
         let unlocked = kind.map(MascotEntitlements.canUse) ?? false
         let name = MolibooRegistry.manifest?.character(id: id)?.displayName ?? id.capitalized
-        let bio = kind?.personality ?? "Founding Original arriving in a future update."
+        let bio = kind?.shortPersonality ?? "Coming in a future update."
         let pal = kind?.palette
 
         Button {

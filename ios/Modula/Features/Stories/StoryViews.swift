@@ -120,12 +120,12 @@ struct StoryTray: View {
     @Environment(AppEnvironment.self) private var app
 
     /// Home uses a larger, image-led disc so "Your story" never truncates to "Your st…".
-    private var avatarSize: CGFloat { compact ? 64 : 72 }
-    private var labelWidth: CGFloat { compact ? 78 : 88 }
+    private var avatarSize: CGFloat { compact ? 68 : 82 }
+    private var labelWidth: CGFloat { compact ? 82 : 96 }
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: compact ? 12 : 14) {
+            HStack(alignment: .top, spacing: compact ? 12 : 16) {
                 if showsComposer {
                     Button(action: onCreate ?? {}) {
                         trayCell(
@@ -195,8 +195,8 @@ struct StoryTray: View {
             }
             .padding(.vertical, 4)
         }
-        .frame(minHeight: compact ? 96 : 108)
-        .frame(maxHeight: compact ? 112 : 128)
+        .frame(minHeight: compact ? 104 : 122)
+        .frame(maxHeight: compact ? 120 : 142)
         .accessibilityIdentifier("home.story.tray")
     }
 
