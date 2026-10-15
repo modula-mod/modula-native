@@ -77,6 +77,7 @@ struct PostActionRail: View {
                         .accessibilityElement(children: .contain)
         .accessibilityLabel("Post action rail")
         .accessibilityIdentifier("post.action.rail.\(post.id)")
+        .postReactionPickerPresented(showsReactions)
         .accessibilityAction(named: "Choose reaction") {
             if let onReactLongPress { onReactLongPress() } else { showsReactions = true }
         }
