@@ -45,69 +45,227 @@ struct MolibooPortraitCompanion: View {
     }
 }
 
-/// Collection-style picker over the 25 Originals. 3D Moliboos show their portrait and open the Living Studio;
-/// the rest stay selectable as 2D companions and say "3D coming later".
+/// MOL-03R Redesigned Collection over the 25 Originals: responsive 2-column grid on iPhones,
+/// pre-rendered 3D portraits (never RealityKit per card), verified search & filter chips,
+/// monospaced catalogue badges, concise personality lines, and full bottom safe-area clearance.
 struct MolibooCollectionView: View {
+    enum Filter: String, CaseIterable, Identifiable {
+        case all = "All"
+        case threeD = "3D Ready"
+        case owned = "Unlocked"
+        case comingLater = "Coming Later"
+        var id: String { rawValue }
+    }
+
     @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var studioFor: String?
-    private let columns = [GridItem(.adaptive(minimum: 100), spacing: 12)]
+    @State private var searchText = ""
+    @State private var filter: Filter = .all
+    private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
+    private let teal = Color(red: 0.21, green: 0.61, blue: 0.67)
+
+    private var filteredOriginals: [(index: Int, id: String)] {
+        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return MolibooCosmetics.originals.enumerated().compactMap { idx, id in
+            let has3D = MolibooRegistry.has3D(id)
+            let kind = ModulaMascotKind(rawValue: id)
+            let unlocked = kind.map(MascotEntitlements.canUse) ?? false
+            switch filter {
+            case .all: break
+            case .threeD: guard has3D else { return nil }
+            case .owned: guard unlocked else { return nil }
+            case .comingLater: guard !has3D else { return nil }
+            }
+            if !q.isEmpty {
+                let name = (MolibooRegistry.manifest?.character(id: id)?.displayName ?? id).lowercased()
+                let bio = (kind?.personality ?? "").lowercased()
+                let num = String(format: "%03d", idx + 1)
+                guard name.contains(q) || bio.contains(q) || num.contains(q) else { return nil }
+            }
+            return (idx + 1, id)
+        }
+    }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("\(MolibooRegistry.available3D.count) of \(MolibooCosmetics.originals.count) Originals are alive in 3D")
-                    .font(.subheadline).foregroundStyle(.secondary)
-                    .accessibilityIdentifier("collection.summary")
-                LazyVGrid(columns: columns, spacing: 12) {
-                    ForEach(Array(MolibooCosmetics.originals.enumerated()), id: \.offset) { i, id in
-                        tile(id: id, number: i + 1)
+            VStack(alignment: .leading, spacing: 14) {
+                headerCard
+                filterBar
+                LazyVGrid(columns: columns, spacing: 14) {
+                    ForEach(filteredOriginals, id: \.id) { entry in
+                        tile(id: entry.id, number: entry.index)
                     }
                 }
             }
             .padding(16)
         }
+        .contentMargins(.bottom, 96, for: .scrollContent)
+        .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Collection")
+        .navigationBarTitleDisplayMode(.inline)
+        .searchable(text: $searchText, prompt: "Search Originals by name or #")
         .navigationDestination(item: $studioFor) { id in MolibooLivingStudioView(characterID: id) }
+    }
+
+    private var headerCard: some View {
+        HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("The Originals")
+                    .font(.system(.title3, design: .rounded).weight(.heavy))
+                Text("\(MolibooRegistry.available3D.count) of \(MolibooCosmetics.originals.count) Originals are alive in 3D")
+                    .font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
+                    .accessibilityIdentifier("collection.summary")
+            }
+            Spacer()
+            Text("\(MolibooRegistry.available3D.count)/\(MolibooCosmetics.originals.count)")
+                .font(.subheadline.weight(.heavy).monospaced())
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12).padding(.vertical, 6)
+                .background(teal.gradient, in: Capsule())
+        }
+        .padding(14)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
+    }
+
+    private var filterBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(Filter.allCases) { f in
+                    let on = filter == f
+                    Button {
+                        withAnimation(reduceMotion ? nil : .snappy) { filter = f }
+                    } label: {
+                        Text(f.rawValue)
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(on ? .white : .primary)
+                            .padding(.horizontal, 14).padding(.vertical, 8)
+                            .modulaGlass(in: Capsule(), interactive: true, tint: on ? teal : nil, prominent: on)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("collection.filter.\(f.rawValue.lowercased().replacingOccurrences(of: " ", with: "-"))")
+                    .accessibilityAddTraits(on ? .isSelected : [])
+                }
+            }
+        }
     }
 
     @ViewBuilder private func tile(id: String, number: Int) -> some View {
         let has3D = MolibooRegistry.has3D(id)
         let kind = ModulaMascotKind(rawValue: id)
         let selected = kindRaw == id
+        let unlocked = kind.map(MascotEntitlements.canUse) ?? false
+        let name = MolibooRegistry.manifest?.character(id: id)?.displayName ?? id.capitalized
+        let bio = kind?.personality ?? "Founding Original arriving in a future update."
+        let pal = kind?.palette
+
         Button {
-            if kind != nil { kindRaw = id }
+            if kind != nil && unlocked { kindRaw = id }
             if has3D { studioFor = id }
         } label: {
-            VStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 ZStack(alignment: .topTrailing) {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(has3D ? AnyShapeStyle(LinearGradient(colors: [(ModulaMascotKind(rawValue: id)?.palette.light ?? .accentColor), (ModulaMascotKind(rawValue: id)?.palette.mid ?? .accentColor).opacity(0.7)], startPoint: .top, endPoint: .bottom)) : AnyShapeStyle(.quaternary.opacity(0.5)))
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(has3D
+                              ? AnyShapeStyle(LinearGradient(colors: [(pal?.light ?? teal).opacity(0.9), (pal?.mid ?? teal).opacity(0.65)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                              : AnyShapeStyle(Color.secondary.opacity(0.12)))
+                        .overlay {
+                            if selected {
+                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                    .fill(.white.opacity(0.16))
+                                    .molibooHoloFoil(0.5, animated: !reduceMotion)
+                            }
+                        }
+
                     Group {
                         if has3D, let img = MolibooPortrait.image(for: id) {
-                            Image(uiImage: img).resizable().interpolation(.high).scaledToFit().padding(8).molibooPortraitEdge()
+                            Image(uiImage: img)
+                                .resizable()
+                                .interpolation(.high)
+                                .scaledToFit()
+                                .padding(10)
+                                .molibooPortraitEdge()
+                                .shadow(color: .black.opacity(0.22), radius: 6, y: 3)
                         } else if let kind {
-                            ModulaMascotFigure(kind: kind, pose: .still(), size: 30).opacity(0.7)
+                            ModulaMascotFigure(kind: kind, pose: .still(), size: 38).opacity(0.85)
                         } else {
-                            Image(systemName: "questionmark").font(.title2.weight(.bold)).foregroundStyle(.tertiary)
+                            Image(systemName: "sparkles")
+                                .font(.title.weight(.bold))
+                                .foregroundStyle(.tertiary)
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    Text(has3D ? "3D" : "Coming later")
-                        .font(.caption2.weight(.bold))
-                        .padding(.horizontal, 6).padding(.vertical, 3)
-                        .background(has3D ? Color.accentColor : Color.secondary.opacity(0.25), in: Capsule())
-                        .foregroundStyle(has3D ? .white : .secondary)
-                        .padding(6)
+
+                    HStack(spacing: 4) {
+                        if selected {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.white)
+                                .padding(5)
+                                .background(teal, in: Circle())
+                        }
+                        statusBadge(has3D: has3D, kind: kind, unlocked: unlocked)
+                    }
+                    .padding(8)
                 }
-                .frame(height: 100)
-                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(selected ? Color.accentColor : .clear, lineWidth: 2))
-                Text(String(format: "#%03d", number)).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
-                Text(MolibooRegistry.manifest?.character(id: id)?.displayName ?? id.capitalized).font(.caption.weight(.semibold))
+                .frame(height: 128)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(name)
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        Spacer()
+                        Text(String(format: "#%03d", number))
+                            .font(.caption2.weight(.bold).monospaced())
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(bio)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .frame(minHeight: 30, alignment: .topLeading)
+                }
+                .padding(.horizontal, 4)
             }
+            .padding(10)
+            .background(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .strokeBorder(selected ? teal : Color.primary.opacity(0.08), lineWidth: selected ? 2.5 : 1)
+            )
+            .shadow(color: selected ? teal.opacity(0.28) : .black.opacity(0.05), radius: selected ? 10 : 4, y: 3)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(MolibooSpringPressStyle())
         .accessibilityIdentifier("collection.\(id)")
-        .accessibilityLabel("\(MolibooRegistry.manifest?.character(id: id)?.displayName ?? id), number \(number), \(has3D ? "3D" : "3D coming later")")
+        .accessibilityLabel("\(name), number \(number), \(has3D ? "3D" : "3D coming later")")
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    @ViewBuilder private func statusBadge(has3D: Bool, kind: ModulaMascotKind?, unlocked: Bool) -> some View {
+        if has3D {
+            Text("3D")
+                .font(.caption2.weight(.heavy))
+                .padding(.horizontal, 8).padding(.vertical, 4)
+                .background(teal, in: Capsule())
+                .foregroundStyle(.white)
+        } else if let kind, kind.isPremium && !unlocked {
+            Label("Locked", systemImage: "lock.fill")
+                .font(.caption2.weight(.bold))
+                .padding(.horizontal, 7).padding(.vertical, 4)
+                .background(Color.orange.opacity(0.2), in: Capsule())
+                .foregroundStyle(.orange)
+        } else {
+            Text("Coming later")
+                .font(.caption2.weight(.bold))
+                .padding(.horizontal, 7).padding(.vertical, 4)
+                .background(Color.secondary.opacity(0.2), in: Capsule())
+                .foregroundStyle(.secondary)
+        }
     }
 }

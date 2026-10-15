@@ -1,1153 +1,1273 @@
 {
-  "schemaVersion": 2,
-  "cosmetics": [
+  "characters" : [
     {
-      "wardrobeItemID": "cap.moliboo.signature",
-      "asset": "Accessory_Cap_MolibooSignature",
-      "assetSHA256": "359fd73011bee9310bc7d7faaf79c40e6ae859a4cebe29d5517fcca8bda3b531",
-      "sourceVersion": "pebble-v2.2-frozen"
+      "anchors" : [
+        "anchor_head",
+        "anchor_face",
+        "anchor_back",
+        "anchor_neck",
+        "anchor_base"
+      ],
+      "asset" : "Pip",
+      "assetSHA256" : "2c6a54a9a8b6bc690f41bb9afe1355ec30d73b3cf752b73b6a6f5ad9644a08ef",
+      "attachments" : {
+        "cap.moliboo.signature" : {
+          "anchor" : "anchor_head",
+          "compatible" : true,
+          "offset" : [
+            0,
+            0,
+            -0.0040000000000000001
+          ],
+          "rotationDegrees" : [
+            -8,
+            0,
+            -12
+          ],
+          "scale" : 0.90000000000000002
+        }
+      },
+      "canonicalNumber" : 1,
+      "clips" : {
+        "blink" : {
+          "end" : 72,
+          "start" : 61
+        },
+        "expr_excited" : {
+          "end" : 148,
+          "start" : 143
+        },
+        "expr_happy" : {
+          "end" : 142,
+          "start" : 137
+        },
+        "expr_idle" : {
+          "end" : 136,
+          "start" : 131
+        },
+        "expr_sad" : {
+          "end" : 166,
+          "start" : 161
+        },
+        "expr_sleepy" : {
+          "end" : 160,
+          "start" : 155
+        },
+        "expr_surprised" : {
+          "end" : 154,
+          "start" : 149
+        },
+        "exuberant_bounce" : {
+          "end" : 222,
+          "start" : 191
+        },
+        "gill_flutter" : {
+          "end" : 190,
+          "start" : 167
+        },
+        "idle_bob" : {
+          "end" : 60,
+          "start" : 1
+        },
+        "tap" : {
+          "end" : 130,
+          "start" : 103
+        },
+        "wobble" : {
+          "end" : 102,
+          "start" : 73
+        }
+      },
+      "displayName" : "Pip",
+      "expressions" : [
+        "idle",
+        "blink",
+        "happy",
+        "excited",
+        "surprised",
+        "sleepy",
+        "sad"
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "pip",
+      "sourceVersion" : "pip-v1.0"
+    },
+    {
+      "anchors" : [
+        "anchor_head",
+        "anchor_face",
+        "anchor_back",
+        "anchor_neck",
+        "anchor_base"
+      ],
+      "asset" : "Moss",
+      "assetSHA256" : "9bb82d67d154d166f3e478ebb1d9de5525e1206ed13ef93174fff3c3828225cd",
+      "attachments" : {
+        "cap.moliboo.signature" : {
+          "anchor" : "anchor_head",
+          "compatible" : true,
+          "offset" : [
+            0.00117,
+            -0.0024599999999999999,
+            0.015679999999999999
+          ],
+          "rotationDegrees" : [
+            -6,
+            0,
+            -8
+          ],
+          "scale" : 0.94999999999999996
+        }
+      },
+      "canonicalNumber" : 2,
+      "clips" : {
+        "blink" : {
+          "end" : 72,
+          "start" : 61
+        },
+        "cheek_puff" : {
+          "end" : 242,
+          "start" : 207
+        },
+        "expr_excited" : {
+          "end" : 148,
+          "start" : 143
+        },
+        "expr_happy" : {
+          "end" : 142,
+          "start" : 137
+        },
+        "expr_idle" : {
+          "end" : 136,
+          "start" : 131
+        },
+        "expr_sad" : {
+          "end" : 166,
+          "start" : 161
+        },
+        "expr_sleepy" : {
+          "end" : 160,
+          "start" : 155
+        },
+        "expr_surprised" : {
+          "end" : 154,
+          "start" : 149
+        },
+        "idle_bob" : {
+          "end" : 60,
+          "start" : 1
+        },
+        "measured_hop" : {
+          "end" : 274,
+          "start" : 243
+        },
+        "slow_blink" : {
+          "end" : 206,
+          "start" : 167
+        },
+        "tap" : {
+          "end" : 130,
+          "start" : 103
+        },
+        "wobble" : {
+          "end" : 102,
+          "start" : 73
+        }
+      },
+      "displayName" : "Moss",
+      "expressions" : [
+        "idle",
+        "blink",
+        "happy",
+        "excited",
+        "surprised",
+        "sleepy",
+        "sad"
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "moss",
+      "sourceVersion" : "moss-v1.0"
+    },
+    {
+      "anchors" : [
+        "anchor_head",
+        "anchor_face",
+        "anchor_back",
+        "anchor_neck",
+        "anchor_base"
+      ],
+      "asset" : "Nimbus",
+      "assetSHA256" : "12a8a440f2b1be039ae81d1fe4a0a21005c0d3be8b350c7a5b786732afabb831",
+      "attachments" : {
+        "cap.moliboo.signature" : {
+          "anchor" : "anchor_head",
+          "compatible" : true,
+          "offset" : [
+            0,
+            0,
+            -0.0050000000000000001
+          ],
+          "rotationDegrees" : [
+            -6,
+            0,
+            -10
+          ],
+          "scale" : 0.90000000000000002
+        }
+      },
+      "canonicalNumber" : 3,
+      "clips" : {
+        "blink" : {
+          "end" : 72,
+          "start" : 61
+        },
+        "cloud_puff" : {
+          "end" : 244,
+          "start" : 215
+        },
+        "expr_excited" : {
+          "end" : 148,
+          "start" : 143
+        },
+        "expr_happy" : {
+          "end" : 142,
+          "start" : 137
+        },
+        "expr_idle" : {
+          "end" : 136,
+          "start" : 131
+        },
+        "expr_sad" : {
+          "end" : 166,
+          "start" : 161
+        },
+        "expr_sleepy" : {
+          "end" : 160,
+          "start" : 155
+        },
+        "expr_surprised" : {
+          "end" : 154,
+          "start" : 149
+        },
+        "float_drift" : {
+          "end" : 214,
+          "start" : 167
+        },
+        "idle_bob" : {
+          "end" : 60,
+          "start" : 1
+        },
+        "tap" : {
+          "end" : 130,
+          "start" : 103
+        },
+        "wobble" : {
+          "end" : 102,
+          "start" : 73
+        }
+      },
+      "displayName" : "Nimbus",
+      "expressions" : [
+        "idle",
+        "blink",
+        "happy",
+        "excited",
+        "surprised",
+        "sleepy",
+        "sad"
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "nimbus",
+      "sourceVersion" : "nimbus-v1.0"
+    },
+    {
+      "anchors" : [
+        "anchor_head",
+        "anchor_face",
+        "anchor_back",
+        "anchor_neck",
+        "anchor_base"
+      ],
+      "asset" : "Mochi",
+      "assetSHA256" : "84e13fe79c671bac762e5bc6be45ff1fe0bd189601d0dfa9f578b057540123c5",
+      "attachments" : {
+        "cap.moliboo.signature" : {
+          "anchor" : "anchor_head",
+          "compatible" : true,
+          "offset" : [
+            0,
+            0,
+            -0.0040000000000000001
+          ],
+          "rotationDegrees" : [
+            -6,
+            0,
+            -10
+          ],
+          "scale" : 0.84999999999999998
+        }
+      },
+      "canonicalNumber" : 4,
+      "clips" : {
+        "blink" : {
+          "end" : 72,
+          "start" : 61
+        },
+        "ear_twitch" : {
+          "end" : 266,
+          "start" : 247
+        },
+        "expr_excited" : {
+          "end" : 148,
+          "start" : 143
+        },
+        "expr_happy" : {
+          "end" : 142,
+          "start" : 137
+        },
+        "expr_idle" : {
+          "end" : 136,
+          "start" : 131
+        },
+        "expr_sad" : {
+          "end" : 166,
+          "start" : 161
+        },
+        "expr_sleepy" : {
+          "end" : 160,
+          "start" : 155
+        },
+        "expr_surprised" : {
+          "end" : 154,
+          "start" : 149
+        },
+        "idle_bob" : {
+          "end" : 60,
+          "start" : 1
+        },
+        "slow_blink" : {
+          "end" : 206,
+          "start" : 167
+        },
+        "tail_curl" : {
+          "end" : 246,
+          "start" : 207
+        },
+        "tap" : {
+          "end" : 130,
+          "start" : 103
+        },
+        "wobble" : {
+          "end" : 102,
+          "start" : 73
+        }
+      },
+      "displayName" : "Mochi",
+      "expressions" : [
+        "idle",
+        "blink",
+        "happy",
+        "excited",
+        "surprised",
+        "sleepy",
+        "sad"
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "mochi",
+      "sourceVersion" : "mochi-v1.0"
+    },
+    {
+      "anchors" : [
+        "anchor_head",
+        "anchor_face",
+        "anchor_back",
+        "anchor_neck",
+        "anchor_base"
+      ],
+      "asset" : "Sprout",
+      "assetSHA256" : "089d35d82cd65d9b4f81087a19f7a2c7d06846ce26d5d481bb933989cf840c72",
+      "attachments" : {
+        "cap.moliboo.signature" : {
+          "anchor" : "anchor_head",
+          "compatible" : false,
+          "offset" : [
+            0,
+            0,
+            0
+          ],
+          "rotationDegrees" : [
+            0,
+            0,
+            0
+          ],
+          "scale" : 1
+        }
+      },
+      "canonicalNumber" : 5,
+      "clips" : {
+        "blink" : {
+          "end" : 72,
+          "start" : 61
+        },
+        "expr_excited" : {
+          "end" : 148,
+          "start" : 143
+        },
+        "expr_happy" : {
+          "end" : 142,
+          "start" : 137
+        },
+        "expr_idle" : {
+          "end" : 136,
+          "start" : 131
+        },
+        "expr_sad" : {
+          "end" : 166,
+          "start" : 161
+        },
+        "expr_sleepy" : {
+          "end" : 160,
+          "start" : 155
+        },
+        "expr_surprised" : {
+          "end" : 154,
+          "start" : 149
+        },
+        "exuberant_bounce" : {
+          "end" : 238,
+          "start" : 207
+        },
+        "idle_bob" : {
+          "end" : 60,
+          "start" : 1
+        },
+        "leaf_sway" : {
+          "end" : 206,
+          "start" : 167
+        },
+        "tap" : {
+          "end" : 130,
+          "start" : 103
+        },
+        "wobble" : {
+          "end" : 102,
+          "start" : 73
+        }
+      },
+      "displayName" : "Sprout",
+      "expressions" : [
+        "idle",
+        "blink",
+        "happy",
+        "excited",
+        "surprised",
+        "sleepy",
+        "sad"
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "sprout",
+      "sourceVersion" : "sprout-v1.0"
+    },
+    {
+      "anchors" : [
+        "anchor_head",
+        "anchor_face",
+        "anchor_back",
+        "anchor_neck",
+        "anchor_base"
+      ],
+      "asset" : "Ember",
+      "assetSHA256" : "a11b1d23a78ab22143208bac9a8aff35e4d22007a3c53b04800f3c6f53d102cf",
+      "attachments" : {
+        "cap.moliboo.signature" : {
+          "anchor" : "anchor_head",
+          "compatible" : false,
+          "offset" : [
+            0,
+            0,
+            0
+          ],
+          "rotationDegrees" : [
+            0,
+            0,
+            0
+          ],
+          "scale" : 1
+        }
+      },
+      "canonicalNumber" : 6,
+      "clips" : {
+        "blink" : {
+          "end" : 72,
+          "start" : 61
+        },
+        "expr_excited" : {
+          "end" : 148,
+          "start" : 143
+        },
+        "expr_happy" : {
+          "end" : 142,
+          "start" : 137
+        },
+        "expr_idle" : {
+          "end" : 136,
+          "start" : 131
+        },
+        "expr_sad" : {
+          "end" : 166,
+          "start" : 161
+        },
+        "expr_sleepy" : {
+          "end" : 160,
+          "start" : 155
+        },
+        "expr_surprised" : {
+          "end" : 154,
+          "start" : 149
+        },
+        "exuberant_bounce" : {
+          "end" : 228,
+          "start" : 197
+        },
+        "flicker" : {
+          "end" : 196,
+          "start" : 167
+        },
+        "idle_bob" : {
+          "end" : 60,
+          "start" : 1
+        },
+        "tap" : {
+          "end" : 130,
+          "start" : 103
+        },
+        "wobble" : {
+          "end" : 102,
+          "start" : 73
+        }
+      },
+      "displayName" : "Ember",
+      "expressions" : [
+        "idle",
+        "blink",
+        "happy",
+        "excited",
+        "surprised",
+        "sleepy",
+        "sad"
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "ember",
+      "sourceVersion" : "ember-v1.0"
+    },
+    {
+      "anchors" : [
+        "anchor_head",
+        "anchor_face",
+        "anchor_back",
+        "anchor_neck",
+        "anchor_base"
+      ],
+      "asset" : "Tuck",
+      "assetSHA256" : "10a1cd5d120f247df17a65501fcad9b329f2c15533373821e9603b6c93b47906",
+      "attachments" : {
+        "cap.moliboo.signature" : {
+          "anchor" : "anchor_head",
+          "compatible" : true,
+          "offset" : [
+            0,
+            0,
+            -0.0040000000000000001
+          ],
+          "rotationDegrees" : [
+            -6,
+            0,
+            -8
+          ],
+          "scale" : 0.84999999999999998
+        }
+      },
+      "canonicalNumber" : 7,
+      "clips" : {
+        "blink" : {
+          "end" : 72,
+          "start" : 61
+        },
+        "expr_excited" : {
+          "end" : 148,
+          "start" : 143
+        },
+        "expr_happy" : {
+          "end" : 142,
+          "start" : 137
+        },
+        "expr_idle" : {
+          "end" : 136,
+          "start" : 131
+        },
+        "expr_sad" : {
+          "end" : 166,
+          "start" : 161
+        },
+        "expr_sleepy" : {
+          "end" : 160,
+          "start" : 155
+        },
+        "expr_surprised" : {
+          "end" : 154,
+          "start" : 149
+        },
+        "idle_bob" : {
+          "end" : 60,
+          "start" : 1
+        },
+        "servo_tilt" : {
+          "end" : 196,
+          "start" : 167
+        },
+        "tap" : {
+          "end" : 130,
+          "start" : 103
+        },
+        "wing_flap" : {
+          "end" : 226,
+          "start" : 197
+        },
+        "wobble" : {
+          "end" : 102,
+          "start" : 73
+        }
+      },
+      "displayName" : "Tuck",
+      "expressions" : [
+        "idle",
+        "blink",
+        "happy",
+        "excited",
+        "surprised",
+        "sleepy",
+        "sad"
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "tuck",
+      "sourceVersion" : "tuck-v1.0"
+    },
+    {
+      "anchors" : [
+
+      ],
+      "asset" : null,
+      "assetSHA256" : null,
+      "attachments" : {
+
+      },
+      "canonicalNumber" : 8,
+      "clips" : {
+
+      },
+      "displayName" : "Bloop",
+      "expressions" : [
+
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "bloop",
+      "sourceVersion" : null
+    },
+    {
+      "anchors" : [
+
+      ],
+      "asset" : null,
+      "assetSHA256" : null,
+      "attachments" : {
+
+      },
+      "canonicalNumber" : 9,
+      "clips" : {
+
+      },
+      "displayName" : "Bun",
+      "expressions" : [
+
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "bun",
+      "sourceVersion" : null
+    },
+    {
+      "anchors" : [
+        "anchor_head",
+        "anchor_face",
+        "anchor_back",
+        "anchor_neck",
+        "anchor_base"
+      ],
+      "asset" : "Pebble",
+      "assetSHA256" : "3a4c3da998a86b85d551695bb52eccd53efb036e3993e0762d52dc62acfa2303",
+      "attachments" : {
+        "cap.moliboo.signature" : {
+          "anchor" : "anchor_head",
+          "compatible" : true,
+          "offset" : [
+            0,
+            0,
+            -0.0044999999999999997
+          ],
+          "rotationDegrees" : [
+            -8,
+            18,
+            -25
+          ],
+          "scale" : 1
+        }
+      },
+      "canonicalNumber" : 10,
+      "clips" : {
+        "blink" : {
+          "end" : 72,
+          "start" : 61
+        },
+        "expr_excited" : {
+          "end" : 148,
+          "start" : 143
+        },
+        "expr_happy" : {
+          "end" : 142,
+          "start" : 137
+        },
+        "expr_idle" : {
+          "end" : 136,
+          "start" : 131
+        },
+        "expr_sad" : {
+          "end" : 166,
+          "start" : 161
+        },
+        "expr_sleepy" : {
+          "end" : 160,
+          "start" : 155
+        },
+        "expr_surprised" : {
+          "end" : 154,
+          "start" : 149
+        },
+        "idle_bob" : {
+          "end" : 60,
+          "start" : 1
+        },
+        "tap" : {
+          "end" : 130,
+          "start" : 103
+        },
+        "wobble" : {
+          "end" : 102,
+          "start" : 73
+        }
+      },
+      "displayName" : "Pebble",
+      "expressions" : [
+        "idle",
+        "blink",
+        "happy",
+        "excited",
+        "surprised",
+        "sleepy",
+        "sad"
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "pebble",
+      "sourceVersion" : "pebble-v2.2-frozen"
+    },
+    {
+      "anchors" : [
+        "anchor_head",
+        "anchor_face",
+        "anchor_back",
+        "anchor_neck",
+        "anchor_base"
+      ],
+      "asset" : "Tofu",
+      "assetSHA256" : "dfcca4619f22d33bdf60f13eb44eb33df663927abc20109aa15b16a494834823",
+      "attachments" : {
+        "cap.moliboo.signature" : {
+          "anchor" : "anchor_head",
+          "compatible" : true,
+          "offset" : [
+            0,
+            0,
+            -0.0040000000000000001
+          ],
+          "rotationDegrees" : [
+            -6,
+            0,
+            -14
+          ],
+          "scale" : 1
+        }
+      },
+      "canonicalNumber" : 11,
+      "clips" : {
+        "blink" : {
+          "end" : 72,
+          "start" : 61
+        },
+        "cube_squash" : {
+          "end" : 196,
+          "start" : 167
+        },
+        "expr_excited" : {
+          "end" : 148,
+          "start" : 143
+        },
+        "expr_happy" : {
+          "end" : 142,
+          "start" : 137
+        },
+        "expr_idle" : {
+          "end" : 136,
+          "start" : 131
+        },
+        "expr_sad" : {
+          "end" : 166,
+          "start" : 161
+        },
+        "expr_sleepy" : {
+          "end" : 160,
+          "start" : 155
+        },
+        "expr_surprised" : {
+          "end" : 154,
+          "start" : 149
+        },
+        "exuberant_bounce" : {
+          "end" : 228,
+          "start" : 197
+        },
+        "idle_bob" : {
+          "end" : 60,
+          "start" : 1
+        },
+        "tap" : {
+          "end" : 130,
+          "start" : 103
+        },
+        "wobble" : {
+          "end" : 102,
+          "start" : 73
+        }
+      },
+      "displayName" : "Tofu",
+      "expressions" : [
+        "idle",
+        "blink",
+        "happy",
+        "excited",
+        "surprised",
+        "sleepy",
+        "sad"
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "tofu",
+      "sourceVersion" : "tofu-v1.0"
+    },
+    {
+      "anchors" : [
+
+      ],
+      "asset" : null,
+      "assetSHA256" : null,
+      "attachments" : {
+
+      },
+      "canonicalNumber" : 12,
+      "clips" : {
+
+      },
+      "displayName" : "Comet",
+      "expressions" : [
+
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "comet",
+      "sourceVersion" : null
+    },
+    {
+      "anchors" : [
+
+      ],
+      "asset" : null,
+      "assetSHA256" : null,
+      "attachments" : {
+
+      },
+      "canonicalNumber" : 13,
+      "clips" : {
+
+      },
+      "displayName" : "Puff",
+      "expressions" : [
+
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "puff",
+      "sourceVersion" : null
+    },
+    {
+      "anchors" : [
+        "anchor_head",
+        "anchor_face",
+        "anchor_back",
+        "anchor_neck",
+        "anchor_base"
+      ],
+      "asset" : "Bolt",
+      "assetSHA256" : "7565bb3e3f5aad138313c615f254b2b14b7426e98131c95b4d93b33951a54ec3",
+      "attachments" : {
+        "cap.moliboo.signature" : {
+          "anchor" : "anchor_head",
+          "compatible" : true,
+          "offset" : [
+            0,
+            0,
+            -0.0030000000000000001
+          ],
+          "rotationDegrees" : [
+            -6,
+            0,
+            -4
+          ],
+          "scale" : 0.84999999999999998
+        }
+      },
+      "canonicalNumber" : 14,
+      "clips" : {
+        "antenna_flash" : {
+          "end" : 186,
+          "start" : 167
+        },
+        "blink" : {
+          "end" : 72,
+          "start" : 61
+        },
+        "expr_excited" : {
+          "end" : 148,
+          "start" : 143
+        },
+        "expr_happy" : {
+          "end" : 142,
+          "start" : 137
+        },
+        "expr_idle" : {
+          "end" : 136,
+          "start" : 131
+        },
+        "expr_sad" : {
+          "end" : 166,
+          "start" : 161
+        },
+        "expr_sleepy" : {
+          "end" : 160,
+          "start" : 155
+        },
+        "expr_surprised" : {
+          "end" : 154,
+          "start" : 149
+        },
+        "idle_bob" : {
+          "end" : 60,
+          "start" : 1
+        },
+        "servo_tilt" : {
+          "end" : 216,
+          "start" : 187
+        },
+        "tap" : {
+          "end" : 130,
+          "start" : 103
+        },
+        "wobble" : {
+          "end" : 102,
+          "start" : 73
+        }
+      },
+      "displayName" : "Bolt",
+      "expressions" : [
+        "idle",
+        "blink",
+        "happy",
+        "excited",
+        "surprised",
+        "sleepy",
+        "sad"
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "bolt",
+      "sourceVersion" : "bolt-v1.0"
+    },
+    {
+      "anchors" : [
+
+      ],
+      "asset" : null,
+      "assetSHA256" : null,
+      "attachments" : {
+
+      },
+      "canonicalNumber" : 15,
+      "clips" : {
+
+      },
+      "displayName" : "Glim",
+      "expressions" : [
+
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "glim",
+      "sourceVersion" : null
+    },
+    {
+      "anchors" : [
+
+      ],
+      "asset" : null,
+      "assetSHA256" : null,
+      "attachments" : {
+
+      },
+      "canonicalNumber" : 16,
+      "clips" : {
+
+      },
+      "displayName" : "Echo",
+      "expressions" : [
+
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "echo",
+      "sourceVersion" : null
+    },
+    {
+      "anchors" : [
+
+      ],
+      "asset" : null,
+      "assetSHA256" : null,
+      "attachments" : {
+
+      },
+      "canonicalNumber" : 17,
+      "clips" : {
+
+      },
+      "displayName" : "Quill",
+      "expressions" : [
+
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "quill",
+      "sourceVersion" : null
+    },
+    {
+      "anchors" : [
+
+      ],
+      "asset" : null,
+      "assetSHA256" : null,
+      "attachments" : {
+
+      },
+      "canonicalNumber" : 18,
+      "clips" : {
+
+      },
+      "displayName" : "Orbit",
+      "expressions" : [
+
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "orbit",
+      "sourceVersion" : null
+    },
+    {
+      "anchors" : [
+
+      ],
+      "asset" : null,
+      "assetSHA256" : null,
+      "attachments" : {
+
+      },
+      "canonicalNumber" : 19,
+      "clips" : {
+
+      },
+      "displayName" : "Prism",
+      "expressions" : [
+
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "prism",
+      "sourceVersion" : null
+    },
+    {
+      "anchors" : [
+
+      ],
+      "asset" : null,
+      "assetSHA256" : null,
+      "attachments" : {
+
+      },
+      "canonicalNumber" : 20,
+      "clips" : {
+
+      },
+      "displayName" : "Wisp",
+      "expressions" : [
+
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "wisp",
+      "sourceVersion" : null
+    },
+    {
+      "anchors" : [
+
+      ],
+      "asset" : null,
+      "assetSHA256" : null,
+      "attachments" : {
+
+      },
+      "canonicalNumber" : 21,
+      "clips" : {
+
+      },
+      "displayName" : "Doodle",
+      "expressions" : [
+
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "doodle",
+      "sourceVersion" : null
+    },
+    {
+      "anchors" : [
+
+      ],
+      "asset" : null,
+      "assetSHA256" : null,
+      "attachments" : {
+
+      },
+      "canonicalNumber" : 22,
+      "clips" : {
+
+      },
+      "displayName" : "Chime",
+      "expressions" : [
+
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "chime",
+      "sourceVersion" : null
+    },
+    {
+      "anchors" : [
+
+      ],
+      "asset" : null,
+      "assetSHA256" : null,
+      "attachments" : {
+
+      },
+      "canonicalNumber" : 23,
+      "clips" : {
+
+      },
+      "displayName" : "Rolo",
+      "expressions" : [
+
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "rolo",
+      "sourceVersion" : null
+    },
+    {
+      "anchors" : [
+
+      ],
+      "asset" : null,
+      "assetSHA256" : null,
+      "attachments" : {
+
+      },
+      "canonicalNumber" : 24,
+      "clips" : {
+
+      },
+      "displayName" : "Pogo",
+      "expressions" : [
+
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "pogo",
+      "sourceVersion" : null
+    },
+    {
+      "anchors" : [
+
+      ],
+      "asset" : null,
+      "assetSHA256" : null,
+      "attachments" : {
+
+      },
+      "canonicalNumber" : 25,
+      "clips" : {
+
+      },
+      "displayName" : "Fable",
+      "expressions" : [
+
+      ],
+      "family" : "originals",
+      "fps" : 30,
+      "id" : "fable",
+      "sourceVersion" : null
     }
   ],
-  "characters": [
+  "cosmetics" : [
     {
-      "id": "pip",
-      "canonicalNumber": 1,
-      "displayName": "Pip",
-      "family": "originals",
-      "asset": "Pip",
-      "assetSHA256": "2c6a54a9a8b6bc690f41bb9afe1355ec30d73b3cf752b73b6a6f5ad9644a08ef",
-      "sourceVersion": "pip-v1.0",
-      "anchors": [
-        "anchor_head",
-        "anchor_face",
-        "anchor_back",
-        "anchor_neck",
-        "anchor_base"
-      ],
-      "expressions": [
-        "idle",
-        "blink",
-        "happy",
-        "excited",
-        "surprised",
-        "sleepy",
-        "sad"
-      ],
-      "fps": 30,
-      "clips": {
-        "idle_bob": {
-          "start": 1,
-          "end": 60
-        },
-        "blink": {
-          "start": 61,
-          "end": 72
-        },
-        "wobble": {
-          "start": 73,
-          "end": 102
-        },
-        "tap": {
-          "start": 103,
-          "end": 130
-        },
-        "expr_idle": {
-          "start": 131,
-          "end": 136
-        },
-        "expr_happy": {
-          "start": 137,
-          "end": 142
-        },
-        "expr_excited": {
-          "start": 143,
-          "end": 148
-        },
-        "expr_surprised": {
-          "start": 149,
-          "end": 154
-        },
-        "expr_sleepy": {
-          "start": 155,
-          "end": 160
-        },
-        "expr_sad": {
-          "start": 161,
-          "end": 166
-        },
-        "gill_flutter": {
-          "start": 167,
-          "end": 190
-        },
-        "exuberant_bounce": {
-          "start": 191,
-          "end": 222
-        }
-      },
-      "attachments": {
-        "cap.moliboo.signature": {
-          "offset": [
-            0.0,
-            0.0,
-            -0.004
-          ],
-          "rotationDegrees": [
-            -8.0,
-            0.0,
-            -12.0
-          ],
-          "scale": 0.9,
-          "anchor": "anchor_head",
-          "compatible": true
-        }
-      }
-    },
-    {
-      "id": "moss",
-      "canonicalNumber": 2,
-      "displayName": "Moss",
-      "family": "originals",
-      "asset": "Moss",
-      "assetSHA256": "9bb82d67d154d166f3e478ebb1d9de5525e1206ed13ef93174fff3c3828225cd",
-      "sourceVersion": "moss-v1.0",
-      "anchors": [
-        "anchor_head",
-        "anchor_face",
-        "anchor_back",
-        "anchor_neck",
-        "anchor_base"
-      ],
-      "expressions": [
-        "idle",
-        "blink",
-        "happy",
-        "excited",
-        "surprised",
-        "sleepy",
-        "sad"
-      ],
-      "fps": 30,
-      "clips": {
-        "idle_bob": {
-          "start": 1,
-          "end": 60
-        },
-        "blink": {
-          "start": 61,
-          "end": 72
-        },
-        "wobble": {
-          "start": 73,
-          "end": 102
-        },
-        "tap": {
-          "start": 103,
-          "end": 130
-        },
-        "expr_idle": {
-          "start": 131,
-          "end": 136
-        },
-        "expr_happy": {
-          "start": 137,
-          "end": 142
-        },
-        "expr_excited": {
-          "start": 143,
-          "end": 148
-        },
-        "expr_surprised": {
-          "start": 149,
-          "end": 154
-        },
-        "expr_sleepy": {
-          "start": 155,
-          "end": 160
-        },
-        "expr_sad": {
-          "start": 161,
-          "end": 166
-        },
-        "slow_blink": {
-          "start": 167,
-          "end": 206
-        },
-        "cheek_puff": {
-          "start": 207,
-          "end": 242
-        },
-        "measured_hop": {
-          "start": 243,
-          "end": 274
-        }
-      },
-      "attachments": {
-        "cap.moliboo.signature": {
-          "offset": [
-            0.0,
-            0.0,
-            0.002
-          ],
-          "rotationDegrees": [
-            -6.0,
-            0.0,
-            -8.0
-          ],
-          "scale": 0.95,
-          "anchor": "anchor_head",
-          "compatible": true
-        }
-      }
-    },
-    {
-      "id": "nimbus",
-      "canonicalNumber": 3,
-      "displayName": "Nimbus",
-      "family": "originals",
-      "asset": "Nimbus",
-      "assetSHA256": "12a8a440f2b1be039ae81d1fe4a0a21005c0d3be8b350c7a5b786732afabb831",
-      "sourceVersion": "nimbus-v1.0",
-      "anchors": [
-        "anchor_head",
-        "anchor_face",
-        "anchor_back",
-        "anchor_neck",
-        "anchor_base"
-      ],
-      "expressions": [
-        "idle",
-        "blink",
-        "happy",
-        "excited",
-        "surprised",
-        "sleepy",
-        "sad"
-      ],
-      "fps": 30,
-      "clips": {
-        "idle_bob": {
-          "start": 1,
-          "end": 60
-        },
-        "blink": {
-          "start": 61,
-          "end": 72
-        },
-        "wobble": {
-          "start": 73,
-          "end": 102
-        },
-        "tap": {
-          "start": 103,
-          "end": 130
-        },
-        "expr_idle": {
-          "start": 131,
-          "end": 136
-        },
-        "expr_happy": {
-          "start": 137,
-          "end": 142
-        },
-        "expr_excited": {
-          "start": 143,
-          "end": 148
-        },
-        "expr_surprised": {
-          "start": 149,
-          "end": 154
-        },
-        "expr_sleepy": {
-          "start": 155,
-          "end": 160
-        },
-        "expr_sad": {
-          "start": 161,
-          "end": 166
-        },
-        "float_drift": {
-          "start": 167,
-          "end": 214
-        },
-        "cloud_puff": {
-          "start": 215,
-          "end": 244
-        }
-      },
-      "attachments": {
-        "cap.moliboo.signature": {
-          "offset": [
-            0.0,
-            0.0,
-            -0.005
-          ],
-          "rotationDegrees": [
-            -6.0,
-            0.0,
-            -10.0
-          ],
-          "scale": 0.9,
-          "compatible": true,
-          "anchor": "anchor_head"
-        }
-      }
-    },
-    {
-      "id": "mochi",
-      "canonicalNumber": 4,
-      "displayName": "Mochi",
-      "family": "originals",
-      "asset": "Mochi",
-      "assetSHA256": "84e13fe79c671bac762e5bc6be45ff1fe0bd189601d0dfa9f578b057540123c5",
-      "sourceVersion": "mochi-v1.0",
-      "anchors": [
-        "anchor_head",
-        "anchor_face",
-        "anchor_back",
-        "anchor_neck",
-        "anchor_base"
-      ],
-      "expressions": [
-        "idle",
-        "blink",
-        "happy",
-        "excited",
-        "surprised",
-        "sleepy",
-        "sad"
-      ],
-      "fps": 30,
-      "clips": {
-        "idle_bob": {
-          "start": 1,
-          "end": 60
-        },
-        "blink": {
-          "start": 61,
-          "end": 72
-        },
-        "wobble": {
-          "start": 73,
-          "end": 102
-        },
-        "tap": {
-          "start": 103,
-          "end": 130
-        },
-        "expr_idle": {
-          "start": 131,
-          "end": 136
-        },
-        "expr_happy": {
-          "start": 137,
-          "end": 142
-        },
-        "expr_excited": {
-          "start": 143,
-          "end": 148
-        },
-        "expr_surprised": {
-          "start": 149,
-          "end": 154
-        },
-        "expr_sleepy": {
-          "start": 155,
-          "end": 160
-        },
-        "expr_sad": {
-          "start": 161,
-          "end": 166
-        },
-        "slow_blink": {
-          "start": 167,
-          "end": 206
-        },
-        "tail_curl": {
-          "start": 207,
-          "end": 246
-        },
-        "ear_twitch": {
-          "start": 247,
-          "end": 266
-        }
-      },
-      "attachments": {
-        "cap.moliboo.signature": {
-          "offset": [
-            0.0,
-            0.0,
-            -0.004
-          ],
-          "rotationDegrees": [
-            -6.0,
-            0.0,
-            -10.0
-          ],
-          "scale": 0.85,
-          "compatible": true,
-          "anchor": "anchor_head"
-        }
-      }
-    },
-    {
-      "id": "sprout",
-      "canonicalNumber": 5,
-      "displayName": "Sprout",
-      "family": "originals",
-      "asset": "Sprout",
-      "assetSHA256": "089d35d82cd65d9b4f81087a19f7a2c7d06846ce26d5d481bb933989cf840c72",
-      "sourceVersion": "sprout-v1.0",
-      "anchors": [
-        "anchor_head",
-        "anchor_face",
-        "anchor_back",
-        "anchor_neck",
-        "anchor_base"
-      ],
-      "expressions": [
-        "idle",
-        "blink",
-        "happy",
-        "excited",
-        "surprised",
-        "sleepy",
-        "sad"
-      ],
-      "fps": 30,
-      "clips": {
-        "idle_bob": {
-          "start": 1,
-          "end": 60
-        },
-        "blink": {
-          "start": 61,
-          "end": 72
-        },
-        "wobble": {
-          "start": 73,
-          "end": 102
-        },
-        "tap": {
-          "start": 103,
-          "end": 130
-        },
-        "expr_idle": {
-          "start": 131,
-          "end": 136
-        },
-        "expr_happy": {
-          "start": 137,
-          "end": 142
-        },
-        "expr_excited": {
-          "start": 143,
-          "end": 148
-        },
-        "expr_surprised": {
-          "start": 149,
-          "end": 154
-        },
-        "expr_sleepy": {
-          "start": 155,
-          "end": 160
-        },
-        "expr_sad": {
-          "start": 161,
-          "end": 166
-        },
-        "leaf_sway": {
-          "start": 167,
-          "end": 206
-        },
-        "exuberant_bounce": {
-          "start": 207,
-          "end": 238
-        }
-      },
-      "attachments": {
-        "cap.moliboo.signature": {
-          "offset": [
-            0,
-            0,
-            0
-          ],
-          "rotationDegrees": [
-            0,
-            0,
-            0
-          ],
-          "scale": 1.0,
-          "anchor": "anchor_head",
-          "compatible": false
-        }
-      }
-    },
-    {
-      "id": "ember",
-      "canonicalNumber": 6,
-      "displayName": "Ember",
-      "family": "originals",
-      "asset": "Ember",
-      "assetSHA256": "a11b1d23a78ab22143208bac9a8aff35e4d22007a3c53b04800f3c6f53d102cf",
-      "sourceVersion": "ember-v1.0",
-      "anchors": [
-        "anchor_head",
-        "anchor_face",
-        "anchor_back",
-        "anchor_neck",
-        "anchor_base"
-      ],
-      "expressions": [
-        "idle",
-        "blink",
-        "happy",
-        "excited",
-        "surprised",
-        "sleepy",
-        "sad"
-      ],
-      "fps": 30,
-      "clips": {
-        "idle_bob": {
-          "start": 1,
-          "end": 60
-        },
-        "blink": {
-          "start": 61,
-          "end": 72
-        },
-        "wobble": {
-          "start": 73,
-          "end": 102
-        },
-        "tap": {
-          "start": 103,
-          "end": 130
-        },
-        "expr_idle": {
-          "start": 131,
-          "end": 136
-        },
-        "expr_happy": {
-          "start": 137,
-          "end": 142
-        },
-        "expr_excited": {
-          "start": 143,
-          "end": 148
-        },
-        "expr_surprised": {
-          "start": 149,
-          "end": 154
-        },
-        "expr_sleepy": {
-          "start": 155,
-          "end": 160
-        },
-        "expr_sad": {
-          "start": 161,
-          "end": 166
-        },
-        "flicker": {
-          "start": 167,
-          "end": 196
-        },
-        "exuberant_bounce": {
-          "start": 197,
-          "end": 228
-        }
-      },
-      "attachments": {
-        "cap.moliboo.signature": {
-          "offset": [
-            0,
-            0,
-            0
-          ],
-          "rotationDegrees": [
-            0,
-            0,
-            0
-          ],
-          "scale": 1.0,
-          "anchor": "anchor_head",
-          "compatible": false
-        }
-      }
-    },
-    {
-      "id": "tuck",
-      "canonicalNumber": 7,
-      "displayName": "Tuck",
-      "family": "originals",
-      "asset": "Tuck",
-      "assetSHA256": "10a1cd5d120f247df17a65501fcad9b329f2c15533373821e9603b6c93b47906",
-      "sourceVersion": "tuck-v1.0",
-      "anchors": [
-        "anchor_head",
-        "anchor_face",
-        "anchor_back",
-        "anchor_neck",
-        "anchor_base"
-      ],
-      "expressions": [
-        "idle",
-        "blink",
-        "happy",
-        "excited",
-        "surprised",
-        "sleepy",
-        "sad"
-      ],
-      "fps": 30,
-      "clips": {
-        "idle_bob": {
-          "start": 1,
-          "end": 60
-        },
-        "blink": {
-          "start": 61,
-          "end": 72
-        },
-        "wobble": {
-          "start": 73,
-          "end": 102
-        },
-        "tap": {
-          "start": 103,
-          "end": 130
-        },
-        "expr_idle": {
-          "start": 131,
-          "end": 136
-        },
-        "expr_happy": {
-          "start": 137,
-          "end": 142
-        },
-        "expr_excited": {
-          "start": 143,
-          "end": 148
-        },
-        "expr_surprised": {
-          "start": 149,
-          "end": 154
-        },
-        "expr_sleepy": {
-          "start": 155,
-          "end": 160
-        },
-        "expr_sad": {
-          "start": 161,
-          "end": 166
-        },
-        "servo_tilt": {
-          "start": 167,
-          "end": 196
-        },
-        "wing_flap": {
-          "start": 197,
-          "end": 226
-        }
-      },
-      "attachments": {
-        "cap.moliboo.signature": {
-          "offset": [
-            0.0,
-            0.0,
-            -0.004
-          ],
-          "rotationDegrees": [
-            -6.0,
-            0.0,
-            -8.0
-          ],
-          "scale": 0.85,
-          "compatible": true,
-          "anchor": "anchor_head"
-        }
-      }
-    },
-    {
-      "id": "bloop",
-      "canonicalNumber": 8,
-      "displayName": "Bloop",
-      "family": "originals",
-      "asset": null,
-      "assetSHA256": null,
-      "sourceVersion": null,
-      "anchors": [],
-      "expressions": [],
-      "fps": 30,
-      "clips": {},
-      "attachments": {}
-    },
-    {
-      "id": "bun",
-      "canonicalNumber": 9,
-      "displayName": "Bun",
-      "family": "originals",
-      "asset": null,
-      "assetSHA256": null,
-      "sourceVersion": null,
-      "anchors": [],
-      "expressions": [],
-      "fps": 30,
-      "clips": {},
-      "attachments": {}
-    },
-    {
-      "id": "pebble",
-      "canonicalNumber": 10,
-      "displayName": "Pebble",
-      "family": "originals",
-      "asset": "Pebble",
-      "assetSHA256": "3a4c3da998a86b85d551695bb52eccd53efb036e3993e0762d52dc62acfa2303",
-      "sourceVersion": "pebble-v2.2-frozen",
-      "anchors": [
-        "anchor_head",
-        "anchor_face",
-        "anchor_back",
-        "anchor_neck",
-        "anchor_base"
-      ],
-      "expressions": [
-        "idle",
-        "blink",
-        "happy",
-        "excited",
-        "surprised",
-        "sleepy",
-        "sad"
-      ],
-      "fps": 30,
-      "clips": {
-        "idle_bob": {
-          "start": 1,
-          "end": 60
-        },
-        "blink": {
-          "start": 61,
-          "end": 72
-        },
-        "wobble": {
-          "start": 73,
-          "end": 102
-        },
-        "tap": {
-          "start": 103,
-          "end": 130
-        },
-        "expr_idle": {
-          "start": 131,
-          "end": 136
-        },
-        "expr_happy": {
-          "start": 137,
-          "end": 142
-        },
-        "expr_excited": {
-          "start": 143,
-          "end": 148
-        },
-        "expr_surprised": {
-          "start": 149,
-          "end": 154
-        },
-        "expr_sleepy": {
-          "start": 155,
-          "end": 160
-        },
-        "expr_sad": {
-          "start": 161,
-          "end": 166
-        }
-      },
-      "attachments": {
-        "cap.moliboo.signature": {
-          "offset": [
-            0.0,
-            0.0,
-            -0.0045
-          ],
-          "rotationDegrees": [
-            -8.0,
-            18.0,
-            -25.0
-          ],
-          "scale": 1.0,
-          "anchor": "anchor_head",
-          "compatible": true
-        }
-      }
-    },
-    {
-      "id": "tofu",
-      "canonicalNumber": 11,
-      "displayName": "Tofu",
-      "family": "originals",
-      "asset": "Tofu",
-      "assetSHA256": "dfcca4619f22d33bdf60f13eb44eb33df663927abc20109aa15b16a494834823",
-      "sourceVersion": "tofu-v1.0",
-      "anchors": [
-        "anchor_head",
-        "anchor_face",
-        "anchor_back",
-        "anchor_neck",
-        "anchor_base"
-      ],
-      "expressions": [
-        "idle",
-        "blink",
-        "happy",
-        "excited",
-        "surprised",
-        "sleepy",
-        "sad"
-      ],
-      "fps": 30,
-      "clips": {
-        "idle_bob": {
-          "start": 1,
-          "end": 60
-        },
-        "blink": {
-          "start": 61,
-          "end": 72
-        },
-        "wobble": {
-          "start": 73,
-          "end": 102
-        },
-        "tap": {
-          "start": 103,
-          "end": 130
-        },
-        "expr_idle": {
-          "start": 131,
-          "end": 136
-        },
-        "expr_happy": {
-          "start": 137,
-          "end": 142
-        },
-        "expr_excited": {
-          "start": 143,
-          "end": 148
-        },
-        "expr_surprised": {
-          "start": 149,
-          "end": 154
-        },
-        "expr_sleepy": {
-          "start": 155,
-          "end": 160
-        },
-        "expr_sad": {
-          "start": 161,
-          "end": 166
-        },
-        "cube_squash": {
-          "start": 167,
-          "end": 196
-        },
-        "exuberant_bounce": {
-          "start": 197,
-          "end": 228
-        }
-      },
-      "attachments": {
-        "cap.moliboo.signature": {
-          "offset": [
-            0.0,
-            0.0,
-            -0.004
-          ],
-          "rotationDegrees": [
-            -6.0,
-            0.0,
-            -14.0
-          ],
-          "scale": 1.0,
-          "anchor": "anchor_head",
-          "compatible": true
-        }
-      }
-    },
-    {
-      "id": "comet",
-      "canonicalNumber": 12,
-      "displayName": "Comet",
-      "family": "originals",
-      "asset": null,
-      "assetSHA256": null,
-      "sourceVersion": null,
-      "anchors": [],
-      "expressions": [],
-      "fps": 30,
-      "clips": {},
-      "attachments": {}
-    },
-    {
-      "id": "puff",
-      "canonicalNumber": 13,
-      "displayName": "Puff",
-      "family": "originals",
-      "asset": null,
-      "assetSHA256": null,
-      "sourceVersion": null,
-      "anchors": [],
-      "expressions": [],
-      "fps": 30,
-      "clips": {},
-      "attachments": {}
-    },
-    {
-      "id": "bolt",
-      "canonicalNumber": 14,
-      "displayName": "Bolt",
-      "family": "originals",
-      "asset": "Bolt",
-      "assetSHA256": "7565bb3e3f5aad138313c615f254b2b14b7426e98131c95b4d93b33951a54ec3",
-      "sourceVersion": "bolt-v1.0",
-      "anchors": [
-        "anchor_head",
-        "anchor_face",
-        "anchor_back",
-        "anchor_neck",
-        "anchor_base"
-      ],
-      "expressions": [
-        "idle",
-        "blink",
-        "happy",
-        "excited",
-        "surprised",
-        "sleepy",
-        "sad"
-      ],
-      "fps": 30,
-      "clips": {
-        "idle_bob": {
-          "start": 1,
-          "end": 60
-        },
-        "blink": {
-          "start": 61,
-          "end": 72
-        },
-        "wobble": {
-          "start": 73,
-          "end": 102
-        },
-        "tap": {
-          "start": 103,
-          "end": 130
-        },
-        "expr_idle": {
-          "start": 131,
-          "end": 136
-        },
-        "expr_happy": {
-          "start": 137,
-          "end": 142
-        },
-        "expr_excited": {
-          "start": 143,
-          "end": 148
-        },
-        "expr_surprised": {
-          "start": 149,
-          "end": 154
-        },
-        "expr_sleepy": {
-          "start": 155,
-          "end": 160
-        },
-        "expr_sad": {
-          "start": 161,
-          "end": 166
-        },
-        "antenna_flash": {
-          "start": 167,
-          "end": 186
-        },
-        "servo_tilt": {
-          "start": 187,
-          "end": 216
-        }
-      },
-      "attachments": {
-        "cap.moliboo.signature": {
-          "offset": [
-            0.0,
-            0.0,
-            -0.003
-          ],
-          "rotationDegrees": [
-            -6.0,
-            0.0,
-            -4.0
-          ],
-          "scale": 0.85,
-          "anchor": "anchor_head",
-          "compatible": true
-        }
-      }
-    },
-    {
-      "id": "glim",
-      "canonicalNumber": 15,
-      "displayName": "Glim",
-      "family": "originals",
-      "asset": null,
-      "assetSHA256": null,
-      "sourceVersion": null,
-      "anchors": [],
-      "expressions": [],
-      "fps": 30,
-      "clips": {},
-      "attachments": {}
-    },
-    {
-      "id": "echo",
-      "canonicalNumber": 16,
-      "displayName": "Echo",
-      "family": "originals",
-      "asset": null,
-      "assetSHA256": null,
-      "sourceVersion": null,
-      "anchors": [],
-      "expressions": [],
-      "fps": 30,
-      "clips": {},
-      "attachments": {}
-    },
-    {
-      "id": "quill",
-      "canonicalNumber": 17,
-      "displayName": "Quill",
-      "family": "originals",
-      "asset": null,
-      "assetSHA256": null,
-      "sourceVersion": null,
-      "anchors": [],
-      "expressions": [],
-      "fps": 30,
-      "clips": {},
-      "attachments": {}
-    },
-    {
-      "id": "orbit",
-      "canonicalNumber": 18,
-      "displayName": "Orbit",
-      "family": "originals",
-      "asset": null,
-      "assetSHA256": null,
-      "sourceVersion": null,
-      "anchors": [],
-      "expressions": [],
-      "fps": 30,
-      "clips": {},
-      "attachments": {}
-    },
-    {
-      "id": "prism",
-      "canonicalNumber": 19,
-      "displayName": "Prism",
-      "family": "originals",
-      "asset": null,
-      "assetSHA256": null,
-      "sourceVersion": null,
-      "anchors": [],
-      "expressions": [],
-      "fps": 30,
-      "clips": {},
-      "attachments": {}
-    },
-    {
-      "id": "wisp",
-      "canonicalNumber": 20,
-      "displayName": "Wisp",
-      "family": "originals",
-      "asset": null,
-      "assetSHA256": null,
-      "sourceVersion": null,
-      "anchors": [],
-      "expressions": [],
-      "fps": 30,
-      "clips": {},
-      "attachments": {}
-    },
-    {
-      "id": "doodle",
-      "canonicalNumber": 21,
-      "displayName": "Doodle",
-      "family": "originals",
-      "asset": null,
-      "assetSHA256": null,
-      "sourceVersion": null,
-      "anchors": [],
-      "expressions": [],
-      "fps": 30,
-      "clips": {},
-      "attachments": {}
-    },
-    {
-      "id": "chime",
-      "canonicalNumber": 22,
-      "displayName": "Chime",
-      "family": "originals",
-      "asset": null,
-      "assetSHA256": null,
-      "sourceVersion": null,
-      "anchors": [],
-      "expressions": [],
-      "fps": 30,
-      "clips": {},
-      "attachments": {}
-    },
-    {
-      "id": "rolo",
-      "canonicalNumber": 23,
-      "displayName": "Rolo",
-      "family": "originals",
-      "asset": null,
-      "assetSHA256": null,
-      "sourceVersion": null,
-      "anchors": [],
-      "expressions": [],
-      "fps": 30,
-      "clips": {},
-      "attachments": {}
-    },
-    {
-      "id": "pogo",
-      "canonicalNumber": 24,
-      "displayName": "Pogo",
-      "family": "originals",
-      "asset": null,
-      "assetSHA256": null,
-      "sourceVersion": null,
-      "anchors": [],
-      "expressions": [],
-      "fps": 30,
-      "clips": {},
-      "attachments": {}
-    },
-    {
-      "id": "fable",
-      "canonicalNumber": 25,
-      "displayName": "Fable",
-      "family": "originals",
-      "asset": null,
-      "assetSHA256": null,
-      "sourceVersion": null,
-      "anchors": [],
-      "expressions": [],
-      "fps": 30,
-      "clips": {},
-      "attachments": {}
+      "asset" : "Accessory_Cap_MolibooSignature",
+      "assetSHA256" : "359fd73011bee9310bc7d7faaf79c40e6ae859a4cebe29d5517fcca8bda3b531",
+      "sourceVersion" : "pebble-v2.2-frozen",
+      "wardrobeItemID" : "cap.moliboo.signature"
     }
-  ]
+  ],
+  "schemaVersion" : 2
 }

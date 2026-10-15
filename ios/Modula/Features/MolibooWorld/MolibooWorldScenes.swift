@@ -24,7 +24,11 @@ struct MolibooRoomBackdrop: View {
                 MolibooAmbientBackground(ambience: MolibooAmbience(rawValue: period.rawValue) ?? .night, animated: animating, fps: 12,
                                          density: 0.6, moon: UnitPoint(x: 0.9, y: 0.05), moonScale: 0)
                 if period == .night {   // aurora / nebula band over the night sky (Metal, fps-capped, still frame under Reduce Motion)
-                    Color.clear.frame(height: 520).molibooNebula(0.8, animated: animating).allowsHitTesting(false)
+                    Color.clear.frame(height: 520).molibooNebula(0.85, animated: animating).allowsHitTesting(false)
+                } else if period == .morning || period == .afternoon {
+                    Color.clear.frame(height: 480)
+                        .molibooSunbeams(Color(red: 1.0, green: 0.96, blue: 0.80), intensity: 0.82, animated: animating)
+                        .allowsHitTesting(false)
                 }
                 LinearGradient(colors: wall + [wall.last!.opacity(0)], startPoint: .top, endPoint: .bottom)
                     .frame(height: top + Self.roomHeight).offset(y: -lift * 0.7)

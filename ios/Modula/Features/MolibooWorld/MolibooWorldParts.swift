@@ -209,9 +209,12 @@ struct MolibooStageCharacter: View {
     }
 
     @ViewBuilder private var figure: some View {
+        let live = animating && stage.awake
         if let img = MolibooPortrait.image(for: characterID) {
             Image(uiImage: img).resizable().interpolation(.high).antialiased(true).scaledToFit().frame(width: 230, height: 230)
-                .shadow(color: .black.opacity(0.25), radius: 10, y: 8)
+                .molibooShimmer(0.22, animated: live)
+                .shadow(color: Color(red: 0.21, green: 0.78, blue: 0.82).opacity(0.38), radius: 14, y: 0)
+                .shadow(color: .black.opacity(0.28), radius: 10, y: 8)
         } else if let kind = ModulaMascotKind(rawValue: characterID) {
             ModulaMascotFigure(kind: kind, pose: .still(), size: 110, outfit: MascotWardrobeStore.shared.outfit)
         } else {

@@ -16,7 +16,7 @@ struct MolibooWorldView: View {
             }
         }
     }
-    enum Route: Hashable { case studio(String), wardrobe(String), photo(String), settings }
+    enum Route: Hashable { case studio(String), wardrobe(String), photo(String), collection, cards, settings }
 
     @Environment(AppEnvironment.self) private var app
     @Environment(\.scenePhase) private var scenePhase
@@ -36,6 +36,7 @@ struct MolibooWorldView: View {
     @FocusState private var composerFocused: Bool
     @State private var didApplyDebugKind = false
     @State private var rippleTick = 0
+    @State private var joyPulseTick = 0
     @AppStorage(MolibooSettings.onboardedKey) private var onboarded = false
     @State private var showWelcome = false
     @Namespace private var heroNS
@@ -73,16 +74,18 @@ struct MolibooWorldView: View {
         ZStack(alignment: .topLeading) {
             if shows("backdrop") { MolibooRoomBackdrop(period: period, scrollY: scrollY, animating: motionAllowed && stage.awake, figurines: figurineIDs) }
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(spacing: 18) {
                     if shows("header") { header }
-                    if shows("stage") { navBar; stageArea; statsRow }
-                    if shows("identity") { identityCard }
-                    if shows("composer") { composer }
+                    if shows("stage") { navBar; stageArea }
+                    if shows("identity") || shows("stage") {
+                        heroDashboardCard
+                    }
                     if shows("quick") { quickActions }
+                    if shows("composer") { composer }
                     if shows("activities") { activities }
                     if shows("collection") { collection }
                 }
-                .padding(.horizontal, 16).padding(.bottom, 28)
+                .padding(.horizontal, 16).padding(.bottom, 36)
             }
             .scrollIndicators(.hidden)
             // Clear the floating tab bar so the carousel is never covered.
@@ -173,6 +176,10 @@ struct MolibooWorldView: View {
                     .accessibilityIdentifier("world.sparkle").accessibilityLabel("Surprise")
                     Menu {
                         Button { route = .settings } label: { Label("Moliboo settings", systemImage: "gearshape") }
+                        Button { route = .collection } label: { Label("Collection", systemImage: "square.grid.2x2") }
+                        if MolibooCardFlags.enabled {
+                            Button { route = .cards } label: { Label("Trading Cards", systemImage: "rectangle.portrait.on.rectangle.portrait.angled") }
+                        }
                         Button { showSwitcher = true } label: { Label("Switch Moliboo", systemImage: "arrow.left.arrow.right") }
                     } label: {
                         Image(systemName: "ellipsis").font(.headline).frame(width: 44, height: 44)
@@ -188,6 +195,7 @@ struct MolibooWorldView: View {
 
     private func surprise() {
         let pick: MolibooEmotion = [.happy, .excited, .curious].randomElement() ?? .happy
+        joyPulseTick += 1
         stage.bounce(allowed: motionAllowed); stage.react(pick, allowed: motionAllowed)
         care.interact(characterID, mood: 1, bond: 1)
     }
@@ -199,27 +207,35 @@ struct MolibooWorldView: View {
         // small phone's content column) never widens the page; nav and stats float over its edges.
         Color.clear.frame(maxWidth: .infinity).frame(height: 300)
             .overlay {
-                MolibooStageCharacter(characterID: characterID, emotion: emotion, stage: stage, animating: motionAllowed,
-                                      gaze: chat?.isTyping == true ? 1 : 0)
-                    .frame(width: 300, height: 300)
-                    .molibooRipple(trigger: rippleTick, origin: CGPoint(x: 150, y: 170))
-                    .opacity(showWelcome ? 0 : 1)
-                    .modifier(MolibooHeroMorph(ns: showWelcome ? nil : heroNS))
-                    // Picking in the carousel flies the new Moliboo up into the hero spot.
-                    .id(characterID)
-                    .transition(reduceMotion ? .opacity : .asymmetric(insertion: .scale(scale: 0.35, anchor: .bottom).combined(with: .offset(y: 260)).combined(with: .opacity),
-                                                                      removal: .scale(scale: 0.6).combined(with: .opacity)))
-                    .contentShape(Rectangle())
-                    .onTapGesture(count: 2) { composerFocused = true; stage.react(.curious, allowed: motionAllowed) }
-                    .onTapGesture { rippleTick += 1; stage.bounce(allowed: motionAllowed); care.interact(characterID, mood: 1, bond: 1) }
-                    .onLongPressGesture(minimumDuration: 0.5) { showSwitcher = true }
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(displayName), \(emotion.label)")
-                    .accessibilityHint("Tap to bounce, double-tap to chat, hold to switch Moliboo")
-                    .accessibilityAddTraits(.isButton)
-                    .accessibilityIdentifier("world.stage")
-                    // Studio / Wardrobe / Photo zoom out of the character itself (real morph, not a cut).
-                    .matchedTransitionSource(id: "world.hero", in: zoomNS) { $0.clipShape(RoundedRectangle(cornerRadius: 40, style: .continuous)) }
+                ZStack {
+                    Circle()
+                        .fill(.clear)
+                        .frame(width: 290, height: 290)
+                        .molibooStageAura(kind?.palette.accent ?? teal, strength: period.isDark ? 0.68 : 0.45, animated: motionAllowed && stage.awake)
+                        .allowsHitTesting(false)
+                    MolibooStageCharacter(characterID: characterID, emotion: emotion, stage: stage, animating: motionAllowed,
+                                          gaze: chat?.isTyping == true ? 1 : 0)
+                        .frame(width: 300, height: 300)
+                        .molibooRipple(trigger: rippleTick, origin: CGPoint(x: 150, y: 170))
+                        .molibooJoyPulse(trigger: joyPulseTick, tint: kind?.palette.accent ?? teal)
+                        .opacity(showWelcome ? 0 : 1)
+                        .modifier(MolibooHeroMorph(ns: showWelcome ? nil : heroNS))
+                        // Picking in the carousel flies the new Moliboo up into the hero spot.
+                        .id(characterID)
+                        .transition(reduceMotion ? .opacity : .asymmetric(insertion: .scale(scale: 0.35, anchor: .bottom).combined(with: .offset(y: 260)).combined(with: .opacity),
+                                                                          removal: .scale(scale: 0.6).combined(with: .opacity)))
+                        .contentShape(Rectangle())
+                        .onTapGesture(count: 2) { composerFocused = true; stage.react(.curious, allowed: motionAllowed) }
+                        .onTapGesture { rippleTick += 1; joyPulseTick += 1; stage.bounce(allowed: motionAllowed); care.interact(characterID, mood: 1, bond: 1) }
+                        .onLongPressGesture(minimumDuration: 0.5) { showSwitcher = true }
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("\(displayName), \(emotion.label)")
+                        .accessibilityHint("Tap to bounce, double-tap to chat, hold to switch Moliboo")
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityIdentifier("world.stage")
+                        // Studio / Wardrobe / Photo zoom out of the character itself (real morph, not a cut).
+                        .matchedTransitionSource(id: "world.hero", in: zoomNS) { $0.clipShape(RoundedRectangle(cornerRadius: 40, style: .continuous)) }
+                }
             }
     }
 
@@ -251,13 +267,66 @@ struct MolibooWorldView: View {
             }
             .padding(4)
             .modulaGlass(in: Capsule(), interactive: false, tint: glassTint, specular: true)
+            .molibooSpecularRim(0.45, animated: motionAllowed && stage.awake)
             .modulaGlassID("world.nav", in: glassNS)
             .shadow(color: .black.opacity(0.22), radius: 12, y: 6)
         }
         .foregroundStyle(period.isDark ? .white : .primary)
     }
 
-    /// Mood / energy / bond as three glass chips under the pedestal (high contrast, no floating card).
+    /// Unified Hero Dashboard Card: combines Character Identity (Primary) + Trait Pills + Mood/Energy/Bond Meters (Secondary)
+    /// into one cohesive Liquid Glass surface with specular rim and subtle holo sheen.
+    private var heroDashboardCard: some View {
+        let canonNum = MolibooRegistry.descriptor(for: characterID)?.canonicalNumber
+            ?? ((MolibooCosmetics.originals.firstIndex(of: characterID) ?? 0) + 1)
+        return VStack(spacing: 14) {
+            if shows("identity") {
+                VStack(spacing: 6) {
+                    HStack(spacing: 6) {
+                        Text(String(format: "#%03d", canonNum))
+                            .font(.caption2.weight(.heavy).monospaced())
+                            .foregroundStyle(teal)
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(teal.opacity(0.16), in: Capsule())
+                        Text("ORIGINALS")
+                            .font(.caption2.weight(.bold).monospaced())
+                            .tracking(1.2)
+                            .opacity(0.65)
+                    }
+                    (Text("Hi, I'm ") + Text(displayName).foregroundStyle(teal) + Text("!"))
+                        .font(.system(.title, design: .rounded).weight(.heavy))
+                        .accessibilityIdentifier("world.identity.name")
+                    Text(kind?.personality ?? "A brand new Moliboo friend.")
+                        .font(.subheadline.weight(.medium)).opacity(0.82).multilineTextAlignment(.center)
+                    HStack(spacing: 6) {
+                        ForEach(traits, id: \.1) { t in
+                            HStack(spacing: 4) {
+                                Image(systemName: t.0).foregroundStyle(t.2)
+                                Text(t.1)
+                            }
+                            .font(.caption.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.8)
+                            .padding(.horizontal, 10).padding(.vertical, 5)
+                            .modulaGlass(in: Capsule(), interactive: false, tint: t.2.opacity(0.18))
+                        }
+                    }
+                    .padding(.top, 2)
+                    .accessibilityIdentifier("world.identity.traits")
+                }
+            }
+            if shows("stage") {
+                statsRow
+            }
+        }
+        .foregroundStyle(period.isDark ? .white : .primary)
+        .padding(.vertical, 16).padding(.horizontal, 14).frame(maxWidth: .infinity)
+        .overlay(alignment: .topTrailing) { Image(systemName: "sparkle").foregroundStyle(teal.opacity(0.85)).padding(14) }
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 28, style: .continuous), interactive: false, tint: glassTint, specular: true)
+        .molibooSpecularRim(0.55, animated: motionAllowed && stage.awake)
+        .shadow(color: .black.opacity(0.28), radius: 20, y: 10)
+        .padding(.top, -8)
+    }
+
+    /// Mood / energy / bond as three high-contrast glass meters inside the hero dashboard.
     private var statsRow: some View {
         ModulaGlassGroup(spacing: 8) {
             HStack(spacing: 8) {
@@ -269,7 +338,6 @@ struct MolibooWorldView: View {
         .foregroundStyle(period.isDark ? .white : .primary)
         .contentTransition(.numericText())
         .animation(reduceMotion ? nil : .spring, value: careState)
-        .padding(.top, -10)
     }
 
     private var compactHeader: some View {
@@ -313,35 +381,6 @@ struct MolibooWorldView: View {
     private var traits: [(String, String, Color)] {
         let mood = MolibooRegistry.descriptor(for: characterID).map { MolibooIdlePersonality.for($0).mood.capitalized } ?? "Gentle"
         return [("leaf.fill", mood, .green), (emotion.symbol, emotion.label, .pink), ("star.fill", "Always with you", .yellow)]
-    }
-
-    private var identityCard: some View {
-        VStack(spacing: 8) {
-            (Text("Hi, I'm ") + Text(displayName).foregroundStyle(teal) + Text("!"))
-                .font(.system(.title, design: .rounded).weight(.heavy))
-                .accessibilityIdentifier("world.identity.name")
-            Text(kind?.personality ?? "A brand new Moliboo friend.")
-                .font(.subheadline).opacity(0.8).multilineTextAlignment(.center)
-            HStack(spacing: 6) {
-                ForEach(traits, id: \.1) { t in
-                    HStack(spacing: 4) {
-                        Image(systemName: t.0).foregroundStyle(t.2)
-                        Text(t.1)
-                    }
-                    .font(.caption.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.8)
-                    .padding(.horizontal, 10).padding(.vertical, 6)
-                    .modulaGlass(in: Capsule(), interactive: false, tint: t.2.opacity(0.18))
-                }
-            }
-            .accessibilityIdentifier("world.identity.traits")
-        }
-        .foregroundStyle(period.isDark ? .white : .primary)
-        .padding(.vertical, 18).padding(.horizontal, 14).frame(maxWidth: .infinity)
-        .overlay(alignment: .topTrailing) { Image(systemName: "sparkle").foregroundStyle(teal.opacity(0.8)).padding(14) }
-        .overlay(alignment: .bottomTrailing) { Image(systemName: "sparkle").font(.caption2).foregroundStyle(.white.opacity(0.6)).padding(18) }
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 28), interactive: false, tint: glassTint, specular: true)
-        .shadow(color: .black.opacity(0.30), radius: 20, y: 10)
-        .padding(.top, -6)
     }
 
     // MARK: Composer
@@ -421,11 +460,15 @@ struct MolibooWorldView: View {
             ModulaGlassGroup(spacing: 8) {
                 HStack(spacing: 8) {
                     quick("Say hi", "bubble.left.fill", .blue, id: "sayhi") {
+                        joyPulseTick += 1
                         care.interact(characterID, mood: 3, bond: 3); stage.react(.happy, allowed: motionAllowed); flash("\(displayName) waves back!")
                     }
                     quick("Play", "gamecontroller.fill", .purple, id: "play") { doActivity(.play) }
                     quick("Give treat", "carrot.fill", .orange, id: "treat") { doActivity(.feed) }
                     quick("Take photo", "camera.fill", .cyan, id: "photo") { openStudio(.photo(characterID)) }
+                    if MolibooCardFlags.enabled {
+                        quick("Cards", "rectangle.portrait.on.rectangle.portrait.angled.fill", .pink, id: "cards") { route = .cards }
+                    }
                 }
                 .padding(.vertical, 4)
             }
@@ -492,6 +535,7 @@ struct MolibooWorldView: View {
     private func doActivity(_ a: MolibooActivity) {
         let ok = care.perform(a, for: characterID)
         if ok {
+            joyPulseTick += 1
             switch a {
             case .sleep: stage.react(careState.asleep ? .sleepy : .happy, allowed: motionAllowed)
             case .play: stage.bounce(allowed: motionAllowed); stage.react(.excited, allowed: motionAllowed)
@@ -529,19 +573,23 @@ struct MolibooWorldView: View {
 
     private func collectionTile(_ id: String) -> some View {
         let selected = id == characterID
+        let num = MolibooRegistry.descriptor(for: id)?.canonicalNumber ?? ((MolibooCosmetics.originals.firstIndex(of: id) ?? 0) + 1)
         return Button { withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.6)) { kindRaw = id } } label: {
             VStack(spacing: 4) {
                 if let img = MolibooPortrait.image(for: id) {
-                    Image(uiImage: img).resizable().interpolation(.high).scaledToFit().frame(height: 72)
+                    Image(uiImage: img).resizable().interpolation(.high).scaledToFit().frame(height: 74)
                         .molibooPortraitEdge()
                         .shadow(color: .black.opacity(0.3), radius: 4, y: 3)
                 }
+                Text(String(format: "#%03d", num))
+                    .font(.caption2.weight(.bold).monospaced())
+                    .opacity(0.82)
                 Text(MolibooRegistry.descriptor(for: id)?.displayName ?? id.capitalized).font(.caption.weight(.bold))
                 if ModulaMascotKind(rawValue: id)?.isPremium == true {
                     Label("Premium", systemImage: "crown.fill").font(.caption2.weight(.semibold)).foregroundStyle(.orange)
                 }
             }
-            .padding(.vertical, 10).padding(.horizontal, 6).frame(width: 92)
+            .padding(.vertical, 10).padding(.horizontal, 6).frame(width: 98)
             .foregroundStyle(.white)
             .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
             .background {
@@ -603,6 +651,8 @@ struct MolibooWorldView: View {
         case .studio(let id): MolibooLivingStudioView(characterID: id).navigationTransition(.zoom(sourceID: "world.hero", in: zoomNS))
         case .wardrobe(let id): MolibooLivingStudioView(characterID: id, initialPanel: .wardrobe).navigationTransition(.zoom(sourceID: "world.hero", in: zoomNS))
         case .photo(let id): MolibooLivingStudioView(characterID: id, startInPhoto: true).navigationTransition(.zoom(sourceID: "world.hero", in: zoomNS))
+        case .collection: MolibooCollectionView()
+        case .cards: MolibooCardBinderView()
         case .settings: MolibooSettingsView()
         }
     }
