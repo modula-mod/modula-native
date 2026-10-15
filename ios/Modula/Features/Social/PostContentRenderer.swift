@@ -432,6 +432,7 @@ struct ModulaPDFSurface: View {
     @Environment(AppEnvironment.self) private var app
     @State private var download = AttachmentDownloadModel()
     @State private var reader: PDFReaderLaunch?
+    @State private var readingVersion = 0
     @Namespace private var zoomNamespace
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -453,6 +454,7 @@ struct ModulaPDFSurface: View {
             fileURL: fileURL,
             failed: failed,
             height: embedded ? 300 : 340,
+            readingVersion: readingVersion,
             onRetry: {
                 Task {
                     try? await app.attachmentDownloads.remove(attachment)
@@ -477,7 +479,7 @@ struct ModulaPDFSurface: View {
             download.prepare(attachment, downloadsRemote: true, manager: app.attachmentDownloads)
         }
         .onDisappear { if reader == nil { download.cancel(attachment.id) } }
-        .fullScreenCover(item: $reader) { launch in
+        .fullScreenCover(item: $reader, onDismiss: { readingVersion &+= 1 }) { launch in
             let content = ModulaPDFImmersiveReader(url: launch.url, key: attachment.id, title: attachment.displayName, startPage: launch.page) { reader = nil }
             if reduceMotion {
                 content

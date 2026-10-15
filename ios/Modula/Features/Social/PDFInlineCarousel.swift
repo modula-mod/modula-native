@@ -149,6 +149,8 @@ struct ModulaPDFInlineCarousel: View {
     var failed = false
     var height: CGFloat = 340
     var onRetry: () -> Void = {}
+    /// Bumped by the host when the reader closes so "Continue reading" refreshes.
+    var readingVersion = 0
     var onOpen: (Int) -> Void
 
     @State private var pageCount = 0
@@ -187,6 +189,7 @@ struct ModulaPDFInlineCarousel: View {
             readingMinutes = await renderer.readingMinutes(url: fileURL)
         }
         .onAppear { lastPage = PDFReadingStore.shared.lastPage(for: attachment.id) }
+        .onChange(of: readingVersion) { lastPage = PDFReadingStore.shared.lastPage(for: attachment.id) }
     }
 
     private var carousel: some View {

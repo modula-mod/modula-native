@@ -51,7 +51,7 @@ final class PDFReaderV2Tests: XCTestCase {
     }
 
     func testReadingTimeAndLabels() {
-        XCTAssertEqual(PDFReadingMath.readingMinutes(sampledWords: 2_300, sampledPages: 5, pageCount: 10), 4)
+        XCTAssertEqual(PDFReadingMath.readingMinutes(sampledWords: 2_300, sampledPages: 5, pageCount: 10), 20, "460 words/page ≈ 2 min")
         XCTAssertEqual(PDFReadingMath.readingMinutes(sampledWords: 0, sampledPages: 5, pageCount: 10), 2, "visual pages ≈ 12 s")
         XCTAssertEqual(PDFReadingMath.readingMinutes(sampledWords: 10, sampledPages: 1, pageCount: 1), 1)
         XCTAssertEqual(PDFReadingMath.readingMinutes(sampledWords: 0, sampledPages: 0, pageCount: 0), 1)
