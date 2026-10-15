@@ -454,13 +454,13 @@ struct ModulaPDFSurface: View {
             fileURL: fileURL,
             failed: failed,
             height: embedded ? 300 : 340,
-            readingVersion: readingVersion,
             onRetry: {
                 Task {
                     try? await app.attachmentDownloads.remove(attachment)
                     download.retry(attachment, manager: app.attachmentDownloads)
                 }
             },
+            readingVersion: readingVersion,
             onOpen: { page in
                 // Open our own immersive reader (zoom morph from the card); fall back to the host viewer.
                 if let fileURL { reader = PDFReaderLaunch(url: fileURL, page: page) }
