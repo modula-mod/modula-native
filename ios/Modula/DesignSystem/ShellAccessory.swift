@@ -221,9 +221,13 @@ struct ShellAccessorySystemSlot: View {
                 .background(app.appearance.accent.color.gradient, in: Circle())
                 .symbolEffect(.bounce, value: config.symbol)
                 .contentTransition(.symbolEffect(.replace))
-            Text(config.title)
-                .lineLimit(1)
-                .contentTransition(.interpolate)
+            if config.title == "Modula" {
+                ModulaWordmark(height: 14)
+            } else {
+                Text(config.title)
+                    .lineLimit(1)
+                    .contentTransition(.interpolate)
+            }
             Image(systemName: "chevron.up")
                 .font(.system(size: 9, weight: .heavy))
                 .foregroundStyle(.secondary)
@@ -423,9 +427,13 @@ struct ShellAccessoryHost: View {
                 .background(app.appearance.accent.color.opacity(0.12), in: Circle())
                 .symbolEffect(.bounce, value: config.symbol)
                 .contentTransition(.symbolEffect(.replace))
-            Text(config.title)
-                .font(.system(size: 13, weight: .semibold))
-                .lineLimit(1)
+            if config.title == "Modula" {
+                ModulaWordmark(height: 13)
+            } else {
+                Text(config.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+            }
             Spacer(minLength: 6)
             ForEach(config.actions) { action in
                 if action.enabled {

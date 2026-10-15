@@ -135,6 +135,8 @@ struct ModulaPDFViewer: View {
                     ZStack(alignment: .bottom) {
                         PDFKitView(url: url, currentPage: $currentPage, pageCount: $pageCount)
                             .accessibilityLabel(attachment.accessibilityLabel)
+                            .accessibilityIdentifier("pdf.reader")
+                            .ignoresSafeArea(edges: .bottom)
                         if pageCount > 0 {
                             HStack(spacing: ModulaSpacing.sm) {
                                 Button("Previous page", systemImage: "chevron.left") { currentPage = max(0, currentPage - 1) }
@@ -145,7 +147,9 @@ struct ModulaPDFViewer: View {
                                     .labelStyle(.iconOnly).disabled(currentPage >= pageCount - 1)
                             }
                             .padding(.horizontal, ModulaSpacing.md).padding(.vertical, ModulaSpacing.xs)
-                            .background(.regularMaterial, in: Capsule()).padding(.bottom, ModulaSpacing.sm)
+                            .modulaGlass(in: Capsule())
+                            .padding(.bottom, ModulaSpacing.sm)
+                            .accessibilityIdentifier("pdf.reader.controls")
                         }
                     }
                 case .downloading, .notDownloaded:
@@ -172,7 +176,10 @@ struct ModulaPDFViewer: View {
                 }
             }
         }
-        .task(id: attachment.id) { download.prepare(attachment, downloadsRemote: true, manager: app.attachmentDownloads) }
+        .task(id: attachment.id) {
+            currentPage = PDFReaderStartPage.take(for: attachment.id)
+            download.prepare(attachment, downloadsRemote: true, manager: app.attachmentDownloads)
+        }
         .onDisappear { download.cancel(attachment.id) }
     }
 }
@@ -186,11 +193,13 @@ private struct PDFKitView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> PDFView {
         let view = PDFView()
-        view.autoScales = true
-        view.displayMode = .singlePageContinuous
-        view.displayDirection = .vertical
+        // Horizontal page swipe (page view controller) with native pinch zoom.
+        view.displayMode = .singlePage
+        view.displayDirection = .horizontal
+        view.usePageViewController(true, withViewOptions: [UIPageViewController.OptionsKey.interPageSpacing: 16])
         view.displaysPageBreaks = true
-        view.backgroundColor = .systemBackground
+        view.autoScales = true
+        view.backgroundColor = .secondarySystemBackground
         context.coordinator.observe(view)
         return view
     }
@@ -198,7 +207,10 @@ private struct PDFKitView: UIViewRepresentable {
     func updateUIView(_ view: PDFView, context: Context) {
         if view.document?.documentURL != url {
             view.document = PDFDocument(url: url)
-            pageCount = view.document?.pageCount ?? 0
+            view.minScaleFactor = view.scaleFactorForSizeToFit
+            view.maxScaleFactor = max(view.scaleFactorForSizeToFit * 5, 4)
+            let count = view.document?.pageCount ?? 0
+            DispatchQueue.main.async { pageCount = count }
         }
         guard let document = view.document, currentPage >= 0, currentPage < document.pageCount,
               let desired = document.page(at: currentPage), view.currentPage !== desired else { return }

@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		838D878E1CDE4F0798B71159 /* PDFInlinePostUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B02FB311CBAA4285B556D18C /* PDFInlinePostUITests.swift */; };
+		647C9C0055154B72875252C7 /* PDFInlineCarouselTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA7F7ED971B64DE79A592E1E /* PDFInlineCarouselTests.swift */; };
+		4725F6109BFA4B45A3FAB4FD /* PDFInlineLab.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7E1CFA0E65045DBBB9D7870 /* PDFInlineLab.swift */; };
+		498A2A6A47D9466587CF839C /* PDFInlineCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C60B54CD0D8A4495985F84DD /* PDFInlineCarousel.swift */; };
 		A0MOL01ACC0000000000000B /* MOL01AcceptanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0MOL01ACC0000000000000F /* MOL01AcceptanceUITests.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E105 /* MOL02PipAcceptanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E106 /* MOL02PipAcceptanceUITests.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E109 /* MOL02MossAcceptanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E110 /* MOL02MossAcceptanceUITests.swift */; };
@@ -14,6 +18,7 @@
 		A1B2C3D4E5F6A7B8C9D0E117 /* MOL02BoltAcceptanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E118 /* MOL02BoltAcceptanceUITests.swift */; };
 		929CC2DCFFFC0BC5DAE061DA /* MOL03PickerAmbientUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35F1D3F0EE4EADF1CF62C7DA /* MOL03PickerAmbientUITests.swift */; };
 		ECD753AFA25857E5171A9671 /* MOL03SettingsHubUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05594AC12F22DBDCED56C4CE /* MOL03SettingsHubUITests.swift */; };
+		8597201344E341F88520A56D /* MOL04CardsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E18744FE79D44EEB5422B45 /* MOL04CardsUITests.swift */; };
 		78F1133071E4CE06BFD5A6E8 /* MOL03WorldUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 471F7AF99CDC198799763F9B /* MOL03WorldUITests.swift */; };
 		A536B925EA5BECC1C2A7F339 /* MOL03OriginalsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 271267906D77E83307E9ECE3 /* MOL03OriginalsUITests.swift */; };
 		044358BD6CCD2FD5191A435A /* MOL03WardrobePhotoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AAF66C96894CCF6AA4C793E /* MOL03WardrobePhotoUITests.swift */; };
@@ -23,6 +28,7 @@
 		A1B2C3D4E5F6A7B8C9D0E103 /* MOL02Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E104 /* MOL02Tests.swift */; };
 		84BBACB941ED587B4B71B874 /* MOL03AmbienceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 545EE2428098F54A19A0941E /* MOL03AmbienceTests.swift */; };
 		62D3D0D71B5DC53EE0B5D964 /* MOL03WorldTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7C648C50ADD49BC9E0FB56 /* MOL03WorldTests.swift */; };
+		BD4D8C4363EA47CC9FB84BEC /* MOL04CardsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C87EC46345945E89B099370 /* MOL04CardsTests.swift */; };
 		76DA8B4DAD6919F138D97A79 /* ModulaWordmarkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF51FB12DD2DA68F1C34C228 /* ModulaWordmarkTests.swift */; };
 		58CC373DCE8EFE4E753203E2 /* MOL03OriginalsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */; };
 		F75AE210476332DC70F54B1E /* MOL03WardrobeRigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */; };
@@ -60,6 +66,7 @@
 		86D1F11F366274A7E73231DC /* MolibooWorldScenes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63BCBE2AEE0E47DDA1E74D84 /* MolibooWorldScenes.swift */; };
 		A9C8944DC7FA9B1A14A3C93A /* MolibooAmbientBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF571B2F180AD7B3704B18E0 /* MolibooAmbientBackground.swift */; };
 		36529D3158094916D003470A /* MolibooSettingsHub.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E1EAEFFDEB08BE920109B5A /* MolibooSettingsHub.swift */; };
+		16D8D9F92EB4431EA055F602 /* MolibooCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D6B6F8530D8427FA49C358F /* MolibooCards.swift */; };
 		02E5B361C03A5E96E30FB139 /* MolibooWorldParts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699909A12EF8AE3B97932643 /* MolibooWorldParts.swift */; };
 		665A72EAB1D0B7C25F2A312C /* MolibooWorldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 014F3220FC6E16BB48F3D447 /* MolibooWorldView.swift */; };
 		D8FD802C3C171BADADA083A4 /* MolibooWorldModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C4E9DB4815AD01B90DF74F /* MolibooWorldModel.swift */; };
@@ -435,6 +442,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		B02FB311CBAA4285B556D18C /* PDFInlinePostUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PDFInlinePostUITests.swift; sourceTree = "<group>"; };
+		AA7F7ED971B64DE79A592E1E /* PDFInlineCarouselTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PDFInlineCarouselTests.swift; sourceTree = "<group>"; };
+		F7E1CFA0E65045DBBB9D7870 /* PDFInlineLab.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PDFInlineLab.swift; path = Features/Social/PDFInlineLab.swift; sourceTree = "<group>"; };
+		C60B54CD0D8A4495985F84DD /* PDFInlineCarousel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PDFInlineCarousel.swift; path = Features/Social/PDFInlineCarousel.swift; sourceTree = "<group>"; };
 		A0MOL01ACC0000000000000F /* MOL01AcceptanceUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL01AcceptanceUITests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E106 /* MOL02PipAcceptanceUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL02PipAcceptanceUITests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E110 /* MOL02MossAcceptanceUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL02MossAcceptanceUITests.swift; sourceTree = "<group>"; };
@@ -442,6 +453,7 @@
 		A1B2C3D4E5F6A7B8C9D0E118 /* MOL02BoltAcceptanceUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL02BoltAcceptanceUITests.swift; sourceTree = "<group>"; };
 		35F1D3F0EE4EADF1CF62C7DA /* MOL03PickerAmbientUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL03PickerAmbientUITests.swift; sourceTree = "<group>"; };
 		05594AC12F22DBDCED56C4CE /* MOL03SettingsHubUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL03SettingsHubUITests.swift; sourceTree = "<group>"; };
+		5E18744FE79D44EEB5422B45 /* MOL04CardsUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL04CardsUITests.swift; sourceTree = "<group>"; };
 		471F7AF99CDC198799763F9B /* MOL03WorldUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL03WorldUITests.swift; sourceTree = "<group>"; };
 		271267906D77E83307E9ECE3 /* MOL03OriginalsUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL03OriginalsUITests.swift; sourceTree = "<group>"; };
 		3AAF66C96894CCF6AA4C793E /* MOL03WardrobePhotoUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL03WardrobePhotoUITests.swift; sourceTree = "<group>"; };
@@ -451,6 +463,7 @@
 		A1B2C3D4E5F6A7B8C9D0E104 /* MOL02Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL02Tests.swift; sourceTree = "<group>"; };
 		545EE2428098F54A19A0941E /* MOL03AmbienceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03AmbienceTests.swift; sourceTree = "<group>"; };
 		3A7C648C50ADD49BC9E0FB56 /* MOL03WorldTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WorldTests.swift; sourceTree = "<group>"; };
+		3C87EC46345945E89B099370 /* MOL04CardsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL04CardsTests.swift; sourceTree = "<group>"; };
 		AF51FB12DD2DA68F1C34C228 /* ModulaWordmarkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModulaWordmarkTests.swift; sourceTree = "<group>"; };
 		30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03OriginalsTests.swift; sourceTree = "<group>"; };
 		C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WardrobeRigTests.swift; sourceTree = "<group>"; };
@@ -488,6 +501,7 @@
 		63BCBE2AEE0E47DDA1E74D84 /* MolibooWorldScenes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooWorldScenes.swift; path = Features/MolibooWorld/MolibooWorldScenes.swift; sourceTree = "<group>"; };
 		AF571B2F180AD7B3704B18E0 /* MolibooAmbientBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooAmbientBackground.swift; path = DesignSystem/Moliboo/MolibooAmbientBackground.swift; sourceTree = "<group>"; };
 		6E1EAEFFDEB08BE920109B5A /* MolibooSettingsHub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooSettingsHub.swift; path = Features/Moliboo3D/MolibooSettingsHub.swift; sourceTree = "<group>"; };
+		9D6B6F8530D8427FA49C358F /* MolibooCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooCards.swift; path = Features/Moliboo3D/MolibooCards.swift; sourceTree = "<group>"; };
 		699909A12EF8AE3B97932643 /* MolibooWorldParts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooWorldParts.swift; path = Features/MolibooWorld/MolibooWorldParts.swift; sourceTree = "<group>"; };
 		014F3220FC6E16BB48F3D447 /* MolibooWorldView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooWorldView.swift; path = Features/MolibooWorld/MolibooWorldView.swift; sourceTree = "<group>"; };
 		C3C4E9DB4815AD01B90DF74F /* MolibooWorldModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooWorldModel.swift; path = Features/MolibooWorld/MolibooWorldModel.swift; sourceTree = "<group>"; };
@@ -908,6 +922,7 @@
 				A1B2C3D4E5F6A7B8C9D0E104 /* MOL02Tests.swift */,
 				545EE2428098F54A19A0941E /* MOL03AmbienceTests.swift */,
 				3A7C648C50ADD49BC9E0FB56 /* MOL03WorldTests.swift */,
+				3C87EC46345945E89B099370 /* MOL04CardsTests.swift */,
 				AF51FB12DD2DA68F1C34C228 /* ModulaWordmarkTests.swift */,
 				30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */,
 				C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */,
@@ -930,6 +945,7 @@
 				E1010000000000000000000A /* DiscoverTests.swift */,
 				E30100000000000000000009 /* HomeFeedTests.swift */,
 				E30100000000000000000019 /* PostSystemTests.swift */,
+				AA7F7ED971B64DE79A592E1E /* PDFInlineCarouselTests.swift */,
 				F00100000000000000000006 /* ProfileTests.swift */,
 				834A240ED776595650758ACA /* LI02IntelligenceTests.swift */,
 				A40300000000000000000002 /* LI03AppleProviderTests.swift */,
@@ -951,6 +967,8 @@
 				A1B2C3D4E5F6A7B8C9D0E118 /* MOL02BoltAcceptanceUITests.swift */,
 				35F1D3F0EE4EADF1CF62C7DA /* MOL03PickerAmbientUITests.swift */,
 				05594AC12F22DBDCED56C4CE /* MOL03SettingsHubUITests.swift */,
+				B02FB311CBAA4285B556D18C /* PDFInlinePostUITests.swift */,
+				5E18744FE79D44EEB5422B45 /* MOL04CardsUITests.swift */,
 				471F7AF99CDC198799763F9B /* MOL03WorldUITests.swift */,
 				271267906D77E83307E9ECE3 /* MOL03OriginalsUITests.swift */,
 				3AAF66C96894CCF6AA4C793E /* MOL03WardrobePhotoUITests.swift */,
@@ -996,6 +1014,8 @@
 				A03100000000000000000003 /* AttachmentViewers.swift */,
 				A03100000000000000000004 /* ModulaPostModels.swift */,
 				A03100000000000000000005 /* PostContentRenderer.swift */,
+				F7E1CFA0E65045DBBB9D7870 /* PDFInlineLab.swift */,
+				C60B54CD0D8A4495985F84DD /* PDFInlineCarousel.swift */,
 				A03100000000000000000006 /* ContentPostCatalogView.swift */,
 				084039C8EE9493F07C7F4946 /* AppEnvironment.swift */,
 				B8D0072715530545613031A3 /* ModulaApp.swift */,
@@ -1127,6 +1147,7 @@
 				63BCBE2AEE0E47DDA1E74D84 /* MolibooWorldScenes.swift */,
 				AF571B2F180AD7B3704B18E0 /* MolibooAmbientBackground.swift */,
 				6E1EAEFFDEB08BE920109B5A /* MolibooSettingsHub.swift */,
+				9D6B6F8530D8427FA49C358F /* MolibooCards.swift */,
 				699909A12EF8AE3B97932643 /* MolibooWorldParts.swift */,
 				014F3220FC6E16BB48F3D447 /* MolibooWorldView.swift */,
 				C3C4E9DB4815AD01B90DF74F /* MolibooWorldModel.swift */,
@@ -1657,6 +1678,8 @@
 				A1B2C3D4E5F6A7B8C9D0E117 /* MOL02BoltAcceptanceUITests.swift in Sources */,
 				929CC2DCFFFC0BC5DAE061DA /* MOL03PickerAmbientUITests.swift in Sources */,
 				ECD753AFA25857E5171A9671 /* MOL03SettingsHubUITests.swift in Sources */,
+				838D878E1CDE4F0798B71159 /* PDFInlinePostUITests.swift in Sources */,
+				8597201344E341F88520A56D /* MOL04CardsUITests.swift in Sources */,
 				78F1133071E4CE06BFD5A6E8 /* MOL03WorldUITests.swift in Sources */,
 				A536B925EA5BECC1C2A7F339 /* MOL03OriginalsUITests.swift in Sources */,
 				044358BD6CCD2FD5191A435A /* MOL03WardrobePhotoUITests.swift in Sources */,
@@ -1676,6 +1699,7 @@
 				A1B2C3D4E5F6A7B8C9D0E103 /* MOL02Tests.swift in Sources */,
 				84BBACB941ED587B4B71B874 /* MOL03AmbienceTests.swift in Sources */,
 				62D3D0D71B5DC53EE0B5D964 /* MOL03WorldTests.swift in Sources */,
+				BD4D8C4363EA47CC9FB84BEC /* MOL04CardsTests.swift in Sources */,
 				76DA8B4DAD6919F138D97A79 /* ModulaWordmarkTests.swift in Sources */,
 				58CC373DCE8EFE4E753203E2 /* MOL03OriginalsTests.swift in Sources */,
 				F75AE210476332DC70F54B1E /* MOL03WardrobeRigTests.swift in Sources */,
@@ -1692,6 +1716,7 @@
 				E2010000000000000000000A /* DiscoverTests.swift in Sources */,
 				E40100000000000000000009 /* HomeFeedTests.swift in Sources */,
 				E40100000000000000000019 /* PostSystemTests.swift in Sources */,
+				647C9C0055154B72875252C7 /* PDFInlineCarouselTests.swift in Sources */,
 				N50100000000000000000012 /* N4CTests.swift in Sources */,
 				V50100000000000000000003 /* ModuleVersionSwitchTests.swift in Sources */,
 				F10100000000000000000006 /* ProfileTests.swift in Sources */,
@@ -1717,6 +1742,8 @@
 				A03200000000000000000003 /* AttachmentViewers.swift in Sources */,
 				A03200000000000000000004 /* ModulaPostModels.swift in Sources */,
 				A03200000000000000000005 /* PostContentRenderer.swift in Sources */,
+				4725F6109BFA4B45A3FAB4FD /* PDFInlineLab.swift in Sources */,
+				498A2A6A47D9466587CF839C /* PDFInlineCarousel.swift in Sources */,
 				A03200000000000000000006 /* ContentPostCatalogView.swift in Sources */,
 				C5321327FFFE3ADE609BB112 /* AppEnvironment.swift in Sources */,
 				A50100000000000000000001 /* AppLaunchState.swift in Sources */,
@@ -1816,6 +1843,7 @@
 				86D1F11F366274A7E73231DC /* MolibooWorldScenes.swift in Sources */,
 				A9C8944DC7FA9B1A14A3C93A /* MolibooAmbientBackground.swift in Sources */,
 				36529D3158094916D003470A /* MolibooSettingsHub.swift in Sources */,
+				16D8D9F92EB4431EA055F602 /* MolibooCards.swift in Sources */,
 				02E5B361C03A5E96E30FB139 /* MolibooWorldParts.swift in Sources */,
 				665A72EAB1D0B7C25F2A312C /* MolibooWorldView.swift in Sources */,
 				D8FD802C3C171BADADA083A4 /* MolibooWorldModel.swift in Sources */,

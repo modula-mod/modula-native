@@ -39,7 +39,7 @@ struct MolibooSettingsView: View {
     @Namespace private var glassNS
     private var care = MolibooCareStore.shared
 
-    enum Route: Hashable { case studio3D(String), studio(MascotStudioView.StudioTab), collection }
+    enum Route: Hashable { case studio3D(String), studio(MascotStudioView.StudioTab), collection, cards }
     enum Sort: String, CaseIterable { case catalogue = "Catalogue", name = "Name", premium = "Premium first" }
 
     private var kind: ModulaMascotKind? { ModulaMascotKind(rawValue: kindRaw) }
@@ -90,6 +90,7 @@ struct MolibooSettingsView: View {
             case .studio3D(let id): MolibooLivingStudioView(characterID: id)
             case .studio(let tab): MolibooStudioEntry(tab: tab)
             case .collection: MolibooCollectionView()
+            case .cards: MolibooCardBinderView()
             }
         }
         .sensoryFeedback(.impact(flexibility: .soft), trigger: cheer) { _, _ in haptics }
@@ -305,6 +306,10 @@ struct MolibooSettingsView: View {
             HStack(spacing: 8) {
                 wideCard("tshirt.fill", .blue, "Moliboo Studio", "Dress up, create custom Moliboos and unlock new items.", art: kind, id: "moliboo.hub.studio") { route = .studio(.wardrobe) }
                 wideCard("bubble.left.and.text.bubble.right.fill", .teal, "Assistant & keywords", "Keyword draft-replies for comments on your posts.", art: nil, id: "moliboo.hub.assistant") { route = .studio(.assistant) }
+            }
+
+            if MolibooCardFlags.enabled {
+                wideCard("rectangle.portrait.on.rectangle.portrait.angled.fill", .orange, "Trading Cards", "Collect the Founding Collection. Open a free pack.", art: .pebble, id: "moliboo.hub.cards") { route = .cards }
             }
 
             sectionTitle("Profile Moliboo")

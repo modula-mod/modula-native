@@ -33,7 +33,9 @@ struct AppGateHost: View {
     @ViewBuilder
     private var rootContent: some View {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--debug-moliboo-picker") {
+        if PDFInlineLab.isEnabled {
+            PDFInlineLabView()
+        } else if ProcessInfo.processInfo.arguments.contains("--debug-moliboo-picker") {
             MolibooPickerHarnessView()
         } else if ProcessInfo.processInfo.arguments.contains("--debug-moliboo-hub") {
             // Straight to the Moliboo settings hub (World → ⋯ → Moliboo settings), e.g. for device screenshots.
