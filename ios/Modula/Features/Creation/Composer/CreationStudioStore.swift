@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import PhotosUI
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 import CryptoKit
 import AVFoundation
@@ -21,12 +22,21 @@ final class CreationStudioStore {
     var uploadFraction: Double?
     var altTextMediaID: String?
     var pasteLinkSuggestion: URL?
+    var mentionSuggestions: [ModulaComposerMention] = []
+    var hashtagSuggestions: [String] = []
+    /// Local link/poll staging UI (text paths when structured kinds are off).
+    var showsLocalLinkEditor = false
+    var showsLocalPollEditor = false
+    var composerTip: String?
 
     private let drafts: DraftStore
     private let mediaStore: DraftMediaStore
     private let publisher: PublishingRepository
     private let uploader: MediaUploading
+    private let client: GreenfieldClient?
     private var started = false
+    private var mentionTask: Task<Void, Never>?
+    private var hashtagTask: Task<Void, Never>?
 
     init(
         kind: CreationKind,
@@ -36,13 +46,15 @@ final class CreationStudioStore {
         mediaStore: DraftMediaStore,
         publisher: PublishingRepository,
         uploader: MediaUploading,
-        capabilities: CreationCapabilities
+        capabilities: CreationCapabilities,
+        client: GreenfieldClient? = nil
     ) {
         self.drafts = drafts
         self.mediaStore = mediaStore
         self.publisher = publisher
         self.uploader = uploader
         self.capabilities = capabilities
+        self.client = client
         let audience = drafts.lastAudience()
         self.draft = CreationDraft.fresh(kind: kind, accountID: accountID, audience: audience, originPath: originPath)
     }
@@ -111,13 +123,138 @@ final class CreationStudioStore {
         draft.topics = CreationEntityParser.topics(in: value)
         draft.state = .editing
         persist()
+        refreshSuggestions(for: value)
     }
 
     func handlePaste(_ value: String) {
         textChanged(value)
-        guard capabilities.linkPreview || capabilities.linkPost else { return }
-        if let url = CreationEntityParser.firstURL(in: value) {
+        if capabilities.linkPreview || capabilities.linkPost,
+           let url = CreationEntityParser.firstURL(in: value) {
             pasteLinkSuggestion = url
+        }
+    }
+
+    func refreshSuggestions(for text: String) {
+        if capabilities.mentionsLookup {
+            updateMentionQuery(ModulaComposerState.mentionQuery(in: text))
+        } else {
+            mentionSuggestions = []
+        }
+        if capabilities.topicsLookup {
+            updateHashtagQuery(ModulaComposerState.hashtagQuery(in: text))
+        } else {
+            hashtagSuggestions = []
+        }
+    }
+
+    func updateMentionQuery(_ query: String?) {
+        mentionTask?.cancel()
+        guard let client, let query, !query.isEmpty else {
+            mentionSuggestions = []
+            return
+        }
+        mentionTask = Task { [client] in
+            try? await Task.sleep(for: .milliseconds(200))
+            guard !Task.isCancelled else { return }
+            let escaped = query.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? query
+            guard let value = try? await client.json("GET", path: "/v1/search?q=\(escaped)&entityType=profile&limit=6") else { return }
+            let people = DiscoverPayloadDecoder.searchPage(from: value).results.compactMap(\.person)
+            guard !Task.isCancelled else { return }
+            mentionSuggestions = people.map {
+                ModulaComposerMention(id: $0.id, handle: $0.handle, displayName: $0.displayName, avatarURL: $0.avatarURL)
+            }
+        }
+    }
+
+    func updateHashtagQuery(_ query: String?) {
+        hashtagTask?.cancel()
+        guard let client, let query, !query.isEmpty else {
+            hashtagSuggestions = []
+            return
+        }
+        hashtagTask = Task { [client] in
+            try? await Task.sleep(for: .milliseconds(200))
+            guard !Task.isCancelled else { return }
+            let escaped = query.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? query
+            guard let value = try? await client.authenticatedJSON("GET", path: "/v1/hashtags/suggest?q=\(escaped)") else { return }
+            guard !Task.isCancelled else { return }
+            hashtagSuggestions = (value["items"]?.array ?? []).compactMap { $0["tag"]?.string }.filter { $0 != query.lowercased() }
+        }
+    }
+
+    func applyMention(_ mention: ModulaComposerMention) {
+        draft.text = ModulaComposerState.applying(mention: mention.handle, to: draft.text)
+        textChanged(draft.text)
+        HapticEngine.shared.play(.selection)
+    }
+
+    func applyHashtag(_ tag: String) {
+        draft.text = ModulaComposerState.applying(hashtag: tag, to: draft.text)
+        textChanged(draft.text)
+        HapticEngine.shared.play(.selection)
+    }
+
+    /// Inserts a URL into post text without switching to the unavailable `.link` kind.
+    func insertLinkAsText(_ raw: String) {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let prefix = draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : "\n"
+        draft.text += "\(prefix)\(trimmed)"
+        showsLocalLinkEditor = false
+        textChanged(draft.text)
+        composerTip = "Link added as text. Structured link cards wait on Greenfield."
+        HapticEngine.shared.play(.lightImpact)
+    }
+
+    func insertPollAsText(_ body: String) {
+        let prefix = draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : "\n\n"
+        draft.text += "\(prefix)\(body)"
+        showsLocalPollEditor = false
+        draft.poll = nil
+        if draft.kind == .poll { draft.kind = .post }
+        textChanged(draft.text)
+        composerTip = "Poll inserted as text. Native polls aren’t on SocialPost yet."
+        HapticEngine.shared.play(.lightImpact)
+    }
+
+    func attachCameraImage(_ image: UIImage) async {
+        let quality = ModulaPreferences.highResolutionUploads ? 0.92 : 0.86
+        guard let data = image.jpegData(compressionQuality: quality) else {
+            publishError = "Couldn't capture that photo. Your draft is safe."
+            return
+        }
+        await attachCapturedPhoto(data, mimeType: "image/jpeg")
+    }
+
+    func attachCameraVideo(_ url: URL) async {
+        preparingMedia = true
+        defer { preparingMedia = false }
+        do {
+            let values = try url.resourceValues(forKeys: [.fileSizeKey])
+            let mimeType = "video/quicktime"
+            guard CreationAttachmentPolicy.accepts(mimeType: mimeType, byteCount: values.fileSize ?? 0) else {
+                publishError = "That video type or size isn't supported. Your draft is safe."
+                return
+            }
+            let asset = AVURLAsset(url: url)
+            let duration = try? await asset.load(.duration).seconds
+            let naturalSize = try? await asset.loadTracks(withMediaType: .video).first?.load(.naturalSize)
+            let media = try mediaStore.importFile(
+                at: url,
+                accountID: draft.accountID,
+                kind: .video,
+                mimeType: mimeType,
+                originalFilename: "Camera.mov",
+                width: naturalSize.map { Int(abs($0.width)) },
+                height: naturalSize.map { Int(abs($0.height)) },
+                duration: duration
+            )
+            draft.media.append(media)
+            if draft.kind == .post { draft.kind = .video }
+            HapticEngine.shared.play(.lightImpact)
+            persist()
+        } catch {
+            publishError = "Couldn't add that video. Your draft is safe."
         }
     }
 
@@ -406,19 +543,17 @@ final class CreationStudioStore {
                 imageURLString: nil,
                 previewFromServer: false
             )
-            if draft.kind == .post { draft.kind = .link }
+            // Only switch kind when structured link posts are publishable.
+            if capabilities.linkPost, draft.kind == .post { draft.kind = .link }
         }
         persist()
     }
 
     func setPoll(_ poll: PollDraft) {
-        if draft.poll != nil, draft.media.isEmpty {
-            draft.poll = poll
-            draft.kind = .poll
-            persist()
-            return
-        }
         draft.poll = poll
+        if capabilities.pollPost, draft.media.isEmpty {
+            draft.kind = .poll
+        }
         persist()
     }
 

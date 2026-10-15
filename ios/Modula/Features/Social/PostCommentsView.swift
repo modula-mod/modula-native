@@ -407,7 +407,7 @@ struct PostCommentsView: View {
     @State private var mediaPanelTab: ModulaComposerMediaPanel.Tab = .emoji
     @State private var showsPhotoPicker = false
     @State private var showsCamera = false
-    @State private var showsInlineCamera = false
+    @State private var mediaStage: ComposeMediaStage = .collapsed
     @State private var showsScanner = false
     @State private var showsSketch = false
     @State private var showsContactPicker = false
@@ -529,7 +529,7 @@ struct PostCommentsView: View {
             Task { await store?.addFile(url) }
         }
         .onChange(of: mediaPanelActive) { _, open in if open { onExpand?() } }
-        .onChange(of: showsInlineCamera) { _, open in if open { onExpand?() } }
+        .onChange(of: mediaStage) { _, stage in if stage.isExpanded { onExpand?() } }
         .fullScreenCover(isPresented: $showsCamera) {
             CommentCameraPicker { image in Task { await store?.addCameraImage(image) } }
                 .ignoresSafeArea()
@@ -1230,25 +1230,31 @@ struct PostCommentsView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 16)
                 }
-                if showsInlineCamera {
-                    ModulaInlineCamera(
-                        modes: [.photo, .video],
-                        idPrefix: "comment.camera",
+                if mediaStage.isExpanded {
+                    ComposeMediaAttachStage(
+                        stage: $mediaStage,
+                        accent: app.appearance.accent.color,
+                        idPrefix: "comment.media",
                         height: 300,
-                        onPhoto: { image in
+                        maxSelectionCount: 4,
+                        matching: .any(of: [.images, .videos]),
+                        cameraModes: [.photo, .video],
+                        onPhotosPicked: { items in
+                            Task { await store?.addPhotos(items) }
+                        },
+                        onCameraPhoto: { image in
                             Task { await store?.addCameraImage(image) }
-                            withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { showsInlineCamera = false }
                         },
-                        onVideo: { url in
+                        onCameraVideo: { url in
                             Task { await store?.addVideoFile(url) }
-                            withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { showsInlineCamera = false }
-                        },
-                        onClose: { withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { showsInlineCamera = false } }
+                        }
                     )
                     .padding(.horizontal, 12)
                     .transition(reduceMotion ? .opacity : .scale(scale: 0.92, anchor: .bottom).combined(with: .opacity))
                     .gesture(DragGesture(minimumDistance: 24).onEnded { value in
-                        if value.translation.height > 70 { withAnimation(.snappy) { showsInlineCamera = false } }
+                        if value.translation.height > 70 {
+                            withAnimation(.snappy) { mediaStage = .collapsed }
+                        }
                     })
                 }
                 // Composer + perched mascot always sit fully above the emoji/GIF panel
@@ -1285,7 +1291,13 @@ struct PostCommentsView: View {
                     mediaPanelActive: Binding(
                         get: { mediaPanelActive },
                         set: { value in
-                            if value { mediaPanelTab = .emoji; stickerSection = nil; showsInlineCamera = false }
+                            if value {
+                                mediaPanelTab = .emoji
+                                stickerSection = nil
+                                withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+                                    mediaStage = .collapsed
+                                }
+                            }
                             mediaPanelActive = value
                         }
                     ),
@@ -1330,7 +1342,7 @@ struct PostCommentsView: View {
         // comment list or the home feed peeks through the home-indicator zone.
         .background(canvas.ignoresSafeArea(edges: .bottom))
         .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.34, dampingFraction: 0.85), value: mediaPanelActive)
-        .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.36, dampingFraction: 0.82), value: showsInlineCamera)
+        .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.36, dampingFraction: 0.82), value: mediaStage)
         .gesture(
             DragGesture(minimumDistance: PostGestureThresholds.dragActivationDistance)
                 .onEnded { value in
@@ -1348,14 +1360,17 @@ struct PostCommentsView: View {
 
     private func handleAttachmentOption(_ option: ModulaComposerAttachmentOption) {
         switch option.id {
-        case "photos": showsPhotoPicker = true
+        case "photos":
+            composerFocused = false
+            mediaPanelActive = false
+            withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { mediaStage = .library }
         case "camera":
             composerFocused = false
             mediaPanelActive = false
-            withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { showsInlineCamera = true }
+            withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { mediaStage = .camera }
         case "gif", "sticker", "mascot":
             composerFocused = false
-            showsInlineCamera = false
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) { mediaStage = .collapsed }
             mediaPanelTab = option.id == "gif" ? .gifs : .stickers
             stickerSection = option.id == "mascot" ? "mascots" : nil
             mediaPanelActive = true
