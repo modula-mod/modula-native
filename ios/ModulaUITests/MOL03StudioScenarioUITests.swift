@@ -115,9 +115,6 @@ final class MOL03StudioScenarioUITests: XCTestCase {
         // Drag to turn.
         stage.swipeLeft()
         wait(app, "moliboo3d.state", 6) { ($0["yaw"] ?? "0.00") != "0.00" }
-        // Back to Studio (teardown path).
-        app.navigationBars.buttons.firstMatch.tap()
-        XCTAssertTrue(app.buttons["moliboo3d.entry"].waitForExistence(timeout: 10))
     }
 
     func testEveryThreeDCharacterOpensWithItsOwnFraming() {

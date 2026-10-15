@@ -169,6 +169,8 @@ final class MOL03WorldUITests: XCTestCase {
         for _ in 0..<20 where !toggle.isHittable { usleep(250_000) }   // sheet dismissal settles first
         sleep(1)
         toggle.tap()
+        sleep(1)
+        if state(app)["nav"] != "collapsed" { toggle.tap() }   // first tap can land during the sheet's dismissal
         XCTAssertEqual(wait(app) { $0["nav"] == "collapsed" }["nav"], "collapsed")
         shot("nav-collapsed")
         app.buttons["world.nav.toggle"].tap()

@@ -221,7 +221,8 @@ struct MolibooWorldView: View {
                 }
                 Button { withAnimation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.75)) { navCollapsed.toggle() } } label: {
                     Image(systemName: navCollapsed ? "chevron.right" : "chevron.left").font(.caption.weight(.bold))
-                        .frame(width: navCollapsed ? 44 : 108, height: 24)
+                        .frame(width: navCollapsed ? 44 : 108, height: 32)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("world.nav.toggle").accessibilityLabel(navCollapsed ? "Expand menu" : "Collapse menu")
