@@ -111,18 +111,13 @@ struct HomeView: View {
         .task(id: ambientPostID) { await updateAmbient() }
         .modulaCanvas()
         .modulaSoftScrollEdge()
-        // Brand header: the wordmark, never the typeset name (title kept for accessibility / back menus).
         .navigationTitle("Modula")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
         .modulaSidebarTrigger()
         .toolbar {
             if storyTrayFolded, showsStoryTray, !foldedStoryGroups.isEmpty {
                 ToolbarItem(placement: .principal) {
                     foldedStoryTray
-                }
-            } else {
-                ToolbarItem(placement: .principal) {
-                    ModulaWordmark(height: 22).accessibilityAddTraits(.isHeader).accessibilityIdentifier("home.wordmark")
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {

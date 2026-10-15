@@ -119,7 +119,7 @@ struct OnboardingView: View {
 
     private var content: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ModulaBrandTitle(title: step.title, height: titleSize * 0.95)
+            Text(step.title)
                 .font(.system(size: titleSize, weight: .bold, design: app.appearance.fontDesign))
                 .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 0.8 : 1)
                 .accessibilityAddTraits(.isHeader)

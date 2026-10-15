@@ -20,12 +20,3 @@ struct ModulaWordmark: View {
 
     @Environment(\.colorScheme) private var colorSchemeFallback
 }
-
-/// A title that is the brand renders as the wordmark; anything else stays text.
-struct ModulaBrandTitle: View {
-    let title: String
-    var height: CGFloat = 16
-    var body: some View {
-        if title == "Modula" { ModulaWordmark(height: height) } else { Text(title) }
-    }
-}

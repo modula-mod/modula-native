@@ -250,7 +250,8 @@ struct PostHeader: View {
                                     .lineLimit(1)
                             }
                         } else {
-                            ModulaWordmark(height: 15)
+                            Text("Modula")
+                                .font(.subheadline.weight(.semibold))
                         }
                     }
                 }
