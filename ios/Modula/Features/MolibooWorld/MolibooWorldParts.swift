@@ -177,6 +177,7 @@ struct MolibooStageCharacter: View {
                 .shadow(color: .black.opacity(0.35), radius: 10, y: 8)
             Ellipse().fill(LinearGradient(colors: [Color(red: 0.50, green: 0.74, blue: 0.36), Color(red: 0.28, green: 0.52, blue: 0.24)], startPoint: .top, endPoint: .bottom))
                 .frame(width: 200, height: 44)
+                .molibooCaustics(animated: live)   // moving light caustics across the moss
             // Luminous rim light around the moss top and a soft halo under the character.
             Ellipse().stroke(LinearGradient(colors: [Color(red: 0.75, green: 1, blue: 0.85).opacity(0.9), Color(red: 0.4, green: 0.9, blue: 0.8).opacity(0.2)], startPoint: .top, endPoint: .bottom), lineWidth: 2.5)
                 .frame(width: 202, height: 46).blur(radius: 1.2)

@@ -65,6 +65,7 @@
 		A1MOLIBOOSETTINGS00000B1 /* MolibooSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1MOLIBOOSETTINGS00000F1 /* MolibooSettingsView.swift */; };
 		86D1F11F366274A7E73231DC /* MolibooWorldScenes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63BCBE2AEE0E47DDA1E74D84 /* MolibooWorldScenes.swift */; };
 		A9C8944DC7FA9B1A14A3C93A /* MolibooAmbientBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF571B2F180AD7B3704B18E0 /* MolibooAmbientBackground.swift */; };
+		38AE6942919F29E720DDC06F /* MolibooShaderKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 372E9BE321ED1B53CDDC96D4 /* MolibooShaderKit.swift */; };
 		36529D3158094916D003470A /* MolibooSettingsHub.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E1EAEFFDEB08BE920109B5A /* MolibooSettingsHub.swift */; };
 		16D8D9F92EB4431EA055F602 /* MolibooCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D6B6F8530D8427FA49C358F /* MolibooCards.swift */; };
 		02E5B361C03A5E96E30FB139 /* MolibooWorldParts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699909A12EF8AE3B97932643 /* MolibooWorldParts.swift */; };
@@ -398,6 +399,7 @@
 		5900B968FE1D07B3EE4DAEA0 /* LocalizationCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04756B524E52AA56A61D2E0D /* LocalizationCatalogTests.swift */; };
 		F70200000000000000000003 /* ProfileContentTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70100000000000000000003 /* ProfileContentTabs.swift */; };
 		F70200000000000000000002 /* ModulaEffectKit.metal in Sources */ = {isa = PBXBuildFile; fileRef = F70100000000000000000002 /* ModulaEffectKit.metal */; };
+		B02C2D69C89A5323859EB646 /* MolibooShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 041747946D183AA6E7642E17 /* MolibooShaders.metal */; };
 		F70200000000000000000001 /* ModulaEffectKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70100000000000000000001 /* ModulaEffectKit.swift */; };
 		R50100000000000000000020 /* SettingsDecisionPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000020 /* SettingsDecisionPages.swift */; };
 		R50100000000000000000012 /* DownloadedMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000012 /* DownloadedMedia.swift */; };
@@ -500,6 +502,7 @@
 		A1MOLIBOOSETTINGS00000F1 /* MolibooSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooSettingsView.swift; path = Features/Moliboo3D/MolibooSettingsView.swift; sourceTree = "<group>"; };
 		63BCBE2AEE0E47DDA1E74D84 /* MolibooWorldScenes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooWorldScenes.swift; path = Features/MolibooWorld/MolibooWorldScenes.swift; sourceTree = "<group>"; };
 		AF571B2F180AD7B3704B18E0 /* MolibooAmbientBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooAmbientBackground.swift; path = DesignSystem/Moliboo/MolibooAmbientBackground.swift; sourceTree = "<group>"; };
+		372E9BE321ED1B53CDDC96D4 /* MolibooShaderKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooShaderKit.swift; path = DesignSystem/Moliboo/MolibooShaderKit.swift; sourceTree = "<group>"; };
 		6E1EAEFFDEB08BE920109B5A /* MolibooSettingsHub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooSettingsHub.swift; path = Features/Moliboo3D/MolibooSettingsHub.swift; sourceTree = "<group>"; };
 		9D6B6F8530D8427FA49C358F /* MolibooCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooCards.swift; path = Features/Moliboo3D/MolibooCards.swift; sourceTree = "<group>"; };
 		699909A12EF8AE3B97932643 /* MolibooWorldParts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooWorldParts.swift; path = Features/MolibooWorld/MolibooWorldParts.swift; sourceTree = "<group>"; };
@@ -837,6 +840,7 @@
 		04756B524E52AA56A61D2E0D /* LocalizationCatalogTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LocalizationCatalogTests.swift; sourceTree = "<group>"; };
 		F70100000000000000000003 /* ProfileContentTabs.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileContentTabs.swift; path = Features/Profile/ProfileContentTabs.swift; sourceTree = "<group>"; };
 		F70100000000000000000002 /* ModulaEffectKit.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = ModulaEffectKit.metal; path = DesignSystem/Effects/ModulaEffectKit.metal; sourceTree = "<group>"; };
+		041747946D183AA6E7642E17 /* MolibooShaders.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = MolibooShaders.metal; path = DesignSystem/Moliboo/MolibooShaders.metal; sourceTree = "<group>"; };
 		F70100000000000000000001 /* ModulaEffectKit.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaEffectKit.swift; path = DesignSystem/Effects/ModulaEffectKit.swift; sourceTree = "<group>"; };
 		R40100000000000000000020 /* SettingsDecisionPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsDecisionPages.swift; path = Features/Settings/Real/SettingsDecisionPages.swift; sourceTree = "<group>"; };
 		R40100000000000000000012 /* DownloadedMedia.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DownloadedMedia.swift; path = Features/Media/DownloadedMedia.swift; sourceTree = "<group>"; };
@@ -1134,6 +1138,7 @@
 				S40100000000000000000001 /* SettingsVisualSystem.swift */,
 				F70100000000000000000003 /* ProfileContentTabs.swift */,
 				F70100000000000000000002 /* ModulaEffectKit.metal */,
+				041747946D183AA6E7642E17 /* MolibooShaders.metal */,
 				F70100000000000000000001 /* ModulaEffectKit.swift */,
 				C0DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift */,
 				C02F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift */,
@@ -1146,6 +1151,7 @@
 				A1MOLIBOOSETTINGS00000F1 /* MolibooSettingsView.swift */,
 				63BCBE2AEE0E47DDA1E74D84 /* MolibooWorldScenes.swift */,
 				AF571B2F180AD7B3704B18E0 /* MolibooAmbientBackground.swift */,
+				372E9BE321ED1B53CDDC96D4 /* MolibooShaderKit.swift */,
 				6E1EAEFFDEB08BE920109B5A /* MolibooSettingsHub.swift */,
 				9D6B6F8530D8427FA49C358F /* MolibooCards.swift */,
 				699909A12EF8AE3B97932643 /* MolibooWorldParts.swift */,
@@ -1830,6 +1836,7 @@
 				S50100000000000000000001 /* SettingsVisualSystem.swift in Sources */,
 				F70200000000000000000003 /* ProfileContentTabs.swift in Sources */,
 				F70200000000000000000002 /* ModulaEffectKit.metal in Sources */,
+				B02C2D69C89A5323859EB646 /* MolibooShaders.metal in Sources */,
 				F70200000000000000000001 /* ModulaEffectKit.swift in Sources */,
 				C1DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift in Sources */,
 				C12F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift in Sources */,
@@ -1842,6 +1849,7 @@
 				A1MOLIBOOSETTINGS00000B1 /* MolibooSettingsView.swift in Sources */,
 				86D1F11F366274A7E73231DC /* MolibooWorldScenes.swift in Sources */,
 				A9C8944DC7FA9B1A14A3C93A /* MolibooAmbientBackground.swift in Sources */,
+				38AE6942919F29E720DDC06F /* MolibooShaderKit.swift in Sources */,
 				36529D3158094916D003470A /* MolibooSettingsHub.swift in Sources */,
 				16D8D9F92EB4431EA055F602 /* MolibooCards.swift in Sources */,
 				02E5B361C03A5E96E30FB139 /* MolibooWorldParts.swift in Sources */,

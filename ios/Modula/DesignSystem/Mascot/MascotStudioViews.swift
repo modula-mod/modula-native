@@ -105,15 +105,10 @@ struct MascotStudioView: View {
         VStack(spacing: 14) {
             HStack { Spacer(); coinPill }
             actionBar
-            Picker("Studio", selection: $tab) {
-                ForEach(tabs) { t in Text(t.title).tag(t) }
-            }
-            .pickerStyle(.segmented)
-            switch tab {
-            case .wardrobe, .rewards: rewardsPanel
-            case .custom: customPanel
-            case .assistant: MascotAssistantSettingsSection()
-            }
+            // Stacked sections, no inner tabs: the Studio sheet's segmented control is the only tab level.
+            embeddedSection("Rewards", "gift.fill") { rewardsPanel }
+            if tabs.contains(.custom) { embeddedSection("Custom Moliboos", "wand.and.stars") { customPanel } }
+            if tabs.contains(.assistant) { embeddedSection("Assistant", "bubble.left.and.text.bubble.right.fill") { MascotAssistantSettingsSection() } }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("studio.more")
@@ -123,6 +118,14 @@ struct MascotStudioView: View {
             tab = tabs.contains(initialTab) ? initialTab : .rewards
             progress.touchDay()
         }
+    }
+
+    private func embeddedSection<C: View>(_ title: String, _ symbol: String, @ViewBuilder _ c: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(title, systemImage: symbol).font(.headline).accessibilityAddTraits(.isHeader)
+            c()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var standaloneBody: some View {
