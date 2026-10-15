@@ -4,6 +4,13 @@ import XCTest
 @testable import Modula
 
 final class PDFInlineCarouselTests: XCTestCase {
+    func testPageWidthLeavesSidePeek() {
+        XCTAssertEqual(PDFCarouselMath.pageWidth(containerWidth: 390), 302)
+        XCTAssertEqual(PDFCarouselMath.pageWidth(containerWidth: 390, peek: 40), 310)
+        XCTAssertEqual(PDFCarouselMath.pageWidth(containerWidth: 100, peek: 44), 100)
+        XCTAssertGreaterThan(PDFCarouselMath.sidePeek, 18)
+    }
+
     func testSlideMappingIncludesCover() {
         XCTAssertEqual(PDFCarouselMath.slideCount(pageCount: 8), 9)
         XCTAssertEqual(PDFCarouselMath.slideCount(pageCount: 0), 1)

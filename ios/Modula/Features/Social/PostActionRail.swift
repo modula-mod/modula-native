@@ -42,13 +42,11 @@ struct PostActionRail: View {
                     active: post.viewerReaction != nil || post.liked,
                     action: onLike
                 )
-                .simultaneousGesture(
-                    LongPressGesture(minimumDuration: PostGestureThresholds.longPressDuration)
-                        .onEnded { _ in
-                            HapticEngine.shared.play(.contextOpen)
-                            if let onReactLongPress { onReactLongPress() } else { showsReactions = true }
-                        }
-                )
+                .exclusiveReactionLongPress {
+                    HapticEngine.shared.play(.contextOpen)
+                    if let onReactLongPress { onReactLongPress() } else { showsReactions = true }
+                }
+                .accessibilityHint("Tap to like. Touch and hold for more reactions.")
                 railButton(
                     title: "Comment",
                     symbol: "bubble.right",

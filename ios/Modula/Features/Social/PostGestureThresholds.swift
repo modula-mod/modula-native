@@ -3,8 +3,11 @@ import Foundation
 
 /// Centralized gesture ownership thresholds for the post interaction system.
 enum PostGestureThresholds {
-    /// Long-press duration before reaction picker / context preview opens.
+    /// Long-press duration for post body / card chrome (preview + options sheet).
     static let longPressDuration: TimeInterval = 0.42
+
+    /// Like-control long-press. Opens the reaction picker — never the post preview.
+    static let reactionLongPressDuration: TimeInterval = 0.28
 
     /// Minimum drag distance before a gesture claims ownership.
     static let dragActivationDistance: CGFloat = 12
@@ -26,4 +29,13 @@ enum PostGestureThresholds {
 
     /// Reaction scrub must move this far before changing candidate (spam protection).
     static let reactionCandidateSpacing: CGFloat = 44
+
+    /// Horizontal translation that commits swipe-to-share / swipe-to-save.
+    static let swipeCommitDistance: CGFloat = 92
+
+    /// Leave the leading edge to system back-swipe.
+    static let swipeLeadingExclusion: CGFloat = 32
+
+    /// Leave the trailing edge to the Edge Picker scrub.
+    static let swipeTrailingExclusion: CGFloat = 48
 }

@@ -962,6 +962,9 @@ struct PostMenuButton<Label: View>: View {
 
 /// Long-press uses the system context menu — same Liquid Glass card language as the
 /// tab-bar accessory Options Menu (not a custom dark panel).
+///
+/// Apply this only to post body / card chrome. Never wrap the reaction (like) control:
+/// that control owns long-press for the emoji picker via `exclusiveReactionLongPress`.
 struct PostMenuLongPress: ViewModifier {
     var enabled: Bool = true
     var makeRequest: (CGRect) -> PostMenuRequest
@@ -975,12 +978,10 @@ struct PostMenuLongPress: ViewModifier {
                 PostMenuExecutor.run(id, request: makeRequest(.zero), app: app)
             }
         }
-        // Live preview: the post lifts into a glass card; the reaction palette sits on
-        // top of the menu, so the opening finger can slide straight onto a reaction
-        // (iMessage tapback style) and lift to commit. Empty items (disabled) = no menu,
-        // and the content keeps its identity either way.
-        content.contextMenu {
-            if enabled {
+        // Attach the system preview only while this chrome should own long-press.
+        // Gating items inside an always-on `contextMenu` still lifts the preview.
+        if enabled {
+            content.contextMenu {
                 if caps.like {
                     PostReactionPalette(
                         current: sample.post.viewerReaction ?? (sample.post.liked ? .like : nil),
@@ -994,9 +995,11 @@ struct PostMenuLongPress: ViewModifier {
                     capabilities: caps,
                     onSelect: run
                 )
+            } preview: {
+                PostLivePreview(post: app.posts.resolved(sample.post), accent: app.appearance.accent.color)
             }
-        } preview: {
-            PostLivePreview(post: app.posts.resolved(sample.post), accent: app.appearance.accent.color)
+        } else {
+            content
         }
     }
 }
@@ -1114,5 +1117,87 @@ struct PostLivePreview: View {
 extension View {
     func postMenuLongPress(enabled: Bool = true, makeRequest: @escaping (CGRect) -> PostMenuRequest) -> some View {
         modifier(PostMenuLongPress(enabled: enabled, makeRequest: makeRequest))
+    }
+
+    /// Press-and-hold on the like control: opens the reaction picker and never the post preview.
+    func exclusiveReactionLongPress(perform: @escaping () -> Void) -> some View {
+        gesture(
+            ExclusiveReactionLongPress {
+                PostMenuCenter.shared.suppressLongPressUntil = Date().addingTimeInterval(1.2)
+                perform()
+            }
+        )
+    }
+}
+
+/// UIKit long-press on the reaction control. Parent `contextMenu` preview recognizers
+/// must wait for this to fail, so a hold on Like opens reactions instead of the post sheet.
+struct ExclusiveReactionLongPress: UIGestureRecognizerRepresentable {
+    var cancelsTouches = true
+    var onBegan: () -> Void
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator {
+        Coordinator(onBegan: onBegan)
+    }
+
+    func makeUIGestureRecognizer(context: Context) -> ExclusiveReactionRecognizer {
+        let press = ExclusiveReactionRecognizer(target: nil, action: nil)
+        press.minimumPressDuration = PostGestureThresholds.reactionLongPressDuration
+        press.allowableMovement = 24
+        press.cancelsTouchesInView = cancelsTouches
+        press.delegate = context.coordinator
+        return press
+    }
+
+    func updateUIGestureRecognizer(_ recognizer: ExclusiveReactionRecognizer, context: Context) {
+        context.coordinator.onBegan = onBegan
+        recognizer.minimumPressDuration = PostGestureThresholds.reactionLongPressDuration
+        recognizer.cancelsTouchesInView = cancelsTouches
+        recognizer.delegate = context.coordinator
+    }
+
+    func handleUIGestureRecognizerAction(_ recognizer: ExclusiveReactionRecognizer, context: Context) {
+        if recognizer.state == .began {
+            context.coordinator.onBegan()
+        }
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var onBegan: () -> Void
+        init(onBegan: @escaping () -> Void) { self.onBegan = onBegan }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldBeRequiredToFailBy other: UIGestureRecognizer) -> Bool {
+            ExclusiveReactionRecognizer.isPostPreviewGesture(other)
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+            !ExclusiveReactionRecognizer.isPostPreviewGesture(other)
+        }
+    }
+}
+
+final class ExclusiveReactionRecognizer: UILongPressGestureRecognizer {
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        claimAgainstPreviewMenus()
+        super.touchesBegan(touches, with: event)
+    }
+
+    private func claimAgainstPreviewMenus() {
+        var node: UIView? = view
+        while let current = node {
+            for other in current.gestureRecognizers ?? [] where other !== self {
+                if Self.isPostPreviewGesture(other) {
+                    other.require(toFail: self)
+                }
+            }
+            node = current.superview
+        }
+    }
+
+    static func isPostPreviewGesture(_ gesture: UIGestureRecognizer) -> Bool {
+        let name = String(describing: type(of: gesture))
+        return name.contains("ContextMenu")
+            || name.contains("PreviewInteraction")
+            || name.contains("UIContextMenu")
     }
 }

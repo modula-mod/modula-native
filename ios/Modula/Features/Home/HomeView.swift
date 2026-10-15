@@ -31,45 +31,53 @@ struct HomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     LazyVStack(alignment: .leading, spacing: 14) {
-                        modeCaption
-                        if showsStoryTray {
-                            HStack {
-                                Text("Stories").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                                Button { app.navigation.push(.stories(.create)) } label: {
-                                    Image(systemName: "plus.circle").frame(width: 44, height: 44)
+                        VStack(alignment: .leading, spacing: 14) {
+                            modeCaption
+                            if showsStoryTray {
+                                let trayGroups = StoryStore.homeTrayGroups(app.stories.trayGroups)
+                                HStack(spacing: 10) {
+                                    Text("Stories")
+                                        .font(.subheadline.weight(.semibold))
+                                    Spacer(minLength: 8)
+                                    Button {
+                                        app.navigation.push(.reels(.feed))
+                                        HapticEngine.shared.play(.navigation)
+                                    } label: {
+                                        Label("Reels", systemImage: "play.rectangle.fill")
+                                            .font(.caption.weight(.semibold))
+                                            .padding(.horizontal, 12)
+                                            .frame(height: 32)
+                                            .contentShape(Capsule())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color)
+                                    .frame(minWidth: 44, minHeight: 44)
+                                    .accessibilityLabel("Watch Reels")
+                                    .accessibilityIdentifier("home.open-reels")
                                 }
-                                .tint(app.appearance.accent.color)
-                                .accessibilityLabel("Create story")
-                                Spacer()
-                                Button { app.navigation.push(.reels(.feed)) } label: {
-                                    Label("Watch Reels", systemImage: "play.rectangle")
-                                        .font(.caption.weight(.semibold))
-                                        .frame(minHeight: 44)
-                                }
-                                .tint(app.appearance.accent.color)
-                                .accessibilityIdentifier("home.open-reels")
-                            }
-                            // The header "+" is the single create entry on Home. With no stories
-                            // the tray collapses so the first post sits right under this row.
-                            let trayGroups = StoryStore.homeTrayGroups(app.stories.trayGroups)
-                            if !trayGroups.isEmpty {
-                                StoryTray(groups: trayGroups, compact: true) { group in
-                                    Task { await openStory(group) }
-                                }
+                                StoryTray(
+                                    groups: trayGroups,
+                                    compact: false,
+                                    onSelect: { group in Task { await openStory(group) } },
+                                    onCreate: {
+                                        app.navigation.push(.stories(.create))
+                                        HapticEngine.shared.play(.navigation)
+                                    }
+                                )
                                 .padding(.horizontal, -ModulaLayout.contentInset)
-                                // Bleed to the screen edges but start the first story on the
-                                // content inset (it used to sit 4pt from the edge).
+                                .padding(.leading, -leadingInteractionInset)
                                 .contentMargins(.horizontal, ModulaLayout.contentInset, for: .scrollContent)
                                 .transition(.opacity)
                             }
+                            if app.home.isOfflineHint && !state.items.isEmpty {
+                                offlineBanner
+                            }
                         }
-                        if app.home.isOfflineHint && !state.items.isEmpty {
-                            offlineBanner
-                        }
+                        .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
+                        .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
+
                         feedContent(state)
                     }
-                    .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
-                    .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
                     .padding(.top, 4)
                     .padding(.bottom, shellChromeMetrics.contentBottomInset)
                     .modulaPullContentEffects()
@@ -121,7 +129,7 @@ struct HomeView: View {
                 }
             } else {
                 ToolbarItem(placement: .principal) {
-                    ModulaWordmark(height: 20)
+                    ModulaWordmark(height: ModulaLayout.homeWordmarkHeight)
                         .accessibilityAddTraits(.isHeader)
                 }
             }
@@ -260,10 +268,12 @@ struct HomeView: View {
             switch state.loadState {
             case .loading where state.items.isEmpty:
                 skeleton
+                    .padding(.horizontal, ModulaLayout.contentInset)
             case .failed(let message) where state.items.isEmpty:
                 ModulaErrorState(message: message) {
                     Task { await app.home.refresh(mode, signedIn: app.auth.isSignedIn) }
                 }
+                .padding(.horizontal, ModulaLayout.contentInset)
                 .padding(.top, 28)
                 .accessibilityIdentifier("home.error")
             case _ where app.home.visiblePosts(for: mode).isEmpty:
@@ -278,6 +288,7 @@ struct HomeView: View {
                         )
                     }
                 }
+                .padding(.horizontal, ModulaLayout.contentInset)
                 .padding(.top, 20)
             default:
                 ForEach(app.home.visiblePosts(for: mode)) { post in
@@ -321,7 +332,7 @@ struct HomeView: View {
                         videoCoordinator: videoCoordinator,
                         style: .immersive
                     )
-                    // Swipe left = save, right = share. Off for multi-image carousels so paging wins.
+                    // Swipe left = share, right = save. Nested PDF/media carousels keep paging.
                     .modifier(PostSwipeActions(
                         enabled: resolved.media.count <= 1,
                         saved: resolved.saved,
@@ -336,9 +347,7 @@ struct HomeView: View {
                             PostSharing.share(resolved, app: app)
                         }
                     ))
-                    // Posts run full width and flow around the Edge Picker bulge.
-                    .padding(.trailing, -trailingInteractionInset)
-                    .padding(.leading, -leadingInteractionInset)
+                    .padding(.horizontal, ModulaLayout.postBleedGutter)
                     .modulaEdgeFlow()
                     .modulaScrollReveal()
                     .onScrollVisibilityChange(threshold: 0.55) { visible in
@@ -392,6 +401,7 @@ struct HomeView: View {
             .tint(app.appearance.accent.color)
             .accessibilityIdentifier("home.sign-in")
         }
+        .padding(.horizontal, ModulaLayout.contentInset)
         .padding(.top, 24)
     }
 
@@ -500,7 +510,7 @@ struct HomeView: View {
             Task { await openStory(first) }
         } label: {
             HStack(spacing: ModulaSpacing.xs) {
-                ModulaWordmark(height: 17)
+                ModulaWordmark(height: 22)
                 HStack(spacing: -8) {
                     ForEach(groups) { group in
                         ModulaAvatar(initials: group.author.initials, url: group.author.avatarURL, size: 24)
@@ -730,9 +740,9 @@ extension HomeView {
 
 // MARK: - Post swipe actions
 
-/// Horizontal swipe on a feed post: left saves, right shares. The pan only begins for
-/// clearly horizontal movement away from both screen edges (back-swipe + Edge Picker),
-/// and child gestures (media scrubbing, carousels) keep priority.
+/// Horizontal swipe on a feed post: left shares, right saves. The pan only begins for
+/// clearly horizontal movement away from both screen edges (back-swipe + Edge Picker).
+/// Nested horizontal scroll views (PDF pages, galleries) keep priority.
 struct PostSwipeActions: ViewModifier {
     var enabled: Bool
     var saved: Bool
@@ -743,17 +753,27 @@ struct PostSwipeActions: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var offset: CGFloat = 0
     @State private var armed = false
-    private let threshold: CGFloat = 92
+    private var threshold: CGFloat { PostGestureThresholds.swipeCommitDistance }
 
     func body(content: Content) -> some View {
         if enabled && allowed {
             content
-                .offset(x: offset)
+                .offset(x: reduceMotion ? 0 : offset)
+                .overlay {
+                    if reduceMotion, abs(offset) > 8 {
+                        (offset > 0 ? Color.orange : accent).opacity(0.16 * min(abs(offset) / threshold, 1))
+                            .allowsHitTesting(false)
+                    }
+                }
                 .background {
                     HStack {
-                        if offset > 0 { cue("square.and.arrow.up", "Share", accent, offset) }
+                        if offset > 0 {
+                            cue(saved ? "bookmark.slash.fill" : "bookmark.fill", saved ? "Unsave" : "Save", .orange, offset)
+                        }
                         Spacer(minLength: 0)
-                        if offset < 0 { cue(saved ? "bookmark.slash.fill" : "bookmark.fill", saved ? "Unsave" : "Save", .orange, -offset) }
+                        if offset < 0 {
+                            cue("square.and.arrow.up", "Share", accent, -offset)
+                        }
                     }
                     .padding(.horizontal, 22)
                     .allowsHitTesting(false)
@@ -772,11 +792,11 @@ struct PostSwipeActions: ViewModifier {
                 .foregroundStyle(.white)
                 .frame(width: 48, height: 48)
                 .background(Circle().fill(tint).shadow(color: tint.opacity(0.5), radius: armed ? 10 : 3))
-                .scaleEffect(armed ? 1.12 : 0.6 + 0.4 * p)
+                .scaleEffect(reduceMotion ? 1 : (armed ? 1.12 : 0.6 + 0.4 * p))
             Text(title).font(.caption2.weight(.semibold)).foregroundStyle(tint)
         }
         .opacity(Double(p))
-        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: armed)
+        .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.3, dampingFraction: 0.6), value: armed)
         .accessibilityHidden(true)
     }
 
@@ -792,7 +812,7 @@ struct PostSwipeActions: ViewModifier {
     private func ended(_ dx: CGFloat, _ velocity: CGFloat) {
         let commit = abs(dx) > threshold || (abs(dx) > 50 && abs(velocity) > 1000)
         if commit {
-            if dx < 0 { onSave() } else { onShare() }
+            if dx < 0 { onShare() } else { onSave() }
         }
         armed = false
         withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.38, dampingFraction: 0.72)) { offset = 0 }
@@ -827,13 +847,16 @@ struct PostSwipePan: UIGestureRecognizerRepresentable {
             guard let pan = gesture as? UIPanGestureRecognizer, let window = pan.view?.window else { return false }
             let start = pan.location(in: window).x
             // Leave both edges to system back-swipe and the Edge Picker.
-            if start < 32 || start > window.bounds.width - 40 { return false }
+            if start < PostGestureThresholds.swipeLeadingExclusion
+                || start > window.bounds.width - PostGestureThresholds.swipeTrailingExclusion {
+                return false
+            }
             let v = pan.velocity(in: pan.view)
             return abs(v.x) > abs(v.y) * 2
         }
 
-        /// Never steal from horizontal scroll views (carousels, story tray).
-        func gestureRecognizer(_ gesture: UIGestureRecognizer, shouldBeRequiredToFailBy other: UIGestureRecognizer) -> Bool {
+        /// PDF page sliding and media carousels own horizontal pans; this waits for them to fail.
+        func gestureRecognizer(_ gesture: UIGestureRecognizer, shouldRequireFailureOf other: UIGestureRecognizer) -> Bool {
             if let scroll = other.view as? UIScrollView, other == scroll.panGestureRecognizer {
                 return scroll.contentSize.width > scroll.bounds.width + 1
             }

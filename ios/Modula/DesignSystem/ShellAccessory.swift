@@ -240,8 +240,10 @@ struct ShellAccessorySystemSlot: View {
         .animation(.snappy(duration: 0.28), value: config.title)
         .contentShape(Capsule())
         .onLongPressGesture(minimumDuration: 0.5) { CommandPaletteCenter.shared.present() }
+        .modifier(AccessoryModulesLift())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(config.title)
+        .accessibilityHint("Swipe up or activate to open installed modules")
         .accessibilityIdentifier("tab.accessory")
     }
 }
@@ -492,6 +494,7 @@ struct ShellAccessoryHost: View {
         .simultaneousGesture(LongPressGesture(minimumDuration: 0.5).onEnded { _ in
             CommandPaletteCenter.shared.present()
         })
+        .modifier(AccessoryModulesLift())
         .accessibilityElement(children: .contain)
         .accessibilityAction(named: "Command palette") { CommandPaletteCenter.shared.present() }
         .accessibilityIdentifier("tab.accessory")
@@ -799,6 +802,146 @@ private struct TabBarChrome: ViewModifier {
                 .modulaChrome(in: Capsule(), opaque: opaque)
                 .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
         }
+    }
+}
+
+/// Swipe-up on the Tools accessory opens installed Product Hub modules. Vertical-only
+/// so tab taps, accessory buttons, Edge Picker, and feed scroll keep ownership.
+private struct AccessoryModulesLift: ViewModifier {
+    @Environment(AppEnvironment.self) private var app
+
+    func body(content: Content) -> some View {
+        content
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 28)
+                    .onEnded { value in
+                        let dy = value.translation.height
+                        let dx = value.translation.width
+                        guard dy < -PostGestureThresholds.commentSheetThreshold else { return }
+                        guard abs(dy) > abs(dx) * PostGestureThresholds.verticalDominanceRatio else { return }
+                        present()
+                    }
+            )
+            .accessibilityAction(named: "Installed modules", present)
+    }
+
+    private func present() {
+        HapticEngine.shared.play(.contextOpen)
+        PresentationCoordinator.present(.installedModules, in: app.navigation)
+    }
+}
+
+/// Sheet of modules the signed-in account actually has installed. Opens `/module/:id`.
+struct InstalledModulesPanel: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var installed: [CatalogueProduct] {
+        app.catalogue.products.filter { app.catalogue.installedIDs.contains($0.moduleId) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let error = app.catalogue.error, installed.isEmpty {
+                    ModulaErrorState(message: error) {
+                        Task { await app.catalogue.load() }
+                    }
+                } else if !app.auth.isSignedIn {
+                    ModulaEmptyState(
+                        title: "Sign in to see modules",
+                        message: "Installed Product Hub modules appear here for your account.",
+                        symbol: "shippingbox"
+                    )
+                } else if installed.isEmpty, app.catalogue.loaded {
+                    ModulaEmptyState(
+                        title: "No modules installed",
+                        message: "Install something from Product Hub and it will show up here.",
+                        symbol: "shippingbox"
+                    )
+                } else if installed.isEmpty {
+                    ProgressView("Loading modules…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List {
+                        ForEach(installed) { product in
+                            Button {
+                                dismiss()
+                                app.navigation.open(.module(product.moduleId, localPath: nil))
+                                HapticEngine.shared.play(.navigation)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    moduleIcon(product)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(product.name)
+                                            .font(.body.weight(.semibold))
+                                            .foregroundStyle(.primary)
+                                        Text(product.publisherName)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                    }
+                                    Spacer(minLength: 0)
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .padding(.vertical, 4)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(product.name)
+                            .accessibilityHint("Opens \(product.name)")
+                            .accessibilityIdentifier("accessory.module.\(product.moduleId)")
+                        }
+                    }
+                    .listStyle(.plain)
+                }
+            }
+            .navigationTitle("Installed")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Product Hub") {
+                        dismiss()
+                        app.navigation.open(.productHub(.featured))
+                        HapticEngine.shared.play(.navigation)
+                    }
+                    .accessibilityIdentifier("accessory.modules.hub")
+                }
+            }
+            .task { await app.catalogue.load() }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .presentationBackground(reduceMotion ? .regularMaterial : .ultraThinMaterial)
+        .accessibilityIdentifier("accessory.modules.panel")
+    }
+
+    @ViewBuilder
+    private func moduleIcon(_ product: CatalogueProduct) -> some View {
+        let accent = app.appearance.accent.color
+        ZStack {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(accent.opacity(0.14))
+            if let url = product.presentation?.icon?.source {
+                ModulaRemoteImage(url: url, cacheKey: "module-icon:\(product.moduleId)", maximumPixelSize: 120) { phase in
+                    if case .success(let image) = phase {
+                        Image(uiImage: image).resizable().scaledToFill()
+                    } else {
+                        Image(systemName: "shippingbox.fill").foregroundStyle(accent)
+                    }
+                }
+            } else {
+                Image(systemName: "shippingbox.fill").foregroundStyle(accent)
+            }
+        }
+        .frame(width: 44, height: 44)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 

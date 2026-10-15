@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 @testable import Modula
 
 final class PostSystemTests: XCTestCase {
@@ -290,9 +291,21 @@ final class PostSystemTests: XCTestCase {
 
     func testGestureThresholdsCentralized() {
         XCTAssertGreaterThan(PostGestureThresholds.longPressDuration, 0.2)
+        XCTAssertLessThan(PostGestureThresholds.reactionLongPressDuration, PostGestureThresholds.longPressDuration)
         XCTAssertGreaterThanOrEqual(PostGestureThresholds.minimumHitTarget, 44)
         XCTAssertGreaterThan(PostGestureThresholds.horizontalDominanceRatio, 1)
         XCTAssertGreaterThan(PostGestureThresholds.railMorphThreshold, PostGestureThresholds.dragActivationDistance)
+    }
+
+    func testReactionLongPressWinsOverPostPreview() {
+        // Like-control hold is shorter than the card chrome preview delay.
+        XCTAssertLessThan(PostGestureThresholds.reactionLongPressDuration, 0.4)
+        XCTAssertLessThan(PostGestureThresholds.reactionLongPressDuration, PostGestureThresholds.longPressDuration)
+        let preview = UILongPressGestureRecognizer()
+        let name = String(describing: type(of: preview))
+        XCTAssertFalse(ExclusiveReactionRecognizer.isPostPreviewGesture(preview), "Bare UILongPress is not the post preview")
+        XCTAssertFalse(name.contains("ContextMenu"))
+        XCTAssertEqual(AppPresentation.installedModules.id, String(describing: AppPresentation.installedModules))
     }
 
     func testReactionNetworkSupportMatchesGreenfieldVocabulary() {

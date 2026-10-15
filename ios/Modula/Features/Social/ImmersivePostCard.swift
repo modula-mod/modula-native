@@ -165,7 +165,6 @@ struct ImmersivePostCard: View {
         Group {
             if pages.isEmpty {
                 textCard(canonical)
-                    .postMenuLongPress(enabled: !showsReactions && !suppressHeartTap) { menuRequest(anchor: $0) }
             } else {
                 mediaCard(canonical, pages: pages)
             }
@@ -265,22 +264,23 @@ struct ImmersivePostCard: View {
 
     private func mediaStage(_ canonical: ModulaPost, pages: [ModulaAttachment], current: Int, isVideo: Bool) -> some View {
         let expandable: ModulaAttachment? = isVideo ? pages[current] : nil
-        return mediaStageBase(pages: pages)
-            .environment(\.colorScheme, .dark)
-            // Long-press the media: native Options-style menu. Its scheme comes from the app,
-            // not the forced-dark stage, so it never renders as a see-through dark panel over
-            // the Tools accessory and tab bar.
-            .postMenuLongPress(enabled: !showsReactions && !suppressHeartTap) { menuRequest(anchor: $0) }
-            .environment(\.colorScheme, appScheme)
-            .overlay(alignment: .top) { mediaHeader(canonical, pages: pages, current: current) }
-            .overlay(alignment: .bottomLeading) { captionBlock(canonical, pages: pages, current: current, isVideo: isVideo) }
-            .overlay(alignment: .bottomTrailing) { rail(expandable: expandable, gallery: pages) }
-            .overlay(alignment: .bottom) { mediaCommentStrip(isVideo: isVideo) }
-            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .overlay { mediaCardStroke }
-            .shadow(color: glow.opacity(0.28), radius: 18, y: 8)
-            .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
-            .environment(\.colorScheme, .dark)
+        // Rail is a ZStack sibling, not an overlay on the preview `contextMenu`.
+        // Long-press on Like must open the reaction picker, never the post preview.
+        return ZStack(alignment: .bottomTrailing) {
+            mediaStageBase(pages: pages)
+                .environment(\.colorScheme, .dark)
+                .overlay(alignment: .top) { mediaHeader(canonical, pages: pages, current: current) }
+                .overlay(alignment: .bottomLeading) { captionBlock(canonical, pages: pages, current: current, isVideo: isVideo) }
+                .postMenuLongPress(enabled: !showsReactions && !suppressHeartTap) { menuRequest(anchor: $0) }
+                .environment(\.colorScheme, appScheme)
+                .overlay(alignment: .bottom) { mediaCommentStrip(isVideo: isVideo) }
+            rail(expandable: expandable, gallery: pages)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+        .overlay { mediaCardStroke }
+        .shadow(color: glow.opacity(0.28), radius: 18, y: 8)
+        .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+        .environment(\.colorScheme, .dark)
     }
 
     private func mediaStageBase(pages: [ModulaAttachment]) -> some View {
@@ -696,68 +696,80 @@ struct ImmersivePostCard: View {
     private func heartControl(vertical: Bool) -> some View {
         let emoji = reacted ? PostEmojiReactionStore.shared.emoji(for: post.id) : nil
         let symbol = post.viewerReaction.flatMap { $0 == .like ? nil : $0.systemImage } ?? (reacted ? "heart.fill" : "heart")
-        return Group {
-            if vertical {
-                VStack(spacing: 1) { heartGlyph(emoji: emoji, symbol: symbol, size: 21, onMedia: true); heartCount(onMedia: true) }
-                    .frame(width: 44, height: 46)
-            } else {
-                HStack(spacing: 5) { heartGlyph(emoji: emoji, symbol: symbol, size: 19, onMedia: false); heartCount(onMedia: false) }
-                    .frame(minWidth: 44, minHeight: 44)
-                    .padding(.horizontal, 4)
-            }
+        let likeName = reacted ? (emoji.map { "Reacted \($0)" } ?? post.viewerReaction?.accessibilityName ?? "Liked") : "Like"
+        return heartGlyphs(vertical: vertical, emoji: emoji, symbol: symbol)
+            .contentShape(Rectangle())
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(space)) } action: { heartFrame = $0 }
+            .onTapGesture(perform: tapHeart)
+            .exclusiveReactionLongPress(perform: openReactionPicker)
+            .simultaneousGesture(reactionScrub)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(likeName)
+            .accessibilityValue(reactionCount > 0 ? "\(reactionCount)" : "")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { onLike() }
+            .accessibilityHint("Tap to like. Touch and hold for more reactions.")
+            .accessibilityIdentifier("home.action.like.\(post.id)")
+    }
+
+    @ViewBuilder
+    private func heartGlyphs(vertical: Bool, emoji: String?, symbol: String) -> some View {
+        if vertical {
+            VStack(spacing: 1) { heartGlyph(emoji: emoji, symbol: symbol, size: 21, onMedia: true); heartCount(onMedia: true) }
+                .frame(width: 44, height: 46)
+        } else {
+            HStack(spacing: 5) { heartGlyph(emoji: emoji, symbol: symbol, size: 19, onMedia: false); heartCount(onMedia: false) }
+                .frame(minWidth: 44, minHeight: 44)
+                .padding(.horizontal, 4)
         }
-        .contentShape(Rectangle())
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(space)) } action: { heartFrame = $0 }
-        .onTapGesture {
-            guard !suppressHeartTap else { return }
-            if showsReactions { closePicker(); return }
-            onLike()
-            if !reacted {
-                heartBurst += 1
-                HapticEngine.shared.play(.confirmation)
-            } else {
-                HapticEngine.shared.play(.selection)
-            }
+    }
+
+    private func tapHeart() {
+        guard !suppressHeartTap else { return }
+        if showsReactions { closePicker(); return }
+        onLike()
+        if !reacted {
+            heartBurst += 1
+            HapticEngine.shared.play(.confirmation)
+        } else {
+            HapticEngine.shared.play(.selection)
         }
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: PostGestureThresholds.longPressDuration)
-                .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named(space)))
-                .onChanged { value in
-                    switch value {
-                    case .second(true, let drag):
-                        if !showsReactions {
-                            suppressHeartTap = true
-                            HapticEngine.shared.play(.contextOpen)
-                            withAnimation(calm ? nil : .spring(response: 0.3, dampingFraction: 0.72)) { showsReactions = true }
-                        }
-                        if let drag { hover(at: drag.location) }
-                    default:
-                        break
-                    }
+    }
+
+    private func openReactionPicker() {
+        guard !showsReactions else { return }
+        suppressHeartTap = true
+        HapticEngine.shared.play(.contextOpen)
+        withAnimation(calm ? nil : .spring(response: 0.3, dampingFraction: 0.72)) { showsReactions = true }
+    }
+
+    private var reactionScrub: some Gesture {
+        LongPressGesture(minimumDuration: PostGestureThresholds.reactionLongPressDuration)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named(space)))
+            .onChanged { value in
+                switch value {
+                case .second(true, let drag):
+                    if !showsReactions { openReactionPicker() }
+                    if let drag { hover(at: drag.location) }
+                default:
+                    break
                 }
-                .onEnded { value in
-                    var velocity = CGSize.zero
-                    if case .second(true, let drag?) = value { velocity = drag.velocity }
-                    let flung = velocity.height < -650
-                    // A fast upward flick sends the nearest emoji even outside the bar.
-                    let target = hoveredReaction ?? (flung ? nearestReaction() : nil)
-                    if let target {
-                        if target == "+" { openGrid() } else { apply(.custom(target), fling: flung) }
-                    }
-                    hoveredReaction = nil
-                    fingerPoint = nil
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .milliseconds(120))
-                        suppressHeartTap = false
-                    }
+            }
+            .onEnded { value in
+                var velocity = CGSize.zero
+                if case .second(true, let drag?) = value { velocity = drag.velocity }
+                let flung = velocity.height < -650
+                let target = hoveredReaction ?? (flung ? nearestReaction() : nil)
+                if let target {
+                    if target == "+" { openGrid() } else { apply(.custom(target), fling: flung) }
                 }
-        )
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(reacted ? (emoji.map { "Reacted \($0)" } ?? post.viewerReaction?.accessibilityName ?? "Liked") : "Like")
-        .accessibilityValue(reactionCount > 0 ? "\(reactionCount)" : "")
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { onLike() }
-        .accessibilityIdentifier("home.action.like.\(post.id)")
+                hoveredReaction = nil
+                fingerPoint = nil
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(120))
+                    suppressHeartTap = false
+                }
+            }
     }
 
     @ViewBuilder
@@ -1113,48 +1125,51 @@ struct ImmersivePostCard: View {
     @ViewBuilder
     private func textCard(_ canonical: ModulaPost) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center, spacing: 10) {
-                authorButton(canonical, onMedia: false)
-                Spacer(minLength: 6)
-                moreButton(onMedia: false)
-            }
-            .padding(.horizontal, 14)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
-
-            if post.text?.isEmpty == false {
-                PostBody(post: post)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 10)
-                    .contentShape(Rectangle())
-                    .onTapGesture(perform: onOpenPost)
-                    .accessibilityAction(named: "Open Post", onOpenPost)
-                    .accessibilityIdentifier("post.open.\(post.id)")
-            }
-            translationBlock
-                .padding(.horizontal, 4)
-                .padding(.bottom, showsTranslation ? 8 : 0)
-
-            Group {
-                if case .audio(let value)? = canonical.content.first {
-                    ImmersiveMusicPlayer(attachment: value.attachment, onExpand: {
-                        viewer = ImmersiveViewerItem(attachment: value.attachment, gallery: [])
-                    }, embedded: true)
-                } else if !canonical.content.isEmpty || canonical.context.module != nil {
-                    PostCanonicalContent(
-                        source: post,
-                        videoCoordinator: videoCoordinator,
-                        onOpenAttachment: { attachment in
-                            if let media = post.media.first(where: { $0.id == attachment.id }) { onOpenMedia?(media) }
-                        },
-                        onOpenModule: onOpenModule,
-                        embeddedAttachments: true
-                    )
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .center, spacing: 10) {
+                    authorButton(canonical, onMedia: false)
+                    Spacer(minLength: 6)
+                    moreButton(onMedia: false)
                 }
+                .padding(.horizontal, 14)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+
+                if post.text?.isEmpty == false {
+                    PostBody(post: post)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 10)
+                        .contentShape(Rectangle())
+                        .onTapGesture(perform: onOpenPost)
+                        .accessibilityAction(named: "Open Post", onOpenPost)
+                        .accessibilityIdentifier("post.open.\(post.id)")
+                }
+                translationBlock
+                    .padding(.horizontal, 4)
+                    .padding(.bottom, showsTranslation ? 8 : 0)
+
+                Group {
+                    if case .audio(let value)? = canonical.content.first {
+                        ImmersiveMusicPlayer(attachment: value.attachment, onExpand: {
+                            viewer = ImmersiveViewerItem(attachment: value.attachment, gallery: [])
+                        }, embedded: true)
+                    } else if !canonical.content.isEmpty || canonical.context.module != nil {
+                        PostCanonicalContent(
+                            source: post,
+                            videoCoordinator: videoCoordinator,
+                            onOpenAttachment: { attachment in
+                                if let media = post.media.first(where: { $0.id == attachment.id }) { onOpenMedia?(media) }
+                            },
+                            onOpenModule: onOpenModule,
+                            embeddedAttachments: true
+                        )
+                    }
+                }
+                .padding(.horizontal, 0)
+                .padding(.bottom, 6)
             }
-            .padding(.horizontal, 10)
-            .padding(.bottom, 6)
+            .postMenuLongPress(enabled: !showsReactions && !suppressHeartTap) { menuRequest(anchor: $0) }
 
             // Soft fade into the action band (one system — horizontal only).
             textActions
