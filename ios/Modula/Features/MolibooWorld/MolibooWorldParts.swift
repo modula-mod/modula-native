@@ -111,49 +111,95 @@ struct MolibooStageCharacter: View {
     var body: some View {
         let live = animating && stage.awake
         ZStack {
-            Ellipse().fill(Color(red: 0.36, green: 0.55, blue: 0.30).gradient)
-                .frame(width: 170, height: 46).offset(y: 78)
-                .shadow(color: .black.opacity(0.25), radius: 8, y: 4)
+            pedestal(live: live).offset(y: 96)
             if emotion == .thinking {
-                Circle().fill(RadialGradient(colors: [.cyan.opacity(0.55), .clear], center: .center, startRadius: 10, endRadius: 120))
-                    .frame(width: 240, height: 240)
+                Circle().fill(RadialGradient(colors: [.cyan.opacity(0.55), .clear], center: .center, startRadius: 10, endRadius: 130))
+                    .frame(width: 260, height: 260)
                     .phaseAnimator([0.7, 1.0], trigger: live) { v, p in v.opacity(live ? p : 0.85) }
                     .accessibilityIdentifier("world.stage.glow")
             }
             TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !live)) { tl in
                 let t = tl.date.timeIntervalSinceReferenceDate
                 let breath = live ? sin(t * 2 * .pi / emotion.breathPeriod) : 0
+                let bob = live ? sin(t * 2 * .pi / (emotion.breathPeriod * 1.6)) * 4 : 0   // gentle idle float
                 figure
                     .scaleEffect(x: 1 - breath * 0.012, y: 1 + breath * 0.022, anchor: .bottom)
                     .rotationEffect(.degrees(gaze * 6 + (emotion == .curious ? 4 : 0)), anchor: .bottom)
-                    .offset(y: gaze * 6)
+                    .offset(y: gaze * 6 - bob)
             }
             .keyframeAnimator(initialValue: 1.0, trigger: stage.blinkToken) { v, s in v.scaleEffect(x: 1, y: s, anchor: .bottom) } keyframes: { _ in
                 CubicKeyframe(0.95, duration: 0.07); CubicKeyframe(1.0, duration: 0.09)
             }
             .keyframeAnimator(initialValue: 0.0, trigger: stage.bounceToken) { v, y in v.offset(y: y) } keyframes: { _ in
-                SpringKeyframe(-26, duration: 0.18, spring: .snappy); SpringKeyframe(0, duration: 0.4, spring: .bouncy)
+                SpringKeyframe(-30, duration: 0.18, spring: .snappy); SpringKeyframe(0, duration: 0.45, spring: .bouncy)
             }
-            .opacity(emotion == .sleepy ? 0.85 : 1)
+            .opacity(emotion == .sleepy ? 0.88 : 1)
             .saturation(emotion == .tired ? 0.7 : 1)
             if emotion == .sleepy {
-                Text("z z").font(.title3.weight(.bold)).foregroundStyle(.white.opacity(0.85))
-                    .offset(x: 70, y: -80)
+                Text("z z").font(.title2.weight(.heavy)).foregroundStyle(.white.opacity(0.9))
+                    .shadow(color: .black.opacity(0.2), radius: 3)
+                    .offset(x: 84, y: -96)
+            } else {
+                speechBubble.offset(x: 92, y: -92)
             }
+            // Emote pop: a little burst of hearts on happy/excited reactions.
             if emotion == .happy || emotion == .excited {
-                Image(systemName: "heart.fill").foregroundStyle(.pink).font(.title3)
-                    .padding(6).background(.white.opacity(0.85), in: Circle())
-                    .offset(x: 78, y: -78)
-                    .transition(.scale.combined(with: .opacity))
+                ForEach(0..<3, id: \.self) { i in
+                    Image(systemName: "heart.fill").font(.system(size: CGFloat(10 + i * 3))).foregroundStyle(.pink.opacity(0.9))
+                        .offset(x: CGFloat(-70 + i * 18), y: CGFloat(-104 - i * 12))
+                }
+                .transition(.scale(scale: 0.2).combined(with: .opacity))
             }
         }
-        .animation(.snappy, value: emotion)
+        .animation(animating ? .spring(response: 0.4, dampingFraction: 0.6) : nil, value: emotion)
         .accessibilityIdentifier("world.stage.\(emotion.rawValue)")
+    }
+
+    /// Heart speech bubble beside the head; shows the current emotion's symbol when it isn't a happy one.
+    private var speechBubble: some View {
+        let happy = emotion == .happy || emotion == .excited || emotion == .calm
+        return Image(systemName: happy ? "heart.fill" : emotion.symbol)
+            .font(.title3).foregroundStyle(happy ? AnyShapeStyle(.pink) : AnyShapeStyle(.indigo))
+            .frame(width: 42, height: 38)
+            .background(.white.opacity(0.92), in: BubbleShape())
+            .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
+            .scaleEffect(emotion == .excited ? 1.15 : 1)
+    }
+
+    /// Mossy rock pedestal with grass tufts and a soft glow that pulses while the stage is live.
+    private func pedestal(live: Bool) -> some View {
+        ZStack {
+            Ellipse().fill(RadialGradient(colors: [Color(red: 0.55, green: 0.95, blue: 0.75).opacity(0.55), .clear], center: .center, startRadius: 10, endRadius: 140))
+                .frame(width: 300, height: 110)
+                .phaseAnimator([0.65, 1.0], trigger: live) { v, p in v.opacity(live ? p : 0.8).scaleEffect(live ? 0.96 + p * 0.04 : 1) } animation: { _ in .easeInOut(duration: 1.6) }
+            Ellipse().fill(LinearGradient(colors: [Color(red: 0.46, green: 0.44, blue: 0.46), Color(red: 0.28, green: 0.27, blue: 0.30)], startPoint: .top, endPoint: .bottom))
+                .frame(width: 210, height: 60).offset(y: 16)
+                .shadow(color: .black.opacity(0.35), radius: 10, y: 8)
+            Ellipse().fill(LinearGradient(colors: [Color(red: 0.50, green: 0.74, blue: 0.36), Color(red: 0.28, green: 0.52, blue: 0.24)], startPoint: .top, endPoint: .bottom))
+                .frame(width: 200, height: 44)
+            // Luminous rim light around the moss top and a soft halo under the character.
+            Ellipse().stroke(LinearGradient(colors: [Color(red: 0.75, green: 1, blue: 0.85).opacity(0.9), Color(red: 0.4, green: 0.9, blue: 0.8).opacity(0.2)], startPoint: .top, endPoint: .bottom), lineWidth: 2.5)
+                .frame(width: 202, height: 46).blur(radius: 1.2)
+            Ellipse().fill(RadialGradient(colors: [Color(red: 0.85, green: 1, blue: 0.9).opacity(0.55), .clear], center: .center, startRadius: 2, endRadius: 70))
+                .frame(width: 150, height: 34).offset(y: -6).blendMode(.screen)
+            Canvas { ctx, size in
+                for i in 0..<26 {
+                    let fi = Double(i)
+                    let x = size.width * (0.08 + 0.84 * (fi * 0.618).truncatingRemainder(dividingBy: 1))
+                    let y = size.height * (0.30 + 0.5 * (fi * 0.377).truncatingRemainder(dividingBy: 1))
+                    var blade = Path(); blade.move(to: CGPoint(x: x, y: y)); blade.addLine(to: CGPoint(x: x + CGFloat(sin(fi)) * 3, y: y - 7 - CGFloat(i % 3) * 2))
+                    ctx.stroke(blade, with: .color(Color(red: 0.62, green: 0.84, blue: 0.44).opacity(0.9)), lineWidth: 1.6)
+                }
+            }
+            .frame(width: 196, height: 44)
+        }
+        .accessibilityHidden(true)
     }
 
     @ViewBuilder private var figure: some View {
         if let img = MolibooPortrait.image(for: characterID) {
-            Image(uiImage: img).resizable().scaledToFit().frame(width: 200, height: 200)
+            Image(uiImage: img).resizable().interpolation(.high).antialiased(true).scaledToFit().frame(width: 230, height: 230)
+                .shadow(color: .black.opacity(0.25), radius: 10, y: 8)
         } else if let kind = ModulaMascotKind(rawValue: characterID) {
             ModulaMascotFigure(kind: kind, pose: .still(), size: 110, outfit: MascotWardrobeStore.shared.outfit)
         } else {
@@ -248,5 +294,17 @@ struct MolibooStickerSheet: View {
         } else {
             notify("Couldn't make that sticker")
         }
+    }
+}
+
+/// Rounded speech bubble with a small tail at the bottom-left.
+struct BubbleShape: Shape {
+    func path(in r: CGRect) -> Path {
+        var p = Path(roundedRect: CGRect(x: r.minX, y: r.minY, width: r.width, height: r.height - 6), cornerRadius: min(r.width, r.height) * 0.42)
+        p.move(to: CGPoint(x: r.minX + r.width * 0.22, y: r.maxY - 8))
+        p.addLine(to: CGPoint(x: r.minX + r.width * 0.12, y: r.maxY))
+        p.addLine(to: CGPoint(x: r.minX + r.width * 0.38, y: r.maxY - 8))
+        p.closeSubpath()
+        return p
     }
 }

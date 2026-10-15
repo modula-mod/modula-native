@@ -34,9 +34,8 @@ final class MOL03StudioScenarioUITests: XCTestCase {
     }
 
     private func openStudio(_ app: XCUIApplication, _ kind: String) {
-        let entry = app.buttons["moliboo3d.entry"]
-        XCTAssertTrue(entry.waitForExistence(timeout: 25))
-        entry.tap()
+        // -MOL01Studio now opens the one Studio directly (no "Open 3D Studio (dev)" hop).
+        XCTAssertTrue(app.descendants(matching: .any)["moliboo3d.view"].waitForExistence(timeout: 25))
         wait(app) { $0["char"] == kind }
         wait(app, "moliboo3d.state", 25) { $0["loaded"] == "1" && $0["failed"] == "0" }
     }
@@ -79,14 +78,14 @@ final class MOL03StudioScenarioUITests: XCTestCase {
             toggle(app, cap, until: { $0["cap"] == before })
         }
         // Expressions.
-        tapEventually(app.segmentedControls["studio.sheet.tabs"].buttons["Expressions"])
+        tapEventually(app.buttons["studio.sheet.tab.expressions"])
         wait(app) { $0["panel"] == "expressions" }
         for e in ["happy", "excited", "surprised", "sleepy", "sad", "idle"] {
             tapEventually(app.buttons["studio.expr.\(e)"])
             wait(app, "moliboo3d.state", 6) { $0["expr"] == e }
         }
         // Play.
-        tapEventually(app.segmentedControls["studio.sheet.tabs"].buttons["Play"])
+        tapEventually(app.buttons["studio.sheet.tab.play"])
         wait(app) { $0["panel"] == "play" }
         var reactions = Int(probe(app, "studio.state")["reactions"] ?? "0") ?? 0
         for p in ["pet", "hop", "dance", "peekaboo"] {
@@ -116,9 +115,6 @@ final class MOL03StudioScenarioUITests: XCTestCase {
         // Drag to turn.
         stage.swipeLeft()
         wait(app, "moliboo3d.state", 6) { ($0["yaw"] ?? "0.00") != "0.00" }
-        // Back to Studio (teardown path).
-        app.navigationBars.buttons.firstMatch.tap()
-        XCTAssertTrue(app.buttons["moliboo3d.entry"].waitForExistence(timeout: 10))
     }
 
     func testEveryThreeDCharacterOpensWithItsOwnFraming() {

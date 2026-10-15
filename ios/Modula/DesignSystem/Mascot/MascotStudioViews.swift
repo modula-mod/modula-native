@@ -68,8 +68,12 @@ struct MascotStudioView: View {
     private var progress = MascotProgressStore.shared
     private var customs = CustomMascotStore.shared
 
-    init(initialTab: StudioTab = .wardrobe) {
+    /// Embedded inside the one Living Studio ("More" panel): no preview, no own background/title, no 3D entry.
+    var embedded = false
+
+    init(initialTab: StudioTab = .wardrobe, embedded: Bool = false) {
         self.initialTab = initialTab
+        self.embedded = embedded
     }
 
     enum StudioTab: String, CaseIterable, Identifiable {
@@ -88,14 +92,44 @@ struct MascotStudioView: View {
     private var selection: MascotSelection { MascotSelection.resolve(raw: kindRaw) }
     private var rig: MascotRig { selection.rig }
 
+    /// Tabs shown: embedded in the 3D Studio, its own Wardrobe panel covers wardrobe, so only the rest appear here.
+    private var tabs: [StudioTab] { embedded ? [.rewards, .custom, .assistant] : StudioTab.allCases }
+
     var body: some View {
+        if embedded { embeddedBody } else { standaloneBody }
+    }
+
+    /// Coins, rewards, custom Moliboos, the assistant and the outfit actions (shuffle / save / share / clear / undo),
+    /// as a section of the single Studio.
+    private var embeddedBody: some View {
+        VStack(spacing: 14) {
+            HStack { Spacer(); coinPill }
+            actionBar
+            Picker("Studio", selection: $tab) {
+                ForEach(tabs) { t in Text(t.title).tag(t) }
+            }
+            .pickerStyle(.segmented)
+            switch tab {
+            case .wardrobe, .rewards: rewardsPanel
+            case .custom: customPanel
+            case .assistant: MascotAssistantSettingsSection()
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("studio.more")
+        .onAppear {
+            guard !didAppear else { return }
+            didAppear = true
+            tab = tabs.contains(initialTab) ? initialTab : .rewards
+            progress.touchDay()
+        }
+    }
+
+    private var standaloneBody: some View {
         ScrollView {
             VStack(spacing: 16) {
                 previewCard
                 actionBar
-                if MolibooFeatureFlags.native3DEnabled, MolibooRegistry.has3D(kindRaw) {
-                    MolibooLivingStudioEntryButton(characterID: kindRaw)
-                }
                 Picker("Studio", selection: $tab) {
                     ForEach(StudioTab.allCases) { t in Text(t.title).tag(t) }
                 }
@@ -1302,6 +1336,24 @@ struct MascotAssistantSettingsSection: View {
     }
 }
 
+// MARK: - The one Studio entry point
+
+/// Every Studio link (World, Settings hub, composer picker "Dress up", Profile long-press, Settings → Composer)
+/// lands here: the Living (3D) Studio when 3D Moliboos are on and the character has a 3D model, otherwise the
+/// classic 2D Studio (the rollback path behind `dev.moliboo.native3D`).
+struct MolibooStudioEntry: View {
+    /// nil = open the Studio with no panel up.
+    var tab: MascotStudioView.StudioTab? = .wardrobe
+    @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
+    var body: some View {
+        if MolibooFeatureFlags.native3DEnabled, MolibooRegistry.has3D(kindRaw) {
+            MolibooLivingStudioView(characterID: kindRaw, initialPanel: tab.map { $0 == .wardrobe ? .wardrobe : .more }, moreTab: tab ?? .rewards)
+        } else {
+            MascotStudioView(initialTab: tab ?? .wardrobe)
+        }
+    }
+}
+
 // MARK: - Compact dress-up sheet (from hold-to-swap picker / Profile long-press)
 
 struct MascotDressUpSheet: View {
@@ -1309,7 +1361,7 @@ struct MascotDressUpSheet: View {
 
     var body: some View {
         NavigationStack {
-            MascotStudioView(initialTab: .wardrobe)
+            MolibooStudioEntry(tab: .wardrobe)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Done") { dismiss() }
