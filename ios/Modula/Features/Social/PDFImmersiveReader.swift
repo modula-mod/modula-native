@@ -68,7 +68,18 @@ final class PDFReaderModel {
         view.go(to: pdfPage)
     }
 
-    func pageChanged(to page: Int) { if page != currentPage { currentPage = page } }
+    /// Set when the reader is closing so PDFView teardown can't overwrite the position.
+    @ObservationIgnored private(set) var isClosing = false
+
+    func pageChanged(to page: Int) {
+        guard !isClosing, page != currentPage else { return }
+        currentPage = page
+    }
+
+    func close() {
+        store.setLastPage(currentPage, for: key)
+        isClosing = true
+    }
 
     func toggleChrome() { chromeVisible.toggle() }
 
@@ -174,6 +185,7 @@ struct ModulaPDFImmersiveReader: View {
                 }
             }
         }
+        .onDisappear { model.close() }
         .preferredColorScheme(.dark)
         .statusBarHidden(!model.chromeVisible)
         .persistentSystemOverlays(model.chromeVisible ? .automatic : .hidden)
@@ -207,7 +219,7 @@ struct ModulaPDFImmersiveReader: View {
     private var topBar: some View {
         ModulaGlassGroup(spacing: 10) {
             HStack(spacing: 8) {
-                ModulaGlassIconButton(title: "Close reader", systemImage: "chevron.down", size: 40, action: onDismiss)
+                ModulaGlassIconButton(title: "Close reader", systemImage: "chevron.down", size: 40) { model.close(); onDismiss() }
                     .accessibilityIdentifier("pdf.reader.close")
                 VStack(alignment: .leading, spacing: 1) {
                     Text(model.title).font(.subheadline.weight(.semibold)).lineLimit(1)
@@ -441,7 +453,7 @@ struct PDFReaderCanvas: UIViewRepresentable {
         }
 
         @objc private func pageChanged(_ note: Notification) {
-            guard let view = note.object as? PDFView, let page = view.currentPage, let document = view.document else { return }
+            guard let view = note.object as? PDFView, view.window != nil, let page = view.currentPage, let document = view.document else { return }
             model.pageChanged(to: document.index(for: page))
         }
 
