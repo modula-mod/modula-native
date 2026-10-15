@@ -591,6 +591,9 @@ private struct MolibooHubBackButton: View {
 /// Reduce Motion: no float, bob, parallax or morph; content simply appears.
 struct MolibooWelcomeSheet: View {
     var done: () -> Void
+    /// When shown inside the World, the chosen hero shares this namespace with the World's stage figure, so dismissing
+    /// morphs the welcome hero straight into the pedestal (true matched-geometry morph across the two screens).
+    var heroNS: Namespace.ID? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(MolibooSettings.animationsKey) private var playful = true
     @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
@@ -667,6 +670,7 @@ struct MolibooWelcomeSheet: View {
                     .frame(width: 280, height: 80).offset(y: 86)
                 if launching {
                     art(hero).matchedGeometryEffect(id: hero, in: morph).frame(width: 190, height: 190)
+                        .modifier(MolibooHeroMorph(ns: heroNS))
                 } else {
                     ForEach(Array(trio.enumerated()), id: \.element) { i, id in
                         let center = i == 1
@@ -727,7 +731,19 @@ struct MolibooWelcomeSheet: View {
 
     private func finish() {
         guard motionOn else { done(); return }
+        if heroNS != nil {   // World: grow into the hero spot, then hand the figure to the World stage
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) { launching = true }
+            Task { try? await Task.sleep(for: .milliseconds(420)); withAnimation(.spring(response: 0.7, dampingFraction: 0.78)) { done() } }
+            return
+        }
         withAnimation(.spring(response: 0.55, dampingFraction: 0.72)) { launching = true }
         Task { try? await Task.sleep(for: .milliseconds(650)); done() }
+    }
+}
+
+struct MolibooHeroMorph: ViewModifier {
+    let ns: Namespace.ID?
+    func body(content: Content) -> some View {
+        if let ns { content.matchedGeometryEffect(id: "moliboo.hero", in: ns) } else { content }
     }
 }

@@ -36,6 +36,9 @@ struct MolibooWorldView: View {
     @FocusState private var composerFocused: Bool
     @State private var didApplyDebugKind = false
     @State private var rippleTick = 0
+    @AppStorage(MolibooSettings.onboardedKey) private var onboarded = false
+    @State private var showWelcome = false
+    @Namespace private var heroNS
     @Namespace private var zoomNS
     @Namespace private var glassNS
     #if DEBUG
@@ -97,9 +100,16 @@ struct MolibooWorldView: View {
             // edge so content never floats under the status bar with nothing behind it.
             if scrollY > 260 { compactHeader.transition(.move(edge: .top).combined(with: .opacity)) }
             if let toast { toastView(toast) }
+            if showWelcome {
+                // First visit: the welcome lives over the World; "Let's go" morphs its hero onto the pedestal.
+                MolibooWelcomeSheet(done: { onboarded = true; showWelcome = false }, heroNS: heroNS)
+                    .transition(.opacity)
+                    .zIndex(10)
+            }
         }
         .animation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.82), value: scrollY > 260)
         .toolbar(.hidden, for: .navigationBar)
+        .onAppear { if !onboarded { showWelcome = true } }
         .navigationDestination(item: $route) { r in destination(r) }
         .sheet(isPresented: $showSwitcher) { switcher.presentationDetents([.medium]) }
         .sheet(item: $sheet) { s in sectionSheet(s).presentationDetents([.medium, .large]) }
@@ -193,6 +203,8 @@ struct MolibooWorldView: View {
                                       gaze: chat?.isTyping == true ? 1 : 0)
                     .frame(width: 300, height: 300)
                     .molibooRipple(trigger: rippleTick, origin: CGPoint(x: 150, y: 170))
+                    .opacity(showWelcome ? 0 : 1)
+                    .modifier(MolibooHeroMorph(ns: showWelcome ? nil : heroNS))
                     // Picking in the carousel flies the new Moliboo up into the hero spot.
                     .id(characterID)
                     .transition(reduceMotion ? .opacity : .asymmetric(insertion: .scale(scale: 0.35, anchor: .bottom).combined(with: .offset(y: 260)).combined(with: .opacity),
