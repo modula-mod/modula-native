@@ -149,7 +149,7 @@ struct ModulaIslandBannerHost: View {
 
 // MARK: - Animatable gooey toast (per-frame Canvas + label)
 
-private struct IslandGooeyToast: View, Animatable {
+private struct IslandGooeyToast: View, @MainActor Animatable {
     var banner: ModulaBanner
     var metrics: IslandBannerMetrics
     var containerWidth: CGFloat

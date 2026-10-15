@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Bubbles reaction/emoji picker presentation up to `PostSwipeActions` so share/save pans disable.
 struct PostReactionPickerPresentedKey: PreferenceKey {
-    static var defaultValue = false
+    nonisolated(unsafe) static var defaultValue = false
     static func reduce(value: inout Bool, nextValue: () -> Bool) {
         value = value || nextValue()
     }
