@@ -51,7 +51,7 @@ struct MOL01StudioCover: ViewModifier {
     func body(content: Content) -> some View {
         content.fullScreenCover(isPresented: $shown) {
             NavigationStack {
-                MolibooStudioEntry()   // the one Studio (3D when available)
+                MolibooStudioEntry(tab: nil)   // the one Studio (3D when available)
                     .overlay(alignment: .topLeading) {
                         Text("fp=\(String(format: "%.1f", MOL01Memory.footprintMB()))").font(.system(size: 1)).opacity(0.01)
                             .accessibilityIdentifier("mol01.studio.ready")

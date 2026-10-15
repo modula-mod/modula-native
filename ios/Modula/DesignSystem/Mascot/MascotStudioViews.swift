@@ -1342,13 +1342,14 @@ struct MascotAssistantSettingsSection: View {
 /// lands here: the Living (3D) Studio when 3D Moliboos are on and the character has a 3D model, otherwise the
 /// classic 2D Studio (the rollback path behind `dev.moliboo.native3D`).
 struct MolibooStudioEntry: View {
-    var tab: MascotStudioView.StudioTab = .wardrobe
+    /// nil = open the Studio with no panel up.
+    var tab: MascotStudioView.StudioTab? = .wardrobe
     @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
     var body: some View {
         if MolibooFeatureFlags.native3DEnabled, MolibooRegistry.has3D(kindRaw) {
-            MolibooLivingStudioView(characterID: kindRaw, initialPanel: tab == .wardrobe ? .wardrobe : .more, moreTab: tab)
+            MolibooLivingStudioView(characterID: kindRaw, initialPanel: tab.map { $0 == .wardrobe ? .wardrobe : .more }, moreTab: tab ?? .rewards)
         } else {
-            MascotStudioView(initialTab: tab)
+            MascotStudioView(initialTab: tab ?? .wardrobe)
         }
     }
 }

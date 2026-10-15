@@ -42,8 +42,9 @@ final class MOL03CollectionUITests: XCTestCase {
         b.tap()
         XCTAssertTrue(app.descendants(matching: .any)["studio.rail.play"].waitForExistence(timeout: 20))
         XCTAssertFalse(app.buttons["moliboo3d.entry"].exists, "no 'Open 3D Studio (dev)' button")
-        let more = app.buttons["studio.rail.more"]
-        XCTAssertTrue(more.waitForExistence(timeout: 5))
+        // Opens on Wardrobe (Dress up); switch to the More section from the sheet's tabs.
+        let more = app.buttons["studio.sheet.tab.more"].waitForExistence(timeout: 8) ? app.buttons["studio.sheet.tab.more"] : app.buttons["studio.rail.more"]
+        XCTAssertTrue(more.exists)
         more.tap()
         XCTAssertTrue(app.descendants(matching: .any)["studio.more"].waitForExistence(timeout: 10), "rewards/custom/assistant live in the one Studio")
     }

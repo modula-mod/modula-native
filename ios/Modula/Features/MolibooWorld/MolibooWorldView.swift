@@ -71,7 +71,7 @@ struct MolibooWorldView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     if shows("header") { header }
-                    if shows("stage") { stageArea }
+                    if shows("stage") { stageArea.zIndex(1) }   // floating nav/stats stay above the identity card
                     if shows("identity") { identityCard }
                     if shows("composer") { composer }
                     if shows("quick") { quickActions }
