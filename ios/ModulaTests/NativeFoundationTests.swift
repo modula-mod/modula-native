@@ -32,6 +32,42 @@ final class NativeFoundationTests: XCTestCase {
         XCTAssertLessThan(bar.seedHeight, bar.expandedHeight)
     }
 
+    func testIslandGooeyLayoutDripsFromIslandMidMorph() {
+        let metrics = IslandBannerMetrics.resolve(safeAreaTop: 59, containerWidth: 430)
+        let seed = IslandGooeyLayout.resolve(metrics: metrics, morph: 0, containerWidth: 430)
+        XCTAssertFalse(seed.dripVisible)
+        XCTAssertFalse(seed.bodyVisible)
+        XCTAssertEqual(seed.islandRect.width, 126, accuracy: 0.5)
+
+        let drip = IslandGooeyLayout.resolve(metrics: metrics, morph: 0.22, containerWidth: 430)
+        XCTAssertTrue(drip.dripVisible)
+        XCTAssertTrue(drip.isConnectedDrip)
+        XCTAssertGreaterThan(drip.dripRect.maxY, drip.islandRect.maxY)
+        XCTAssertEqual(drip.dripRect.midX, 215, accuracy: 1)
+
+        let expanded = IslandGooeyLayout.resolve(metrics: metrics, morph: 1, containerWidth: 430)
+        XCTAssertTrue(expanded.bodyVisible)
+        XCTAssertGreaterThan(expanded.bodyWidth, expanded.islandRect.width)
+        XCTAssertGreaterThan(expanded.bodyRect.maxY, expanded.islandRect.maxY)
+    }
+
+    func testIslandGooeyMidMorphSnapshotRendersConnectedDrip() throws {
+        let metrics = IslandBannerMetrics.resolve(safeAreaTop: 59, containerWidth: 430)
+        let layout = IslandGooeyLayout.resolve(metrics: metrics, morph: 0.28, containerWidth: 430)
+        let view = IslandGooeyCanvas(layout: layout)
+            .frame(width: 430, height: layout.canvasHeight)
+            .background(Color(white: 0.94))
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 3
+        let image = try XCTUnwrap(renderer.uiImage)
+        let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("island-gooey-mid-morph.png")
+        try XCTUnwrap(image.pngData()).write(to: url)
+        // Prove the drip silhouette exists below the island seed.
+        XCTAssertGreaterThan(layout.dripRect.maxY, layout.islandRect.maxY + 4)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path), url.path)
+        print("Island gooey mid-morph snapshot: \(url.path)")
+    }
+
     func testDeviceAppearancePersistence() {
         let name = "modula-test-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
