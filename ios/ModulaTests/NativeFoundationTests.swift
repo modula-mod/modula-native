@@ -1,3 +1,4 @@
+import SwiftUI
 import XCTest
 @testable import Modula
 
@@ -44,11 +45,14 @@ final class NativeFoundationTests: XCTestCase {
         XCTAssertTrue(drip.isConnectedDrip)
         XCTAssertGreaterThan(drip.dripRect.maxY, drip.islandRect.maxY)
         XCTAssertEqual(drip.dripRect.midX, 215, accuracy: 1)
+        XCTAssertTrue(drip.neckVisible)
 
         let expanded = IslandGooeyLayout.resolve(metrics: metrics, morph: 1, containerWidth: 430)
         XCTAssertTrue(expanded.bodyVisible)
         XCTAssertGreaterThan(expanded.bodyWidth, expanded.islandRect.width)
         XCTAssertGreaterThan(expanded.bodyRect.maxY, expanded.islandRect.maxY)
+        // Settled toast still hangs from the island (short neck gap), not a detached bottom bar.
+        XCTAssertLessThan(expanded.bodyRect.minY - expanded.islandRect.maxY, 12)
     }
 
     func testIslandGooeyMidMorphSnapshotRendersConnectedDrip() throws {
@@ -64,6 +68,14 @@ final class NativeFoundationTests: XCTestCase {
         try XCTUnwrap(image.pngData()).write(to: url)
         // Prove the drip silhouette exists below the island seed.
         XCTAssertGreaterThan(layout.dripRect.maxY, layout.islandRect.maxY + 4)
+        XCTAssertNotNil(
+            MetaballBridge.path(
+                c1: CGPoint(x: layout.islandRect.midX, y: layout.islandRect.maxY - 8),
+                r1: 14,
+                c2: CGPoint(x: layout.dripRect.midX, y: layout.dripRect.midY),
+                r2: layout.dripRect.width * 0.5
+            )
+        )
         XCTAssertTrue(FileManager.default.fileExists(atPath: url.path), url.path)
         print("Island gooey mid-morph snapshot: \(url.path)")
     }

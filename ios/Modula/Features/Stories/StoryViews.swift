@@ -297,6 +297,7 @@ struct StoryViewer: View {
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("settings.personalisation.storyAutoAdvance") private var storyAutoAdvance = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @FocusState private var replyFocused: Bool
     @State private var engine: StoryProgressEngine
     @State private var holding = false
     @State private var loadedItemID: StoryID?
@@ -304,6 +305,12 @@ struct StoryViewer: View {
     @State private var retryID = 0
     @State private var videoCoordinator = FeedVideoCoordinator()
     @State private var expandedVideo: ModulaAttachment?
+    @State private var replyDraft = ""
+    @State private var reactedLocally = false
+    @State private var confirmMute = false
+    @State private var confirmReport = false
+
+    private let teal = Color(hex: "#369CAA")
 
     init(group: StoryGroup, initialID: StoryID) {
         self.group = group
@@ -319,15 +326,20 @@ struct StoryViewer: View {
         ZStack {
             Color.black.ignoresSafeArea()
             content(item)
+            // Edge taps / hold — primary navigation. Bottom Previous/Next text removed.
             HStack(spacing: 0) {
                 Color.clear
                     .contentShape(Rectangle())
-                    .onTapGesture { _ = engine.previous(); if !reduceMotion { HapticEngine.shared.play(.selection) } }
+                    .onTapGesture { goPrevious() }
                 Color.clear
                     .contentShape(Rectangle())
-                    .onTapGesture { handle(engine.next()); if !reduceMotion { HapticEngine.shared.play(.selection) } }
+                    .onTapGesture { goNext() }
             }
-            .allowsHitTesting(StoryViewerGate.allowsTapNavigation(item: item, loadedID: loadedItemID, failedID: failedItemID))
+            .padding(.bottom, 96)
+            .allowsHitTesting(
+                !replyFocused
+                    && StoryViewerGate.allowsTapNavigation(item: item, loadedID: loadedItemID, failedID: failedItemID)
+            )
             if let item, failedItemID == item.id {
                 VStack(spacing: 12) {
                     Image(systemName: "photo.badge.exclamationmark").font(.largeTitle).accessibilityHidden(true)
@@ -346,6 +358,25 @@ struct StoryViewer: View {
         .fullScreenCover(item: $expandedVideo) { attachment in
             AttachmentViewerRouter(attachment: attachment, onDismiss: { expandedVideo = nil })
         }
+        .confirmationDialog("Mute \(item?.author.displayName ?? "this person")?", isPresented: $confirmMute, titleVisibility: .visible) {
+            Button("Mute", role: .destructive) {
+                guard let item else { return }
+                Task {
+                    if await app.profile.mute(profileID: item.author.id) {
+                        app.navigation.flash("Muted \(item.author.displayName)", symbol: "speaker.slash")
+                    } else {
+                        app.navigation.flash("Couldn’t mute right now", symbol: "exclamationmark.triangle")
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .confirmationDialog("Report this story?", isPresented: $confirmReport, titleVisibility: .visible) {
+            Button("Spam", role: .destructive) { reportCurrent(category: "spam") }
+            Button("Harassment", role: .destructive) { reportCurrent(category: "harassment") }
+            Button("Something else", role: .destructive) { reportCurrent(category: "other") }
+            Button("Cancel", role: .cancel) {}
+        }
         .simultaneousGesture(
             DragGesture(minimumDistance: 40).onEnded { value in
                 if value.translation.height > 80 {
@@ -354,6 +385,7 @@ struct StoryViewer: View {
             }
         )
         .onLongPressGesture(minimumDuration: 0.2, pressing: { pressing in
+            guard !replyFocused else { return }
             holding = pressing
             if pressing { engine.pause() } else { engine.resume() }
         }, perform: {})
@@ -375,30 +407,51 @@ struct StoryViewer: View {
             let current = currentItem?.id ?? initialID
             engine.resize(count: ids.count, keepingIndex: ids.firstIndex(of: current))
         }
+        .onChange(of: engine.index) { _, _ in
+            replyDraft = ""
+            reactedLocally = false
+            replyFocused = false
+        }
+        .onChange(of: replyFocused) { _, focused in
+            if focused {
+                engine.pause()
+            } else if !holding, scenePhase == .active {
+                engine.resume()
+            }
+        }
         .onAppear { engine.autoAdvance = storyAutoAdvance }
         .onChange(of: scenePhase) { _, phase in
             engine.isAppActive = phase == .active
-            if phase != .active { engine.pause() } else if !holding { engine.resume() }
+            if phase != .active { engine.pause() } else if !holding, !replyFocused { engine.resume() }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("story.viewer")
         .accessibilityActions {
-            Button("Previous") { _ = engine.previous() }
-            Button("Next") { handle(engine.next()) }
+            Button("Previous") { goPrevious() }
+            Button("Next") { goNext() }
             Button(engine.isPaused ? "Resume" : "Pause") {
                 if engine.isPaused { engine.resume() } else { engine.pause() }
             }
             Button("Close") { app.navigation.close() }
-            if app.stories.capabilities.reply, let item {
+            if canReply, let item {
                 Button("Reply") { reply(item) }
+            }
+            if let item {
+                Button("Share") { share(item) }
             }
         }
     }
 
     /// Never consume a story while its protected media is still loading.
-    /// Videos keep explicit Previous/Next navigation until playback finishes.
+    /// Videos keep edge-tap navigation until playback finishes.
     private var progressActive: Bool {
-        !engine.isPaused && engine.isAppActive && !engine.isHoldingAtEnd && loadedItemID == currentItem?.id && currentItem?.kind != .video
+        !engine.isPaused && engine.isAppActive && !engine.isHoldingAtEnd
+            && !replyFocused
+            && loadedItemID == currentItem?.id && currentItem?.kind != .video
+    }
+
+    private var canReply: Bool {
+        app.stories.capabilities.reply && app.messaging.capabilities.send
     }
 
     private func advanceProgress(by delta: TimeInterval) {
@@ -413,6 +466,15 @@ struct StoryViewer: View {
         group.items.indices.contains(engine.index) ? group.items[engine.index] : nil
     }
 
+    private func goPrevious() {
+        _ = engine.previous()
+        if !reduceMotion { HapticEngine.shared.play(.selection) }
+    }
+
+    private func goNext() {
+        handle(engine.next())
+    }
+
     @ViewBuilder
     private func content(_ item: StoryItem?) -> some View {
         if let item {
@@ -422,7 +484,11 @@ struct StoryViewer: View {
                     ModulaRemoteImage(url: url, cacheKey: "story:\(item.id)", retryID: retryID) { phase in
                         switch phase {
                         case .success(let image):
-                            Image(uiImage: image).resizable().scaledToFit()
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .clipped()
                                 .onAppear { didDisplay(item) }
                         case .loading:
                             ProgressView("Loading story…").tint(.white).foregroundStyle(.white)
@@ -469,66 +535,214 @@ struct StoryViewer: View {
     }
 
     private func chrome(_ item: StoryItem?) -> some View {
-        VStack(spacing: 12) {
-            // (Scrims below keep white chrome legible over light media.)
-            StoryProgressBar(count: engine.segmentCount, index: engine.index, progress: engine.progress)
-                .padding(.horizontal, 12)
-                .padding(.top, 8)
-            HStack {
-                if let item {
-                    ModulaAvatar(initials: item.author.initials, url: item.author.avatarURL, size: 36)
-                    VStack(alignment: .leading) {
-                        Text(item.author.displayName).font(.headline).foregroundStyle(.white)
-                        Text(ConversationRow.relative(item.createdAt)).font(.caption).foregroundStyle(.white.opacity(0.85))
-                    }
-                }
-                Spacer()
-                Button {
-                    app.navigation.close()
-                } label: {
-                    Image(systemName: "xmark")
-                        .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
-                }
-                .accessibilityLabel("Close")
-            }
-            .padding(.horizontal, 16)
-            Spacer()
-            if let caption = item?.text, item?.kind != .text, !caption.isEmpty {
-                Text(caption)
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.black.opacity(0.35))
-            }
-            HStack {
-                Button("Previous") { _ = engine.previous() }
-                Spacer()
-                if app.stories.capabilities.reply {
-                    Button("Reply") { if let item { reply(item) } }
-                }
-                Spacer()
-                Button("Next") { handle(engine.next()) }
-            }
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.white)
-            .padding(16)
-            .frame(minHeight: ModulaLayout.minimumTouch)
+        VStack(spacing: 0) {
+            topChrome(item)
+            Spacer(minLength: 0)
+            bottomChrome(item)
         }
         .background(alignment: .top) {
-            LinearGradient(colors: [.black.opacity(0.5), .clear], startPoint: .top, endPoint: .bottom)
-                .frame(height: 140)
+            LinearGradient(colors: [.black.opacity(0.55), .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: 160)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
         }
         .background(alignment: .bottom) {
-            LinearGradient(colors: [.clear, .black.opacity(0.45)], startPoint: .top, endPoint: .bottom)
-                .frame(height: 120)
+            LinearGradient(colors: [.clear, .black.opacity(0.55)], startPoint: .top, endPoint: .bottom)
+                .frame(height: 180)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
         }
+    }
+
+    private func topChrome(_ item: StoryItem?) -> some View {
+        VStack(spacing: 10) {
+            StoryProgressBar(count: engine.segmentCount, index: engine.index, progress: engine.progress)
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
+            HStack(spacing: 10) {
+                if let item {
+                    ModulaAvatar(initials: item.author.initials, url: item.author.avatarURL, size: 36)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.author.displayName)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                        HStack(spacing: 6) {
+                            Text(ConversationRow.relative(item.createdAt))
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.8))
+                            if item.isOwn, let viewers = item.viewerCount {
+                                Text("·")
+                                    .foregroundStyle(.white.opacity(0.45))
+                                Text(viewers == 1 ? "1 view" : "\(viewers) views")
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(teal.opacity(0.95))
+                            }
+                        }
+                    }
+                }
+                Spacer(minLength: 8)
+                ModulaGlassGroup(spacing: 8) {
+                    ModulaGlassIconButton(
+                        title: "Close",
+                        systemImage: "xmark",
+                        size: 40,
+                        tint: .white.opacity(0.18),
+                        foreground: .white
+                    ) {
+                        app.navigation.close()
+                    }
+                }
+            }
+            .padding(.horizontal, 14)
+        }
+    }
+
+    private func bottomChrome(_ item: StoryItem?) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let caption = item?.text, item?.kind != .text, !caption.isEmpty {
+                Text(caption)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.white)
+                    .lineLimit(3)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background {
+                        Capsule(style: .continuous)
+                            .fill(.black.opacity(0.28))
+                            .overlay {
+                                Capsule(style: .continuous)
+                                    .strokeBorder(.white.opacity(0.12), lineWidth: 0.8)
+                            }
+                    }
+                    .padding(.horizontal, 14)
+                    .accessibilityIdentifier("story.caption")
+            }
+
+            ModulaGlassGroup(spacing: 10) {
+                HStack(spacing: 10) {
+                    replyField(item)
+                    reactButton(item)
+                    shareButton(item)
+                    overflowMenu(item)
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
+            }
+        }
+        .padding(.bottom, 4)
+    }
+
+    @ViewBuilder
+    private func replyField(_ item: StoryItem?) -> some View {
+        let own = item?.isOwn == true
+        let enabled = canReply && !own
+        HStack(spacing: 8) {
+            TextField(
+                own ? "Your story" : (enabled ? "Send message…" : "Replies unavailable"),
+                text: $replyDraft
+            )
+            .textFieldStyle(.plain)
+            .focused($replyFocused)
+            .submitLabel(.send)
+            .onSubmit { if let item { sendReply(item) } }
+            .disabled(!enabled)
+            .foregroundStyle(.white)
+            if enabled, !replyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Button {
+                    if let item { sendReply(item) }
+                } label: {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(teal)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Send reply")
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 44)
+        .frame(maxWidth: .infinity)
+        .modulaGlass(in: Capsule(), tint: teal.opacity(enabled ? 0.35 : 0.12), specular: true)
+        .opacity(enabled || own ? 1 : 0.55)
+        .accessibilityIdentifier("story.reply")
+    }
+
+    private func reactButton(_ item: StoryItem?) -> some View {
+        ModulaGlassIconButton(
+            title: reactedLocally ? "Liked" : "React",
+            systemImage: reactedLocally ? "heart.fill" : "heart",
+            size: 44,
+            tint: reactedLocally ? teal : .white.opacity(0.16),
+            foreground: .white,
+            enabled: item != nil
+        ) {
+            guard let item, item.isOwn == false else {
+                app.navigation.flash("That’s your story", symbol: "heart")
+                return
+            }
+            guard app.stories.capabilities.react else {
+                app.navigation.flash("Reactions aren’t available yet", symbol: "heart")
+                return
+            }
+            reactedLocally.toggle()
+            if !reduceMotion { HapticEngine.shared.play(.selection) }
+        }
+        .accessibilityIdentifier("story.react")
+    }
+
+    private func shareButton(_ item: StoryItem?) -> some View {
+        ModulaGlassIconButton(
+            title: "Share",
+            systemImage: "square.and.arrow.up",
+            size: 44,
+            tint: .white.opacity(0.16),
+            foreground: .white,
+            enabled: item != nil
+        ) {
+            if let item { share(item) }
+        }
+        .accessibilityIdentifier("story.share")
+    }
+
+    @ViewBuilder
+    private func overflowMenu(_ item: StoryItem?) -> some View {
+        Menu {
+            if let item {
+                if item.isOwn {
+                    if let viewers = item.viewerCount {
+                        Text(viewers == 1 ? "1 view" : "\(viewers) views")
+                    } else if app.stories.capabilities.viewers {
+                        Text("Views aren’t loaded yet")
+                    } else {
+                        Text("Insights aren’t available yet")
+                    }
+                    Button("Share story", systemImage: "square.and.arrow.up") { share(item) }
+                    Button("Delete story", systemImage: "trash", role: .destructive) {
+                        app.navigation.flash("Deleting stories isn’t available yet", symbol: "trash")
+                    }
+                } else {
+                    if canReply {
+                        Button("Reply in Messages", systemImage: "bubble.left") { reply(item) }
+                    } else {
+                        Button("Reply unavailable", systemImage: "bubble.left") {
+                            app.navigation.flash("Replies aren’t available yet", symbol: "bubble.left")
+                        }
+                    }
+                    Button("Share", systemImage: "square.and.arrow.up") { share(item) }
+                    Button("Mute", systemImage: "speaker.slash") { confirmMute = true }
+                    Button("Report", systemImage: "flag", role: .destructive) { confirmReport = true }
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
+                .modulaGlass(in: Circle(), tint: .white.opacity(0.16), specular: true)
+        }
+        .accessibilityLabel("More options")
+        .accessibilityIdentifier("story.more")
     }
 
     @MainActor private func handle(_ event: StoryProgressEvent) {
@@ -537,8 +751,49 @@ struct StoryViewer: View {
     }
 
     private func reply(_ item: StoryItem) {
-        guard app.stories.capabilities.reply, app.messaging.capabilities.send else { return }
+        guard canReply else {
+            app.navigation.flash("Replies aren’t available yet", symbol: "bubble.left")
+            return
+        }
         app.navigation.open(.messages(.new))
+        app.navigation.flash("Reply in Messages", symbol: "bubble.left")
+    }
+
+    private func sendReply(_ item: StoryItem) {
+        let text = replyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        guard canReply else {
+            app.navigation.flash("Replies aren’t available yet", symbol: "bubble.left")
+            return
+        }
+        replyDraft = ""
+        replyFocused = false
+        // No story-reply endpoint yet — open Messages with an honest island confirmation.
+        app.navigation.open(.messages(.new))
+        app.navigation.flash("Continue in Messages", symbol: "bubble.left")
+        _ = item
+    }
+
+    private func share(_ item: StoryItem) {
+        app.navigation.presented = .universalShare(
+            .link(url: ModulaShareLink.story(item.id), title: "\(item.author.displayName)’s story")
+        )
+        if !reduceMotion { HapticEngine.shared.play(.selection) }
+    }
+
+    private func reportCurrent(category: String) {
+        guard let item = currentItem else { return }
+        Task {
+            if await app.profile.report(
+                profileID: item.author.id,
+                category: category,
+                details: "Story \(item.id)"
+            ) {
+                app.navigation.flash("Thanks, report sent", symbol: "flag")
+            } else {
+                app.navigation.flash("Couldn’t send report", symbol: "exclamationmark.triangle")
+            }
+        }
     }
 }
 
