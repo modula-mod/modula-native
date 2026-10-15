@@ -15,34 +15,72 @@ struct StoryRing: View {
     var showsAddBadge = true
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let emphasised = state == .unseen || (state == .own && !showsAddBadge)
-        let line = emphasised ? max(2.5, size * 0.045) : max(1.5, size * 0.03)
-        Circle()
-            .strokeBorder(style: StrokeStyle(lineWidth: line, dash: state == .seen ? [4, 3] : []))
-            .foregroundStyle(ringColor)
-            .frame(width: size + line * 2, height: size + line * 2)
-            .overlay(alignment: .bottomTrailing) {
-                if state == .own && showsAddBadge {
-                    Image(systemName: "plus")
-                        .font(.system(size: size * 0.22, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(width: size * 0.34, height: size * 0.34)
-                        .background(accent, in: Circle())
-                        // Cut-out stroke matches the actual canvas (Dim/OLED aware).
-                        .overlay(Circle().stroke(ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas, lineWidth: 2))
-                        .accessibilityHidden(true)
-                }
+        let line = emphasised ? max(3.2, size * 0.055) : max(1.6, size * 0.028)
+        let outer = size + line * 2 + 4
+        ZStack {
+            if emphasised {
+                Circle()
+                    .fill(accent.opacity(reduceMotion ? 0.18 : 0.32))
+                    .blur(radius: reduceMotion ? 0 : 7)
+                    .scaleEffect(1.06)
             }
+            ringStroke(emphasised: emphasised, line: line)
+                .frame(width: size + line * 2, height: size + line * 2)
+            if state == .own && showsAddBadge {
+                plusBadge
+            }
+        }
+        .frame(width: outer, height: outer)
+        .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private func ringStroke(emphasised: Bool, line: CGFloat) -> some View {
+        let idle = Circle().strokeBorder(ringColor, lineWidth: line)
+        if emphasised && !reduceMotion {
+            TimelineView(.animation(minimumInterval: 1 / 18, paused: false)) { context in
+                let turn = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 7) / 7
+                Circle()
+                    .strokeBorder(
+                        AngularGradient(
+                            colors: [accent, accent.opacity(0.45), Color.white.opacity(0.9), accent],
+                            center: .center,
+                            angle: .degrees(turn * 360)
+                        ),
+                        lineWidth: line
+                    )
+            }
+        } else if emphasised {
+            Circle()
+                .strokeBorder(
+                    AngularGradient(colors: [accent, accent.opacity(0.55), Color.white.opacity(0.8), accent], center: .center),
+                    lineWidth: line
+                )
+        } else {
+            idle
+        }
+    }
+
+    private var plusBadge: some View {
+        Image(systemName: "plus")
+            .font(.system(size: size * 0.22, weight: .bold))
+            .foregroundStyle(.white)
+            .frame(width: max(22, size * 0.34), height: max(22, size * 0.34))
+            .background(accent, in: Circle())
+            .overlay(Circle().stroke(ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas, lineWidth: 2))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             .accessibilityHidden(true)
     }
 
     private var ringColor: Color {
         switch state {
         case .unseen: accent
-        case .seen: Color.primary.opacity(0.28)
-        case .own: showsAddBadge ? accent.opacity(0.85) : accent
+        case .seen: Color.primary.opacity(0.22)
+        case .own: showsAddBadge ? accent.opacity(0.9) : accent
         }
     }
 }
@@ -55,11 +93,12 @@ struct StoryAvatar: View {
     var body: some View {
         ZStack {
             StoryRing(state: group.ring, size: size, accent: accent, showsAddBadge: group.isComposerPlaceholder)
-            ModulaAvatar(initials: group.author.initials, url: group.author.avatarURL, size: size)
+            ModulaAvatar(initials: group.author.initials, url: group.author.avatarURL, size: size - 6)
         }
-        .frame(width: size + 10, height: size + 10)
+        .frame(width: size + 14, height: size + 14)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
+        .accessibilityAddTraits(.isButton)
     }
 
     private var accessibilityLabel: String {
@@ -80,34 +119,39 @@ struct StoryTray: View {
     var onCreate: (() -> Void)? = nil
     @Environment(AppEnvironment.self) private var app
 
-    private var avatarSize: CGFloat { compact ? 52 : 64 }
-    private var labelWidth: CGFloat { compact ? 58 : 72 }
+    /// Home uses a larger, image-led disc so "Your story" never truncates to "Your st…".
+    private var avatarSize: CGFloat { compact ? 64 : 72 }
+    private var labelWidth: CGFloat { compact ? 78 : 88 }
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: compact ? 10 : 14) {
+            HStack(alignment: .top, spacing: compact ? 12 : 14) {
                 if showsComposer {
                     Button(action: onCreate ?? {}) {
-                        VStack(spacing: compact ? 4 : 6) {
-                            StoryAvatar(
+                        trayCell(
+                            avatar: StoryAvatar(
                                 group: StoryGroup(
                                     id: "own-create",
-                                    author: ConversationParticipant(id: "me", handle: "", displayName: "You", avatarURL: app.profile.ownProfile?.avatarURL),
+                                    author: ConversationParticipant(
+                                        id: "me",
+                                        handle: "",
+                                        displayName: "You",
+                                        avatarURL: app.profile.ownProfile?.avatarURL
+                                    ),
                                     items: [],
                                     isOwn: true,
                                     reportedRing: .own
                                 ),
                                 size: avatarSize,
                                 accent: app.appearance.accent.color
-                            )
-                            Text("Your story")
-                                .font(compact ? .caption2 : .caption)
-                                .lineLimit(1)
-                        }
+                            ),
+                            title: "Your story"
+                        )
                     }
                     .buttonStyle(.modulaPress)
                     .modulaCarouselReveal()
                     .accessibilityLabel("Your story")
+                    .accessibilityHint("Creates a new story")
                     .accessibilityValue("empty")
                     .accessibilityIdentifier("home.story.own")
                 }
@@ -116,33 +160,68 @@ struct StoryTray: View {
                         onSelect(group)
                         HapticEngine.shared.play(.selection)
                     } label: {
-                        VStack(spacing: compact ? 4 : 6) {
-                            StoryAvatar(group: group, size: avatarSize, accent: app.appearance.accent.color)
-                                // Zoom source: the ring expands into the story and shrinks back on dismiss.
-                                .modulaHeroSource("story", key: group.id)
-                            Text(group.isOwn ? "Your story" : group.author.displayName)
-                                .font(compact ? .caption2 : .caption)
-                                .lineLimit(1)
-                                .frame(width: labelWidth)
-                        }
+                        trayCell(
+                            avatar: StoryAvatar(group: group, size: avatarSize, accent: app.appearance.accent.color)
+                                .modulaHeroSource("story", key: group.id),
+                            title: trayTitle(group)
+                        )
                     }
                     .buttonStyle(ModulaPressStyle(scale: 0.93, haptic: nil))
                     .modulaCarouselReveal()
+                    .overlay(alignment: .bottomTrailing) {
+                        if group.isOwn, let onCreate {
+                            Button {
+                                onCreate()
+                                HapticEngine.shared.play(.navigation)
+                            } label: {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 22, height: 22)
+                                    .background(app.appearance.accent.color, in: Circle())
+                                    .overlay(Circle().stroke(Color.black.opacity(0.35), lineWidth: 2))
+                                    .frame(width: 44, height: 44)
+                                    .contentShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .offset(x: 8, y: -18)
+                            .accessibilityLabel("Add to your story")
+                            .accessibilityIdentifier("home.story.add")
+                        }
+                    }
                     .accessibilityValue(group.isOwn ? (group.isComposerPlaceholder ? "empty" : "active") : "")
                     .accessibilityIdentifier(group.isOwn ? "home.story.own" : "home.story.\(group.id)")
                 }
             }
-            .padding(.vertical, compact ? 2 : 4)
+            .padding(.vertical, 4)
         }
-        .frame(minHeight: compact ? 78 : 88)
-        .frame(maxHeight: compact ? 86 : 120)
+        .frame(minHeight: compact ? 96 : 108)
+        .frame(maxHeight: compact ? 112 : 128)
         .accessibilityIdentifier("home.story.tray")
     }
 
+    private func trayCell<Avatar: View>(avatar: Avatar, title: String) -> some View {
+        VStack(spacing: 7) {
+            avatar
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.9)
+                .frame(width: labelWidth)
+        }
+        .frame(minWidth: 44, minHeight: 44)
+        .contentShape(Rectangle())
+    }
+
+    private func trayTitle(_ group: StoryGroup) -> String {
+        if group.isOwn { return "Your story" }
+        let name = group.author.displayName.trimmingCharacters(in: .whitespaces)
+        return name.split(whereSeparator: \.isWhitespace).first.map(String.init) ?? name
+    }
+
     private var showsComposer: Bool {
-        onCreate != nil
-            && app.stories.capabilities.create
-            && !groups.contains(where: \.isOwn)
+        onCreate != nil && !groups.contains(where: \.isOwn)
     }
 }
 

@@ -143,6 +143,7 @@ enum AppPresentation: Identifiable, Hashable {
     case composer(ComposeRoute), share(AppRoute), filters, modulePermissions(String), appearancePicker(AppearanceSettingsRoute)
     case activitySummary, activityFilter, discoverFilter
     case homeSummary, homeFeedTools, homeFeeds
+    case installedModules
     case commandCenter
     case intelligenceChat
     case createPicker

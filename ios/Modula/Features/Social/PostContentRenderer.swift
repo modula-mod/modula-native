@@ -453,7 +453,7 @@ struct ModulaPDFSurface: View {
             attachment: attachment,
             fileURL: fileURL,
             failed: failed,
-            height: embedded ? 300 : 340,
+            height: embedded ? 400 : 420,
             onRetry: {
                 Task {
                     try? await app.attachmentDownloads.remove(attachment)

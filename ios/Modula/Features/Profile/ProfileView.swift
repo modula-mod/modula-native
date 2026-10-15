@@ -1276,6 +1276,27 @@ struct ProfileView: View {
             },
             style: .immersive
         )
+        .modifier(PostSwipeActions(
+            enabled: resolved.media.count <= 1,
+            saved: resolved.saved,
+            accent: app.appearance.accent.color,
+            onSave: {
+                Task {
+                    app.postActions.ingest(resolved)
+                    await app.postActions.toggleSave(resolved)
+                    app.home.syncVisibleEngagement()
+                }
+                app.navigation.flash(resolved.saved ? "Removed from Saved" : "Saved", symbol: resolved.saved ? "bookmark.slash" : "bookmark.fill")
+            },
+            onShare: {
+                PostSharing.share(resolved, app: app)
+            }
+        ))
+        .padding(.horizontal, -ModulaLayout.contentInset)
+        .padding(.leading, -leadingInteractionInset)
+        .padding(.trailing, -trailingInteractionInset)
+        .padding(.horizontal, ModulaLayout.postBleedGutter)
+        .modulaEdgeFlow()
         .accessibilityIdentifier("profile.post.\(resolved.id)")
     }
 

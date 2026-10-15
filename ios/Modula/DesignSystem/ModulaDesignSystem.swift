@@ -7,6 +7,10 @@ enum ModulaRadius { static let small = 10.0; static let medium = 16.0; static le
 enum ModulaLayout {
     static let minimumTouch = 44.0
     static let contentInset = 18.0
+    /// Near-edge gutter for full-width Home/Profile posts (Edge Picker still carves the trailing edge).
+    static let postBleedGutter = 4.0
+    /// Home top-chrome wordmark. Fits an inline nav bar without hitting hamburger / + / chat.
+    static let homeWordmarkHeight = 28.0
     static let railRestingWidth = 46.0
     static let railRevealedWidth = 96.0
 }

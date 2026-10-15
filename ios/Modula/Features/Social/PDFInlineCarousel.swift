@@ -58,6 +58,17 @@ enum PDFCarouselMath {
     static func cacheKey(url: URL, page: Int, quality: PDFPageQuality, pixelWidth: CGFloat) -> String {
         "\(url.standardizedFileURL.path)#\(page)@\(quality.rawValue):\(Int(pixelWidth))"
     }
+
+    /// Trailing/leading peek so the next (and previous) page is actually visible.
+    /// `containerRelativeFrame(.horizontal)` ignores contentMargins, so pages must be
+    /// narrower than the carousel or the side-page strip never paints.
+    static let sidePeek: CGFloat = 44
+    static let pageSpacing: CGFloat = 10
+
+    static func pageWidth(containerWidth: CGFloat, peek: CGFloat = sidePeek) -> CGFloat {
+        let available = containerWidth - (peek * 2)
+        return min(max(available, min(containerWidth, 220)), containerWidth)
+    }
 }
 
 /// Cost-bounded bitmap cache (thread-safe; NSCache also drops on memory warnings).
@@ -147,7 +158,7 @@ struct ModulaPDFInlineCarousel: View {
     /// Local file once downloaded; nil while loading.
     let fileURL: URL?
     var failed = false
-    var height: CGFloat = 340
+    var height: CGFloat = 420
     var onRetry: () -> Void = {}
     /// Bumped by the host when the reader closes so "Continue reading" refreshes.
     var readingVersion = 0
@@ -193,89 +204,74 @@ struct ModulaPDFInlineCarousel: View {
     }
 
     private var carousel: some View {
-        ScrollView(.horizontal) {
-            LazyHStack(spacing: 10) {
-                cover
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .containerRelativeFrame(.horizontal)
-                    .id(0)
-                if let fileURL {
-                    ForEach(0..<pageCount, id: \.self) { index in
-                        PDFInlinePageView(url: fileURL, page: index)
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                            .containerRelativeFrame(.horizontal)
-                            .scrollTransition(.interactive, axis: .horizontal) { content, phase in
-                                content
-                                    .scaleEffect(reduceMotion || phase.isIdentity ? 1 : 0.94)
-                                    .offset(x: reduceMotion ? 0 : phase.value * -18)
-                                    .opacity(phase.isIdentity ? 1 : 0.75)
-                            }
-                            .contentShape(Rectangle())
-                            .onTapGesture { onOpen(index) }
-                            .accessibilityElement(children: .ignore)
-                            .accessibilityLabel("Page \(index + 1) of \(pageCount)")
-                            .accessibilityAddTraits(.isButton)
-                            .accessibilityHint("Opens the full-screen reader")
-                            .accessibilityIdentifier("pdf.inline.page.\(index + 1)")
-                            .id(index + 1)
+        GeometryReader { proxy in
+            let pageWidth = PDFCarouselMath.pageWidth(containerWidth: proxy.size.width)
+            ScrollView(.horizontal) {
+                LazyHStack(spacing: PDFCarouselMath.pageSpacing) {
+                    cover
+                        .frame(width: pageWidth)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .id(0)
+                    if let fileURL {
+                        ForEach(0..<pageCount, id: \.self) { index in
+                            PDFInlinePageView(url: fileURL, page: index)
+                                .frame(width: pageWidth)
+                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .scrollTransition(.interactive, axis: .horizontal) { content, phase in
+                                    content
+                                        .scaleEffect(reduceMotion || phase.isIdentity ? 1 : 0.92)
+                                        .rotation3DEffect(
+                                            .degrees(reduceMotion ? 0 : phase.value * 8),
+                                            axis: (x: 0, y: 1, z: 0),
+                                            perspective: 0.7
+                                        )
+                                        .offset(x: reduceMotion ? 0 : phase.value * -14)
+                                        .opacity(phase.isIdentity ? 1 : 0.82)
+                                }
+                                .contentShape(Rectangle())
+                                .onTapGesture { onOpen(index) }
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel("Page \(index + 1) of \(pageCount)")
+                                .accessibilityAddTraits(.isButton)
+                                .accessibilityHint("Opens the full-screen reader")
+                                .accessibilityIdentifier("pdf.inline.page.\(index + 1)")
+                                .id(index + 1)
+                        }
                     }
                 }
+                .scrollTargetLayout()
             }
-            .scrollTargetLayout()
+            .scrollTargetBehavior(.viewAligned)
+            .scrollPosition(id: $slide)
+            .scrollIndicators(.hidden)
+            .sensoryFeedback(.selection, trigger: currentSlide)
+            .accessibilityIdentifier("pdf.inline.carousel")
         }
-        // Page peek: the next page shows at the trailing edge.
-        .contentMargins(.horizontal, 18, for: .scrollContent)
-        .scrollTargetBehavior(.viewAligned)
-        .scrollPosition(id: $slide)
-        .scrollIndicators(.hidden)
-        .sensoryFeedback(.selection, trigger: currentSlide)
-        .accessibilityIdentifier("pdf.inline.carousel")
     }
 
     // MARK: Cover
 
     private var cover: some View {
-        ZStack {
+        ZStack(alignment: .bottom) {
             if let coverImage {
                 Image(uiImage: coverImage).resizable().scaledToFill()
-                    .blur(radius: 22).opacity(0.6)
+                    .blur(radius: 28).opacity(0.55)
                     .clipped()
                     .accessibilityHidden(true)
             }
-            LinearGradient(colors: [accent.opacity(0.32), .black.opacity(0.42)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                .accessibilityHidden(true)
-            HStack(spacing: ModulaSpacing.md) {
+            LinearGradient(
+                colors: [accent.opacity(0.28), .black.opacity(0.18), .black.opacity(0.55)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .accessibilityHidden(true)
+            VStack(spacing: 10) {
+                Spacer(minLength: 40)
                 coverThumb
-                VStack(alignment: .leading, spacing: 6) {
-                    Label(docKind.rawValue, systemImage: docKind.symbol)
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.white.opacity(0.9))
-                    Text(attachment.displayName)
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                        .lineLimit(3)
-                    Text(coverDetail)
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.8))
-                    if failed {
-                        Button("Retry", systemImage: "arrow.clockwise", action: onRetry)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 12).padding(.vertical, 6)
-                            .modulaGlass(in: Capsule())
-                    } else if fileURL == nil {
-                        ProgressView().controlSize(.small).tint(.white)
-                    } else if pageCount > 0 {
-                        Label("Swipe to read", systemImage: "hand.draw")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 10).padding(.vertical, 5)
-                            .modulaGlass(in: Capsule(), interactive: false)
-                    }
-                }
-                Spacer(minLength: 0)
+                coverMeta
             }
-            .padding(ModulaSpacing.lg)
+            .padding(.horizontal, 18)
+            .padding(.bottom, 16)
         }
         .clipped()
         .contentShape(Rectangle())
@@ -289,22 +285,46 @@ struct ModulaPDFInlineCarousel: View {
             if let coverImage {
                 Image(uiImage: coverImage).resizable().scaledToFit()
             } else {
-                Color.white.opacity(0.85).overlay { Image(systemName: "doc.text").font(.title).foregroundStyle(.secondary) }
+                Color.white.opacity(0.9)
+                    .overlay { Image(systemName: "doc.richtext.fill").font(.largeTitle).foregroundStyle(.secondary) }
                     .aspectRatio(0.72, contentMode: .fit)
             }
         }
-        .frame(maxWidth: 120, maxHeight: height - 90)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        // Cover glow.
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(accent.opacity(0.8))
-                .blur(radius: 22)
-                .scaleEffect(1.1)
-                .opacity(coverImage == nil ? 0 : 0.85)
-        }
-        .shadow(color: .black.opacity(0.3), radius: 10, y: 6)
+        .frame(maxWidth: .infinity, maxHeight: height - 148)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .shadow(color: .black.opacity(0.38), radius: 18, y: 8)
         .accessibilityHidden(true)
+    }
+
+    private var coverMeta: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Label(docKind.rawValue, systemImage: docKind.symbol)
+                    .font(.caption.weight(.bold))
+                Spacer(minLength: 0)
+                if failed {
+                    Button("Retry", systemImage: "arrow.clockwise", action: onRetry)
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .modulaGlass(in: Capsule())
+                } else if fileURL == nil {
+                    ProgressView().controlSize(.small).tint(.white)
+                } else {
+                    Label("Swipe to read", systemImage: "hand.draw")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .modulaGlass(in: Capsule(), interactive: false)
+                }
+            }
+            Text(attachment.displayName)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(2)
+            Text(coverDetail)
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.82))
+        }
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var coverDetail: String {
@@ -467,8 +487,8 @@ struct PDFInlinePageView: View {
                         .scaledToFit()
                         .background(Color.white)
                         .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
-                        .padding(.vertical, 46)
-                        .padding(.horizontal, ModulaSpacing.sm)
+                        .padding(.vertical, 28)
+                        .padding(.horizontal, 6)
                         .transition(.opacity)
                 } else {
                     ProgressView().controlSize(.small)

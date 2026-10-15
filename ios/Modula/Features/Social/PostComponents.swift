@@ -67,42 +67,46 @@ struct PostCard: View {
         let usesRail = showsActionRail && layout.prefersActionRail && !dynamicTypeSize.isAccessibilitySize
             && ModulaPostLayoutPolicy.canOverlayActionRail(aspectRatio: ratio)
         VStack(alignment: .leading, spacing: 10 * app.appearance.density.spacingScale) {
-            PostHeader(
-                post: post,
-                showsCompactAuthor: showsCompactAuthor,
-                onOpenAuthor: onOpenAuthor,
-                onMore: onMore,
-                menuActions: onContextAction == nil ? [] : menuActions(for: post),
-                onSelectAction: onContextAction,
-                makeMenuRequest: { menuRequest(for: post, anchor: $0) }
-            )
+            ZStack(alignment: .trailing) {
+                VStack(alignment: .leading, spacing: 10 * app.appearance.density.spacingScale) {
+                    PostHeader(
+                        post: post,
+                        showsCompactAuthor: showsCompactAuthor,
+                        onOpenAuthor: onOpenAuthor,
+                        onMore: onMore,
+                        menuActions: onContextAction == nil ? [] : menuActions(for: post),
+                        onSelectAction: onContextAction,
+                        makeMenuRequest: { menuRequest(for: post, anchor: $0) }
+                    )
 
-            if !post.hasMedia { postBody(post) }
+                    if !post.hasMedia { postBody(post) }
 
-            PostCanonicalContent(
-                source: post,
-                videoCoordinator: videoCoordinator,
-                onOpenAttachment: { attachment in
-                    if let media = post.media.first(where: { $0.id == attachment.id }) {
-                        onOpenMedia?(media)
+                    PostCanonicalContent(
+                        source: post,
+                        videoCoordinator: videoCoordinator,
+                        onOpenAttachment: { attachment in
+                            if let media = post.media.first(where: { $0.id == attachment.id }) {
+                                onOpenMedia?(media)
+                            }
+                        },
+                        onOpenModule: onOpenModule
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                    // Settings → Gestures → "Double-tap to like". Simultaneous so single taps
+                    // (video play/pause, open media) are never delayed.
+                    .simultaneousGesture(TapGesture(count: 2).onEnded {
+                        guard ModulaPreferences.doubleTapToLike, post.hasMedia else { return }
+                        if !post.liked { onLike() }
+                        HapticEngine.shared.play(.lightImpact)
+                        heartBurst += 1
+                    })
+                    .overlay {
+                        DoubleTapHeartBurst(trigger: heartBurst)
                     }
-                },
-                onOpenModule: onOpenModule
-            )
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-            // Settings → Gestures → "Double-tap to like". Simultaneous so single taps
-            // (video play/pause, open media) are never delayed.
-            .simultaneousGesture(TapGesture(count: 2).onEnded {
-                guard ModulaPreferences.doubleTapToLike, post.hasMedia else { return }
-                if !post.liked { onLike() }
-                HapticEngine.shared.play(.lightImpact)
-                heartBurst += 1
-            })
-            .overlay {
-                DoubleTapHeartBurst(trigger: heartBurst)
-            }
-            .overlay(alignment: .trailing) {
+                }
+                .postMenuLongPress { menuRequest(for: post, anchor: $0) }
+
                 if usesRail {
                     PostActionRail(
                         post: post,
@@ -151,8 +155,7 @@ struct PostCard: View {
                 }
             }
         }
-        // Long-press: Liquid Glass menu grows out of the touch point (replaces the system context menu).
-        .postMenuLongPress { menuRequest(for: post, anchor: $0) }
+        // Preview/options live on post chrome; the like control owns reaction long-press.
         // Links in this post open in the Modula browser; the post itself becomes its drawer.
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frameBox.frame = $0 }
         .environment(\.modulaLinkSource, linkSource(for: post))
@@ -569,18 +572,16 @@ struct PostActions: View {
             filled: post.liked || post.viewerReaction != nil,
             action: onLike
         )
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: PostGestureThresholds.longPressDuration)
-                .onEnded { _ in
-                    HapticEngine.shared.play(.contextOpen)
-                    if let onReactLongPress {
-                        onReactLongPress()
-                    } else {
-                        showsReactionPicker = true
-                    }
-                }
-        )
+        .exclusiveReactionLongPress {
+            HapticEngine.shared.play(.contextOpen)
+            if let onReactLongPress {
+                onReactLongPress()
+            } else {
+                showsReactionPicker = true
+            }
+        }
         .accessibilityIdentifier("home.action.like.\(post.id)")
+        .accessibilityHint("Tap to like. Touch and hold for more reactions.")
         .accessibilityAction(named: Text("React")) {
             showsReactionPicker = true
             HapticEngine.shared.play(.contextOpen)

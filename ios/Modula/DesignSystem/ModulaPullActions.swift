@@ -35,6 +35,27 @@ enum ModulaPullDestination: String, CaseIterable, Equatable, Sendable {
     }
 }
 
+/// Live pull chrome so feed content can frost instead of leaving a dead void.
+private struct ModulaPullProgressKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 0
+}
+
+private struct ModulaPullDistanceKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 0
+}
+
+extension EnvironmentValues {
+    var modulaPullProgress: CGFloat {
+        get { self[ModulaPullProgressKey.self] }
+        set { self[ModulaPullProgressKey.self] = newValue }
+    }
+
+    var modulaPullDistance: CGFloat {
+        get { self[ModulaPullDistanceKey.self] }
+        set { self[ModulaPullDistanceKey.self] = newValue }
+    }
+}
+
 struct ModulaPullActionsChooser: View {
     var destination: ModulaPullDestination
     var refreshing: Bool
@@ -76,7 +97,8 @@ struct ModulaPullActionsChooser: View {
         .opacity(0.18 + (0.82 * settle))
         .scaleEffect(reduceMotion ? 1 : 0.90 + (0.10 * settle), anchor: .top)
         .padding(.horizontal, 20)
-        .offset(y: liftsAboveContent ? (-40 + (reduceMotion ? 0 : (1 - settle) * 14)) : 8)
+        // Sit on the frosted feed, just under the nav — never floating in a black hole.
+        .offset(y: liftsAboveContent ? 16 : 12)
         .allowsHitTesting(false)
         .accessibilityIdentifier("pull.actions")
         .accessibilityLabel(destination.title)
@@ -142,6 +164,10 @@ struct ModulaPullActionsModifier: ViewModifier {
     @State private var refreshing = false
     @State private var atTop = true
     @State private var interacting = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(AppEnvironment.self) private var app
 
     private let revealDistance: CGFloat = 48
     private let armDistance: CGFloat = 108
@@ -155,6 +181,8 @@ struct ModulaPullActionsModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            .environment(\.modulaPullProgress, progress)
+            .environment(\.modulaPullDistance, pull)
             .onScrollGeometryChange(for: PullMetrics.self) { geometry in
                 let overscroll = -(geometry.contentOffset.y + geometry.contentInsets.top)
                 return PullMetrics(
@@ -185,6 +213,7 @@ struct ModulaPullActionsModifier: ViewModifier {
             }
             .simultaneousGesture(directionGesture)
             .scrollClipDisabled()
+            .overlay { frostOverlay }
             .overlay(alignment: .top) {
                 if pull >= revealDistance || refreshing {
                     ModulaPullActionsChooser(
@@ -193,6 +222,7 @@ struct ModulaPullActionsModifier: ViewModifier {
                         progress: refreshing ? 1 : min(max((pull - revealDistance) / max(armDistance - revealDistance, 1), 0), 1),
                         liftsAboveContent: liftsAboveContent
                     )
+                    .padding(.top, 6)
                 }
             }
             .accessibilityAction(named: "Refresh") {
@@ -201,6 +231,29 @@ struct ModulaPullActionsModifier: ViewModifier {
             .accessibilityAction(named: "Command Center") { onCommand() }
             .accessibilityAction(named: "Search") { onSearch() }
             .accessibilityAction(named: "AI Mode") { onAI() }
+    }
+
+    /// Frosts the live feed (and the rubber-band gap) so pull actions sit on glass, not a black void.
+    @ViewBuilder
+    private var frostOverlay: some View {
+        let visible = progress > 0.05 || refreshing
+        if visible {
+            let opaque = reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
+            ZStack {
+                if opaque {
+                    Color.primary.opacity(0.22 * progress)
+                        .blendMode(.overlay)
+                    Color.black.opacity((colorScheme == .dark ? 0.38 : 0.16) * progress)
+                } else {
+                    Rectangle()
+                        .fill(.ultraThinMaterial)
+                        .opacity(Double(min(0.28 + progress * 0.62, 0.9)))
+                    Color.black.opacity((colorScheme == .dark ? 0.2 : 0.06) * progress)
+                }
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
     }
 
     private var directionGesture: some Gesture {
@@ -326,6 +379,23 @@ extension View {
     }
 
     func modulaPullContentEffects() -> some View {
-        self
+        modifier(ModulaPullContentEffectsModifier())
+    }
+}
+
+/// Blurs and lifts the live feed into the overscroll so Command/Refresh/Search/AI sit on content, not a hole.
+private struct ModulaPullContentEffectsModifier: ViewModifier {
+    @Environment(\.modulaPullProgress) private var progress
+    @Environment(\.modulaPullDistance) private var pull
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    func body(content: Content) -> some View {
+        let t = min(max(progress, 0), 1)
+        content
+            .blur(radius: (reduceMotion || reduceTransparency) ? 0 : t * 14)
+            .opacity(1 - t * 0.06)
+            .scaleEffect(reduceMotion ? 1 : 1 - t * 0.02, anchor: .top)
+            .offset(y: reduceMotion ? 0 : -min(pull * 0.68, 88))
     }
 }

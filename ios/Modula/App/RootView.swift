@@ -332,6 +332,7 @@ private struct PresentationView: View {
         case .homeSummary: HomeSummarySheet()
         case .homeFeedTools: HomeFeedToolsSheet()
         case .homeFeeds: HomeFeedsSheet()
+        case .installedModules: InstalledModulesPanel()
         case .commandCenter: CommandCenterView(context: commandContext)
         case .intelligenceChat: IntelligenceChatView()
         case .createPicker: CreateActionPicker()

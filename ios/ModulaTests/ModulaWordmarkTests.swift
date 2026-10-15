@@ -38,6 +38,13 @@ final class ModulaWordmarkTests: XCTestCase {
         }
     }
 
+    func testHomeChromeWordmarkIsLargerThanInlineDefault() {
+        XCTAssertEqual(ModulaLayout.homeWordmarkHeight, 28)
+        XCTAssertGreaterThan(ModulaLayout.homeWordmarkHeight, 20)
+        XCTAssertLessThanOrEqual(ModulaLayout.homeWordmarkHeight, 32)
+        XCTAssertLessThan(ModulaLayout.homeWordmarkHeight * ModulaWordmark.aspect, 130)
+    }
+
     func testNoTypesetBrandNameLeftInBrandSpots() throws {
         // Guard: the brand spots use the asset view. (Source check keeps future edits honest.)
         XCTAssertNotNil(UIImage(named: "MoliboosLogo"), "Moliboos wordmark untouched")
