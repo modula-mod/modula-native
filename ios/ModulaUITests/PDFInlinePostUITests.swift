@@ -12,7 +12,7 @@ final class PDFInlinePostUITests: XCTestCase {
 
     func testSwipeThroughPagesAndOpenReader() {
         let app = XCUIApplication()
-        app.launchArguments = ["--uitest-skip-first-run", "--debug-pdf-lab", "-modula.pdf.reading.lab-pdf-1", ""]
+        app.launchArguments = ["--uitest-skip-first-run", "--debug-pdf-lab"]
         app.launch()
 
         let cover = app.descendants(matching: .any)["pdf.inline.cover"].firstMatch

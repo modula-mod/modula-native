@@ -64,6 +64,11 @@ struct PDFInlineLabView: View {
         ("Q3 roadmap, short version.", PDFInlineLab.attachment(id: "lab-pdf-2", name: "Roadmap Q3.pdf", pages: 5))
     ]
 
+    init() {
+        // Each lab launch starts with no saved reading position.
+        ["lab-pdf-1", "lab-pdf-2"].forEach { PDFReadingStore.shared.reset($0) }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
