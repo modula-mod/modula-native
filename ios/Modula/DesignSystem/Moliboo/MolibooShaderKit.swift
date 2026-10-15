@@ -117,7 +117,7 @@ struct MolibooPackReveal<Wrapper: View, Content: View>: View {
 }
 
 /// Animatable pack-tear dissolve (Metal layer effect); drive `progress` 0→1 inside withAnimation.
-struct MolibooDissolve: ViewModifier, Animatable {
+struct MolibooDissolve: ViewModifier, @MainActor Animatable {
     var progress: Double
     var animatableData: Double { get { progress } set { progress = newValue } }
     func body(content: Content) -> some View {
