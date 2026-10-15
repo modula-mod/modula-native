@@ -112,12 +112,17 @@ struct HomeView: View {
         .modulaCanvas()
         .modulaSoftScrollEdge()
         .navigationTitle("Modula")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .modulaSidebarTrigger()
         .toolbar {
             if storyTrayFolded, showsStoryTray, !foldedStoryGroups.isEmpty {
                 ToolbarItem(placement: .principal) {
                     foldedStoryTray
+                }
+            } else {
+                ToolbarItem(placement: .principal) {
+                    ModulaWordmark(height: 20)
+                        .accessibilityAddTraits(.isHeader)
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
