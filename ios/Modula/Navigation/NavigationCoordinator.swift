@@ -28,13 +28,14 @@ final class NavigationCoordinator {
     }
 
     /// Short visible + VoiceOver confirmation (e.g. "Link copied").
-    /// Uses the shell banner slot so features never build ad-hoc toasts.
+    /// Uses the shell island-banner slot so features never build ad-hoc toasts.
     func flash(_ message: String, symbol: String = "checkmark.circle") {
         let next = ModulaBanner(message: message, symbol: symbol)
         banner = next
         AccessibilityNotification.Announcement(message).post()
         Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(2))
+            // Visible hold after morph-in; host collapses back into the island seed.
+            try? await Task.sleep(for: .milliseconds(2_150))
             if self?.banner?.id == next.id { self?.banner = nil }
         }
     }

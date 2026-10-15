@@ -48,8 +48,10 @@ struct RootView: View {
         .sheet(item: $navigation.presented) { presentation in
             ModulaSheet { PresentationView(presentation: presentation) }
         }
-        .overlay(alignment: .top) {
-            if let banner = navigation.banner { Label(banner.message, systemImage: banner.symbol).padding(12).background(.regularMaterial, in: Capsule()).padding(.top, 8) }
+        .overlay {
+            // Morphs from Dynamic Island (or notch/status fallback). Shared by every `flash`.
+            ModulaIslandBannerHost(banner: navigation.banner)
+                .ignoresSafeArea(edges: .top)
         }
         .overlay(alignment: .top) {
             if debugOverlays { ModulaDebugOverlay(route: navigation.currentRoute) }
