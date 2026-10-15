@@ -245,10 +245,17 @@ struct MolibooTradingCardView: View {
 
     private static let base = CGSize(width: 240, height: 336)
     private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 22, style: .continuous) }
+    private var foilStrength: Double {
+        switch card.rarity { case .common: 0.12; case .rare: 0.3; case .epic: 0.45; case .legendary: 0.6 }
+    }
 
     var body: some View {
         ZStack {
-            if faceDown { back } else { front }
+            if faceDown { back } else {
+                // Metal holo foil scaled by rarity; Legendary adds a shimmer sweep. Still frame when not animating.
+                front.molibooHoloFoil(foilStrength, animated: animating)
+                    .modifier(MolibooLegendaryShimmer(on: card.rarity == .legendary, animated: animating))
+            }
         }
         .frame(width: Self.base.width, height: Self.base.height)
         .scaleEffect(width / Self.base.width)
@@ -387,6 +394,7 @@ struct MolibooCardBinderView: View {
     @State private var pack: [MolibooCard]?
     @State private var inspecting: MolibooCard?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var cardNS
     private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
 
     var body: some View {
@@ -410,7 +418,10 @@ struct MolibooCardBinderView: View {
         .fullScreenCover(item: Binding(get: { pack.map(MolibooPackBox.init) }, set: { pack = $0?.cards })) { box in
             MolibooPackOpeningView(cards: box.cards) { pack = nil }
         }
-        .sheet(item: $inspecting) { MolibooCardInspectView(card: $0).presentationBackground(.ultraThinMaterial) }
+        .sheet(item: $inspecting) { c in
+            MolibooCardInspectView(card: c).presentationBackground(.ultraThinMaterial)
+                .navigationTransition(.zoom(sourceID: c.id, in: cardNS))   // card zooms out of its binder slot
+        }
     }
 
     private var header: some View {
@@ -444,6 +455,7 @@ struct MolibooCardBinderView: View {
                     }
             }
             .buttonStyle(MolibooSpringPress(enabled: !reduceMotion))
+            .matchedTransitionSource(id: c.id, in: cardNS) { $0.clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous)) }
             .accessibilityIdentifier("cards.slot.\(c.characterID)")
         } else {
             RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(.white.opacity(0.25), style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
@@ -514,7 +526,7 @@ struct MolibooPackOpeningView: View {
             RadialGradient(colors: [Color(red: 0.18, green: 0.22, blue: 0.42), Color(red: 0.03, green: 0.03, blue: 0.10)], center: .center, startRadius: 10, endRadius: 520)
                 .ignoresSafeArea()
             MolibooSparkleField(count: 40, color: .white, animating: motionOn).ignoresSafeArea().opacity(0.6)
-            if phase == .sealed || phase == .tearing { packView }
+            if phase == .sealed || phase == .tearing { packView.modifier(MolibooDissolve(progress: phase == .tearing ? 1 : 0)) }
             if phase == .fanned || phase == .legendary || phase == .done { fan }
             if phase == .legendary, let c = legendaryCard { MolibooLegendaryReveal(card: c, animating: motionOn) { continueAfterLegendary() } }
             Circle().fill(.white).frame(width: 40).scaleEffect(flash ? 30 : 0.01).opacity(flash ? 0 : 0.9).allowsHitTesting(false)
@@ -726,5 +738,12 @@ struct MolibooLegendaryReveal: View {
             HapticEngine.shared.play(.selection)
             withAnimation(animating ? .spring(response: 0.7, dampingFraction: 0.55) : nil) { crown = true }
         }
+    }
+}
+
+private struct MolibooLegendaryShimmer: ViewModifier {
+    let on: Bool; let animated: Bool
+    func body(content: Content) -> some View {
+        if on { content.molibooShimmer(0.7, animated: animated) } else { content }
     }
 }

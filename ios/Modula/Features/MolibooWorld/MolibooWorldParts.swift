@@ -133,6 +133,17 @@ struct MolibooStageCharacter: View {
             .keyframeAnimator(initialValue: 0.0, trigger: stage.bounceToken) { v, y in v.offset(y: y) } keyframes: { _ in
                 SpringKeyframe(-30, duration: 0.18, spring: .snappy); SpringKeyframe(0, duration: 0.45, spring: .bouncy)
             }
+            // Squash before take-off, stretch in the air, squash on landing (cartoon squash-and-stretch).
+            .keyframeAnimator(initialValue: CGSize(width: 1, height: 1), trigger: stage.bounceToken) { v, k in
+                v.scaleEffect(x: k.width, y: k.height, anchor: .bottom)
+            } keyframes: { _ in
+                CubicKeyframe(CGSize(width: 1.10, height: 0.86), duration: 0.08)
+                CubicKeyframe(CGSize(width: 0.92, height: 1.10), duration: 0.14)
+                CubicKeyframe(CGSize(width: 1.0, height: 1.0), duration: 0.16)
+                CubicKeyframe(CGSize(width: 1.08, height: 0.92), duration: 0.08)
+                SpringKeyframe(CGSize(width: 1, height: 1), duration: 0.3, spring: .bouncy)
+            }
+            .overlay { MolibooTapBurst(token: stage.bounceToken, live: live) }
             .opacity(emotion == .sleepy ? 0.88 : 1)
             .saturation(emotion == .tired ? 0.7 : 1)
             if emotion == .sleepy {
@@ -177,6 +188,7 @@ struct MolibooStageCharacter: View {
                 .shadow(color: .black.opacity(0.35), radius: 10, y: 8)
             Ellipse().fill(LinearGradient(colors: [Color(red: 0.50, green: 0.74, blue: 0.36), Color(red: 0.28, green: 0.52, blue: 0.24)], startPoint: .top, endPoint: .bottom))
                 .frame(width: 200, height: 44)
+                .molibooCaustics(animated: live)   // moving light caustics across the moss
             // Luminous rim light around the moss top and a soft halo under the character.
             Ellipse().stroke(LinearGradient(colors: [Color(red: 0.75, green: 1, blue: 0.85).opacity(0.9), Color(red: 0.4, green: 0.9, blue: 0.8).opacity(0.2)], startPoint: .top, endPoint: .bottom), lineWidth: 2.5)
                 .frame(width: 202, height: 46).blur(radius: 1.2)
@@ -306,5 +318,29 @@ struct BubbleShape: Shape {
         p.addLine(to: CGPoint(x: r.minX + r.width * 0.38, y: r.maxY - 8))
         p.closeSubpath()
         return p
+    }
+}
+
+/// Reaction particles: a ring of sparkles that bursts out of the character on each tap (no-op when not live).
+struct MolibooTapBurst: View {
+    let token: Int
+    let live: Bool
+    var body: some View {
+        ZStack {
+            ForEach(0..<8, id: \.self) { i in
+                Image(systemName: i % 2 == 0 ? "sparkle" : "heart.fill")
+                    .font(.system(size: i % 2 == 0 ? 14 : 10, weight: .bold))
+                    .foregroundStyle(i % 2 == 0 ? Color.yellow : Color.pink)
+                    .keyframeAnimator(initialValue: 0.0, trigger: token) { v, p in
+                        let a = Double(i) / 8 * 2 * .pi
+                        return v.offset(x: cos(a) * 110 * p, y: sin(a) * 90 * p - 30)
+                            .opacity(live && p > 0.01 && p < 0.99 ? 1 - p * 0.8 : 0)
+                            .scaleEffect(0.6 + p * 0.6)
+                    } keyframes: { _ in
+                        CubicKeyframe(0.0, duration: 0.01); CubicKeyframe(1.0, duration: 0.6)
+                    }
+            }
+        }
+        .allowsHitTesting(false).accessibilityHidden(true)
     }
 }
