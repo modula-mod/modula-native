@@ -1,29 +1,54 @@
 import SwiftUI
 
+// MARK: - Tool dock
+
 struct CreationToolDock<PhotoPicker: View, VideoPicker: View>: View {
     var kind: CreationKind
     var capabilities: CreationCapabilities
     var developerMode: Bool
+    var accent: Color
     @ViewBuilder var photoPicker: () -> PhotoPicker
     @ViewBuilder var videoPicker: () -> VideoPicker
     var onTool: (CreationTool) -> Void
 
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         // Settings → Keyboard → "Swipe between composer tools": the dock scrolls
         // sideways (paging by tool) instead of squeezing every tool into one row.
-        if ModulaPreferences.composerToolSwipe {
-            ScrollView(.horizontal, showsIndicators: false) {
-                dock.scrollTargetLayout()
+        Group {
+            if ModulaPreferences.composerToolSwipe {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    dock.scrollTargetLayout()
+                }
+                .scrollTargetBehavior(.viewAligned)
+            } else {
+                dock
             }
-            .scrollTargetBehavior(.viewAligned)
-            .background(.bar)
-        } else {
-            dock
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .overlay(alignment: .top) {
+                    LinearGradient(
+                        colors: [
+                            Color.primary.opacity(scheme == .dark ? 0.18 : 0.06),
+                            .clear
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 1)
+                }
+                .ignoresSafeArea(edges: .bottom)
         }
     }
 
     private var dock: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             ForEach(CreationTool.allCases) { tool in
                 if capabilities.toolVisible(tool, kind: kind, developerMode: developerMode) {
                     if tool == .photo && capabilities.toolEnabled(.photo) {
@@ -35,33 +60,77 @@ struct CreationToolDock<PhotoPicker: View, VideoPicker: View>: View {
                             .accessibilityLabel("Video")
                             .accessibilityIdentifier("compose.tool.video")
                     } else {
+                        let enabled = capabilities.toolEnabled(tool)
                         Button {
                             onTool(tool)
                         } label: {
-                            VStack(spacing: 4) {
-                                Image(systemName: tool.symbol)
-                                Text(tool.title)
-                                    .font(.caption2)
-                            }
-                            .frame(minWidth: 44, minHeight: 44)
-                            .opacity(capabilities.toolEnabled(tool) ? 1 : 0.4)
+                            CreationToolChipLabel(
+                                title: tool.title,
+                                symbol: tool.symbol,
+                                accent: accent,
+                                enabled: enabled || developerMode,
+                                emphasized: false
+                            )
                         }
-                        .disabled(!developerMode && !capabilities.toolEnabled(tool))
+                        .buttonStyle(.plain)
+                        .disabled(!developerMode && !enabled)
                         .accessibilityLabel(tool.title)
-                        .accessibilityHint(capabilities.toolEnabled(tool) ? "Adds \(tool.title.lowercased())" : "Unavailable")
+                        .accessibilityHint(enabled ? "Adds \(tool.title.lowercased())" : "Unavailable")
                         .accessibilityIdentifier("compose.tool.\(tool.rawValue)")
                     }
                 }
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(.bar)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: kind)
         .accessibilityElement(children: .contain)
         .accessibilitySortPriority(40)
     }
 }
+
+/// Shared chip for Photo / Camera / Video pickers and Link / Poll / More buttons.
+struct CreationToolChipLabel: View {
+    var title: String
+    var symbol: String
+    var accent: Color
+    var enabled: Bool
+    var emphasized: Bool = false
+
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        VStack(spacing: 5) {
+            Image(systemName: symbol)
+                .font(.system(size: 17, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(foreground)
+                .frame(width: 40, height: 40)
+                .modulaGlass(
+                    in: Circle(),
+                    interactive: enabled,
+                    tint: enabled ? accent.opacity(emphasized ? 0.55 : 0.28) : nil,
+                    prominent: emphasized && enabled,
+                    specular: enabled
+                )
+            Text(title)
+                .font(.caption2.weight(enabled ? .semibold : .regular))
+                .foregroundStyle(enabled ? Color.primary.opacity(0.78) : Color.secondary.opacity(0.55))
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+        }
+        .frame(minWidth: 52, minHeight: 64)
+        .opacity(enabled ? 1 : 0.72)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+    }
+
+    private var foreground: Color {
+        guard enabled else { return .secondary.opacity(scheme == .dark ? 0.55 : 0.45) }
+        return emphasized ? accent : accent.opacity(scheme == .dark ? 0.95 : 0.88)
+    }
+}
+
+// MARK: - Media grid
 
 struct MediaAttachmentGrid: View {
     var media: [CreationMedia]

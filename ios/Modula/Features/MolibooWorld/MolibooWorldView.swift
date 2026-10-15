@@ -398,39 +398,41 @@ struct MolibooWorldView: View {
             VStack(alignment: .leading, spacing: 8) {
                 ModulaGlassGroup(spacing: 8) {
                     HStack(spacing: 10) {
-                        Image(systemName: "sparkles").font(.headline).foregroundStyle(.white)
-                            .frame(width: 40, height: 40)
-                            .background(Circle().fill(LinearGradient(colors: [teal, .indigo.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing)))
-                            .shadow(color: teal.opacity(0.6), radius: 6)
+                        Image(systemName: "sparkles")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 38, height: 38)
+                            .background(
+                                Circle().fill(LinearGradient(colors: [teal, teal.opacity(0.72)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                            )
+                            .modulaGlass(in: Circle(), interactive: false, tint: teal.opacity(0.35), specular: true)
                         TextField("Chat with \(displayName)…", text: Binding(get: { chat.draft }, set: { chat.draft = $0; if chat.phase != .composing && !$0.isEmpty { chat.reset() } }))
+                            .font(.body)
                             .focused($composerFocused)
                             .submitLabel(.send)
                             .onSubmit { send() }
                             .accessibilityIdentifier("world.composer.field")
                         Button { chat.draft += emotion.emoji } label: {
-                            Image(systemName: "face.smiling").font(.headline).frame(width: 36, height: 36)
+                            Image(systemName: "face.smiling")
+                                .font(.body.weight(.medium))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 34, height: 34)
+                                .modulaGlass(in: Circle(), interactive: true, specular: true)
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("world.composer.attach").accessibilityLabel("Add \(displayName)'s mood emoji")
-                        Button { send() } label: {
-                            Group {
-                                if chat.phase == .submitting || chat.phase == .awaiting { ProgressView().tint(.white) }
-                                else { Image(systemName: "arrow.up").font(.headline.weight(.heavy)) }
-                            }
-                            .frame(width: 40, height: 40)
-                            .foregroundStyle(.white)
-                            .background((chat.canSend ? teal : Color.gray.opacity(0.55)).gradient, in: Circle())
-                            .shadow(color: chat.canSend ? teal.opacity(0.45) : .clear, radius: 6)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(!chat.canSend)
-                        .accessibilityIdentifier("world.composer.send").accessibilityLabel("Send")
+                        ModulaGlassSendButton(
+                            ready: chat.canSend,
+                            busy: chat.phase == .submitting || chat.phase == .awaiting,
+                            size: 40,
+                            tint: teal
+                        ) { send() }
+                        .accessibilityIdentifier("world.composer.send")
                     }
-                    .padding(6)
+                    .padding(7)
                     .foregroundStyle(period.isDark ? .white : .primary)
-                    .background(period.isDark ? Color.black.opacity(0.40) : Color.white.opacity(0.58), in: Capsule())
                     .modulaGlass(in: Capsule(), interactive: false, tint: glassTint, specular: true)
-                    .shadow(color: teal.opacity(period.isDark ? 0.22 : 0.10), radius: 14, y: 5)
+                    .shadow(color: teal.opacity(period.isDark ? 0.18 : 0.08), radius: 12, y: 4)
                 }
                 chatStatus(chat)
             }
