@@ -156,8 +156,8 @@ struct ProductUIHostView: View {
             existing: existing
         )
         switch prepared {
-        case .failure(let message):
-            runtime.lastError = message
+        case .failure(let error):
+            runtime.lastError = error.message
         case .success(let request):
             do {
                 let _: JSONValue = try await app.client.moduleRequest(

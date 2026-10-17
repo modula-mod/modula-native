@@ -77,7 +77,15 @@ final class ProductUIRuntime {
             let source = binding["source"]?.string ?? ""
             if source == "record.query" || source == "record.detail" {
                 recordBindings += 1
-                if recordSource == nil {
+                let type = binding["recordType"]?.string
+                    ?? (source == "record.query" ? session.manifest.collections?.first : nil)
+                    ?? id
+                let state = binding["query"]?["recordState"]?.string ?? "active"
+                let hasCached = recordSource != nil
+                    || serverRecords["\(type)|\(state)"] != nil
+                    || serverRecords["\(type)|active"] != nil
+                    || serverRecords["\(type)|deleted"] != nil
+                if !hasCached {
                     waitingForRecords = true
                     continue
                 }
@@ -85,7 +93,7 @@ final class ProductUIRuntime {
             if source == "record.query" {
                 let type = binding["recordType"]?.string ?? session.manifest.collections?.first ?? id
                 let state = binding["query"]?["recordState"]?.string ?? "active"
-                let items = Self.visibleRecords(loadRecords(type: type, state: state, query: query), binding: binding)
+                let items = ProductUIRecords.visibleRecords(loadRecords(type: type, state: state, query: query), binding: binding)
                 records[id] = items
                 if items.isEmpty { emptyRecordBindings += 1 }
             } else if source == "record.detail" {
@@ -369,12 +377,16 @@ struct ProductUIWriteRequest: Equatable, Sendable {
     var body: JSONValue
 }
 
+struct ProductUIWriteError: Error, Equatable, Sendable {
+    let message: String
+}
+
 enum ProductUIRecords {
     /// Turns a form mutation into the account-scoped records request. The host never invents a saved note.
-    static func prepare(moduleId: String, mutation: ProductUIMutation, action: JSONValue, fields: [JSONValue], existing: ProductUIRecord?) -> Result<ProductUIWriteRequest, String> {
+    static func prepare(moduleId: String, mutation: ProductUIMutation, action: JSONValue, fields: [JSONValue], existing: ProductUIRecord?) -> Result<ProductUIWriteRequest, ProductUIWriteError> {
         guard let modulePath = GreenfieldClient.modulePath(moduleId),
               mutation.recordType.range(of: "^[a-z][a-z0-9-]{0,63}$", options: .regularExpression) != nil else {
-            return .failure("This note could not be saved.")
+            return .failure(ProductUIWriteError(message: "This note could not be saved."))
         }
         let collection = mutation.recordType
         let base = "/v1/modules/\(modulePath)/records/\(collection)"
@@ -382,17 +394,21 @@ enum ProductUIRecords {
         switch mutation.family {
         case "record.create":
             let data = recordData(moduleId: moduleId, mutation: mutation, action: action, fields: fields, existing: nil, includeDefaults: true)
-            if let message = missingRequiredFields(data, fields: fields, creating: true) { return .failure(message) }
+            if let message = missingRequiredFields(data, fields: fields, creating: true) {
+                return .failure(ProductUIWriteError(message: message))
+            }
             return .success(ProductUIWriteRequest(method: "POST", path: base, body: .object([
                 "mutationId": .string(mutationId),
                 "data": .object(data),
             ])))
         case "record.update":
             guard let recordId = mutation.recordId, let revision = mutation.expectedRevision, revision >= 1 else {
-                return .failure("Open the note again, then save.")
+                return .failure(ProductUIWriteError(message: "Open the note again, then save."))
             }
             let data = recordData(moduleId: moduleId, mutation: mutation, action: action, fields: fields, existing: existing, includeDefaults: false)
-            if let message = missingRequiredFields(data, fields: fields, creating: false) { return .failure(message) }
+            if let message = missingRequiredFields(data, fields: fields, creating: false) {
+                return .failure(ProductUIWriteError(message: message))
+            }
             return .success(ProductUIWriteRequest(method: "PATCH", path: "\(base)/\(recordId)", body: .object([
                 "mutationId": .string(mutationId),
                 "expectedRevision": .number(Double(revision)),
@@ -400,7 +416,7 @@ enum ProductUIRecords {
             ])))
         case "record.delete", "record.restore", "record.purge":
             guard let recordId = mutation.recordId, let revision = mutation.expectedRevision, revision >= 1 else {
-                return .failure("Open the note again, then try.")
+                return .failure(ProductUIWriteError(message: "Open the note again, then try."))
             }
             let path = mutation.family == "record.restore" ? "\(base)/\(recordId)/restore"
                 : mutation.family == "record.purge" ? "\(base)/\(recordId)/permanent" : "\(base)/\(recordId)"
@@ -412,7 +428,7 @@ enum ProductUIRecords {
             if mutation.family == "record.purge" { body["confirm"] = .bool(true) }
             return .success(ProductUIWriteRequest(method: method, path: path, body: .object(body)))
         default:
-            return .failure("This action is not available on this host yet.")
+            return .failure(ProductUIWriteError(message: "This action is not available on this host yet."))
         }
     }
 
