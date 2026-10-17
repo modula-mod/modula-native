@@ -693,6 +693,20 @@ struct ModuleDetailV2View: View {
 
     private func open() {
         HapticEngine.shared.play(.confirmation)
+        Task { await openInstalledRelease() }
+    }
+
+    /// Opens the installed release. A newer installation must not fall through to an older
+    /// cached frontend when the verified file has not been cached yet.
+    private func openInstalledRelease() async {
+        let installed = app.catalogue.installations[moduleID]?.version
+        let account = app.runtime.accountID ?? app.auth.account?.accountId
+        let cached = app.moduleActivation.active(accountID: account, moduleId: moduleID)?.version
+        if let installed, cached != installed {
+            await app.catalogue.activateVerifiedFrontend(moduleID, accountID: account)
+        }
+        let ready = app.moduleActivation.active(accountID: account, moduleId: moduleID)?.version
+        guard installed == nil || ready == installed else { return }
         app.navigation.open(.module(moduleID, localPath: nil))
     }
 
