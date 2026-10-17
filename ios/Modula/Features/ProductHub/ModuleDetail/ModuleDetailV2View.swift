@@ -77,7 +77,7 @@ struct ModuleDetailV2View: View {
             }
         }
         .confirmationDialog(installTitle, isPresented: $confirmInstall, titleVisibility: .visible) {
-            Button("Install") { Task { await runInstall() } }
+            Button(isInstalled ? "Update" : "Install") { Task { await runInstall() } }
                 .accessibilityIdentifier("module.install.confirm")
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -119,7 +119,8 @@ struct ModuleDetailV2View: View {
             operation: app.catalogue.operations[moduleID],
             bundled: bundled,
             bundledVersion: manifest?.version,
-            signedIn: app.auth.account != nil
+            signedIn: app.auth.account != nil,
+            declarativeHost: product.betaClassification == "local-development"
         )
     }
 
@@ -590,13 +591,28 @@ struct ModuleDetailV2View: View {
 
     // MARK: Actions
 
-    private var installTitle: String { "Install \(product?.name ?? "module")?" }
+    private var installTitle: String {
+        let name = product?.name ?? "module"
+        return isInstalled ? "Update \(name)?" : "Install \(name)?"
+    }
+
+    private var isInstalled: Bool {
+        guard let product else { return false }
+        return presentation(product).installed
+    }
+
+    private var reviewedPermissions: [ModuleListing.Permission] {
+        let listed = listing?.permissions ?? []
+        if !listed.isEmpty { return listed }
+        return app.catalogue.requestedLocalPermissions(moduleID)
+    }
 
     private var installMessage: String {
-        let permissions = listing?.permissions ?? []
-        guard !permissions.isEmpty else { return "It will be added to your Modula account." }
-        let high = listing?.highRiskCount ?? 0
-        return "It will be added to your Modula account with \(permissions.count) permissions" + (high > 0 ? " (\(high) high risk)." : ".") + " You can review them under Permissions."
+        let permissions = reviewedPermissions
+        guard !permissions.isEmpty else { return "It will be added to your Modula account. No permissions are granted until they are listed here." }
+        let names = permissions.map(\.permission).joined(separator: ", ")
+        let high = permissions.filter { $0.risk.lowercased() == "high" }.count
+        return "It will be added to your Modula account with \(permissions.count) permissions" + (high > 0 ? " (\(high) high risk)" : "") + ": \(names)."
     }
 
     private func perform(_ action: ModulePrimaryAction) {
@@ -607,6 +623,10 @@ struct ModuleDetailV2View: View {
             if listing == nil { Task { await app.catalogue.loadListing(moduleID) } }
             confirmInstall = true
         case .update:
+            if product?.betaClassification == "local-development" {
+                confirmInstall = true
+                return
+            }
             Task {
                 // Updates go through the same registry preview + consent sheet as any switch.
                 if app.catalogue.versionLists[moduleID] == nil { await app.catalogue.loadVersions(moduleID) }
@@ -673,7 +693,7 @@ struct ModuleDetailV2View: View {
     }
 
     private func runInstall() async {
-        let granted = (listing?.permissions ?? []).map(\.permission)
+        let granted = reviewedPermissions.map(\.permission)
         if await app.catalogue.install(moduleID, permissions: granted) {
             HapticEngine.shared.play(.success)
             app.navigation.banner = ModulaBanner(message: "\(product?.name ?? "Module") installed", symbol: "checkmark.circle")
