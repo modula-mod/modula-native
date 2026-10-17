@@ -116,6 +116,12 @@ final class ModuleActivationController {
         activationLog.error("Module activation \(reason, privacy: .public) for \(moduleId, privacy: .public)")
     }
 
+    /// Removes a development package from this account's cache. Registry installations are not involved.
+    func removeLocalModule(accountID: String, moduleId: String) throws {
+        try store.removeModule(accountID: accountID, moduleId: moduleId)
+        lastRollbackReason = "local-uninstalled"
+    }
+
     func rollback(accountID: String, moduleId: String, reason: String) throws -> ModuleCachedRelease? {
         let restored = try store.rollbackToPreviousGood(accountID: accountID, moduleId: moduleId)
         recordAudit(accountID: accountID, moduleId: moduleId, reason: reason)

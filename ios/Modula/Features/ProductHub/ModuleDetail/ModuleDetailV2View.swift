@@ -490,6 +490,7 @@ struct ModuleDetailV2View: View {
 
     private var permissions: some View {
         let server = listing?.permissions ?? []
+        let declared = server.isEmpty ? app.catalogue.requestedLocalPermissions(moduleID) : server
         let host = ModuleHostPermissions.records(from: manifest)
         return VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
@@ -499,13 +500,13 @@ struct ModuleDetailV2View: View {
                     Text("\(listing.highRiskCount) high risk").font(.caption.weight(.semibold)).foregroundStyle(.red)
                 }
             }
-            if server.isEmpty && host.isEmpty {
+            if declared.isEmpty && host.isEmpty {
                 Text("This module declares no permissions.").foregroundStyle(.secondary)
             }
-            if !server.isEmpty {
+            if !declared.isEmpty {
                 ModulaCard {
                     VStack(alignment: .leading, spacing: 12) {
-                        ForEach(showAllPermissions ? server : Array(server.prefix(4))) { permission in
+                        ForEach(showAllPermissions ? declared : Array(declared.prefix(4))) { permission in
                             HStack(alignment: .top, spacing: 10) {
                                 Image(systemName: riskSymbol(permission.risk)).foregroundStyle(riskColor(permission.risk)).frame(width: 22)
                                 VStack(alignment: .leading, spacing: 2) {
@@ -515,8 +516,8 @@ struct ModuleDetailV2View: View {
                             }
                             .accessibilityElement(children: .combine)
                         }
-                        if server.count > 4 {
-                            Button(showAllPermissions ? "Show fewer" : "Show all \(server.count) permissions") {
+                        if declared.count > 4 {
+                            Button(showAllPermissions ? "Show fewer" : "Show all \(declared.count) permissions") {
                                 withAnimation { showAllPermissions.toggle() }
                             }
                             .font(.subheadline.weight(.semibold))

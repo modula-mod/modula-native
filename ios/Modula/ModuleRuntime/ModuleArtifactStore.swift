@@ -203,6 +203,13 @@ final class ModuleArtifactStore: @unchecked Sendable {
         return release(in: .active, accountID: accountID, moduleId: moduleId)
     }
 
+    /// Drops one account's cached releases for a module. Does not touch any other module or account.
+    func removeModule(accountID: String, moduleId: String) throws {
+        let directory = moduleRoot(accountID: accountID, moduleId: moduleId)
+        guard fileManager.fileExists(atPath: directory.path) else { return }
+        try fileManager.removeItem(at: directory)
+    }
+
     func purgeAccount(_ accountID: String) throws {
         let url = root.appendingPathComponent(safe(accountID), isDirectory: true)
         if fileManager.fileExists(atPath: url.path) { try fileManager.removeItem(at: url) }

@@ -270,3 +270,273 @@ final class EcosystemBasicLifecycleUITests: XCTestCase {
         try facts.write(to: dir.appendingPathComponent("signed-facts.json"), atomically: true, encoding: .utf8)
     }
 }
+
+/// Physical-device acceptance. Packages and the development public key are already in the
+/// app sandbox. This test does not skip authentication and does not inject a fixture session.
+final class EcosystemPhysicalDeviceUITests: XCTestCase {
+    private let moduleId = "digital.modula.basic-echo"
+
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Physical Basic Echo acceptance runs on the iPhone, not the simulator.")
+        #endif
+    }
+
+    @MainActor
+    func testInstallUpdateRollbackOnPhysicalDevice() throws {
+        let app = XCUIApplication()
+        app.launchArguments = []
+        addUIInterruptionMonitor(withDescription: "system") { alert in
+            for title in ["Allow", "OK", "Don’t Allow", "Don't Allow", "Not Now"] where alert.buttons[title].exists {
+                alert.buttons[title].tap()
+                return true
+            }
+            return false
+        }
+        app.launch()
+        try reachShell(app)
+        attach(app, name: "physical-home")
+        selectTab(app, "tab.modules")
+        XCTAssertTrue(app.descendants(matching: .any)["product-hub"].waitForExistence(timeout: 20))
+        if app.buttons["Product Hub menu"].waitForExistence(timeout: 4) {
+            app.buttons["Product Hub menu"].tap()
+            if app.buttons["product-hub.developer-studio"].waitForExistence(timeout: 4) {
+                app.buttons["product-hub.developer-studio"].tap()
+                if app.descendants(matching: .any)["developer.studio"].waitForExistence(timeout: 8) {
+                    attach(app, name: "physical-developer-studio")
+                    back(app)
+                }
+            }
+        }
+        selectTab(app, "tab.modules")
+        try openBasic(app)
+        let primary = app.buttons["module.primary"].firstMatch
+        XCTAssertTrue(primary.waitForExistence(timeout: 8))
+        let permissions = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "settings:register"))
+        for _ in 0..<6 where !permissions.firstMatch.exists { app.swipeUp() }
+        XCTAssertTrue(permissions.firstMatch.waitForExistence(timeout: 8), "Exact Basic Echo permissions were not shown")
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "settings:read")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "settings:write")).firstMatch.exists)
+        attach(app, name: "physical-basic-permissions")
+        if !primary.label.localizedCaseInsensitiveContains("open") {
+            try tap(primary, in: app)
+            try confirm(app)
+            XCTAssertTrue(wait(primary, label: "Open", timeout: 40), "Install did not finish: \(notice(app))")
+        }
+        try tap(primary, in: app)
+        XCTAssertTrue(app.staticTexts["Welcome to Basic Echo"].waitForExistence(timeout: 25))
+        XCTAssertFalse(app.staticTexts["Welcome to Basic Echo 0.1.1"].exists)
+        attach(app, name: "physical-basic-0-1-0")
+        print("R4_PHASE_A_READY")
+
+        XCTAssertTrue(waitForUpdate(app), "Release 0.1.1 was not offered")
+        try openBasic(app)
+        let update = app.buttons["module.primary"].firstMatch
+        XCTAssertTrue(update.label.localizedCaseInsensitiveContains("update"))
+        attach(app, name: "physical-basic-update-offered")
+        try tap(update, in: app)
+        XCTAssertTrue(app.staticTexts["0.1.0 → 0.1.1"].waitForExistence(timeout: 6))
+        XCTAssertTrue(app.staticTexts["Permissions are unchanged."].exists)
+        try confirm(app)
+        XCTAssertTrue(wait(update, label: "Open", timeout: 40), "Update did not finish: \(notice(app))")
+        try tap(update, in: app)
+        XCTAssertTrue(app.staticTexts["Welcome to Basic Echo 0.1.1"].waitForExistence(timeout: 25))
+        XCTAssertTrue(app.buttons["product-ui.button.echoAgain"].waitForExistence(timeout: 6))
+        attach(app, name: "physical-basic-0-1-1")
+        print("R4_PHASE_B_READY")
+
+        try openLab(app)
+        app.buttons["module.lifecycle.stage-bad-digest"].tap()
+        app.buttons["module.lifecycle.activate"].tap()
+        let audit = app.descendants(matching: .any)["module.lifecycle.audit"]
+        XCTAssertTrue(wait(audit, contains: "digest-rejected", timeout: 8), "Audit was \(audit.exists ? audit.label : "missing")")
+        XCTAssertTrue(app.descendants(matching: .any)["module.lifecycle.active-version"].label.contains("0.1.1"))
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.staticTexts["Welcome to Basic Echo 0.1.1"].waitForExistence(timeout: 8))
+        attach(app, name: "physical-rollback-digest")
+        print("R4_WAITING_FOR_HEALTH")
+
+        XCTAssertTrue(waitForUpdate(app), "Release 0.1.2 was not available for the health-failure rollback")
+        try openBasic(app)
+        if app.buttons["module.open"].waitForExistence(timeout: 4) {
+            app.buttons["module.open"].tap()
+        }
+        XCTAssertTrue(app.staticTexts["Welcome to Basic Echo 0.1.1"].waitForExistence(timeout: 20))
+        try openLab(app)
+        app.buttons["module.lifecycle.fail-health"].tap()
+        XCTAssertTrue(wait(audit, contains: "activation-health", timeout: 10), "Audit was \(audit.exists ? audit.label : "missing")")
+        XCTAssertTrue(app.descendants(matching: .any)["module.lifecycle.active-version"].label.contains("0.1.1"))
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.staticTexts["Welcome to Basic Echo 0.1.1"].waitForExistence(timeout: 8))
+        XCTAssertFalse(app.staticTexts["Welcome to Basic Echo 0.1.2"].exists)
+        attach(app, name: "physical-rollback-health")
+
+        app.terminate()
+        app.launch()
+        try reachShell(app)
+        try openBasic(app)
+        if app.buttons["module.primary"].firstMatch.label.localizedCaseInsensitiveContains("open") {
+            try tap(app.buttons["module.primary"].firstMatch, in: app)
+        } else if app.buttons["module.open"].exists {
+            app.buttons["module.open"].tap()
+        }
+        XCTAssertTrue(app.staticTexts["Welcome to Basic Echo 0.1.1"].waitForExistence(timeout: 25))
+        try openLab(app)
+        XCTAssertTrue(app.descendants(matching: .any)["module.lifecycle.audit"].label.contains("activation-health"))
+        XCTAssertTrue(app.descendants(matching: .any)["module.lifecycle.active-version"].label.contains("0.1.1"))
+        attach(app, name: "physical-rollback-relaunch")
+        print("R4_PHYSICAL_DONE")
+    }
+
+    @MainActor
+    private func reachShell(_ app: XCUIApplication) throws {
+        let homeTab = app.buttons["tab.home"]
+        let homeLabel = app.buttons["Home"]
+        let home = app.descendants(matching: .any)["native.home"]
+        let login = app.descendants(matching: .any)["auth.login"]
+        let deadline = Date().addingTimeInterval(70)
+        while Date() < deadline, !homeTab.exists, !homeLabel.exists, !home.exists, !login.exists {
+            app.activate()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        if !homeTab.exists && !homeLabel.exists && !home.exists && !login.exists {
+            let labels = app.buttons.allElementsBoundByIndex.prefix(15).map(\.label).joined(separator: " | ")
+            XCTFail("The shell did not leave the boot screen. Buttons: \(labels)")
+        }
+        if app.buttons["Done"].exists { app.buttons["Done"].tap() }
+        if app.descendants(matching: .any)["developer.studio"].exists { app.swipeDown() }
+        if login.exists { try signIn(app) }
+        app.open(URL(string: "modula://home")!)
+        if homeTab.exists { homeTab.tap() }
+        else if homeLabel.exists { homeLabel.tap() }
+        let following = app.staticTexts["Following"]
+        let stories = app.staticTexts["Stories"]
+        let homeVisible = home.waitForExistence(timeout: 8) || following.waitForExistence(timeout: 3) || stories.waitForExistence(timeout: 2)
+        if homeVisible {
+            print("R4_HOME_READY")
+        } else {
+            print("R4_HOME_PARTIAL")
+            XCTAssertTrue(homeTab.exists || app.buttons["tab.modules"].exists || app.buttons["Modules"].exists, "No shell navigation after launch")
+        }
+        if app.descendants(matching: .any)["account.ready"].exists {
+            print("R4_ACCOUNT \(app.descendants(matching: .any)["account.ready"].label)")
+        }
+    }
+
+    @MainActor
+    private func signIn(_ app: XCUIApplication) throws {
+        let env = ProcessInfo.processInfo.environment
+        let email = env["MODULA_QA_EMAIL"] ?? env["TEST_RUNNER_MODULA_QA_EMAIL"] ?? ""
+        let password = env["MODULA_QA_PASSWORD"] ?? env["TEST_RUNNER_MODULA_QA_PASSWORD"] ?? ""
+        XCTAssertFalse(email.isEmpty && password.isEmpty, "Sign-in is required and no QA credentials were passed to the test runner")
+        let emailField = app.textFields["auth.email"]
+        XCTAssertTrue(emailField.waitForExistence(timeout: 6))
+        emailField.tap()
+        emailField.typeText(email)
+        let passwordField = app.secureTextFields["auth.password"]
+        XCTAssertTrue(passwordField.waitForExistence(timeout: 4))
+        passwordField.tap()
+        passwordField.typeText(password)
+        app.buttons["auth.sign-in"].tap()
+        let error = app.descendants(matching: .any)["auth.error"]
+        XCTAssertTrue(app.buttons["tab.home"].waitForExistence(timeout: 40), "Sign-in did not reach the shell. \(error.exists ? error.label : "")")
+    }
+
+    @MainActor
+    private func waitForUpdate(_ app: XCUIApplication) -> Bool {
+        for _ in 0..<16 {
+            app.terminate()
+            app.launch()
+            guard app.buttons["tab.home"].waitForExistence(timeout: 30) || app.descendants(matching: .any)["auth.login"].exists else { continue }
+            if app.descendants(matching: .any)["auth.login"].exists { continue }
+            selectTab(app, "tab.modules")
+            app.open(URL(string: "modula://product-hub/module/\(moduleId)")!)
+            let named = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Basic Echo")).firstMatch
+            if !app.buttons["module.primary"].waitForExistence(timeout: 6), named.waitForExistence(timeout: 4) {
+                named.tap()
+            }
+            let primary = app.buttons["module.primary"].firstMatch
+            if primary.waitForExistence(timeout: 8), primary.label.localizedCaseInsensitiveContains("update") {
+                return true
+            }
+            sleep(6)
+        }
+        return false
+    }
+
+    @MainActor
+    private func openBasic(_ app: XCUIApplication) throws {
+        if app.descendants(matching: .any)["developer.studio"].exists { app.swipeDown() }
+        selectTab(app, "tab.modules")
+        app.open(URL(string: "modula://product-hub/module/\(moduleId)")!)
+        if !app.buttons["module.primary"].waitForExistence(timeout: 8) {
+            let named = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Basic Echo")).firstMatch
+            for _ in 0..<8 where !named.exists { app.swipeUp() }
+            XCTAssertTrue(named.waitForExistence(timeout: 6), "Basic Echo was not in Product Hub")
+            named.tap()
+        }
+        XCTAssertTrue(app.buttons["module.primary"].waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    private func openLab(_ app: XCUIApplication) throws {
+        let debug = app.buttons["module.host.debug"].firstMatch
+        XCTAssertTrue(debug.waitForExistence(timeout: 8))
+        debug.tap()
+        let lab = app.buttons["Lifecycle lab"].firstMatch
+        XCTAssertTrue(lab.waitForExistence(timeout: 4))
+        lab.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["module.lifecycle.lab"].waitForExistence(timeout: 6))
+    }
+
+    @MainActor
+    private func confirm(_ app: XCUIApplication) throws {
+        let button = app.buttons["module.install.confirm"].firstMatch
+        XCTAssertTrue(button.waitForExistence(timeout: 6), "Permission confirmation did not appear")
+        button.tap()
+    }
+
+    @MainActor
+    private func tap(_ element: XCUIElement, in app: XCUIApplication) throws {
+        XCTAssertTrue(element.waitForExistence(timeout: 8))
+        if element.isHittable { element.tap() }
+        else { element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
+    }
+
+    @MainActor
+    private func wait(_ element: XCUIElement, label: String, timeout: TimeInterval) -> Bool {
+        XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", label), object: element)], timeout: timeout) == .completed
+    }
+
+    @MainActor
+    private func wait(_ element: XCUIElement, contains: String, timeout: TimeInterval) -> Bool {
+        XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS[c] %@", contains), object: element)], timeout: timeout) == .completed
+    }
+
+    @MainActor
+    private func notice(_ app: XCUIApplication) -> String {
+        let error = app.descendants(matching: .any)["module.lifecycle-error"].firstMatch
+        return error.exists ? error.label : "none"
+    }
+
+    @MainActor
+    private func back(_ app: XCUIApplication) {
+        let back = app.navigationBars.buttons.element(boundBy: 0)
+        if back.exists { back.tap() }
+    }
+
+    @MainActor
+    private func selectTab(_ app: XCUIApplication, _ identifier: String) {
+        let tab = app.buttons[identifier].firstMatch
+        if tab.waitForExistence(timeout: 6) { tab.tap() }
+    }
+
+    @MainActor
+    private func attach(_ app: XCUIApplication, name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}

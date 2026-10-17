@@ -95,6 +95,14 @@ struct ModuleTrustPolicy: Equatable, Sendable {
         if let entries = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) {
             urls.append(contentsOf: entries.filter { $0.pathExtension == "pem" && $0.lastPathComponent.contains("pub") })
         }
+        // A physical iPhone cannot read the Mac config directory. Debug builds also trust
+        // public keys placed in this app's sandbox. The private key never ships in the app.
+        if let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            let deviceTrust = support.appendingPathComponent("Modula/DevTrust", isDirectory: true)
+            if let entries = try? FileManager.default.contentsOfDirectory(at: deviceTrust, includingPropertiesForKeys: nil) {
+                urls.append(contentsOf: entries.filter { $0.pathExtension == "pem" && $0.lastPathComponent.contains("pub") })
+            }
+        }
         var signers: [TrustedSigner] = []
         var seen = Set<String>()
         for url in urls {

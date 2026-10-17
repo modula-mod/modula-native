@@ -121,6 +121,7 @@ final class ProductHubStore {
 
     func refreshInstallations() async {
         installations = await Self.installations(client: client, previous: installations)
+        restoreLocalDevelopmentInstallations()
     }
 
     /// Installed modules belong to the signed-in account. Signed out (or the session was
@@ -148,7 +149,8 @@ final class ProductHubStore {
     /// then waits until the installation is enabled. Returns true when it can be opened.
     @discardableResult
     func install(_ id: String, permissions: [String]) async -> Bool {
-        if let local = await installLocalDevelopment(id, permissions: permissions) { return local }
+        if product(id)?.betaClassification == "local-development",
+           let local = await installLocalDevelopment(id, permissions: permissions) { return local }
         guard operations[id] == nil else { return false }
         operations[id] = .installing
         lifecycleErrors[id] = nil
@@ -168,7 +170,8 @@ final class ProductHubStore {
     @discardableResult
     func update(_ id: String) async -> Bool {
         let reviewed = requestedLocalPermissions(id).map(\.permission)
-        if let local = await installLocalDevelopment(id, permissions: reviewed) { return local }
+        if product(id)?.betaClassification == "local-development",
+           let local = await installLocalDevelopment(id, permissions: reviewed) { return local }
         guard operations[id] == nil, let latest = product(id)?.latestVersion else { return false }
         operations[id] = .updating
         lifecycleErrors[id] = nil
@@ -246,16 +249,43 @@ final class ProductHubStore {
 
     @discardableResult
     func uninstall(_ id: String) async -> Bool {
+        if product(id)?.betaClassification == "local-development" {
+            return uninstallLocalDevelopment(id)
+        }
         guard operations[id] == nil else { return false }
         operations[id] = .uninstalling
         lifecycleErrors[id] = nil
         defer { operations[id] = nil }
         do {
             try await client.uninstallModule(id, idempotencyKey: Self.key("uninstall", id))
-            return try await settle(id) { $0 == nil || $0?.isPresent == false }
+            let removed = try await settle(id) { $0 == nil || $0?.isPresent == false }
+            restoreLocalDevelopmentInstallations()
+            return removed
         } catch {
             lifecycleErrors[id] = Self.message(error, verb: "remove")
             await refreshInstallations()
+            return false
+        }
+    }
+
+    /// Development packages live in this device's cache. Removing one must not ask GreenField
+    /// to delete an installation it never recorded.
+    private func uninstallLocalDevelopment(_ id: String) -> Bool {
+        guard operations[id] == nil else { return false }
+        operations[id] = .uninstalling
+        lifecycleErrors[id] = nil
+        defer { operations[id] = nil }
+        guard let activation else {
+            lifecycleErrors[id] = "Couldn’t remove the module. Try again."
+            return false
+        }
+        let account = accountID ?? "local-dev"
+        do {
+            try activation.removeLocalModule(accountID: account, moduleId: id)
+            installations[id] = nil
+            return true
+        } catch {
+            lifecycleErrors[id] = "Couldn’t remove the module. Try again."
             return false
         }
     }
@@ -268,6 +298,7 @@ final class ProductHubStore {
             if attempt > 0 { try await Task.sleep(for: settlePollInterval) }
             let items = try await client.installedModules()
             installations = Dictionary(items.map { ($0.moduleId, $0) }, uniquingKeysWith: { first, _ in first })
+            restoreLocalDevelopmentInstallations()
             let current = installations[id]
             if done(current) { return true }
             if current?.status == "failed" || current?.status == "incompatible" || current?.status == "quarantined" {
@@ -294,14 +325,21 @@ final class ProductHubStore {
         let frontendSha = descriptor?.frontendSha256
         let frontendRef = descriptor?.frontendRef
         var bytes: Data?
-        if let frontendSha, let frontendRef {
+        if product(id)?.betaClassification != "local-development" {
+            if let hosted = try? await client.installedProductFrontend(id),
+               hosted.productId == id, hosted.version == version, hosted.sha256 != nil {
+                bytes = hosted.frontend
+            }
+        }
+        if bytes == nil, let frontendSha, let frontendRef {
             bytes = try? await client.downloadVerifiedArtifact(ref: frontendRef, expectedSha256: frontendSha)
         }
-        if bytes == nil, let local = Self.localDevFrontend(moduleId: id, version: version, roots: localDevRoots) {
+        if bytes == nil, product(id)?.betaClassification == "local-development",
+           let local = Self.localDevFrontend(moduleId: id, version: version, roots: localDevRoots) {
             bytes = local
         }
         guard let bytes else { return }
-        let digest = descriptor?.frontendSha256 ?? SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+        let digest = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
         let manifest = ModuleManifest(
             id: id, name: product(id)?.name ?? id, version: version, runtime: "declarative",
             entry: "product-ui", permissions: descriptor?.grantedPermissions ?? [],
