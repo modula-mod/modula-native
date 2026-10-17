@@ -61,16 +61,24 @@ final class ProductUIRuntime {
             return
         }
         let bindings = view["bindings"]?.array ?? []
-        var anyEmpty = true
-        var anyLoading = false
+        var recordBindings = 0
+        var emptyRecordBindings = 0
+        var waitingForRecords = false
         for binding in bindings {
             guard let id = binding["id"]?.string else { continue }
             let source = binding["source"]?.string ?? ""
+            if source == "record.query" || source == "record.detail" {
+                recordBindings += 1
+                if recordSource == nil {
+                    waitingForRecords = true
+                    continue
+                }
+            }
             if source == "record.query" {
                 let type = binding["recordType"]?.string ?? session.manifest.collections?.first ?? id
                 let items = loadRecords(type: type, query: query)
                 records[id] = items
-                anyEmpty = items.isEmpty
+                if items.isEmpty { emptyRecordBindings += 1 }
             } else if source == "record.detail" {
                 let type = binding["recordType"]?.string ?? ""
                 let param = binding["recordIdParam"]?.string ?? "id"
@@ -78,19 +86,31 @@ final class ProductUIRuntime {
                 if let item = loadRecords(type: type, query: "").first(where: { $0.id == recordId }) {
                     selected[id] = item
                     records[id] = [item]
-                    anyEmpty = false
                 } else {
                     records[id] = []
                     selected[id] = nil
+                    emptyRecordBindings += 1
                 }
-            } else {
-                anyEmpty = records[id]?.isEmpty ?? true
             }
-            anyLoading = anyLoading || records[id] == nil
         }
-        if viewState == "loading" || anyLoading { viewState = anyEmpty ? "empty" : "populated" }
-        else if anyEmpty && (view["kind"]?.string == "collection") { viewState = "empty" }
-        else { viewState = "populated" }
+        if waitingForRecords {
+            viewState = "loading"
+        } else if recordBindings > 0, emptyRecordBindings == recordBindings, view["kind"]?.string == "collection" {
+            viewState = "empty"
+        } else {
+            viewState = "populated"
+        }
+    }
+
+    static func records(from value: JSONValue) -> [ProductUIRecord] {
+        (value["items"]?.array ?? []).compactMap { item in
+            let id = item["record_id"]?.string ?? item["recordId"]?.string ?? item["id"]?.string
+            guard let id, !id.isEmpty else { return nil }
+            let revision = Int(item["revision"]?.number ?? 1)
+            let data: [String: JSONValue]
+            if case .object(let object) = item["data"] { data = object } else { data = [:] }
+            return ProductUIRecord(id: id, revision: max(revision, 1), data: data, deleted: false)
+        }
     }
 
     func perform(actionId: String, record: ProductUIRecord? = nil) {
