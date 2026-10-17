@@ -25,19 +25,29 @@ enum PostContextActions {
             }
             return items
         }
-        return [
+        var items: [ModulaContextAction] = [
             .init(id: "share", title: "Share", systemImage: "square.and.arrow.up"),
             .init(id: "copy-link", title: "Copy link", systemImage: "link"),
             .init(id: "send-message", title: "Send in message", systemImage: "paperplane"),
-            .init(id: "save", title: saved ? "Remove from Saved" : "Save", systemImage: saved ? "bookmark.fill" : "bookmark"),
-            .init(id: "save-collection", title: "Add to collection", systemImage: "rectangle.stack.badge.plus"),
-            .init(id: "not-interested", title: "Not interested in this post", systemImage: "eye.slash"),
-            .init(id: "hide", title: "Hide post", systemImage: "rectangle.slash"),
-            .init(id: "notify", title: "Turn on notifications", systemImage: "bell"),
-            .init(id: "report", title: "Report post", systemImage: "flag", role: .destructive),
-            .init(id: "spam", title: "Mark as spam", systemImage: "exclamationmark.octagon", role: .destructive),
-            .init(id: "community-note", title: "Request Community Note", systemImage: "megaphone"),
         ]
+        if capabilities.save {
+            items.insert(.init(id: "save", title: saved ? "Remove from Saved" : "Save", systemImage: saved ? "bookmark.fill" : "bookmark"), at: 3)
+            items.insert(.init(id: "save-collection", title: "Add to collection", systemImage: "rectangle.stack.badge.plus"), at: 4)
+        }
+        if capabilities.notInterested {
+            items.append(.init(id: "not-interested", title: "Not interested in this post", systemImage: "eye.slash"))
+        }
+        if capabilities.hideLocally {
+            items.append(.init(id: "hide", title: "Hide post", systemImage: "rectangle.slash"))
+        }
+        if capabilities.muteAuthor {
+            items.append(.init(id: "mute-author", title: "Mute author", systemImage: "speaker.slash"))
+        }
+        if capabilities.reportPost {
+            items.append(.init(id: "report", title: "Report post", systemImage: "flag", role: .destructive))
+            items.append(.init(id: "spam", title: "Mark as spam", systemImage: "exclamationmark.octagon", role: .destructive))
+        }
+        return items
     }
 
     /// Legacy helper kept for ImmersivePostContextPanel stubs; routes to the shared X set.

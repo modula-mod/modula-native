@@ -287,6 +287,9 @@ final class PostSystemTests: XCTestCase {
         XCTAssertTrue(other.contains { $0.id == "mute-author" })
         XCTAssertTrue(other.contains { $0.id == "hide" })
         XCTAssertFalse(other.contains { $0.id == "report" }) // reportPost false
+        XCTAssertFalse(other.contains { $0.id == "spam" })
+        XCTAssertFalse(other.contains { $0.id == "notify" })
+        XCTAssertFalse(other.contains { $0.id == "community-note" })
     }
 
     func testGestureThresholdsCentralized() {
