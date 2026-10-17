@@ -368,6 +368,25 @@ enum ModulePolicy {
         return Array(Set(covered)).sorted()
     }
 
+    /// Every registry permission the host knows how to place. Unknown strings stay visible
+    /// in the review list and are not silently treated as granted.
+    static func classify(_ permission: String) -> String {
+        if permission.hasPrefix("records:") {
+            let parts = permission.split(separator: ":")
+            return parts.count >= 3 && ["read", "write", "delete"].contains(String(parts.last ?? "")) ? "records" : "unrecognized"
+        }
+        if permission.hasPrefix("media:") { return permission.hasSuffix(":read") || permission.hasSuffix(":write") ? "media" : "unrecognized" }
+        if permission.hasPrefix("sharing:") { return permission.hasSuffix(":read") || permission.hasSuffix(":write") ? "sharing" : "unrecognized" }
+        switch permission {
+        case "schemas:register", "settings:register", "routes:register", "functions:register", "events:subscribe", "search:index":
+            return "server"
+        case "settings:read", "settings:write":
+            return "settings"
+        default:
+            return "unrecognized"
+        }
+    }
+
     static func registryAllows(_ capability: String, granted: Set<String>) -> Bool {
         guard let rule = registryPermission.first(where: { capability.hasPrefix($0.prefix) }) else { return true }
         if granted.contains(rule.permission) { return true }

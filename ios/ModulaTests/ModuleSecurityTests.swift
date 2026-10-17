@@ -209,6 +209,30 @@ final class ModuleSecurityTests: XCTestCase {
         XCTAssertTrue(blocked.deniedCapabilities.contains("backend.records.create"))
     }
 
+    func testEveryVaultNotesPermissionIsClassified() {
+        let permissions = [
+            "schemas:register", "settings:register", "routes:register", "functions:register", "events:subscribe", "search:index",
+            "records:module.digital.modula.vault-notes.note:read", "records:module.digital.modula.vault-notes.note:write", "records:module.digital.modula.vault-notes.note:delete",
+            "records:module.digital.modula.vault-notes.folder:read", "records:module.digital.modula.vault-notes.folder:write", "records:module.digital.modula.vault-notes.folder:delete",
+            "records:module.digital.modula.vault-notes.tag:read", "records:module.digital.modula.vault-notes.tag:write",
+            "records:module.digital.modula.vault-notes.note-link:read", "records:module.digital.modula.vault-notes.note-link:write",
+            "records:module.digital.modula.vault-notes.note-version:read", "records:module.digital.modula.vault-notes.note-version:write",
+            "records:module.digital.modula.vault-notes.saved-source:read", "records:module.digital.modula.vault-notes.saved-source:write",
+            "records:module.digital.modula.vault-notes.attachment:read", "records:module.digital.modula.vault-notes.attachment:write", "records:module.digital.modula.vault-notes.attachment:delete",
+            "records:module.digital.modula.vault-notes.template:read", "records:module.digital.modula.vault-notes.template:write", "records:module.digital.modula.vault-notes.template:delete",
+            "records:module.digital.modula.vault-notes.saved-search:read", "records:module.digital.modula.vault-notes.saved-search:write", "records:module.digital.modula.vault-notes.saved-search:delete",
+            "settings:read", "settings:write",
+            "media:module.digital.modula.vault-notes.note:read", "media:module.digital.modula.vault-notes.note:write",
+            "sharing:module.digital.modula.vault-notes.note:read", "sharing:module.digital.modula.vault-notes.note:write",
+        ]
+        XCTAssertEqual(permissions.count, 35)
+        XCTAssertEqual(Set(permissions.map(ModulePolicy.classify)), ["server", "records", "settings", "media", "sharing"])
+        XCTAssertFalse(permissions.contains { ModulePolicy.classify($0) == "unrecognized" })
+        XCTAssertEqual(ModulePolicy.classify("records:module.digital.modula.vault-notes.tag:read"), "records")
+        XCTAssertEqual(ModulePolicy.classify("events:subscribe"), "server")
+        XCTAssertEqual(ModulePolicy.classify("search:index"), "server")
+    }
+
     func testVerifiedFrontendRejectsReencodedJSON() {
         let original = Data("{\"releaseVersion\":\"2.0.0\"}".utf8)
         let reencoded = Data("{\n  \"releaseVersion\" : \"2.0.0\"\n}".utf8)

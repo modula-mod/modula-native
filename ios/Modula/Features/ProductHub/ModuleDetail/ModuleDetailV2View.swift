@@ -15,6 +15,8 @@ struct ModuleDetailV2View: View {
     @State private var expandedDescription = false
     @State private var zoomedShot: ModuleScreenshot?
     @State private var showAllPermissions = false
+    @State private var installationGrants: [String]?
+    @State private var allowingPermissions = false
     @State private var versionTarget: ModuleVersionOption?
     @State private var versionPhase: ModuleVersionSwitchSheet.Phase = .loading
     @State private var installFeedback: String?
@@ -44,6 +46,7 @@ struct ModuleDetailV2View: View {
         }
         .task(id: installedVersion) {
             if installedVersion != nil { await app.catalogue.loadVersions(moduleID) }
+            await loadPermissionGrants()
         }
         .modulaImmersiveSystemNavigation()
         .toolbar {
@@ -492,6 +495,7 @@ struct ModuleDetailV2View: View {
         let server = listing?.permissions ?? []
         let declared = server.isEmpty ? app.catalogue.requestedLocalPermissions(moduleID) : server
         let host = ModuleHostPermissions.records(from: manifest)
+        let missing = declared.filter { installationGrants?.contains($0.permission) == false }
         return VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 sectionTitle("Permissions")
@@ -499,6 +503,21 @@ struct ModuleDetailV2View: View {
                 if let listing, listing.highRiskCount > 0 {
                     Text("\(listing.highRiskCount) high risk").font(.caption.weight(.semibold)).foregroundStyle(.red)
                 }
+            }
+            if !missing.isEmpty {
+                Text("\(missing.count) of \(declared.count) permissions are not granted for this installation.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Button(allowingPermissions ? "Allowing…" : "Allow the \(missing.count) remaining") {
+                    Task { await allowRemaining(declared.map(\.permission)) }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(allowingPermissions)
+                .accessibilityIdentifier("module.permissions.allow-remaining")
+            } else if installationGrants != nil, !declared.isEmpty {
+                Text("All \(declared.count) permissions are granted.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
             if declared.isEmpty && host.isEmpty {
                 Text("This module declares no permissions.").foregroundStyle(.secondary)
@@ -508,10 +527,11 @@ struct ModuleDetailV2View: View {
                     VStack(alignment: .leading, spacing: 12) {
                         ForEach(showAllPermissions ? declared : Array(declared.prefix(4))) { permission in
                             HStack(alignment: .top, spacing: 10) {
-                                Image(systemName: riskSymbol(permission.risk)).foregroundStyle(riskColor(permission.risk)).frame(width: 22)
+                                Image(systemName: grantSymbol(permission.permission)).foregroundStyle(grantColor(permission.permission)).frame(width: 22)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(permission.reason.isEmpty ? permission.permission : permission.reason).font(.subheadline)
-                                    Text("\(permission.permission) · \(permission.risk.capitalized) risk").font(.caption).foregroundStyle(.secondary)
+                                    Text("\(permission.permission) · \(permission.risk.capitalized) risk · \(grantLabel(permission.permission))")
+                                        .font(.caption).foregroundStyle(.secondary)
                                 }
                             }
                             .accessibilityElement(children: .combine)
@@ -688,6 +708,34 @@ struct ModuleDetailV2View: View {
             installFeedback = "\(name) \(verb) to \(preview.toVersion)"
         } else {
             HapticEngine.shared.play(.failure)
+        }
+    }
+
+    private func grantLabel(_ permission: String) -> String {
+        guard let installationGrants else { return ModulePolicy.classify(permission) }
+        return installationGrants.contains(permission) ? "Granted" : "Not granted · \(ModulePolicy.classify(permission))"
+    }
+
+    private func grantSymbol(_ permission: String) -> String {
+        guard let installationGrants else { return "circle" }
+        return installationGrants.contains(permission) ? "checkmark.circle.fill" : "exclamationmark.circle"
+    }
+
+    private func grantColor(_ permission: String) -> Color {
+        guard let installationGrants else { return .secondary }
+        return installationGrants.contains(permission) ? .green : .orange
+    }
+
+    private func loadPermissionGrants() async {
+        guard installed else { installationGrants = nil; return }
+        installationGrants = try? await app.client.grantedModulePermissions(moduleID)
+    }
+
+    private func allowRemaining(_ permissions: [String]) async {
+        allowingPermissions = true
+        defer { allowingPermissions = false }
+        if await app.catalogue.allowPermissions(moduleID, permissions: permissions) {
+            await loadPermissionGrants()
         }
     }
 
