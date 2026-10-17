@@ -33,6 +33,10 @@ final class ProductUIRuntime {
     var lastAction: String?
     var capabilityResults: [String: String] = [:]
     var online = true
+    /// Increments when the frontend asks the host to choose a file.
+    var filePickToken = 0
+    /// Module function the host should run with the current form.
+    var pendingFunction: String?
     var recordSource: ((String, String) -> [ProductUIRecord])?
     var mutationHandler: ((ProductUIMutation) throws -> ProductUIRecord)?
 
@@ -170,10 +174,25 @@ final class ProductUIRuntime {
             open("/")
         case "capability.invoke":
             let capability = action["capability"]?.string ?? ""
-            capabilityResults[capability] = ModuleCapabilityBroker.invoke(
+            let result = ModuleCapabilityBroker.invoke(
                 capability, session: session, localOnly: action["localOnly"]?.bool == true
             )
-        case "function.invoke", "service.invoke", "extension.invoke", "share", "settings.update":
+            capabilityResults[capability] = result
+            if ModuleCapabilityBroker.canonical(capability) == "mediaPicker", result == "ok" {
+                filePickToken += 1
+            } else if result != "ok" {
+                lastError = "\(capability) is unavailable on this device."
+            }
+        case "function.invoke":
+            if !online {
+                pendingMutations.append(ProductUIMutation(
+                    id: UUID().uuidString, family: family, recordType: action["recordType"]?.string ?? "",
+                    recordId: record?.id, expectedRevision: record?.revision, payload: drafts, queuedOffline: true
+                ))
+            } else {
+                pendingFunction = action["functionId"]?.string ?? actionId
+            }
+        case "service.invoke", "extension.invoke", "share", "settings.update":
             lastAction = family
             if !online {
                 pendingMutations.append(ProductUIMutation(

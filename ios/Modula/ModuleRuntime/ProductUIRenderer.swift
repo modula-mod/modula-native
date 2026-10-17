@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Generic Product UI 1.0 renderer. No product-specific module ID branches.
 struct ProductUIHostView: View {
@@ -7,6 +8,7 @@ struct ProductUIHostView: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
     @State private var runtime: ProductUIRuntime
+    @State private var showsFileImporter = false
 
     init(session: ModuleSession, document: ProductUIDocument) {
         self.session = session
@@ -49,7 +51,83 @@ struct ProductUIHostView: View {
             }
             await loadInstalledRecords()
         }
+        .onChange(of: runtime.filePickToken) { _, token in
+            if token > 0 { showsFileImporter = true }
+        }
+        .onChange(of: runtime.pendingFunction) { _, functionId in
+            guard let functionId else { return }
+            Task { await runModuleFunction(functionId) }
+        }
+        .fileImporter(
+            isPresented: $showsFileImporter,
+            allowedContentTypes: [.image, .pdf, .plainText, .text, .audio, .data],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                rememberChosenFile(url)
+            case .failure(let error):
+                runtime.lastError = error.localizedDescription
+            }
+        }
         .accessibilityIdentifier("module.host.product-ui")
+    }
+
+    private func rememberChosenFile(_ url: URL) {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentTypeKey])
+        let name = url.lastPathComponent
+        let safe = name.unicodeScalars.map { scalar -> Character in
+            let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._:-"))
+            return allowed.contains(scalar) ? Character(scalar) : "-"
+        }
+        let assetId = String(safe).trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+        runtime.drafts["assetId"] = assetId.isEmpty ? UUID().uuidString : String(assetId.prefix(180))
+        runtime.drafts["name"] = name
+        runtime.drafts["mimeType"] = values?.contentType?.preferredMIMEType ?? "application/octet-stream"
+        runtime.drafts["size"] = String(values?.fileSize ?? 0)
+        let mime = runtime.drafts["mimeType"] ?? ""
+        runtime.drafts["kind"] = mime.hasPrefix("image/") ? "image" : mime == "application/pdf" ? "pdf" : mime.hasPrefix("audio/") ? "audio" : "file"
+        runtime.lastError = nil
+    }
+
+    private func runModuleFunction(_ functionId: String) async {
+        runtime.pendingFunction = nil
+        guard let accountID = app.auth.account?.accountId, GreenfieldClient.modulePath(session.manifest.id) != nil else { return }
+        guard functionId.contains("attach") else {
+            runtime.lastError = "This module action isn’t available on this host yet."
+            return
+        }
+        let noteId = runtime.drafts["noteId"] ?? ""
+        let assetId = runtime.drafts["assetId"] ?? ""
+        guard !noteId.isEmpty, !assetId.isEmpty else {
+            runtime.lastError = "Choose a note and a file first."
+            return
+        }
+        let data: [String: JSONValue] = [
+            "noteId": .string(noteId),
+            "assetId": .string(assetId),
+            "name": .string(runtime.drafts["name"] ?? assetId),
+            "mimeType": .string(runtime.drafts["mimeType"] ?? "application/octet-stream"),
+            "size": .number(Double(runtime.drafts["size"] ?? "0") ?? 0),
+            "kind": .string(runtime.drafts["kind"] ?? "file"),
+            "createdAt": .string(ISO8601DateFormatter().string(from: Date())),
+        ]
+        do {
+            let _: JSONValue = try await app.client.moduleRequest(
+                method: "POST",
+                path: "/v1/modules/\(session.manifest.id)/records/attachment",
+                body: .object(["data": .object(data)]),
+                expectedAccountID: accountID
+            )
+            runtime.lastError = nil
+            runtime.recordSource = nil
+            await loadInstalledRecords()
+        } catch {
+            runtime.lastError = "Couldn’t attach the file. Check that this installation can write media."
+        }
     }
 
     /// Reads the installed module's records so the verified frontend can show them.
@@ -60,9 +138,13 @@ struct ProductUIHostView: View {
         guard GreenfieldClient.modulePath(moduleID) != nil else { return }
         let bindings = runtime.currentView?["bindings"]?.array ?? []
         var byType: [String: [ProductUIRecord]] = [:]
-        for binding in bindings where binding["source"]?.string == "record.query" || binding["source"]?.string == "record.detail" {
-            guard let type = binding["recordType"]?.string,
-                  type.range(of: "^[a-z][a-z0-9-]{0,63}$", options: .regularExpression) != nil,
+        var types = bindings.compactMap { binding -> String? in
+            guard binding["source"]?.string == "record.query" || binding["source"]?.string == "record.detail" else { return nil }
+            return binding["recordType"]?.string
+        }
+        types.append(contentsOf: ProductUILayout.referencedRecordTypes(in: runtime.currentView))
+        for type in types {
+            guard type.range(of: "^[a-z][a-z0-9-]{0,63}$", options: .regularExpression) != nil,
                   byType[type] == nil else { continue }
             let path = "/v1/modules/\(moduleID)/records/\(type)?limit=50&recordState=active&sort=updatedAt&direction=desc"
             guard let value = try? await app.client.moduleRequest(
@@ -77,6 +159,7 @@ struct ProductUIHostView: View {
         }
         runtime.recordSource = { type, _ in byType[type] ?? [] }
         runtime.refresh()
+        for (type, items) in byType { runtime.records[type] = items }
     }
 }
 
@@ -305,6 +388,16 @@ struct ProductUINode: View {
                 )) {
                     Text(label).font(.subheadline.weight(.semibold))
                 }
+            } else if kind == "recordReference" {
+                let type = field?["recordType"]?.string ?? ""
+                let choices = runtime.records[type] ?? []
+                Picker(label, selection: bindingDraft(id)) {
+                    Text("Choose").tag("")
+                    ForEach(choices) { choice in
+                        Text(choice.value("title").isEmpty ? choice.id : choice.value("title")).tag(choice.id)
+                    }
+                }
+                .pickerStyle(.menu)
             } else if kind == "singleSelect" {
                 Picker(label, selection: bindingDraft(id)) {
                     Text("Not set").tag("")
@@ -416,6 +509,17 @@ enum ProductUILayout {
     static func showsBadge(_ text: String) -> Bool {
         let value = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return !value.isEmpty && value != "false" && value != "0" && value != "null"
+    }
+
+    static func referencedRecordTypes(in view: JSONValue?) -> [String] {
+        guard let view else { return [] }
+        var types: [String] = []
+        func walk(_ node: JSONValue) {
+            if let type = node["field"]?["recordType"]?.string { types.append(type) }
+            node["children"]?.array?.forEach(walk)
+        }
+        walk(view)
+        return Array(Set(types))
     }
 
     static func present(_ value: String, path: String) -> String {

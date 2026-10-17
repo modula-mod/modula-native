@@ -357,6 +357,14 @@ final class ModuleHostEcosystemTests: XCTestCase {
         XCTAssertTrue(ProductUILayout.isQuietCopy(String(repeating: "a", count: 91)))
         XCTAssertFalse(ProductUILayout.showsBadge("false"))
         XCTAssertTrue(ProductUILayout.showsBadge("Local only"))
+        XCTAssertTrue(ModuleCapabilityBroker.hostSupports("media.picker@1"))
+        XCTAssertEqual(ModuleCapabilityBroker.canonical("ui.property-editor@1"), "ui.propertyEditor@1")
+        XCTAssertEqual(
+            ModulePolicy.hostCapabilities(coveredBy: ["media:module.digital.modula.vault-notes.note:write"]),
+            ["mediaPicker"]
+        )
+        let pickerSession = ModuleSession(manifest: Self.manifest("digital.modula.vault-notes", "2.0.0"), environment: environment)
+        XCTAssertEqual(ModuleCapabilityBroker.invoke("media.picker@1", session: pickerSession, localOnly: false), "ok")
     }
 
     func testInAppTemplatesGenerateHostParsableFrontends() throws {

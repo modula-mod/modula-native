@@ -356,9 +356,16 @@ enum ModulePolicy {
     /// Host record actions covered by the registry grants on an installation.
     static func hostCapabilities(coveredBy granted: [String]) -> [String] {
         let allowed = Set(granted)
-        return ModuleCapabilityBroker.supported.filter { capability in
+        var covered = ModuleCapabilityBroker.supported.filter { capability in
             capability.hasPrefix("backend.records.") && registryAllows(capability, granted: allowed)
         }.sorted()
+        if granted.contains(where: { $0.hasPrefix("media:") && ($0.hasSuffix(":read") || $0.hasSuffix(":write")) }) {
+            covered.append("mediaPicker")
+        }
+        if granted.contains(where: { $0.hasPrefix("sharing:") }) {
+            covered.append("share")
+        }
+        return Array(Set(covered)).sorted()
     }
 
     static func registryAllows(_ capability: String, granted: Set<String>) -> Bool {
