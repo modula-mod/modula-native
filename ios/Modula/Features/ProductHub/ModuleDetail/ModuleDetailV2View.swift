@@ -76,12 +76,18 @@ struct ModuleDetailV2View: View {
                 .accessibilityLabel("More")
             }
         }
-        .confirmationDialog(installTitle, isPresented: $confirmInstall, titleVisibility: .visible) {
-            Button(isInstalled ? "Update" : "Install") { Task { await runInstall() } }
-                .accessibilityIdentifier("module.install.confirm")
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text(installMessage)
+        .sheet(isPresented: $confirmInstall) {
+            ModulePermissionReviewSheet(
+                title: installTitle,
+                message: installMessage,
+                permissions: reviewedPermissions,
+                confirmTitle: isInstalled ? "Update" : "Install",
+                onConfirm: {
+                    confirmInstall = false
+                    Task { await runInstall() }
+                },
+                onCancel: { confirmInstall = false }
+            )
         }
         .confirmationDialog("Uninstall \(product?.name ?? "module")?", isPresented: $confirmUninstall, titleVisibility: .visible) {
             Button("Uninstall", role: .destructive) { Task { await runUninstall() } }
@@ -612,7 +618,8 @@ struct ModuleDetailV2View: View {
         guard !permissions.isEmpty else { return "It will be added to your Modula account. No permissions are granted until they are listed here." }
         let names = permissions.map(\.permission).joined(separator: ", ")
         let high = permissions.filter { $0.risk.lowercased() == "high" }.count
-        return "It will be added to your Modula account with \(permissions.count) permissions" + (high > 0 ? " (\(high) high risk)" : "") + ": \(names)."
+        let verb = isInstalled ? "updated on" : "added to"
+        return "It will be \(verb) your Modula account with \(permissions.count) permissions" + (high > 0 ? " (\(high) high risk)" : "") + ": \(names)."
     }
 
     private func perform(_ action: ModulePrimaryAction) {
@@ -709,6 +716,64 @@ struct ModuleDetailV2View: View {
         } else {
             HapticEngine.shared.play(.failure)
         }
+    }
+}
+
+/// Names every permission the install or update will grant. Nothing is granted until
+/// the confirm button runs.
+private struct ModulePermissionReviewSheet: View {
+    let title: String
+    let message: String
+    let permissions: [ModuleListing.Permission]
+    let confirmTitle: String
+    let onConfirm: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Text(message).font(.subheadline)
+                }
+                if permissions.isEmpty {
+                    Text("No permissions are requested. Nothing will be granted.")
+                } else {
+                    Section("Requested permissions") {
+                        ForEach(permissions) { permission in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(permission.permission).font(.body.weight(.semibold))
+                                Text(permission.risk.capitalized).font(.caption).foregroundStyle(.secondary)
+                                if !permission.reason.isEmpty {
+                                    Text(permission.reason).font(.subheadline)
+                                }
+                            }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityIdentifier("module.permission.\(permission.permission)")
+                        }
+                    }
+                }
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onCancel)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(confirmTitle, action: onConfirm)
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                Button(confirmTitle, action: onConfirm)
+                    .font(.headline)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .buttonStyle(.borderedProminent)
+                    .padding()
+                    .accessibilityIdentifier("module.install.confirm")
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .accessibilityIdentifier("module.permission-review")
     }
 }
 

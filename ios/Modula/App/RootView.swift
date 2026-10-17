@@ -73,6 +73,9 @@ struct RootView: View {
             app.refreshQuickActions()
         }
         .task {
+            if app.catalogue.accountID == nil {
+                app.catalogue.accountID = app.auth.account?.accountId
+            }
             await app.catalogue.load()
             if app.auth.isSignedIn {
                 await app.profile.loadIfNeeded(
