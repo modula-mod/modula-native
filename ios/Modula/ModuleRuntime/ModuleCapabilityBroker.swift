@@ -32,13 +32,31 @@ enum ModuleCapabilityBroker {
         ModulePolicy.identityUserID,
     ]
 
+    /// Frontend files use dotted capability ids. The host implements the same
+    /// abilities under the names it already grants.
+    static func canonical(_ capability: String) -> String {
+        switch capability {
+        case "media.picker@1": "mediaPicker"
+        case "ui.property-editor@1": "ui.propertyEditor@1"
+        case "ui.reference-picker@1": "ui.referencePicker@1"
+        case "ui.attachment-gallery@1": "ui.attachments@1"
+        case "ui.revision-browser@1": "ui.revisions@1"
+        case "ui.table@1": "ui.recordTable@1"
+        case "ui.board@1": "ui.recordBoard@1"
+        case "ui.local-intelligence@1": "localIntelligence"
+        case "share.native@1": "share"
+        default: capability
+        }
+    }
+
     static func hostSupports(_ capability: String) -> Bool {
-        supported.contains(capability)
+        supported.contains(capability) || supported.contains(canonical(capability))
     }
 
     /// `localOnly` never leaves the device. Missing local providers return CAPABILITY_UNAVAILABLE.
     @MainActor
     static func invoke(_ capability: String, session: ModuleSession, localOnly: Bool) -> String {
+        let capability = canonical(capability)
         guard session.isValid else { return "REQUEST_DENIED" }
         guard session.grantedCapabilities.contains(capability) || hostSupports(capability) else {
             return "PERMISSION_DENIED"
