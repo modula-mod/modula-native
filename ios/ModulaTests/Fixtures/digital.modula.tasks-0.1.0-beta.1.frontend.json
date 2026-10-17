@@ -1,0 +1,579 @@
+{
+  "$schema": "https://modula.digital/schemas/product-standard/1.0/frontend.schema.json",
+  "accessibility": {
+    "declaration": "host-baseline-with-product-semantics",
+    "keyboardNavigation": true,
+    "reduceMotion": true,
+    "scalableText": true,
+    "screenReader": true
+  },
+  "actions": [
+    {
+      "family": "route.open",
+      "id": "createOpen",
+      "label": "New task",
+      "route": "/new"
+    },
+    {
+      "family": "route.open",
+      "id": "openRecord",
+      "label": "Open task",
+      "route": "/tasks/:taskId"
+    },
+    {
+      "family": "route.open",
+      "id": "editOpen",
+      "label": "Edit task",
+      "route": "/tasks/:taskId/edit"
+    },
+    {
+      "family": "route.open",
+      "id": "openHistory",
+      "label": "History",
+      "route": "/history"
+    },
+    {
+      "family": "record.create",
+      "id": "createRecord",
+      "inputBinding": "itemForm",
+      "label": "Save",
+      "recordType": "task"
+    },
+    {
+      "family": "record.read",
+      "id": "readRecord",
+      "label": "Read task",
+      "recordType": "task"
+    },
+    {
+      "family": "record.update",
+      "id": "updateRecord",
+      "inputBinding": "itemForm",
+      "label": "Save changes",
+      "recordIdBinding": "task",
+      "recordType": "task"
+    },
+    {
+      "confirm": true,
+      "family": "record.delete",
+      "id": "deleteRecord",
+      "label": "Delete",
+      "recordIdBinding": "task",
+      "recordType": "task"
+    },
+    {
+      "family": "record.restore",
+      "id": "restoreRecord",
+      "label": "Restore",
+      "recordIdBinding": "history",
+      "recordType": "task"
+    },
+    {
+      "confirm": true,
+      "family": "record.purge",
+      "id": "purgeRecord",
+      "label": "Purge",
+      "recordIdBinding": "history",
+      "recordType": "task"
+    },
+    {
+      "family": "record.query",
+      "id": "queryRecords",
+      "label": "Query tasks",
+      "recordType": "task"
+    },
+    {
+      "family": "settings.update",
+      "id": "saveSettings",
+      "label": "Save settings",
+      "settingsKey": "tasks.preferences"
+    }
+  ],
+  "capabilities": {
+    "optional": [
+      "ui.search@1"
+    ],
+    "required": []
+  },
+  "entry": "home",
+  "frontendSchemaVersion": "1.0.0",
+  "hostRuntime": {
+    "versionRange": ">=1.0.0 <2.0.0"
+  },
+  "mode": "declarative",
+  "mpsVersion": "1.0",
+  "navigation": {
+    "backBehavior": "host",
+    "rootView": "home",
+    "tabs": [
+      {
+        "icon": "system.list",
+        "id": "tasks",
+        "label": "Tasks",
+        "viewId": "home"
+      },
+      {
+        "icon": "system.clock",
+        "id": "history",
+        "label": "History",
+        "viewId": "history"
+      },
+      {
+        "icon": "system.gear",
+        "id": "settings",
+        "label": "Settings",
+        "viewId": "settings"
+      }
+    ]
+  },
+  "platformRequirements": {
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ]
+  },
+  "productId": "digital.modula.tasks",
+  "releaseVersion": "0.1.0-beta.1",
+  "routes": [
+    {
+      "path": "/",
+      "viewId": "home"
+    },
+    {
+      "path": "/new",
+      "presentation": "sheet",
+      "viewId": "editor"
+    },
+    {
+      "path": "/tasks/:taskId",
+      "viewId": "detail"
+    },
+    {
+      "path": "/tasks/:taskId/edit",
+      "presentation": "sheet",
+      "viewId": "editor"
+    },
+    {
+      "path": "/history",
+      "viewId": "history"
+    },
+    {
+      "path": "/settings",
+      "viewId": "settings"
+    }
+  ],
+  "schema": "modula.frontend.1.0",
+  "settings": {
+    "viewId": "settings"
+  },
+  "views": [
+    {
+      "bindings": [
+        {
+          "id": "tasks",
+          "query": {
+            "filterParam": "filter",
+            "limit": 100,
+            "recordState": "active",
+            "searchParam": "q",
+            "sortParam": "sort"
+          },
+          "recordType": "task",
+          "source": "record.query"
+        }
+      ],
+      "id": "home",
+      "kind": "collection",
+      "root": {
+        "accessibility": {
+          "label": "Tasks",
+          "role": "list"
+        },
+        "children": [
+          {
+            "accessibility": {
+              "label": "Tasks actions"
+            },
+            "children": [
+              {
+                "binding": "tasks",
+                "text": "Search tasks",
+                "type": "search"
+              },
+              {
+                "binding": "tasks",
+                "text": "Filter",
+                "type": "filter"
+              },
+              {
+                "binding": "tasks",
+                "text": "Sort",
+                "type": "sort"
+              },
+              {
+                "action": "createOpen",
+                "text": "New task",
+                "type": "button"
+              }
+            ],
+            "type": "toolbar"
+          },
+          {
+            "accessibility": {
+              "label": "Tasks",
+              "role": "list"
+            },
+            "action": "openRecord",
+            "binding": "tasks",
+            "children": [
+              {
+                "binding": "tasks",
+                "children": [
+                  {
+                    "binding": "tasks",
+                    "type": "text",
+                    "valuePath": "title"
+                  },
+                  {
+                    "binding": "tasks",
+                    "type": "badge",
+                    "valuePath": "status"
+                  }
+                ],
+                "type": "recordRow"
+              }
+            ],
+            "type": "recordList"
+          }
+        ],
+        "type": "section"
+      },
+      "states": {
+        "capabilityUnavailable": {
+          "accessibility": {
+            "role": "status"
+          },
+          "text": "CAPABILITY_UNAVAILABLE",
+          "type": "errorState"
+        },
+        "empty": {
+          "action": "createOpen",
+          "text": "No tasks yet.",
+          "type": "emptyState"
+        },
+        "error": {
+          "accessibility": {
+            "role": "status"
+          },
+          "text": "Tasks are unavailable.",
+          "type": "errorState"
+        },
+        "loading": {
+          "accessibility": {
+            "role": "status"
+          },
+          "text": "Loading tasks",
+          "type": "loadingState"
+        },
+        "permissionDenied": {
+          "accessibility": {
+            "role": "status"
+          },
+          "text": "This surface needs a permission the user has not granted.",
+          "type": "errorState"
+        }
+      },
+      "title": "Tasks"
+    },
+    {
+      "bindings": [
+        {
+          "id": "task",
+          "recordIdParam": "taskId",
+          "recordType": "task",
+          "source": "record.detail"
+        }
+      ],
+      "id": "detail",
+      "kind": "detail",
+      "root": {
+        "accessibility": {
+          "label": "Task details"
+        },
+        "children": [
+          {
+            "binding": "task",
+            "type": "text",
+            "valuePath": "title"
+          },
+          {
+            "binding": "task",
+            "type": "text",
+            "valuePath": "notes"
+          },
+          {
+            "binding": "task",
+            "type": "metadata",
+            "valuePath": "status"
+          },
+          {
+            "accessibility": {
+              "label": "Task actions"
+            },
+            "children": [
+              {
+                "action": "editOpen",
+                "text": "Edit",
+                "type": "button"
+              },
+              {
+                "action": "deleteRecord",
+                "text": "Delete",
+                "type": "button"
+              },
+              {
+                "action": "openHistory",
+                "text": "History",
+                "type": "button"
+              }
+            ],
+            "type": "toolbar"
+          }
+        ],
+        "type": "section"
+      },
+      "states": {
+        "capabilityUnavailable": {
+          "accessibility": {
+            "role": "status"
+          },
+          "text": "CAPABILITY_UNAVAILABLE",
+          "type": "errorState"
+        },
+        "empty": {
+          "text": "Task not found.",
+          "type": "emptyState"
+        },
+        "error": {
+          "accessibility": {
+            "role": "status"
+          },
+          "text": "Task could not be loaded.",
+          "type": "errorState"
+        },
+        "loading": {
+          "accessibility": {
+            "role": "status"
+          },
+          "text": "Loading task",
+          "type": "loadingState"
+        },
+        "permissionDenied": {
+          "accessibility": {
+            "role": "status"
+          },
+          "text": "This surface needs a permission the user has not granted.",
+          "type": "errorState"
+        }
+      },
+      "title": "Task"
+    },
+    {
+      "bindings": [
+        {
+          "id": "itemForm",
+          "settingsKey": "editor.draft",
+          "source": "settings"
+        }
+      ],
+      "id": "editor",
+      "kind": "form",
+      "root": {
+        "accessibility": {
+          "label": "Task form",
+          "role": "form"
+        },
+        "children": [
+          {
+            "binding": "itemForm",
+            "field": {
+              "id": "title",
+              "label": "Title",
+              "required": true,
+              "type": "text",
+              "validation": {
+                "maxLength": 160
+              }
+            },
+            "type": "field"
+          },
+          {
+            "binding": "itemForm",
+            "field": {
+              "id": "notes",
+              "label": "Notes",
+              "type": "multilineText",
+              "validation": {
+                "maxLength": 4000
+              }
+            },
+            "type": "field"
+          },
+          {
+            "binding": "itemForm",
+            "field": {
+              "id": "status",
+              "label": "Status",
+              "type": "picker"
+            },
+            "type": "field"
+          },
+          {
+            "action": "createRecord",
+            "text": "Save",
+            "type": "button"
+          }
+        ],
+        "type": "section"
+      },
+      "states": {
+        "error": {
+          "text": "Check the form and try again",
+          "type": "errorState"
+        }
+      },
+      "title": "Task form"
+    },
+    {
+      "bindings": [
+        {
+          "id": "history",
+          "query": {
+            "limit": 50,
+            "recordState": "deleted",
+            "sortParam": "sort"
+          },
+          "recordType": "task",
+          "source": "record.query"
+        }
+      ],
+      "id": "history",
+      "kind": "collection",
+      "root": {
+        "accessibility": {
+          "label": "Task history",
+          "role": "list"
+        },
+        "children": [
+          {
+            "text": "Recently deleted records. Restore is host-mediated.",
+            "type": "text"
+          },
+          {
+            "action": "restoreRecord",
+            "binding": "history",
+            "children": [
+              {
+                "binding": "history",
+                "children": [
+                  {
+                    "binding": "history",
+                    "type": "text",
+                    "valuePath": "title"
+                  }
+                ],
+                "type": "recordRow"
+              }
+            ],
+            "type": "recordList"
+          }
+        ],
+        "type": "section"
+      },
+      "states": {
+        "capabilityUnavailable": {
+          "accessibility": {
+            "role": "status"
+          },
+          "text": "CAPABILITY_UNAVAILABLE",
+          "type": "errorState"
+        },
+        "empty": {
+          "text": "No history yet.",
+          "type": "emptyState"
+        },
+        "error": {
+          "accessibility": {
+            "role": "status"
+          },
+          "text": "History is unavailable.",
+          "type": "errorState"
+        },
+        "loading": {
+          "accessibility": {
+            "role": "status"
+          },
+          "text": "Loading history",
+          "type": "loadingState"
+        },
+        "permissionDenied": {
+          "accessibility": {
+            "role": "status"
+          },
+          "text": "This surface needs a permission the user has not granted.",
+          "type": "errorState"
+        }
+      },
+      "title": "Task history"
+    },
+    {
+      "bindings": [
+        {
+          "id": "preferences",
+          "settingsKey": "tasks.preferences",
+          "source": "settings"
+        }
+      ],
+      "id": "settings",
+      "kind": "settings",
+      "root": {
+        "accessibility": {
+          "label": "Tasks settings",
+          "role": "form"
+        },
+        "children": [
+          {
+            "binding": "preferences",
+            "field": {
+              "id": "showCompleted",
+              "label": "Show completed tasks",
+              "type": "boolean"
+            },
+            "type": "field"
+          },
+          {
+            "binding": "preferences",
+            "field": {
+              "id": "syncEnabled",
+              "label": "Request host sync",
+              "type": "boolean"
+            },
+            "type": "field"
+          },
+          {
+            "text": "Sync is requested from the host. This module does not run its own backend.",
+            "type": "label"
+          },
+          {
+            "action": "saveSettings",
+            "text": "Save",
+            "type": "button"
+          }
+        ],
+        "type": "section"
+      },
+      "title": "Tasks settings"
+    }
+  ]
+}

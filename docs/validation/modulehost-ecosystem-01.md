@@ -17,4 +17,6 @@ Current RN brownfield is a single bundled `main.jsbundle`. Arbitrary downloaded 
 
 ## Tests
 
-See `ModuleHostEcosystemTests` for cache slots, digest refusal, rollback, generic prepare, permission isolation, and Product UI parsing.
+See `ModuleHostEcosystemTests` for cache slots, digest refusal, rollback, generic prepare, permission isolation, Product UI parsing, real generated Basic/Tasks/Vault 2.0-rc.2 frontends, local DevModules install/update, and the generic Vault→Tasks action broker.
+
+Local generator output is discovered from `~/Developer/modula-dev-modules/{moduleId}/{version}/`. Registry products keep their published latestVersion; missing products are added as `local-development`.

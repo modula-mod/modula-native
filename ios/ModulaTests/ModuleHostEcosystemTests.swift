@@ -163,6 +163,114 @@ final class ModuleHostEcosystemTests: XCTestCase {
         XCTAssertNotNil(controller.active(accountID: "acct-a", moduleId: "digital.modula.basic"))
     }
 
+    func testGeneratedFrontendsParseAndActivateWithoutModuleIdBranch() throws {
+        let basic = try Self.fixture("digital.modula.basic-0.1.0.frontend.json")
+        let tasks = try Self.fixture("digital.modula.tasks-0.1.0-beta.1.frontend.json")
+        let vault = try Self.fixture("digital.modula.vault-notes-2.0.0-rc.2.frontend.json")
+        let basicDoc = try ProductUIDocument.parse(data: basic, productId: "digital.modula.basic", version: "0.1.0")
+        let tasksDoc = try ProductUIDocument.parse(data: tasks, productId: "digital.modula.tasks", version: "0.1.0-beta.1")
+        let vaultDoc = try ProductUIDocument.parse(data: vault, productId: "digital.modula.vault-notes", version: "2.0.0-rc.2")
+        XCTAssertEqual(basicDoc.entry, "home")
+        XCTAssertGreaterThanOrEqual(tasksDoc.views.count, 4)
+        XCTAssertGreaterThanOrEqual(vaultDoc.views.count, 10)
+        XCTAssertGreaterThanOrEqual(vaultDoc.actions.count, 20)
+        XCTAssertNil(vaultDoc.raw["script"])
+
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("modula-real-\(UUID().uuidString)", isDirectory: true)
+        let controller = ModuleActivationController(store: ModuleArtifactStore(root: root))
+        _ = try controller.installLocalPackage(
+            accountID: "acct-1", moduleId: "digital.modula.basic", version: "0.1.0", releaseId: "b1",
+            frontend: basic, hostManifest: Self.manifest("digital.modula.basic", "0.1.0")
+        )
+        _ = try controller.installLocalPackage(
+            accountID: "acct-1", moduleId: "digital.modula.tasks", version: "0.1.0-beta.1", releaseId: "t1",
+            frontend: tasks, hostManifest: Self.manifest("digital.modula.tasks", "0.1.0-beta.1")
+        )
+        _ = try controller.installLocalPackage(
+            accountID: "acct-1", moduleId: "digital.modula.vault-notes", version: "2.0.0-rc.2", releaseId: "v2",
+            frontend: vault, hostManifest: Self.manifest("digital.modula.vault-notes", "2.0.0-rc.2")
+        )
+        let runtime = ModuleRuntimeController(manifests: [])
+        runtime.setAccount("acct-1")
+        runtime.activation = controller
+        runtime.installationGate = { _ in .runnable(descriptor: nil) }
+        for id in ["digital.modula.basic", "digital.modula.tasks", "digital.modula.vault-notes"] {
+            let session = runtime.prepare(moduleID: id, environment: environment)
+            XCTAssertEqual(session?.runtimeKind, .declarativeProductUI, id)
+            XCTAssertEqual(session?.state, .ready, id)
+        }
+    }
+
+    func testLocalDevModulesInstallAndUpdateWithoutRegistry() async throws {
+        let workspace = FileManager.default.temporaryDirectory.appendingPathComponent("devmodules-\(UUID().uuidString)", isDirectory: true)
+        let v1 = workspace.appendingPathComponent("digital.modula.basic/0.1.0", isDirectory: true)
+        let v2 = workspace.appendingPathComponent("digital.modula.basic/0.1.1", isDirectory: true)
+        try FileManager.default.createDirectory(at: v1, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: v2, withIntermediateDirectories: true)
+        try Self.frontend(title: "Basic 0.1.0").write(to: v1.appendingPathComponent("frontend.manifest.json"))
+        try Self.frontend(title: "Basic 0.1.1 updated", version: "0.1.1").write(to: v2.appendingPathComponent("frontend.manifest.json"))
+
+        let cache = FileManager.default.temporaryDirectory.appendingPathComponent("cache-\(UUID().uuidString)", isDirectory: true)
+        let store = ProductHubStore(client: GreenfieldClient(baseURL: nil))
+        store.localDevRoots = [workspace]
+        store.accountID = "acct-1"
+        store.activation = ModuleActivationController(store: ModuleArtifactStore(root: cache))
+        store.mergeLocalDevModules()
+        XCTAssertEqual(store.product("digital.modula.basic")?.latestVersion, "0.1.1")
+        let installed = await store.install("digital.modula.basic", permissions: ["settings:register"])
+        XCTAssertEqual(installed, true)
+        XCTAssertEqual(store.activation?.active(accountID: "acct-1", moduleId: "digital.modula.basic")?.version, "0.1.1")
+        if case .runnable = store.installGate(for: "digital.modula.basic") {} else {
+            XCTFail("local install should be runnable")
+        }
+    }
+
+    func testVaultToTasksGovernedActionIsTargetOwnedAndIdempotent() throws {
+        let broker = ModuleActionBroker.Session()
+        let request = ModuleActionBroker.Request(
+            requestId: "req-1",
+            idempotencyKey: "vault-note-42-task",
+            sourceModuleId: "digital.modula.vault-notes",
+            sourceReleaseId: "v2",
+            targetModuleId: "digital.modula.tasks",
+            targetActionId: "createRecord",
+            payload: ["title": "From note"]
+        )
+        var applied = 0
+        let apply: (ModuleActionBroker.Request) throws -> ModuleActionBroker.Result = { req in
+            applied += 1
+            return ModuleActionBroker.Result(
+                requestId: req.requestId, status: "applied",
+                targetRecordId: "task-1", mutationId: "mut-1", error: nil
+            )
+        }
+        let first = try broker.invoke(
+            request, sourceInstalled: true, targetInstalled: true,
+            granted: ["actions:invoke"],
+            targetActions: [.object(["id": .string("createRecord"), "family": .string("record.create")])],
+            apply: apply
+        )
+        let second = try broker.invoke(
+            request, sourceInstalled: true, targetInstalled: true,
+            granted: ["actions:invoke"],
+            targetActions: [.object(["id": .string("createRecord"), "family": .string("record.create")])],
+            apply: apply
+        )
+        XCTAssertEqual(first.targetRecordId, "task-1")
+        XCTAssertEqual(second.mutationId, first.mutationId)
+        XCTAssertEqual(applied, 1)
+        XCTAssertThrowsError(try broker.invoke(
+            ModuleActionBroker.Request(
+                requestId: "req-2", idempotencyKey: "other",
+                sourceModuleId: "digital.modula.vault-notes", sourceReleaseId: "v2",
+                targetModuleId: "digital.modula.tasks", targetActionId: "createRecord",
+                payload: ["title": "X"]
+            ),
+            sourceInstalled: true, targetInstalled: false, granted: ["actions:invoke"],
+            targetActions: [.object(["id": .string("createRecord")])], apply: apply
+        ))
+    }
+
     func testProductUIRuntimeSearchAndOfflineQueue() throws {
         let document = try ProductUIDocument.parse(data: Self.frontend(title: "Tasks", productId: "digital.modula.tasks"), productId: "digital.modula.tasks", version: "0.1.0")
         let session = ModuleSession(manifest: Self.manifest("digital.modula.tasks", "0.1.0"), environment: environment)
@@ -181,6 +289,41 @@ final class ModuleHostEcosystemTests: XCTestCase {
         runtime.perform(actionId: "createRecord")
         XCTAssertFalse(runtime.pendingMutations.isEmpty)
         XCTAssertTrue(runtime.pendingMutations[0].queuedOffline)
+    }
+
+    func testInAppTemplatesGenerateHostParsableFrontends() throws {
+        for template in DeveloperModuleDraft.templates {
+            var draft = DeveloperModuleDraft.new(name: "Sample", template: template)
+            draft.moduleId = "digital.modula.\(template)"
+            draft.version = "0.1.0"
+            let generated = ModuleProjectGenerator.generate(draft)
+            XCTAssertTrue(generated.issues.isEmpty, "\(template): \(generated.issues.joined(separator: " "))")
+            let document = try ProductUIDocument.parse(data: generated.frontend, productId: draft.moduleId, version: draft.version)
+            XCTAssertEqual(document.entry, "home", template)
+            XCTAssertFalse(document.views.isEmpty, template)
+        }
+        var edited = DeveloperModuleDraft.new(name: "Tasks", template: "records")
+        edited.moduleId = "digital.modula.tasks"
+        edited.intro = "Tasks before"
+        let before = ModuleProjectGenerator.generate(edited)
+        edited.intro = "Tasks after edit"
+        edited.version = edited.bumpedVersion()
+        let after = ModuleProjectGenerator.generate(edited)
+        XCTAssertNotEqual(before.frontendSha256, after.frontendSha256)
+        XCTAssertTrue(String(decoding: after.frontend, as: UTF8.self).contains("Tasks after edit"))
+        let parsed = try ProductUIDocument.parse(data: after.frontend, productId: "digital.modula.tasks", version: "0.1.1")
+        XCTAssertEqual(parsed.releaseVersion, "0.1.1")
+        var invalid = edited
+        invalid.moduleId = "../evil"
+        XCTAssertFalse(ModuleProjectGenerator.validate(invalid).isEmpty)
+    }
+
+    private static func fixture(_ name: String) throws -> Data {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .appendingPathComponent("Fixtures")
+            .appendingPathComponent(name)
+        return try Data(contentsOf: url)
     }
 
     private static func manifest(_ id: String, _ version: String) -> ModuleManifest {

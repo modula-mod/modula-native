@@ -161,6 +161,18 @@ final class ProductUIRuntime {
                     recordId: record?.id, expectedRevision: record?.revision, payload: drafts, queuedOffline: true
                 ))
             }
+        case "module.invoke":
+            lastAction = family
+            lastError = nil
+            pendingMutations.append(ProductUIMutation(
+                id: UUID().uuidString,
+                family: family,
+                recordType: action["targetModuleId"]?.string ?? "",
+                recordId: action["targetActionId"]?.string,
+                expectedRevision: nil,
+                payload: drafts,
+                queuedOffline: !online
+            ))
         default:
             lastError = "Unsupported action family \(family)."
         }

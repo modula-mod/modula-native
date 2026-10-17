@@ -181,6 +181,9 @@
 		M90100000000000000000004 /* ProductUIRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000004 /* ProductUIRenderer.swift */; };
 		M90100000000000000000005 /* ProductUIRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000005 /* ProductUIRuntime.swift */; };
 		M90100000000000000000006 /* ModuleCapabilityBroker.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000006 /* ModuleCapabilityBroker.swift */; };
+		M90100000000000000000007 /* ModuleActionBroker.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000007 /* ModuleActionBroker.swift */; };
+		M90100000000000000000008 /* ModuleProjectGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000008 /* ModuleProjectGenerator.swift */; };
+		M90100000000000000000009 /* DeveloperStudioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000009 /* DeveloperStudioView.swift */; };
 		93AFDE81000E32DA131CDFB4 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46F14EB7791E789BBE2A473A /* HomeView.swift */; };
 		98B1FF0A78D3F224FB40C690 /* IntelligenceToolValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4CC36E2CB4875EBEDB19A1A /* IntelligenceToolValidation.swift */; };
 		9B142191BFBCE380907C8378 /* GeneratedDesignContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69B093117E45986E847387DC /* GeneratedDesignContract.swift */; };
@@ -689,6 +692,9 @@
 		M80100000000000000000004 /* ProductUIRenderer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductUIRenderer.swift; path = ModuleRuntime/ProductUIRenderer.swift; sourceTree = "<group>"; };
 		M80100000000000000000005 /* ProductUIRuntime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductUIRuntime.swift; path = ModuleRuntime/ProductUIRuntime.swift; sourceTree = "<group>"; };
 		M80100000000000000000006 /* ModuleCapabilityBroker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleCapabilityBroker.swift; path = ModuleRuntime/ModuleCapabilityBroker.swift; sourceTree = "<group>"; };
+		M80100000000000000000007 /* ModuleActionBroker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleActionBroker.swift; path = ModuleRuntime/ModuleActionBroker.swift; sourceTree = "<group>"; };
+		M80100000000000000000008 /* ModuleProjectGenerator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleProjectGenerator.swift; path = Features/Developer/ModuleProjectGenerator.swift; sourceTree = "<group>"; };
+		M80100000000000000000009 /* DeveloperStudioView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DeveloperStudioView.swift; path = Features/Developer/DeveloperStudioView.swift; sourceTree = "<group>"; };
 		AD892F52CC60A67EF80BCB01 /* IntelligenceError.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceError.swift; path = Core/Intelligence/Contracts/IntelligenceError.swift; sourceTree = "<group>"; };
 		ADB419E3CAE3BA05CB1C1E59 /* ModulaDesignSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaDesignSystem.swift; path = DesignSystem/ModulaDesignSystem.swift; sourceTree = "<group>"; };
 		B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppRoute.swift; path = Navigation/AppRoute.swift; sourceTree = "<group>"; };
@@ -1299,6 +1305,7 @@
 				M80100000000000000000004 /* ProductUIRenderer.swift */,
 				M80100000000000000000005 /* ProductUIRuntime.swift */,
 				M80100000000000000000006 /* ModuleCapabilityBroker.swift */,
+				M80100000000000000000007 /* ModuleActionBroker.swift */,
 				90EAE77878B8E7792468645E /* ModuleSession.swift */,
 				736C8CEB3F723FE3824B717E /* ModuleCompatibility.swift */,
 				A632D57B46DA145ADCE10292 /* ReactNativeContainer.swift */,
@@ -1376,6 +1383,8 @@
 				C90100000000000000000002 /* NodusChatViewModel.swift */,
 				C90100000000000000000021 /* NodusComposerStudio.swift */,
 				C90100000000000000000022 /* NodusLibraryBrowser.swift */,
+				M80100000000000000000008 /* ModuleProjectGenerator.swift */,
+				M80100000000000000000009 /* DeveloperStudioView.swift */,
 				A60100000000000000000001 /* NodusAnswer.swift */,
 				A60100000000000000000002 /* NodusFreshnessClassifier.swift */,
 				A60100000000000000000003 /* NodusConfidenceEngine.swift */,
@@ -1997,6 +2006,9 @@
 				M90100000000000000000004 /* ProductUIRenderer.swift in Sources */,
 				M90100000000000000000005 /* ProductUIRuntime.swift in Sources */,
 				M90100000000000000000006 /* ModuleCapabilityBroker.swift in Sources */,
+				M90100000000000000000007 /* ModuleActionBroker.swift in Sources */,
+				M90100000000000000000008 /* ModuleProjectGenerator.swift in Sources */,
+				M90100000000000000000009 /* DeveloperStudioView.swift in Sources */,
 				36217ECF8FA82AEF220905B2 /* ModuleSession.swift in Sources */,
 				EE84C2D615FD8B38CF506921 /* ModuleCompatibility.swift in Sources */,
 				18C0C36383D976CD0F415505 /* ReactNativeContainer.swift in Sources */,

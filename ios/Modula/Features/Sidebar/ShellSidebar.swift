@@ -8,6 +8,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
     case collections
     case settings
     case appearance
+    case developer
 
     var id: String { rawValue }
 
@@ -18,6 +19,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .collections: "Collections"
         case .settings: "Settings"
         case .appearance: "Appearance"
+        case .developer: "Developer"
         }
     }
 
@@ -28,6 +30,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .collections: "Private groupings"
         case .settings: "Account and device"
         case .appearance: "Theme, type and motion"
+        case .developer: "Create and edit modules"
         }
     }
 
@@ -38,6 +41,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .collections: "rectangle.stack"
         case .settings: "gearshape"
         case .appearance: "paintpalette"
+        case .developer: "hammer"
         }
     }
 
@@ -48,20 +52,21 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .collections: .collections(.root)
         case .settings: .settings(.root)
         case .appearance: .settings(.appearance(.root))
+        case .developer: .developer(.studio)
         }
     }
 
     var requiresSignIn: Bool {
         switch self {
         case .saved, .drafts, .collections: true
-        case .settings, .appearance: false
+        case .settings, .appearance, .developer: false
         }
     }
 
     var section: Section {
         switch self {
         case .saved, .drafts, .collections: .library
-        case .settings, .appearance: .manage
+        case .settings, .appearance, .developer: .manage
         }
     }
 

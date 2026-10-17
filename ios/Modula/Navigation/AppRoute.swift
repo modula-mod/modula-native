@@ -181,7 +181,7 @@ enum StoriesRoute: Hashable { case root, create, story(String) }
 enum ReelsRoute: Hashable { case feed, reel(String) }
 enum TeamsRoute: Hashable { case root, create, team(String, TeamSection) }
 enum TeamSection: String, CaseIterable, Codable, Hashable { case overview, members, roles, modules, settings }
-enum DeveloperRoute: String, CaseIterable, Codable, Hashable { case components, appearance, modules, runtime, bridge, diagnostics }
+enum DeveloperRoute: String, CaseIterable, Codable, Hashable { case components, appearance, modules, runtime, bridge, diagnostics, studio }
 enum SearchRoute: Hashable { case root(String?), section(SearchSection, String?) }
 enum SavedRoute: Hashable { case root, posts, modules, links }
 enum CollectionsRoute: Hashable { case root, collection(String) }
