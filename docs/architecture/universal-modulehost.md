@@ -24,3 +24,9 @@ A defective module cannot own shell navigation. Shared Hermes is still one proce
 ## What this is not
 
 There is no `if moduleId == "digital.modula.vault-notes"` renderer. Vault Notes 2.0 and generated modules use the same `ProductUIHostView`.
+
+Inter-module actions go through `ModuleActionBroker`: source and target installations, exact-release permission review, target-owned mutation, idempotent retry. Vault never writes the Tasks collection directly.
+
+Developer Studio inside the app is Product Hub → Developer Studio, the sidebar Developer item, and `/developer/studio`. It generates `modula.product.json` and `frontend/frontend.manifest.json`, edits the home copy and record fields, previews with the native Product UI renderer, then installs into the local module cache. Web Studio remains available at `http://127.0.0.1:8787`.
+
+Live GreenField `d536d514` accepted the in-app basic, records, dashboard, document, and intelligence products and frontends, including SHA-256 equality. The deployed frontend capability grammar is `ui|audio|camera|media|file|share|map|game`. `intelligence.local` stays a host-broker failure, not a publishable capability id.

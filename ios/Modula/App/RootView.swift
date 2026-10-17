@@ -284,6 +284,7 @@ struct RouteView: View {
             #else
             DevelopmentRouteView(title: "Components", symbol: "square.grid.3x3")
             #endif
+        case .developer(.studio): DeveloperStudioView()
         case .developer(let route): DevelopmentRouteView(title: route.rawValue.capitalized, symbol: "hammer")
         case .command:
             CommandCenterView(context: .global)

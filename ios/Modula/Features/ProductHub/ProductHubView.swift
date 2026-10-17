@@ -29,8 +29,20 @@ final class ProductHubStore {
     /// Poll cadence while the server settles a lifecycle change; tests shorten it.
     var settlePollInterval: Duration = .milliseconds(900)
     var settleAttempts = 30
+    /// Override in tests. Production scans Application Support and ~/Developer/modula-dev-modules.
+    var localDevRoots: [URL] = ProductHubStore.defaultLocalDevRoots()
+    /// Local-only versions discovered on disk, keyed by module id.
+    private(set) var localDevVersions: [String: [String]] = [:]
 
     init(client: GreenfieldClient) { self.client = client }
+
+    static func defaultLocalDevRoots() -> [URL] {
+        [
+            FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+                .appendingPathComponent("Modula/DevModules"),
+            URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Developer/modula-dev-modules"),
+        ].compactMap { $0 }
+    }
 
     /// Modules the account has installed (any non-removed state).
     var installedIDs: Set<String> { Set(installations.values.filter(\.isPresent).map(\.moduleId)) }
@@ -47,6 +59,7 @@ final class ProductHubStore {
         } catch {
             self.error = "Product catalogue is unavailable. Pull to refresh."
         }
+        mergeLocalDevModules()
     }
 
     func product(_ id: String) -> CatalogueProduct? { products.first { $0.moduleId == id } }
@@ -55,6 +68,9 @@ final class ProductHubStore {
     /// (offline launch) the host can't decide and defers to the backend, which still
     /// rejects records for modules that aren't installed.
     func installGate(for id: String) -> ModuleInstallGate {
+        if let cached = activation?.active(accountID: accountID, moduleId: id) {
+            return .runnable(descriptor: verifiedDescriptors[id] ?? cached.descriptor)
+        }
         guard loaded else { return .runnable(descriptor: nil) }
         guard let installation = installations[id], installation.isRunnable else { return .notInstalled }
         let descriptor = verifiedDescriptors[id].flatMap { $0.version == installation.version ? $0 : nil }
@@ -100,6 +116,7 @@ final class ProductHubStore {
     /// then waits until the installation is enabled. Returns true when it can be opened.
     @discardableResult
     func install(_ id: String, permissions: [String]) async -> Bool {
+        if let local = await installLocalDevelopment(id, permissions: permissions) { return local }
         guard operations[id] == nil else { return false }
         operations[id] = .installing
         lifecycleErrors[id] = nil
@@ -118,6 +135,7 @@ final class ProductHubStore {
 
     @discardableResult
     func update(_ id: String) async -> Bool {
+        if let local = await installLocalDevelopment(id, permissions: []) { return local }
         guard operations[id] == nil, let latest = product(id)?.latestVersion else { return false }
         operations[id] = .updating
         lifecycleErrors[id] = nil
@@ -246,7 +264,7 @@ final class ProductHubStore {
         if let frontendSha, let frontendRef {
             bytes = try? await client.downloadVerifiedArtifact(ref: frontendRef, expectedSha256: frontendSha)
         }
-        if bytes == nil, let local = Self.localDevFrontend(moduleId: id, version: version) {
+        if bytes == nil, let local = Self.localDevFrontend(moduleId: id, version: version, roots: localDevRoots) {
             bytes = local
         }
         guard let bytes else { return }
@@ -271,17 +289,135 @@ final class ProductHubStore {
         }
     }
 
-    static func localDevFrontend(moduleId: String, version: String) -> Data? {
-        let roots = [
-            FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
-                .appendingPathComponent("Modula/DevModules/\(moduleId)/\(version)/frontend.manifest.json"),
-            URL(fileURLWithPath: NSHomeDirectory())
-                .appendingPathComponent("Developer/modula-dev-modules/\(moduleId)/\(version)/frontend.manifest.json"),
-        ].compactMap { $0 }
-        for url in roots {
+    static func localDevFrontend(moduleId: String, version: String, roots: [URL]? = nil) -> Data? {
+        let search = roots ?? defaultLocalDevRoots()
+        for root in search {
+            let url = root.appendingPathComponent("\(moduleId)/\(version)/frontend.manifest.json")
             if let data = try? Data(contentsOf: url) { return data }
         }
         return nil
+    }
+
+    /// Discovers generator/Studio output on disk. Missing registry products are added;
+    /// existing registry products keep their published latestVersion.
+    func mergeLocalDevModules() {
+        let discovered = Self.scanLocalDevModules(roots: localDevRoots)
+        var versions: [String: [String]] = [:]
+        for item in discovered {
+            versions[item.moduleId, default: []].append(item.version)
+            if products.contains(where: { $0.moduleId == item.moduleId }) { continue }
+            products.append(item.asProduct)
+        }
+        for (id, list) in versions {
+            let unique = Array(Set(list)).sorted { ModuleVersion.isOlder($0, than: $1) }
+            localDevVersions[id] = unique
+            if let latest = unique.last,
+               let index = products.firstIndex(where: { $0.moduleId == id && $0.betaClassification == "local-development" }) {
+                products[index] = itemReplacingVersion(products[index], version: latest)
+            }
+        }
+    }
+
+    /// Installs a verified local frontend without GreenField. Returns nil when no local package exists.
+    func installLocalDevelopment(_ id: String, permissions: [String], version: String? = nil) async -> Bool? {
+        let chosen = version
+            ?? localDevVersions[id]?.last
+            ?? product(id)?.latestVersion
+        guard let chosen, let bytes = Self.localDevFrontend(moduleId: id, version: chosen, roots: localDevRoots) else {
+            return nil
+        }
+        guard let activation else { return false }
+        let account = accountID ?? "local-dev"
+        accountID = account
+        let manifest = ModuleManifest(
+            id: id, name: product(id)?.name ?? id, version: chosen, runtime: "declarative",
+            entry: "product-ui", permissions: permissions,
+            minHostVersion: ">=1.0.0", minBridgeVersion: "0.1.0", collections: ["item"]
+        )
+        do {
+            _ = try activation.installLocalPackage(
+                accountID: account, moduleId: id, version: chosen,
+                releaseId: "local:\(id)@\(chosen)", frontend: bytes, hostManifest: manifest
+            )
+            activation.reviews.record(ModulePermissionReview(
+                moduleId: id, releaseId: "local:\(id)@\(chosen)", descriptorRevision: "local",
+                granted: permissions, denied: [], reviewedAt: Date()
+            ))
+            installations[id] = ModuleInstallation(moduleId: id, status: "enabled", version: chosen)
+            return true
+        } catch {
+            lifecycleErrors[id] = error.localizedDescription
+            return false
+        }
+    }
+
+    private func itemReplacingVersion(_ product: CatalogueProduct, version: String) -> CatalogueProduct {
+        CatalogueProduct(
+            moduleId: product.moduleId,
+            productKind: product.productKind,
+            name: product.name,
+            description: product.description,
+            publisherId: product.publisherId,
+            publisherName: product.publisherName,
+            latestVersion: version,
+            status: product.status,
+            installable: product.installable,
+            platforms: product.platforms,
+            betaClassification: product.betaClassification,
+            installability: product.installability,
+            presentation: product.presentation
+        )
+    }
+
+    private struct LocalDevListing {
+        var moduleId: String
+        var version: String
+        var name: String
+        var description: String
+
+        var asProduct: CatalogueProduct {
+            CatalogueProduct(
+                moduleId: moduleId,
+                productKind: "module",
+                name: name,
+                description: description,
+                publisherId: "modula",
+                publisherName: "modula",
+                latestVersion: version,
+                status: "published",
+                installable: true,
+                platforms: ["ios"],
+                betaClassification: "local-development",
+                installability: CatalogueProduct.Installability(status: "installable", reasonCode: nil, reason: nil)
+            )
+        }
+    }
+
+    private static func scanLocalDevModules(roots: [URL]) -> [LocalDevListing] {
+        var found: [LocalDevListing] = []
+        for root in roots {
+            guard let modules = try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) else { continue }
+            for moduleDir in modules {
+                guard let versions = try? FileManager.default.contentsOfDirectory(at: moduleDir, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) else { continue }
+                for versionDir in versions {
+                    let frontend = versionDir.appendingPathComponent("frontend.manifest.json")
+                    guard let data = try? Data(contentsOf: frontend),
+                          let raw = try? JSONDecoder().decode(JSONValue.self, from: data),
+                          let moduleId = raw["productId"]?.string,
+                          let version = raw["releaseVersion"]?.string else { continue }
+                    var name = moduleId
+                    var description = "Local development module"
+                    let sidecar = versionDir.appendingPathComponent("modula.module.json")
+                    if let moduleData = try? Data(contentsOf: sidecar),
+                       let moduleRaw = try? JSONDecoder().decode(JSONValue.self, from: moduleData) {
+                        name = moduleRaw["name"]?.string ?? name
+                        description = moduleRaw["description"]?.string ?? description
+                    }
+                    found.append(LocalDevListing(moduleId: moduleId, version: version, name: name, description: description))
+                }
+            }
+        }
+        return found
     }
 
     private static func key(_ verb: String, _ id: String) -> String { "ios-\(verb)-\(id)-\(UUID().uuidString)" }
@@ -741,13 +877,19 @@ struct ProductHubView: View {
                             app.navigation.open(.settings(.modules(.root)))
                         }
                     }
-                    if app.auth.account != nil {
-                        Section("Developers") {
-                            Button("Create Module", systemImage: "plus.square.on.square") {
-                                app.openDeveloperStudio()
-                            }
-                            .accessibilityIdentifier("product-hub.create-module")
+                    Section("Developers") {
+                        Button("Developer Studio", systemImage: "hammer") {
+                            app.navigation.open(.developer(.studio))
                         }
+                        .accessibilityIdentifier("product-hub.developer-studio")
+                        Button("Create Module", systemImage: "plus.square.on.square") {
+                            app.navigation.open(.developer(.studio))
+                        }
+                        .accessibilityIdentifier("product-hub.create-module")
+                        Button("Web Studio", systemImage: "safari") {
+                            app.openDeveloperStudio()
+                        }
+                        .accessibilityIdentifier("product-hub.web-studio")
                     }
                 } label: {
                     Image(systemName: "ellipsis")
