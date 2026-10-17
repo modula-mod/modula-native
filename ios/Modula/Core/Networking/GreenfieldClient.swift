@@ -280,6 +280,21 @@ actor GreenfieldClient {
         let _: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/enable", body: .object(["idempotencyKey": .string(idempotencyKey)]))
     }
 
+    /// Permissions the account has already approved for the installed release.
+    func grantedModulePermissions(_ moduleID: String) async throws -> [String] {
+        guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
+        let value: JSONValue = try await authenticated("GET", path: "/v1/modules/\(path)/installation-descriptor")
+        return value["permissionReview"]?["effectiveCapabilities"]?.array?.compactMap(\.string) ?? []
+    }
+
+    func reviewModulePermissions(_ moduleID: String, approvedPermissions: [String], idempotencyKey: String) async throws {
+        guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
+        let _: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/permissions/review", body: .object([
+            "approvedPermissions": .array(approvedPermissions.map(JSONValue.string)),
+            "idempotencyKey": .string(idempotencyKey),
+        ]))
+    }
+
     func updateModule(_ moduleID: String, version: String, approvedPermissionIncrease: Bool, idempotencyKey: String) async throws {
         guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
         let _: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/update", body: .object([

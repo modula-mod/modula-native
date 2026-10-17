@@ -167,6 +167,24 @@ final class ProductHubStore {
         }
     }
 
+    /// Approves the module's full permission list, including ones an earlier review left denied.
+    @discardableResult
+    func allowPermissions(_ id: String, permissions: [String]) async -> Bool {
+        guard operations[id] == nil, !permissions.isEmpty else { return false }
+        operations[id] = .updating
+        lifecycleErrors[id] = nil
+        defer { operations[id] = nil }
+        do {
+            try await client.reviewModulePermissions(id, approvedPermissions: permissions, idempotencyKey: Self.key("permissions", id))
+            await refreshInstallations()
+            await activateVerifiedFrontend(id)
+            return true
+        } catch {
+            lifecycleErrors[id] = Self.message(error, verb: "update permissions")
+            return false
+        }
+    }
+
     @discardableResult
     func update(_ id: String) async -> Bool {
         let reviewed = requestedLocalPermissions(id).map(\.permission)
