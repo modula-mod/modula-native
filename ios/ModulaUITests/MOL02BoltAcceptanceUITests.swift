@@ -57,9 +57,6 @@ final class MOL02BoltAcceptanceUITests: XCTestCase {
 
     func testStudioOffersBoltIn3DWithFlag() {
         let app = launch(kind: "bolt", ["-MOL01Studio"])
-        let entry = app.buttons["moliboo3d.entry"]
-        XCTAssertTrue(entry.waitForExistence(timeout: 20))
-        entry.tap()
         XCTAssertTrue(app.navigationBars["Bolt"].waitForExistence(timeout: 20))
         waitState(app) { $0["loaded"] == "1" && $0["failed"] == "0" }
     }

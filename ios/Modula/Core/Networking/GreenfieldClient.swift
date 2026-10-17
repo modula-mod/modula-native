@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 enum APIError: Error, LocalizedError, Equatable {
     case unconfigured, unauthenticated, secureStorage, invalidResponse, accountChanged
@@ -329,6 +330,22 @@ actor GreenfieldClient {
             "idempotencyKey": .string(idempotencyKey),
         ]))
         return value["descriptor"].flatMap(ModuleInstallDescriptor.init(json:))
+    }
+
+    /// Downloads an immutable registry artifact and requires the expected SHA-256.
+    func downloadVerifiedArtifact(ref: String, expectedSha256: String, maximumBytes: Int = 1_048_576) async throws -> Data {
+        let url: URL
+        if ref.hasPrefix("/"), let baseURL, let resolved = URL(string: ref, relativeTo: baseURL)?.absoluteURL {
+            url = resolved
+        } else if let parsed = URL(string: ref) {
+            url = parsed
+        } else {
+            throw APIError.invalidResponse
+        }
+        let data = try await mediaData(from: url, maximumBytes: maximumBytes)
+        let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        guard digest == expectedSha256 else { throw APIError.invalidResponse }
+        return data
     }
 
     /// Uninstall keeps the account's module data so a reinstall restores it.

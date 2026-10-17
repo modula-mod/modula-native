@@ -29,6 +29,9 @@ final class ModuleSession: Identifiable {
     /// the session from this token; it is never included in any event.
     let surfaceToken: String = ModuleSession.randomToken()
     let manifest: ModuleManifest
+    var runtimeKind: ModuleRuntimeKind = .bundledReactNative
+    var productUI: ProductUIDocument?
+    var cachedRelease: ModuleCachedRelease?
     var state: State = .preparing
     var environment: ModuleEnvironment
     var error: String?

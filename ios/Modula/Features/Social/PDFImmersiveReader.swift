@@ -37,12 +37,19 @@ final class PDFReaderModel {
     @ObservationIgnored weak var pdfView: PDFView?
     @ObservationIgnored private var searchTask: Task<Void, Never>?
 
-    init(url: URL, key: String, title: String, startPage: Int?, store: PDFReadingStore = .shared) {
+    init(
+        url: URL,
+        key: String,
+        title: String,
+        startPage: Int?,
+        store: PDFReadingStore = .shared,
+        document suppliedDocument: PDFDocument? = nil
+    ) {
         self.url = url
         self.key = key
         self.title = title
         self.store = store
-        let document = PDFDocument(url: url)
+        let document = suppliedDocument ?? PDFDocument(url: url)
         self.document = document
         self.pageCount = document?.pageCount ?? 0
         self.bookmarks = store.bookmarks(for: key)

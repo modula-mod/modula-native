@@ -103,37 +103,34 @@ final class MOL01AcceptanceUITests: XCTestCase {
         XCTAssertFalse(app.buttons["moliboo3d.entry"].exists, "rollback: no 3D entry when flag off")
         app.terminate()
         app = launch(["-MOL01Studio"], flag: true)
-        let entry = app.buttons["moliboo3d.entry"]
-        XCTAssertTrue(entry.waitForExistence(timeout: 20))
-        entry.tap()
-        waitState(app) { $0["loaded"] == "1" }
+        XCTAssertTrue(app.navigationBars["Pebble"].waitForExistence(timeout: 20))
+        waitState(app) { $0["loaded"] == "1" && $0["failed"] == "0" }
     }
 
-    func testStudioLifecycle20xMemoryLoadAndFrames() {
+    func testStudioLifecycleTwentyInteractionsMemoryLoadAndFrames() {
         let app = launch(["-MOL01Studio"], flag: true)
-        let entry = app.buttons["moliboo3d.entry"]
-        XCTAssertTrue(entry.waitForExistence(timeout: 20))
+        XCTAssertTrue(app.navigationBars["Pebble"].waitForExistence(timeout: 20))
         let studioFP = app.descendants(matching: .any)["mol01.studio.ready"].label
-        var fpsAll: [Double] = [], loads: [Int] = [], fps: [Double] = [], firstFP = 0.0, lastFP = 0.0, maxFrame = 0.0
-        for i in 0..<21 {
-            if !entry.isHittable { app.swipeDown() }
-            entry.tap()
-            let s = waitState(app) { $0["loaded"] == "1" }
-            if i == 0 || i == 20 { sleep(3) }       // collect frame timing on first and last open
-            let st = state(app)
-            loads.append(Int(st["loadms"] ?? "0") ?? 0)
-            let fp = Double(st["footprintMB"] ?? "0") ?? 0
-            fpsAll.append(fp)
-            if i == 0 { firstFP = fp; fps.append(Double(st["avgms"] ?? "0") ?? 0); maxFrame = Double(st["maxms"] ?? "0") ?? 0 }
-            if i == 20 { lastFP = fp; fps.append(Double(st["avgms"] ?? "0") ?? 0) }
-            _ = s
-            app.navigationBars.buttons.element(boundBy: 0).tap()
-            XCTAssertTrue(entry.waitForExistence(timeout: 10))
+        waitState(app) { $0["loaded"] == "1" && $0["failed"] == "0" }
+        sleep(3)
+        let first = state(app)
+        let firstFP = Double(first["footprintMB"] ?? "0") ?? 0
+        let firstFrames = Int(first["frames"] ?? "0") ?? 0
+        let view = app.descendants(matching: .any)["moliboo3d.view"]
+        XCTAssertTrue(view.waitForExistence(timeout: 10))
+        for index in 0..<20 {
+            let x = CGFloat(0.30 + Double(index % 5) * 0.10)
+            view.coordinate(withNormalizedOffset: CGVector(dx: x, dy: 0.62)).tap()
         }
-        let line = "MOL01PERF studio=\(studioFP) open1FootprintMB=\(firstFP) open21FootprintMB=\(lastFP) deltaMB=\(String(format: "%.1f", lastFP - firstFP)) loadms=\(loads) avgFrameMs(first,last)=\(fps) maxFrameMsFirst=\(maxFrame) footprintPerOpen=\(fpsAll)"
+        sleep(3)
+        let last = state(app)
+        let lastFP = Double(last["footprintMB"] ?? "0") ?? 0
+        let lastFrames = Int(last["frames"] ?? "0") ?? 0
+        let line = "MOL01PERF studio=\(studioFP) firstFootprintMB=\(firstFP) lastFootprintMB=\(lastFP) deltaMB=\(String(format: "%.1f", lastFP - firstFP)) loadms=\(last["loadms"] ?? "0") frames=\(firstFrames)->\(lastFrames) avgFrameMs=\(last["avgms"] ?? "0") maxFrameMs=\(last["maxms"] ?? "0")"
         print(line)
         let a = XCTAttachment(string: line); a.lifetime = .keepAlways; add(a)
-        XCTAssertLessThan(lastFP - firstFP, 60, "no unbounded growth across 20 open/close cycles")
+        XCTAssertGreaterThan(lastFrames, firstFrames, "the scene keeps rendering through repeated interactions")
+        XCTAssertLessThan(lastFP - firstFP, 60, "no unbounded growth across twenty scene interactions")
     }
 
     /// MOL-03 Workstream B: background → foreground keeps the 3D scene alive and rendering (frame count keeps rising).

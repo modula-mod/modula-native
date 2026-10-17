@@ -57,9 +57,6 @@ final class MOL02MossAcceptanceUITests: XCTestCase {
 
     func testStudioOffersMossIn3DWithFlag() {
         let app = launch(kind: "moss", ["-MOL01Studio"])
-        let entry = app.buttons["moliboo3d.entry"]
-        XCTAssertTrue(entry.waitForExistence(timeout: 20))
-        entry.tap()
         XCTAssertTrue(app.navigationBars["Moss"].waitForExistence(timeout: 20))
         waitState(app) { $0["loaded"] == "1" && $0["failed"] == "0" }
     }
