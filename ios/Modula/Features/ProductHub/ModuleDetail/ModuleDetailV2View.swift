@@ -77,7 +77,7 @@ struct ModuleDetailV2View: View {
             }
         }
         .confirmationDialog(installTitle, isPresented: $confirmInstall, titleVisibility: .visible) {
-            Button("Install") { Task { await runInstall() } }
+            Button(isInstalled ? "Update" : "Install") { Task { await runInstall() } }
                 .accessibilityIdentifier("module.install.confirm")
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -591,7 +591,15 @@ struct ModuleDetailV2View: View {
 
     // MARK: Actions
 
-    private var installTitle: String { "Install \(product?.name ?? "module")?" }
+    private var installTitle: String {
+        let name = product?.name ?? "module"
+        return isInstalled ? "Update \(name)?" : "Install \(name)?"
+    }
+
+    private var isInstalled: Bool {
+        guard let product else { return false }
+        return presentation(product).installed
+    }
 
     private var reviewedPermissions: [ModuleListing.Permission] {
         let listed = listing?.permissions ?? []
@@ -615,6 +623,10 @@ struct ModuleDetailV2View: View {
             if listing == nil { Task { await app.catalogue.loadListing(moduleID) } }
             confirmInstall = true
         case .update:
+            if product?.betaClassification == "local-development" {
+                confirmInstall = true
+                return
+            }
             Task {
                 // Updates go through the same registry preview + consent sheet as any switch.
                 if app.catalogue.versionLists[moduleID] == nil { await app.catalogue.loadVersions(moduleID) }

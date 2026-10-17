@@ -135,7 +135,8 @@ final class ProductHubStore {
 
     @discardableResult
     func update(_ id: String) async -> Bool {
-        if let local = await installLocalDevelopment(id, permissions: []) { return local }
+        let reviewed = requestedLocalPermissions(id).map(\.permission)
+        if let local = await installLocalDevelopment(id, permissions: reviewed) { return local }
         guard operations[id] == nil, let latest = product(id)?.latestVersion else { return false }
         operations[id] = .updating
         lifecycleErrors[id] = nil
