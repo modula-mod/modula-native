@@ -377,11 +377,16 @@ enum ModulePolicy {
         }
         if permission.hasPrefix("media:") { return permission.hasSuffix(":read") || permission.hasSuffix(":write") ? "media" : "unrecognized" }
         if permission.hasPrefix("sharing:") { return permission.hasSuffix(":read") || permission.hasSuffix(":write") ? "sharing" : "unrecognized" }
+        if permission == "files:temporary:read" || permission == "files:temporary:write" { return "files" }
         switch permission {
-        case "schemas:register", "settings:register", "routes:register", "functions:register", "events:subscribe", "search:index":
+        case "schemas:register", "settings:register", "routes:register", "functions:register", "events:subscribe", "search:index", "widgets:register":
             return "server"
         case "settings:read", "settings:write":
             return "settings"
+        case "notifications:create":
+            return "notifications"
+        case "jobs:create":
+            return "jobs"
         default:
             return "unrecognized"
         }
