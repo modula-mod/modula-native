@@ -79,6 +79,8 @@ struct ModuleDetailPresentation: Equatable {
     var bundled: Bool
     var bundledVersion: String?
     var signedIn: Bool = true
+    /// Declarative Product UI packages the host can run without bundled React Native code.
+    var declarativeHost: Bool = false
 
     var installed: Bool { installation?.isPresent == true }
 
@@ -101,13 +103,13 @@ struct ModuleDetailPresentation: Equatable {
                 default: return .installing
                 }
             }
-            guard bundled else { return .unavailable }
+            guard bundled || declarativeHost else { return .unavailable }
             if updateAvailable { return .update }
             return .open
         }
         if status.contains("incompatible") { return .incompatible }
         if status.contains("coming") || !product.installable { return .comingSoon }
-        guard bundled else { return .unavailable }
+        guard bundled || declarativeHost else { return .unavailable }
         return signedIn ? .install : .signIn
     }
 

@@ -1099,10 +1099,12 @@ final class ModuleStoreTests: XCTestCase {
         platforms: ["ios"], betaClassification: nil, installability: .init(status: "available", reasonCode: nil, reason: nil))
 
     private func state(_ status: String?, version: String? = "1.7.0", op: ModuleOperation? = nil, bundled: Bool = true,
-                       bundledVersion: String? = "1.7.0", signedIn: Bool = true, product: CatalogueProduct = vault) -> ModulePrimaryAction {
+                       bundledVersion: String? = "1.7.0", signedIn: Bool = true, product: CatalogueProduct = vault,
+                       declarativeHost: Bool = false) -> ModulePrimaryAction {
         ModuleDetailPresentation(product: product,
                                  installation: status.map { ModuleInstallation(moduleId: product.moduleId, status: $0, version: version) },
-                                 operation: op, bundled: bundled, bundledVersion: bundledVersion, signedIn: signedIn).primaryAction
+                                 operation: op, bundled: bundled, bundledVersion: bundledVersion, signedIn: signedIn,
+                                 declarativeHost: declarativeHost).primaryAction
     }
 
     func testPrimaryActionFollowsServerInstallState() {
@@ -1119,6 +1121,19 @@ final class ModuleStoreTests: XCTestCase {
         XCTAssertEqual(state("enabled", version: "1.7.0", bundledVersion: "1.6.0"), .open, "Up to date with the registry's latest")
         XCTAssertEqual(state(nil, op: .installing), .installing)
         XCTAssertEqual(state(nil, bundled: false), .unavailable)
+        let local = CatalogueProduct(
+            moduleId: "digital.modula.basic-echo", productKind: "module", name: "Basic Echo", description: "Local",
+            publisherId: "modula", publisherName: "Modula", latestVersion: "0.1.0", status: "published", installable: true,
+            platforms: ["ios"], betaClassification: "local-development", installability: .init(status: "installable", reasonCode: nil, reason: nil))
+        XCTAssertEqual(state(nil, bundled: false, product: local, declarativeHost: true), .install,
+                       "A declarative local package can install without bundled React Native code")
+        XCTAssertEqual(state(nil, bundled: false, signedIn: false, product: local, declarativeHost: true), .signIn)
+        XCTAssertEqual(state("enabled", version: "0.1.0", bundled: false, product: local, declarativeHost: true), .open)
+        XCTAssertEqual(state("enabled", version: "0.1.0", bundled: false, bundledVersion: nil, product: CatalogueProduct(
+            moduleId: local.moduleId, productKind: local.productKind, name: local.name, description: local.description,
+            publisherId: local.publisherId, publisherName: local.publisherName, latestVersion: "0.1.1", status: local.status,
+            installable: true, platforms: local.platforms, betaClassification: "local-development",
+            installability: local.installability), declarativeHost: true), .update)
         XCTAssertTrue(ModuleVersion.isOlder("1.9.2", than: "1.10.0"))
         XCTAssertFalse(ModuleVersion.isOlder("1.7.0", than: "1.7"))
     }

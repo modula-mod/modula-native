@@ -119,7 +119,8 @@ struct ModuleDetailV2View: View {
             operation: app.catalogue.operations[moduleID],
             bundled: bundled,
             bundledVersion: manifest?.version,
-            signedIn: app.auth.account != nil
+            signedIn: app.auth.account != nil,
+            declarativeHost: product.betaClassification == "local-development"
         )
     }
 
@@ -592,11 +593,18 @@ struct ModuleDetailV2View: View {
 
     private var installTitle: String { "Install \(product?.name ?? "module")?" }
 
+    private var reviewedPermissions: [ModuleListing.Permission] {
+        let listed = listing?.permissions ?? []
+        if !listed.isEmpty { return listed }
+        return app.catalogue.requestedLocalPermissions(moduleID)
+    }
+
     private var installMessage: String {
-        let permissions = listing?.permissions ?? []
-        guard !permissions.isEmpty else { return "It will be added to your Modula account." }
-        let high = listing?.highRiskCount ?? 0
-        return "It will be added to your Modula account with \(permissions.count) permissions" + (high > 0 ? " (\(high) high risk)." : ".") + " You can review them under Permissions."
+        let permissions = reviewedPermissions
+        guard !permissions.isEmpty else { return "It will be added to your Modula account. No permissions are granted until they are listed here." }
+        let names = permissions.map(\.permission).joined(separator: ", ")
+        let high = permissions.filter { $0.risk.lowercased() == "high" }.count
+        return "It will be added to your Modula account with \(permissions.count) permissions" + (high > 0 ? " (\(high) high risk)" : "") + ": \(names)."
     }
 
     private func perform(_ action: ModulePrimaryAction) {
@@ -673,7 +681,7 @@ struct ModuleDetailV2View: View {
     }
 
     private func runInstall() async {
-        let granted = (listing?.permissions ?? []).map(\.permission)
+        let granted = reviewedPermissions.map(\.permission)
         if await app.catalogue.install(moduleID, permissions: granted) {
             HapticEngine.shared.play(.success)
             app.navigation.banner = ModulaBanner(message: "\(product?.name ?? "Module") installed", symbol: "checkmark.circle")

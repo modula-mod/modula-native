@@ -289,6 +289,28 @@ final class ProductHubStore {
         }
     }
 
+    /// Permissions declared by a local development package. They are requested, not granted,
+    /// until the install confirmation names them.
+    func requestedLocalPermissions(_ id: String) -> [ModuleListing.Permission] {
+        let version = localDevVersions[id]?.last ?? product(id)?.latestVersion
+        guard let version else { return [] }
+        for root in localDevRoots {
+            let url = root.appendingPathComponent("\(id)/\(version)/modula.module.json")
+            guard let data = try? Data(contentsOf: url),
+                  let raw = try? JSONDecoder().decode(JSONValue.self, from: data),
+                  let items = raw["permissions"]?.array else { continue }
+            return items.compactMap { item in
+                guard let permission = item["id"]?.string ?? item["permission"]?.string else { return nil }
+                return ModuleListing.Permission(
+                    permission: permission,
+                    risk: item["risk"]?.string ?? "unknown",
+                    reason: item["reason"]?.string ?? ""
+                )
+            }
+        }
+        return []
+    }
+
     static func localDevFrontend(moduleId: String, version: String, roots: [URL]? = nil) -> Data? {
         let search = roots ?? defaultLocalDevRoots()
         for root in search {
