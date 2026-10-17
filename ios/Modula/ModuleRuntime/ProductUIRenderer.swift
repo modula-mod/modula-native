@@ -58,6 +58,10 @@ struct ProductUIHostView: View {
             guard let functionId else { return }
             Task { await runModuleFunction(functionId) }
         }
+        .onChange(of: runtime.serverMutation?.id) { _, mutationId in
+            guard mutationId != nil, let mutation = runtime.serverMutation else { return }
+            Task { await performRecordWrite(mutation) }
+        }
         .fileImporter(
             isPresented: $showsFileImporter,
             allowedContentTypes: [.image, .pdf, .plainText, .text, .audio, .data],
@@ -130,36 +134,88 @@ struct ProductUIHostView: View {
         }
     }
 
-    /// Reads the installed module's records so the verified frontend can show them.
-    /// Capability bindings are not collections and do not count as an empty vault.
+    /// Writes the form into the signed-in account's module records, then reloads that account's list.
+    private func performRecordWrite(_ mutation: ProductUIMutation) async {
+        runtime.serverMutation = nil
+        guard let accountID = app.auth.account?.accountId else {
+            runtime.lastError = "Sign in to Modula to save notes."
+            return
+        }
+        guard let action = runtime.document.action(id: mutation.actionId) else {
+            runtime.lastError = "This action is not available on this host yet."
+            return
+        }
+        let existing = mutation.recordId.flatMap { id in
+            runtime.serverRecords.values.flatMap(\.self).first { $0.id == id }
+        }
+        let prepared = ProductUIRecords.prepare(
+            moduleId: session.manifest.id,
+            mutation: mutation,
+            action: action,
+            fields: ProductUIRecords.fieldNodes(in: runtime.currentView),
+            existing: existing
+        )
+        switch prepared {
+        case .failure(let message):
+            runtime.lastError = message
+        case .success(let request):
+            do {
+                let _: JSONValue = try await app.client.moduleRequest(
+                    method: request.method, path: request.path, body: request.body, expectedAccountID: accountID
+                )
+                runtime.lastError = nil
+                runtime.drafts = [:]
+                runtime.serverRecords = [:]
+                runtime.recordSource = nil
+                if mutation.family == "record.update", let recordId = mutation.recordId {
+                    runtime.open("/note/\(recordId)")
+                } else {
+                    runtime.open("/")
+                }
+                await loadInstalledRecords()
+            } catch let error as APIError {
+                runtime.lastError = error.userFacingMessage
+            } catch {
+                runtime.lastError = "Couldn’t save this record."
+            }
+        }
+    }
+
+    /// Reads the installed module's records for this account. Capability bindings are not collections.
     private func loadInstalledRecords() async {
-        guard runtime.recordSource == nil, let accountID = app.auth.account?.accountId else { return }
+        guard let accountID = app.auth.account?.accountId else { return }
         let moduleID = session.manifest.id
         guard GreenfieldClient.modulePath(moduleID) != nil else { return }
         let bindings = runtime.currentView?["bindings"]?.array ?? []
-        var byType: [String: [ProductUIRecord]] = [:]
-        var types = bindings.compactMap { binding -> String? in
-            guard binding["source"]?.string == "record.query" || binding["source"]?.string == "record.detail" else { return nil }
-            return binding["recordType"]?.string
+        var pairs: [(String, String)] = []
+        for binding in bindings {
+            let source = binding["source"]?.string ?? ""
+            guard source == "record.query" || source == "record.detail",
+                  let type = binding["recordType"]?.string,
+                  type.range(of: "^[a-z][a-z0-9-]{0,63}$", options: .regularExpression) != nil else { continue }
+            let state = binding["query"]?["recordState"]?.string ?? "active"
+            if !pairs.contains(where: { $0.0 == type && $0.1 == state }) { pairs.append((type, state)) }
         }
-        types.append(contentsOf: ProductUILayout.referencedRecordTypes(in: runtime.currentView))
-        for type in types {
-            guard type.range(of: "^[a-z][a-z0-9-]{0,63}$", options: .regularExpression) != nil,
-                  byType[type] == nil else { continue }
-            let path = "/v1/modules/\(moduleID)/records/\(type)?limit=50&recordState=active&sort=updatedAt&direction=desc"
+        for type in ProductUILayout.referencedRecordTypes(in: runtime.currentView)
+        where type.range(of: "^[a-z][a-z0-9-]{0,63}$", options: .regularExpression) != nil
+            && !pairs.contains(where: { $0.0 == type && $0.1 == "active" }) {
+            pairs.append((type, "active"))
+        }
+        var loaded: [String: [ProductUIRecord]] = [:]
+        for (type, state) in pairs {
+            let path = "/v1/modules/\(moduleID)/records/\(type)?limit=100&recordState=\(state)&sort=updatedAt&direction=desc"
             guard let value = try? await app.client.moduleRequest(
                 method: "GET", path: path, body: nil, expectedAccountID: accountID
             ) else { continue }
-            byType[type] = ProductUIRuntime.records(from: value)
+            loaded["\(type)|\(state)"] = ProductUIRuntime.records(from: value)
         }
-        guard !byType.isEmpty else {
-            runtime.recordSource = { _, _ in [] }
-            runtime.refresh()
-            return
+        if loaded.isEmpty {
+            for pair in pairs { runtime.serverRecords["\(pair.0)|\(pair.1)"] = [] }
+        } else {
+            for (key, items) in loaded { runtime.serverRecords[key] = items }
         }
-        runtime.recordSource = { type, _ in byType[type] ?? [] }
+        runtime.recordSource = nil
         runtime.refresh()
-        for (type, items) in byType { runtime.records[type] = items }
     }
 }
 
@@ -173,7 +229,9 @@ struct ProductUIViewCanvas: View {
         let states = view["states"]
         ScrollView {
             VStack(alignment: .leading, spacing: ModulaSpacing.md) {
-                if let declaredTitle, !declaredTitle.isEmpty, declaredTitle != runtime.document.productId {
+                if let declaredTitle, !declaredTitle.isEmpty,
+                   declaredTitle != runtime.document.productId,
+                   declaredTitle != runtime.session.manifest.name {
                     Text(declaredTitle).font(.headline).accessibilityAddTraits(.isHeader)
                 }
                 if runtime.viewState == "error", let node = states?["error"] {
@@ -188,7 +246,7 @@ struct ProductUIViewCanvas: View {
                 }
             }
             .padding(ModulaLayout.contentInset)
-            .padding(.bottom, 88)
+            .padding(.bottom, 140)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .accessibilityIdentifier("product-ui.view.\(kind)")
@@ -300,7 +358,7 @@ struct ProductUINode: View {
             .padding(.vertical, 12)
         case "errorState":
             let copy = displayText(node)
-            if !copy.isEmpty {
+            if !copy.isEmpty, !ProductUILayout.isContractCopy(copy) {
                 Label(copy, systemImage: "info.circle")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -411,7 +469,7 @@ struct ProductUINode: View {
                 TextField(field?["placeholder"]?.string ?? "", text: bindingDraft(id))
                     .textFieldStyle(.roundedBorder)
             }
-            if let help = field?["helpText"]?.string, !help.isEmpty {
+            if let help = field?["helpText"]?.string, !help.isEmpty, !ProductUILayout.isContractCopy(help) {
                 Text(help).font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -504,6 +562,12 @@ enum ProductUILayout {
     /// Contract notes are part of the frontend file. They stay available, quieter than the note.
     static func isQuietCopy(_ text: String) -> Bool {
         text.count > 90
+    }
+
+    /// Spec notes belong in the module contract, not on the note someone is reading.
+    static func isContractCopy(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        return isQuietCopy(text) || lower.contains("capability") || lower.contains("generic ") || lower.contains("ui.")
     }
 
     static func showsBadge(_ text: String) -> Bool {

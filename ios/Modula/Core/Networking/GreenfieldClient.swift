@@ -24,6 +24,10 @@ enum APIError: Error, LocalizedError, Equatable {
         case .rejected(_, "RATE_LIMITED"), .rejected(_, "TOO_MANY_REQUESTS"):
             "Too many attempts. Try again shortly."
         case .rejected(_, "VALIDATION_FAILED"): "Check the details you entered and try again."
+        case .rejected(_, "FORBIDDEN"), .rejected(_, "PERMISSION_DENIED"):
+            "This module doesn't have permission to change your records. Review its permissions, then try again."
+        case .rejected(_, "REVISION_CONFLICT"), .rejected(_, "NOTE_REVISION_CONFLICT"):
+            "This note changed. Open it again, then save."
         case .rejected(413, _), .rejected(_, "PAYLOAD_TOO_LARGE"):
             "That file is too large to upload. Try a smaller photo."
         case .rejected(_, "SERVER_UNAVAILABLE"):
