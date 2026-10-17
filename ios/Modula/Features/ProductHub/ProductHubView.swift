@@ -60,6 +60,27 @@ final class ProductHubStore {
             self.error = "Product catalogue is unavailable. Pull to refresh."
         }
         mergeLocalDevModules()
+        restoreLocalDevelopmentInstallations()
+    }
+
+    /// Local-development installs live in the account artifact cache, not GreenField.
+    /// A relaunch must keep that installation so a newer package is an update.
+    private func restoreLocalDevelopmentInstallations() {
+        guard let accountID, let activation else { return }
+        for product in products where product.betaClassification == "local-development" {
+            guard installations[product.moduleId]?.isPresent != true,
+                  let release = activation.active(accountID: accountID, moduleId: product.moduleId) else { continue }
+            installations[product.moduleId] = ModuleInstallation(
+                moduleId: product.moduleId, status: "enabled", version: release.version
+            )
+        }
+    }
+
+    /// Drops the signed-in account's hub installation list. Cached bytes stay in that
+    /// account's store and are not offered again until the same account signs in.
+    func dropAccountScope() {
+        accountID = nil
+        installations = [:]
     }
 
     func product(_ id: String) -> CatalogueProduct? { products.first { $0.moduleId == id } }

@@ -225,6 +225,41 @@ final class ModuleHostEcosystemTests: XCTestCase {
         }
     }
 
+    func testLocalDevelopmentInstallationSurvivesRelaunchAndOffersUpdate() async throws {
+        let workspace = FileManager.default.temporaryDirectory.appendingPathComponent("devmodules-\(UUID().uuidString)", isDirectory: true)
+        let v1 = workspace.appendingPathComponent("digital.modula.basic/0.1.0", isDirectory: true)
+        try FileManager.default.createDirectory(at: v1, withIntermediateDirectories: true)
+        try Self.frontend(title: "Basic 0.1.0").write(to: v1.appendingPathComponent("frontend.manifest.json"))
+        let cache = FileManager.default.temporaryDirectory.appendingPathComponent("cache-\(UUID().uuidString)", isDirectory: true)
+        let first = ProductHubStore(client: GreenfieldClient(baseURL: nil))
+        first.localDevRoots = [workspace]
+        first.accountID = "acct-1"
+        first.activation = ModuleActivationController(store: ModuleArtifactStore(root: cache))
+        first.mergeLocalDevModules()
+        let installed = await first.install("digital.modula.basic", permissions: ["settings:read"])
+        XCTAssertEqual(installed, true)
+        XCTAssertEqual(first.installations["digital.modula.basic"]?.version, "0.1.0")
+
+        let v2 = workspace.appendingPathComponent("digital.modula.basic/0.1.1", isDirectory: true)
+        try FileManager.default.createDirectory(at: v2, withIntermediateDirectories: true)
+        try Self.frontend(title: "Basic 0.1.1 updated", version: "0.1.1").write(to: v2.appendingPathComponent("frontend.manifest.json"))
+        let relaunched = ProductHubStore(client: GreenfieldClient(baseURL: nil))
+        relaunched.localDevRoots = [workspace]
+        relaunched.accountID = "acct-1"
+        relaunched.activation = ModuleActivationController(store: ModuleArtifactStore(root: cache))
+        await relaunched.load()
+        XCTAssertEqual(relaunched.product("digital.modula.basic")?.latestVersion, "0.1.1")
+        XCTAssertEqual(relaunched.installations["digital.modula.basic"]?.version, "0.1.0")
+        let presentation = ModuleDetailPresentation(
+            product: try XCTUnwrap(relaunched.product("digital.modula.basic")),
+            installation: relaunched.installations["digital.modula.basic"],
+            operation: nil, bundled: false, bundledVersion: nil, signedIn: true, declarativeHost: true
+        )
+        XCTAssertEqual(presentation.primaryAction, .update)
+        relaunched.dropAccountScope()
+        XCTAssertNil(relaunched.installations["digital.modula.basic"])
+    }
+
     func testVaultToTasksGovernedActionIsTargetOwnedAndIdempotent() throws {
         let broker = ModuleActionBroker.Session()
         let request = ModuleActionBroker.Request(

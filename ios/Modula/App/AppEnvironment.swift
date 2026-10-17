@@ -255,6 +255,7 @@ final class AppEnvironment {
         #endif
         await auth.restore()
         drafts.setAccountID(auth.account?.accountId)
+        catalogue.accountID = auth.account?.accountId
         #if DEBUG
         // UITest-only: mark first-run complete after a real session restore/sign-in.
         // Does not skip AppGate, auth, or App Lock, and is stripped from Release.
@@ -341,6 +342,7 @@ final class AppEnvironment {
         runtime.revokeAll()
         await auth.signOut()
         drafts.setAccountID(nil)
+        catalogue.dropAccountScope()
         if resetAppLock {
             appLock.resetAfterSignOut()
         }
