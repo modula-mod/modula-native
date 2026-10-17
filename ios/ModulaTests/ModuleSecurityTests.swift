@@ -236,6 +236,8 @@ final class ModuleSecurityTests: XCTestCase {
         XCTAssertEqual(ModulePolicy.classify("jobs:create"), "jobs")
         XCTAssertEqual(ModulePolicy.classify("widgets:register"), "server")
         XCTAssertEqual(ModulePolicy.classify("records:module.digital.modula.vault-notes.tag:delete"), "records")
+        XCTAssertEqual(ModulePolicy.classify("reminders:create"), "reminders")
+        XCTAssertEqual(ModulePolicy.classify("ai:complete"), "ai")
     }
 
     func testVerifiedFrontendRejectsReencodedJSON() {
