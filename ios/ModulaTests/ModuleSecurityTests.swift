@@ -231,6 +231,11 @@ final class ModuleSecurityTests: XCTestCase {
         XCTAssertEqual(ModulePolicy.classify("records:module.digital.modula.vault-notes.tag:read"), "records")
         XCTAssertEqual(ModulePolicy.classify("events:subscribe"), "server")
         XCTAssertEqual(ModulePolicy.classify("search:index"), "server")
+        XCTAssertEqual(ModulePolicy.classify("notifications:create"), "notifications")
+        XCTAssertEqual(ModulePolicy.classify("files:temporary:write"), "files")
+        XCTAssertEqual(ModulePolicy.classify("jobs:create"), "jobs")
+        XCTAssertEqual(ModulePolicy.classify("widgets:register"), "server")
+        XCTAssertEqual(ModulePolicy.classify("records:module.digital.modula.vault-notes.tag:delete"), "records")
     }
 
     func testVerifiedFrontendRejectsReencodedJSON() {
