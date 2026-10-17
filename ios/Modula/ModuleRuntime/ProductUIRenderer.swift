@@ -105,6 +105,7 @@ struct ProductUIViewCanvas: View {
                 }
             }
             .padding(ModulaLayout.contentInset)
+            .padding(.bottom, 88)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .accessibilityIdentifier("product-ui.view.\(kind)")
@@ -115,6 +116,10 @@ struct ProductUINode: View {
     let node: JSONValue
     @Bindable var runtime: ProductUIRuntime
     var provenance: ProductUIProvenance
+    /// The record this row is drawing. Nil for screen-level nodes.
+    var record: ProductUIRecord? = nil
+    /// Buttons inside a scrolling toolbar stay compact so the form keeps the screen width.
+    var compact = false
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
@@ -137,22 +142,39 @@ struct ProductUINode: View {
         case "section", "stack", "scroll":
             VStack(alignment: .leading, spacing: ModulaSpacing.sm) { children }
         case "row", "toolbar":
-            if node["layout"]?["scroll"]?.string == "horizontal" {
+            let scrolls = ProductUILayout.scrollsHorizontally(
+                childCount: node["children"]?.array?.count ?? 0,
+                declared: node["layout"]?["scroll"]?.string
+            )
+            if scrolls {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(alignment: .center, spacing: ModulaSpacing.sm) { children }
+                    HStack(alignment: .center, spacing: ModulaSpacing.sm) { scrollingChildren }
                 }
             } else {
-                HStack(alignment: .center, spacing: ModulaSpacing.sm) { children }.frame(maxWidth: .infinity, alignment: .leading)
+                HStack(alignment: .center, spacing: ModulaSpacing.sm) { children }
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         case "grid":
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 12)], spacing: 12) { children }
         case "text", "label", "metadata":
-            Text(runtime.boundText(node)).font(type == "text" ? .body : .subheadline).foregroundStyle(type == "metadata" ? .secondary : .primary)
+            let copy = displayText(node)
+            if !copy.isEmpty {
+                let quiet = ProductUILayout.isQuietCopy(copy)
+                let path = node["valuePath"]?.string
+                Text(copy)
+                    .font(path == "title" ? .body.weight(.semibold) : quiet || type != "text" ? .footnote : .subheadline)
+                    .foregroundStyle(path == "title" ? .primary : .secondary)
+                    .lineLimit(path == "title" ? 2 : quiet ? 3 : 4)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         case "badge":
-            Text(runtime.boundText(node).isEmpty ? " " : runtime.boundText(node))
-                .font(.caption.weight(.semibold))
-                .padding(.horizontal, 8).padding(.vertical, 4)
-                .background(app.appearance.accent.color.opacity(0.14), in: Capsule())
+            let copy = displayText(node)
+            if ProductUILayout.showsBadge(copy) {
+                Text(copy)
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(app.appearance.accent.color.opacity(0.14), in: Capsule())
+            }
         case "divider":
             Divider()
         case "icon":
@@ -161,25 +183,15 @@ struct ProductUINode: View {
             RoundedRectangle(cornerRadius: 12).fill(.quaternary).frame(height: 120)
                 .overlay(Image(systemName: "photo").foregroundStyle(.secondary))
         case "button":
-            Button(runtime.boundText(node).isEmpty ? "Continue" : runtime.boundText(node)) {
-                if let action = node["action"]?.string { runtime.perform(actionId: action) }
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(app.appearance.accent.color)
-            .accessibilityIdentifier("product-ui.button.\(node["action"]?.string ?? "none")")
+            actionButton
         case "search":
             TextField(runtime.boundText(node).isEmpty ? "Search" : runtime.boundText(node), text: $runtime.query)
                 .textFieldStyle(.roundedBorder)
+                .layoutPriority(1)
                 .onChange(of: runtime.query) { _, _ in runtime.refresh() }
                 .accessibilityIdentifier("product-ui.search")
         case "filter":
-            Picker("Filter", selection: $runtime.filter) {
-                Text("All").tag("")
-                Text("Open").tag("open")
-                Text("Done").tag("done")
-            }
-            .pickerStyle(.segmented)
-            .onChange(of: runtime.filter) { _, _ in runtime.refresh() }
+            EmptyView()
         case "sort":
             Picker("Sort", selection: $runtime.sort) {
                 Text("Updated").tag("updatedAt")
@@ -192,7 +204,7 @@ struct ProductUINode: View {
         case "recordList":
             recordList
         case "recordRow":
-            recordRow(runtime.bindingRecords(node["binding"]?.string).first)
+            VStack(alignment: .leading, spacing: 4) { children }
         case "emptyState":
             VStack(spacing: 12) {
                 Image(systemName: "tray").font(.title2).foregroundStyle(.secondary)
@@ -204,7 +216,13 @@ struct ProductUINode: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
         case "errorState":
-            ContentUnavailableView(runtime.boundText(node).isEmpty ? "Couldn’t load this screen" : runtime.boundText(node), systemImage: "exclamationmark.triangle")
+            let copy = displayText(node)
+            if !copy.isEmpty {
+                Label(copy, systemImage: "info.circle")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         case "loadingState":
             ProgressView(runtime.boundText(node).isEmpty ? "Loading…" : runtime.boundText(node))
         case "menu", "tabs", "picker", "sheet":
@@ -235,25 +253,76 @@ struct ProductUINode: View {
 
     @ViewBuilder private var children: some View {
         ForEach(Array((node["children"]?.array ?? []).enumerated()), id: \.offset) { _, child in
-            ProductUINode(node: child, runtime: runtime, provenance: provenance)
+            ProductUINode(node: child, runtime: runtime, provenance: provenance, record: record, compact: compact)
         }
+    }
+
+    @ViewBuilder private var scrollingChildren: some View {
+        ForEach(Array((node["children"]?.array ?? []).enumerated()), id: \.offset) { _, child in
+            ProductUINode(node: child, runtime: runtime, provenance: provenance, record: record, compact: true)
+        }
+    }
+
+    @ViewBuilder private var actionButton: some View {
+        let button = Button(runtime.boundText(node).isEmpty ? "Continue" : runtime.boundText(node)) {
+            if let action = node["action"]?.string { runtime.perform(actionId: action) }
+        }
+        .tint(app.appearance.accent.color)
+        .accessibilityIdentifier("product-ui.button.\(node["action"]?.string ?? "none")")
+        if compact {
+            button.buttonStyle(.bordered).controlSize(.small)
+        } else {
+            button.buttonStyle(.borderedProminent)
+        }
+    }
+
+    private func displayText(_ node: JSONValue) -> String {
+        if let record, let path = node["valuePath"]?.string {
+            return ProductUILayout.present(record.value(path), path: path)
+        }
+        return runtime.boundText(node)
     }
 
     private var field: some View {
         let field = node["field"]
         let id = field?["id"]?.string ?? "field"
         let label = field?["label"]?.string ?? id
+        let kind = field?["type"]?.string ?? "text"
         return VStack(alignment: .leading, spacing: 6) {
-            Text(label).font(.subheadline.weight(.semibold))
-            if field?["type"]?.string == "richText" {
+            if kind != "boolean" {
+                Text(label).font(.subheadline.weight(.semibold))
+            }
+            if kind == "richText" {
                 StructuredDocumentEditor(text: bindingDraft(id), capability: field?["capability"]?.string ?? "ui.richText@1", externalCommand: runtime.lastAction)
-            } else if field?["type"]?.string == "multilineText" {
+                    .frame(minHeight: 160)
+            } else if kind == "multilineText" {
                 TextEditor(text: bindingDraft(id)).frame(minHeight: 88)
                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(.quaternary))
+            } else if kind == "boolean" {
+                Toggle(isOn: Binding(
+                    get: { ["true", "yes", "1"].contains(runtime.drafts[id]?.lowercased() ?? "") },
+                    set: { runtime.drafts[id] = $0 ? "true" : "false" }
+                )) {
+                    Text(label).font(.subheadline.weight(.semibold))
+                }
+            } else if kind == "singleSelect" {
+                Picker(label, selection: bindingDraft(id)) {
+                    Text("Not set").tag("")
+                    ForEach(Array((field?["options"]?.array ?? []).enumerated()), id: \.offset) { _, option in
+                        Text(option["label"]?.string ?? option["value"]?.string ?? "")
+                            .tag(option["value"]?.string ?? "")
+                    }
+                }
+                .pickerStyle(.menu)
             } else {
-                TextField(label, text: bindingDraft(id)).textFieldStyle(.roundedBorder)
+                TextField(field?["placeholder"]?.string ?? "", text: bindingDraft(id))
+                    .textFieldStyle(.roundedBorder)
+            }
+            if let help = field?["helpText"]?.string, !help.isEmpty {
+                Text(help).font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityIdentifier("product-ui.field.\(id)")
     }
 
@@ -273,7 +342,7 @@ struct ProductUINode: View {
                 Button {
                     if let action = node["action"]?.string { runtime.perform(actionId: action, record: item) }
                 } label: {
-                    recordRow(item)
+                    noteCard(item)
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("product-ui.record.\(item.id)")
@@ -281,19 +350,27 @@ struct ProductUINode: View {
         }
     }
 
-    private func recordRow(_ item: ProductUIRecord?) -> some View {
-        let title = item?.value("title").isEmpty == false ? item!.value("title") : runtime.boundText(node)
-        let status = item?.value("status") ?? ""
-        return HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title.isEmpty ? "Untitled" : title).font(.headline)
-                if !status.isEmpty { Text(status).font(.caption).foregroundStyle(.secondary) }
+    private func noteCard(_ item: ProductUIRecord) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                if let template = node["children"]?.array?.first {
+                    ProductUINode(node: template, runtime: runtime, provenance: provenance, record: item)
+                } else {
+                    Text(item.value("title").isEmpty ? "Untitled" : item.value("title"))
+                        .font(.body.weight(.semibold))
+                        .lineLimit(2)
+                    let preview = item.value("plainTextProjection")
+                    if !preview.isEmpty {
+                        Text(preview).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+                    }
+                }
             }
-            Spacer()
+            Spacer(minLength: 0)
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
         }
-        .padding(12)
-        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private func bindingDraft(_ id: String) -> Binding<String> {
@@ -324,6 +401,33 @@ struct ProductUINode: View {
     }
 }
 
+
+enum ProductUILayout {
+    /// A short toolbar stays in the row. A long one scrolls so it cannot widen the screen.
+    static func scrollsHorizontally(childCount: Int, declared: String?) -> Bool {
+        declared == "horizontal" || childCount > 3
+    }
+
+    /// Contract notes are part of the frontend file. They stay available, quieter than the note.
+    static func isQuietCopy(_ text: String) -> Bool {
+        text.count > 90
+    }
+
+    static func showsBadge(_ text: String) -> Bool {
+        let value = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return !value.isEmpty && value != "false" && value != "0" && value != "null"
+    }
+
+    static func present(_ value: String, path: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        guard path == "updatedAt" || path == "createdAt" || path.hasSuffix("At") else { return trimmed }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date = formatter.date(from: trimmed) ?? ISO8601DateFormatter().date(from: trimmed)
+        return date?.formatted(.relative(presentation: .named)) ?? trimmed
+    }
+}
 
 struct ProductUIEditorToolbar: View {
     var onCommand: (String) -> Void
