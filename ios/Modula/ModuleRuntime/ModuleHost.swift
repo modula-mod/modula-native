@@ -45,6 +45,10 @@ struct ModuleHost: View {
                         retryTitle: "Reopen",
                         showsProductHub: false
                     )
+                } else if session.runtimeKind == .declarativeProductUI, let document = session.productUI {
+                    ProductUIHostView(session: session, document: document)
+                        .id(session.id)
+                        .background(palette.canvas)
                 } else {
                     ReactNativeContainer(session: session, runtime: app.runtime)
                         .id(session.id)

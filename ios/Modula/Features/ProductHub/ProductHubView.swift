@@ -1,9 +1,13 @@
 import SwiftUI
 import Observation
+import CryptoKit
+import UIKit
 
 @MainActor @Observable
 final class ProductHubStore {
     private let client: GreenfieldClient
+    var activation: ModuleActivationController?
+    var accountID: String?
     private(set) var products: [CatalogueProduct] = []
     /// Account installations keyed by module id, including transitional states.
     private(set) var installations: [String: ModuleInstallation] = [:]
@@ -102,7 +106,9 @@ final class ProductHubStore {
         defer { operations[id] = nil }
         do {
             _ = try await client.installModule(id, version: product(id)?.latestVersion, approvedPermissions: permissions, idempotencyKey: Self.key("install", id))
-            return try await settle(id) { $0?.isRunnable == true }
+            let settled = try await settle(id) { $0?.isRunnable == true }
+            if settled { await activateVerifiedFrontend(id) }
+            return settled
         } catch {
             lifecycleErrors[id] = Self.message(error, verb: "install")
             await refreshInstallations()
@@ -118,7 +124,9 @@ final class ProductHubStore {
         defer { operations[id] = nil }
         do {
             try await client.updateModule(id, version: latest, approvedPermissionIncrease: false, idempotencyKey: Self.key("update", id))
-            return try await settle(id) { $0?.isRunnable == true && $0?.version.map { !ModuleVersion.isOlder($0, than: latest) } ?? true }
+            let settled = try await settle(id) { $0?.isRunnable == true && $0?.version.map { !ModuleVersion.isOlder($0, than: latest) } ?? true }
+            if settled { await activateVerifiedFrontend(id) }
+            return settled
         } catch {
             lifecycleErrors[id] = Self.message(error, verb: "update")
             await refreshInstallations()
@@ -171,6 +179,7 @@ final class ProductHubStore {
             verifiedDescriptors[id] = issued
             let target = preview.toVersion
             let settled = try await settle(id) { $0?.isRunnable == true && $0?.version == target }
+            if settled { await activateVerifiedFrontend(id) }
             await loadVersions(id)
             return settled
         } catch let error as InstallDescriptorVerificationError {
@@ -221,6 +230,58 @@ final class ProductHubStore {
         }
         lifecycleErrors[id] = "This is taking longer than usual. Pull to refresh in a moment."
         return false
+    }
+
+    /// Cache-first activation of a verified Product UI frontend. Bundled RN modules stay
+    /// runnable if no frontend artifact is published.
+    func activateVerifiedFrontend(_ id: String, accountID: String? = nil) async {
+        guard let activation else { return }
+        let installation = installations[id]
+        let version = installation?.version ?? product(id)?.latestVersion
+        guard let version else { return }
+        let descriptor = verifiedDescriptors[id]
+        let frontendSha = descriptor?.frontendSha256
+        let frontendRef = descriptor?.frontendRef
+        var bytes: Data?
+        if let frontendSha, let frontendRef {
+            bytes = try? await client.downloadVerifiedArtifact(ref: frontendRef, expectedSha256: frontendSha)
+        }
+        if bytes == nil, let local = Self.localDevFrontend(moduleId: id, version: version) {
+            bytes = local
+        }
+        guard let bytes else { return }
+        let digest = descriptor?.frontendSha256 ?? SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+        let manifest = ModuleManifest(
+            id: id, name: product(id)?.name ?? id, version: version, runtime: "declarative",
+            entry: "product-ui", permissions: descriptor?.grantedPermissions ?? [],
+            minHostVersion: ">=1.0.0", minBridgeVersion: "0.1.0",
+            collections: product(id)?.moduleId == id ? ["item"] : ["item"]
+        )
+        guard let account = accountID ?? self.accountID else { return }
+        do {
+            try activation.stageVerified(
+                accountID: account, moduleId: id, version: version,
+                releaseId: descriptor?.registryReleaseId ?? "\(id)@\(version)",
+                frontend: bytes, frontendSha256: digest, mediaType: ProductUIDocument.mediaType,
+                hostManifest: manifest, descriptor: descriptor
+            )
+            _ = try activation.activate(accountID: account, moduleId: id)
+        } catch {
+            lifecycleErrors[id] = error.localizedDescription
+        }
+    }
+
+    static func localDevFrontend(moduleId: String, version: String) -> Data? {
+        let roots = [
+            FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+                .appendingPathComponent("Modula/DevModules/\(moduleId)/\(version)/frontend.manifest.json"),
+            URL(fileURLWithPath: NSHomeDirectory())
+                .appendingPathComponent("Developer/modula-dev-modules/\(moduleId)/\(version)/frontend.manifest.json"),
+        ].compactMap { $0 }
+        for url in roots {
+            if let data = try? Data(contentsOf: url) { return data }
+        }
+        return nil
     }
 
     private static func key(_ verb: String, _ id: String) -> String { "ios-\(verb)-\(id)-\(UUID().uuidString)" }
@@ -678,6 +739,14 @@ struct ProductHubView: View {
                     Section("Manage") {
                         Button("Module Settings", systemImage: "gearshape") {
                             app.navigation.open(.settings(.modules(.root)))
+                        }
+                    }
+                    if app.auth.account != nil {
+                        Section("Developers") {
+                            Button("Create Module", systemImage: "plus.square.on.square") {
+                                app.openDeveloperStudio()
+                            }
+                            .accessibilityIdentifier("product-hub.create-module")
                         }
                     }
                 } label: {

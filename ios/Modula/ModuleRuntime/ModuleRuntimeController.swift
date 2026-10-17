@@ -17,14 +17,12 @@ enum ModuleInstallGate: Equatable, Sendable {
 @MainActor @Observable
 final class ModuleRuntimeController {
     nonisolated static let bridgeVersion = "0.1.0"
-    /// Host contract version that manifests' `minHostVersion` ranges are matched against.
+    /// Bundled RN contract still advertised as 0.1.0 so existing modules stay compatible.
     nonisolated static let hostVersion = "0.1.0"
+    /// Product UI / MPS host contract. Catalogue APIs already advertise `ModulaHost.version`.
+    nonisolated static let productUIHostVersion = "1.0.0"
     /// Capabilities this host implements. Anything else a manifest declares is denied.
-    nonisolated static let supportedCapabilities: Set<String> = [
-        "navigation.open", "haptics.selection", "diagnostics.ready", "diagnostics.dataReady", "diagnostics.fail",
-        "backend.records.list", "backend.records.get", "backend.records.create", "backend.records.update", "backend.records.delete",
-        ModulePolicy.identityUserID,
-    ]
+    nonisolated static let supportedCapabilities: Set<String> = ModuleCapabilityBroker.supported
     private var factory: RCTReactNativeFactory?
     private var factoryDelegate: RuntimeDelegate?
     private(set) var initializationCount = 0
@@ -51,6 +49,8 @@ final class ModuleRuntimeController {
     private(set) var lastRejectedAction: String?
     /// Injected by AppEnvironment from Product Hub. nil (unit tests, previews) skips the gate.
     var installationGate: ((String) -> ModuleInstallGate)?
+    var activation: ModuleActivationController?
+    var productUIRecordSource: ((String, String) -> [ProductUIRecord])?
     var now: () -> Date = Date.init
     private let processStartedUptime = ProcessInfo.processInfo.systemUptime
     var state: String { factory == nil ? "uninitialized" : "initialized" }
@@ -71,16 +71,22 @@ final class ModuleRuntimeController {
     }
 
     func prepare(moduleID: String, environment: ModuleEnvironment, initialLocalPath: String? = nil) -> ModuleSession? {
-        guard let manifest = manifests.first(where: { $0.id == moduleID }) else { return nil }
+        let cached = activation?.active(accountID: accountID, moduleId: moduleID)
+        let bundled = manifests.first(where: { $0.id == moduleID })
+        guard let manifest = cached?.hostManifest ?? bundled else { return nil }
         let gate = installationGate?(moduleID)
-        let descriptor: ModuleInstallDescriptor? = if case .runnable(let d)? = gate { d } else { nil }
+        let descriptor: ModuleInstallDescriptor? = {
+            if case .runnable(let d)? = gate { return d }
+            return cached?.descriptor
+        }()
         let policy = ModulePolicy.grant(manifest: manifest, descriptor: descriptor, supported: Self.supportedCapabilities)
         let session = ModuleSession(manifest: manifest, environment: environment, accountID: accountID,
                                     initialLocalPath: initialLocalPath, granted: policy.granted, now: now())
         session.deniedCapabilities = policy.denied
+        session.cachedRelease = cached
         lastSession = session
-        // Gate order: compatibility → installation → integrity → permissions → bundle.
-        switch ModuleCompatibility.evaluate(manifest, hostVersion: Self.hostVersion, bridgeVersion: Self.bridgeVersion) {
+        // Gate order: compatibility → installation → integrity → permissions → bundle/frontend.
+        switch ModuleCompatibility.evaluate(manifest, hostVersions: ModuleCompatibility.advertisedHostVersions, bridgeVersion: Self.bridgeVersion) {
         case .compatible: break
         case .unsupportedRuntime:
             return blocked(session, .unavailable, "\(manifest.name) uses a runtime this app doesn’t support.")
@@ -89,7 +95,7 @@ final class ModuleRuntimeController {
         case .moduleOutdated:
             return blocked(session, .updateRequired, "This version of \(manifest.name) is too old for this app. Update it in Product Hub.")
         }
-        if gate == .notInstalled {
+        if gate == .notInstalled && cached == nil {
             return blocked(session, .notInstalled, "\(manifest.name) isn’t installed on your account. Install it from Product Hub to open it.")
         }
         if let descriptor, ModuleReleaseVerifier.verify(moduleID: moduleID, bundledManifest: manifestJSON[moduleID], descriptor: descriptor) != nil {
@@ -98,10 +104,21 @@ final class ModuleRuntimeController {
         if !policy.requiredDenied.isEmpty {
             return blocked(session, .permissionDenied, "\(manifest.name) needs permissions that aren’t granted for this installation.")
         }
+        if let cached, cached.frontendMediaType == ProductUIDocument.mediaType {
+            do {
+                let data = try activation?.store.frontendData(for: cached) ?? Data()
+                session.productUI = try ProductUIDocument.parse(data: data, productId: cached.moduleId, version: cached.version)
+                session.runtimeKind = .declarativeProductUI
+                session.state = .ready
+            } catch {
+                return blocked(session, .integrityFailed, "\(manifest.name) didn’t pass its frontend integrity check, so it wasn’t opened.")
+            }
+        }
         ModulaLog.runtime.debug("Preparing module surface")
         sessions[session.id] = session
         tokens[session.surfaceToken] = session.id
-        if ProcessInfo.processInfo.arguments.contains("--runtime-unavailable") ||
+        if session.runtimeKind == .bundledReactNative,
+           ProcessInfo.processInfo.arguments.contains("--runtime-unavailable") ||
             Bundle.main.url(forResource: "main", withExtension: "jsbundle") == nil {
             session.state = .unavailable
             session.error = "The module bundle is unavailable."
@@ -121,7 +138,7 @@ final class ModuleRuntimeController {
         guard let manifest = manifests.first(where: { $0.id == moduleID }) else {
             return "This module isn’t included in this version of Modula."
         }
-        switch ModuleCompatibility.evaluate(manifest, hostVersion: hostVersion, bridgeVersion: bridgeVersion) {
+        switch ModuleCompatibility.evaluate(manifest, hostVersions: ModuleCompatibility.advertisedHostVersions, bridgeVersion: bridgeVersion) {
         case .compatible: return nil
         case .unsupportedRuntime: return "\(manifest.name) uses a runtime this app doesn’t support."
         case .updateRequired: return "\(manifest.name) needs a newer version of Modula. Update the app to open it."
@@ -178,6 +195,7 @@ final class ModuleRuntimeController {
     func makeSurface(_ session: ModuleSession) -> UIView? {
         ModulaLog.runtime.debug("Creating module surface, valid \(session.isValid)")
         guard session.isValid else { return nil }
+        if session.runtimeKind == .declarativeProductUI { return nil }
         guard !ProcessInfo.processInfo.arguments.contains("--runtime-unavailable"),
               Bundle.main.url(forResource: "main", withExtension: "jsbundle") != nil else {
             session.state = .unavailable

@@ -9,6 +9,7 @@ final class AppEnvironment {
     let appearance = AppearanceStore()
     var settings: AppearanceStore { appearance }
     let runtime = ModuleRuntimeController()
+    let moduleActivation = ModuleActivationController()
     let client: GreenfieldClient
     let catalogue: ProductHubStore
     let auth: AuthenticationStore
@@ -65,6 +66,8 @@ final class AppEnvironment {
         let url = Self.resolveAPIBaseURL(launchArguments: launchArguments)
         client = GreenfieldClient(baseURL: url)
         catalogue = ProductHubStore(client: client)
+        catalogue.activation = moduleActivation
+        runtime.activation = moduleActivation
         auth = AuthenticationStore(client: client)
         activity = ActivityStore(client: client)
         discover = DiscoverStore(client: client)
@@ -118,6 +121,7 @@ final class AppEnvironment {
         let draftsStore = drafts
         auth.onAccountChange = { [weak self, weak runtime, weak catalogueStore] account in
             runtime?.setAccount(account?.accountId)
+            catalogueStore?.accountID = account?.accountId
             draftsStore.setAccountID(account?.accountId)
             Task {
                 await catalogueStore?.load()
@@ -142,11 +146,14 @@ final class AppEnvironment {
             }
         }
         ModulaBridge.shared.runtime = runtime
-        runtime.installationGate = { [weak catalogueStore] id in
+        runtime.installationGate = { [weak self, weak catalogueStore] id in
             #if DEBUG
             // The diagnostic surface is a bundled developer tool, never a catalogue product.
             if id == "modula.runtime-diagnostic" { return .runnable(descriptor: nil) }
             #endif
+            if let self, let cached = self.moduleActivation.active(accountID: self.runtime.accountID ?? self.auth.account?.accountId, moduleId: id) {
+                return .runnable(descriptor: catalogueStore?.verifiedDescriptors[id] ?? cached.descriptor)
+            }
             return catalogueStore?.installGate(for: id) ?? .notInstalled
         }
         ModulaBridge.shared.navigation = navigation
@@ -320,6 +327,13 @@ final class AppEnvironment {
         @unknown default:
             break
         }
+    }
+
+    /// Developer Studio is a local web product, not an unfinished iOS visual editor.
+    func openDeveloperStudio() {
+        let configured = UserDefaults.standard.string(forKey: "modula.developerStudioURL")
+        let url = URL(string: configured ?? "http://127.0.0.1:8787")
+        if let url { UIApplication.shared.open(url) }
     }
 
     func performSignOut(resetAppLock: Bool = true) async {

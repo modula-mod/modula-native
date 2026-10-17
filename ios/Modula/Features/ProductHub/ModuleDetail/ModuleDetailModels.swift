@@ -310,12 +310,34 @@ enum ModuleHostPermissions {
 
     static func purpose(for permission: String) -> String {
         switch permission {
-        case "backend.records.list", "backend.records.get", "backend.records.create", "backend.records.update", "backend.records.delete":
-            "Local records stored for this module"
+        case "backend.records.list", "backend.records.get", "storage:records":
+            return "Read records this module stores on your account"
+        case "backend.records.create", "backend.records.update", "backend.records.delete":
+            return "Create or change records this module stores on your account"
+        case "settings:register":
+            return "Register settings screens. This does not allow reading or writing settings values."
+        case "settings:read":
+            return "Read this module’s settings"
+        case "settings:write":
+            return "Change this module’s settings"
         case "notifications":
-            "Notify you about module activity"
+            return "Notify you about module activity"
+        case "mediaPicker":
+            return "Open the system photo or file picker"
+        case "share":
+            return "Open the system share sheet"
+        case "biometrics":
+            return "Use Face ID or Touch ID for this module"
+        case "secureStorage":
+            return "Store secrets for this module in the Keychain"
+        case "localIntelligence":
+            return "Use on-device Nodus. Content marked localOnly never leaves this iPhone."
+        case "backgroundTask":
+            return "Run a short background task for this module"
         default:
-            "Required by the module runtime contract"
+            if permission.contains(":read") { return "Read \(permission)" }
+            if permission.contains(":write") { return "Write \(permission)" }
+            return "Requested capability: \(permission)"
         }
     }
 }

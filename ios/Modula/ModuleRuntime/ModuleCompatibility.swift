@@ -100,18 +100,30 @@ enum ModuleCompatibility: Equatable, Sendable {
     /// The module targets an older, no-longer-compatible contract: the module must update.
     case moduleOutdated(field: String, required: String, actual: String)
 
+    static let supportedRuntimes: Set<String> = ["react-native", "declarative", "product-ui"]
+    /// Bundled RN modules still declare `^0.1.0`; Product UI modules declare `>=1.0.0`.
+    static let advertisedHostVersions = ["0.1.0", "1.0.0"]
+
     static func evaluate(_ manifest: ModuleManifest, hostVersion: String, bridgeVersion: String) -> Self {
-        guard manifest.runtime == "react-native" else { return .unsupportedRuntime(manifest.runtime) }
-        for (field, range, actual) in [("minHostVersion", manifest.minHostVersion, hostVersion),
-                                       ("minBridgeVersion", manifest.minBridgeVersion, bridgeVersion)] {
-            guard !SemverRange.satisfies(actual, range: range) else { continue }
-            // Ahead of the host (or unparseable) ⇒ the app must update; behind ⇒ the module.
-            if let host = SemanticVersion(actual), let floor = lowestBound(range), floor < host {
-                return .moduleOutdated(field: field, required: range, actual: actual)
+        evaluate(manifest, hostVersions: [hostVersion], bridgeVersion: bridgeVersion)
+    }
+
+    static func evaluate(_ manifest: ModuleManifest, hostVersions: [String], bridgeVersion: String) -> Self {
+        guard Self.supportedRuntimes.contains(manifest.runtime) else { return .unsupportedRuntime(manifest.runtime) }
+        if hostVersions.contains(where: { SemverRange.satisfies($0, range: manifest.minHostVersion) }) {
+            guard SemverRange.satisfies(bridgeVersion, range: manifest.minBridgeVersion) else {
+                if let host = SemanticVersion(bridgeVersion), let floor = lowestBound(manifest.minBridgeVersion), floor < host {
+                    return .moduleOutdated(field: "minBridgeVersion", required: manifest.minBridgeVersion, actual: bridgeVersion)
+                }
+                return .updateRequired(field: "minBridgeVersion", required: manifest.minBridgeVersion, actual: bridgeVersion)
             }
-            return .updateRequired(field: field, required: range, actual: actual)
+            return .compatible
         }
-        return .compatible
+        let actual = hostVersions.last ?? hostVersions.first ?? "0.0.0"
+        if let host = SemanticVersion(actual), let floor = lowestBound(manifest.minHostVersion), floor < host {
+            return .moduleOutdated(field: "minHostVersion", required: manifest.minHostVersion, actual: actual)
+        }
+        return .updateRequired(field: "minHostVersion", required: manifest.minHostVersion, actual: actual)
     }
 
     /// The smallest version a simple range admits, used only to explain a mismatch.

@@ -175,6 +175,12 @@
 		8D7B7F2BD829546ECCC6F463 /* NodusKnowledgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F16AC42D21EE290AE5568247 /* NodusKnowledgeView.swift */; };
 		90EC78DC1C87A9562EC08717 /* AppRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */; };
 		9314852BE26D5B1EB2360CE8 /* ModuleRuntimeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */; };
+		M90100000000000000000001 /* ProductUIDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000001 /* ProductUIDocument.swift */; };
+		M90100000000000000000002 /* ModuleArtifactStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000002 /* ModuleArtifactStore.swift */; };
+		M90100000000000000000003 /* ModuleActivationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000003 /* ModuleActivationController.swift */; };
+		M90100000000000000000004 /* ProductUIRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000004 /* ProductUIRenderer.swift */; };
+		M90100000000000000000005 /* ProductUIRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000005 /* ProductUIRuntime.swift */; };
+		M90100000000000000000006 /* ModuleCapabilityBroker.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000006 /* ModuleCapabilityBroker.swift */; };
 		93AFDE81000E32DA131CDFB4 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46F14EB7791E789BBE2A473A /* HomeView.swift */; };
 		98B1FF0A78D3F224FB40C690 /* IntelligenceToolValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4CC36E2CB4875EBEDB19A1A /* IntelligenceToolValidation.swift */; };
 		9B142191BFBCE380907C8378 /* GeneratedDesignContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69B093117E45986E847387DC /* GeneratedDesignContract.swift */; };
@@ -402,6 +408,7 @@
 		S50100000000000000000001 /* SettingsVisualSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = S40100000000000000000001 /* SettingsVisualSystem.swift */; };
 		EE84C2D615FD8B38CF506921 /* ModuleCompatibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 736C8CEB3F723FE3824B717E /* ModuleCompatibility.swift */; };
 		6ACC1709897F66B0E80839F2 /* ModuleSecurityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFC9EF1CC67951AB29E6F94B /* ModuleSecurityTests.swift */; };
+		T90100000000000000000001 /* ModuleHostEcosystemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T80100000000000000000001 /* ModuleHostEcosystemTests.swift */; };
 		8847C56025B5FF23E6A2F4CB /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 6D9171C8595DD0F57E983884 /* Localizable.xcstrings */; };
 		5900B968FE1D07B3EE4DAEA0 /* LocalizationCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04756B524E52AA56A61D2E0D /* LocalizationCatalogTests.swift */; };
 		F70200000000000000000003 /* ProfileContentTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70100000000000000000003 /* ProfileContentTabs.swift */; };
@@ -676,6 +683,12 @@
 		A6010000000000000000000D /* Nodus01Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Nodus01Tests.swift; sourceTree = "<group>"; };
 		A632D57B46DA145ADCE10292 /* ReactNativeContainer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReactNativeContainer.swift; path = ModuleRuntime/ReactNativeContainer.swift; sourceTree = "<group>"; };
 		AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleRuntimeController.swift; path = ModuleRuntime/ModuleRuntimeController.swift; sourceTree = "<group>"; };
+		M80100000000000000000001 /* ProductUIDocument.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductUIDocument.swift; path = ModuleRuntime/ProductUIDocument.swift; sourceTree = "<group>"; };
+		M80100000000000000000002 /* ModuleArtifactStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleArtifactStore.swift; path = ModuleRuntime/ModuleArtifactStore.swift; sourceTree = "<group>"; };
+		M80100000000000000000003 /* ModuleActivationController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleActivationController.swift; path = ModuleRuntime/ModuleActivationController.swift; sourceTree = "<group>"; };
+		M80100000000000000000004 /* ProductUIRenderer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductUIRenderer.swift; path = ModuleRuntime/ProductUIRenderer.swift; sourceTree = "<group>"; };
+		M80100000000000000000005 /* ProductUIRuntime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductUIRuntime.swift; path = ModuleRuntime/ProductUIRuntime.swift; sourceTree = "<group>"; };
+		M80100000000000000000006 /* ModuleCapabilityBroker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleCapabilityBroker.swift; path = ModuleRuntime/ModuleCapabilityBroker.swift; sourceTree = "<group>"; };
 		AD892F52CC60A67EF80BCB01 /* IntelligenceError.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceError.swift; path = Core/Intelligence/Contracts/IntelligenceError.swift; sourceTree = "<group>"; };
 		ADB419E3CAE3BA05CB1C1E59 /* ModulaDesignSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaDesignSystem.swift; path = DesignSystem/ModulaDesignSystem.swift; sourceTree = "<group>"; };
 		B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppRoute.swift; path = Navigation/AppRoute.swift; sourceTree = "<group>"; };
@@ -850,6 +863,7 @@
 		S40100000000000000000001 /* SettingsVisualSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsVisualSystem.swift; path = Features/Settings/SettingsVisualSystem.swift; sourceTree = "<group>"; };
 		736C8CEB3F723FE3824B717E /* ModuleCompatibility.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleCompatibility.swift; path = ModuleRuntime/ModuleCompatibility.swift; sourceTree = "<group>"; };
 		BFC9EF1CC67951AB29E6F94B /* ModuleSecurityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModuleSecurityTests.swift; sourceTree = "<group>"; };
+		T80100000000000000000001 /* ModuleHostEcosystemTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModuleHostEcosystemTests.swift; sourceTree = "<group>"; };
 		6D9171C8595DD0F57E983884 /* Localizable.xcstrings */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		04756B524E52AA56A61D2E0D /* LocalizationCatalogTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LocalizationCatalogTests.swift; sourceTree = "<group>"; };
 		F70100000000000000000003 /* ProfileContentTabs.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileContentTabs.swift; path = Features/Profile/ProfileContentTabs.swift; sourceTree = "<group>"; };
@@ -960,6 +974,7 @@
 				E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */,
 				04756B524E52AA56A61D2E0D /* LocalizationCatalogTests.swift */,
 				BFC9EF1CC67951AB29E6F94B /* ModuleSecurityTests.swift */,
+				T80100000000000000000001 /* ModuleHostEcosystemTests.swift */,
 				F57B2A43C30D9E11DB0A81E8 /* NodusReleaseTests.swift */,
 				61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */,
 				E1010000000000000000000A /* DiscoverTests.swift */,
@@ -1278,6 +1293,12 @@
 				435419F8D75EB3FA37353703 /* ModuleEnvironment.swift */,
 				E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */,
 				AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */,
+				M80100000000000000000001 /* ProductUIDocument.swift */,
+				M80100000000000000000002 /* ModuleArtifactStore.swift */,
+				M80100000000000000000003 /* ModuleActivationController.swift */,
+				M80100000000000000000004 /* ProductUIRenderer.swift */,
+				M80100000000000000000005 /* ProductUIRuntime.swift */,
+				M80100000000000000000006 /* ModuleCapabilityBroker.swift */,
 				90EAE77878B8E7792468645E /* ModuleSession.swift */,
 				736C8CEB3F723FE3824B717E /* ModuleCompatibility.swift */,
 				A632D57B46DA145ADCE10292 /* ReactNativeContainer.swift */,
@@ -1740,6 +1761,7 @@
 				C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */,
 				5900B968FE1D07B3EE4DAEA0 /* LocalizationCatalogTests.swift in Sources */,
 				6ACC1709897F66B0E80839F2 /* ModuleSecurityTests.swift in Sources */,
+				T90100000000000000000001 /* ModuleHostEcosystemTests.swift in Sources */,
 				7BAF35FDD6A2DF05EC5CC919 /* NodusReleaseTests.swift in Sources */,
 				FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */,
 				E2010000000000000000000A /* DiscoverTests.swift in Sources */,
@@ -1969,6 +1991,12 @@
 				7D7AABC4EB1C0A2313444D79 /* ModuleEnvironment.swift in Sources */,
 				001526FE43E0E8C9671B4E84 /* ModuleHost.swift in Sources */,
 				9314852BE26D5B1EB2360CE8 /* ModuleRuntimeController.swift in Sources */,
+				M90100000000000000000001 /* ProductUIDocument.swift in Sources */,
+				M90100000000000000000002 /* ModuleArtifactStore.swift in Sources */,
+				M90100000000000000000003 /* ModuleActivationController.swift in Sources */,
+				M90100000000000000000004 /* ProductUIRenderer.swift in Sources */,
+				M90100000000000000000005 /* ProductUIRuntime.swift in Sources */,
+				M90100000000000000000006 /* ModuleCapabilityBroker.swift in Sources */,
 				36217ECF8FA82AEF220905B2 /* ModuleSession.swift in Sources */,
 				EE84C2D615FD8B38CF506921 /* ModuleCompatibility.swift in Sources */,
 				18C0C36383D976CD0F415505 /* ReactNativeContainer.swift in Sources */,
