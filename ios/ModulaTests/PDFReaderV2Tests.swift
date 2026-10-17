@@ -12,7 +12,7 @@ final class PDFReaderV2Tests: XCTestCase {
         defaults.removePersistentDomain(forName: suite)
     }
 
-    private func makePDF(pages: Int = 6, outline: Bool = true) throws -> URL {
+    private func makePDF(pages: Int = 6, outline: Bool = true) throws -> (url: URL, document: PDFDocument) {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("v2-\(UUID().uuidString).pdf")
         let data = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: 612, height: 792)).pdfData { context in
             for index in 0..<pages {
@@ -32,7 +32,7 @@ final class PDFReaderV2Tests: XCTestCase {
         }
         XCTAssertTrue(document.write(to: url))
         addTeardownBlock { try? FileManager.default.removeItem(at: url) }
-        return url
+        return (url, document)
     }
 
     func testReadingStorePersistsLastPageAndBookmarks() {
@@ -85,8 +85,7 @@ final class PDFReaderV2Tests: XCTestCase {
     }
 
     func testOutlineFlattens() throws {
-        let url = try makePDF(pages: 4)
-        let document = try XCTUnwrap(PDFDocument(url: url))
+        let (_, document) = try makePDF(pages: 4)
         let outline = PDFOutlineEntry.flatten(document.outlineRoot, in: document)
         XCTAssertEqual(outline.map(\.title), ["Section 0", "Section 1", "Section 2", "Section 3"])
         XCTAssertEqual(outline.map(\.page), [0, 1, 2, 3])
@@ -95,21 +94,21 @@ final class PDFReaderV2Tests: XCTestCase {
     }
 
     func testRendererReadingEstimate() async throws {
-        let url = try makePDF(pages: 6, outline: false)
+        let (url, _) = try makePDF(pages: 6, outline: false)
         let minutes = await PDFPageRenderer(cache: PDFPageImageCache()).readingMinutes(url: url)
         XCTAssertEqual(minutes, 1)
     }
 
     @MainActor
     func testReaderModelResumesBookmarksAndSearches() async throws {
-        let url = try makePDF(pages: 6)
+        let (url, document) = try makePDF(pages: 6)
         let store = PDFReadingStore(defaults: defaults)
         store.setLastPage(4, for: "doc")
-        let model = PDFReaderModel(url: url, key: "doc", title: "Doc", startPage: nil, store: store)
+        let model = PDFReaderModel(url: url, key: "doc", title: "Doc", startPage: nil, store: store, document: document)
         XCTAssertEqual(model.pageCount, 6)
         XCTAssertEqual(model.currentPage, 4, "resumes last-read page")
         XCTAssertEqual(model.outline.count, 6)
-        XCTAssertEqual(PDFReaderModel(url: url, key: "doc", title: "Doc", startPage: 2, store: store).currentPage, 2, "explicit page wins")
+        XCTAssertEqual(PDFReaderModel(url: url, key: "doc", title: "Doc", startPage: 2, store: store, document: document).currentPage, 2, "explicit page wins")
 
         model.go(to: 1)
         XCTAssertEqual(store.lastPage(for: "doc"), 1, "last-read saved")

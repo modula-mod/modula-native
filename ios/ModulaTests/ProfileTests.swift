@@ -6,8 +6,8 @@ final class ProfileTests: XCTestCase {
         let size = ProfileIdentityMetrics.avatarSize(sizeClass: .compact)
         XCTAssertEqual(ProfileIdentityMetrics.overlap(avatarSize: size), 52)
         XCTAssertEqual(ProfileIdentityMetrics.contentHeight(avatarSize: size), 52)
-        XCTAssertEqual(ProfileFullBleedMetrics.coverHeight(sizeClass: .compact, safeAreaTop: 59, accessibility: false), 295)
-        XCTAssertLessThan(ProfileFullBleedMetrics.coverHeight(sizeClass: .compact, safeAreaTop: 59, accessibility: true), 295)
+        XCTAssertEqual(ProfileFullBleedMetrics.coverHeight(sizeClass: .compact, safeAreaTop: 59, accessibility: false), 315)
+        XCTAssertLessThan(ProfileFullBleedMetrics.coverHeight(sizeClass: .compact, safeAreaTop: 59, accessibility: true), 315)
     }
 
     func testProfileRoutesRoundTrip() {
