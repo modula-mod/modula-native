@@ -352,6 +352,11 @@ final class ModuleHostEcosystemTests: XCTestCase {
         ]))
         XCTAssertEqual(decoded.map(\.id), ["note-9"])
         XCTAssertEqual(decoded.first?.value("title"), "Saved")
+        XCTAssertTrue(ProductUILayout.scrollsHorizontally(childCount: 12, declared: nil))
+        XCTAssertFalse(ProductUILayout.scrollsHorizontally(childCount: 2, declared: nil))
+        XCTAssertTrue(ProductUILayout.isQuietCopy(String(repeating: "a", count: 91)))
+        XCTAssertFalse(ProductUILayout.showsBadge("false"))
+        XCTAssertTrue(ProductUILayout.showsBadge("Local only"))
     }
 
     func testInAppTemplatesGenerateHostParsableFrontends() throws {
