@@ -324,6 +324,34 @@ final class ModuleHostEcosystemTests: XCTestCase {
         runtime.perform(actionId: "createRecord")
         XCTAssertFalse(runtime.pendingMutations.isEmpty)
         XCTAssertTrue(runtime.pendingMutations[0].queuedOffline)
+        XCTAssertEqual(runtime.viewState, "populated")
+    }
+
+    func testFrontendScreenStaysPopulatedWhenCapabilityBindingsAreEmpty() throws {
+        let json = """
+        {"schema":"modula.frontend.1.0","frontendSchemaVersion":"1.0.0","productId":"digital.modula.vault-notes","releaseVersion":"2.0.0","mode":"declarative","entry":"home","hostRuntime":{"versionRange":">=1.0.0"},"accessibility":{"declaration":"host-baseline-with-product-semantics","screenReader":true,"scalableText":true,"keyboardNavigation":true,"reduceMotion":true},"routes":[{"path":"/","viewId":"home"}],"views":[{"id":"home","kind":"collection","title":"Vault Notes","bindings":[{"id":"notes","source":"record.query","recordType":"note"},{"id":"tableCapability","source":"capability","capability":"ui.table@1"}],"root":{"type":"section","children":[{"type":"search","text":"Search"},{"type":"button","text":"New note","action":"newNote"},{"type":"recordList","binding":"notes"}]},"states":{"empty":{"type":"emptyState","text":"Your vault is ready for its first note","children":[{"type":"button","text":"Create your first note","action":"newNote"}]}}}],"actions":[{"id":"newNote","family":"route.open","route":"/new"}]}
+        """.data(using: .utf8)!
+        let document = try ProductUIDocument.parse(data: json, productId: "digital.modula.vault-notes", version: "2.0.0")
+        let session = ModuleSession(manifest: Self.manifest("digital.modula.vault-notes", "2.0.0"), environment: environment)
+        let waiting = ProductUIRuntime(document: document, session: session, initialPath: "/")
+        waiting.refresh()
+        XCTAssertEqual(waiting.viewState, "loading")
+        let runtime = ProductUIRuntime(document: document, session: session, initialPath: "/")
+        runtime.recordSource = { _, _ in [
+            ProductUIRecord(id: "note-1", revision: 2, data: ["title": .string("Welcome")], deleted: false)
+        ] }
+        runtime.refresh()
+        XCTAssertEqual(runtime.viewState, "populated")
+        XCTAssertEqual(runtime.bindingRecords("notes").map(\.id), ["note-1"])
+        let decoded = ProductUIRuntime.records(from: .object([
+            "items": .array([.object([
+                "record_id": .string("note-9"),
+                "revision": .number(3),
+                "data": .object(["title": .string("Saved")])
+            ])])
+        ]))
+        XCTAssertEqual(decoded.map(\.id), ["note-9"])
+        XCTAssertEqual(decoded.first?.value("title"), "Saved")
     }
 
     func testInAppTemplatesGenerateHostParsableFrontends() throws {

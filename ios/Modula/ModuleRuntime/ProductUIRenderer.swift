@@ -34,7 +34,7 @@ struct ProductUIHostView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(palette.canvas)
-        .onAppear {
+        .task(id: runtime.route) {
             #if DEBUG
             runtime.online = app.auth.account != nil && !ModulaAppNetworkIsolation.isActive
             #else
@@ -47,8 +47,36 @@ struct ProductUIHostView: View {
             if session.state == .loadingModule || session.state == .preparing {
                 app.runtime.ready(session)
             }
+            await loadInstalledRecords()
         }
         .accessibilityIdentifier("module.host.product-ui")
+    }
+
+    /// Reads the installed module's records so the verified frontend can show them.
+    /// Capability bindings are not collections and do not count as an empty vault.
+    private func loadInstalledRecords() async {
+        guard runtime.recordSource == nil, let accountID = app.auth.account?.accountId else { return }
+        let moduleID = session.manifest.id
+        guard GreenfieldClient.modulePath(moduleID) != nil else { return }
+        let bindings = runtime.currentView?["bindings"]?.array ?? []
+        var byType: [String: [ProductUIRecord]] = [:]
+        for binding in bindings where binding["source"]?.string == "record.query" || binding["source"]?.string == "record.detail" {
+            guard let type = binding["recordType"]?.string,
+                  type.range(of: "^[a-z][a-z0-9-]{0,63}$", options: .regularExpression) != nil,
+                  byType[type] == nil else { continue }
+            let path = "/v1/modules/\(moduleID)/records/\(type)?limit=50&recordState=active&sort=updatedAt&direction=desc"
+            guard let value = try? await app.client.moduleRequest(
+                method: "GET", path: path, body: nil, expectedAccountID: accountID
+            ) else { continue }
+            byType[type] = ProductUIRuntime.records(from: value)
+        }
+        guard !byType.isEmpty else {
+            runtime.recordSource = { _, _ in [] }
+            runtime.refresh()
+            return
+        }
+        runtime.recordSource = { type, _ in byType[type] ?? [] }
+        runtime.refresh()
     }
 }
 
@@ -65,11 +93,7 @@ struct ProductUIViewCanvas: View {
                 if let declaredTitle, !declaredTitle.isEmpty, declaredTitle != runtime.document.productId {
                     Text(declaredTitle).font(.headline).accessibilityAddTraits(.isHeader)
                 }
-                if runtime.viewState == "loading", let node = states?["loading"] {
-                    ProductUINode(node: node, runtime: runtime, provenance: .native)
-                } else if runtime.viewState == "empty", let node = states?["empty"] {
-                    ProductUINode(node: node, runtime: runtime, provenance: .native)
-                } else if runtime.viewState == "error", let node = states?["error"] {
+                if runtime.viewState == "error", let node = states?["error"] {
                     ProductUINode(node: node, runtime: runtime, provenance: .native)
                 } else if runtime.viewState == "permissionDenied", let node = states?["permissionDenied"] {
                     ProductUINode(node: node, runtime: runtime, provenance: .native)
@@ -113,7 +137,13 @@ struct ProductUINode: View {
         case "section", "stack", "scroll":
             VStack(alignment: .leading, spacing: ModulaSpacing.sm) { children }
         case "row", "toolbar":
-            HStack(alignment: .center, spacing: ModulaSpacing.sm) { children }.frame(maxWidth: .infinity, alignment: .leading)
+            if node["layout"]?["scroll"]?.string == "horizontal" {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .center, spacing: ModulaSpacing.sm) { children }
+                }
+            } else {
+                HStack(alignment: .center, spacing: ModulaSpacing.sm) { children }.frame(maxWidth: .infinity, alignment: .leading)
+            }
         case "grid":
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 12)], spacing: 12) { children }
         case "text", "label", "metadata":
@@ -164,7 +194,15 @@ struct ProductUINode: View {
         case "recordRow":
             recordRow(runtime.bindingRecords(node["binding"]?.string).first)
         case "emptyState":
-            ContentUnavailableView(runtime.boundText(node).isEmpty ? "Nothing here yet" : runtime.boundText(node), systemImage: "tray")
+            VStack(spacing: 12) {
+                Image(systemName: "tray").font(.title2).foregroundStyle(.secondary)
+                Text(runtime.boundText(node).isEmpty ? "Nothing here yet" : runtime.boundText(node))
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                children
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
         case "errorState":
             ContentUnavailableView(runtime.boundText(node).isEmpty ? "Couldn’t load this screen" : runtime.boundText(node), systemImage: "exclamationmark.triangle")
         case "loadingState":
@@ -223,7 +261,13 @@ struct ProductUINode: View {
         let items = runtime.bindingRecords(node["binding"]?.string)
         return LazyVStack(alignment: .leading, spacing: 8) {
             if items.isEmpty {
-                ContentUnavailableView("No records", systemImage: "tray")
+                if runtime.viewState == "loading", let loading = runtime.currentView?["states"]?["loading"] {
+                    ProductUINode(node: loading, runtime: runtime, provenance: provenance)
+                } else if let empty = runtime.currentView?["states"]?["empty"] {
+                    ProductUINode(node: empty, runtime: runtime, provenance: provenance)
+                } else {
+                    ContentUnavailableView("No records", systemImage: "tray")
+                }
             }
             ForEach(items) { item in
                 Button {
