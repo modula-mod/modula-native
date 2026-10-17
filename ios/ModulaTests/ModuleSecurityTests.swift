@@ -184,6 +184,51 @@ final class ModuleSecurityTests: XCTestCase {
         XCTAssertEqual(withheld.prepare(moduleID: "a.mod", environment: environment)?.isValid, true)
     }
 
+    func testRecordGrantsCoverHostRecordCapabilities() throws {
+        let runtime = ModuleRuntimeController(manifests: [manifest("a.mod", permissions: [
+            "backend.records.list", "backend.records.get", "backend.records.create", "backend.records.delete",
+        ])])
+        runtime.installationGate = { _ in .runnable(descriptor: try! self.descriptor(granted: [
+            "records:module.digital.modula.vault-notes.note:read",
+            "records:module.digital.modula.vault-notes.note:write",
+            "records:module.digital.modula.vault-notes.note:delete",
+        ])) }
+        let session = try XCTUnwrap(runtime.prepare(moduleID: "a.mod", environment: environment))
+        XCTAssertTrue(session.isValid, "record grants cover the host record actions they name")
+        XCTAssertTrue(session.grantedCapabilities.isSuperset(of: [
+            "backend.records.list", "backend.records.get", "backend.records.create", "backend.records.delete",
+        ]))
+        let readOnly = ModuleRuntimeController(manifests: [manifest("b.mod", permissions: [
+            "backend.records.list", "backend.records.create",
+        ])])
+        readOnly.installationGate = { _ in .runnable(descriptor: try! self.descriptor(module: "b.mod", granted: [
+            "records:module.digital.modula.vault-notes.note:read",
+        ])) }
+        let blocked = try XCTUnwrap(readOnly.prepare(moduleID: "b.mod", environment: environment))
+        XCTAssertEqual(blocked.state, .permissionDenied)
+        XCTAssertTrue(blocked.deniedCapabilities.contains("backend.records.create"))
+    }
+
+    func testVerifiedFrontendRejectsReencodedJSON() {
+        let original = Data("{\"releaseVersion\":\"2.0.0\"}".utf8)
+        let reencoded = Data("{\n  \"releaseVersion\" : \"2.0.0\"\n}".utf8)
+        let sha = VerifiedFrontendSelection.sha256(original)
+        XCTAssertNotEqual(VerifiedFrontendSelection.sha256(reencoded), sha)
+        XCTAssertEqual(
+            VerifiedFrontendSelection.choose(declaredSha256: sha, artifact: original, hosted: reencoded),
+            original
+        )
+        XCTAssertNil(VerifiedFrontendSelection.choose(declaredSha256: sha, artifact: nil, hosted: reencoded))
+        XCTAssertEqual(ModulePolicy.hostCapabilities(coveredBy: [
+            "records:module.digital.modula.vault-notes.note:read",
+            "records:module.digital.modula.vault-notes.note:write",
+            "records:module.digital.modula.vault-notes.note:delete",
+        ]), [
+            "backend.records.create", "backend.records.delete", "backend.records.get",
+            "backend.records.list", "backend.records.update",
+        ])
+    }
+
     func testBackendErrorsMapToCodes() {
         XCTAssertEqual(HostErrorCode(APIError.rejected(409, "raw server text")), .backendConflict)
         XCTAssertEqual(HostErrorCode(URLError(.notConnectedToInternet)), .networkUnavailable)

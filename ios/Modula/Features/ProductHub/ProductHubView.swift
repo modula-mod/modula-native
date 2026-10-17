@@ -321,32 +321,51 @@ final class ProductHubStore {
         let installation = installations[id]
         let version = installation?.version ?? product(id)?.latestVersion
         guard let version else { return }
-        let descriptor = verifiedDescriptors[id]
-        let frontendSha = descriptor?.frontendSha256
-        let frontendRef = descriptor?.frontendRef
-        var bytes: Data?
-        if product(id)?.betaClassification != "local-development" {
-            if let hosted = try? await client.installedProductFrontend(id),
-               hosted.productId == id, hosted.version == version, hosted.sha256 != nil {
-                bytes = hosted.frontend
+        let descriptor = verifiedDescriptors[id].flatMap { $0.version == version ? $0 : nil }
+        let registryProduct = product(id)?.betaClassification != "local-development"
+        var hosted: HostedModuleFrontend?
+        if registryProduct, let fetched = try? await client.installedProductFrontend(id),
+           fetched.productId == id, fetched.version == version {
+            hosted = fetched
+        }
+        let declaredSha = VerifiedFrontendSelection.normalized(descriptor?.frontendSha256)
+            ?? VerifiedFrontendSelection.normalized(hosted?.sha256)
+        guard let account = accountID ?? self.accountID else { return }
+        if let declaredSha,
+           let cached = activation.active(accountID: account, moduleId: id),
+           cached.version == version, cached.frontendSha256 == declaredSha {
+            lifecycleErrors[id] = nil
+            return
+        }
+        var artifact: Data?
+        if registryProduct, let declaredSha {
+            artifact = try? await client.downloadVerifiedArtifact(
+                ref: "/v1/registry/artifacts/\(declaredSha)",
+                expectedSha256: declaredSha,
+                maximumBytes: ProductUIDocument.maxBytes
+            )
+        }
+        var bytes = VerifiedFrontendSelection.choose(
+            declaredSha256: declaredSha, artifact: artifact, hosted: hosted?.frontend
+        )
+        if bytes == nil, product(id)?.betaClassification == "local-development" {
+            bytes = Self.localDevFrontend(moduleId: id, version: version, roots: localDevRoots)
+        }
+        guard let bytes else {
+            if registryProduct, declaredSha != nil {
+                lifecycleErrors[id] = ModuleActivationError.digestMismatch("frontend").errorDescription
             }
+            return
         }
-        if bytes == nil, let frontendSha, let frontendRef {
-            bytes = try? await client.downloadVerifiedArtifact(ref: frontendRef, expectedSha256: frontendSha)
-        }
-        if bytes == nil, product(id)?.betaClassification == "local-development",
-           let local = Self.localDevFrontend(moduleId: id, version: version, roots: localDevRoots) {
-            bytes = local
-        }
-        guard let bytes else { return }
-        let digest = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+        let digest = VerifiedFrontendSelection.sha256(bytes)
+        let grants = descriptor?.grantedPermissions ?? []
         let manifest = ModuleManifest(
             id: id, name: product(id)?.name ?? id, version: version, runtime: "declarative",
-            entry: "product-ui", permissions: descriptor?.grantedPermissions ?? [],
+            entry: "product-ui",
+            permissions: Array(Set(grants + ModulePolicy.hostCapabilities(coveredBy: grants))).sorted(),
             minHostVersion: ">=1.0.0", minBridgeVersion: "0.1.0",
-            collections: product(id)?.moduleId == id ? ["item"] : ["item"]
+            collections: ["item"]
         )
-        guard let account = accountID ?? self.accountID else { return }
         do {
             try activation.stageVerified(
                 accountID: account, moduleId: id, version: version,
@@ -355,6 +374,7 @@ final class ProductHubStore {
                 hostManifest: manifest, descriptor: descriptor
             )
             _ = try activation.activate(accountID: account, moduleId: id)
+            lifecycleErrors[id] = nil
         } catch {
             lifecycleErrors[id] = error.localizedDescription
         }
@@ -1339,5 +1359,27 @@ private struct FlowLayout: Layout {
             x += size.width + spacing
             rowHeight = max(rowHeight, size.height)
         }
+    }
+}
+
+/// Chooses frontend bytes only when they are the verified release file.
+/// Re-encoded JSON from the API envelope is not that file, even when it parses.
+enum VerifiedFrontendSelection {
+    static func normalized(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let digest = value.lowercased()
+        guard digest.count == 64, digest.allSatisfy(\.isHexDigit) else { return nil }
+        return digest
+    }
+
+    static func sha256(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    static func choose(declaredSha256: String?, artifact: Data?, hosted: Data?) -> Data? {
+        guard let declared = normalized(declaredSha256) else { return nil }
+        if let artifact, sha256(artifact) == declared { return artifact }
+        if let hosted, sha256(hosted) == declared { return hosted }
+        return nil
     }
 }

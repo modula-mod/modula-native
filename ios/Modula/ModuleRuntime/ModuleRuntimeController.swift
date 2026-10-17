@@ -327,10 +327,10 @@ final class ModuleRuntimeController {
 
 /// Capability policy. The effective grant is manifest ∩ host-supported ∩ (when the
 /// installation carries a verified install descriptor) what the registry granted, mapped
-/// from registry vocabulary (`storage:records`) to host actions (`backend.records.*`).
+/// from registry vocabulary (`storage:records` or `records:*`) to host actions (`backend.records.*`).
 enum ModulePolicy {
     static let identityUserID = "identity.userID"
-    /// Host capability prefix → registry permission that must be granted for it.
+    /// Host capability prefix → legacy registry permission that must be granted for it.
     static let registryPermission: [(prefix: String, permission: String)] = [("backend.records.", "storage:records")]
 
     struct Grant: Equatable { let granted: Set<String>; let denied: [String]; let requiredDenied: [String] }
@@ -341,9 +341,8 @@ enum ModulePolicy {
         var withheld: Set<String> = []
         if let descriptor {
             let allowed = Set(descriptor.grantedPermissions)
-            for capability in granted {
-                guard let rule = registryPermission.first(where: { capability.hasPrefix($0.prefix) }) else { continue }
-                if !allowed.contains(rule.permission) { withheld.insert(capability) }
+            for capability in granted where !registryAllows(capability, granted: allowed) {
+                withheld.insert(capability)
             }
             granted.subtract(withheld)
         }
@@ -352,6 +351,28 @@ enum ModulePolicy {
         // natively (permission-denied state). Capabilities this host doesn't implement are
         // denied per call instead (PERMISSION_DENIED / UNSUPPORTED_ACTION).
         return Grant(granted: granted, denied: denied, requiredDenied: withheld.sorted())
+    }
+
+    /// Host record actions covered by the registry grants on an installation.
+    static func hostCapabilities(coveredBy granted: [String]) -> [String] {
+        let allowed = Set(granted)
+        return ModuleCapabilityBroker.supported.filter { capability in
+            capability.hasPrefix("backend.records.") && registryAllows(capability, granted: allowed)
+        }.sorted()
+    }
+
+    static func registryAllows(_ capability: String, granted: Set<String>) -> Bool {
+        guard let rule = registryPermission.first(where: { capability.hasPrefix($0.prefix) }) else { return true }
+        if granted.contains(rule.permission) { return true }
+        guard capability.hasPrefix("backend.records.") else { return false }
+        let suffix: String
+        switch capability {
+        case "backend.records.list", "backend.records.get": suffix = ":read"
+        case "backend.records.create", "backend.records.update": suffix = ":write"
+        case "backend.records.delete": suffix = ":delete"
+        default: return false
+        }
+        return granted.contains { $0.hasPrefix("records:") && $0.hasSuffix(suffix) }
     }
 }
 
