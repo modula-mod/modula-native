@@ -64,9 +64,23 @@ final class AppEnvironment {
         if launchArguments.contains("--ui-reduce-transparency") { appearance.contrastTransparency = .reduceTransparency }
         #endif
         let url = Self.resolveAPIBaseURL(launchArguments: launchArguments)
+        #if DEBUG
+        let transport: URLSession = launchArguments.contains(ModulaAppNetworkIsolation.argument)
+            ? ModulaAppNetworkIsolation.isolatedSession()
+            : .shared
+        client = GreenfieldClient(baseURL: url, transport: transport)
+        #else
         client = GreenfieldClient(baseURL: url)
+        #endif
         catalogue = ProductHubStore(client: client)
         catalogue.activation = moduleActivation
+        #if DEBUG
+        if let index = launchArguments.firstIndex(of: "--modula-dev-modules-root"),
+           launchArguments.indices.contains(launchArguments.index(after: index)) {
+            let path = launchArguments[launchArguments.index(after: index)]
+            catalogue.localDevRoots = [URL(fileURLWithPath: path, isDirectory: true)]
+        }
+        #endif
         runtime.activation = moduleActivation
         auth = AuthenticationStore(client: client)
         activity = ActivityStore(client: client)
@@ -253,7 +267,15 @@ final class AppEnvironment {
             await client.discardLocalSession()
         }
         #endif
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--uitest-local-module-session") {
+            auth.adoptUITestLocalModuleSession()
+        } else {
+            await auth.restore()
+        }
+        #else
         await auth.restore()
+        #endif
         drafts.setAccountID(auth.account?.accountId)
         catalogue.accountID = auth.account?.accountId
         #if DEBUG

@@ -33,6 +33,8 @@ final class ProductHubStore {
     var localDevRoots: [URL] = ProductHubStore.defaultLocalDevRoots()
     /// Local-only versions discovered on disk, keyed by module id.
     private(set) var localDevVersions: [String: [String]] = [:]
+    /// Permissions the account reviewed for a local development module.
+    private(set) var reviewedGrants: [String: [String]] = [:]
 
     init(client: GreenfieldClient) { self.client = client }
 
@@ -52,6 +54,15 @@ final class ProductHubStore {
         loading = true
         defer { loading = false }
         error = nil
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--uitest-local-module-session") {
+            loaded = true
+            mergeLocalDevModules()
+            loadReviewedGrants()
+            restoreLocalDevelopmentInstallations()
+            return
+        }
+        #endif
         do {
             products = try await client.catalogue()
             loaded = true
@@ -379,6 +390,7 @@ final class ProductHubStore {
             minHostVersion: ">=1.0.0", minBridgeVersion: "0.1.0", collections: ["item"]
         )
         do {
+            try verifyLocalTrust(moduleId: id, version: chosen)
             _ = try activation.installLocalPackage(
                 accountID: account, moduleId: id, version: chosen,
                 releaseId: "local:\(id)@\(chosen)", frontend: bytes, hostManifest: manifest
@@ -388,12 +400,121 @@ final class ProductHubStore {
                 granted: permissions, denied: [], reviewedAt: Date()
             ))
             installations[id] = ModuleInstallation(moduleId: id, status: "enabled", version: chosen)
+            rememberGrants(permissions, moduleId: id)
             return true
         } catch {
             lifecycleErrors[id] = error.localizedDescription
             return false
         }
     }
+
+    func loadReviewedGrants() {
+        guard let accountID else { return }
+        let url = grantsURL(accountID)
+        guard let data = try? Data(contentsOf: url),
+              let decoded = try? JSONDecoder().decode([String: [String]].self, from: data) else { return }
+        reviewedGrants = decoded
+    }
+
+    private func rememberGrants(_ permissions: [String], moduleId: String) {
+        reviewedGrants[moduleId] = permissions
+        guard let accountID else { return }
+        let url = grantsURL(accountID)
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? JSONEncoder().encode(reviewedGrants).write(to: url, options: .atomic)
+    }
+
+    private func grantsURL(_ accountID: String) -> URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        let safe = accountID.replacingOccurrences(of: "/", with: "_")
+        return base.appendingPathComponent("Modula/permission-grants-\(safe).json")
+    }
+
+    private func verifyLocalTrust(moduleId: String, version: String) throws {
+        guard let facts = signedFacts(moduleId: moduleId, version: version) else {
+            if !ModuleTrustPolicy.current.allowsUnsignedLocalPackages { throw ModuleTrustError.unsigned }
+            return
+        }
+        try ModuleReleaseTrust.verify(
+            facts: facts,
+            packagedDigest: packagedDigest(moduleId: moduleId, version: version),
+            artifact: nil,
+            policy: .current
+        )
+    }
+
+    private func signedFacts(moduleId: String, version: String) -> ModuleSignedFacts? {
+        for root in localDevRoots {
+            let url = root.appendingPathComponent("\(moduleId)/\(version)/signed-facts.json")
+            if let data = try? Data(contentsOf: url), let facts = ModuleSignedFacts(data: data) { return facts }
+        }
+        return nil
+    }
+
+    private func packagedDigest(moduleId: String, version: String) -> String? {
+        for root in localDevRoots {
+            let url = root.appendingPathComponent("\(moduleId)/\(version)/package.sha256")
+            if let text = try? String(contentsOf: url, encoding: .utf8) {
+                let digest = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !digest.isEmpty { return digest }
+            }
+        }
+        return nil
+    }
+
+    #if DEBUG
+    func debugStageBadDigest(_ id: String) throws -> String {
+        guard let activation, let account = accountID else { throw ModuleActivationError.wrongAccount }
+        guard let active = activation.active(accountID: account, moduleId: id) else { throw ModuleActivationError.missingStaged }
+        let bytes = try activation.store.frontendData(for: active)
+        try activation.store.stageDeclaredDigestMismatch(
+            accountID: account, moduleId: id, version: active.version,
+            releaseId: "\(active.releaseId)#bad-digest", frontend: bytes,
+            declaredSha256: String(repeating: "ab", count: 32), hostManifest: active.hostManifest
+        )
+        return "staged-bad-digest"
+    }
+
+    func debugActivateStaged(_ id: String) throws -> String {
+        guard let activation, let account = accountID else { throw ModuleActivationError.wrongAccount }
+        do {
+            _ = try activation.activate(accountID: account, moduleId: id)
+            return "activated"
+        } catch {
+            return activation.store.index(accountID: account, moduleId: id).lastAuditReason ?? error.localizedDescription
+        }
+    }
+
+    func debugFailActivationHealth(_ id: String) throws -> String {
+        guard let activation, let account = accountID else { throw ModuleActivationError.wrongAccount }
+        guard let active = activation.active(accountID: account, moduleId: id) else { throw ModuleActivationError.missingStaged }
+        let versions = localDevVersions[id] ?? []
+        guard let next = versions.last(where: { ModuleVersion.isOlder(active.version, than: $0) }) else {
+            throw ModuleActivationError.missingStaged
+        }
+        guard let bytes = Self.localDevFrontend(moduleId: id, version: next, roots: localDevRoots) else {
+            throw ModuleActivationError.missingStaged
+        }
+        try verifyLocalTrust(moduleId: id, version: next)
+        let manifest = ModuleManifest(
+            id: id, name: product(id)?.name ?? id, version: next, runtime: "declarative",
+            entry: "product-ui", permissions: [], minHostVersion: ">=1.0.0",
+            minBridgeVersion: "0.1.0", collections: ["item"]
+        )
+        _ = try activation.installLocalPackage(
+            accountID: account, moduleId: id, version: next, releaseId: "local:\(id)@\(next)",
+            frontend: bytes, hostManifest: manifest, activate: false
+        )
+        activation.failNextActivationHealth = true
+        do {
+            _ = try activation.activate(accountID: account, moduleId: id)
+            return "activated-unexpectedly"
+        } catch {
+            return activation.store.index(accountID: account, moduleId: id).lastAuditReason ?? error.localizedDescription
+        }
+    }
+    #endif
 
     private func itemReplacingVersion(_ product: CatalogueProduct, version: String) -> CatalogueProduct {
         CatalogueProduct(

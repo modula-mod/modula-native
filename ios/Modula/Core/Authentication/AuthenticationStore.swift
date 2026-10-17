@@ -16,6 +16,26 @@ final class AuthenticationStore {
 
     var isSignedIn: Bool { account != nil }
 
+    #if DEBUG
+    /// UI-test session with no tokens and no production authority.
+    func adoptUITestLocalModuleSession() {
+        let arguments = ProcessInfo.processInfo.arguments
+        var accountId = "uitest-local-modules"
+        if let index = arguments.firstIndex(of: "--uitest-local-account"),
+           arguments.indices.contains(arguments.index(after: index)) {
+            let candidate = arguments[arguments.index(after: index)]
+            let allowed = candidate.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" }
+            if allowed, (8...80).contains(candidate.count) { accountId = candidate }
+        }
+        account = GreenfieldAccount(
+            accountId: accountId,
+            primaryHandle: "modules",
+            status: "active",
+            displayName: "Module Fixture"
+        )
+    }
+    #endif
+
     func restore() async {
         guard !busy else { return }
         busy = true

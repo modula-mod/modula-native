@@ -1,5 +1,8 @@
-import Foundation
 import CryptoKit
+import Foundation
+import os
+
+private let activationLog = Logger(subsystem: "digital.modula.native", category: "ModuleActivation")
 
 struct ModulePermissionReview: Equatable, Sendable {
     var moduleId: String
@@ -79,28 +82,44 @@ final class ModuleActivationController {
     }
 
     func activate(accountID: String, moduleId: String) throws -> ModuleCachedRelease {
-        let staged = store.release(in: .staged, accountID: accountID, moduleId: moduleId)
-        if failNextActivationHealth {
-            failNextActivationHealth = false
-            lastRollbackReason = "activation-health"
-            throw ModuleActivationError.activationHealth
+        if let staged = store.release(in: .staged, accountID: accountID, moduleId: moduleId) {
+            do {
+                let data = try store.frontendData(for: staged)
+                _ = try ProductUIDocument.parse(data: data, productId: staged.moduleId, version: staged.version)
+            } catch {
+                recordAudit(accountID: accountID, moduleId: moduleId, reason: "digest-rejected")
+                throw error
+            }
         }
-        if let staged {
-            let data = try store.frontendData(for: staged)
-            _ = try ProductUIDocument.parse(data: data, productId: staged.moduleId, version: staged.version)
-        }
+        let release: ModuleCachedRelease
         do {
-            return try store.activateStaged(accountID: accountID, moduleId: moduleId)
+            release = try store.activateStaged(accountID: accountID, moduleId: moduleId)
         } catch {
-            lastRollbackReason = error.localizedDescription
+            recordAudit(accountID: accountID, moduleId: moduleId, reason: error.localizedDescription)
             _ = try? store.rollbackToPreviousGood(accountID: accountID, moduleId: moduleId)
             throw error
         }
+        if failNextActivationHealth {
+            failNextActivationHealth = false
+            _ = try store.rollbackToPreviousGood(accountID: accountID, moduleId: moduleId)
+            recordAudit(accountID: accountID, moduleId: moduleId, reason: "activation-health")
+            throw ModuleActivationError.activationHealth
+        }
+        return release
+    }
+
+    func recordAudit(accountID: String, moduleId: String, reason: String) {
+        lastRollbackReason = reason
+        var current = store.index(accountID: accountID, moduleId: moduleId)
+        current.lastAuditReason = reason
+        try? store.writeIndex(current)
+        activationLog.error("Module activation \(reason, privacy: .public) for \(moduleId, privacy: .public)")
     }
 
     func rollback(accountID: String, moduleId: String, reason: String) throws -> ModuleCachedRelease? {
-        lastRollbackReason = reason
-        return try store.rollbackToPreviousGood(accountID: accountID, moduleId: moduleId)
+        let restored = try store.rollbackToPreviousGood(accountID: accountID, moduleId: moduleId)
+        recordAudit(accountID: accountID, moduleId: moduleId, reason: reason)
+        return restored
     }
 
     /// Local verified package used by tests and the generator dogfood path.
