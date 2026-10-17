@@ -8,6 +8,9 @@ struct ModuleHost: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ScaledMetric private var textScale: Double = 1
     @State private var session: ModuleSession?
+    #if DEBUG
+    @State private var showLifecycleLab = false
+    #endif
     private var appearance: ModuleEnvironment {
         ModuleEnvironment(colorScheme: scheme == .dark ? "dark" : "light", theme: app.appearance.theme.rawValue,
                           darkStyle: app.appearance.darkStyle.rawValue, oled: app.appearance.darkStyle == .oled && scheme == .dark,
@@ -74,21 +77,55 @@ struct ModuleHost: View {
         }
         .background(palette.canvas.ignoresSafeArea())
         .modulaSoftScrollEdge()
-        .navigationTitle(session?.manifest.name ?? "Module")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) { Button("Close", systemImage: "xmark") { app.navigation.close() } }
+            ToolbarItem(placement: .principal) {
+                VStack(spacing: 0) {
+                    Text(session?.manifest.name ?? "Module")
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                    if let version = session?.manifest.version {
+                        Text(version)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(session?.manifest.name ?? "Module")
+                .accessibilityIdentifier("module.host.title")
+            }
             #if DEBUG
-            ToolbarItem(placement: .bottomBar) { Text("Runtime: \(app.runtime.initializationCount) · \(session?.state.rawValue ?? "idle")").font(.caption).accessibilityIdentifier("runtime.status") }
-            ToolbarItem(placement: .topBarLeading) {
-                Menu("Test appearance", systemImage: "circle.lefthalf.filled") {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button("Lifecycle lab") { showLifecycleLab = true }
                     Button("Use Light Appearance") { app.appearance.appearance = .light }
                     Button("Use Dark Appearance") { app.appearance.appearance = .dark }
                     Button("Use OLED Appearance") { app.appearance.appearance = .oled }
+                } label: {
+                    Image(systemName: "ladybug")
+                        .font(.body)
+                        .foregroundStyle(ModulaColor.accent)
                 }
+                .accessibilityLabel("Module debug")
+                .accessibilityIdentifier("module.host.debug")
             }
             #endif
         }
+        #if DEBUG
+        .sheet(isPresented: $showLifecycleLab) {
+            ModuleLifecycleLab(moduleID: moduleID) { reloadSession() }
+                .presentationDetents([.medium, .large])
+        }
+        .background {
+            if ModulaAppNetworkIsolation.isActive {
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .accessibilityElement()
+                    .accessibilityIdentifier("module.host.network-isolated")
+                    .accessibilityLabel("App network isolated")
+            }
+        }
+        #endif
         .onAppear {
             if let session, session.isValid {
                 // Back from a tab switch or a pushed route: same surface, same React state.
@@ -153,6 +190,10 @@ struct ModuleHost: View {
     }
 
     private func retry() {
+        reloadSession()
+    }
+
+    private func reloadSession() {
         if let session { app.runtime.unmount(session) }
         session = app.runtime.prepare(moduleID: moduleID, environment: appearance, initialLocalPath: initialLocalPath)
     }

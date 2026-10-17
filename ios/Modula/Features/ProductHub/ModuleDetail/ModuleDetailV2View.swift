@@ -17,6 +17,7 @@ struct ModuleDetailV2View: View {
     @State private var showAllPermissions = false
     @State private var versionTarget: ModuleVersionOption?
     @State private var versionPhase: ModuleVersionSwitchSheet.Phase = .loading
+    @State private var installFeedback: String?
 
     private var product: CatalogueProduct? { app.catalogue.product(moduleID) }
     private var manifest: ModuleManifest? { app.runtime.manifests.first { $0.id == moduleID } }
@@ -78,10 +79,12 @@ struct ModuleDetailV2View: View {
         }
         .sheet(isPresented: $confirmInstall) {
             ModulePermissionReviewSheet(
-                title: installTitle,
-                message: installMessage,
+                moduleName: product?.name ?? "Module",
+                operation: isInstalled ? .update : .install,
+                fromVersion: installedVersion,
+                toVersion: app.catalogue.product(moduleID)?.latestVersion ?? installedVersion,
                 permissions: reviewedPermissions,
-                confirmTitle: isInstalled ? "Update" : "Install",
+                previouslyGranted: Set(app.catalogue.reviewedGrants[moduleID] ?? []),
                 onConfirm: {
                     confirmInstall = false
                     Task { await runInstall() }
@@ -232,6 +235,12 @@ struct ModuleDetailV2View: View {
                     }
                     Spacer(minLength: 0)
                 }
+                if let installFeedback {
+                    Text(installFeedback)
+                        .font(.footnote)
+                        .foregroundStyle(ModulaColor.accent)
+                        .accessibilityIdentifier("module.install.notice")
+                }
             }
         }
         .accessibilitySortPriority(90)
@@ -310,16 +319,17 @@ struct ModuleDetailV2View: View {
                 ForEach(Array(statItems(product).enumerated()), id: \.element.id) { index, item in
                     if index > 0 { Divider().frame(height: 40) }
                     VStack(spacing: 5) {
-                        Text(item.caption).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+                        Text(item.caption).font(.caption2.weight(.semibold)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
                         if let symbol = item.symbol {
-                            Image(systemName: symbol).font(.title3.weight(.semibold)).foregroundStyle(.secondary)
+                            Image(systemName: symbol).font(.body.weight(.semibold)).foregroundStyle(.secondary)
                         } else {
-                            Text(item.value).font(.title3.weight(.bold)).foregroundStyle(.secondary)
+                            Text(item.value).font(.subheadline.weight(.bold)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.6)
                         }
-                        Text(item.detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        Text(item.detail).font(.caption2).foregroundStyle(.secondary).lineLimit(2).minimumScaleFactor(0.75).multilineTextAlignment(.center)
                     }
-                    .frame(minWidth: 96)
+                    .frame(minWidth: 84, maxWidth: 132)
                     .padding(.horizontal, 6)
+                    .accessibilityIdentifier("module.stat.\(item.id)")
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("\(item.caption.capitalized): \(item.value) \(item.detail)")
                 }
@@ -480,6 +490,7 @@ struct ModuleDetailV2View: View {
 
     private var permissions: some View {
         let server = listing?.permissions ?? []
+        let declared = server.isEmpty ? app.catalogue.requestedLocalPermissions(moduleID) : server
         let host = ModuleHostPermissions.records(from: manifest)
         return VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
@@ -489,13 +500,13 @@ struct ModuleDetailV2View: View {
                     Text("\(listing.highRiskCount) high risk").font(.caption.weight(.semibold)).foregroundStyle(.red)
                 }
             }
-            if server.isEmpty && host.isEmpty {
+            if declared.isEmpty && host.isEmpty {
                 Text("This module declares no permissions.").foregroundStyle(.secondary)
             }
-            if !server.isEmpty {
+            if !declared.isEmpty {
                 ModulaCard {
                     VStack(alignment: .leading, spacing: 12) {
-                        ForEach(showAllPermissions ? server : Array(server.prefix(4))) { permission in
+                        ForEach(showAllPermissions ? declared : Array(declared.prefix(4))) { permission in
                             HStack(alignment: .top, spacing: 10) {
                                 Image(systemName: riskSymbol(permission.risk)).foregroundStyle(riskColor(permission.risk)).frame(width: 22)
                                 VStack(alignment: .leading, spacing: 2) {
@@ -505,8 +516,8 @@ struct ModuleDetailV2View: View {
                             }
                             .accessibilityElement(children: .combine)
                         }
-                        if server.count > 4 {
-                            Button(showAllPermissions ? "Show fewer" : "Show all \(server.count) permissions") {
+                        if declared.count > 4 {
+                            Button(showAllPermissions ? "Show fewer" : "Show all \(declared.count) permissions") {
                                 withAnimation { showAllPermissions.toggle() }
                             }
                             .font(.subheadline.weight(.semibold))
@@ -597,11 +608,6 @@ struct ModuleDetailV2View: View {
 
     // MARK: Actions
 
-    private var installTitle: String {
-        let name = product?.name ?? "module"
-        return isInstalled ? "Update \(name)?" : "Install \(name)?"
-    }
-
     private var isInstalled: Bool {
         guard let product else { return false }
         return presentation(product).installed
@@ -611,15 +617,6 @@ struct ModuleDetailV2View: View {
         let listed = listing?.permissions ?? []
         if !listed.isEmpty { return listed }
         return app.catalogue.requestedLocalPermissions(moduleID)
-    }
-
-    private var installMessage: String {
-        let permissions = reviewedPermissions
-        guard !permissions.isEmpty else { return "It will be added to your Modula account. No permissions are granted until they are listed here." }
-        let names = permissions.map(\.permission).joined(separator: ", ")
-        let high = permissions.filter { $0.risk.lowercased() == "high" }.count
-        let verb = isInstalled ? "updated on" : "added to"
-        return "It will be \(verb) your Modula account with \(permissions.count) permissions" + (high > 0 ? " (\(high) high risk)" : "") + ": \(names)."
     }
 
     private func perform(_ action: ModulePrimaryAction) {
@@ -641,7 +638,7 @@ struct ModuleDetailV2View: View {
                     selectVersion(latest)
                 } else if await app.catalogue.update(moduleID) {
                     HapticEngine.shared.play(.success)
-                    app.navigation.banner = ModulaBanner(message: "\(product?.name ?? "Module") updated", symbol: "checkmark.circle")
+                    installFeedback = "\(product?.name ?? "Module") updated"
                 } else {
                     HapticEngine.shared.play(.failure)
                 }
@@ -688,7 +685,7 @@ struct ModuleDetailV2View: View {
         if await app.catalogue.switchVersion(moduleID, preview: preview) {
             HapticEngine.shared.play(.success)
             let verb = preview.isDowngrade ? "downgraded" : "updated"
-            app.navigation.banner = ModulaBanner(message: "\(name) \(verb) to \(preview.toVersion)", symbol: "checkmark.circle")
+            installFeedback = "\(name) \(verb) to \(preview.toVersion)"
         } else {
             HapticEngine.shared.play(.failure)
         }
@@ -701,9 +698,11 @@ struct ModuleDetailV2View: View {
 
     private func runInstall() async {
         let granted = reviewedPermissions.map(\.permission)
+        let updating = isInstalled
+        let name = product?.name ?? "Module"
         if await app.catalogue.install(moduleID, permissions: granted) {
             HapticEngine.shared.play(.success)
-            app.navigation.banner = ModulaBanner(message: "\(product?.name ?? "Module") installed", symbol: "checkmark.circle")
+            installFeedback = updating ? "\(name) updated" : "\(name) installed"
         } else {
             HapticEngine.shared.play(.failure)
         }
@@ -712,46 +711,84 @@ struct ModuleDetailV2View: View {
     private func runUninstall() async {
         if await app.catalogue.uninstall(moduleID) {
             HapticEngine.shared.play(.success)
-            app.navigation.banner = ModulaBanner(message: "\(product?.name ?? "Module") removed", symbol: "trash")
+            installFeedback = "\(product?.name ?? "Module") removed"
         } else {
             HapticEngine.shared.play(.failure)
         }
     }
 }
 
-/// Names every permission the install or update will grant. Nothing is granted until
-/// the confirm button runs.
+/// One primary action and one Cancel. Update copy says when permissions are unchanged.
 private struct ModulePermissionReviewSheet: View {
-    let title: String
-    let message: String
+    enum Operation { case install, update }
+
+    let moduleName: String
+    let operation: Operation
+    let fromVersion: String?
+    let toVersion: String?
     let permissions: [ModuleListing.Permission]
-    let confirmTitle: String
+    let previouslyGranted: Set<String>
     let onConfirm: () -> Void
     let onCancel: () -> Void
 
+    private var title: String { operation == .install ? "Install" : "Update" }
+    private var requested: Set<String> { Set(permissions.map(\.permission)) }
+    private var unchanged: Bool { operation == .update && requested == previouslyGranted }
+    private var newlyRequested: [ModuleListing.Permission] {
+        permissions.filter { !previouslyGranted.contains($0.permission) }
+    }
+
+    private var versionLine: String {
+        if operation == .update, let fromVersion, let toVersion, fromVersion != toVersion {
+            return "\(fromVersion) → \(toVersion)"
+        }
+        if let toVersion { return "Version \(toVersion)" }
+        return moduleName
+    }
+
+    private var explanation: String {
+        switch operation {
+        case .install:
+            return "Install \(moduleName). Nothing is granted until you confirm."
+        case .update where unchanged:
+            return "Update \(moduleName). Permissions are unchanged."
+        case .update:
+            return "Update \(moduleName). Confirm the permissions this version adds."
+        }
+    }
+
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    Text(message).font(.subheadline)
-                }
-                if permissions.isEmpty {
-                    Text("No permissions are requested. Nothing will be granted.")
-                } else {
-                    Section("Requested permissions") {
-                        ForEach(permissions) { permission in
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(permission.permission).font(.body.weight(.semibold))
-                                Text(permission.risk.capitalized).font(.caption).foregroundStyle(.secondary)
-                                if !permission.reason.isEmpty {
-                                    Text(permission.reason).font(.subheadline)
-                                }
-                            }
-                            .accessibilityElement(children: .combine)
-                            .accessibilityIdentifier("module.permission.\(permission.permission)")
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(versionLine)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(ModulaColor.accent)
+                    Text(explanation)
+                        .font(.subheadline)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if permissions.isEmpty {
+                        Text("No permissions are requested. Nothing will be granted.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    } else if unchanged {
+                        Text("Permissions are unchanged.")
+                            .font(.subheadline.weight(.semibold))
+                        permissionGroup("Current permissions", permissions)
+                    } else if operation == .update {
+                        if !newlyRequested.isEmpty {
+                            permissionGroup("Newly requested", newlyRequested)
                         }
+                        let kept = permissions.filter { previouslyGranted.contains($0.permission) }
+                        if !kept.isEmpty { permissionGroup("Already granted", kept) }
+                    } else {
+                        permissionGroup("Requested permissions", permissions)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 12)
             }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
@@ -759,21 +796,67 @@ private struct ModulePermissionReviewSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: onCancel)
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(confirmTitle, action: onConfirm)
-                }
             }
             .safeAreaInset(edge: .bottom) {
-                Button(confirmTitle, action: onConfirm)
+                Button(title, action: onConfirm)
                     .font(.headline)
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .buttonStyle(.borderedProminent)
-                    .padding()
+                    .tint(ModulaColor.accent)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 8)
+                    .background(.bar)
                     .accessibilityIdentifier("module.install.confirm")
             }
         }
         .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
         .accessibilityIdentifier("module.permission-review")
+    }
+
+    private func permissionGroup(_ heading: String, _ items: [ModuleListing.Permission]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(heading)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+            ForEach(items) { permission in
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(permission.permission).font(.body.weight(.semibold))
+                    Text(riskTitle(permission.risk))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(ModulaColor.accent)
+                    Text(riskDetail(permission.risk))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if !permission.reason.isEmpty {
+                        Text(permission.reason).font(.subheadline)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("module.permission.\(permission.permission)")
+            }
+        }
+    }
+
+    private func riskTitle(_ risk: String) -> String {
+        switch risk.lowercased() {
+        case "low": "Low risk"
+        case "medium", "moderate": "Moderate risk"
+        case "high": "High risk"
+        default: "Unclassified risk"
+        }
+    }
+
+    private func riskDetail(_ risk: String) -> String {
+        switch risk.lowercased() {
+        case "low": "Limited to data this module owns."
+        case "medium", "moderate": "Can read or change account data the module declares."
+        case "high": "Broad access. Read this before continuing."
+        default: "This permission does not include a risk classification."
+        }
     }
 }
 

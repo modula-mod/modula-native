@@ -35,7 +35,11 @@ struct ProductUIHostView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(palette.canvas)
         .onAppear {
+            #if DEBUG
+            runtime.online = app.auth.account != nil && !ModulaAppNetworkIsolation.isActive
+            #else
             runtime.online = app.auth.account != nil
+            #endif
             if let source = app.runtime.productUIRecordSource {
                 runtime.recordSource = source
             }
@@ -54,11 +58,13 @@ struct ProductUIViewCanvas: View {
 
     var body: some View {
         let kind = view["kind"]?.string ?? "collection"
-        let title = view["title"]?.string ?? runtime.document.productId
+        let declaredTitle = view["title"]?.string
         let states = view["states"]
         ScrollView {
             VStack(alignment: .leading, spacing: ModulaSpacing.md) {
-                Text(title).font(.title2.bold()).accessibilityAddTraits(.isHeader)
+                if let declaredTitle, !declaredTitle.isEmpty, declaredTitle != runtime.document.productId {
+                    Text(declaredTitle).font(.headline).accessibilityAddTraits(.isHeader)
+                }
                 if runtime.viewState == "loading", let node = states?["loading"] {
                     ProductUINode(node: node, runtime: runtime, provenance: .native)
                 } else if runtime.viewState == "empty", let node = states?["empty"] {
@@ -168,7 +174,11 @@ struct ProductUINode: View {
         case "progress":
             ProgressView(value: 0.4)
         case "richText", "richDocumentEditor":
-            ProductUIRichTextEditor(text: bindingDraft("body"), capability: "ui.richText@1")
+            StructuredDocumentEditor(
+                text: bindingDraft(node["fieldId"]?.string ?? node["binding"]?.string ?? node["field"]?["id"]?.string ?? "document"),
+                capability: "ui.richText@1",
+                externalCommand: runtime.lastAction
+            )
         case "editorToolbar":
             ProductUIEditorToolbar { command in runtime.lastAction = command }
         case "graph":
@@ -197,8 +207,10 @@ struct ProductUINode: View {
         let label = field?["label"]?.string ?? id
         return VStack(alignment: .leading, spacing: 6) {
             Text(label).font(.subheadline.weight(.semibold))
-            if field?["type"]?.string == "multilineText" || field?["type"]?.string == "richText" {
-                TextEditor(text: bindingDraft(id)).frame(minHeight: field?["type"]?.string == "richText" ? 180 : 88)
+            if field?["type"]?.string == "richText" {
+                StructuredDocumentEditor(text: bindingDraft(id), capability: field?["capability"]?.string ?? "ui.richText@1", externalCommand: runtime.lastAction)
+            } else if field?["type"]?.string == "multilineText" {
+                TextEditor(text: bindingDraft(id)).frame(minHeight: 88)
                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(.quaternary))
             } else {
                 TextField(label, text: bindingDraft(id)).textFieldStyle(.roundedBorder)
@@ -268,25 +280,6 @@ struct ProductUINode: View {
     }
 }
 
-struct ProductUIRichTextEditor: View {
-    @Binding var text: String
-    let capability: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Rich document")
-                .font(.subheadline.weight(.semibold))
-                .accessibilityIdentifier("product-ui.richtext.caption")
-            TextEditor(text: $text)
-                .frame(minHeight: 220)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(.quaternary))
-                .accessibilityIdentifier("product-ui.richtext")
-            Text("Host renderer \(capability). Blocks stay plain-text projected until a richer native editor is available.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-    }
-}
 
 struct ProductUIEditorToolbar: View {
     var onCommand: (String) -> Void

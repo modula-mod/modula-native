@@ -332,6 +332,15 @@ actor GreenfieldClient {
         return value["descriptor"].flatMap(ModuleInstallDescriptor.init(json:))
     }
 
+    /// The installed release's frontend, hosted on the API (`GET /v1/modules/:id/frontend`).
+    /// The phone caches these bytes the way a game caches a downloaded patch.
+    func installedProductFrontend(_ moduleID: String) async throws -> HostedModuleFrontend {
+        guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
+        let value: JSONValue = try await authenticated("GET", path: "/v1/modules/\(path)/frontend")
+        guard let hosted = HostedModuleFrontend(json: value) else { throw APIError.invalidResponse }
+        return hosted
+    }
+
     /// Downloads an immutable registry artifact and requires the expected SHA-256.
     func downloadVerifiedArtifact(ref: String, expectedSha256: String, maximumBytes: Int = 1_048_576) async throws -> Data {
         let url: URL
@@ -677,5 +686,27 @@ private final class UploadTransfer: NSObject, URLSessionTaskDelegate, URLSession
         guard let response else { continuation?.resume(throwing: APIError.invalidResponse); return }
         progress(1)
         continuation?.resume(returning: (data, response))
+    }
+}
+
+/// Frontend bytes served by the API for an account's enabled installation.
+struct HostedModuleFrontend: Equatable, Sendable {
+    var productId: String
+    var version: String
+    var sha256: String?
+    var frontend: Data
+
+    init?(json: JSONValue) {
+        guard let productId = json["productId"]?.string ?? json["moduleId"]?.string,
+              let version = json["version"]?.string,
+              let frontend = json["frontend"] else { return nil }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        guard let bytes = try? encoder.encode(frontend), !bytes.isEmpty else { return nil }
+        self.productId = productId
+        self.version = version
+        let declared = json["artifact"]?["sha256"]?.string
+        self.sha256 = declared?.count == 64 ? declared : nil
+        self.frontend = bytes
     }
 }

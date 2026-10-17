@@ -129,6 +129,12 @@
 		A03200000000000000000005 /* PostContentRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000005 /* PostContentRenderer.swift */; };
 		A03200000000000000000006 /* ContentPostCatalogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000006 /* ContentPostCatalogView.swift */; };
 		001526FE43E0E8C9671B4E84 /* ModuleHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */; };
+		R3B100000000000000000001 /* StructuredDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = R3A100000000000000000001 /* StructuredDocument.swift */; };
+		R3B100000000000000000002 /* ModuleReleaseTrust.swift in Sources */ = {isa = PBXBuildFile; fileRef = R3A100000000000000000002 /* ModuleReleaseTrust.swift */; };
+		R3B100000000000000000003 /* ModulaAppNetworkIsolation.swift in Sources */ = {isa = PBXBuildFile; fileRef = R3A100000000000000000003 /* ModulaAppNetworkIsolation.swift */; };
+		R3B100000000000000000004 /* ModuleLifecycleLab.swift in Sources */ = {isa = PBXBuildFile; fileRef = R3A100000000000000000004 /* ModuleLifecycleLab.swift */; };
+		R3B100000000000000000005 /* Ecosystem01R3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R3A100000000000000000005 /* Ecosystem01R3Tests.swift */; };
+		R3B100000000000000000006 /* EcosystemBasicLifecycleUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R3A100000000000000000006 /* EcosystemBasicLifecycleUITests.swift */; };
 		0139D48F433333A6C105C394 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E9539623085AAA12077638F /* SettingsView.swift */; };
 		02ED22D448BC35987DA41C41 /* RuntimeDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */; };
 		045022BFF07BCC1674A60821 /* NavigationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */; };
@@ -815,6 +821,12 @@
 		E4D8BFFECC9B4F51FB6DADE9 /* NodusWorkspaceView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusWorkspaceView.swift; path = Features/Developer/Nodus/NodusWorkspaceView.swift; sourceTree = "<group>"; };
 		A02A10000000000000000002 /* Nodus02A1PhysicalAcceptanceRunner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Nodus02A1PhysicalAcceptanceRunner.swift; path = Features/Developer/Nodus/Nodus02A1PhysicalAcceptanceRunner.swift; sourceTree = "<group>"; };
 		E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleHost.swift; path = ModuleRuntime/ModuleHost.swift; sourceTree = "<group>"; };
+		R3A100000000000000000001 /* StructuredDocument.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StructuredDocument.swift; path = ModuleRuntime/StructuredDocument.swift; sourceTree = "<group>"; };
+		R3A100000000000000000002 /* ModuleReleaseTrust.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleReleaseTrust.swift; path = ModuleRuntime/ModuleReleaseTrust.swift; sourceTree = "<group>"; };
+		R3A100000000000000000003 /* ModulaAppNetworkIsolation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaAppNetworkIsolation.swift; path = Core/Networking/ModulaAppNetworkIsolation.swift; sourceTree = "<group>"; };
+		R3A100000000000000000004 /* ModuleLifecycleLab.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleLifecycleLab.swift; path = ModuleRuntime/ModuleLifecycleLab.swift; sourceTree = "<group>"; };
+		R3A100000000000000000005 /* Ecosystem01R3Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Ecosystem01R3Tests.swift; sourceTree = "<group>"; };
+		R3A100000000000000000006 /* EcosystemBasicLifecycleUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EcosystemBasicLifecycleUITests.swift; sourceTree = "<group>"; };
 		EB03DB7121ABD1E492F3AC7E /* IntelligenceProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceProvider.swift; path = Core/Intelligence/Contracts/IntelligenceProvider.swift; sourceTree = "<group>"; };
 		EECC47A5007CE1E5BB063A97 /* ShellAccessory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShellAccessory.swift; path = DesignSystem/ShellAccessory.swift; sourceTree = "<group>"; };
 		F00100000000000000000001 /* ProfileModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileModels.swift; path = Features/Profile/ProfileModels.swift; sourceTree = "<group>"; };
@@ -981,6 +993,7 @@
 				04756B524E52AA56A61D2E0D /* LocalizationCatalogTests.swift */,
 				BFC9EF1CC67951AB29E6F94B /* ModuleSecurityTests.swift */,
 				T80100000000000000000001 /* ModuleHostEcosystemTests.swift */,
+				R3A100000000000000000005 /* Ecosystem01R3Tests.swift */,
 				F57B2A43C30D9E11DB0A81E8 /* NodusReleaseTests.swift */,
 				61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */,
 				E1010000000000000000000A /* DiscoverTests.swift */,
@@ -1002,6 +1015,7 @@
 			isa = PBXGroup;
 			children = (
 				9AA9CD0861813EF42C424B9A /* NativeLaunchTests.swift */,
+				R3A100000000000000000006 /* EcosystemBasicLifecycleUITests.swift */,
 				A0MOL01ACC0000000000000F /* MOL01AcceptanceUITests.swift */,
 				A1B2C3D4E5F6A7B8C9D0E106 /* MOL02PipAcceptanceUITests.swift */,
 				A1B2C3D4E5F6A7B8C9D0E110 /* MOL02MossAcceptanceUITests.swift */,
@@ -1298,6 +1312,10 @@
 				11C7225BC261899B6AA2414A /* ModulaHostBridge.mm */,
 				435419F8D75EB3FA37353703 /* ModuleEnvironment.swift */,
 				E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */,
+				R3A100000000000000000001 /* StructuredDocument.swift */,
+				R3A100000000000000000002 /* ModuleReleaseTrust.swift */,
+				R3A100000000000000000004 /* ModuleLifecycleLab.swift */,
+				R3A100000000000000000003 /* ModulaAppNetworkIsolation.swift */,
 				AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */,
 				M80100000000000000000001 /* ProductUIDocument.swift */,
 				M80100000000000000000002 /* ModuleArtifactStore.swift */,
@@ -1728,6 +1746,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3DFCE2030F6AC41D3386B2F5 /* NativeLaunchTests.swift in Sources */,
+				R3B100000000000000000006 /* EcosystemBasicLifecycleUITests.swift in Sources */,
 				A0MOL01ACC0000000000000B /* MOL01AcceptanceUITests.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E105 /* MOL02PipAcceptanceUITests.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E109 /* MOL02MossAcceptanceUITests.swift in Sources */,
@@ -1771,6 +1790,7 @@
 				5900B968FE1D07B3EE4DAEA0 /* LocalizationCatalogTests.swift in Sources */,
 				6ACC1709897F66B0E80839F2 /* ModuleSecurityTests.swift in Sources */,
 				T90100000000000000000001 /* ModuleHostEcosystemTests.swift in Sources */,
+				R3B100000000000000000005 /* Ecosystem01R3Tests.swift in Sources */,
 				7BAF35FDD6A2DF05EC5CC919 /* NodusReleaseTests.swift in Sources */,
 				FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */,
 				E2010000000000000000000A /* DiscoverTests.swift in Sources */,
@@ -1999,6 +2019,10 @@
 				2EB8E6563046CB7FD4D651AD /* ModulaHostBridge.mm in Sources */,
 				7D7AABC4EB1C0A2313444D79 /* ModuleEnvironment.swift in Sources */,
 				001526FE43E0E8C9671B4E84 /* ModuleHost.swift in Sources */,
+				R3B100000000000000000001 /* StructuredDocument.swift in Sources */,
+				R3B100000000000000000002 /* ModuleReleaseTrust.swift in Sources */,
+				R3B100000000000000000003 /* ModulaAppNetworkIsolation.swift in Sources */,
+				R3B100000000000000000004 /* ModuleLifecycleLab.swift in Sources */,
 				9314852BE26D5B1EB2360CE8 /* ModuleRuntimeController.swift in Sources */,
 				M90100000000000000000001 /* ProductUIDocument.swift in Sources */,
 				M90100000000000000000002 /* ModuleArtifactStore.swift in Sources */,
@@ -2306,6 +2330,7 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = M29V4ZGUNK;
 				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -2371,6 +2396,7 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = M29V4ZGUNK;
 				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;

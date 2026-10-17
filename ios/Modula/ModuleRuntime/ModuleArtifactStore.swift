@@ -26,6 +26,7 @@ struct ModuleCacheIndex: Codable, Equatable, Sendable {
     var activeReleaseId: String?
     var previousGoodReleaseId: String?
     var stagedReleaseId: String?
+    var lastAuditReason: String?
 }
 
 /// Per-account immutable module artifact cache. No bearer token is stored with bytes.
@@ -135,6 +136,32 @@ final class ModuleArtifactStore: @unchecked Sendable {
         try writeIndex(current)
     }
 
+    #if DEBUG
+    /// Writes STAGED bytes whose declared digest does not match. Release builds cannot do this.
+    func stageDeclaredDigestMismatch(
+        accountID: String, moduleId: String, version: String, releaseId: String,
+        frontend: Data, declaredSha256: String, hostManifest: ModuleManifest
+    ) throws {
+        if let traversal = Self.unsafePath(in: frontend) { throw ModuleActivationError.pathTraversal(traversal) }
+        let staged = slotURL(accountID: accountID, moduleId: moduleId, slot: .staged)
+        if fileManager.fileExists(atPath: staged.path) { try fileManager.removeItem(at: staged) }
+        try fileManager.createDirectory(at: staged, withIntermediateDirectories: true)
+        try atomicWrite(frontend, to: staged.appendingPathComponent("frontend.manifest.json"))
+        let meta: [String: JSONValue] = [
+            "moduleId": .string(moduleId),
+            "version": .string(version),
+            "releaseId": .string(releaseId),
+            "frontendSha256": .string(declaredSha256),
+            "frontendMediaType": .string(ProductUIDocument.mediaType),
+            "hostManifest": try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(hostManifest)),
+        ]
+        try atomicWrite(JSONEncoder().encode(JSONValue.object(meta)), to: staged.appendingPathComponent("release.json"))
+        var current = index(accountID: accountID, moduleId: moduleId)
+        current.stagedReleaseId = releaseId
+        try writeIndex(current)
+    }
+    #endif
+
     /// ACTIVE ← STAGED, previous ACTIVE becomes PREVIOUS_GOOD.
     func activateStaged(accountID: String, moduleId: String) throws -> ModuleCachedRelease {
         let staged = slotURL(accountID: accountID, moduleId: moduleId, slot: .staged)
@@ -174,6 +201,13 @@ final class ModuleArtifactStore: @unchecked Sendable {
         current.previousGoodReleaseId = nil
         try writeIndex(current)
         return release(in: .active, accountID: accountID, moduleId: moduleId)
+    }
+
+    /// Drops one account's cached releases for a module. Does not touch any other module or account.
+    func removeModule(accountID: String, moduleId: String) throws {
+        let directory = moduleRoot(accountID: accountID, moduleId: moduleId)
+        guard fileManager.fileExists(atPath: directory.path) else { return }
+        try fileManager.removeItem(at: directory)
     }
 
     func purgeAccount(_ accountID: String) throws {
