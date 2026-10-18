@@ -454,6 +454,12 @@ final class ModuleHostEcosystemTests: XCTestCase {
             fields: fields, existing: legacy).get()
         XCTAssertNil(legacyRequest.body["data"]?["folderId"])
         XCTAssertEqual(legacyRequest.body["data"]?["title"]?.string, "After")
+        var removedFolder = legacyEdit
+        removedFolder.payload["folderId"] = ""
+        let removedFolderRequest = try ProductUIRecords.prepare(moduleId: "digital.modula.vault-notes",
+            mutation: removedFolder, action: .object(["family": .string("record.update"), "recordType": .string("note")]),
+            fields: fields, existing: legacy).get()
+        XCTAssertEqual(removedFolderRequest.body["data"]?["folderId"], .null)
 
         let direct: JSONValue = .object([
             "record_id": .string("server-note"), "revision": .number(3),

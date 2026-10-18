@@ -759,6 +759,8 @@ enum ProductUIRecords {
                existing?.data[id]?.string == draft { continue }
             if let value = coerced(field, draft: draft, moduleId: moduleId) {
                 data[id] = value
+            } else if field["type"]?.string == "recordReference", existing?.data[id] != nil {
+                data[id] = .null
             } else {
                 data.removeValue(forKey: id)
             }
