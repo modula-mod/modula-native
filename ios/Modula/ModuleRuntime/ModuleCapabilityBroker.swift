@@ -4,6 +4,10 @@ import Foundation
 enum ModuleCapabilityBroker {
     static let supported: Set<String> = [
         "ui.richText@1",
+        "ui.textTransform@1",
+        "ui.recordRevisions@1",
+        "ui.mediaAttach@1",
+        "ui.mediaOpen@1",
         "ui.richText.commands@1",
         "ui.graph@1",
         "ui.revisions@1",

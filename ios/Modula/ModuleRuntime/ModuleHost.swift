@@ -10,6 +10,7 @@ struct ModuleHost: View {
     @State private var session: ModuleSession?
     #if DEBUG
     @State private var showLifecycleLab = false
+    @AppStorage("modula.developer.moduleDebugEnabled") private var moduleDebugEnabled = false
     #endif
     private var appearance: ModuleEnvironment {
         ModuleEnvironment(colorScheme: scheme == .dark ? "dark" : "light", theme: app.appearance.theme.rawValue,
@@ -80,22 +81,15 @@ struct ModuleHost: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                VStack(spacing: 0) {
-                    Text(session?.manifest.name ?? "Module")
-                        .font(.subheadline.weight(.semibold))
-                        .lineLimit(1)
-                    if let version = session?.manifest.version {
-                        Text(version)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                Text(session?.manifest.name ?? "Module")
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
+                    .lineLimit(1)
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(session?.manifest.name ?? "Module")
                 .accessibilityIdentifier("module.host.title")
             }
             #if DEBUG
-            ToolbarItem(placement: .topBarTrailing) {
+            if moduleDebugEnabled { ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button("Lifecycle lab") { showLifecycleLab = true }
                     Button("Use Light Appearance") { app.appearance.appearance = .light }
@@ -108,7 +102,7 @@ struct ModuleHost: View {
                 }
                 .accessibilityLabel("Module debug")
                 .accessibilityIdentifier("module.host.debug")
-            }
+            } }
             #endif
         }
         #if DEBUG

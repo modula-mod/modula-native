@@ -20,7 +20,7 @@ final class ModuleRuntimeController {
     /// Bundled RN contract still advertised as 0.1.0 so existing modules stay compatible.
     nonisolated static let hostVersion = "0.1.0"
     /// Product UI / MPS host contract. Catalogue APIs already advertise `ModulaHost.version`.
-    nonisolated static let productUIHostVersion = "1.0.0"
+    nonisolated static let productUIHostVersion = "1.1.0"
     /// Capabilities this host implements. Anything else a manifest declares is denied.
     nonisolated static let supportedCapabilities: Set<String> = ModuleCapabilityBroker.supported
     private var factory: RCTReactNativeFactory?
@@ -39,9 +39,9 @@ final class ModuleRuntimeController {
     private(set) var memoryBeforeRuntimeMB: Double?
     private(set) var memoryWithModuleMB: Double?
     private(set) var memoryAfterCloseMB: Double?
-    private(set) var firstVaultDataReadyMilliseconds: Double?
+    private(set) var firstModuleDataReadyMilliseconds: Double?
     private(set) var firstRuntimeReadyMilliseconds: Double?
-    private(set) var vaultMountMilliseconds: [Double] = []
+    private(set) var moduleMountMilliseconds: [Double] = []
     private(set) var manifests: [ModuleManifest] = []
     /// Raw bundled manifest JSON per module, for the integrity digest.
     private(set) var manifestJSON: [String: JSONValue] = [:]
@@ -107,7 +107,12 @@ final class ModuleRuntimeController {
         if let cached, cached.frontendMediaType == ProductUIDocument.mediaType {
             do {
                 let data = try activation?.store.frontendData(for: cached) ?? Data()
-                session.productUI = try ProductUIDocument.parse(data: data, productId: cached.moduleId, version: cached.version)
+                let frontend = try ProductUIDocument.parse(data: data, productId: cached.moduleId, version: cached.version)
+                guard SemverRange.satisfies(Self.productUIHostVersion, range: frontend.hostRuntimeRange),
+                      frontend.requiredCapabilities.allSatisfy(ModuleCapabilityBroker.hostSupports) else {
+                    return blocked(session, .updateRequired, "\(manifest.name) needs a newer version of Modula. Update the app to open it.")
+                }
+                session.productUI = frontend
                 session.runtimeKind = .declarativeProductUI
                 session.state = .ready
             } catch {
@@ -246,9 +251,7 @@ final class ModuleRuntimeController {
         session.state = .ready
         session.loadMilliseconds = session.startedAt.duration(to: .now).milliseconds
         if firstRuntimeReadyMilliseconds == nil { firstRuntimeReadyMilliseconds = session.loadMilliseconds }
-        if session.manifest.id == "digital.modula.vault-notes", let duration = session.loadMilliseconds {
-            vaultMountMilliseconds.append(duration)
-        }
+        if let duration = session.loadMilliseconds { moduleMountMilliseconds.append(duration) }
         memoryWithModuleMB = residentMemoryMB()
         deliver("active", to: session)
         ModulaLog.runtime.info("Module ready in \(session.loadMilliseconds ?? 0) ms")
@@ -260,9 +263,7 @@ final class ModuleRuntimeController {
     func dataReady(_ session: ModuleSession) {
         guard authorize(session), session.state == .ready else { return }
         session.dataReadyMilliseconds = session.startedAt.duration(to: .now).milliseconds
-        if session.manifest.id == "digital.modula.vault-notes", firstVaultDataReadyMilliseconds == nil {
-            firstVaultDataReadyMilliseconds = session.dataReadyMilliseconds
-        }
+        if firstModuleDataReadyMilliseconds == nil { firstModuleDataReadyMilliseconds = session.dataReadyMilliseconds }
     }
 
     /// Host hidden (tab switch, a route pushed on top): keep the surface and its React
