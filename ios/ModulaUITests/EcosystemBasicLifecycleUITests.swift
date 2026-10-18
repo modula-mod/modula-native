@@ -150,6 +150,7 @@ final class EcosystemBasicLifecycleUITests: XCTestCase {
         var args = [
             "--uitest-skip-first-run",
             "--uitest-local-module-session",
+            "-modula.developer.moduleDebugEnabled", "YES",
             "--uitest-local-account", accountID,
             "--modula-dev-modules-root", root.path,
             "--modula-dev-trust-public-key", trustKey.path,
