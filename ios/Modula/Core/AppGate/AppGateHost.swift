@@ -22,6 +22,9 @@ struct AppGateHost: View {
             app.handleScenePhase(phase)
             showPrivacyCover = shouldCover(phase)
         }
+        .onChange(of: app.appLock.isAuthenticating) { _, _ in
+            showPrivacyCover = shouldCover(scenePhase)
+        }
         .onChange(of: app.gate.state) { _, _ in
             showPrivacyCover = shouldCover(scenePhase)
         }
@@ -83,7 +86,8 @@ struct AppGateHost: View {
     }
 
     private func shouldCover(_ phase: ScenePhase) -> Bool {
-        guard phase != .active else { return false }
+        // Only while backgrounded or in the app switcher — never over our own Face ID prompt.
+        guard phase != .active, !app.appLock.isAuthenticating else { return false }
         return app.appLock.shouldCoverAppSwitcher
     }
 }
