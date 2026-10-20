@@ -1057,6 +1057,8 @@ final class Vault21CandidateUITests: XCTestCase {
         let notes: [String: Note]
     }
 
+    private struct MediaFixture: Decodable { let bindingId: String }
+
     private func capture(_ name: String, app: XCUIApplication) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "vault21-\(name)"
@@ -1154,6 +1156,53 @@ final class Vault21CandidateUITests: XCTestCase {
         XCTAssertTrue(edit.waitForExistence(timeout: 10))
         edit.tap()
         capture("gallery-editor", app: app)
+    }
+
+    func testDisposableAttachmentReopensInVault() throws {
+        continueAfterFailure = false
+        let qaPath = "/Users/msjoy/Library/Application Support/Modula/QA/vault21-n1-secondary.json"
+        let fixturesPath = "/Users/msjoy/Documents/Codex/2026-10-18/modula-vault-21-acceptance-02-full/evidence/n1-vault21-gallery-fixtures.json"
+        let mediaPath = "/Users/msjoy/Documents/Codex/2026-10-18/modula-vault-21-acceptance-02-full/evidence/n1-vault21-media-qa.json"
+        guard [qaPath, fixturesPath, mediaPath].allSatisfy(FileManager.default.fileExists(atPath:)) else {
+            throw XCTSkip("Disposable Vault attachment fixture is unavailable on this Mac")
+        }
+        let credentials = try JSONDecoder().decode(N1UITestFixture.self, from: Data(contentsOf: URL(fileURLWithPath: qaPath)))
+        let fixtures = try JSONDecoder().decode(GalleryFixture.self, from: Data(contentsOf: URL(fileURLWithPath: fixturesPath)))
+        let media = try JSONDecoder().decode(MediaFixture.self, from: Data(contentsOf: URL(fileURLWithPath: mediaPath)))
+        let noteId = try XCTUnwrap(fixtures.notes["A garden after rain"]?.recordId)
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitest-signed-out", "--uitest-n1-api", "--uitest-skip-first-run"]
+        app.launchEnvironment["N1_SECRET_FILE"] = qaPath
+        app.launch()
+        try awaitShellReady(app, credentials: credentials, timeout: 90)
+        openProductHubFromShell(app)
+        let vault = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Vault Notes")).firstMatch
+        XCTAssertTrue(vault.waitForExistence(timeout: 20))
+        vault.tap()
+        tapModuleOpen(app)
+        let note = app.buttons["product-ui.record.\(noteId)"].firstMatch
+        XCTAssertTrue(note.waitForExistence(timeout: 30))
+        note.tap()
+        let attachment = app.buttons["product-ui.record.\(media.bindingId)"].firstMatch
+        XCTAssertTrue(attachment.waitForExistence(timeout: 30), "Uploaded file is missing from the note")
+        capture("attachment-bound", app: app)
+        attachment.tap()
+        XCTAssertTrue(app.buttons["Done"].firstMatch.waitForExistence(timeout: 20), "Attachment preview did not open: \(app.debugDescription)")
+        Thread.sleep(forTimeInterval: 2)
+        capture("attachment-preview", app: app)
+        app.buttons["Done"].firstMatch.tap()
+        let actions = app.buttons["product-ui.record-actions.\(media.bindingId)"].firstMatch
+        XCTAssertTrue(actions.waitForExistence(timeout: 8))
+        actions.tap()
+        let remove = app.buttons["Remove attachment"].firstMatch
+        XCTAssertTrue(remove.waitForExistence(timeout: 8))
+        remove.tap()
+        let confirm = app.buttons["Remove attachment"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 8))
+        confirm.tap()
+        let removed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: attachment)
+        XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 20), .completed, "Attachment remained bound after removal")
+        capture("attachment-removed", app: app)
     }
 
     func testRichEditorKeyboardUndoRedoAndSave() throws {

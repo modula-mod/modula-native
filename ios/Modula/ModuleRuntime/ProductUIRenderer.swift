@@ -12,6 +12,7 @@ struct ProductUIHostView: View {
     @State private var showsFileImporter = false
     @State private var mediaUploadInProgress = false
     @State private var previewURL: URL?
+    @State private var previewFilename = "Attachment"
 
     init(session: ModuleSession, document: ProductUIDocument) {
         self.session = session
@@ -107,7 +108,23 @@ struct ProductUIHostView: View {
         .onChange(of: previewURL) { old, new in
             if new == nil, let old { try? FileManager.default.removeItem(at: old) }
         }
-        .quickLookPreview($previewURL)
+        .sheet(isPresented: Binding(
+            get: { previewURL != nil },
+            set: { if !$0 { previewURL = nil } }
+        )) {
+            if let previewURL {
+                NavigationStack {
+                    ModuleAttachmentPreview(url: previewURL)
+                        .navigationTitle(previewFilename)
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Done") { self.previewURL = nil }
+                            }
+                        }
+                }
+            }
+        }
         .confirmationDialog("Unsaved changes", isPresented: Binding(
             get: { runtime.showsUnsavedChanges },
             set: { runtime.showsUnsavedChanges = $0 }
@@ -230,6 +247,7 @@ struct ProductUIHostView: View {
                 .appendingPathComponent("module-preview-\(UUID().uuidString)")
                 .appendingPathExtension(safeSuffix)
             try FileManager.default.copyItem(at: downloaded, to: destination)
+            previewFilename = request.filename
             previewURL = destination
             runtime.lastError = nil
         } catch let error as APIError {
@@ -488,6 +506,33 @@ struct ProductUIHostView: View {
             runtime.lastError = error.userFacingMessage
         } catch {
             runtime.lastError = "More records could not be loaded. Try again."
+        }
+    }
+}
+
+private struct ModuleAttachmentPreview: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeCoordinator() -> Coordinator { Coordinator(url: url) }
+
+    func makeUIViewController(context: Context) -> QLPreviewController {
+        let controller = QLPreviewController()
+        controller.dataSource = context.coordinator
+        return controller
+    }
+
+    func updateUIViewController(_ controller: QLPreviewController, context: Context) {
+        guard context.coordinator.url != url else { return }
+        context.coordinator.url = url
+        controller.reloadData()
+    }
+
+    final class Coordinator: NSObject, QLPreviewControllerDataSource {
+        var url: URL
+        init(url: URL) { self.url = url }
+        func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
+        func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
+            url as NSURL
         }
     }
 }
@@ -891,8 +936,10 @@ struct ProductUINode: View {
                                     recordCard(item)
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityIdentifier("product-ui.record.\(item.id)")
                             } else {
                                 recordCard(item)
+                                    .accessibilityIdentifier("product-ui.record.\(item.id)")
                             }
                             if let actions = node["actions"]?.array, !actions.isEmpty {
                                 Menu {
@@ -918,12 +965,12 @@ struct ProductUINode: View {
                                         .frame(minWidth: 44, minHeight: 44)
                                         .accessibilityLabel("Record actions")
                                 }
+                                .accessibilityIdentifier("product-ui.record-actions.\(item.id)")
                             }
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .accessibilityIdentifier("product-ui.record.\(item.id)")
                         if index < items.count - 1 {
                             Rectangle()
                                 .fill(palette.separator)
@@ -994,6 +1041,7 @@ struct ProductUINode: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
     }
 
     private var recordSymbol: String? {
