@@ -58,7 +58,8 @@ struct ConversationListView: View {
             }
         }
         .padding(.horizontal, ModulaLayout.contentInset)
-        .padding(.vertical, 8)
+        .padding(.top, 2)
+        .padding(.bottom, 4)
     }
 
     @ViewBuilder
@@ -66,23 +67,13 @@ struct ConversationListView: View {
         let items = app.messaging.visibleConversations
         switch app.messaging.conversationState {
         case .loading where items.isEmpty:
-            conversationSkeleton
+            MessagesSkeletonList(label: "Loading conversations")
         case .failed(let message) where items.isEmpty:
-            ModulaErrorState(message: message) {
-                Task { await app.messaging.refreshInbox() }
+            MessagesFriendlyEmpty(scope: .inbox, retryMessage: message) {
+                await app.messaging.refreshInbox()
             }
-        case _ where !app.messaging.capabilities.listConversations && items.isEmpty:
-            ModulaEmptyState(
-                title: "Messages",
-                message: "Conversations will appear here when messaging is available.",
-                symbol: "message"
-            )
         case _ where items.isEmpty:
-            ModulaEmptyState(
-                title: "No conversations yet",
-                message: "Start a chat from a profile, or wait for someone to message you.",
-                symbol: "bubble.left.and.bubble.right"
-            )
+            MessagesFriendlyEmpty(scope: .inbox)
         default:
             List {
                 ForEach(items) { conversation in
@@ -94,6 +85,20 @@ struct ConversationListView: View {
                     }
                     .buttonStyle(.plain)
                     .listRowInsets(EdgeInsets(top: 8, leading: ModulaLayout.contentInset, bottom: 8, trailing: ModulaLayout.contentInset))
+                    .listRowBackground(Color.clear)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button {
+                            app.navigation.push(.messages(.conversation(conversation.id)))
+                        } label: { Label("Open", systemImage: "arrow.up.right.bubble") }
+                        .tint(.accentColor)
+                    }
+                    .swipeActions(edge: .leading) {
+                        Button {
+                            UIPasteboard.general.string = conversation.title
+                            HapticEngine.shared.play(.confirmation)
+                        } label: { Label("Copy name", systemImage: "doc.on.doc") }
+                        .tint(.gray)
+                    }
                     .onAppear {
                         if conversation.id == items.last?.id {
                             Task { await app.messaging.loadMoreConversations() }
@@ -102,6 +107,7 @@ struct ConversationListView: View {
                 }
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
             .modulaSoftScrollEdge()
         }
     }
@@ -127,13 +133,12 @@ struct ConversationListView: View {
     @ViewBuilder
     private var errorBanner: some View {
         if let message = app.messaging.actionError {
-            Label(message, systemImage: "exclamationmark.triangle")
-                .font(.footnote.weight(.semibold))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(.regularMaterial, in: Capsule())
-                .padding(.bottom, 12)
-                .onTapGesture { app.messaging.clearActionError() }
+            MessagesRetryBanner(message: "Showing saved messages. \(message)") {
+                app.messaging.clearActionError()
+                await app.messaging.refreshInbox()
+            }
+            .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.bottom, 12)
         }
     }
 }
@@ -147,19 +152,25 @@ struct MessagesScopePicker: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        ModulaTabStrip(
-            items: [
-                ModulaTabItem(id: MessagesScope.inbox, title: "Chats", systemImage: "bubble.left"),
-                ModulaTabItem(id: MessagesScope.inMail, title: "In-Mail", systemImage: "envelope"),
-                ModulaTabItem(id: MessagesScope.requests, title: "Requests", systemImage: "person.badge.clock")
-            ],
-            selection: Binding(get: { selection }, set: navigate),
-            layout: .equalWidth,
-            compact: true,
-            accessibilityLabel: "Message sections"
-        )
+        Group {
+            if #available(iOS 26.0, *) {
+                MessagesGlassScopeControl(selection: selection, onSelect: navigate)
+            } else {
+                ModulaTabStrip(
+                    items: [
+                        ModulaTabItem(id: MessagesScope.inbox, title: "Chats", systemImage: "bubble.left"),
+                        ModulaTabItem(id: MessagesScope.inMail, title: "In-Mail", systemImage: "envelope"),
+                        ModulaTabItem(id: MessagesScope.requests, title: "Requests", systemImage: "person.badge.clock")
+                    ],
+                    selection: Binding(get: { selection }, set: navigate),
+                    layout: .equalWidth,
+                    compact: true,
+                    accessibilityLabel: "Message sections"
+                )
+            }
+        }
         .padding(.horizontal, ModulaLayout.contentInset)
-        .padding(.vertical, 8)
+        .padding(.vertical, 6)
         .accessibilityIdentifier("messages.scope")
     }
 
@@ -632,23 +643,13 @@ struct MessageRequestsView: View {
     private var content: some View {
         switch app.messaging.requestState {
         case .loading where app.messaging.requests.isEmpty:
-            ModulaLoadingState(title: "Loading requests")
+            MessagesSkeletonList(label: "Loading requests")
         case .failed(let message) where app.messaging.requests.isEmpty:
-            ModulaErrorState(message: message) {
-                Task { await app.messaging.refreshRequests() }
+            MessagesFriendlyEmpty(scope: .requests, retryMessage: message) {
+                await app.messaging.refreshRequests()
             }
-        case _ where !app.messaging.capabilities.messageRequests && app.messaging.requests.isEmpty:
-            ModulaEmptyState(
-                title: "No message requests",
-                message: "People who aren’t connected yet will appear here when requests are available.",
-                symbol: "person.crop.circle.badge.questionmark"
-            )
         case _ where app.messaging.requests.isEmpty:
-            ModulaEmptyState(
-                title: "No message requests",
-                message: "When someone wants to message you, it will show up here.",
-                symbol: "person.crop.circle.badge.questionmark"
-            )
+            MessagesFriendlyEmpty(scope: .requests)
         default:
             List(app.messaging.requests) { request in
                 MessageRequestRow(
@@ -664,8 +665,29 @@ struct MessageRequestsView: View {
                 } onDecline: {
                     Task { await app.messaging.declineRequest(request) }
                 }
+                .listRowBackground(Color.clear)
+                .swipeActions(edge: .trailing) {
+                    if app.messaging.capabilities.declineRequest {
+                        Button(role: .destructive) {
+                            Task { await app.messaging.declineRequest(request) }
+                        } label: { Label("Decline", systemImage: "xmark") }
+                    }
+                }
+                .swipeActions(edge: .leading) {
+                    if app.messaging.capabilities.acceptRequest {
+                        Button {
+                            Task {
+                                if let conversation = await app.messaging.acceptRequest(request) {
+                                    app.navigation.replaceTop(with: .messages(.conversation(conversation.id)))
+                                }
+                            }
+                        } label: { Label("Accept", systemImage: "checkmark") }
+                        .tint(.green)
+                    }
+                }
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
             .modulaSoftScrollEdge()
         }
     }
@@ -727,3 +749,217 @@ struct NewConversationView: View {
     MessageBubble(message: MessagingFixtures.thread()[3]) { _ in }
 }
 #endif
+
+
+// MARK: - Messages v2 chrome
+
+/// Liquid Glass segmented control for Chats / In-Mail / Requests.
+/// The selected pill morphs between segments via `glassEffectID`.
+@available(iOS 26.0, *)
+struct MessagesGlassScopeControl: View {
+    let selection: MessagesScope
+    var onSelect: (MessagesScope) -> Void
+    @Namespace private var glass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var displayed: MessagesScope?
+
+    private static let items: [(MessagesScope, String, String)] = [
+        (.inbox, "Chats", "bubble.left.and.bubble.right.fill"),
+        (.inMail, "In-Mail", "envelope.fill"),
+        (.requests, "Requests", "person.crop.circle.badge.clock")
+    ]
+
+    var body: some View {
+        let current = displayed ?? selection
+        GlassEffectContainer(spacing: 6) {
+            HStack(spacing: 4) {
+                ForEach(Self.items, id: \.0) { item in
+                    let isOn = item.0 == current
+                    Button {
+                        guard item.0 != current else { return }
+                        HapticEngine.shared.play(.selection)
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.82)) {
+                            displayed = item.0
+                        }
+                        onSelect(item.0)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: item.2)
+                                .imageScale(.small)
+                                .symbolEffect(.bounce, value: isOn && !reduceMotion)
+                            Text(item.1)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
+                        .font(.subheadline.weight(isOn ? .semibold : .medium))
+                        .foregroundStyle(isOn ? Color.primary : Color.secondary)
+                        .frame(maxWidth: .infinity, minHeight: 36)
+                        .contentShape(Capsule())
+                        .background {
+                            if isOn {
+                                Capsule()
+                                    .fill(Color.clear)
+                                    .glassEffect(.regular.tint(Color.accentColor.opacity(0.35)).interactive(), in: Capsule())
+                                    .glassEffectID("messages.scope.selection", in: glass)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(item.1)
+                    .accessibilityAddTraits(isOn ? .isSelected : [])
+                    .accessibilityIdentifier("messages.scope.\(item.1)")
+                }
+            }
+            .padding(4)
+            .glassEffect(.regular, in: Capsule())
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Message sections")
+        .onChange(of: selection) { _, new in displayed = new }
+    }
+}
+
+/// Shimmering skeleton rows used while a list loads.
+struct MessagesSkeletonList: View {
+    var label: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pulse = false
+
+    var body: some View {
+        VStack(spacing: 18) {
+            ForEach(0..<6, id: \.self) { index in
+                HStack(spacing: 12) {
+                    Circle().fill(Color.primary.opacity(0.08)).frame(width: 48, height: 48)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Capsule().fill(Color.primary.opacity(0.09)).frame(width: CGFloat(110 + (index * 23) % 60), height: 12)
+                            Spacer()
+                            Capsule().fill(Color.primary.opacity(0.06)).frame(width: 28, height: 10)
+                        }
+                        Capsule().fill(Color.primary.opacity(0.06)).frame(height: 10)
+                    }
+                }
+                .padding(.horizontal, ModulaLayout.contentInset)
+            }
+            Spacer()
+        }
+        .padding(.top, 14)
+        .opacity(pulse ? 0.55 : 1)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { pulse = true }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+    }
+}
+
+/// Friendly per-tab empty state. When a load failed it adds an inline retry
+/// banner and retries on its own with backoff — never a full-screen error.
+struct MessagesFriendlyEmpty: View {
+    let scope: MessagesScope
+    var retryMessage: String? = nil
+    var retry: (() async -> Void)? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var float = false
+
+    private var copy: (title: String, message: String, symbol: String) {
+        switch scope {
+        case .inbox: ("No chats yet", "Say hi from someone’s profile — your conversations will land here.", "bubble.left.and.bubble.right.fill")
+        case .inMail: ("Your In-Mail is clear", "Longer, thoughtful messages live here. Tap the pencil to write one.", "envelope.open.fill")
+        case .requests: ("No requests right now", "When someone new wants to chat, you’ll decide here first.", "person.crop.circle.badge.checkmark")
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 14) {
+            if let retryMessage, let retry {
+                MessagesRetryBanner(message: retryMessage, autoRetry: true, action: retry)
+                    .padding(.horizontal, ModulaLayout.contentInset)
+                    .padding(.top, 8)
+            }
+            Spacer(minLength: 24)
+            Image(systemName: copy.symbol)
+                .font(.system(size: 40, weight: .semibold))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 92, height: 92)
+                .messagesGlass(Circle(), tint: Color.accentColor.opacity(0.18))
+                .offset(y: float ? -4 : 4)
+                .accessibilityHidden(true)
+            Text(copy.title).font(.title3.weight(.semibold))
+            Text(copy.message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            Spacer(minLength: 24)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) { float = true }
+        }
+        .accessibilityIdentifier("messages.empty.\(String(describing: scope))")
+    }
+}
+
+/// Compact inline glass banner with a retry button and optional
+/// automatic retries (2s, 4s, 8s, 16s).
+struct MessagesRetryBanner: View {
+    let message: String
+    var autoRetry = false
+    let action: () async -> Void
+    @State private var busy = false
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "wifi.exclamationmark")
+                .foregroundStyle(.orange)
+            Text(message)
+                .font(.footnote.weight(.medium))
+                .lineLimit(2)
+            Spacer(minLength: 6)
+            Button {
+                Task { await run() }
+            } label: {
+                if busy { ProgressView().controlSize(.small) } else { Text("Retry").font(.footnote.weight(.semibold)) }
+            }
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
+            .disabled(busy)
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 6)
+        .padding(.vertical, 6)
+        .messagesGlass(Capsule())
+        .task {
+            guard autoRetry else { return }
+            for delay in [2.0, 4.0, 8.0, 16.0] {
+                try? await Task.sleep(for: .seconds(delay))
+                if Task.isCancelled { return }
+                await run()
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("messages.retryBanner")
+    }
+
+    private func run() async {
+        guard !busy else { return }
+        busy = true
+        await action()
+        busy = false
+    }
+}
+
+extension View {
+    /// Real Liquid Glass on iOS 26, material fallback on older systems.
+    @ViewBuilder
+    func messagesGlass<S: Shape>(_ shape: S, tint: Color? = nil) -> some View {
+        if #available(iOS 26.0, *) {
+            self.glassEffect(tint.map { Glass.regular.tint($0) } ?? .regular, in: shape)
+        } else {
+            self.background(.ultraThinMaterial, in: shape)
+        }
+    }
+}

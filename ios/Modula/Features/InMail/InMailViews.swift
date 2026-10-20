@@ -50,7 +50,8 @@ struct InMailInboxView: View {
             }
         }
         .padding(.horizontal, ModulaLayout.contentInset)
-        .padding(.vertical, 8)
+        .padding(.top, 2)
+        .padding(.bottom, 4)
     }
 
     @ViewBuilder
@@ -58,17 +59,11 @@ struct InMailInboxView: View {
         let items = app.inMail.visibleThreads
         switch app.inMail.loadState {
         case .loading where items.isEmpty:
-            ModulaLoadingState(title: "Loading In-Mail")
+            MessagesSkeletonList(label: "Loading In-Mail")
         case .failed(let message) where items.isEmpty:
-            ModulaErrorState(message: message) { Task { await app.inMail.refresh() } }
-        case _ where !app.inMail.capabilities.list && items.isEmpty:
-            ModulaEmptyState(
-                title: "In-Mail",
-                message: "Structured messages will appear here when In-Mail is available.",
-                symbol: "envelope"
-            )
+            MessagesFriendlyEmpty(scope: .inMail, retryMessage: message) { await app.inMail.refresh() }
         case _ where items.isEmpty:
-            ModulaEmptyState(title: "No In-Mail yet", message: "Professional and long-form messages will live here.", symbol: "envelope")
+            MessagesFriendlyEmpty(scope: .inMail)
         default:
             List(items) { thread in
                 Button {
@@ -78,8 +73,16 @@ struct InMailInboxView: View {
                     InMailRow(thread: thread)
                 }
                 .buttonStyle(.plain)
+                .listRowBackground(Color.clear)
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button {
+                        app.navigation.push(.messages(.inMail(.thread(thread.id))))
+                    } label: { Label("Open", systemImage: "envelope.open") }
+                    .tint(.accentColor)
+                }
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
             .modulaSoftScrollEdge()
         }
     }
