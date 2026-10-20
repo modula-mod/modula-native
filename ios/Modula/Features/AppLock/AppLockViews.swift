@@ -66,7 +66,7 @@ struct AppLockView: View {
                     .font(.system(size: compact ? 24 : 30, weight: .semibold))
                     .contentTransition(.symbolEffect(.replace))
                     .frame(width: compact ? 56 : 68, height: compact ? 56 : 68)
-                    .glassEffect(.regular.tint(.white.opacity(0.06)), in: Circle())
+                    .modulaGlass(in: Circle(), interactive: false, specular: true)
                     .accessibilityHidden(true)
                 HStack(spacing: 8) {
                     ModulaWordmark(height: compact ? 20 : 26, onDark: true)
@@ -114,8 +114,9 @@ struct AppLockView: View {
                             .font(.subheadline.weight(.semibold))
                             .padding(.horizontal, 16)
                             .frame(minHeight: ModulaLayout.minimumTouch)
+                            .modulaGlass(in: Capsule())
                     }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.plain)
                     .disabled(app.appLock.isAuthenticating || unlocking)
                     .accessibilityIdentifier("applock.biometrics")
                 }
@@ -126,11 +127,12 @@ struct AppLockView: View {
                 } label: {
                     Text("Forgot Passcode?")
                         .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.secondary)
                         .padding(.horizontal, 14)
                         .frame(minHeight: ModulaLayout.minimumTouch)
+                        .modulaGlass(in: Capsule())
                 }
-                .buttonStyle(.glass)
-                .tint(.secondary)
+                .buttonStyle(.plain)
                 .accessibilityIdentifier("applock.forgot")
             }
             Spacer(minLength: 0)
@@ -263,7 +265,7 @@ struct PasscodeKeypad: View {
     private let letters = ["2": "ABC", "3": "DEF", "4": "GHI", "5": "JKL", "6": "MNO", "7": "PQRS", "8": "TUV", "9": "WXYZ"]
 
     var body: some View {
-        GlassEffectContainer(spacing: 14) {
+        ModulaGlassGroup(spacing: 14) {
             VStack(spacing: 14) {
                 ForEach(rows, id: \.self) { row in
                     HStack(spacing: 22) {
@@ -292,7 +294,7 @@ struct PasscodeKeypad: View {
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(.white.opacity(value.isEmpty ? 0.35 : 0.9))
                     .frame(width: keySize * 0.78, height: keySize * 0.78)
-                    .glassEffect(.clear.interactive(), in: Circle())
+                    .modulaGlass(in: Circle())
                     .frame(width: keySize, height: keySize)
                     .contentShape(Circle())
             }
@@ -319,7 +321,7 @@ struct PasscodeKeypad: View {
                 }
                 .foregroundStyle(.white)
                 .frame(width: keySize, height: keySize)
-                .glassEffect(.regular.tint(.white.opacity(0.04)).interactive(), in: Circle())
+                .modulaGlass(in: Circle(), specular: true)
                 .contentShape(Circle())
             }
             .buttonStyle(GlassKeyStyle())
