@@ -105,15 +105,44 @@ final class PDFReaderModel {
         searchTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(250))
             guard !Task.isCancelled else { return }
-            self?.runSearch()
+            await self?.runSearch()
         }
     }
 
-    private func runSearch() {
+    /// Text search runs off the main actor on a private copy of the file; only the
+    /// (page, range) hits come back, turned into selections on the displayed document.
+    nonisolated private static func findRanges(url: URL, query: String) -> [(Int, NSRange)]? {
+        guard let copy = PDFDocument(url: url) else { return nil }
+        var hits: [(Int, NSRange)] = []
+        for index in 0..<copy.pageCount {
+            if Task.isCancelled { return hits }
+            guard let text = copy.page(at: index)?.string as NSString? else { continue }
+            var range = NSRange(location: 0, length: text.length)
+            while hits.count < 500 {
+                let found = text.range(of: query, options: [.caseInsensitive, .diacriticInsensitive], range: range)
+                guard found.location != NSNotFound else { break }
+                hits.append((index, found))
+                let next = found.location + max(found.length, 1)
+                range = NSRange(location: next, length: text.length - next)
+            }
+            if hits.count >= 500 { break }
+        }
+        return hits
+    }
+
+    private func runSearch() async {
         let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let document, query.count >= 2 else { clearSearch(keepQuery: true); return }
         searching = true
-        let found = document.findString(query, withOptions: [.caseInsensitive, .diacriticInsensitive])
+        let url = url
+        let ranges = await Task.detached(priority: .userInitiated) { Self.findRanges(url: url, query: query) }.value
+        guard !Task.isCancelled, query == searchQuery.trimmingCharacters(in: .whitespacesAndNewlines) else { searching = false; return }
+        let found: [PDFSelection]
+        if let ranges {
+            found = ranges.compactMap { document.page(at: $0.0)?.selection(for: $0.1) }
+        } else {
+            found = document.findString(query, withOptions: [.caseInsensitive, .diacriticInsensitive])
+        }
         searchResults = Array(found.prefix(500))
         searchResults.forEach { $0.color = UIColor.systemYellow.withAlphaComponent(0.55) }
         searchIndex = 0

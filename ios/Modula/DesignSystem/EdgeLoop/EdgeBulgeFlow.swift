@@ -71,7 +71,10 @@ struct EdgeBulgeFlow: ViewModifier {
                     let frame = proxy.frame(in: .global)
                     let rail = EdgePickerBulge.shared.frame
                     let near = frame.maxY > rail.minY - 80 && frame.minY < rail.maxY + 80
-                    return near ? frame.integral : CGRect(x: 0, y: -10_000, width: frame.width, height: 0)
+                    // Quantised to 12pt so a scrolling row re-lays out ~1/12 as often (no per-frame storm).
+                    guard near else { return CGRect(x: 0, y: -10_000, width: frame.width, height: 0) }
+                    return CGRect(x: frame.minX.rounded(), y: (frame.minY / 12).rounded() * 12,
+                                  width: frame.width.rounded(), height: (frame.height / 4).rounded() * 4)
                 } action: { rowFrame = $0 }
                 .animation(.smooth(duration: 0.3), value: inset)
         }
@@ -97,11 +100,21 @@ struct EdgeBulgeFlow: ViewModifier {
         }
         guard intrusion > 0 else { return 0 }
         let gap = Self.spacing * min(intrusion / Self.spacing, 1)
-        return (intrusion + gap).rounded()
+        // 4pt steps: text reflows only when the inset meaningfully changes.
+        return ((intrusion + gap) / 4).rounded(.up) * 4
     }
 }
 
 extension View {
     /// Full-width feed row that makes room for the shell Edge Picker outline.
     func modulaEdgeFlow(enabled: Bool = true) -> some View { modifier(EdgeBulgeFlow(enabled: enabled)) }
+}
+
+/// Whether a page-level feed is actively scrolling. Decorative TimelineViews / shaders
+/// read this to drop their frame rate so scrolling keeps the GPU budget.
+@MainActor @Observable
+final class ModulaScrollActivity {
+    static let shared = ModulaScrollActivity()
+    private(set) var isScrolling = false
+    func set(_ scrolling: Bool) { if isScrolling != scrolling { isScrolling = scrolling } }
 }

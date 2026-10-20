@@ -104,11 +104,13 @@ actor PDFPageRenderer {
 
     private var documents: [URL: PDFDocument] = [:]
     private var order: [URL] = []
+    /// Reading-time estimates are text extraction (slow on big files): computed once per file.
+    var readingMinutesCache: [URL: Int] = [:]
     private let cache: PDFPageImageCache
 
     init(cache: PDFPageImageCache = .shared) { self.cache = cache }
 
-    private func document(for url: URL) -> PDFDocument? {
+    func document(for url: URL) -> PDFDocument? {
         if let open = documents[url] {
             order.removeAll { $0 == url }; order.append(url)
             return open
@@ -167,6 +169,8 @@ struct ModulaPDFInlineCarousel: View {
     @State private var pageCount = 0
     @State private var slide: Int? = 0
     @State private var coverImage: UIImage?
+    /// Tiny render of page 1, upscaled as the cover backdrop: looks blurred without a live blur pass.
+    @State private var coverBackdrop: UIImage?
     @State private var docKind: PDFDocKind = .document
     @State private var readingMinutes: Int?
     @State private var lastPage = 0
@@ -193,8 +197,11 @@ struct ModulaPDFInlineCarousel: View {
             let count = await renderer.pageCount(url: fileURL)
             pageCount = count
             guard count > 0 else { return }
-            if let thumb = try? await renderer.render(url: fileURL, page: 0, quality: .thumbnail, pixelWidth: PDFCarouselMath.thumbnailPixelWidth) {
-                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) { coverImage = thumb }
+            let thumb = try? await renderer.render(url: fileURL, page: 0, quality: .thumbnail, pixelWidth: PDFCarouselMath.thumbnailPixelWidth)
+            let backdrop = try? await renderer.render(url: fileURL, page: 0, quality: .thumbnail, pixelWidth: 18)
+            guard !Task.isCancelled else { return }
+            if let thumb {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) { coverImage = thumb; coverBackdrop = backdrop }
             }
             docKind = PDFDocKind.classify(aspectRatio: await renderer.aspectRatio(url: fileURL, page: 0), pageCount: count)
             readingMinutes = await renderer.readingMinutes(url: fileURL)
@@ -253,9 +260,9 @@ struct ModulaPDFInlineCarousel: View {
 
     private var cover: some View {
         ZStack(alignment: .bottom) {
-            if let coverImage {
-                Image(uiImage: coverImage).resizable().scaledToFill()
-                    .blur(radius: 28).opacity(0.55)
+            if let coverBackdrop {
+                Image(uiImage: coverBackdrop).resizable().interpolation(.medium).scaledToFill()
+                    .opacity(0.55)
                     .clipped()
                     .accessibilityHidden(true)
             }
@@ -292,7 +299,13 @@ struct ModulaPDFInlineCarousel: View {
         }
         .frame(maxWidth: .infinity, maxHeight: height - 148)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .shadow(color: .black.opacity(0.38), radius: 18, y: 8)
+        .background(
+            // Static faux shadow (no offscreen shadow pass while the feed scrolls).
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.black.opacity(0.28))
+                .padding(-3)
+                .offset(y: 5)
+        )
         .accessibilityHidden(true)
     }
 
@@ -486,7 +499,7 @@ struct PDFInlinePageView: View {
                         .interpolation(isSharp ? .high : .medium)
                         .scaledToFit()
                         .background(Color.white)
-                        .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
+                        .overlay(Rectangle().stroke(Color.black.opacity(0.08), lineWidth: 0.5))
                         .padding(.vertical, 28)
                         .padding(.horizontal, 6)
                         .transition(.opacity)

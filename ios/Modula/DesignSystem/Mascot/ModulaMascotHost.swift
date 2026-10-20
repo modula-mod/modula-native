@@ -181,7 +181,7 @@ struct ModulaLiveMascot: View {
 
     var body: some View {
         let conditions = context.conditions(dark: colorScheme == .dark)
-        let fps: Double = conditions.lowPower ? 30 : 60
+        let fps: Double = (conditions.lowPower || ModulaScrollActivity.shared.isScrolling) ? 20 : 60
         let c = Self.container(size)
         let foot = kind.footFraction * size
         TimelineView(.animation(minimumInterval: 1.0 / fps, paused: paused)) { timeline in

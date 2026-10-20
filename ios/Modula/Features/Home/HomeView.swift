@@ -18,8 +18,8 @@ struct HomeView: View {
     @Environment(\.modulaHeroScope) private var heroScope
     @Environment(\.colorScheme) private var colorScheme
     /// Ambient colour: the post most on screen tints the page background.
-    @State private var ambientPostID: SocialPostID?
-    @State private var ambientColor: Color?
+    /// Isolated in its own observable so ambient changes never re-run this (large) body mid-scroll.
+    @State private var ambient = HomeAmbientModel()
     /// Comments pulled down collapse into this floating bubble; tap it to reopen.
     @State private var commentsBubble: SocialPost?
     @State private var lastCommentsPost: SocialPost?
@@ -86,10 +86,12 @@ struct HomeView: View {
                 }
             }
             .modulaSoftScrollEdge()
-            .onScrollGeometryChange(for: Bool.self) { geometry in
+            .onScrollGeometryChange(for: Bool.self) { [storyTrayFolded] geometry in
                 // Bool output keeps this cheap: the action only runs when the
-                // fold state flips, not on every scrolled frame.
-                geometry.contentOffset.y + geometry.contentInsets.top > 150
+                // fold state flips. Hysteresis stops the toolbar swap flickering
+                // (and the header jumping) when scrolling back up near the Stories row.
+                let y = geometry.contentOffset.y + geometry.contentInsets.top
+                return storyTrayFolded ? y > 110 : y > 170
             } action: { _, folded in
                 withAnimation(ModulaMotion.animation(.reveal, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
                     storyTrayFolded = folded
@@ -97,6 +99,7 @@ struct HomeView: View {
             }
             .onScrollPhaseChange { _, phase in
                 if phase == .interacting { HomeMascotCompanion.noteActivity() }
+                ModulaScrollActivity.shared.set(phase.isScrolling)
             }
             .modulaShellPullActions {
                 await app.home.refresh(mode, signedIn: app.auth.isSignedIn)
@@ -117,8 +120,7 @@ struct HomeView: View {
                 .frame(height: 260)
                 .frame(maxHeight: .infinity, alignment: .bottom)
         }
-        .background { ambientLayer }
-        .task(id: ambientPostID) { await updateAmbient() }
+        .background { HomeAmbientLayer(model: ambient, update: updateAmbient) }
         .modulaCanvas()
         .modulaSoftScrollEdge()
         .navigationTitle("Modula")
@@ -353,7 +355,7 @@ struct HomeView: View {
                     .modulaEdgeFlow()
                     .modulaScrollReveal()
                     .onScrollVisibilityChange(threshold: 0.55) { visible in
-                        if visible { ambientPostID = resolved.id }
+                        if visible, ambient.postID != resolved.id { ambient.postID = resolved.id }
                     }
                     .onAppear {
                         prefetchAhead(after: post)
@@ -578,40 +580,20 @@ struct HomeView: View {
 
     // MARK: Ambient colour
 
-    /// Soft wash of the on-screen post's dominant colour. Sampled from a tiny thumbnail
-    /// through the shared image pipeline and cached (`ModulaImageTint`). Off with Reduce Motion.
-    @ViewBuilder
-    private var ambientLayer: some View {
-        if let ambientColor, !ModulaEffectGate.reduceMotion(reduceMotion) {
-            Rectangle()
-                .fill(ambientColor.opacity(colorScheme == .dark ? 0.26 : 0.16))
-                .mask(
-                    LinearGradient(
-                        stops: [.init(color: .black, location: 0), .init(color: .black.opacity(0.45), location: 0.45), .init(color: .clear, location: 1)],
-                        startPoint: .top, endPoint: .bottom
-                    )
-                )
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-                .transition(.opacity)
-        }
-    }
-
     private func updateAmbient() async {
-        guard !ModulaEffectGate.reduceMotion(reduceMotion), let id = ambientPostID,
+        guard !ModulaEffectGate.reduceMotion(reduceMotion), let id = ambient.postID,
               let post = app.home.visiblePosts(for: mode).first(where: { $0.id == id }) else { return }
         // Debounce flings: only settle on posts that stay on screen.
         try? await Task.sleep(for: .milliseconds(220))
         guard !Task.isCancelled else { return }
         let media = app.posts.resolved(post).media.first
         guard let media, let url = media.thumbnailURL ?? media.previewURL ?? (media.isVideo ? nil : media.url) else {
-            withAnimation(.easeInOut(duration: 0.9)) { ambientColor = nil }
+            withAnimation(.easeInOut(duration: 0.9)) { ambient.color = nil }
             return
         }
         let colour = await ModulaImageTint.tint(for: url, cacheKey: "ambient:\(url.path)", client: app.client)
         guard !Task.isCancelled else { return }
-        withAnimation(.easeInOut(duration: 0.9)) { ambientColor = colour }
+        withAnimation(.easeInOut(duration: 0.9)) { ambient.color = colour }
     }
 
     private func openPost(_ post: SocialPost) {
@@ -949,5 +931,41 @@ struct CommentsFloatingBubble: View {
         .accessibilityHint("Reopens the comments you were reading")
         .accessibilityAction(named: "Dismiss", onClose)
         .accessibilityIdentifier("home.comments.bubble")
+    }
+}
+
+/// Ambient tint state, observed only by `HomeAmbientLayer`.
+@MainActor @Observable
+final class HomeAmbientModel {
+    var postID: SocialPostID?
+    var color: Color?
+}
+
+/// Soft wash of the on-screen post's dominant colour. Sampled from a tiny thumbnail
+/// through the shared image pipeline and cached (`ModulaImageTint`). Off with Reduce Motion.
+private struct HomeAmbientLayer: View {
+    let model: HomeAmbientModel
+    let update: () async -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ZStack {
+            if let color = model.color, !ModulaEffectGate.reduceMotion(reduceMotion) {
+                Rectangle()
+                    .fill(color.opacity(colorScheme == .dark ? 0.26 : 0.16))
+                    .mask(
+                        LinearGradient(
+                            stops: [.init(color: .black, location: 0), .init(color: .black.opacity(0.45), location: 0.45), .init(color: .clear, location: 1)],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                    )
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+        .task(id: model.postID) { await update() }
     }
 }
