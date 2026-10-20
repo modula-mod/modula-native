@@ -367,6 +367,101 @@ final class ModuleHostEcosystemTests: XCTestCase {
         XCTAssertEqual(ModuleCapabilityBroker.invoke("media.picker@1", session: pickerSession, localOnly: false), "ok")
     }
 
+    func testAccountNoteWriteUsesTheSignedInRecordAPI() throws {
+        let action: JSONValue = .object([
+            "id": .string("createNote"),
+            "family": .string("record.create"),
+            "recordType": .string("note"),
+            "input": .object([
+                "defaults": .object([
+                    "archived": .bool(false),
+                    "contentFormat": .string("blocks-v1"),
+                    "dataSchemaVersion": .string("1.0.0"),
+                    "document": .object(["schemaVersion": .string("1.0.0"), "blocks": .array([])]),
+                    "favourite": .bool(false),
+                    "pinned": .bool(false),
+                    "tagIds": .array([]),
+                ]),
+                "transforms": .array([.object([
+                    "source": .string("document"),
+                    "target": .string("plainTextProjection"),
+                    "transform": .string("richText.plainText@1"),
+                ])]),
+            ]),
+        ])
+        let fields: [JSONValue] = [
+            .object(["id": .string("title"), "type": .string("text"), "required": .bool(true)]),
+            .object(["id": .string("document"), "type": .string("richText")]),
+            .object(["id": .string("pinned"), "type": .string("boolean")]),
+            .object(["id": .string("folderId"), "type": .string("recordReference"), "recordType": .string("folder")]),
+        ]
+        let mutation = ProductUIMutation(
+            id: "ios-note-1", actionId: "createNote", family: "record.create", recordType: "note",
+            recordId: nil, expectedRevision: nil,
+            payload: ["title": "  Grocery  ", "document": "Milk", "pinned": "true", "folderId": ""],
+            queuedOffline: false
+        )
+        let request = try ProductUIRecords.prepare(
+            moduleId: "digital.modula.vault-notes", mutation: mutation, action: action, fields: fields, existing: nil
+        ).get()
+        XCTAssertEqual(request.method, "POST")
+        XCTAssertEqual(request.path, "/v1/modules/digital.modula.vault-notes/records/note")
+        XCTAssertEqual(request.body["data"]?["title"]?.string, "Grocery")
+        XCTAssertEqual(request.body["data"]?["plainTextProjection"]?.string, "Milk")
+        XCTAssertEqual(request.body["data"]?["pinned"]?.bool, true)
+        XCTAssertEqual(request.body["data"]?["document"]?["blocks"]?.array?.first?["text"]?.string, "Milk")
+        XCTAssertNil(request.body["data"]?["folderId"])
+        XCTAssertEqual(request.body["mutationId"]?.string, "ios-note-1")
+
+        let untitled = ProductUIMutation(
+            id: "ios-note-2", actionId: "createNote", family: "record.create", recordType: "note",
+            recordId: nil, expectedRevision: nil, payload: ["document": "No title"], queuedOffline: false
+        )
+        XCTAssertThrowsError(try ProductUIRecords.prepare(
+            moduleId: "digital.modula.vault-notes", mutation: untitled, action: action, fields: fields, existing: nil
+        ).get())
+
+        let notes = [
+            ProductUIRecord(id: "a", revision: 1, data: ["title": .string("Hello"), "archived": .bool(false)], deleted: false),
+            ProductUIRecord(id: "b", revision: 1, data: ["title": .string("Old"), "archived": .bool(true)], deleted: false),
+        ]
+        let home: JSONValue = .object([
+            "source": .string("record.query"),
+            "query": .object(["filters": .object(["archived": .bool(false)]), "filterParam": .string("filter")]),
+        ])
+        XCTAssertEqual(ProductUIRecords.visibleRecords(notes, binding: home).map(\.id), ["a"])
+        let backlinks: JSONValue = .object([
+            "source": .string("record.query"),
+            "query": .object(["filterParam": .string("references")]),
+        ])
+        XCTAssertTrue(ProductUIRecords.visibleRecords(notes, binding: backlinks).isEmpty)
+        XCTAssertTrue(ProductUILayout.isContractCopy("Backlinks require a generic reverse-reference query with account and installation scoping."))
+    }
+
+    func testEditorSeedsTheOpenNote() throws {
+        let json = """
+        {"schema":"modula.frontend.1.0","frontendSchemaVersion":"1.0.0","productId":"digital.modula.vault-notes","releaseVersion":"2.0.2","mode":"declarative","entry":"editor","hostRuntime":{"versionRange":">=1.0.0"},"accessibility":{"declaration":"host-baseline-with-product-semantics","screenReader":true,"scalableText":true,"keyboardNavigation":true,"reduceMotion":true},"routes":[{"path":"/note/:noteId/edit","viewId":"editor"}],"views":[{"id":"editor","kind":"form","title":"Edit Note","bindings":[{"id":"note","source":"record.detail","recordType":"note","recordIdParam":"noteId"}],"root":{"type":"section","children":[{"type":"field","field":{"id":"title","type":"text","required":true}},{"type":"field","field":{"id":"document","type":"richText"}},{"type":"field","field":{"id":"pinned","type":"boolean"}}]}}],"actions":[{"id":"updateNote","family":"record.update","recordType":"note","recordIdBinding":"note"}]}
+        """.data(using: .utf8)!
+        let document = try ProductUIDocument.parse(data: json, productId: "digital.modula.vault-notes", version: "2.0.2")
+        let runtime = ProductUIRuntime(document: document, session: ModuleSession(manifest: Self.manifest("digital.modula.vault-notes", "2.0.2"), environment: environment), initialPath: "/note/note-1/edit")
+        runtime.serverRecords["note|active"] = [
+            ProductUIRecord(id: "note-1", revision: 4, data: [
+                "title": .string("Hello"),
+                "plainTextProjection": .string("Hi"),
+                "pinned": .bool(true),
+            ], deleted: false)
+        ]
+        runtime.refresh()
+        XCTAssertEqual(runtime.drafts["title"], "Hello")
+        XCTAssertEqual(runtime.drafts["document"], "Hi")
+        XCTAssertEqual(runtime.drafts["pinned"], "true")
+        runtime.online = true
+        runtime.perform(actionId: "updateNote")
+        XCTAssertEqual(runtime.serverMutation?.recordId, "note-1")
+        XCTAssertEqual(runtime.serverMutation?.expectedRevision, 4)
+        XCTAssertTrue(runtime.pendingMutations.isEmpty)
+    }
+
     func testInAppTemplatesGenerateHostParsableFrontends() throws {
         for template in DeveloperModuleDraft.templates {
             var draft = DeveloperModuleDraft.new(name: "Sample", template: template)

@@ -368,27 +368,41 @@ enum ModulePolicy {
         return Array(Set(covered)).sorted()
     }
 
-    /// Every registry permission the host knows how to place. Unknown strings stay visible
-    /// in the review list and are not silently treated as granted.
+    /// Places a registry permission in the review list by its vocabulary family.
+    /// New ids that follow the published patterns do not require a host rebuild.
     static func classify(_ permission: String) -> String {
-        if permission.hasPrefix("records:") {
-            let parts = permission.split(separator: ":")
-            return parts.count >= 3 && ["read", "write", "delete"].contains(String(parts.last ?? "")) ? "records" : "unrecognized"
-        }
-        if permission.hasPrefix("media:") { return permission.hasSuffix(":read") || permission.hasSuffix(":write") ? "media" : "unrecognized" }
-        if permission.hasPrefix("sharing:") { return permission.hasSuffix(":read") || permission.hasSuffix(":write") ? "sharing" : "unrecognized" }
-        if permission == "files:temporary:read" || permission == "files:temporary:write" { return "files" }
-        switch permission {
-        case "schemas:register", "settings:register", "routes:register", "functions:register", "events:subscribe", "search:index", "widgets:register":
+        let parts = permission.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
+        guard let head = parts.first, !head.isEmpty else { return "unrecognized" }
+        let action = parts.last ?? ""
+        switch head {
+        case "records":
+            return parts.count >= 3 && ["read", "write", "delete"].contains(action) ? "records" : "unrecognized"
+        case "media":
+            return parts.count >= 3 && ["read", "write"].contains(action) ? "media" : "unrecognized"
+        case "sharing":
+            return parts.count >= 3 && ["read", "write"].contains(action) ? "sharing" : "unrecognized"
+        case "files":
+            return parts.count >= 2 ? "files" : "unrecognized"
+        case "schemas", "routes", "events", "search", "widgets", "plugins", "connectors",
+             "profile-tabs", "board-surfaces", "tools":
             return "server"
-        case "settings:read", "settings:write":
-            return "settings"
-        case "notifications:create":
+        case "functions":
+            return "server"
+        case "settings":
+            return parts.count >= 2 && parts[1] == "register" ? "server" : "settings"
+        case "notifications":
             return "notifications"
-        case "jobs:create":
+        case "jobs":
             return "jobs"
+        case "ai":
+            return "ai"
+        case "network":
+            return "network"
+        case "dimon":
+            return "dimon"
         default:
-            return "unrecognized"
+            // Future families stay reviewable without a native rebuild.
+            return parts.count >= 2 ? String(head.prefix(40)) : "unrecognized"
         }
     }
 
