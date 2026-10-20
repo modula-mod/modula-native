@@ -1,32 +1,34 @@
 import SwiftUI
 
 struct DiscoverSearchEntry: View {
+    var compact: Bool = false
     var action: () -> Void
     var onCustomise: () -> Void
     var onRefresh: () -> Void
-    @Environment(AppEnvironment.self) private var app
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.modulaHeroScope) private var heroScope
 
     var body: some View {
-        let opaque = reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
-        HStack(spacing: 0) {
+        HStack(spacing: 8) {
             Button {
                 ModulaHeroMorph.arm(ModulaHeroMorph.sourceID(scope: heroScope, kind: "search", key: "entry"), for: .search(.root(nil)))
                 action()
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
-                        .font(.body.weight(.semibold))
-                    Text("Search people, posts, topics")
-                        .font(.body)
-                        .lineLimit(1)
-                    Spacer(minLength: 4)
+                        .font(.subheadline.weight(.semibold))
+                    if !compact {
+                        Text("Search people, posts, topics")
+                            .font(.subheadline)
+                            .lineLimit(1)
+                        Spacer(minLength: 4)
+                    }
                 }
                 .foregroundStyle(.secondary)
-                .padding(.leading, 14)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .contentShape(Rectangle())
+                .padding(.horizontal, compact ? 0 : 14)
+                .frame(maxWidth: compact ? nil : .infinity)
+                .frame(width: compact ? 38 : nil, height: 38)
+                .contentShape(Capsule())
+                .modulaGlass(in: Capsule())
             }
             .buttonStyle(.plain)
             .modulaHeroSource("search", key: "entry")
@@ -34,24 +36,23 @@ struct DiscoverSearchEntry: View {
             .accessibilityIdentifier("discover.search-entry")
             .accessibilityHint("Opens Search")
 
-            ModulaChromeIconButton(title: "Customise", symbol: "slider.horizontal.3", action: onCustomise)
-                .accessibilityIdentifier("discover.customise")
-
+            // Filter + options merged into one glass menu.
             Menu {
                 Button("Customise", systemImage: "slider.horizontal.3", action: onCustomise)
+                    .accessibilityIdentifier("discover.customise")
                 Button("Refresh", systemImage: "arrow.clockwise", action: onRefresh)
             } label: {
-                Image(systemName: "ellipsis")
-                    .font(.body.weight(.semibold))
-                    .frame(width: ModulaChromeMetrics.iconHit, height: ModulaChromeMetrics.iconHit)
-                    .contentShape(Rectangle())
+                Image(systemName: "line.3.horizontal.decrease")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 38, height: 38)
+                    .contentShape(Circle())
+                    .modulaGlass(in: Circle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Options")
             .accessibilityIdentifier("discover.options")
-            .padding(.trailing, 2)
         }
-        .modulaChrome(in: Capsule(), opaque: opaque)
     }
 }
 

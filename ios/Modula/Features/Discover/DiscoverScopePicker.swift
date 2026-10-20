@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DiscoverScopePicker: View {
     let selection: DiscoverRoute
+    var compact: Bool = false
     var onSelect: (DiscoverRoute) -> Void
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -10,7 +11,14 @@ struct DiscoverScopePicker: View {
         ScrollView(.horizontal, showsIndicators: false) {
             scopeRow
                 .padding(.vertical, 2)
+                .padding(.horizontal, 2)
         }
+        .scrollClipDisabled()
+        .mask(
+            LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.03),
+                                   .init(color: .black, location: 0.92), .init(color: .clear, location: 1)],
+                           startPoint: .leading, endPoint: .trailing)
+        )
         .animation(ModulaMotion.animation(.selection, personality: app.appearance.motion, reduceMotion: reduceMotion), value: selection)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Discover scope")
@@ -39,9 +47,15 @@ struct DiscoverScopePicker: View {
         } label: {
             Text(title(scope))
                 .font(.subheadline.weight(selected ? .semibold : .medium))
+                .lineLimit(1)
+                .fixedSize()
                 .padding(.horizontal, 14)
-                .frame(minHeight: 36)
-                .foregroundStyle(selected ? app.appearance.accent.color : .primary)
+                .padding(.horizontal, compact ? -2 : 0)
+                .frame(minHeight: compact ? 32 : 34)
+                // Selected text sits on accent-tinted glass, so it must contrast with the tint
+                // (it used to be accent-on-accent, which rendered the "Trending" chip blank).
+                .foregroundStyle(selected ? Color.white : Color.primary)
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .modifier(DiscoverScopeGlass(selected: selected))

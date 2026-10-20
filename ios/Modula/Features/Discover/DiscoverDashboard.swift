@@ -221,18 +221,13 @@ struct DiscoverBentoTopics: View {
                     }
                 }
             } else {
-                let lead = topics.first
-                let rest = Array(topics.dropFirst().prefix(5))
-                VStack(spacing: 10) {
-                    if let lead {
-                        DiscoverTopicCard(topic: lead, rank: 1) { onOpen(lead) }
-                            .frame(maxWidth: .infinity, minHeight: 120)
-                    }
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                        ForEach(Array(rest.enumerated()), id: \.element.id) { item in
-                            DiscoverTopicCard(topic: item.element, rank: item.offset + 2) { onOpen(item.element) }
-                                .frame(minHeight: 100)
-                        }
+                // Even count only, so the 2-column grid never leaves a lone card.
+                let shown = Array(topics.prefix(6))
+                let grid = shown.count > 1 ? Array(shown.prefix(shown.count - shown.count % 2)) : shown
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                    ForEach(Array(grid.enumerated()), id: \.element.id) { item in
+                        DiscoverTopicCard(topic: item.element, rank: item.offset + 1) { onOpen(item.element) }
+                            .frame(maxWidth: .infinity, minHeight: 100)
                     }
                 }
             }
