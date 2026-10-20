@@ -50,7 +50,7 @@ struct EdgeBulgeFlow: ViewModifier {
     @State private var rowFrame: CGRect = .zero
 
     /// Gap between content and the picker outline.
-    private static let spacing: CGFloat = 7
+    private static let spacing: CGFloat = 5
 
     func body(content: Content) -> some View {
         let bulge = EdgePickerBulge.shared
@@ -73,7 +73,9 @@ struct EdgeBulgeFlow: ViewModifier {
                     let near = frame.maxY > rail.minY - 80 && frame.minY < rail.maxY + 80
                     return near ? frame.integral : CGRect(x: 0, y: -10_000, width: frame.width, height: 0)
                 } action: { rowFrame = $0 }
-                .animation(.smooth(duration: 0.3), value: inset)
+                // The row's position changes on every scroll frame. Animating each new inset
+                // queues layout work behind the finger and makes the feed feel sluggish.
+                // Picker state transitions still carry their own animation transaction.
         }
     }
 
@@ -83,18 +85,16 @@ struct EdgeBulgeFlow: ViewModifier {
         guard bulge.isActive, rowFrame.height > 0,
               rowFrame.maxY > bulge.frame.minY, rowFrame.minY < bulge.frame.maxY else { return 0 }
         let outerEdge = bulge.trailing ? rowFrame.maxX : rowFrame.minX
-        var intrusion: CGFloat = 0
-        var y = max(rowFrame.minY, bulge.frame.minY)
+        let start = max(rowFrame.minY, bulge.frame.minY)
         let end = min(rowFrame.maxY, bulge.frame.maxY)
-        while y <= end {
-            if let x = bulge.outlineX(atGlobalY: y) {
-                intrusion = max(intrusion, bulge.trailing ? outerEdge - x : x - outerEdge)
-            }
-            y += 4
-        }
-        if let x = bulge.outlineX(atGlobalY: end) {
-            intrusion = max(intrusion, bulge.trailing ? outerEdge - x : x - outerEdge)
-        }
+        // The outline deepens monotonically up to the straight channel, stays flat through
+        // it, then recedes monotonically. The point in this row closest to the channel's
+        // start is therefore the exact maximum: one curve evaluation instead of sampling
+        // every 4pt and repeatedly solving a cubic while the feed scrolls.
+        let channelTop = bulge.frame.minY + CGFloat(bulge.fractions.y) * bulge.frame.height
+        let deepestY = min(max(channelTop, start), end)
+        guard let x = bulge.outlineX(atGlobalY: deepestY) else { return 0 }
+        let intrusion = max(0, bulge.trailing ? outerEdge - x : x - outerEdge)
         guard intrusion > 0 else { return 0 }
         let gap = Self.spacing * min(intrusion / Self.spacing, 1)
         return (intrusion + gap).rounded()
