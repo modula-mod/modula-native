@@ -12,6 +12,9 @@ final class Ecosystem01R3Tests: XCTestCase {
         XCTAssertEqual(parsed.blockType(parsed.blocks[1]), "link-preview")
         let edited = parsed.replacingText("Hello vault notes", blockID: "p1")
         XCTAssertEqual(edited.blockID(edited.blocks[0]), "p1")
+        XCTAssertEqual(edited.visibleText(edited.blocks[0]), "Hello vault notes")
+        XCTAssertEqual(edited.blocks[0]["inlines"]?.array?.first?["marks"]?.array?.first?["type"]?.string, "bold")
+        XCTAssertTrue(edited.canEdit(edited.blocks[0]))
         XCTAssertEqual(edited.blockType(edited.blocks[1]), "link-preview")
         let again = try StructuredDocument.parse(edited.serialize())
         XCTAssertEqual(again.blockType(again.blocks[1]), "link-preview")
@@ -26,15 +29,51 @@ final class Ecosystem01R3Tests: XCTestCase {
         let marked = headed.applying(command: "bold", id: "block-1", selection: NSRange(location: 0, length: 5))
         let marks = marked.blocks[0]["inlines"]?.array?.first?["marks"]?.array
         XCTAssertEqual(marks?.first?["type"]?.string, "bold")
+        let italic = marked.applying(command: "italic", id: "block-1", selection: NSRange(location: 0, length: 5))
+        let firstMarks = italic.blocks[0]["inlines"]?.array?.first?["marks"]?.array ?? []
+        XCTAssertEqual(Set(firstMarks.compactMap { $0["type"]?.string }), Set(["bold", "italic"]))
+        let split = italic.splitting(blockID: "block-1", at: 2).0
+        XCTAssertEqual(split.blocks.count, 3)
+        XCTAssertEqual(split.visibleText(split.blocks[0]) + split.visibleText(split.blocks[1]), "Title page")
+        XCTAssertEqual(split.blocks[1]["inlines"]?.array?.first?["marks"]?.array?.first?["type"]?.string, "bold")
     }
 
-    func testUnsupportedAndCorruptDocumentsAreNonDestructive() {
+    func testUnsupportedAndCorruptDocumentsAreNonDestructive() throws {
         let unknown = #"{"schemaVersion":"1.0.0","blocks":[{"id":"x1","type":"widget-embed","widget":"kept"}]}"#
         let parsed = try? StructuredDocument.parse(unknown)
         XCTAssertEqual(parsed?.blockType(parsed!.blocks[0]), "widget-embed")
         XCTAssertEqual(parsed?.serialize().contains("widget-embed"), true)
+        let unknownMark = #"{"schemaVersion":"1.0.0","blocks":[{"id":"p1","type":"paragraph","inlines":[{"text":"Keep me","marks":[{"type":"future-mark"}]}]}]}"#
+        let marked = try? StructuredDocument.parse(unknownMark)
+        XCTAssertFalse(marked?.canEdit(marked!.blocks[0]) ?? true)
+        XCTAssertEqual(marked?.replacingText("Changed", blockID: "p1").serialize(), marked?.serialize())
+        let futureList = try StructuredDocument.parse(#"{"schemaVersion":"1.0.0","blocks":[{"id":"l1","type":"checklist","items":[{"text":"Future item","metadata":{"keep":true}}]}]}"#)
+        XCTAssertFalse(futureList.canEdit(futureList.blocks[0]))
+        XCTAssertEqual(futureList.replacingText("Changed", blockID: "l1"), futureList)
         XCTAssertThrowsError(try StructuredDocument.parse(#"{"schemaVersion":"9.9.9","blocks":[]}"#))
         XCTAssertThrowsError(try StructuredDocument.parse(#"{"schemaVersion":"1.0.0","blocks":[{"type":"paragraph"}]}"#))
+    }
+
+    func testStructuredPreviewHidesEnvelopeAndPreservesUnrecognizedFields() throws {
+        let raw = #"{"schemaVersion":"1.0.0","producer":"future-host","blocks":[{"id":"h1","type":"heading","level":2,"text":"Hhh"},{"id":"u1","type":"custom","payload":{"secret":"opaque"}}]}"#
+        let document = try StructuredDocument.parse(raw)
+        XCTAssertEqual(StructuredDocument.excerpt(from: .string(raw)), "Hhh")
+        XCTAssertEqual(document.extraFields["producer"]?.string, "future-host")
+        let changed = document.insertingParagraph(after: "h1", text: "More")
+        let restored = try StructuredDocument.parse(changed.serialize())
+        XCTAssertEqual(restored.extraFields["producer"]?.string, "future-host")
+        XCTAssertEqual(restored.blocks.last?["payload"]?["secret"]?.string, "opaque")
+        XCTAssertEqual(StructuredDocument.excerpt(from: .string("{bad json")), "{bad json")
+        XCTAssertEqual(StructuredDocument.excerpt(from: .string(#"{"blocks":broken,"schemaVersion":"1.0.0"}"#)), "")
+        XCTAssertEqual(StructuredDocument.excerpt(from: .string("Legacy plain text")), "Legacy plain text")
+    }
+
+    func testMarkedInlinesRetainFormattingAfterTextEdit() throws {
+        let raw = #"{"schemaVersion":"1.0.0","blocks":[{"id":"p1","type":"paragraph","inlines":[{"text":"Hello","marks":[{"type":"bold"}]}]}]}"#
+        let document = try StructuredDocument.parse(raw)
+        let edited = document.replacingText("Changed", blockID: "p1")
+        XCTAssertEqual(edited.visibleText(edited.blocks[0]), "Changed")
+        XCTAssertEqual(edited.blocks[0]["inlines"]?.array?.first?["marks"]?.array?.first?["type"]?.string, "bold")
     }
 
     func testUndoRestoresThePreviousDocument() throws {

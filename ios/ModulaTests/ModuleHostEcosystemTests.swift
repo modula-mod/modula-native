@@ -114,6 +114,7 @@ final class ModuleHostEcosystemTests: XCTestCase {
     }
 
     func testHostAdvertisesBothLegacyAndProductUIContracts() {
+        XCTAssertEqual(ModulaHost.version, "1.1.0", "Registry install plans must see the current Product UI host contract")
         let vault2 = ModuleManifest(
             id: "digital.modula.vault-notes", name: "Vault Notes", version: "2.0.0-rc.2",
             runtime: "declarative", entry: "product-ui", permissions: [],
@@ -130,6 +131,14 @@ final class ModuleHostEcosystemTests: XCTestCase {
         )
         XCTAssertEqual(
             ModuleCompatibility.evaluate(bundled, hostVersions: ModuleCompatibility.advertisedHostVersions, bridgeVersion: "0.1.0"),
+            .compatible
+        )
+        XCTAssertEqual(
+            ModuleCompatibility.evaluate(ModuleManifest(
+                id: "digital.modula.generic-notes", name: "Notes", version: "2.1.0-rc.1",
+                runtime: "declarative", entry: "product-ui", permissions: [],
+                minHostVersion: ">=1.1.0", minBridgeVersion: "0.1.0", collections: ["note"]
+            ), hostVersions: ModuleCompatibility.advertisedHostVersions, bridgeVersion: "0.1.0"),
             .compatible
         )
     }
@@ -365,6 +374,270 @@ final class ModuleHostEcosystemTests: XCTestCase {
         )
         let pickerSession = ModuleSession(manifest: Self.manifest("digital.modula.vault-notes", "2.0.0"), environment: environment)
         XCTAssertEqual(ModuleCapabilityBroker.invoke("media.picker@1", session: pickerSession, localOnly: false), "ok")
+    }
+
+    func testAccountNoteWriteUsesTheSignedInRecordAPI() throws {
+        let action: JSONValue = .object([
+            "id": .string("createNote"),
+            "family": .string("record.create"),
+            "recordType": .string("note"),
+            "input": .object([
+                "defaults": .object([
+                    "archived": .bool(false),
+                    "contentFormat": .string("blocks-v1"),
+                    "dataSchemaVersion": .string("1.0.0"),
+                    "document": .object(["schemaVersion": .string("1.0.0"), "blocks": .array([])]),
+                    "favourite": .bool(false),
+                    "pinned": .bool(false),
+                    "tagIds": .array([]),
+                ]),
+                "transforms": .array([.object([
+                    "source": .string("document"),
+                    "target": .string("plainTextProjection"),
+                    "transform": .string("richText.plainText@1"),
+                ])]),
+            ]),
+        ])
+        let fields: [JSONValue] = [
+            .object(["id": .string("title"), "type": .string("text"), "required": .bool(true)]),
+            .object(["id": .string("document"), "type": .string("richText")]),
+            .object(["id": .string("pinned"), "type": .string("boolean")]),
+            .object(["id": .string("folderId"), "type": .string("recordReference"), "recordType": .string("folder")]),
+        ]
+        let mutation = ProductUIMutation(
+            id: "ios-note-1", actionId: "createNote", family: "record.create", recordType: "note",
+            recordId: nil, expectedRevision: nil,
+            payload: ["title": "  Grocery  ", "document": "Milk", "pinned": "true", "folderId": ""],
+            queuedOffline: false
+        )
+        let request = try ProductUIRecords.prepare(
+            moduleId: "digital.modula.vault-notes", mutation: mutation, action: action, fields: fields, existing: nil
+        ).get()
+        XCTAssertEqual(request.method, "POST")
+        XCTAssertEqual(request.path, "/v1/modules/digital.modula.vault-notes/records/note")
+        XCTAssertEqual(request.body["data"]?["title"]?.string, "Grocery")
+        XCTAssertEqual(request.body["data"]?["plainTextProjection"]?.string, "Milk")
+        XCTAssertEqual(request.body["data"]?["pinned"]?.bool, true)
+        XCTAssertEqual(request.body["data"]?["document"]?["blocks"]?.array?.first?["text"]?.string, "Milk")
+        XCTAssertNil(request.body["data"]?["folderId"])
+        XCTAssertEqual(request.body["mutationId"]?.string, "ios-note-1")
+
+        let rich = #"{"schemaVersion":"1.0.0","blocks":[{"id":"h1","type":"heading","level":2,"text":"Hhh"},{"id":"x1","type":"future-block","payload":{"keep":true}}]}"#
+        var richMutation = mutation
+        richMutation.payload["document"] = rich
+        let richRequest = try ProductUIRecords.prepare(
+            moduleId: "digital.modula.vault-notes", mutation: richMutation, action: action, fields: fields, existing: nil
+        ).get()
+        XCTAssertEqual(richRequest.body["data"]?["document"]?["blocks"]?.array?.first?["type"]?.string, "heading")
+        XCTAssertEqual(richRequest.body["data"]?["document"]?["blocks"]?.array?.last?["payload"]?["keep"]?.bool, true)
+        XCTAssertEqual(richRequest.body["data"]?["plainTextProjection"]?.string, "Hhh")
+
+        let labelAction: JSONValue = .object([
+            "id": .string("createLabel"), "family": .string("record.create"), "recordType": .string("label"),
+            "input": .object(["transforms": .array([.object([
+                "source": .string("name"), "target": .string("normalizedName"), "transform": .string("text.slug@1"),
+            ])])]),
+        ])
+        let labelMutation = ProductUIMutation(id: "label-1", actionId: "createLabel", family: "record.create",
+            recordType: "label", recordId: nil, expectedRevision: nil, payload: ["name": "  Project Ideas  "], queuedOffline: false)
+        let labelRequest = try ProductUIRecords.prepare(moduleId: "digital.modula.labels", mutation: labelMutation,
+            action: labelAction, fields: [.object(["id": .string("name"), "type": .string("text"), "required": .bool(true)])], existing: nil).get()
+        XCTAssertEqual(labelRequest.body["data"]?["normalizedName"]?.string, "project-ideas")
+
+        let legacy = ProductUIRecord(id: "older-note", revision: 2,
+            data: ["title": .string("Before"), "folderId": .string("legacy-folder")], deleted: false)
+        let legacyEdit = ProductUIMutation(id: "legacy-note-edit", actionId: "updateNote", family: "record.update",
+            recordType: "note", recordId: legacy.id, expectedRevision: legacy.revision,
+            payload: ["title": "After", "folderId": "legacy-folder"], queuedOffline: false)
+        let legacyRequest = try ProductUIRecords.prepare(moduleId: "digital.modula.vault-notes", mutation: legacyEdit,
+            action: .object(["family": .string("record.update"), "recordType": .string("note")]),
+            fields: fields, existing: legacy).get()
+        XCTAssertNil(legacyRequest.body["data"]?["folderId"])
+        XCTAssertEqual(legacyRequest.body["data"]?["title"]?.string, "After")
+        var removedFolder = legacyEdit
+        removedFolder.payload["folderId"] = ""
+        let removedFolderRequest = try ProductUIRecords.prepare(moduleId: "digital.modula.vault-notes",
+            mutation: removedFolder, action: .object(["family": .string("record.update"), "recordType": .string("note")]),
+            fields: fields, existing: legacy).get()
+        XCTAssertEqual(removedFolderRequest.body["data"]?["folderId"], .null)
+
+        let direct: JSONValue = .object([
+            "record_id": .string("server-note"), "revision": .number(3),
+            "updated_at": .string("2026-10-17T12:00:00.000Z"),
+            "data": .object(["title": .string("From direct lookup")]),
+        ])
+        XCTAssertEqual(ProductUIRuntime.records(from: direct).first?.id, "server-note")
+        XCTAssertEqual(ProductUIRuntime.records(from: direct).first?.value("updatedAt"), "2026-10-17T12:00:00.000Z")
+
+        let untitled = ProductUIMutation(
+            id: "ios-note-2", actionId: "createNote", family: "record.create", recordType: "note",
+            recordId: nil, expectedRevision: nil, payload: ["document": "No title"], queuedOffline: false
+        )
+        XCTAssertThrowsError(try ProductUIRecords.prepare(
+            moduleId: "digital.modula.vault-notes", mutation: untitled, action: action, fields: fields, existing: nil
+        ).get())
+
+        let notes = [
+            ProductUIRecord(id: "a", revision: 1, data: ["title": .string("Hello"), "archived": .bool(false)], deleted: false),
+            ProductUIRecord(id: "b", revision: 1, data: ["title": .string("Old"), "archived": .bool(true)], deleted: false),
+        ]
+        let home: JSONValue = .object([
+            "source": .string("record.query"),
+            "query": .object(["filters": .object(["archived": .bool(false)]), "filterParam": .string("filter")]),
+        ])
+        XCTAssertEqual(ProductUIRecords.visibleRecords(notes, binding: home).map(\.id), ["a"])
+        let backlinks: JSONValue = .object([
+            "source": .string("record.query"),
+            "query": .object(["filterParam": .string("references")]),
+        ])
+        XCTAssertTrue(ProductUIRecords.visibleRecords(notes, binding: backlinks).isEmpty)
+        XCTAssertTrue(ProductUILayout.isContractCopy("Backlinks require a generic reverse-reference query with account and installation scoping."))
+    }
+
+    func testEditorSeedsTheOpenNote() throws {
+        let json = """
+        {"schema":"modula.frontend.1.0","frontendSchemaVersion":"1.0.0","productId":"digital.modula.vault-notes","releaseVersion":"2.0.2","mode":"declarative","entry":"editor","hostRuntime":{"versionRange":">=1.0.0"},"accessibility":{"declaration":"host-baseline-with-product-semantics","screenReader":true,"scalableText":true,"keyboardNavigation":true,"reduceMotion":true},"routes":[{"path":"/note/:noteId/edit","viewId":"editor"}],"views":[{"id":"editor","kind":"form","title":"Edit Note","bindings":[{"id":"note","source":"record.detail","recordType":"note","recordIdParam":"noteId"}],"root":{"type":"section","children":[{"type":"field","field":{"id":"title","type":"text","required":true}},{"type":"field","field":{"id":"document","type":"richText"}},{"type":"field","field":{"id":"pinned","type":"boolean"}}]}}],"actions":[{"id":"updateNote","family":"record.update","recordType":"note","recordIdBinding":"note"}]}
+        """.data(using: .utf8)!
+        let document = try ProductUIDocument.parse(data: json, productId: "digital.modula.vault-notes", version: "2.0.2")
+        let runtime = ProductUIRuntime(document: document, session: ModuleSession(manifest: Self.manifest("digital.modula.vault-notes", "2.0.2"), environment: environment), initialPath: "/note/note-1/edit")
+        runtime.serverRecords["note|active"] = [
+            ProductUIRecord(id: "note-1", revision: 4, data: [
+                "title": .string("Hello"),
+                "plainTextProjection": .string("Hi"),
+                "pinned": .bool(true),
+            ], deleted: false)
+        ]
+        runtime.refresh()
+        XCTAssertEqual(runtime.drafts["title"], "Hello")
+        XCTAssertEqual(runtime.drafts["document"], "Hi")
+        XCTAssertEqual(runtime.drafts["pinned"], "true")
+        runtime.online = true
+        runtime.perform(actionId: "updateNote")
+        XCTAssertEqual(runtime.serverMutation?.recordId, "note-1")
+        XCTAssertEqual(runtime.serverMutation?.expectedRevision, 4)
+        XCTAssertTrue(runtime.pendingMutations.isEmpty)
+    }
+
+    func testGenericRevisionPresentationAndAuditedRestoreRequest() throws {
+        let list: JSONValue = .object(["revisions": .array([
+            .object(["revision": .number(3), "operation": .string("update"), "changedAt": .string("2026-10-18T09:00:00Z")]),
+        ])])
+        XCTAssertEqual(ProductUIRuntime.revisions(from: list).first?.id, "3")
+        XCTAssertEqual(ProductUIRuntime.revisions(from: list).first?.value("changeSource"), "update")
+        let detail: JSONValue = .object([
+            "revision": .number(2), "operation": .string("create"), "changedAt": .string("2026-10-17T09:00:00Z"),
+            "data": .object(["title": .string("Original"), "document": .object([
+                "schemaVersion": .string("1.0.0"), "blocks": .array([.object([
+                    "id": .string("p1"), "type": .string("paragraph"), "text": .string("Original body"),
+                ])]),
+            ])]),
+        ])
+        let prior = try XCTUnwrap(ProductUIRuntime.revisions(from: detail).first)
+        XCTAssertEqual(prior.value("snapshot.title"), "Original")
+        XCTAssertEqual(prior.value("snapshot.document"), "Original body")
+
+        let mutation = ProductUIMutation(
+            id: "restore-2", actionId: "restoreItem", family: "record.restore", recordType: "item",
+            recordId: "item-1", expectedRevision: 4, payload: ["sourceRevision": "2"], queuedOffline: false
+        )
+        let action: JSONValue = .object(["id": .string("restoreItem"), "family": .string("record.restore"), "recordType": .string("item")])
+        let request = try ProductUIRecords.prepare(moduleId: "digital.modula.tasks", mutation: mutation,
+            action: action, fields: [], existing: nil).get()
+        XCTAssertEqual(request.path, "/v1/modules/digital.modula.tasks/records/item/item-1/restore")
+        XCTAssertEqual(request.body["expectedRevision"]?.number, 4)
+        XCTAssertEqual(request.body["sourceRevision"]?.number, 2)
+        let trashRestore = ProductUIMutation(
+            id: "restore-trash", actionId: "restoreItem", family: "record.restore", recordType: "item",
+            recordId: "item-1", expectedRevision: 4, payload: [:], queuedOffline: false
+        )
+        let trashRequest = try ProductUIRecords.prepare(moduleId: "digital.modula.tasks", mutation: trashRestore,
+            action: action, fields: [], existing: nil).get()
+        XCTAssertEqual(trashRequest.body["sourceRevision"]?.number, 4)
+
+        let frontend = #"{"schema":"modula.frontend.1.0","frontendSchemaVersion":"1.0.0","productId":"digital.modula.tasks","releaseVersion":"0.1.0","mode":"declarative","entry":"history","hostRuntime":{"versionRange":">=1.0.0"},"accessibility":{"declaration":"host-baseline-with-product-semantics","screenReader":true,"scalableText":true,"keyboardNavigation":true,"reduceMotion":true},"routes":[{"path":"/task/:taskId/history","viewId":"history"},{"path":"/task/:taskId/history/:revisionId","viewId":"prior"}],"views":[{"id":"history","kind":"collection","title":"History","bindings":[{"id":"versions","source":"record.revisions","recordType":"item","recordIdParam":"taskId"}],"root":{"type":"recordList","binding":"versions","action":"openPrior"}},{"id":"prior","kind":"detail","title":"Prior","root":{"type":"text","text":"Prior"}}],"actions":[{"id":"openPrior","family":"route.open","label":"Open prior","route":"/task/:taskId/history/:revisionId","recordParam":"revisionId"}]}"#
+        let document = try ProductUIDocument.parse(data: Data(frontend.utf8), productId: "digital.modula.tasks", version: "0.1.0")
+        let runtime = ProductUIRuntime(document: document,
+            session: ModuleSession(manifest: Self.manifest("digital.modula.tasks", "0.1.0"), environment: environment),
+            initialPath: "/task/task-1/history")
+        runtime.serverRecords["item|revisions|task-1"] = [prior]
+        runtime.refresh()
+        runtime.perform(actionId: "openPrior", record: prior)
+        XCTAssertEqual(runtime.route, "/task/task-1/history/2")
+    }
+
+    func testGenericMediaBindingAndAttachmentAction() throws {
+        let response: JSONValue = .object(["bindings": .array([
+            .object(["bindingId": .string("bind-1"), "assetId": .string("asset-1"),
+                     "filename": .string("drawing.pdf"), "contentType": .string("application/pdf"),
+                     "createdAt": .string("2026-10-18T09:00:00Z")]),
+        ])])
+        let media = ProductUIRuntime.media(from: response)
+        XCTAssertEqual(media.first?.id, "bind-1")
+        XCTAssertEqual(media.first?.value("filename"), "drawing.pdf")
+        XCTAssertEqual(media.first?.value("assetId"), "asset-1")
+
+        let frontend = #"{"schema":"modula.frontend.1.0","frontendSchemaVersion":"1.0.0","productId":"digital.modula.tasks","releaseVersion":"0.1.0","mode":"declarative","entry":"detail","hostRuntime":{"versionRange":">=1.0.0"},"accessibility":{"declaration":"host-baseline-with-product-semantics","screenReader":true,"scalableText":true,"keyboardNavigation":true,"reduceMotion":true},"routes":[{"path":"/task/:taskId","viewId":"detail"}],"views":[{"id":"detail","kind":"detail","title":"Task","bindings":[{"id":"task","source":"record.detail","recordType":"item","recordIdParam":"taskId"},{"id":"media","source":"record.media","recordType":"item","recordIdParam":"taskId"}],"root":{"type":"button","action":"attach","label":"Attach"}}],"actions":[{"id":"attach","family":"media.attach","label":"Attach","recordType":"item","recordIdBinding":"task","capability":"ui.mediaAttach@1"},{"id":"openMedia","family":"media.open","label":"Open","capability":"ui.mediaOpen@1"},{"id":"detach","family":"media.detach","label":"Remove","recordType":"item","recordIdBinding":"task","confirm":true}]}"#
+        let document = try ProductUIDocument.parse(data: Data(frontend.utf8), productId: "digital.modula.tasks", version: "0.1.0")
+        let runtime = ProductUIRuntime(document: document,
+            session: ModuleSession(manifest: Self.manifest("digital.modula.tasks", "0.1.0"), environment: environment),
+            initialPath: "/task/task-1")
+        runtime.serverRecords["item|active"] = [ProductUIRecord(id: "task-1", revision: 1, data: [:], deleted: false)]
+        runtime.serverRecords["item|media|task-1"] = media
+        runtime.refresh()
+        XCTAssertEqual(runtime.bindingRecords("media").first?.value("filename"), "drawing.pdf")
+        runtime.perform(actionId: "attach")
+        XCTAssertEqual(runtime.pendingMediaAttachment?.recordId, "task-1")
+        XCTAssertEqual(runtime.pendingMediaAttachment?.recordType, "item")
+        XCTAssertEqual(runtime.filePickToken, 1)
+        runtime.perform(actionId: "openMedia", record: media[0])
+        XCTAssertEqual(runtime.pendingMediaOpen?.assetId, "asset-1")
+        runtime.perform(actionId: "detach", record: media[0])
+        XCTAssertEqual(runtime.pendingMediaDetachment?.recordId, "task-1")
+        XCTAssertEqual(runtime.pendingMediaDetachment?.bindingId, "bind-1")
+    }
+
+    func testGenericBooleanTogglePatchesOnlyOneFieldWithRevision() throws {
+        let mutation = ProductUIMutation(
+            id: "toggle-1", actionId: "toggleDone", family: "record.toggle", recordType: "task",
+            recordId: "task-1", expectedRevision: 6, payload: [:], queuedOffline: false
+        )
+        let action: JSONValue = .object([
+            "id": .string("toggleDone"), "family": .string("record.toggle"),
+            "recordType": .string("task"), "recordField": .string("done"),
+        ])
+        let existing = ProductUIRecord(id: "task-1", revision: 6, data: [
+            "done": .bool(false), "title": .string("Keep this title"),
+        ], deleted: false)
+        let request = try ProductUIRecords.prepare(
+            moduleId: "digital.modula.tasks", mutation: mutation, action: action,
+            fields: [], existing: existing
+        ).get()
+        XCTAssertEqual(request.method, "PATCH")
+        XCTAssertEqual(request.body["expectedRevision"]?.number, 6)
+        XCTAssertEqual(request.body["data"]?["done"]?.bool, true)
+        XCTAssertNil(request.body["data"]?["title"])
+    }
+
+    func testEditorDraftRequiresDiscardAndDoesNotLeakIntoAnotherRecord() throws {
+        let frontend = #"{"schema":"modula.frontend.1.0","frontendSchemaVersion":"1.0.0","productId":"digital.modula.tasks","releaseVersion":"0.1.0","mode":"declarative","entry":"detail","hostRuntime":{"versionRange":">=1.0.0"},"accessibility":{"declaration":"host-baseline-with-product-semantics","screenReader":true,"scalableText":true,"keyboardNavigation":true,"reduceMotion":true},"routes":[{"path":"/task/:taskId","viewId":"detail"},{"path":"/task/:taskId/edit","viewId":"editor"}],"views":[{"id":"detail","kind":"detail","title":"Task","root":{"type":"text","text":"Read"}},{"id":"editor","kind":"form","title":"Edit","bindings":[{"id":"task","source":"record.detail","recordType":"task","recordIdParam":"taskId"}],"root":{"type":"field","field":{"id":"title","type":"text","label":"Title"}}}],"actions":[]}"#
+        let document = try ProductUIDocument.parse(data: Data(frontend.utf8), productId: "digital.modula.tasks", version: "0.1.0")
+        let runtime = ProductUIRuntime(document: document,
+            session: ModuleSession(manifest: Self.manifest("digital.modula.tasks", "0.1.0"), environment: environment),
+            initialPath: "/task/task-1")
+        runtime.serverRecords["task|active"] = [
+            ProductUIRecord(id: "task-1", revision: 1, data: ["title": .string("First")], deleted: false),
+            ProductUIRecord(id: "task-2", revision: 1, data: ["title": .string("Second")], deleted: false),
+        ]
+        runtime.open("/task/task-1/edit")
+        XCTAssertEqual(runtime.drafts["title"], "First")
+        runtime.drafts["title"] = "Uncommitted"
+        runtime.goBack()
+        XCTAssertEqual(runtime.route, "/task/task-1/edit")
+        XCTAssertTrue(runtime.showsUnsavedChanges)
+        runtime.discardAndLeave()
+        XCTAssertEqual(runtime.route, "/task/task-1")
+        runtime.open("/task/task-2/edit")
+        XCTAssertEqual(runtime.drafts["title"], "Second")
     }
 
     func testInAppTemplatesGenerateHostParsableFrontends() throws {

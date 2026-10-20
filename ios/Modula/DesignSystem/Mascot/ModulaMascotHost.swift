@@ -83,6 +83,11 @@ final class MascotSound {
     var enabled: Bool { UserDefaults.standard.object(forKey: ModulaMascotSettings.soundsKey) as? Bool ?? true }
 
     func play(_ cue: Cue) {
+        #if targetEnvironment(simulator)
+        // CoreSimulator's audio service can time out inside AVAudioEngine setup and
+        // abort the whole app. Mascot cues are optional; keep the UI available.
+        return
+        #else
         guard enabled else { return }
         let session = AVAudioSession.sharedInstance()
         // Respect the silent switch: only ever play in the ambient category, and never
@@ -101,6 +106,7 @@ final class MascotSound {
             self?.player?.stop()
             self?.engine?.pause()
         }
+        #endif
     }
 
     private func setUp() {

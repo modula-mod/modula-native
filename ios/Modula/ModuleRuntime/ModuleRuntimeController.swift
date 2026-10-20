@@ -20,7 +20,7 @@ final class ModuleRuntimeController {
     /// Bundled RN contract still advertised as 0.1.0 so existing modules stay compatible.
     nonisolated static let hostVersion = "0.1.0"
     /// Product UI / MPS host contract. Catalogue APIs already advertise `ModulaHost.version`.
-    nonisolated static let productUIHostVersion = "1.0.0"
+    nonisolated static let productUIHostVersion = "1.1.0"
     /// Capabilities this host implements. Anything else a manifest declares is denied.
     nonisolated static let supportedCapabilities: Set<String> = ModuleCapabilityBroker.supported
     private var factory: RCTReactNativeFactory?
@@ -39,9 +39,9 @@ final class ModuleRuntimeController {
     private(set) var memoryBeforeRuntimeMB: Double?
     private(set) var memoryWithModuleMB: Double?
     private(set) var memoryAfterCloseMB: Double?
-    private(set) var firstVaultDataReadyMilliseconds: Double?
+    private(set) var firstModuleDataReadyMilliseconds: Double?
     private(set) var firstRuntimeReadyMilliseconds: Double?
-    private(set) var vaultMountMilliseconds: [Double] = []
+    private(set) var moduleMountMilliseconds: [Double] = []
     private(set) var manifests: [ModuleManifest] = []
     /// Raw bundled manifest JSON per module, for the integrity digest.
     private(set) var manifestJSON: [String: JSONValue] = [:]
@@ -107,7 +107,12 @@ final class ModuleRuntimeController {
         if let cached, cached.frontendMediaType == ProductUIDocument.mediaType {
             do {
                 let data = try activation?.store.frontendData(for: cached) ?? Data()
-                session.productUI = try ProductUIDocument.parse(data: data, productId: cached.moduleId, version: cached.version)
+                let frontend = try ProductUIDocument.parse(data: data, productId: cached.moduleId, version: cached.version)
+                guard SemverRange.satisfies(Self.productUIHostVersion, range: frontend.hostRuntimeRange),
+                      frontend.requiredCapabilities.allSatisfy(ModuleCapabilityBroker.hostSupports) else {
+                    return blocked(session, .updateRequired, "\(manifest.name) needs a newer version of Modula. Update the app to open it.")
+                }
+                session.productUI = frontend
                 session.runtimeKind = .declarativeProductUI
                 session.state = .ready
             } catch {
@@ -246,9 +251,7 @@ final class ModuleRuntimeController {
         session.state = .ready
         session.loadMilliseconds = session.startedAt.duration(to: .now).milliseconds
         if firstRuntimeReadyMilliseconds == nil { firstRuntimeReadyMilliseconds = session.loadMilliseconds }
-        if session.manifest.id == "digital.modula.vault-notes", let duration = session.loadMilliseconds {
-            vaultMountMilliseconds.append(duration)
-        }
+        if let duration = session.loadMilliseconds { moduleMountMilliseconds.append(duration) }
         memoryWithModuleMB = residentMemoryMB()
         deliver("active", to: session)
         ModulaLog.runtime.info("Module ready in \(session.loadMilliseconds ?? 0) ms")
@@ -260,9 +263,7 @@ final class ModuleRuntimeController {
     func dataReady(_ session: ModuleSession) {
         guard authorize(session), session.state == .ready else { return }
         session.dataReadyMilliseconds = session.startedAt.duration(to: .now).milliseconds
-        if session.manifest.id == "digital.modula.vault-notes", firstVaultDataReadyMilliseconds == nil {
-            firstVaultDataReadyMilliseconds = session.dataReadyMilliseconds
-        }
+        if firstModuleDataReadyMilliseconds == nil { firstModuleDataReadyMilliseconds = session.dataReadyMilliseconds }
     }
 
     /// Host hidden (tab switch, a route pushed on top): keep the surface and its React
@@ -368,27 +369,41 @@ enum ModulePolicy {
         return Array(Set(covered)).sorted()
     }
 
-    /// Every registry permission the host knows how to place. Unknown strings stay visible
-    /// in the review list and are not silently treated as granted.
+    /// Places a registry permission in the review list by its vocabulary family.
+    /// New ids that follow the published patterns do not require a host rebuild.
     static func classify(_ permission: String) -> String {
-        if permission.hasPrefix("records:") {
-            let parts = permission.split(separator: ":")
-            return parts.count >= 3 && ["read", "write", "delete"].contains(String(parts.last ?? "")) ? "records" : "unrecognized"
-        }
-        if permission.hasPrefix("media:") { return permission.hasSuffix(":read") || permission.hasSuffix(":write") ? "media" : "unrecognized" }
-        if permission.hasPrefix("sharing:") { return permission.hasSuffix(":read") || permission.hasSuffix(":write") ? "sharing" : "unrecognized" }
-        if permission == "files:temporary:read" || permission == "files:temporary:write" { return "files" }
-        switch permission {
-        case "schemas:register", "settings:register", "routes:register", "functions:register", "events:subscribe", "search:index", "widgets:register":
+        let parts = permission.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
+        guard let head = parts.first, !head.isEmpty else { return "unrecognized" }
+        let action = parts.last ?? ""
+        switch head {
+        case "records":
+            return parts.count >= 3 && ["read", "write", "delete"].contains(action) ? "records" : "unrecognized"
+        case "media":
+            return parts.count >= 3 && ["read", "write"].contains(action) ? "media" : "unrecognized"
+        case "sharing":
+            return parts.count >= 3 && ["read", "write"].contains(action) ? "sharing" : "unrecognized"
+        case "files":
+            return parts.count >= 2 ? "files" : "unrecognized"
+        case "schemas", "routes", "events", "search", "widgets", "plugins", "connectors",
+             "profile-tabs", "board-surfaces", "tools":
             return "server"
-        case "settings:read", "settings:write":
-            return "settings"
-        case "notifications:create":
+        case "functions":
+            return "server"
+        case "settings":
+            return parts.count >= 2 && parts[1] == "register" ? "server" : "settings"
+        case "notifications":
             return "notifications"
-        case "jobs:create":
+        case "jobs":
             return "jobs"
+        case "ai":
+            return "ai"
+        case "network":
+            return "network"
+        case "dimon":
+            return "dimon"
         default:
-            return "unrecognized"
+            // Future families stay reviewable without a native rebuild.
+            return parts.count >= 2 ? String(head.prefix(40)) : "unrecognized"
         }
     }
 

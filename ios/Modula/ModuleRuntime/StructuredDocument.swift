@@ -9,9 +9,12 @@ struct StructuredDocument: Equatable {
     static let editableTypes: Set<String> = [
         "paragraph", "heading", "quote", "code", "callout", "bullet-list", "numbered-list", "checklist",
     ]
+    private static let supportedMarks: Set<String> = ["bold", "italic", "code", "strikethrough"]
 
     var schemaVersion: String
     var blocks: [JSONValue]
+    /// Preserve fields added by a newer document producer when this host edits known blocks.
+    var extraFields: [String: JSONValue] = [:]
 
     enum ReadError: Error, Equatable {
         case unreadable
@@ -24,17 +27,21 @@ struct StructuredDocument: Equatable {
             return StructuredDocument(schemaVersion: schema, blocks: [paragraph(id: "block-1", text: "")])
         }
         guard trimmed.utf8.count <= 250_000 else { throw ReadError.tooLarge }
-        if trimmed.hasPrefix("{"),
-           let data = trimmed.data(using: .utf8),
-           let value = try? JSONDecoder().decode(JSONValue.self, from: data),
-           value["blocks"] != nil || value["schemaVersion"] != nil {
+        if (trimmed.hasPrefix("{") || trimmed.hasPrefix("["))
+            && (trimmed.contains("\"blocks\"") || trimmed.contains("\"schemaVersion\"")) {
+            guard let data = trimmed.data(using: .utf8),
+                  let value = try? JSONDecoder().decode(JSONValue.self, from: data),
+                  value["blocks"] != nil, value["schemaVersion"] != nil else { throw ReadError.unreadable }
             guard value["schemaVersion"]?.string == schema else { throw ReadError.unreadable }
             let blocks = value["blocks"]?.array ?? []
             guard blocks.count <= maxBlocks else { throw ReadError.tooLarge }
             guard blocks.allSatisfy({ $0["id"]?.string?.isEmpty == false && $0["type"]?.string?.isEmpty == false }) else {
                 throw ReadError.unreadable
             }
-            return StructuredDocument(schemaVersion: schema, blocks: blocks)
+            guard case .object(var fields) = value else { throw ReadError.unreadable }
+            fields.removeValue(forKey: "schemaVersion")
+            fields.removeValue(forKey: "blocks")
+            return StructuredDocument(schemaVersion: schema, blocks: blocks, extraFields: fields)
         }
         let parts = trimmed.components(separatedBy: "\n\n")
         let blocks = parts.enumerated().map { index, text in paragraph(id: "block-\(index + 1)", text: text) }
@@ -42,10 +49,10 @@ struct StructuredDocument: Equatable {
     }
 
     func serialize() -> String {
-        let payload = JSONValue.object([
-            "blocks": .array(blocks),
-            "schemaVersion": .string(schemaVersion),
-        ])
+        var fields = extraFields
+        fields["blocks"] = .array(blocks)
+        fields["schemaVersion"] = .string(schemaVersion)
+        let payload = JSONValue.object(fields)
         guard JSONSerialization.isValidJSONObject(payload.foundation),
               let data = try? JSONSerialization.data(withJSONObject: payload.foundation, options: [.sortedKeys]),
               let text = String(data: data, encoding: .utf8) else { return "" }
@@ -63,16 +70,89 @@ struct StructuredDocument: Equatable {
         return block["text"]?.string ?? block["title"]?.string ?? ""
     }
 
+    func canEdit(_ block: JSONValue) -> Bool {
+        guard Self.editableTypes.contains(blockType(block)) else { return false }
+        if ["bullet-list", "numbered-list", "checklist"].contains(blockType(block)) {
+            guard let items = block["items"]?.array,
+                  items.allSatisfy({ $0.string != nil }),
+                  block["inlines"] == nil else { return false }
+        }
+        guard let inlines = block["inlines"]?.array else { return true }
+        return inlines.allSatisfy { inline in
+            guard case .object(let fields) = inline,
+                  fields.keys.allSatisfy({ $0 == "text" || $0 == "marks" }),
+                  fields["text"]?.string != nil else { return false }
+            return (fields["marks"]?.array ?? []).allSatisfy { mark in
+                guard case .object(let values) = mark,
+                      values.keys.allSatisfy({ $0 == "type" }),
+                      let type = values["type"]?.string else { return false }
+                return Self.supportedMarks.contains(type)
+            }
+        }
+    }
+
+    func attributedText(_ block: JSONValue, font: UIFont) -> NSAttributedString? {
+        guard let inlines = block["inlines"]?.array, canEdit(block) else { return nil }
+        let output = NSMutableAttributedString(string: "")
+        for inline in inlines {
+            let marks = Set((inline["marks"]?.array ?? []).compactMap { $0["type"]?.string })
+            var traits: UIFontDescriptor.SymbolicTraits = []
+            if marks.contains("bold") { traits.insert(.traitBold) }
+            if marks.contains("italic") { traits.insert(.traitItalic) }
+            let face = marks.contains("code") ? UIFont.monospacedSystemFont(ofSize: font.pointSize, weight: .regular)
+                : font.fontDescriptor.withSymbolicTraits(traits).map { UIFont(descriptor: $0, size: font.pointSize) } ?? font
+            var attributes: [NSAttributedString.Key: Any] = [.font: face]
+            if marks.contains("strikethrough") { attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
+            output.append(NSAttributedString(string: inline["text"]?.string ?? "", attributes: attributes))
+        }
+        return output
+    }
+
     func plainText() -> String {
         blocks.map { block in
             blockType(block) == "divider" ? "" : visibleText(block)
         }.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Read-only summary for record lists and search. Never returns the JSON envelope.
+    static func excerpt(from value: JSONValue?, limit: Int = 240) -> String {
+        guard let value else { return "" }
+        let raw: String
+        switch value {
+        case .string(let text): raw = text
+        case .object:
+            guard value["blocks"] != nil, value["schemaVersion"] != nil else { return "" }
+            guard JSONSerialization.isValidJSONObject(value.foundation),
+                  let data = try? JSONSerialization.data(withJSONObject: value.foundation),
+                  let text = String(data: data, encoding: .utf8) else { return "" }
+            raw = text
+        default: return ""
+        }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        let output: String
+        if trimmed.hasPrefix("{") || trimmed.hasPrefix("[") {
+            if let parsed = try? parse(trimmed) {
+                output = parsed.plainText()
+            } else if trimmed.contains("\"blocks\"") || trimmed.contains("\"schemaVersion\"") {
+                // A damaged document envelope is never shown as serialized metadata.
+                return ""
+            } else {
+                // Plain prose may legitimately begin with a brace or bracket.
+                output = trimmed
+            }
+        } else {
+            output = trimmed
+        }
+        let collapsed = output.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        guard collapsed.count > limit else { return collapsed }
+        return String(collapsed.prefix(limit)).trimmingCharacters(in: .whitespacesAndNewlines) + "…"
+    }
+
     func replacingText(_ newText: String, blockID: String) -> StructuredDocument {
         var copy = self
         copy.blocks = blocks.map { block in
-            guard self.blockID(block) == blockID, Self.editableTypes.contains(blockType(block)),
+            guard self.blockID(block) == blockID, canEdit(block),
                   case .object(var fields) = block else { return block }
             let type = blockType(block)
             if type == "bullet-list" || type == "numbered-list" || type == "checklist" {
@@ -82,8 +162,8 @@ struct StructuredDocument: Equatable {
                     let old = fields["checked"]?.array ?? []
                     fields["checked"] = .array((0..<items.count).map { index in index < old.count ? old[index] : .bool(false) })
                 }
-            } else if fields["inlines"] != nil, visibleText(block) != newText {
-                fields["inlines"] = .array([.object(["text": .string(newText)])])
+            } else if let inlines = fields["inlines"]?.array, visibleText(block) != newText {
+                fields["inlines"] = .array(Self.replacingInlineText(inlines, with: newText))
                 fields.removeValue(forKey: "text")
             } else if fields["inlines"] == nil {
                 fields["text"] = .string(newText)
@@ -93,29 +173,140 @@ struct StructuredDocument: Equatable {
         return copy
     }
 
+    private static func replacingInlineText(_ inlines: [JSONValue], with updated: String) -> [JSONValue] {
+        let original = inlines.compactMap { $0["text"]?.string }.joined()
+        let oldCharacters = Array(original)
+        let newCharacters = Array(updated)
+        var prefix = 0
+        while prefix < min(oldCharacters.count, newCharacters.count), oldCharacters[prefix] == newCharacters[prefix] { prefix += 1 }
+        var suffix = 0
+        while suffix < min(oldCharacters.count - prefix, newCharacters.count - prefix),
+              oldCharacters[oldCharacters.count - suffix - 1] == newCharacters[newCharacters.count - suffix - 1] { suffix += 1 }
+        let leftCount = String(oldCharacters.prefix(prefix)).utf16.count
+        let oldRightStart = String(oldCharacters.prefix(oldCharacters.count - suffix)).utf16.count
+        let newRightStart = String(newCharacters.prefix(newCharacters.count - suffix)).utf16.count
+        let inserted = (updated as NSString).substring(with: NSRange(
+            location: leftCount, length: newRightStart - leftCount
+        ))
+        var before: [JSONValue] = []
+        var after: [JSONValue] = []
+        var inheritedMarks: JSONValue?
+        var offset = 0
+        for inline in inlines {
+            let text = inline["text"]?.string ?? ""
+            let length = (text as NSString).length
+            let end = offset + length
+            if offset <= leftCount && leftCount <= end { inheritedMarks = inline["marks"] }
+            if offset < leftCount {
+                let count = min(end, leftCount) - offset
+                if count > 0 { before.append(Self.inline((text as NSString).substring(to: count), marks: inline["marks"])) }
+            }
+            if end > oldRightStart {
+                let start = max(0, oldRightStart - offset)
+                if start < length { after.append(Self.inline((text as NSString).substring(from: start), marks: inline["marks"])) }
+            }
+            offset = end
+        }
+        var result = before
+        if !inserted.isEmpty { result.append(Self.inline(inserted, marks: inheritedMarks ?? inlines.first?["marks"])) }
+        result.append(contentsOf: after)
+        return Self.coalesced(result)
+    }
+
+    private static func inline(_ text: String, marks: JSONValue?) -> JSONValue {
+        var fields: [String: JSONValue] = ["text": .string(text)]
+        if let marks { fields["marks"] = marks }
+        return .object(fields)
+    }
+
+    private static func coalesced(_ inlines: [JSONValue]) -> [JSONValue] {
+        var output: [JSONValue] = []
+        for inline in inlines where !(inline["text"]?.string ?? "").isEmpty {
+            if let last = output.last, last["marks"] == inline["marks"] {
+                output[output.count - 1] = Self.inline(
+                    (last["text"]?.string ?? "") + (inline["text"]?.string ?? ""), marks: inline["marks"]
+                )
+            } else { output.append(inline) }
+        }
+        return output.isEmpty ? [Self.inline("", marks: nil)] : output
+    }
+
     func applying(command: String, id: String, selection: NSRange) -> StructuredDocument {
         guard let index = blocks.firstIndex(where: { self.blockID($0) == id }) else { return self }
         let block = blocks[index]
-        guard Self.editableTypes.contains(blockType(block)) else { return self }
+        guard canEdit(block) else { return self }
         let source = visibleText(block)
         var copy = self
         switch command {
         case "heading":
-            copy.blocks[index] = Self.paragraph(id: id, text: source, type: "heading", level: 2)
+            if case .object(var fields) = block {
+                fields["type"] = .string("heading")
+                fields["level"] = .number(2)
+                copy.blocks[index] = .object(fields)
+            }
         case "quote":
-            copy.blocks[index] = Self.paragraph(id: id, text: source, type: "quote")
+            if case .object(var fields) = block {
+                fields["type"] = .string("quote")
+                fields.removeValue(forKey: "level")
+                copy.blocks[index] = .object(fields)
+            }
         case "code":
-            copy.blocks[index] = Self.paragraph(id: id, text: source, type: "code")
+            if case .object(var fields) = block {
+                fields["type"] = .string("code")
+                fields.removeValue(forKey: "level")
+                copy.blocks[index] = .object(fields)
+            }
         case "bulletList", "list":
+            if block["inlines"] != nil { return self }
             copy.blocks[index] = Self.list(id: id, type: "bullet-list", items: source.isEmpty ? [""] : source.components(separatedBy: "\n"))
         case "numberedList":
+            if block["inlines"] != nil { return self }
             copy.blocks[index] = Self.list(id: id, type: "numbered-list", items: source.isEmpty ? [""] : source.components(separatedBy: "\n"))
         case "bold", "italic", "strikethrough":
-            copy.blocks[index] = Self.marked(id: id, type: blockType(block), text: source, selection: selection, mark: command)
+            copy.blocks[index] = Self.addingMark(command, to: block, selection: selection)
         default:
             return self
         }
         return copy
+    }
+
+    private static func addingMark(_ mark: String, to block: JSONValue, selection: NSRange) -> JSONValue {
+        guard case .object(var fields) = block else { return block }
+        let inlines = fields["inlines"]?.array ?? [Self.inline(fields["text"]?.string ?? "", marks: nil)]
+        let total = inlines.reduce(0) { $0 + (($1["text"]?.string ?? "") as NSString).length }
+        let start = selection.length == 0 ? 0 : min(max(0, selection.location), total)
+        let end = selection.length == 0 ? total : min(total, start + max(0, selection.length))
+        var offset = 0
+        var output: [JSONValue] = []
+        for inline in inlines {
+            let text = inline["text"]?.string ?? ""
+            let ns = text as NSString
+            let runEnd = offset + ns.length
+            let markedStart = max(offset, start)
+            let markedEnd = min(runEnd, end)
+            if markedStart >= markedEnd {
+                output.append(inline)
+                offset = runEnd
+                continue
+            }
+            if offset < markedStart {
+                output.append(Self.inline(ns.substring(to: markedStart - offset), marks: inline["marks"]))
+            }
+            if markedStart < markedEnd {
+                var marks = inline["marks"]?.array ?? []
+                if !marks.contains(where: { $0["type"]?.string == mark }) {
+                    marks.append(.object(["type": .string(mark)]))
+                }
+                output.append(Self.inline(ns.substring(with: NSRange(location: markedStart - offset, length: markedEnd - markedStart)), marks: .array(marks)))
+            }
+            if markedEnd < runEnd {
+                output.append(Self.inline(ns.substring(from: max(0, markedEnd - offset)), marks: inline["marks"]))
+            }
+            offset = runEnd
+        }
+        fields["inlines"] = .array(Self.coalesced(output))
+        fields.removeValue(forKey: "text")
+        return .object(fields)
     }
 
     func insertingParagraph(after blockID: String, text: String = "") -> StructuredDocument {
@@ -136,6 +327,29 @@ struct StructuredDocument: Equatable {
         }
         let source = visibleText(blocks[index]) as NSString
         let location = min(max(0, utf16Location), source.length)
+        if let inlines = blocks[index]["inlines"]?.array, canEdit(blocks[index]),
+           case .object(var firstFields) = blocks[index] {
+            var before: [JSONValue] = []
+            var after: [JSONValue] = []
+            var offset = 0
+            for inline in inlines {
+                let run = (inline["text"]?.string ?? "") as NSString
+                let split = min(max(0, location - offset), run.length)
+                if split > 0 { before.append(Self.inline(run.substring(to: split), marks: inline["marks"])) }
+                if split < run.length { after.append(Self.inline(run.substring(from: split), marks: inline["marks"])) }
+                offset += run.length
+            }
+            let newID = Self.freshID(existing: blocks)
+            firstFields["inlines"] = .array(Self.coalesced(before))
+            firstFields.removeValue(forKey: "text")
+            var copy = self
+            copy.blocks[index] = .object(firstFields)
+            copy.blocks.insert(.object([
+                "id": .string(newID), "type": .string("paragraph"),
+                "inlines": .array(Self.coalesced(after)),
+            ]), at: index + 1)
+            return (copy, newID)
+        }
         let head = source.substring(to: location)
         let tail = source.substring(from: location)
         var copy = replacingText(head, blockID: blockID)
@@ -194,24 +408,27 @@ struct StructuredDocumentEditor: View {
     @Binding var text: String
     var capability: String
     var externalCommand: String?
+    var focusedPresentation = false
+    var placeholder = "Start writing"
     @State private var document: StructuredDocument?
     @State private var loadError: String?
     @State private var preservedSource: String?
     @State private var undoStack: [String] = []
     @State private var redoStack: [String] = []
     @State private var focusedID: String?
+    @State private var pendingFocusID: String?
     @State private var selection = NSRange(location: 0, length: 0)
     @State private var appliedCommand: String?
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Document")
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
-                Button("Undo") { undo() }.disabled(undoStack.isEmpty).accessibilityIdentifier("product-ui.richtext.undo")
-                Button("Redo") { redo() }.disabled(redoStack.isEmpty).accessibilityIdentifier("product-ui.richtext.redo")
+            if !focusedPresentation {
+                HStack {
+                    Text("Document").font(.subheadline.weight(.semibold))
+                    Spacer()
+                    undoRedo
+                }
+                commandBar
             }
-            commandBar
             if let loadError {
                 Label(loadError, systemImage: "exclamationmark.triangle")
                     .font(.footnote)
@@ -233,11 +450,12 @@ struct StructuredDocumentEditor: View {
                     }
                 }
             }
-            Text("Stored as structured blocks for \(capability). Unsupported blocks stay in the document.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            if focusedPresentation {
+                commandBar
+                HStack { Spacer(); undoRedo }
+            }
         }
-        .accessibilityIdentifier("product-ui.richtext")
+        .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear(perform: load)
         .onChange(of: text) { _, _ in
             if document?.serialize() != text { load() }
@@ -247,6 +465,13 @@ struct StructuredDocumentEditor: View {
             appliedCommand = command
             let name = command.split(separator: ".").last.map(String.init) ?? command
             apply(name)
+        }
+    }
+
+    private var undoRedo: some View {
+        HStack {
+            Button("Undo") { undo() }.disabled(undoStack.isEmpty).accessibilityIdentifier("product-ui.richtext.undo")
+            Button("Redo") { redo() }.disabled(redoStack.isEmpty).accessibilityIdentifier("product-ui.richtext.redo")
         }
     }
 
@@ -273,16 +498,22 @@ struct StructuredDocumentEditor: View {
     @ViewBuilder private func blockView(_ block: JSONValue, document: StructuredDocument) -> some View {
         let id = document.blockID(block)
         let type = document.blockType(block)
-        if StructuredDocument.editableTypes.contains(type) {
+        if document.canEdit(block) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(type.replacingOccurrences(of: "-", with: " ").capitalized)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                BlockTextView(
+                if !focusedPresentation || type != "paragraph" {
+                    Text(type.replacingOccurrences(of: "-", with: " ").capitalized)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                ZStack(alignment: .topLeading) {
+                    BlockTextView(
                     text: document.visibleText(block),
+                    attributedText: document.attributedText(block, font: type == "heading" ? .preferredFont(forTextStyle: .title2) : .preferredFont(forTextStyle: .body)),
                     selection: selection,
                     identifier: "product-ui.block.\(id)",
+                    focusRequested: pendingFocusID == id,
                     font: type == "heading" ? .preferredFont(forTextStyle: .title2) : .preferredFont(forTextStyle: .body),
+                    onFocused: { pendingFocusID = nil },
                     onChange: { updated, range in
                         focusedID = id
                         selection = range
@@ -295,17 +526,28 @@ struct StructuredDocumentEditor: View {
                     onReturn: { range in
                         let split = document.splitting(blockID: id, at: range.location)
                         focusedID = split.1
+                        pendingFocusID = split.1
                         selection = NSRange(location: 0, length: 0)
                         commit(split.0)
                     }
-                )
-                .frame(minHeight: 44)
+                    )
+                    .frame(minHeight: 44)
+                    if focusedPresentation && type == "paragraph" && document.visibleText(block).isEmpty {
+                        Text(placeholder).foregroundStyle(.tertiary)
+                            .padding(.leading, 5).padding(.top, 8)
+                            .allowsHitTesting(false)
+                    }
+                }
             }
-            .padding(8)
-            .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .padding(focusedPresentation ? 0 : 8)
+            .background {
+                if !focusedPresentation {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.quaternary.opacity(0.25))
+                }
+            }
         } else {
             VStack(alignment: .leading, spacing: 4) {
-                Label("Unsupported \(type)", systemImage: "square.dashed")
+                Label("Unsupported \(type) preserved", systemImage: "square.dashed")
                     .font(.subheadline.weight(.semibold))
                 Text(document.visibleText(block).isEmpty ? "This block is preserved and was not converted." : document.visibleText(block))
                     .font(.footnote)
@@ -372,11 +614,104 @@ struct StructuredDocumentEditor: View {
     }
 }
 
+/// A read-only native presentation of a verified structured document. It never mutates stored data.
+struct StructuredDocumentReader: View {
+    let value: JSONValue
+    var omitOpeningHeading: String? = nil
+
+    var body: some View {
+        let raw: String? = {
+            if let string = value.string { return string }
+            guard JSONSerialization.isValidJSONObject(value.foundation),
+                  let data = try? JSONSerialization.data(withJSONObject: value.foundation) else { return nil }
+            return String(data: data, encoding: .utf8)
+        }()
+        if let raw, let document = try? StructuredDocument.parse(raw) {
+            let blocks = document.blocks.enumerated().filter { index, block in
+                guard index == 0, document.blockType(block) == "heading",
+                      let title = omitOpeningHeading?.trimmingCharacters(in: .whitespacesAndNewlines),
+                      !title.isEmpty else { return true }
+                return document.visibleText(block).trimmingCharacters(in: .whitespacesAndNewlines) != title
+            }
+            VStack(alignment: .leading, spacing: 14) {
+                ForEach(blocks, id: \.offset) { _, block in
+                    blockView(block, document: document)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityIdentifier("product-ui.structured-document")
+        } else {
+            ContentUnavailableView("Document unavailable", systemImage: "doc.text")
+        }
+    }
+
+    @ViewBuilder private func blockView(_ block: JSONValue, document: StructuredDocument) -> some View {
+        let type = document.blockType(block)
+        let content = formattedText(block, document: document)
+        switch type {
+        case "heading":
+            content.font((block["level"]?.int ?? 2) <= 2 ? .title2.weight(.semibold) : .headline)
+        case "quote":
+            content.font(.body).italic().padding(.leading, 12)
+                .overlay(alignment: .leading) { Rectangle().fill(.tint).frame(width: 2) }
+        case "code":
+            content.font(.system(.body, design: .monospaced)).padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+        case "bullet-list", "numbered-list", "checklist":
+            if let items = block["items"]?.array, items.allSatisfy({ $0.string != nil }) {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(type == "numbered-list" ? "\(index + 1)." : type == "checklist" ? ((block["checked"]?.array?.indices.contains(index) == true && block["checked"]?.array?[index].bool == true) ? "☑" : "□") : "•")
+                                .foregroundStyle(.secondary)
+                            Text(item.string ?? "").font(.body)
+                        }
+                    }
+                }
+            } else {
+                Label("List content is preserved", systemImage: "list.bullet.rectangle")
+                    .foregroundStyle(.secondary)
+            }
+        case "divider": Divider()
+        default:
+            if !document.visibleText(block).isEmpty {
+                content.font(.body)
+            } else {
+                Label("Content is preserved", systemImage: "doc.text")
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func formattedText(_ block: JSONValue, document: StructuredDocument) -> Text {
+        guard let inlines = block["inlines"]?.array, !inlines.isEmpty else {
+            return Text(document.visibleText(block))
+        }
+        return inlines.reduce(Text("")) { partial, inline in
+            var segment = Text(inline["text"]?.string ?? "")
+            for mark in inline["marks"]?.array ?? [] {
+                switch mark["type"]?.string {
+                case "bold": segment = segment.bold()
+                case "italic": segment = segment.italic()
+                case "code": segment = segment.font(.system(.body, design: .monospaced))
+                case "strikethrough": segment = segment.strikethrough()
+                default: break
+                }
+            }
+            return partial + segment
+        }
+    }
+}
+
 struct BlockTextView: UIViewRepresentable {
     var text: String
+    var attributedText: NSAttributedString?
     var selection: NSRange
     var identifier: String
+    var focusRequested: Bool = false
     var font: UIFont
+    var onFocused: () -> Void = {}
     var onChange: (String, NSRange) -> Void
     var onSelection: (NSRange) -> Void
     var onReturn: (NSRange) -> Void
@@ -388,9 +723,13 @@ struct BlockTextView: UIViewRepresentable {
         view.adjustsFontForContentSizeCategory = true
         view.backgroundColor = .clear
         view.isScrollEnabled = false
+        view.textContainer.widthTracksTextView = true
+        view.textContainer.lineBreakMode = .byWordWrapping
+        view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         view.textContainerInset = UIEdgeInsets(top: 6, left: 2, bottom: 6, right: 2)
         view.accessibilityIdentifier = identifier
-        view.text = text
+        if let attributedText { view.attributedText = attributedText }
+        else { view.text = text }
         return view
     }
 
@@ -398,13 +737,25 @@ struct BlockTextView: UIViewRepresentable {
         context.coordinator.parent = self
         if view.font != font { view.font = font }
         if view.accessibilityIdentifier != identifier { view.accessibilityIdentifier = identifier }
-        if view.text != text {
-            let range = view.selectedRange
-            view.text = text
-            if range.location <= (text as NSString).length {
-                view.selectedRange = NSRange(location: min(range.location, (text as NSString).length), length: 0)
+        if view.text != text || attributedText != nil && view.attributedText != attributedText {
+            if let attributedText { view.attributedText = attributedText }
+            else { view.text = text }
+            let count = (text as NSString).length
+            let location = min(selection.location, count)
+            view.selectedRange = NSRange(location: location, length: min(selection.length, count - location))
+        }
+        if focusRequested {
+            DispatchQueue.main.async {
+                if !view.isFirstResponder { view.becomeFirstResponder() }
+                onFocused()
             }
         }
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize? {
+        guard let width = proposal.width, width.isFinite, width > 0 else { return nil }
+        let measured = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        return CGSize(width: width, height: max(44, measured.height))
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }

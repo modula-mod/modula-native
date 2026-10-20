@@ -24,6 +24,10 @@ enum APIError: Error, LocalizedError, Equatable {
         case .rejected(_, "RATE_LIMITED"), .rejected(_, "TOO_MANY_REQUESTS"):
             "Too many attempts. Try again shortly."
         case .rejected(_, "VALIDATION_FAILED"): "Check the details you entered and try again."
+        case .rejected(_, "FORBIDDEN"), .rejected(_, "PERMISSION_DENIED"):
+            "This module doesn't have permission to change your records. Review its permissions, then try again."
+        case .rejected(_, "REVISION_CONFLICT"), .rejected(_, "NOTE_REVISION_CONFLICT"):
+            "This record changed. Open it again, then save."
         case .rejected(413, _), .rejected(_, "PAYLOAD_TOO_LARGE"):
             "That file is too large to upload. Try a smaller photo."
         case .rejected(_, "SERVER_UNAVAILABLE"):
@@ -131,7 +135,7 @@ struct CataloguePresentation: Codable, Sendable, Hashable {
 /// not a module's version. Bump it only when the app gains host APIs; the registry then
 /// blocks (HOST_INCOMPATIBLE) only releases that genuinely require a newer host.
 enum ModulaHost {
-    static let version = "1.0.0"
+    static let version = "1.1.0"
 }
 
 private struct CataloguePage: Codable, Sendable { let items: [CatalogueProduct] }
@@ -481,6 +485,20 @@ actor GreenfieldClient {
             throw APIError.invalidResponse
         }
         return temporaryURL
+    }
+
+    func downloadModuleAttachment(_ assetID: String, expectedAccountID: String) async throws -> URL {
+        guard accountID == expectedAccountID, UUID(uuidString: assetID) != nil,
+              let baseURL, baseURL.scheme == "https",
+              let url = URL(string: "/v1/attachments/\(assetID)/content", relativeTo: baseURL)?.absoluteURL,
+              url.host == baseURL.host else { throw APIError.invalidResponse }
+        let generation = epoch
+        let temporary = try await downloadMedia(from: url)
+        guard generation == epoch, accountID == expectedAccountID else {
+            try? FileManager.default.removeItem(at: temporary)
+            throw APIError.accountChanged
+        }
+        return temporary
     }
 
     private func mediaRequest(for url: URL) async throws -> URLRequest {

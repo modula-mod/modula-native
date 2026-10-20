@@ -127,6 +127,7 @@ final class EcosystemBasicLifecycleUITests: XCTestCase {
         app.launchArguments = arguments(isolateNetwork: isolateNetwork)
         app.launch()
         XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 30), "Fixture shell did not appear")
+        dismissStartupCelebration(app)
         return app
     }
 
@@ -136,12 +137,20 @@ final class EcosystemBasicLifecycleUITests: XCTestCase {
         app.launchArguments = arguments(isolateNetwork: isolateNetwork)
         app.launch()
         XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 30))
+        dismissStartupCelebration(app)
+    }
+
+    @MainActor
+    private func dismissStartupCelebration(_ app: XCUIApplication) {
+        let dismiss = app.buttons["Yay!"].firstMatch
+        if dismiss.waitForExistence(timeout: 2) { dismiss.tap() }
     }
 
     private func arguments(isolateNetwork: Bool) -> [String] {
         var args = [
             "--uitest-skip-first-run",
             "--uitest-local-module-session",
+            "-modula.developer.moduleDebugEnabled", "YES",
             "--uitest-local-account", accountID,
             "--modula-dev-modules-root", root.path,
             "--modula-dev-trust-public-key", trustKey.path,
@@ -152,13 +161,7 @@ final class EcosystemBasicLifecycleUITests: XCTestCase {
 
     @MainActor
     private func openBasic(_ app: XCUIApplication) throws {
-        selectTab(app, "Modules")
-        XCTAssertTrue(app.descendants(matching: .any)["product-hub"].waitForExistence(timeout: 15))
-        let card = app.staticTexts["Basic Echo"].firstMatch
-        let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Basic Echo")).firstMatch
-        for _ in 0..<6 where !card.exists && !row.exists { app.swipeUp() }
-        XCTAssertTrue(card.waitForExistence(timeout: 8) || row.waitForExistence(timeout: 2))
-        if row.exists { row.tap() } else { card.tap() }
+        app.open(URL(string: "modula://product-hub/module/digital.modula.basic-echo")!)
         XCTAssertTrue(app.buttons["module.primary"].waitForExistence(timeout: 8))
     }
 
@@ -223,13 +226,6 @@ final class EcosystemBasicLifecycleUITests: XCTestCase {
     private func back(_ app: XCUIApplication) {
         let back = app.navigationBars.buttons.element(boundBy: 0)
         if back.exists { back.tap() }
-    }
-
-    @MainActor
-    private func selectTab(_ app: XCUIApplication, _ title: String) {
-        let tab = app.tabBars.buttons[title].firstMatch
-        if tab.waitForExistence(timeout: 4) { tab.tap(); return }
-        app.buttons[title].firstMatch.tap()
     }
 
     @MainActor
