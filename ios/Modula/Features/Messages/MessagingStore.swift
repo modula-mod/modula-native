@@ -51,6 +51,8 @@ final class MessagingStore {
     }
 
     func refreshInbox() async {
+        // Backend not live yet: show a calm empty inbox instead of an error.
+        guard capabilities.listConversations else { conversationState = .loaded; return }
         let hasContent = !conversations.isEmpty
         conversationState = hasContent ? .refreshing : .loading
         actionError = nil
@@ -185,6 +187,7 @@ final class MessagingStore {
     }
 
     func refreshRequests() async {
+        guard capabilities.messageRequests else { requestState = .loaded; return }
         requestState = requests.isEmpty ? .loading : .refreshing
         do {
             requests = try await repository.messageRequests()

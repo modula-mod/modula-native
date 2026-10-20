@@ -39,6 +39,7 @@ final class InMailStore {
     }
 
     func refresh() async {
+        guard capabilities.list else { loadState = .loaded; return }
         let hasContent = !threads.isEmpty
         loadState = hasContent ? .refreshing : .loading
         do {
