@@ -3,6 +3,10 @@ import SwiftUI
 struct DiscoverScreen: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Only flips at the threshold, so scrolling doesn't storm state every frame.
+    @State private var collapsed = false
+    @Namespace private var glassNS
 
     private var section: DiscoverRoute {
         if case .discover(let route) = app.navigation.root(for: .discover) {
@@ -27,33 +31,10 @@ struct DiscoverScreen: View {
         .modulaCanvas()
         .modulaSoftScrollEdge()
         .navigationTitle("Discover")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .modulaSidebarTrigger()
         .safeAreaInset(edge: .top, spacing: 0) {
-            VStack(spacing: 10) {
-                DiscoverSearchEntry(
-                    action: {
-                        app.navigation.open(.search(.root(nil)))
-                        HapticEngine.shared.play(.navigation)
-                    },
-                    onCustomise: {
-                        PresentationCoordinator.present(.discoverFilter, in: app.navigation)
-                        HapticEngine.shared.play(.contextOpen)
-                    },
-                    onRefresh: {
-                        Task {
-                            await app.discover.refresh(section)
-                            HapticEngine.shared.play(.confirmation)
-                        }
-                    }
-                )
-                DiscoverScopePicker(selection: section) { destination in
-                    app.discover.markVisited(destination)
-                    app.navigation.replaceContext(with: .discover(destination))
-                }
-            }
-            .padding(.horizontal, ModulaLayout.contentInset)
-            .padding(.bottom, 8)
+            header
         }
         .overlay(alignment: .bottom) {
             if let message = app.discover.actionError {
@@ -71,6 +52,67 @@ struct DiscoverScreen: View {
         .accessibilityValue(RouteSerializer.serialize(.discover(section)))
     }
 
+    private var searchEntry: some View {
+        DiscoverSearchEntry(
+            compact: collapsed,
+            action: {
+                app.navigation.open(.search(.root(nil)))
+                HapticEngine.shared.play(.navigation)
+            },
+            onCustomise: {
+                PresentationCoordinator.present(.discoverFilter, in: app.navigation)
+                HapticEngine.shared.play(.contextOpen)
+            },
+            onRefresh: {
+                Task {
+                    await app.discover.refresh(section)
+                    HapticEngine.shared.play(.confirmation)
+                }
+            }
+        )
+    }
+
+    private var chips: some View {
+        DiscoverScopePicker(selection: section, compact: collapsed) { destination in
+            app.discover.markVisited(destination)
+            app.navigation.replaceContext(with: .discover(destination))
+        }
+    }
+
+    /// Expanded: search row + chip row. Collapsed: one slim bar (chips + search icon + menu).
+    private var header: some View {
+        ModulaGlassGroup(spacing: 8) {
+            Group {
+                if collapsed {
+                    HStack(spacing: 8) {
+                        chips
+                        searchEntry.modulaGlassID("discover.search", in: glassNS)
+                    }
+                } else {
+                    VStack(spacing: 8) {
+                        searchEntry.modulaGlassID("discover.search", in: glassNS)
+                        chips
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, ModulaLayout.contentInset)
+        .padding(.top, 4)
+        .padding(.bottom, 10)
+        .background {
+            // Edge fade so cards dissolve under the header instead of clashing behind it.
+            LinearGradient(stops: [
+                .init(color: Color(uiColor: .systemBackground), location: 0),
+                .init(color: Color(uiColor: .systemBackground).opacity(0.85), location: 0.6),
+                .init(color: Color(uiColor: .systemBackground).opacity(0), location: 1)
+            ], startPoint: .top, endPoint: .bottom)
+            .padding(.bottom, -18)
+            .ignoresSafeArea(edges: .top)
+            .allowsHitTesting(false)
+        }
+        .animation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(response: 0.38, dampingFraction: 0.86), value: collapsed)
+    }
+
     @ViewBuilder
     private func scopeScroll(_ scope: DiscoverRoute) -> some View {
         ScrollView {
@@ -79,8 +121,15 @@ struct DiscoverScreen: View {
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.top, 8)
-            .padding(.bottom, 56)
+            // Clear the floating Tools pill and the tab bar.
+            .padding(.bottom, 140)
             .modulaPullContentEffects()
+        }
+        .onScrollGeometryChange(for: Bool.self) { geo in
+            geo.contentOffset.y + geo.contentInsets.top > 48
+        } action: { _, isCollapsed in
+            guard scope == section, isCollapsed != collapsed else { return }
+            collapsed = isCollapsed
         }
         .modulaSoftScrollEdge()
         .environment(\.modulaHeroScope, "discover.\(scope.rawValue)")
