@@ -14,6 +14,12 @@ final class AppLockStore {
     private(set) var cooldownUntil: ContinuousClock.Instant?
     private(set) var lastError: String?
     private var backgroundedAt: ContinuousClock.Instant?
+    /// True while our own LAContext prompt is on screen. The Face ID sheet makes the
+    /// scene go .inactive → .active; that must never relock or show the privacy cover.
+    private(set) var isAuthenticating = false
+    /// Armed on cold launch and after a real background relock; consumed by the lock
+    /// screen so Face ID auto-prompts at most once per foreground.
+    private var autoPromptArmed = false
 
     init(
         credentials: AppLockCredentialStoring = AppLockCredentialStore(),
@@ -33,6 +39,14 @@ final class AppLockStore {
         }
         self.settings = settings
         self.isLocked = startsLockedIfEnabled && settings.enabled && hasPasscode
+        self.autoPromptArmed = isLocked
+    }
+
+    /// Returns true exactly once per lock-from-foreground, and only when Face ID is usable.
+    func consumeAutoPrompt() -> Bool {
+        guard autoPromptArmed, isLocked, !isAuthenticating, canUseBiometrics else { return false }
+        autoPromptArmed = false
+        return true
     }
 
     var enabled: Bool { settings.enabled }
@@ -47,12 +61,15 @@ final class AppLockStore {
             return
         }
         isLocked = true
+        autoPromptArmed = true
     }
 
     func recordBackground() {
+        guard !isAuthenticating else { return }
         backgroundedAt = ContinuousClock.now
-        if settings.interval == .immediately, settings.enabled {
+        if settings.interval == .immediately, settings.enabled, !isLocked {
             isLocked = true
+            autoPromptArmed = true
         }
     }
 
@@ -65,15 +82,12 @@ final class AppLockStore {
             isLocked = false
             return
         }
-        if settings.interval == .immediately {
-            isLocked = true
-            return
-        }
-        guard let backgroundedAt else {
-            isLocked = true
-            return
-        }
-        if ContinuousClock.now - backgroundedAt >= settings.interval.duration {
+        // Only a real trip to the background can relock. An .inactive → .active bounce
+        // (Face ID sheet, Control Centre, notification shade) leaves the lock state alone.
+        guard !isAuthenticating, let backgroundedAt else { return }
+        self.backgroundedAt = nil
+        if settings.interval == .immediately || ContinuousClock.now - backgroundedAt >= settings.interval.duration {
+            if !isLocked { autoPromptArmed = true }
             isLocked = true
         }
     }
@@ -140,7 +154,12 @@ final class AppLockStore {
             lastError = biometricAvailability.explanation
             return false
         }
+        // Only one evaluatePolicy at a time.
+        guard !isAuthenticating else { return false }
+        isAuthenticating = true
         let result = await biometrics.authenticate(reason: "Unlock Modula")
+        isAuthenticating = false
+        autoPromptArmed = false
         switch result {
         case .success:
             isLocked = false

@@ -188,6 +188,58 @@ final class AppLockTests: XCTestCase {
         XCTAssertFalse(try credentials.hasPasscode())
     }
 
+    @MainActor
+    private func faceIDStore(_ suite: String, result: BiometricAuthResult = .success) throws -> AppLockStore {
+        let credentials = InMemoryAppLockCredentialStore()
+        try credentials.setPasscode("246801")
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let store = AppLockStore(
+            credentials: credentials,
+            biometrics: StubBiometricAuthService(availabilityValue: .available(.faceID), result: result),
+            defaults: defaults,
+            startsLockedIfEnabled: false
+        )
+        try store.setEnabled(true)
+        store.setBiometricsEnabled(true)
+        return store
+    }
+
+    @MainActor
+    func testFaceIDSuccessDoesNotRelockOnInactiveBounce() async throws {
+        let store = try faceIDStore("n4e.applock.bounce")
+        XCTAssertTrue(store.requiresUnlock)
+        let ok = await store.unlockWithBiometrics()
+        XCTAssertTrue(ok)
+        XCTAssertFalse(store.isAuthenticating)
+        // Face ID sheet: .inactive → .active, no background.
+        store.evaluateForeground()
+        XCTAssertFalse(store.requiresUnlock)
+        XCTAssertFalse(store.consumeAutoPrompt())
+    }
+
+    @MainActor
+    func testRealBackgroundRelocksAndAutoPromptsOnce() async throws {
+        let store = try faceIDStore("n4e.applock.bg")
+        _ = await store.unlockWithBiometrics()
+        store.recordBackground()
+        store.evaluateForeground()
+        XCTAssertTrue(store.requiresUnlock)
+        XCTAssertTrue(store.consumeAutoPrompt())
+        XCTAssertFalse(store.consumeAutoPrompt())
+    }
+
+    @MainActor
+    func testFaceIDFailureLeavesKeypadUsable() async throws {
+        let store = try faceIDStore("n4e.applock.fail", result: .failed)
+        let ok = await store.unlockWithBiometrics()
+        XCTAssertFalse(ok)
+        XCTAssertTrue(store.requiresUnlock)
+        XCTAssertFalse(store.isAuthenticating)
+        XCTAssertFalse(store.consumeAutoPrompt())
+        XCTAssertTrue(store.unlock(withPasscode: "246801"))
+    }
+
     func testIntervalsAreExplicit() {
         XCTAssertEqual(AppLockInterval.allCases.map(\.title), [
             "Immediately", "After 1 minute", "After 5 minutes", "After 15 minutes", "After 1 hour"

@@ -49,11 +49,9 @@ struct AppLockView: View {
             withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.6, dampingFraction: 0.85)) { appeared = true }
         }
         .task {
-            if app.appLock.canUseBiometrics {
-                _ = await app.appLock.unlockWithBiometrics()
-                if !app.appLock.isLocked {
-                    finishUnlock()
-                }
+            // Auto-prompt at most once per foreground; failures fall back to the keypad.
+            if app.appLock.consumeAutoPrompt() {
+                await biometric()
             }
         }
     }
@@ -118,6 +116,7 @@ struct AppLockView: View {
                             .frame(minHeight: ModulaLayout.minimumTouch)
                     }
                     .buttonStyle(.glass)
+                    .disabled(app.appLock.isAuthenticating || unlocking)
                     .accessibilityIdentifier("applock.biometrics")
                 }
                 Button {
