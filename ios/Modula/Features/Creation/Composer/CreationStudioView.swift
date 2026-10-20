@@ -11,7 +11,12 @@ struct CreationStudioView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
-    @FocusState private var editorFocused: Bool
+    @State private var editorFocused = false
+    /// Shared with the comment composer: WYSIWYG markdown editor + formatting bar.
+    @State private var rich = ModulaRichEditorController()
+    @State private var linkSheet: ModulaLinkInsertSheet.Mode?
+    @State private var mediaPanelActive = false
+    @StateObject private var recorder = ModulaVoiceRecorder()
     @Namespace private var glassMorph
     @State private var store: CreationStudioStore?
     @State private var videoPickerItems: [PhotosPickerItem] = []
@@ -410,9 +415,103 @@ struct CreationStudioView: View {
                 }
             }
 
+            if editorFocused && !recorder.isRecording && !store.kindUnavailable {
+                ModulaRichFormattingBar(
+                    controller: rich,
+                    onLink: { linkSheet = .link },
+                    onAbbr: { linkSheet = .abbr },
+                    onTranslate: nil
+                )
+                .padding(.horizontal, 10)
+                .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                .accessibilityIdentifier("compose.formatting")
+            }
+            if recorder.isRecording {
+                HStack(spacing: 8) {
+                    ModulaGlassIconButton(title: "Discard voice note", systemImage: "trash", size: ModulaLayout.minimumTouch, tint: .red) {
+                        recorder.cancel()
+                        HapticEngine.shared.play(.failure)
+                    }
+                    ModulaRecordingPill(recorder: recorder, cancelProgress: 0)
+                        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
+                    ModulaGlassSendButton(title: "Add voice note", systemImage: "checkmark", ready: true, busy: false, size: ModulaLayout.minimumTouch, tint: app.appearance.accent.color) {
+                        finishVoiceNote(store)
+                    }
+                    .accessibilityIdentifier("compose.voice.done")
+                }
+                .padding(.horizontal, 10)
+                .transition(.opacity)
+            }
             accessoryBar(store)
-            .accessibilitySortPriority(40)
+                .accessibilitySortPriority(40)
+                .modulaComposerMascot(.other, busy: store.draft.isPublishing, text: store.draft.text, attachmentCount: store.draft.media.count)
+            if mediaPanelActive {
+                ModulaComposerMediaPanel(
+                    client: app.client,
+                    onEmoji: { insertText($0, store) },
+                    onGif: { gif in
+                        mediaPanelActive = false
+                        Task { await attachGif(gif, store) }
+                    },
+                    onSticker: { sticker in
+                        insertText(sticker.emoji, store)
+                        mediaPanelActive = false
+                    }
+                )
+                .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                .accessibilityIdentifier("compose.media-panel")
+            }
         }
+        .animation(stageMotion, value: editorFocused)
+        .animation(stageMotion, value: mediaPanelActive)
+        .animation(stageMotion, value: recorder.isRecording)
+        .sheet(item: Binding(get: { linkSheet.map { ComposerLinkSheetItem(mode: $0) } }, set: { linkSheet = $0?.mode })) { item in
+            ModulaLinkInsertSheet(mode: item.mode, initialText: rich.selectedText) { label, value in
+                switch item.mode {
+                case .link: rich.insertLink(text: label, url: value)
+                case .abbr: rich.insertAbbreviation(label, title: value)
+                }
+            }
+        }
+        .onChange(of: editorFocused) { _, focused in
+            if focused { mediaPanelActive = false }
+        }
+    }
+
+    private func insertText(_ value: String, _ store: CreationStudioStore) {
+        store.handlePaste(store.draft.text + value)
+        HapticEngine.shared.play(.selection)
+    }
+
+    /// GIFs come from the same GIPHY-backed panel as comments; posts attach them as image media.
+    private func attachGif(_ gif: ModulaGif, _ store: CreationStudioStore) async {
+        do {
+            let (data, _) = try await URLSession.shared.data(from: gif.url)
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("gif-\(gif.id).gif")
+            try data.write(to: url, options: .atomic)
+            await store.attachFiles([url])
+            HapticEngine.shared.play(.success)
+        } catch {
+            store.publishError = "Couldn't add that GIF. Your draft is safe."
+        }
+    }
+
+    private func toggleVoice(_ store: CreationStudioStore) {
+        if recorder.isRecording {
+            finishVoiceNote(store)
+        } else {
+            editorFocused = false
+            mediaPanelActive = false
+            Task { @MainActor in
+                if await recorder.start() { HapticEngine.shared.play(.actionConfirmed) }
+            }
+        }
+    }
+
+    private func finishVoiceNote(_ store: CreationStudioStore) {
+        guard let note = recorder.finish() else { return }
+        HapticEngine.shared.play(.success)
+        Task { await store.attachFiles([note.fileURL]) }
     }
 
     /// Thread-style row: avatar on the left, name + auto-growing text inline beside it.
@@ -470,12 +569,25 @@ struct CreationStudioView: View {
                                 store.showsLocalLinkEditor = false
                             }
                         }
+                        barIcon(mediaPanelActive ? "keyboard" : "face.smiling", mediaPanelActive ? "Show keyboard" : "Emoji, stickers and GIFs", id: "compose.tool.media", active: mediaPanelActive, accent: accent) {
+                            let opening = !mediaPanelActive
+                            if opening {
+                                editorFocused = false
+                                withAnimation(stageMotion) { mediaStage = .collapsed }
+                            }
+                            mediaPanelActive = opening
+                            if !opening { editorFocused = true }
+                        }
+                        barIcon(recorder.isRecording ? "stop.fill" : "mic", recorder.isRecording ? "Stop recording" : "Voice note", id: "compose.tool.voice", active: recorder.isRecording, accent: accent) {
+                            toggleVoice(store)
+                        }
                         barIcon("at", "Mention", id: "compose.tool.mention", accent: accent) {
                             store.handlePaste(store.draft.text + ((store.draft.text.last.map { $0.isWhitespace } ?? true) ? "@" : " @"))
                             editorFocused = true
                         }
                         barIcon("ellipsis", "More options", id: "compose.tool.more", accent: accent) {
                             editorFocused = false
+                            mediaPanelActive = false
                             withAnimation(stageMotion) { mediaStage = .collapsed }
                             showMoreOptions = true
                         }
@@ -510,6 +622,7 @@ struct CreationStudioView: View {
 
     private func toggleStage(_ target: ComposeMediaStage) {
         editorFocused = false
+        mediaPanelActive = false
         withAnimation(stageMotion) { mediaStage = mediaStage == target ? .collapsed : target }
     }
 
@@ -528,16 +641,27 @@ struct CreationStudioView: View {
     private func writingCanvas(_ store: CreationStudioStore) -> some View {
         let accent = app.appearance.accent.color
         _ = accent
-        return TextField(placeholder(store), text: Binding(
-            get: { store.draft.text },
-            set: { store.handlePaste($0) }
-        ), axis: .vertical)
-        .font(.body)
-        .fontDesign(app.appearance.fontDesign)
-        .lineLimit(3...)
-        .autocorrectionDisabled(!ModulaPreferences.composerAutocorrect)
-        .textInputAutocapitalization(ModulaPreferences.composerAutoCapitalise ? .sentences : .never)
-        .focused($editorFocused)
+        return ModulaRichTextEditor(
+            text: Binding(
+                get: { store.draft.text },
+                set: { store.handlePaste($0) }
+            ),
+            isFocused: $editorFocused,
+            controller: rich,
+            spellCheck: ModulaPreferences.composerAutocorrect,
+            autocapitalize: ModulaPreferences.composerAutoCapitalise,
+            maxLines: 40
+        )
+        .frame(minHeight: 66, alignment: .topLeading)
+        .overlay(alignment: .topLeading) {
+            if store.draft.text.isEmpty {
+                Text(placeholder(store))
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, 11)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityLabel("Post text")
         .accessibilityIdentifier("compose.editor")
@@ -719,4 +843,9 @@ private struct ComposerBarIconLabel: View {
             .background(Circle().fill(accent.opacity(active ? 0.16 : 0)))
             .contentShape(Circle())
     }
+}
+
+private struct ComposerLinkSheetItem: Identifiable {
+    let mode: ModulaLinkInsertSheet.Mode
+    var id: String { mode == .link ? "link" : "abbr" }
 }
