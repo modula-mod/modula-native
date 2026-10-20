@@ -71,6 +71,8 @@ struct CreationStudioView: View {
         .modulaSoftScrollEdge()
         .navigationTitle("")
         .toolbar(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
+        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
         .scrollDismissesKeyboard(.interactively)
         .onAppear {
             withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.42, dampingFraction: 0.86)) {
@@ -189,17 +191,18 @@ struct CreationStudioView: View {
             } label: {
                 Text(store.draft.kind.publishLabel)
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(store.canPublish ? Color.white : accent.opacity(0.55))
-                    .padding(.horizontal, 16)
+                    .foregroundStyle(store.canPublish ? Color.white : Color.secondary)
+                    .padding(.horizontal, store.canPublish ? 20 : 16)
                     .padding(.vertical, 8)
                     .scaleEffect(publishMorph ? 0.92 : 1)
                     .modulaGlass(
                         in: Capsule(),
                         interactive: store.canPublish,
-                        tint: accent,
+                        tint: store.canPublish ? accent : nil,
                         prominent: store.canPublish,
                         specular: true
                     )
+                    .shadow(color: accent.opacity(store.canPublish ? 0.35 : 0), radius: 10, y: 3)
                     .modulaGlassID("compose.publish", in: glassMorph)
             }
             .buttonStyle(.plain)
@@ -209,6 +212,9 @@ struct CreationStudioView: View {
             .accessibilityHint(store.publishHint ?? "Publishes this post")
             .accessibilitySortPriority(10)
             .accessibilityIdentifier("compose.publish")
+            .onChange(of: store.canPublish) { _, enabled in
+                if enabled { HapticEngine.shared.play(.lightImpact) }
+            }
         }
         .padding(.horizontal, 16)
         .padding(.top, 6)
@@ -220,9 +226,7 @@ struct CreationStudioView: View {
         return VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    identityStage(store)
-
-                    writingCanvas(store)
+                    threadRow(store)
 
                     if !store.mentionSuggestions.isEmpty || !store.hashtagSuggestions.isEmpty {
                         CreationSuggestionRail(
@@ -374,17 +378,17 @@ struct CreationStudioView: View {
                 }
             })
 
-            if ModulaPreferences.explainLimitedLibrary, store.draft.media.isEmpty,
-               store.capabilities.toolEnabled(.photo), !mediaStage.isExpanded {
+            if ModulaPreferences.explainLimitedLibrary, mediaStage == .library {
                 HStack(alignment: .top, spacing: 6) {
                     Image(systemName: "lock.fill")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.tertiary)
                         .padding(.top, 1)
-                    Text("Modula only sees the photos you pick — it never needs access to your whole library.")
+                    Text("Only the photos you pick are shared with Modula.")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                 }
                 .fontDesign(.default)
                 .padding(.horizontal, 18)
@@ -406,94 +410,135 @@ struct CreationStudioView: View {
                 }
             }
 
-            CreationComposerRail(
-                accent: accent,
-                mediaStage: $mediaStage,
-                videoEnabled: store.capabilities.videoPost,
-                glassNamespace: glassMorph,
-                videoPicker: {
-                    PhotosPicker(selection: $videoPickerItems, maxSelectionCount: 1, matching: .videos) {
-                        CreationToolChipLabel(
-                            title: "Video",
-                            symbol: "video.fill",
-                            accent: accent,
-                            enabled: true,
-                            emphasized: true
-                        )
-                    }
-                },
-                onMore: {
-                    editorFocused = false
-                    withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.34, dampingFraction: 0.86)) {
-                        mediaStage = .collapsed
-                    }
-                    showMoreOptions = true
-                }
-            )
-            .fontDesign(.default)
+            accessoryBar(store)
             .accessibilitySortPriority(40)
         }
     }
 
-    private func identityStage(_ store: CreationStudioStore) -> some View {
-        HStack(spacing: 12) {
+    /// Thread-style row: avatar on the left, name + auto-growing text inline beside it.
+    private func threadRow(_ store: CreationStudioStore) -> some View {
+        HStack(alignment: .top, spacing: 12) {
             ModulaAvatar(
                 initials: String((app.auth.account?.displayName ?? app.auth.account?.primaryHandle ?? "M").prefix(2)).uppercased(),
-                size: 44,
+                size: 40,
                 name: app.auth.account?.displayName
             )
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(app.auth.account?.displayName ?? app.auth.account?.primaryHandle ?? "You")
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
+                writingCanvas(store)
+            }
+        }
+        .padding(.top, 6)
+        .contentShape(Rectangle())
+        .onTapGesture { editorFocused = true }
+    }
+
+    /// Compact Liquid Glass bar pinned above the keyboard.
+    private func accessoryBar(_ store: CreationStudioStore) -> some View {
+        let accent = app.appearance.accent.color
+        let caps = store.capabilities
+        return ModulaGlassGroup(spacing: 6) {
+            HStack(spacing: 4) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 2) {
+                        if caps.toolEnabled(.photo) {
+                            barIcon("photo.on.rectangle.angled", "Photo", id: "compose.tool.photo", active: mediaStage == .library, accent: accent) {
+                                toggleStage(.library)
+                            }
+                            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                                barIcon("camera", "Camera", id: "compose.tool.camera", active: mediaStage == .camera, accent: accent) {
+                                    toggleStage(.camera)
+                                }
+                            }
+                        }
+                        if caps.videoPost {
+                            PhotosPicker(selection: $videoPickerItems, maxSelectionCount: 1, matching: .videos) {
+                                ComposerBarIconLabel(symbol: "video", accent: accent, active: false)
+                            }
+                            .simultaneousGesture(TapGesture().onEnded { HapticEngine.shared.play(.selection) })
+                            .accessibilityLabel("Video")
+                            .accessibilityIdentifier("compose.tool.video")
+                        }
+                        barIcon("doc.richtext", "Attach file", id: "compose.tool.file", accent: accent) {
+                            showFileImporter = true
+                        }
+                        if caps.pollPost {
+                            barIcon("chart.bar.xaxis", "Poll", id: "compose.tool.poll", active: store.showsLocalPollEditor, accent: accent) {
+                                store.showsLocalPollEditor.toggle()
+                                store.showsLocalLinkEditor = false
+                            }
+                        }
+                        barIcon("at", "Mention", id: "compose.tool.mention", accent: accent) {
+                            store.handlePaste(store.draft.text + ((store.draft.text.last.map { $0.isWhitespace } ?? true) ? "@" : " @"))
+                            editorFocused = true
+                        }
+                        barIcon("ellipsis", "More options", id: "compose.tool.more", accent: accent) {
+                            editorFocused = false
+                            withAnimation(stageMotion) { mediaStage = .collapsed }
+                            showMoreOptions = true
+                        }
+                    }
+                    .padding(.horizontal, 4)
+                }
+                .scrollClipDisabled()
+
+                if let limit = caps.characterLimit, limit > 0 {
+                    CharacterRing(count: store.draft.text.count, limit: limit, accent: accent)
+                }
                 AudiencePicker(selection: Binding(
                     get: { store.draft.audience },
                     set: { store.setAudience($0) }
                 ))
+                .controlSize(.small)
                 .accessibilitySortPriority(90)
             }
-            Spacer(minLength: 0)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .modulaGlass(in: Capsule(), interactive: false, specular: true)
         }
+        .padding(.horizontal, 10)
+        .padding(.bottom, 6)
         .padding(.top, 4)
+        .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.86), value: mediaStage)
+    }
+
+    private var stageMotion: Animation {
+        reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.36, dampingFraction: 0.84)
+    }
+
+    private func toggleStage(_ target: ComposeMediaStage) {
+        editorFocused = false
+        withAnimation(stageMotion) { mediaStage = mediaStage == target ? .collapsed : target }
+    }
+
+    private func barIcon(_ symbol: String, _ label: String, id: String, active: Bool = false, accent: Color, action: @escaping () -> Void) -> some View {
+        Button {
+            HapticEngine.shared.play(.selection)
+            action()
+        } label: {
+            ComposerBarIconLabel(symbol: symbol, accent: accent, active: active)
+        }
+        .buttonStyle(ComposerBarButtonStyle())
+        .accessibilityLabel(label)
+        .accessibilityIdentifier(id)
     }
 
     private func writingCanvas(_ store: CreationStudioStore) -> some View {
         let accent = app.appearance.accent.color
-        let stage = RoundedRectangle(cornerRadius: 22, style: .continuous)
-        return TextEditor(text: Binding(
+        _ = accent
+        return TextField(placeholder(store), text: Binding(
             get: { store.draft.text },
             set: { store.handlePaste($0) }
-        ))
+        ), axis: .vertical)
         .font(.body)
         .fontDesign(app.appearance.fontDesign)
+        .lineLimit(3...)
         .autocorrectionDisabled(!ModulaPreferences.composerAutocorrect)
         .textInputAutocapitalization(ModulaPreferences.composerAutoCapitalise ? .sentences : .never)
-        .scrollContentBackground(.hidden)
-        .frame(minHeight: 220)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
         .focused($editorFocused)
-        .background {
-            stage.fill(colorScheme == .dark ? Color.white.opacity(0.04) : Color.black.opacity(0.03))
-        }
-        .overlay {
-            stage.strokeBorder(
-                editorFocused ? accent.opacity(0.45) : Color.primary.opacity(0.08),
-                lineWidth: editorFocused ? 1.2 : 0.7
-            )
-        }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: editorFocused)
-        .overlay(alignment: .topLeading) {
-            if store.draft.text.isEmpty {
-                Text(placeholder(store))
-                    .font(.title3.weight(.regular))
-                    .foregroundStyle(.secondary.opacity(0.55))
-                    .padding(.top, 20)
-                    .padding(.leading, 18)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
-            }
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityLabel("Post text")
         .accessibilityIdentifier("compose.editor")
         .accessibilitySortPriority(80)
@@ -619,5 +664,59 @@ struct CreationStudioView: View {
             get: { store.draft.media.first { $0.id == store.altTextMediaID } },
             set: { store.altTextMediaID = $0?.id }
         )
+    }
+}
+
+private struct ComposerBarButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.86 : 1)
+            .animation(.spring(response: 0.22, dampingFraction: 0.6), value: configuration.isPressed)
+    }
+}
+
+/// X-style character ring; turns amber near the limit, red past it.
+private struct CharacterRing: View {
+    let count: Int
+    let limit: Int
+    let accent: Color
+
+    var body: some View {
+        let remaining = limit - count
+        let progress = min(Double(count) / Double(limit), 1)
+        let color: Color = remaining < 0 ? .red : (remaining <= 20 ? .orange : accent)
+        ZStack {
+            Circle().stroke(Color.primary.opacity(0.12), lineWidth: 2.5)
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(color, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            if remaining <= 20 {
+                Text("\(remaining)")
+                    .font(.caption2.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(color)
+                    .minimumScaleFactor(0.6)
+            }
+        }
+        .frame(width: remaining <= 20 ? 28 : 22, height: remaining <= 20 ? 28 : 22)
+        .animation(.easeOut(duration: 0.15), value: progress)
+        .accessibilityLabel("\(max(remaining, 0)) characters left")
+        .opacity(count == 0 ? 0 : 1)
+    }
+}
+
+private struct ComposerBarIconLabel: View {
+    let symbol: String
+    let accent: Color
+    let active: Bool
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: 17, weight: .semibold))
+            .foregroundStyle(active ? accent : Color.primary.opacity(0.8))
+            .frame(width: 40, height: 40)
+            .background(Circle().fill(accent.opacity(active ? 0.16 : 0)))
+            .contentShape(Circle())
     }
 }
