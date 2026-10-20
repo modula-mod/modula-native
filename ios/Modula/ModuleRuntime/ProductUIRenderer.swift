@@ -44,6 +44,16 @@ struct ProductUIHostView: View {
             if mediaUploadInProgress { ProgressView("Attaching file…").padding(8).background(.regularMaterial, in: Capsule()) }
         }
         .toolbar {
+            if runtime.route != "/" {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        runtime.goBack()
+                    } label: {
+                        Label("Back", systemImage: "chevron.left")
+                    }
+                    .accessibilityIdentifier("product-ui.back")
+                }
+            }
             if runtime.currentView?["kind"]?.string == "form",
                let actionId = ProductUILayout.formSubmitAction(in: runtime.currentView, document: runtime.document) {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -54,6 +64,7 @@ struct ProductUIHostView: View {
                 }
             }
         }
+        .navigationBarBackButtonHidden(runtime.route != "/")
         .toolbar(runtime.currentView?["kind"]?.string == "form" ? .hidden : .visible, for: .tabBar)
         .task(id: runtime.route) {
             #if DEBUG
@@ -491,20 +502,12 @@ struct ProductUIViewCanvas: View {
         let states = view["states"]
         ScrollView {
             VStack(alignment: .leading, spacing: ModulaSpacing.md) {
-                if runtime.route != "/" {
-                    Button {
-                        runtime.goBack()
-                    } label: {
-                        Label("Back", systemImage: "chevron.left")
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.tint)
-                    .accessibilityIdentifier("product-ui.back")
-                }
                 if kind != "detail", kind != "form", let declaredTitle, !declaredTitle.isEmpty,
                    declaredTitle != runtime.document.productId,
                    declaredTitle != runtime.session.manifest.name {
-                    Text(declaredTitle).font(.headline).accessibilityAddTraits(.isHeader)
+                    Text(declaredTitle)
+                        .font(.largeTitle.weight(.bold))
+                        .accessibilityAddTraits(.isHeader)
                 }
                 if runtime.viewState == "error", let node = states?["error"] {
                     ProductUINode(node: node, runtime: runtime, provenance: .native)
@@ -520,7 +523,7 @@ struct ProductUIViewCanvas: View {
                 }
             }
             .padding(ModulaLayout.contentInset)
-            .padding(.bottom, ModulaSpacing.lg)
+            .padding(.bottom, ModulaSpacing.lg + 96)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .accessibilityIdentifier("product-ui.view.\(kind)")
@@ -540,6 +543,7 @@ struct ProductUINode: View {
     @State private var pendingRowRecord: ProductUIRecord?
     @FocusState private var searchFocused: Bool
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let type = node["type"]?.string ?? "section"
@@ -585,7 +589,7 @@ struct ProductUINode: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 12)], spacing: 12) { children }
         case "text", "label", "metadata":
             if let structured = boundStructuredDocument(node) {
-                StructuredDocumentReader(value: structured)
+                StructuredDocumentReader(value: structured, omitOpeningHeading: record?.value("title") ?? runtime.selected[node["binding"]?.string ?? ""]?.value("title"))
             } else {
                 let copy = displayText(node)
                 if !copy.isEmpty {
@@ -728,13 +732,21 @@ struct ProductUINode: View {
             && action?["recordField"]?.string.flatMap { target?.data[$0]?.bool } == true
         let defaultLabel = runtime.boundText(node).isEmpty ? "Continue" : runtime.boundText(node)
         let label = isActiveToggle ? action?["activeLabel"]?.string ?? defaultLabel : defaultLabel
-        let button = Button(label) {
+        let route = action?["route"]?.string ?? ""
+        let isPrimaryRoute = ["new", "create", "edit"].contains(route.split(separator: "/").last.map(String.init) ?? "")
+        let isSecondaryNavigation = action?["family"]?.string == "route.open" && !isPrimaryRoute
+        let symbol = node["icon"]?.string ?? action?["icon"]?.string
+        let systemSymbol = symbol.flatMap { $0.hasPrefix("system.") ? String($0.dropFirst("system.".count)) : nil }
+        let button = Button {
             guard let actionId else { return }
             if runtime.document.action(id: actionId)?["confirm"]?.bool == true {
                 showsConfirmation = true
             } else {
                 runtime.perform(actionId: actionId, record: record)
             }
+        } label: {
+            if let systemSymbol { Label(label, systemImage: systemSymbol) }
+            else { Text(label) }
         }
         .tint(app.appearance.accent.color)
         .confirmationDialog("Confirm \(label)?", isPresented: $showsConfirmation) {
@@ -746,6 +758,8 @@ struct ProductUINode: View {
         .accessibilityIdentifier("product-ui.button.\(node["action"]?.string ?? "none")")
         if compact {
             button.buttonStyle(.bordered).controlSize(.small)
+        } else if isSecondaryNavigation {
+            button.buttonStyle(.bordered).frame(minHeight: 44)
         } else {
             button.buttonStyle(.borderedProminent)
         }
@@ -753,9 +767,13 @@ struct ProductUINode: View {
 
     private func displayText(_ node: JSONValue) -> String {
         if let record, let path = node["valuePath"]?.string {
-            return ProductUILayout.present(record.value(path), path: path)
+            let value = ProductUILayout.present(record.value(path), path: path)
+            return path == "plainTextProjection"
+                ? ProductUILayout.preview(value, title: record.value("title"))
+                : value
         }
-        return runtime.boundText(node)
+        let text = runtime.boundText(node)
+        return node["valuePath"]?.string.map { ProductUILayout.present(text, path: $0) } ?? text
     }
 
     private func boundStructuredDocument(_ node: JSONValue) -> JSONValue? {
@@ -841,14 +859,22 @@ struct ProductUINode: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityIdentifier("product-ui.field.\(id)")
+        .modifier(ProductUIFieldIdentifier(id: id, enabled: kind != "richText"))
     }
 
     private var recordList: some View {
         let items = runtime.bindingRecords(node["binding"]?.string)
-        return LazyVStack(alignment: .leading, spacing: 8) {
+        let palette = ModulaPalette.resolve(app.appearance, scheme: colorScheme)
+        return VStack(alignment: .leading, spacing: 10) {
             if items.isEmpty {
-                if runtime.viewState == "loading", let loading = runtime.currentView?["states"]?["loading"] {
+                if let bindingID = node["binding"]?.string,
+                          runtime.currentView?["bindings"]?.array?.contains(where: {
+                              $0["id"]?.string == bindingID && $0["source"]?.string == "record.media"
+                          }) == true {
+                    Text("No attachments yet")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else if runtime.viewState == "loading", let loading = runtime.currentView?["states"]?["loading"] {
                     ProductUINode(node: loading, runtime: runtime, provenance: provenance)
                 } else if let empty = runtime.currentView?["states"]?["empty"] {
                     ProductUINode(node: empty, runtime: runtime, provenance: provenance)
@@ -856,43 +882,57 @@ struct ProductUINode: View {
                     ContentUnavailableView("No records", systemImage: "tray")
                 }
             }
-        ForEach(items) { item in
-                HStack(spacing: 4) {
-                    if let action = node["action"]?.string {
-                        Button { runtime.perform(actionId: action, record: item) } label: {
-                            recordCard(item)
-                        }
-                        .buttonStyle(.plain)
-                    } else {
-                        recordCard(item)
-                    }
-                    if let actions = node["actions"]?.array, !actions.isEmpty {
-                        Menu {
-                            ForEach(actions.compactMap(\.string), id: \.self) { actionId in
-                                let action = runtime.document.action(id: actionId)
-                                let field = action?["recordField"]?.string
-                                let toggled = action?["family"]?.string == "record.toggle"
-                                    && field.flatMap { item.data[$0]?.bool } == true
-                                let label = toggled ? action?["activeLabel"]?.string ?? actionId
-                                    : action?["label"]?.string ?? actionId
-                                Button(label, role: action?["family"]?.string == "record.purge" ? .destructive : nil) {
-                                    if action?["confirm"]?.bool == true {
-                                        pendingRowAction = actionId
-                                        pendingRowRecord = item
-                                    } else {
-                                        runtime.perform(actionId: actionId, record: item)
+            if !items.isEmpty {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                        HStack(spacing: 4) {
+                            if let action = node["action"]?.string {
+                                Button { runtime.perform(actionId: action, record: item) } label: {
+                                    recordCard(item)
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                recordCard(item)
+                            }
+                            if let actions = node["actions"]?.array, !actions.isEmpty {
+                                Menu {
+                                    ForEach(actions.compactMap(\.string), id: \.self) { actionId in
+                                        let action = runtime.document.action(id: actionId)
+                                        let field = action?["recordField"]?.string
+                                        let toggled = action?["family"]?.string == "record.toggle"
+                                            && field.flatMap { item.data[$0]?.bool } == true
+                                        let label = toggled ? action?["activeLabel"]?.string ?? actionId
+                                            : action?["label"]?.string ?? actionId
+                                        Button(label, role: action?["family"]?.string == "record.purge" ? .destructive : nil) {
+                                            if action?["confirm"]?.bool == true {
+                                                pendingRowAction = actionId
+                                                pendingRowRecord = item
+                                            } else {
+                                                runtime.perform(actionId: actionId, record: item)
+                                            }
+                                        }
                                     }
+                                } label: {
+                                    Image(systemName: "ellipsis.circle")
+                                        .font(.title3)
+                                        .frame(minWidth: 44, minHeight: 44)
+                                        .accessibilityLabel("Record actions")
                                 }
                             }
-                        } label: {
-                            Image(systemName: "ellipsis.circle")
-                                .font(.title3)
-                                .frame(minWidth: 44, minHeight: 44)
-                                .accessibilityLabel("Record actions")
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityIdentifier("product-ui.record.\(item.id)")
+                        if index < items.count - 1 {
+                            Rectangle()
+                                .fill(palette.separator)
+                                .frame(height: 0.5)
+                                .padding(.leading, 14)
                         }
                     }
                 }
-                .accessibilityIdentifier("product-ui.record.\(item.id)")
+                .background(palette.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
             if let bindingID = node["binding"]?.string,
                let binding = runtime.currentView?["bindings"]?.array?.first(where: { $0["id"]?.string == bindingID }),
@@ -928,6 +968,13 @@ struct ProductUINode: View {
 
     private func recordCard(_ item: ProductUIRecord) -> some View {
         HStack(alignment: .center, spacing: 12) {
+            if let symbol = recordSymbol {
+                Image(systemName: symbol)
+                    .font(.body)
+                    .foregroundStyle(app.appearance.accent.color)
+                    .frame(width: 26)
+                    .accessibilityHidden(true)
+            }
             VStack(alignment: .leading, spacing: 4) {
                 if let template = node["children"]?.array?.first {
                     ProductUINode(node: template, runtime: runtime, provenance: provenance, record: item, compact: true)
@@ -943,12 +990,20 @@ struct ProductUINode: View {
             }
             Spacer(minLength: 0)
             if node["action"]?.string != nil {
-                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
             }
         }
-        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var recordSymbol: String? {
+        guard let bindingID = node["binding"]?.string,
+              let binding = runtime.currentView?["bindings"]?.array?.first(where: { $0["id"]?.string == bindingID }) else { return nil }
+        switch binding["recordType"]?.string {
+        case "folder": return "folder"
+        case "tag": return "number"
+        default: return nil
+        }
     }
 
     private func bindingDraft(_ id: String) -> Binding<String> {
@@ -1036,6 +1091,14 @@ enum ProductUILayout {
         let date = formatter.date(from: trimmed) ?? ISO8601DateFormatter().date(from: trimmed)
         return date?.formatted(.relative(presentation: .named)) ?? trimmed
     }
+
+    static func preview(_ value: String, title: String) -> String {
+        let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty, value.hasPrefix(title) else { return value }
+        let remainder = value.dropFirst(title.count)
+        guard remainder.isEmpty || remainder.first?.isWhitespace == true else { return value }
+        return String(remainder).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }
 
 struct ProductUIEditorToolbar: View {
@@ -1066,5 +1129,18 @@ struct ProductUIGraphFallback: View {
             }
         }
         .accessibilityIdentifier("product-ui.graph")
+    }
+}
+
+private struct ProductUIFieldIdentifier: ViewModifier {
+    let id: String
+    let enabled: Bool
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if enabled {
+            content.accessibilityIdentifier("product-ui.field.\(id)")
+        } else {
+            content
+        }
     }
 }

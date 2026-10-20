@@ -8,6 +8,7 @@ struct ModuleHost: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ScaledMetric private var textScale: Double = 1
     @State private var session: ModuleSession?
+    @State private var showsModuleInfo = false
     #if DEBUG
     @State private var showLifecycleLab = false
     @AppStorage("modula.developer.moduleDebugEnabled") private var moduleDebugEnabled = false
@@ -88,6 +89,23 @@ struct ModuleHost: View {
                 .accessibilityLabel(session?.manifest.name ?? "Module")
                 .accessibilityIdentifier("module.host.title")
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showsModuleInfo = true
+                } label: {
+                    Label("Info", systemImage: "info.circle")
+                }
+                .accessibilityIdentifier("module.host.info")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button("Module info", systemImage: "info.circle") { showsModuleInfo = true }
+                    Button("Close module", systemImage: "xmark") { app.navigation.close() }
+                } label: {
+                    Label("More", systemImage: "ellipsis.circle")
+                }
+                .accessibilityIdentifier("module.host.more")
+            }
             #if DEBUG
             if moduleDebugEnabled { ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -104,6 +122,23 @@ struct ModuleHost: View {
                 .accessibilityIdentifier("module.host.debug")
             } }
             #endif
+        }
+        .sheet(isPresented: $showsModuleInfo) {
+            NavigationStack {
+                Form {
+                    LabeledContent("Module", value: session?.manifest.name ?? "Module")
+                    if let version = session?.manifest.version {
+                        LabeledContent("Version", value: version)
+                    }
+                }
+                .navigationTitle("Module info")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showsModuleInfo = false }
+                    }
+                }
+            }
         }
         #if DEBUG
         .sheet(isPresented: $showLifecycleLab) {

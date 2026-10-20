@@ -455,7 +455,7 @@ struct StructuredDocumentEditor: View {
                 HStack { Spacer(); undoRedo }
             }
         }
-        .accessibilityIdentifier("product-ui.richtext")
+        .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear(perform: load)
         .onChange(of: text) { _, _ in
             if document?.serialize() != text { load() }
@@ -617,6 +617,7 @@ struct StructuredDocumentEditor: View {
 /// A read-only native presentation of a verified structured document. It never mutates stored data.
 struct StructuredDocumentReader: View {
     let value: JSONValue
+    var omitOpeningHeading: String? = nil
 
     var body: some View {
         let raw: String? = {
@@ -626,8 +627,14 @@ struct StructuredDocumentReader: View {
             return String(data: data, encoding: .utf8)
         }()
         if let raw, let document = try? StructuredDocument.parse(raw) {
+            let blocks = document.blocks.enumerated().filter { index, block in
+                guard index == 0, document.blockType(block) == "heading",
+                      let title = omitOpeningHeading?.trimmingCharacters(in: .whitespacesAndNewlines),
+                      !title.isEmpty else { return true }
+                return document.visibleText(block).trimmingCharacters(in: .whitespacesAndNewlines) != title
+            }
             VStack(alignment: .leading, spacing: 14) {
-                ForEach(Array(document.blocks.enumerated()), id: \.offset) { _, block in
+                ForEach(blocks, id: \.offset) { _, block in
                     blockView(block, document: document)
                 }
             }
@@ -716,6 +723,9 @@ struct BlockTextView: UIViewRepresentable {
         view.adjustsFontForContentSizeCategory = true
         view.backgroundColor = .clear
         view.isScrollEnabled = false
+        view.textContainer.widthTracksTextView = true
+        view.textContainer.lineBreakMode = .byWordWrapping
+        view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         view.textContainerInset = UIEdgeInsets(top: 6, left: 2, bottom: 6, right: 2)
         view.accessibilityIdentifier = identifier
         if let attributedText { view.attributedText = attributedText }
@@ -740,6 +750,12 @@ struct BlockTextView: UIViewRepresentable {
                 onFocused()
             }
         }
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize? {
+        guard let width = proposal.width, width.isFinite, width > 0 else { return nil }
+        let measured = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        return CGSize(width: width, height: max(44, measured.height))
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
