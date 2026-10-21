@@ -1,3 +1,4 @@
+import VisionKit
 import SwiftUI
 
 // MARK: - Shared Settings chrome
@@ -976,5 +977,243 @@ struct PrivacySafetySettingsPage: View {
             Button("Cancel", role: .cancel) {}
         }
         .accessibilityIdentifier("settings.privacy-security")
+    }
+}
+
+// MARK: - Telegram-style Settings kit (PR L)
+
+
+/// Telegram "avatar into the Dynamic Island" merge. Rendered as a full-screen,
+/// non-interactive overlay that follows the real avatar's on-screen frame; as it
+/// nears the island it shrinks, blurs, darkens and joins it as a metaball
+/// (blur + alpha threshold in a Canvas). No island → fades into the top edge.
+struct IslandAvatarMerge<Avatar: View>: View {
+    /// Avatar frame in global (window) coordinates.
+    var frame: CGRect
+    var reduceMotion: Bool
+    @ViewBuilder var avatar: Avatar
+
+    static var safeTop: CGFloat { ProfileFullBleedMetrics.windowSafeAreaTop }
+    static var hasIsland: Bool { safeTop >= 58 }
+
+    static func islandRect(width: CGFloat) -> CGRect {
+        let h: CGFloat = 37, w: CGFloat = 125
+        return CGRect(x: (width - w) / 2, y: max(safeTop - 48, 9), width: w, height: h)
+    }
+
+    /// 0 = avatar at rest · 1 = fully absorbed by the island / top edge.
+    static func progress(for frame: CGRect) -> CGFloat {
+        guard frame.height > 0 else { return 0 }
+        let target = hasIsland ? max(safeTop - 48, 9) + 18.5 : 0
+        let range: CGFloat = 190
+        let d = frame.midY - target
+        return min(max(1 - d / range, 0), 1)
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let p = Self.progress(for: frame)
+            if p > 0, frame.width > 0 {
+                let w = geo.size.width
+                let island = Self.islandRect(width: w)
+                let targetY = Self.hasIsland ? island.midY : -10
+                let cx = frame.midX + (w / 2 - frame.midX) * p
+                let cy = max(frame.midY, targetY)
+                let size = max(frame.width * (1 - 0.78 * p), 6)
+                ZStack {
+                    if reduceMotion {
+                        avatar
+                            .frame(width: frame.width, height: frame.width)
+                            .clipShape(Circle())
+                            .position(x: frame.midX, y: frame.midY)
+                            .opacity(Double(1 - p))
+                    } else {
+                        if Self.hasIsland, p > 0.42 {
+                            Canvas { ctx, _ in
+                                ctx.addFilter(.alphaThreshold(min: 0.5, color: .black))
+                                ctx.addFilter(.blur(radius: 7))
+                                ctx.drawLayer { layer in
+                                    layer.fill(Path(roundedRect: island, cornerRadius: island.height / 2), with: .color(.black))
+                                    let r = size / 2
+                                    layer.fill(Path(ellipseIn: CGRect(x: cx - r, y: cy - r, width: size, height: size)), with: .color(.black))
+                                }
+                            }
+                            .opacity(Double(min(1, (p - 0.42) / 0.22)))
+                        }
+                        avatar
+                            .frame(width: size, height: size)
+                            .clipShape(Circle())
+                            .overlay(Circle().fill(Color.black.opacity(Double(max(0, (p - 0.3) / 0.55)))))
+                            .blur(radius: max(0, p - 0.5) * 12)
+                            .opacity(Self.hasIsland ? Double(1 - max(0, (p - 0.86) / 0.14)) : Double(1 - p))
+                            .position(x: cx, y: cy)
+                    }
+                }
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Solid inset-grouped card (Telegram): ~16pt margins, 11pt radius.
+struct TelegramSettingsCard<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View {
+        VStack(spacing: 0) { content }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+    }
+}
+
+/// Hairline that starts where the row text starts (16 + 30 tile + 14).
+struct TelegramDivider: View {
+    var body: some View {
+        Rectangle()
+            .fill(Color(uiColor: .separator))
+            .frame(height: 1 / UIScreen.main.scale)
+            .padding(.leading, 60)
+    }
+}
+
+struct TelegramRow: View {
+    var title: String
+    var symbol: String
+    var tint: Color
+    var value: String? = nil
+    var badge: Int? = nil
+    var titleColor: Color? = nil
+    var action: () -> Void
+
+    var body: some View {
+        Button {
+            HapticEngine.shared.play(.selection)
+            action()
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: symbol)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 30, height: 30)
+                    .background(tint, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .accessibilityHidden(true)
+                Text(title)
+                    .foregroundStyle(titleColor ?? .primary)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                if let badge, badge > 0 {
+                    Text(badge > 99 ? "99+" : "\(badge)")
+                        .font(.footnote.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 7)
+                        .frame(minWidth: 22, minHeight: 22)
+                        .background(Color.red, in: Capsule())
+                }
+                if let value, !value.isEmpty {
+                    Text(value).foregroundStyle(.secondary).lineLimit(1)
+                }
+                if titleColor == nil {
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .padding(.horizontal, 16)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue([value, badge.map { "\($0) new" }].compactMap { $0 }.joined(separator: ", "))
+    }
+}
+
+/// Full-screen QR modal (scales in) with Close and an on-device Scan QR.
+struct SettingsQRModal: View {
+    var onClose: () -> Void
+    @Environment(AppEnvironment.self) private var app
+    @State private var scanning = false
+
+    var body: some View {
+        ZStack {
+            Color(uiColor: .systemBackground).ignoresSafeArea()
+            if let profile = app.profile.ownProfile {
+                ModulaProfileCodeView(profile: profile, onDismiss: onClose)
+            } else {
+                ContentUnavailableView("No profile yet", systemImage: "qrcode", description: Text("Sign in to get your Modula code."))
+            }
+            VStack {
+                HStack {
+                    Button(action: onClose) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .semibold))
+                            .frame(width: 44, height: 44)
+                            .modulaGlass(in: Circle(), interactive: true)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Close")
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                Spacer()
+                if DataScannerViewController.isSupported {
+                    Button {
+                        scanning = true
+                    } label: {
+                        Label("Scan QR", systemImage: "qrcode.viewfinder")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, minHeight: 50)
+                    }
+                    .buttonStyle(.plain)
+                    .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color, prominent: true)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 12)
+                }
+            }
+        }
+        .fullScreenCover(isPresented: $scanning) {
+            SettingsQRScanner { url in
+                scanning = false
+                onClose()
+                _ = ModulaLinkRouter.handle(url, source: nil)
+            } onCancel: { scanning = false }
+            .ignoresSafeArea()
+        }
+    }
+}
+
+private struct SettingsQRScanner: UIViewControllerRepresentable {
+    var onURL: (URL) -> Void
+    var onCancel: () -> Void
+
+    func makeUIViewController(context: Context) -> UINavigationController {
+        let scanner = DataScannerViewController(recognizedDataTypes: [.barcode(symbologies: [.qr])], qualityLevel: .balanced, isHighlightingEnabled: true)
+        scanner.delegate = context.coordinator
+        scanner.navigationItem.leftBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { _ in onCancel() })
+        try? scanner.startScanning()
+        return UINavigationController(rootViewController: scanner)
+    }
+
+    func updateUIViewController(_ controller: UINavigationController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(onURL: onURL) }
+
+    final class Coordinator: NSObject, DataScannerViewControllerDelegate {
+        let onURL: (URL) -> Void
+        private var done = false
+        init(onURL: @escaping (URL) -> Void) { self.onURL = onURL }
+        func dataScanner(_ dataScanner: DataScannerViewController, didAdd addedItems: [RecognizedItem], allItems: [RecognizedItem]) {
+            guard !done else { return }
+            for item in addedItems {
+                if case .barcode(let code) = item, let text = code.payloadStringValue, let url = URL(string: text), url.scheme != nil {
+                    done = true
+                    dataScanner.stopScanning()
+                    HapticEngine.shared.play(.success)
+                    onURL(url)
+                    return
+                }
+            }
+        }
     }
 }
