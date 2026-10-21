@@ -371,6 +371,11 @@ struct StoryCaptureStage: View {
     @State private var zoomBase: CGFloat = 1
     @State private var pinchBase: CGFloat?
     @State private var backdropItems: [PhotosPickerItem] = []
+    // In-app PhotoKit library (replaces the system picker)
+    @StateObject private var library = ModulaPhotoLibraryModel(includeVideos: true)
+    @State private var showsLibrary = false
+    @State private var librarySelection: [String] = []
+    @State private var loadingLibrary = false
     // Multi-clip video
     @State private var clips: [StoryClip] = []
     @State private var speed: StoryClipSpeed = .normal
@@ -457,6 +462,27 @@ struct StoryCaptureStage: View {
                     engine.set(backdrop: up)
                 }
             }
+        }
+        .sheet(isPresented: $showsLibrary) {
+            NavigationStack {
+                ModulaPhotoGrid(
+                    model: library,
+                    selection: $librarySelection,
+                    maxSelection: 1,
+                    accent: accent,
+                    showsCameraTile: false,
+                    allowsVideo: canVideo,
+                    onVideoBlocked: { app.navigation.flash("Video stories are coming soon — pick a photo", symbol: "video.slash") },
+                    onAdd: { pickLibrary() }
+                )
+                .padding(.horizontal, 2)
+                .navigationTitle("Library")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { showsLibrary = false } } }
+                .overlay { if loadingLibrary { ProgressView() } }
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
         .animation(reduceMotion ? nil : .snappy(duration: 0.22), value: showsEffects)
         .animation(.snappy(duration: 0.2), value: engine.isRecording)
@@ -804,12 +830,15 @@ struct StoryCaptureStage: View {
                     .disabled(engine.isRecording || merging)
                     .accessibilityLabel("Undo last clip")
                 } else {
-                PhotosPicker(selection: $libraryItems, maxSelectionCount: 1, matching: canVideo ? .any(of: [.images, .videos]) : .images) {
+                Button {
+                    showsLibrary = true
+                    HapticEngine.shared.play(.selection)
+                } label: {
                     Image(systemName: "photo.on.rectangle.angled")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 44, height: 44)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .modulaGlass(in: RoundedRectangle(cornerRadius: 12, style: .continuous), interactive: true)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Photo library")
@@ -863,6 +892,21 @@ struct StoryCaptureStage: View {
         }
         .frame(maxWidth: .infinity)
         .disabled(engine.isRecording || countdown != nil || !clips.isEmpty)
+    }
+
+    private func pickLibrary() {
+        guard let id = librarySelection.first,
+              let asset = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil).firstObject else { return }
+        loadingLibrary = true
+        Task {
+            defer { loadingLibrary = false; librarySelection = [] }
+            if asset.mediaType == .video {
+                if let url = await library.videoFile(asset) { showsLibrary = false; onVideo(url) }
+            } else if let image = await library.fullImage(asset) {
+                showsLibrary = false
+                onPhoto(image)
+            }
+        }
     }
 
     private func select(_ item: StoryCaptureMode) {

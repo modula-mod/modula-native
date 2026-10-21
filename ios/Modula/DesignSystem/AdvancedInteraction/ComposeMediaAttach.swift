@@ -137,6 +137,8 @@ struct ComposeMediaAttachStage: View {
     /// When set, the Library tab shows the in-app PhotoKit grid instead of the system picker.
     var photoLibrary: ModulaPhotoLibraryModel? = nil
     var onAssetsPicked: (([PHAsset]) -> Void)? = nil
+    var allowsVideo = false
+    var onVideoBlocked: (() -> Void)? = nil
     /// When set, the Camera tab opens the full-screen camera instead of the inline card.
     var onOpenCamera: (() -> Void)? = nil
 
@@ -289,6 +291,8 @@ struct ComposeMediaAttachStage: View {
                 if let onOpenCamera { onOpenCamera() } else { withAnimation(motion) { stage = .expanding(.camera) } }
             },
             onExpand: expandable ? { gridExpanded = true } : nil,
+            allowsVideo: allowsVideo,
+            onVideoBlocked: onVideoBlocked,
             onAdd: {
                 let ids = gridSelection
                 let fetched = PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil)
