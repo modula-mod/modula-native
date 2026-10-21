@@ -119,6 +119,9 @@ struct SettingsView: View {
     @State private var query = ""
     @State private var searchPresented = false
     @State private var headerProgress: CGFloat = 0
+    @State private var scrollY: CGFloat = 0
+    @State private var avatarFrame: CGRect = .zero
+    @State private var showsQR = false
     @State private var intelligenceStatus = "Checking local providers"
     @State private var quickPane: SettingsQuickPane?
     @AppStorage("settings.battery.dataSaver") private var dataSaver = false
@@ -149,62 +152,72 @@ struct SettingsView: View {
                         }
                     }
                 } else {
-                    SettingsProfileHeaderRow(
-                        name: identityDisplayName,
-                        handle: identityHandle,
-                        initials: identityInitials,
-                        avatarURL: identityAvatarURL,
-                        action: { app.auth.account == nil ? openAccountOrLogin() : openProfileEdit() }
-                    )
+                    telegramHeader
 
-                    SettingsGlassCard {
-                        row("Account", "person.crop.circle", value: nil, .account(.root))
-                        SettingsDivider()
-                        row("Privacy & Safety", "hand.raised.fill", value: nil, .privacy(.root))
-                        SettingsDivider()
-                        row("Notifications", "bell.badge.fill", value: nil, .notifications(.root))
+                    if identityAvatarURL == nil, app.auth.account != nil {
+                        TelegramSettingsCard {
+                            TelegramRow(title: "Set Profile Photo", symbol: "camera.fill", tint: .blue, titleColor: .accentColor) { openProfileEdit() }
+                        }
                     }
 
-                    SettingsGlassCard {
-                        row("Appearance", "paintpalette.fill", value: themeValue, .appearance(.root))
-                        SettingsDivider()
-                        row("Accessibility", "accessibility", value: nil, .accessibility(.root))
-                        SettingsDivider()
-                        row("Language & Region", "globe", value: nil, .language(.root))
-                        SettingsDivider()
-                        row("Moliboo", "pawprint.fill", value: nil, .moliboo)
+                    TelegramSettingsCard {
+                        TelegramRow(title: "My Profile", symbol: "person.crop.circle.fill", tint: .red) {
+                            app.navigation.open(app.auth.account == nil ? .auth(.login) : .me(.overview))
+                        }
                     }
 
-                    SettingsGlassCard {
-                        row("Feed", "rectangle.stack.fill", value: feedValue, .feed(.root))
-                        SettingsDivider()
-                        row("Chats", "bubble.left.and.bubble.right.fill", value: nil, .chats(.root))
-                        SettingsDivider()
-                        row("Media & Camera", "photo.on.rectangle.angled", value: nil, .media(.root))
-                        SettingsDivider()
-                        row("Audio & Haptics", "speaker.wave.2.fill", value: nil, .audio(.root))
-                        SettingsDivider()
-                        row("Gestures, Typing & Sharing", "hand.draw.fill", value: nil, .gestures(.root))
-                        SettingsDivider()
-                        row("Personalisation", "slider.horizontal.3", value: nil, .personalisation(.root))
-                        SettingsDivider()
-                        row("Intelligence", "brain", value: intelligenceStatus, .intelligence(.root))
+                    TelegramSettingsCard {
+                        TelegramRow(title: "Saved", symbol: "bookmark.fill", tint: .blue) { app.navigation.open(.saved(.root)) }
+                        TelegramDivider()
+                        TelegramRow(title: "Recent Activity", symbol: "clock.fill", tint: .orange, badge: app.activity.state(for: .all).unreadCount) { app.navigation.open(.activity(.all)) }
+                        TelegramDivider()
+                        TelegramRow(title: "Devices", symbol: "laptopcomputer.and.iphone", tint: .orange) { app.navigation.open(.settings(.account(.sessions))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Modules", symbol: "shippingbox.fill", tint: .green, value: "\(app.catalogue.installedIDs.count)") { app.navigation.open(.settings(.modules(.root))) }
                     }
 
-                    SettingsGlassCard {
-                        row("Data & Storage", "internaldrive.fill", value: nil, .dataStorage(.root))
-                        SettingsDivider()
-                        row("Battery & Network", "battery.100.bolt", value: dataSaver ? "Data saver" : nil, .battery(.root))
-                        SettingsDivider()
-                        row("Modules", "shippingbox.fill", value: "\(app.catalogue.installedIDs.count)", .modules(.root))
+                    TelegramSettingsCard {
+                        TelegramRow(title: "Notifications and Sounds", symbol: "bell.badge.fill", tint: .red) { app.navigation.open(.settings(.notifications(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Privacy and Security", symbol: "lock.fill", tint: .gray) { app.navigation.open(.settings(.privacy(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Data and Storage", symbol: "internaldrive.fill", tint: .green) { app.navigation.open(.settings(.dataStorage(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Appearance", symbol: "paintbrush.fill", tint: .cyan, value: themeValue) { app.navigation.open(.settings(.appearance(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Power Saving", symbol: "battery.100.bolt", tint: .orange, value: dataSaver ? "Data saver" : nil) { app.navigation.open(.settings(.battery(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Language", symbol: "globe", tint: .purple) { app.navigation.open(.settings(.language(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Moliboo", symbol: "pawprint.fill", tint: .orange) { app.navigation.open(.settings(.moliboo)) }
                     }
 
-                    SettingsGlassCard {
-                        row("What’s New", "sparkles", value: nil, .whatsNew(.root))
-                        SettingsDivider()
-                        row("Help & Status", "questionmark.circle.fill", value: nil, .help(.root))
-                        SettingsDivider()
-                        row("About", "info.circle.fill", value: shortVersion, .about(.root))
+                    TelegramSettingsCard {
+                        TelegramRow(title: "Account", symbol: "person.fill", tint: .blue) { app.navigation.open(.settings(.account(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Feed", symbol: "rectangle.stack.fill", tint: .orange, value: feedValue) { app.navigation.open(.settings(.feed(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Chats", symbol: "bubble.left.and.bubble.right.fill", tint: .green) { app.navigation.open(.settings(.chats(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Media and Camera", symbol: "photo.on.rectangle.angled", tint: .pink) { app.navigation.open(.settings(.media(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Audio and Haptics", symbol: "speaker.wave.2.fill", tint: .pink) { app.navigation.open(.settings(.audio(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Gestures, Typing and Sharing", symbol: "hand.draw.fill", tint: .teal) { app.navigation.open(.settings(.gestures(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Personalisation", symbol: "slider.horizontal.3", tint: .indigo) { app.navigation.open(.settings(.personalisation(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Accessibility", symbol: "accessibility", tint: .blue) { app.navigation.open(.settings(.accessibility(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Intelligence", symbol: "brain", tint: .purple, value: intelligenceStatus) { app.navigation.open(.settings(.intelligence(.root))) }
+                    }
+
+                    TelegramSettingsCard {
+                        TelegramRow(title: "Help and Status", symbol: "questionmark.bubble.fill", tint: .orange) { app.navigation.open(.settings(.help(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "What’s New", symbol: "sparkles", tint: .blue) { app.navigation.open(.settings(.whatsNew(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "About", symbol: "info.circle.fill", tint: .gray, value: shortVersion) { app.navigation.open(.settings(.about(.root))) }
                     }
 
                     #if DEBUG
@@ -231,17 +244,90 @@ struct SettingsView: View {
                     #endif
                 }
             }
-            .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, SettingsInsets.bottom)
         }
+        .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { _, y in
+            scrollY = y
+        }
         .modulaSoftScrollEdge()
-        .modulaCanvas()
+        .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+        .overlay {
+            if !isSearching {
+                IslandAvatarMerge(frame: avatarFrame, reduceMotion: reduceMotion) { heroAvatar(size: 100) }
+            }
+        }
         .navigationTitle("Settings")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button { showsQR = true } label: { Image(systemName: "qrcode") }
+                    .opacity(Double(1 - collapse))
+                    .disabled(collapse > 0.6)
+                    .accessibilityLabel("My QR code")
+            }
+            ToolbarItem(placement: .principal) {
+                Text(identityDisplayName)
+                    .font(.headline)
+                    .opacity(Double(max(0, (collapse - 0.6) / 0.4)))
+                    .offset(y: reduceMotion ? 0 : (1 - collapse) * 8)
+                    .accessibilityHidden(collapse < 0.6)
+            }
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                if collapse > 0.85 || scrollY < -40 {
+                    Button { searchPresented = true } label: { Image(systemName: "magnifyingglass") }
+                        .transition(.opacity)
+                        .accessibilityLabel("Search Settings")
+                }
+                Button("Edit") { openProfileEdit() }
+                    .fontWeight(.semibold)
+                    .accessibilityIdentifier("settings.edit")
+            }
+        }
+        .animation(.easeOut(duration: 0.18), value: collapse > 0.85 || scrollY < -40)
+        .fullScreenCover(isPresented: $showsQR) {
+            SettingsQRModal { showsQR = false }
+                .transition(.scale)
+        }
         .searchable(text: $query, isPresented: $searchPresented, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search Settings")
         .task { await refreshIntelligenceStatus() }
         .accessibilityIdentifier("settings.root")
+    }
+
+    /// 0 → 1 as the hero name scrolls under the nav bar.
+    private var collapse: CGFloat { min(max(scrollY / 150, 0), 1) }
+
+    private func heroAvatar(size: CGFloat) -> some View {
+        ModulaAvatar(initials: identityInitials, url: identityAvatarURL, size: size)
+    }
+
+    /// Telegram header: big centred avatar · bold name · grey @handle.
+    private var telegramHeader: some View {
+        let p = IslandAvatarMerge<EmptyView>.progress(for: avatarFrame)
+        let overscroll = max(0, -scrollY)
+        return VStack(spacing: 6) {
+            heroAvatar(size: 100)
+                .scaleEffect(reduceMotion ? 1 : 1 + min(overscroll / 220, 0.5), anchor: .bottom)
+                .opacity(p > 0 ? 0 : 1)
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { avatarFrame = $0 }
+                .onTapGesture { openProfileEdit() }
+                .accessibilityLabel("Profile photo")
+            Text(identityDisplayName)
+                .font(.title2.weight(.bold))
+                .lineLimit(1)
+                .padding(.top, 6)
+            if let identityHandle {
+                Text(identityHandle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .opacity(Double(1 - min(collapse * 2, 1)))
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 4)
+        .padding(.bottom, 6)
+        .accessibilityElement(children: .combine)
     }
 
     private func row(_ title: String, _ symbol: String, value: String?, _ route: SettingsRoute) -> some View {

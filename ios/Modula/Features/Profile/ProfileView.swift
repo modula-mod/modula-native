@@ -11,6 +11,7 @@ struct ProfileView: View {
     @Environment(\.shellChromeMetrics) private var shellChromeMetrics
     @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var headerProgress: CGFloat = 0
+    @State private var heroAvatarFrame: CGRect = .zero
     @Environment(\.accessibilityReduceTransparency) private var navReduceTransparency
     @Environment(\.accessibilityReduceMotion) private var navReduceMotion
     @AppStorage(MascotProfileSettings.showOnProfileKey) private var showProfileMascot = true
@@ -273,6 +274,12 @@ struct ProfileView: View {
                 EmptyView()
             }
 
+            if let profile {
+                IslandAvatarMerge(frame: heroAvatarFrame, reduceMotion: navReduceMotion) {
+                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: max(heroAvatarFrame.width, 1))
+                }
+            }
+
             ProfileCollapsedNavBackground(
                 progress: navBarProgress,
                 height: ProfileFullBleedMetrics.windowSafeAreaTop + 44,
@@ -527,9 +534,10 @@ struct ProfileView: View {
                 contextActions: avatarActions(profile),
                 onContextAction: { handleContextAction($0, profile: profile) }
             )
-            // Shrinks + fades as the compact avatar takes over in the nav bar.
-            .scaleEffect(navReduceMotion ? 1 : 1 - 0.3 * navBarProgress, anchor: .bottom)
-            .opacity(1 - 0.9 * navBarProgress)
+            // Telegram-style: the hero avatar is handed to IslandAvatarMerge, which
+            // shrinks it into the Dynamic Island as it scrolls up.
+            .opacity(IslandAvatarMerge<EmptyView>.progress(for: heroAvatarFrame) > 0 ? 0 : 1)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { heroAvatarFrame = $0 }
         }
     }
 
