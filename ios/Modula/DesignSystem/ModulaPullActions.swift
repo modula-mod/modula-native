@@ -217,7 +217,7 @@ struct ModulaPullActionsModifier: ViewModifier {
             .scrollClipDisabled()
             // The frost + chooser render at the app root (ModulaPullOverlayHost) so the blur
             // covers the whole screen — header, tab bar, Tools bar and edge rail included.
-            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { anchorY = $0 }
+            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { if !ShellChromeFreeze.isSidebarDragging { anchorY = $0 } }
             .onChange(of: overlayState) { _, state in publish(state) }
             .onDisappear { ModulaPullOverlayCenter.shared.clear(owner: ownerID) }
             .accessibilityAction(named: "Refresh") {

@@ -153,6 +153,11 @@ struct ShellSidebarContainer<Content: View>: View {
                     .offset(x: reduceMotion ? 0 : offset)
                     .opacity(reduceMotion ? 1 - progress * 0.6 : 1)
                     .accessibilityHidden(presented)
+                    // Freeze UIKit chrome hooks + Home geometry writers while the card is
+                    // being dragged so the transform can't feed back into layout.
+                    .onChange(of: dragging) { _, isDragging in
+                        ShellChromeFreeze.isSidebarDragging = isDragging
+                    }
                     .overlay {
                         if presented {
                             Color.clear
