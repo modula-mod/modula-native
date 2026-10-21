@@ -178,6 +178,7 @@ struct ProductUIDocument: Equatable, Sendable {
 enum ModuleRuntimeKind: String, Sendable {
     case bundledReactNative
     case declarativeProductUI
+    case webGame
 }
 
 enum ProductUIProvenance: String, Sendable {

@@ -104,7 +104,18 @@ final class ModuleRuntimeController {
         if !policy.requiredDenied.isEmpty {
             return blocked(session, .permissionDenied, "\(manifest.name) needs permissions that aren’t granted for this installation.")
         }
-        if let cached, cached.frontendMediaType == ProductUIDocument.mediaType {
+        if let cached, cached.gameSha256 != nil {
+            do {
+                session.webGameEntry = try activation?.store.verifiedGameEntry(for: cached)
+                guard session.webGameEntry != nil else { throw WebGamePackageError.invalid("cache unavailable") }
+                session.runtimeKind = .webGame
+                session.state = .ready
+            } catch {
+                return blocked(session, .integrityFailed, "\(manifest.name) failed game package verification.")
+            }
+        } else if manifest.runtime == "web-game" {
+            return blocked(session, .integrityFailed, "\(manifest.name) has no verified game package.")
+        } else if let cached, cached.frontendMediaType == ProductUIDocument.mediaType {
             do {
                 let data = try activation?.store.frontendData(for: cached) ?? Data()
                 session.productUI = try ProductUIDocument.parse(data: data, productId: cached.moduleId, version: cached.version)
@@ -195,7 +206,7 @@ final class ModuleRuntimeController {
     func makeSurface(_ session: ModuleSession) -> UIView? {
         ModulaLog.runtime.debug("Creating module surface, valid \(session.isValid)")
         guard session.isValid else { return nil }
-        if session.runtimeKind == .declarativeProductUI { return nil }
+        if session.runtimeKind == .declarativeProductUI || session.runtimeKind == .webGame { return nil }
         guard !ProcessInfo.processInfo.arguments.contains("--runtime-unavailable"),
               Bundle.main.url(forResource: "main", withExtension: "jsbundle") != nil else {
             session.state = .unavailable

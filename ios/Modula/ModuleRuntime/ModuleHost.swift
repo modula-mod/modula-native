@@ -48,6 +48,9 @@ struct ModuleHost: View {
                         retryTitle: "Reopen",
                         showsProductHub: false
                     )
+                } else if session.runtimeKind == .webGame, let entry = session.webGameEntry {
+                    WebGameHost(name: session.manifest.name, entry: entry) { app.navigation.close() }
+                        .id(session.id)
                 } else if session.runtimeKind == .declarativeProductUI, let document = session.productUI {
                     ProductUIHostView(session: session, document: document)
                         .id(session.id)

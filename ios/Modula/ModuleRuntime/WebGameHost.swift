@@ -1,0 +1,209 @@
+import SwiftUI
+import WebKit
+
+/// One host for every verified HTML5 game. Nothing in this view depends on a
+/// particular JavaScript engine or game identity.
+struct WebGameHost: View {
+    let name: String
+    let entry: URL
+    let close: () -> Void
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var paused = false
+    @State private var processFailed = false
+    @State private var webView: WKWebView?
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            Color.black.ignoresSafeArea()
+            VStack(spacing: 0) {
+                HStack {
+                    Button(action: close) { Label("Exit game", systemImage: "xmark") }
+                        .accessibilityIdentifier("game.host.exit")
+                    Spacer()
+                    Text(name).lineLimit(1).font(.caption.weight(.semibold))
+                    Spacer()
+                    Button(action: { setPaused(!paused) }) {
+                        Label(paused ? "Resume" : "Pause", systemImage: paused ? "play.fill" : "pause.fill")
+                    }
+                    .accessibilityIdentifier("game.host.pause")
+                }
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(.black)
+                WebGameSurface(entry: entry, processFailed: $processFailed, webView: $webView)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            if processFailed {
+                ContentUnavailableView {
+                    Label("Game interrupted", systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text("The web rendering process stopped. Reopen the verified game package to continue.")
+                } actions: {
+                    Button("Reopen") { processFailed = false; webView?.reload() }
+                    Button("Exit") { close() }
+                }
+                .foregroundStyle(.white)
+                .background(.black)
+            } else if paused {
+                Color.black.opacity(0.72).ignoresSafeArea()
+                VStack(spacing: 22) {
+                    Text("Paused").font(.title.bold())
+                    Button("Resume") { setPaused(false) }.buttonStyle(.borderedProminent)
+                    Button("Exit game") { close() }.buttonStyle(.bordered)
+                }
+                .foregroundStyle(.white)
+                .accessibilityIdentifier("game.host.paused")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .toolbar(.hidden, for: .tabBar)
+        .toolbar(.hidden, for: .navigationBar)
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { setPaused(true) }
+        }
+        .onDisappear {
+            webView?.stopLoading()
+            webView?.loadHTMLString("", baseURL: nil)
+            webView = nil
+        }
+    }
+
+    private func setPaused(_ value: Bool) {
+        paused = value
+        let event = value ? "modula:pause" : "modula:resume"
+        // One-way lifecycle notification. No native capability or account data
+        // is made callable from the page.
+        webView?.evaluateJavaScript("window.dispatchEvent(new Event('\(event)'))")
+    }
+}
+
+private struct WebGameSurface: UIViewRepresentable {
+    let entry: URL
+    @Binding var processFailed: Bool
+    @Binding var webView: WKWebView?
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIView(context: Context) -> WKWebView {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .nonPersistent()
+        configuration.defaultWebpagePreferences.allowsContentJavaScript = true
+        configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
+        configuration.allowsInlineMediaPlayback = true
+        let gameURL: URL?
+        do {
+            let handler = try VerifiedGameSchemeHandler(entry: entry)
+            configuration.setURLSchemeHandler(handler, forURLScheme: VerifiedGameSchemeHandler.scheme)
+            context.coordinator.handler = handler
+            gameURL = handler.entryURL
+        } catch {
+            gameURL = nil
+            DispatchQueue.main.async { processFailed = true }
+        }
+        let view = WKWebView(frame: .zero, configuration: configuration)
+        view.navigationDelegate = context.coordinator
+        view.uiDelegate = context.coordinator
+        view.isOpaque = false
+        view.backgroundColor = .black
+        view.scrollView.isScrollEnabled = false
+        view.scrollView.contentInsetAdjustmentBehavior = .never
+        if let gameURL { view.load(URLRequest(url: gameURL)) }
+        DispatchQueue.main.async { webView = view }
+        return view
+    }
+
+    func updateUIView(_ view: WKWebView, context: Context) {}
+
+    static func dismantleUIView(_ view: WKWebView, coordinator: Coordinator) {
+        view.stopLoading()
+        view.navigationDelegate = nil
+        view.uiDelegate = nil
+        view.loadHTMLString("", baseURL: nil)
+        view.removeFromSuperview()
+    }
+
+    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
+        let parent: WebGameSurface
+        var handler: VerifiedGameSchemeHandler?
+        init(_ parent: WebGameSurface) { self.parent = parent }
+
+        func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction) async -> WKNavigationActionPolicy {
+            guard let url = action.request.url, let handler,
+                  url.scheme == VerifiedGameSchemeHandler.scheme,
+                  url.host == handler.digest,
+                  handler.contains(url) else { return .cancel }
+            return .allow
+        }
+
+        func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
+                     for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? { nil }
+
+        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            DispatchQueue.main.async { self.parent.processFailed = true }
+        }
+
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            DispatchQueue.main.async { self.parent.processFailed = true }
+        }
+    }
+}
+
+/// Serves only bytes from one reverified content-addressed archive. A custom
+/// origin makes CSP 'self' work for ES modules and styles without file:// origin
+/// ambiguity. WebKit receives no local-file read grant or Native message bridge.
+private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
+    static let scheme = "modula-game"
+    let digest: String
+    let entryURL: URL
+    private let files: [String: Data]
+
+    init(entry: URL) throws {
+        let directory = entry.deletingLastPathComponent()
+        digest = directory.lastPathComponent
+        guard entry.lastPathComponent == "index.html", InstallDescriptorVerifier.isHex64(digest) else {
+            throw WebGamePackageError.invalid("entry origin")
+        }
+        let slot = directory.deletingLastPathComponent().deletingLastPathComponent()
+        let archive = try Data(contentsOf: slot.appendingPathComponent("game.tgz"))
+        let package = try WebGamePackage(archive: archive, expectedSha256: digest)
+        _ = try WebGamePackage.verifyInstalled(at: directory, expectedSha256: digest, trustedFiles: package.files)
+        files = package.files
+        entryURL = URL(string: "\(Self.scheme)://\(digest)/index.html")!
+    }
+
+    func contains(_ url: URL) -> Bool {
+        guard url.scheme == Self.scheme, url.host == digest else { return false }
+        return files[String(url.path.dropFirst())] != nil && url.query == nil && url.fragment == nil
+    }
+
+    func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
+        guard let url = task.request.url, contains(url),
+              let bytes = files[String(url.path.dropFirst())] else {
+            task.didFailWithError(WebGamePackageError.invalid("unlisted resource"))
+            return
+        }
+        let mime: String
+        switch url.pathExtension.lowercased() {
+        case "html": mime = "text/html"
+        case "js", "mjs": mime = "text/javascript"
+        case "css": mime = "text/css"
+        case "json": mime = "application/json"
+        case "png": mime = "image/png"
+        case "jpg", "jpeg": mime = "image/jpeg"
+        case "webp": mime = "image/webp"
+        case "svg": mime = "image/svg+xml"
+        case "mp3": mime = "audio/mpeg"
+        case "ogg": mime = "audio/ogg"
+        case "wav": mime = "audio/wav"
+        default: mime = "application/octet-stream"
+        }
+        let response = URLResponse(url: url, mimeType: mime, expectedContentLength: bytes.count, textEncodingName: nil)
+        task.didReceive(response)
+        task.didReceive(bytes)
+        task.didFinish()
+    }
+
+    func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {}
+}

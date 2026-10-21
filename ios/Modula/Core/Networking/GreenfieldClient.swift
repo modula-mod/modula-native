@@ -135,7 +135,7 @@ struct CataloguePresentation: Codable, Sendable, Hashable {
 /// not a module's version. Bump it only when the app gains host APIs; the registry then
 /// blocks (HOST_INCOMPATIBLE) only releases that genuinely require a newer host.
 enum ModulaHost {
-    static let version = "1.0.0"
+    static let version = "1.1.0"
 }
 
 private struct CataloguePage: Codable, Sendable { let items: [CatalogueProduct] }
@@ -358,6 +358,23 @@ actor GreenfieldClient {
         let value: JSONValue = try await authenticated("GET", path: "/v1/modules/\(path)/frontend")
         guard let hosted = HostedModuleFrontend(json: value) else { throw APIError.invalidResponse }
         return hosted
+    }
+
+    /// The immutable distribution descriptor carries installation-scoped game
+    /// artifact digests for the exact release selected by Product Hub.
+    func gameReleaseDescriptor(_ releaseID: String) async throws -> JSONValue {
+        guard releaseID.range(of: "^[A-Za-z0-9._:-]{3,240}$", options: .regularExpression) != nil else {
+            throw APIError.invalidResponse
+        }
+        return try await authenticated("GET", path: "/v1/registry/releases/\(releaseID)/descriptor?platform=ios&hostVersion=\(ModulaHost.version)")
+    }
+
+    /// The account's exact installed release and permission review, issued by
+    /// the distribution service. The release descriptor alone is public and
+    /// cannot authorize a launch.
+    func installedDistributionDescriptor(_ moduleID: String) async throws -> JSONValue {
+        guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
+        return try await authenticated("GET", path: "/v1/modules/\(path)/installation-descriptor?platform=ios&hostVersion=\(ModulaHost.version)")
     }
 
     /// Downloads an immutable registry artifact and requires the expected SHA-256.

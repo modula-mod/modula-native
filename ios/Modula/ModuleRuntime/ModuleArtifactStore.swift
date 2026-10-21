@@ -14,6 +14,7 @@ struct ModuleCachedRelease: Sendable {
     var accountID: String
     var frontendSha256: String
     var frontendMediaType: String
+    var gameSha256: String?
     var hostManifest: ModuleManifest
     var descriptor: ModuleInstallDescriptor?
     var slot: ModuleCacheSlot
@@ -90,7 +91,8 @@ final class ModuleArtifactStore: @unchecked Sendable {
         }
         return ModuleCachedRelease(
             moduleId: moduleId, version: version, releaseId: releaseId, accountID: accountID,
-            frontendSha256: frontendSha256, frontendMediaType: mediaType, hostManifest: manifest,
+            frontendSha256: frontendSha256, frontendMediaType: mediaType,
+            gameSha256: json["gameSha256"]?.string, hostManifest: manifest,
             descriptor: descriptor, slot: slot, directory: directory
         )
     }
@@ -108,7 +110,8 @@ final class ModuleArtifactStore: @unchecked Sendable {
     /// Writes verified bytes into STAGED. Never writes into ACTIVE in place.
     func stage(accountID: String, moduleId: String, version: String, releaseId: String,
                frontend: Data, frontendSha256: String, mediaType: String,
-               hostManifest: ModuleManifest, descriptor: ModuleInstallDescriptor?) throws {
+               hostManifest: ModuleManifest, descriptor: ModuleInstallDescriptor?,
+               game: WebGamePackage? = nil) throws {
         let expected = SHA256.hash(data: frontend).map { String(format: "%02x", $0) }.joined()
         guard expected == frontendSha256 else { throw ModuleActivationError.digestMismatch("frontend") }
         if let traversal = Self.unsafePath(in: frontend) { throw ModuleActivationError.pathTraversal(traversal) }
@@ -120,6 +123,10 @@ final class ModuleArtifactStore: @unchecked Sendable {
         if fileManager.fileExists(atPath: staging.path) { try fileManager.removeItem(at: staging) }
         try fileManager.createDirectory(at: staging, withIntermediateDirectories: true)
         try atomicWrite(frontend, to: staging.appendingPathComponent("frontend.manifest.json"))
+        if let game {
+            try atomicWrite(game.archive, to: staging.appendingPathComponent("game.tgz"))
+            _ = try game.install(in: staging.appendingPathComponent("Game", isDirectory: true))
+        }
         var meta: [String: JSONValue] = [
             "moduleId": .string(moduleId),
             "version": .string(version),
@@ -129,11 +136,22 @@ final class ModuleArtifactStore: @unchecked Sendable {
             "hostManifest": try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(hostManifest)),
         ]
         if let descriptor { meta["descriptor"] = descriptor.raw }
+        if let game { meta["gameSha256"] = .string(game.sha256) }
         try atomicWrite(JSONEncoder().encode(JSONValue.object(meta)), to: staging.appendingPathComponent("release.json"))
         try fileManager.moveItem(at: staging, to: staged)
         var current = index(accountID: accountID, moduleId: moduleId)
         current.stagedReleaseId = releaseId
         try writeIndex(current)
+    }
+
+    func verifiedGameEntry(for release: ModuleCachedRelease) throws -> URL {
+        guard let digest = release.gameSha256 else { throw WebGamePackageError.invalid("game metadata") }
+        let archive = try Data(contentsOf: release.directory.appendingPathComponent("game.tgz"))
+        let trusted = try WebGamePackage(archive: archive, expectedSha256: digest)
+        return try WebGamePackage.verifyInstalled(
+            at: release.directory.appendingPathComponent("Game/\(digest)", isDirectory: true),
+            expectedSha256: digest, trustedFiles: trusted.files
+        )
     }
 
     #if DEBUG
