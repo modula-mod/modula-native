@@ -6,6 +6,10 @@ struct DiscoverScreen: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Only flips at the threshold, so scrolling doesn't storm state every frame.
     @State private var collapsed = false
+    /// Expanded header height, reserved in both states so collapsing never changes the
+    /// scroll view's top inset (which used to shift the offset back across the threshold
+    /// and flip collapsed on/off forever, hanging the main thread).
+    @State private var expandedHeaderHeight: CGFloat = 0
     @Namespace private var glassNS
 
     private var section: DiscoverRoute {
@@ -110,6 +114,11 @@ struct DiscoverScreen: View {
             .ignoresSafeArea(edges: .top)
             .allowsHitTesting(false)
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.height.rounded() } action: { height in
+            // Only the expanded layout defines the reserved height; ignore collapsed/animating sizes.
+            if !collapsed, height > expandedHeaderHeight { expandedHeaderHeight = height }
+        }
+        .frame(minHeight: expandedHeaderHeight, alignment: .top)
         .animation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(response: 0.38, dampingFraction: 0.86), value: collapsed)
     }
 
@@ -125,8 +134,8 @@ struct DiscoverScreen: View {
             .padding(.bottom, 140)
             .modulaPullContentEffects()
         }
-        .onScrollGeometryChange(for: Bool.self) { geo in
-            geo.contentOffset.y + geo.contentInsets.top > 48
+        .onScrollGeometryChange(for: Bool.self) { [collapsed] geo in
+            DiscoverHeaderCollapse.isCollapsed(offset: geo.contentOffset.y + geo.contentInsets.top, current: collapsed)
         } action: { _, isCollapsed in
             guard scope == section, isCollapsed != collapsed else { return }
             collapsed = isCollapsed
@@ -385,5 +394,15 @@ struct DiscoverScreen: View {
                 _ = await app.discover.follow(person, signedIn: true)
             }
         }
+    }
+}
+
+/// Collapse decision with a hysteresis band, so small offset shifts can't toggle the header.
+enum DiscoverHeaderCollapse {
+    static let collapseAbove: CGFloat = 60
+    static let expandBelow: CGFloat = 20
+
+    static func isCollapsed(offset: CGFloat, current: Bool) -> Bool {
+        current ? offset >= expandBelow : offset > collapseAbove
     }
 }
