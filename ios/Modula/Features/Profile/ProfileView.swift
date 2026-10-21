@@ -11,6 +11,8 @@ struct ProfileView: View {
     @Environment(\.shellChromeMetrics) private var shellChromeMetrics
     @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var headerProgress: CGFloat = 0
+    @Environment(\.accessibilityReduceTransparency) private var navReduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var navReduceMotion
     @AppStorage(MascotProfileSettings.showOnProfileKey) private var showProfileMascot = true
     @State private var dressUpMascot = false
     @State private var confirmsBlock = false
@@ -270,6 +272,12 @@ struct ProfileView: View {
             ) {
                 EmptyView()
             }
+
+            ProfileCollapsedNavBackground(
+                progress: navBarProgress,
+                height: ProfileFullBleedMetrics.windowSafeAreaTop + 44,
+                reduceTransparency: navReduceTransparency
+            )
         }
         .ignoresSafeArea(edges: .top)
         .modulaCanvas()
@@ -277,18 +285,23 @@ struct ProfileView: View {
         .modulaImmersiveSystemNavigation()
         .modulaSidebarTrigger()
         .toolbar {
-            if headerProgress > 0.35 {
-                ToolbarItem(placement: .principal) {
-                    HStack(spacing: 8) {
-                        if let profile {
-                            ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 28)
-                        }
-                        Text(compactTitle)
-                            .font(.headline.weight(.semibold))
-                            .lineLimit(1)
+            ToolbarItem(placement: .principal) {
+                let t = navBarProgress
+                HStack(spacing: 8) {
+                    if let profile {
+                        // Avatar "lands" in the bar: grows from 18pt to 28pt as the hero avatar shrinks away.
+                        ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 28)
+                            .scaleEffect(navReduceMotion ? 1 : 0.64 + 0.36 * t)
                     }
-                    .accessibilityLabel(compactTitle)
+                    Text(compactTitle)
+                        .font(.headline.weight(.semibold))
+                        .lineLimit(1)
                 }
+                .opacity(t)
+                .offset(y: navReduceMotion ? 0 : (1 - t) * 8)
+                .allowsHitTesting(t > 0.5)
+                .accessibilityHidden(t < 0.5)
+                .accessibilityLabel(compactTitle)
             }
             // Edit profile / Share profile live in-page as Liquid Glass buttons.
             if let profile {
@@ -314,6 +327,12 @@ struct ProfileView: View {
                 }
             }
         }
+    }
+
+    /// 0 → 1 as the name moves into the nav bar (eased so the bar fades in with the title).
+    private var navBarProgress: CGFloat {
+        let x = min(max((headerProgress - 0.45) / 0.45, 0), 1)
+        return x * x * (3 - 2 * x)
     }
 
     /// Avatar colour → profile accent → cover colour → app accent.
@@ -508,6 +527,9 @@ struct ProfileView: View {
                 contextActions: avatarActions(profile),
                 onContextAction: { handleContextAction($0, profile: profile) }
             )
+            // Shrinks + fades as the compact avatar takes over in the nav bar.
+            .scaleEffect(navReduceMotion ? 1 : 1 - 0.3 * navBarProgress, anchor: .bottom)
+            .opacity(1 - 0.9 * navBarProgress)
         }
     }
 
@@ -1787,4 +1809,30 @@ private enum ProfileShelfTab: String, Hashable, Identifiable {
 
     /// Grid / list toggle applies to post-based shelves.
     var usesLayout: Bool { self == .posts || self == .media }
+}
+
+
+/// Glass bar that fades in behind the compact title, with a hairline.
+private struct ProfileCollapsedNavBackground: View {
+    let progress: CGFloat
+    let height: CGFloat
+    let reduceTransparency: Bool
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            if reduceTransparency {
+                Rectangle().fill(Color(uiColor: .systemBackground))
+            } else {
+                Rectangle().fill(.bar)
+            }
+            Rectangle()
+                .fill(Color.primary.opacity(0.14))
+                .frame(height: 1 / UIScreen.main.scale)
+        }
+        .frame(height: height)
+        .frame(maxWidth: .infinity)
+        .opacity(progress)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
 }
