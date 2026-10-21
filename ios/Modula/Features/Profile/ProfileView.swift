@@ -222,7 +222,8 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     ModulaScrollProgressReader()
                     content
-                        .padding(.bottom, shellChromeMetrics.contentBottomInset)
+                        // Clear the tab bar + home indicator so the last post never hides under chrome.
+                        .padding(.bottom, shellChromeMetrics.contentBottomInset + 64)
                 }
             }
             .modulaScrollProgressTracking(collapseDistance: 96, progress: $headerProgress)
@@ -507,13 +508,6 @@ struct ProfileView: View {
                 contextActions: avatarActions(profile),
                 onContextAction: { handleContextAction($0, profile: profile) }
             )
-            .overlay(alignment: .trailing) {
-                if isOwnProfile && showProfileMascot {
-                    ProfileMascotChip(size: 30)
-                        .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
-                        .accessibilityIdentifier("profile.mascot")
-                }
-            }
         }
     }
 
@@ -560,7 +554,8 @@ struct ProfileView: View {
     @ViewBuilder
     private func highlights(_ profile: ModulaProfile) -> some View {
         let items = highlightItems(profile)
-        if !items.isEmpty {
+        // A lone "+ New" isn't a highlights row; show it only beside real stories.
+        if items.contains(where: { $0.id != "new" }) {
             ProfileHighlightsRow(items: items, tint: heroTint)
         }
     }
@@ -637,7 +632,7 @@ struct ProfileView: View {
     // MARK: - Sticky shelf (Posts / Media / Modules / Saved·Liked)
 
     private var shelfTabs: [ProfileShelfTab] {
-        isOwnProfile ? [.posts, .media, .modules, .saved] : [.posts, .media, .modules, .liked]
+        isOwnProfile ? [.posts, .replies, .media, .reels, .modules, .liked, .saved] : [.posts, .replies, .media, .reels, .modules, .liked]
     }
 
     private func shelfBar(_ profile: ModulaProfile) -> some View {
@@ -646,6 +641,7 @@ struct ProfileView: View {
         let stickTop = ProfileFullBleedMetrics.windowSafeAreaTop + 52
         let reduce = ModulaEffectGate.reduceMotion(systemReduceMotion)
         return HStack(spacing: 10) {
+            ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 2) {
                 ForEach(tabs) { tab in
                     let isSelected = tab == selected
@@ -657,14 +653,9 @@ struct ProfileView: View {
                         HapticEngine.shared.play(.selection)
                     } label: {
                         HStack(spacing: 6) {
-                            Image(systemName: tab.symbol)
+                            Text(tab.title)
                                 .font(.subheadline.weight(.semibold))
-                            if isSelected {
-                                Text(tab.title)
-                                    .font(.subheadline.weight(.semibold))
-                                    .lineLimit(1)
-                                    .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .leading)))
-                            }
+                                .lineLimit(1)
                         }
                         .foregroundStyle(isSelected ? heroTint : Color.secondary)
                         .padding(.horizontal, isSelected ? 14 : 12)
@@ -685,11 +676,10 @@ struct ProfileView: View {
                 }
             }
             .padding(3)
+            }
             .modulaGlass(in: Capsule(), interactive: false, specular: true)
 
-            Spacer(minLength: 0)
-
-            if selected.usesLayout {
+            if selected == .posts {
                 ProfilePostLayoutToggle(layout: postLayout, tint: heroTint)
                     .padding(2)
                     .modulaGlass(in: Capsule(), interactive: false)
@@ -717,6 +707,11 @@ struct ProfileView: View {
             switch selected {
             case .posts: postsShelf(profile, mediaOnly: false)
             case .media: postsShelf(profile, mediaOnly: true)
+            case .reels: postsShelf(profile, mediaOnly: true, videoOnly: true)
+            case .replies:
+                // Stub: profile posts carry no reply/parent field, so replies can't be listed yet.
+                ModulaEmptyState(title: "Replies", message: "Replies by this profile will show here once the API exposes them.", symbol: "arrowshape.turn.up.left")
+                    .padding(.vertical, 8)
             case .modules: modulesTab(profile)
             case .saved: savedShelf
             case .liked: likedShelf
@@ -727,6 +722,19 @@ struct ProfileView: View {
             insertion: .opacity.combined(with: .offset(y: 10)),
             removal: .opacity
         ))
+        // Swipe between tabs.
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 30)
+                .onEnded { value in
+                    let dx = value.translation.width, dy = value.translation.height
+                    guard abs(dx) > 70, abs(dx) > abs(dy) * 2,
+                          let index = shelfTabs.firstIndex(of: selected) else { return }
+                    let next = dx < 0 ? index + 1 : index - 1
+                    guard shelfTabs.indices.contains(next) else { return }
+                    withAnimation(ModulaEffectGate.reduceMotion(systemReduceMotion) ? nil : .snappy) { shelf = shelfTabs[next] }
+                    HapticEngine.shared.play(.selection)
+                }
+        )
         .task(id: selected) {
             guard selected == .modules else { return }
             await app.profile.loadModulesIfNeeded(
@@ -738,16 +746,17 @@ struct ProfileView: View {
         }
     }
 
-    private func postsShelf(_ profile: ModulaProfile, mediaOnly: Bool) -> some View {
+    private func postsShelf(_ profile: ModulaProfile, mediaOnly: Bool, videoOnly: Bool = false) -> some View {
         let all = session.posts.items.isEmpty ? session.overviewPreviewPosts : session.posts.items
-        let items = mediaOnly ? all.filter { $0.hasMedia } : all
+        let media = mediaOnly ? all.filter { $0.hasMedia } : all
+        let items = videoOnly ? media.filter { [.video, .movie].contains($0.kind) } : media
         return VStack(alignment: .leading, spacing: 12) {
             if items.isEmpty {
                 if case .loading = session.posts.loadState {
                     ProfilePostGridSkeleton()
                 } else if mediaOnly {
                     ModulaEmptyState(
-                        title: "No media yet",
+                        title: videoOnly ? "No reels yet" : "No media yet",
                         message: isOwnProfile
                             ? "Photos and videos you post will collect here."
                             : "Photos and videos from this profile will appear here.",
@@ -757,7 +766,7 @@ struct ProfileView: View {
                 } else {
                     emptyPosts(isOwn: isOwnProfile, compact: true)
                 }
-            } else if postLayout.wrappedValue == .grid {
+            } else if mediaOnly || postLayout.wrappedValue == .grid {
                 ProfilePostGrid(
                     posts: items,
                     tint: heroTint,
@@ -849,16 +858,28 @@ struct ProfileView: View {
         }
     }
 
+    /// Compact inline stats (X / Threads style); each count opens its list.
     private func metrics(_ profile: ModulaProfile) -> some View {
-        ProfileActionsRow(
-            profile: profile,
-            selected: section == .overview ? nil : section,
-            showsModules: true,
-            onPosts: { openSection(.posts) },
-            onFollowers: { openSection(.followers) },
-            onFollowing: { openSection(.following) },
-            onModules: { openSection(.modules) }
-        )
+        HStack(spacing: 16) {
+            statLink(profile.postCount, "posts") { openSection(.posts) }
+            statLink(profile.followerCount, profile.followerCount == 1 ? "follower" : "followers") { openSection(.followers) }
+            statLink(profile.followingCount, "following") { openSection(.following) }
+            Spacer(minLength: 0)
+        }
+        .accessibilityIdentifier("profile.stats")
+    }
+
+    private func statLink(_ value: Int, _ label: String, action: @escaping () -> Void) -> some View {
+        Button {
+            HapticEngine.shared.play(.selection)
+            action()
+        } label: {
+            (Text(ModulaCountFormat.compact(value) ?? "0").font(.subheadline.weight(.bold)).foregroundStyle(.primary)
+             + Text(" \(label)").font(.subheadline).foregroundStyle(.secondary))
+                .monospacedDigit()
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(value) \(label)")
     }
 
     private func availableTabs(_ profile: ModulaProfile) -> [ProfileContentTab] {
@@ -1736,24 +1757,28 @@ private struct ProfileActivityShareView: UIViewControllerRepresentable {
 /// Sticky profile shelf tabs. Posts / Media / Modules are real data; Saved (own) opens
 /// the Saved library; Liked (others) is a stub until likes are public.
 private enum ProfileShelfTab: String, Hashable, Identifiable {
-    case posts, media, modules, saved, liked
+    case posts, replies, media, reels, modules, saved, liked
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .posts: "Posts"
+        case .replies: "Replies"
         case .media: "Media"
+        case .reels: "Reels"
         case .modules: "Modules"
         case .saved: "Saved"
-        case .liked: "Liked"
+        case .liked: "Likes"
         }
     }
 
     var symbol: String {
         switch self {
         case .posts: "square.grid.2x2"
+        case .replies: "arrowshape.turn.up.left"
         case .media: "photo.on.rectangle"
+        case .reels: "play.rectangle"
         case .modules: "shippingbox"
         case .saved: "bookmark"
         case .liked: "heart"
