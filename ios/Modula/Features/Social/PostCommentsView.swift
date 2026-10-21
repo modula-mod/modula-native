@@ -399,6 +399,8 @@ struct PostCommentsView: View {
     var commentCount: Int? = nil
     /// Post author id — used to badge OP comments when present.
     var postAuthorID: String? = nil
+    /// Bumped by the host (post detail) to scroll to the conversation and focus the composer.
+    var focusComposerRequest: Int = 0
 
     @Environment(AppEnvironment.self) private var app
     @State private var store: PostCommentsStore?
@@ -443,7 +445,7 @@ struct PostCommentsView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 20) {
                         if let header { header }
-                        if !isSheet { conversationHeader }
+                        if !isSheet { conversationHeader.id("post.comments.anchor") }
                         content
                     }
                     .padding(.horizontal, ModulaLayout.contentInset)
@@ -463,6 +465,12 @@ struct PostCommentsView: View {
                         proxy.scrollTo(id, anchor: .center)
                     }
                     scrollTarget = nil
+                }
+                .onChange(of: focusComposerRequest) { _, _ in
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.86)) {
+                        proxy.scrollTo("post.comments.anchor", anchor: .top)
+                    }
+                    composerFocused = true
                 }
             }
             // Drag images in from other apps (iPad split view / iPhone drag between apps).

@@ -11,7 +11,7 @@ struct PostDetailView: View {
     @State private var post: SocialPost?
     @State private var loadError: String?
     @State private var isLoading = true
-    @State private var showsCommentsSheet = false
+    @State private var focusComposerRequest = 0
     @State private var showsShareSheet = false
     @State private var attachmentViewerItem: ModulaAttachment?
     @State private var confirmDelete = false
@@ -42,9 +42,6 @@ struct PostDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .task(id: postID) { await load() }
-        .sheet(isPresented: $showsCommentsSheet) {
-            PostCommentsSheet(postID: postID, commentCount: post?.replyCount, postAuthorID: post?.author?.id)
-        }
         .sheet(isPresented: $showsShareSheet) {
             if let post {
                 PostShareSheet(post: post) {
@@ -85,12 +82,17 @@ struct PostDetailView: View {
                     unavailable(loadError)
                 } else if let base = post {
                     let resolved = app.posts.resolved(base)
-                    PostCommentsView(postID: postID, header: AnyView(
-                        VStack(alignment: .leading, spacing: 20) {
-                            detailChrome(resolved)
-                            Divider().opacity(0.45)
-                        }
-                    ))
+                    PostCommentsView(
+                        postID: postID,
+                        header: AnyView(
+                            VStack(alignment: .leading, spacing: 14) {
+                                detailChrome(resolved)
+                                engagementSummary(resolved)
+                                Divider().opacity(0.45)
+                            }
+                        ),
+                        focusComposerRequest: focusComposerRequest
+                    )
                 }
         }
         .modulaSoftScrollEdge()
@@ -136,40 +138,51 @@ struct PostDetailView: View {
         return "Post"
     }
 
-    @ViewBuilder
+    /// Same shell as the Home feed (ImmersivePostCard): reaction dock + emoji/colours, repost,
+    /// bookmark, share, double-tap to like and the "…" menu. Comments live inline below, so the
+    /// comment button is dropped and any comment intent focuses the inline composer.
     private func detailChrome(_ post: SocialPost) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            PostHeader(
-                post: post,
-                onOpenAuthor: { openAuthor(post) },
-                makeMenuRequest: { menuRequest(for: post, anchor: $0) }
-            )
-            PostRendererRegistry.content(
-                for: post,
-                presentation: .detail,
-                onOpenMedia: { attachmentViewerItem = ModulaPostMapper.attachment($0) },
-                onOpenModule: { module in
-                    app.navigation.push(.productHub(.module(module.id, .overview)))
-                    HapticEngine.shared.play(.navigation)
+        ImmersivePostCard(
+            post: post,
+            isOwnPost: isOwn,
+            onOpenPost: {},
+            onOpenAuthor: { openAuthor(post) },
+            onLike: {
+                if !post.liked { ModulaMascotEvent.post(.like) }
+                Task { await app.postActions.toggleLike(post); app.home.syncVisibleEngagement() }
+            },
+            onComment: { focusComposer() },
+            onRepost: {
+                ModulaMascotEvent.post(.repost)
+                Task { await app.postActions.toggleRepost(post); app.home.syncVisibleEngagement() }
+            },
+            onSave: {
+                if !post.saved { ModulaMascotEvent.post(.save) }
+                Task { await app.postActions.toggleSave(post); app.home.syncVisibleEngagement() }
+            },
+            onShare: {
+                ModulaMascotEvent.post(.share)
+                if PostSharing.method() == .modulaSheet {
+                    showsShareSheet = true
+                } else {
+                    PostSharing.share(post, app: app)
                 }
-            )
-            PostActions(
-                post: post,
-                onLike: { Task { await app.postActions.toggleLike(post) } },
-                onComment: { showsCommentsSheet = true },
-                onRepost: { Task { await app.postActions.toggleRepost(post) } },
-                onSave: { Task { await app.postActions.toggleSave(post) } },
-                onShare: {
-                    // Settings → Sharing: copy link / iOS share sheet go straight there;
-                    // otherwise this screen's share panel opens.
-                    if PostSharing.method() == .modulaSheet {
-                        showsShareSheet = true
-                    } else {
-                        PostSharing.share(post, app: app)
-                    }
-                }
-            )
-        }
+            },
+            onContextAction: { handleContext($0, post: post) },
+            onOpenMedia: { attachmentViewerItem = ModulaPostMapper.attachment($0) },
+            onOpenModule: { module in
+                app.navigation.push(.productHub(.module(module.id, .overview)))
+                HapticEngine.shared.play(.navigation)
+            },
+            showsCommentAffordances: false
+        )
+        .padding(.horizontal, -ModulaLayout.contentInset)
+        .padding(.horizontal, ModulaLayout.postBleedGutter)
+    }
+
+    private func focusComposer() {
+        HapticEngine.shared.play(.selection)
+        focusComposerRequest += 1
     }
 
     private func engagementSummary(_ post: SocialPost) -> some View {
@@ -184,9 +197,13 @@ struct PostDetailView: View {
                 .buttonStyle(.plain)
             }
             if post.replyCount > 0 {
-                Text("\(post.replyCount) comments")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Button(action: focusComposer) {
+                    Text(post.replyCount == 1 ? "1 comment" : "\(post.replyCount) comments")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("post.detail.comments.count")
             }
             if post.repostCount > 0 {
                 Button {

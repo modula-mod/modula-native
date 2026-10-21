@@ -356,91 +356,6 @@ struct DiscoverTopicShelf: View {
     }
 }
 
-struct DiscoverPostCard: View {
-    let post: DiscoverPost
-    var action: () -> Void
-    @Environment(AppEnvironment.self) private var app
-    @Environment(\.modulaHeroScope) private var heroScope
-
-    private var resolvedEngagement: PostEngagement? {
-        app.posts.post(id: post.id)?.engagement
-    }
-
-    var body: some View {
-        Button {
-            ModulaHeroMorph.arm(ModulaHeroMorph.sourceID(scope: heroScope, kind: "post", key: post.id), for: .post(post.id, .root))
-            action()
-        } label: {
-            VStack(alignment: .leading, spacing: 10) {
-                if let author = post.author {
-                    HStack(spacing: 10) {
-                        ModulaAvatar(initials: author.initials, url: author.avatarURL, size: 36)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(author.displayName).font(.subheadline.weight(.semibold)).lineLimit(1)
-                            Text("@\(author.handle)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                        }
-                        Spacer()
-                        if let date = post.createdAt {
-                            Text(ActivityRelativeTime.string(from: date))
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
-                }
-                if let text = post.text {
-                    Text(text)
-                        .font(.body)
-                        .foregroundStyle(.primary)
-                        .lineLimit(5)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                if let media = post.media {
-                    DiscoverMediaPreview(media: media)
-                }
-                HStack(spacing: 8) {
-                    let likes = resolvedEngagement?.likeCount ?? post.likeCount
-                    let replies = resolvedEngagement?.replyCount ?? post.replyCount
-                    let liked = resolvedEngagement?.liked == true
-                    if let likes {
-                        Label {
-                            Text("\(likes)").contentTransition(.numericText(value: Double(likes)))
-                        } icon: {
-                            Image(systemName: liked ? "heart.fill" : "heart")
-                                .foregroundStyle(liked ? Color.pink : Color.secondary)
-                                .symbolEffect(.bounce, value: liked)
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(Color.primary.opacity(0.05), in: Capsule())
-                    }
-                    if let replies {
-                        Label {
-                            Text("\(replies)").contentTransition(.numericText(value: Double(replies)))
-                        } icon: {
-                            Image(systemName: "bubble.right")
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(Color.primary.opacity(0.05), in: Capsule())
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
-            .padding(.vertical, 12 * app.appearance.density.spacingScale)
-            .padding(.horizontal, 14)
-            // One soft glass sheet per post instead of a grey box.
-            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
-            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .modulaHeroSource("post", key: post.id)
-        }
-        .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: nil))
-        .modulaScrollReveal()
-        .accessibilityLabel(post.text ?? "Post")
-        .accessibilityIdentifier("discover.post.\(post.id)")
-    }
-}
-
 struct DiscoverMediaPreview: View {
     let media: DiscoverPostMedia
 
@@ -483,7 +398,9 @@ struct DiscoverPostShelf: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Popular today").font(.title3.bold())
             ForEach(posts) { post in
-                DiscoverPostCard(post: post) { onOpen(post) }
+                SharedFeedPostCard(post: post.asSocialPost(), identifierPrefix: "discover")
+                    .padding(.horizontal, -ModulaLayout.contentInset)
+                    .padding(.horizontal, ModulaLayout.postBleedGutter)
             }
         }
     }
