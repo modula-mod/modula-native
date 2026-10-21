@@ -1024,6 +1024,7 @@ struct StoryTextSpec: Equatable, Sendable {
     var colorHex: String = "#FFFFFF"
     var background: StoryTextBackground = .none
     var alignment: StoryTextAlign = .center
+    var animation: StoryTextAnimation = .none
 }
 
 struct StoryLayer: Identifiable, Equatable {
@@ -1293,6 +1294,7 @@ struct StoryLayerView: View {
     var gif: UIImage?
     var isBaking = false
     var accent: Color = Color(hex: "#7656D6")
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         switch layer.content {
@@ -1322,6 +1324,7 @@ struct StoryLayerView: View {
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         case .text(let spec):
             textView(spec)
+                .modifier(StoryTextAnimationModifier(animation: spec.animation, enabled: !isBaking && !reduceMotion))
         case .location(let place):
             Label(place.uppercased(), systemImage: "mappin.and.ellipse")
                 .font(.system(size: 17, weight: .heavy, design: .rounded))
@@ -1639,6 +1642,10 @@ struct StoryCreateView: View {
     @State private var bgScaleBase: CGFloat?
     @State private var bgOffsetBase: CGSize?
     @State private var cutoutItems: [PhotosPickerItem] = []
+    @State private var videoTime: Double = 0
+    @State private var captions: [StoryCaption] = []
+    @State private var captioning = false
+    @State private var exporting = false
 
     // sticker sheet + forms
     @State private var stickerTab: StickerTab = .emoji
@@ -1789,12 +1796,14 @@ struct StoryCreateView: View {
 
     private var captureStage: some View {
         StoryCaptureStage(
-            canVideo: canPublishVideo,
+            // Recording is always local; publishing video still depends on the backend capability.
+            canVideo: true,
             libraryItems: $pickerItems,
             onPhoto: { image in Task { await accept(image: image) } },
             onVideo: { url in
-                if canPublishVideo {
+                do {
                     videoURL = url
+                    captions = []
                     sourceImage = nil
                     filteredPreview = nil
                     prepared = nil
@@ -1802,9 +1811,9 @@ struct StoryCreateView: View {
                     collageLayout = nil
                     showsCamera = false
                     HapticEngine.shared.play(.success)
-                } else {
-                    app.navigation.flash("Video, Boomerang and Hands-free stories are coming soon", symbol: "sparkles")
-                    HapticEngine.shared.play(.warning)
+                    if !canPublishVideo {
+                        app.navigation.flash("Video sharing is coming soon — you can still edit and save it to Photos", symbol: "video")
+                    }
                 }
             },
             onText: { startTextStory() },
@@ -1844,17 +1853,24 @@ struct StoryCreateView: View {
         GeometryReader { geo in
             ZStack {
                 if let videoURL {
-                    VStack(spacing: 12) {
-                        Image(systemName: "video.fill")
-                            .font(.system(size: 44, weight: .semibold))
-                            .foregroundStyle(.white)
-                        Text(videoURL.lastPathComponent)
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.7))
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color(white: 0.12))
+                    StoryLoopingVideo(url: videoURL) { videoTime = $0 }
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                        .overlay {
+                            if let line = captions.first(where: { videoTime >= $0.start && videoTime <= $0.end }) {
+                                StoryCaptionPill(text: line.text)
+                                    .position(x: geo.size.width / 2, y: geo.size.height * 0.8)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                        .overlay {
+                            if exporting || captioning {
+                                ProgressView(captioning ? "Captioning…" : "Exporting…")
+                                    .tint(.white).foregroundStyle(.white)
+                                    .padding(18)
+                                    .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            }
+                        }
                 } else {
                     StoryBackgroundView(
                         image: filteredPreview ?? sourceImage,
@@ -2013,6 +2029,11 @@ struct StoryCreateView: View {
                 }
                 toggle(.layout)
             }
+            if videoURL != nil {
+                railButton("captions.bubble", label: captions.isEmpty ? "Captions" : "Captions on", active: !captions.isEmpty) {
+                    if captions.isEmpty { Task { await makeCaptions() } } else { withAnimation(spring) { captions = [] } }
+                }
+            }
             railButton("arrow.down.to.line", label: "Save", active: false) {
                 Task { await saveToPhotos() }
             }
@@ -2169,6 +2190,16 @@ struct StoryCreateView: View {
                         HapticEngine.shared.play(.selection)
                     } label: { editorIcon(textSpec.background.symbol) }
                     .accessibilityLabel("Text background")
+                    Button {
+                        textSpec.animation = next(textSpec.animation)
+                        HapticEngine.shared.play(.selection)
+                    } label: { editorIcon(textSpec.animation.symbol) }
+                    .accessibilityLabel("Text animation: \(textSpec.animation.title)")
+                    if textSpec.animation != .none {
+                        Text(textSpec.animation.title)
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
+                    }
                     Spacer()
                     Button("Done") { commitText() }
                         .font(.headline)
@@ -2276,7 +2307,7 @@ struct StoryCreateView: View {
 
     private func beginText() {
         let layer = StoryLayer(id: UUID().uuidString, content: .text(StoryTextSpec(colorHex: textSpec.colorHex)), x: 0.5, y: 0.4)
-        textSpec = StoryTextSpec(style: textSpec.style, colorHex: textSpec.colorHex, background: textSpec.background, alignment: textSpec.alignment)
+        textSpec = StoryTextSpec(style: textSpec.style, colorHex: textSpec.colorHex, background: textSpec.background, alignment: textSpec.alignment, animation: textSpec.animation)
         withAnimation(spring) {
             layers.append(layer)
             editingTextID = layer.id
@@ -2946,6 +2977,8 @@ struct StoryCreateView: View {
         filter = StoryFilter.catalog[0]
         bgScale = 1
         bgOffset = .zero
+        captions = []
+        videoTime = 0
     }
 
     private func refilter() {
@@ -3050,7 +3083,81 @@ struct StoryCreateView: View {
         }
     }
 
+    private func makeCaptions() async {
+        guard let videoURL, !captioning else { return }
+        captioning = true
+        defer { captioning = false }
+        switch await StoryCaptioner.transcribe(videoURL) {
+        case .success(let lines) where !lines.isEmpty:
+            withAnimation(spring) { captions = lines }
+            HapticEngine.shared.play(.success)
+        case .success:
+            toast = StoryCaptionError.noSpeech.message
+        case .failure(let error):
+            toast = error.message
+            HapticEngine.shared.play(.failure)
+        }
+    }
+
+    private func renderOverlay<V: View>(_ view: V, size: CGSize) -> CGImage? {
+        let renderer = ImageRenderer(content: view.frame(width: size.width, height: size.height))
+        renderer.scale = 1080 / max(size.width, 1)
+        renderer.isOpaque = false
+        return renderer.cgImage
+    }
+
+    private func overlayView(_ subset: [StoryLayer], strokes: [StoryDrawStroke], size: CGSize) -> some View {
+        ZStack {
+            StoryDrawingCanvas(strokes: strokes)
+            ForEach(subset) { layer in
+                StoryLayerView(layer: layer, gif: gifImages[layer.id], isBaking: true, accent: accent)
+                    .scaleEffect(layer.scale)
+                    .rotationEffect(.degrees(layer.rotation))
+                    .position(x: layer.x * size.width, y: layer.y * size.height)
+            }
+        }
+        .frame(width: size.width, height: size.height)
+    }
+
+    /// Burns layers, drawings, animated text and captions into the video (on device).
+    private func exportVideo() async -> URL? {
+        guard let videoURL else { return nil }
+        let size = canvasSize
+        func animation(_ layer: StoryLayer) -> StoryTextAnimation {
+            if case .text(let spec) = layer.content { return spec.animation }
+            return .none
+        }
+        let still = layers.filter { animation($0) == .none }
+        let moving = layers.filter { animation($0) != .none }
+        let staticImage = (still.isEmpty && strokes.isEmpty) ? nil : renderOverlay(overlayView(still, strokes: strokes, size: size), size: size)
+        let animated: [StoryAnimatedOverlay] = moving.compactMap { layer in
+            renderOverlay(overlayView([layer], strokes: [], size: size), size: size).map {
+                StoryAnimatedOverlay(image: $0, animation: animation(layer), center: CGPoint(x: layer.x * size.width, y: layer.y * size.height))
+            }
+        }
+        let captionImages: [StoryCaptionOverlay] = captions.compactMap { line in
+            renderOverlay(StoryCaptionPill(text: line.text).position(x: size.width / 2, y: size.height * 0.8), size: size).map {
+                StoryCaptionOverlay(image: $0, start: line.start, end: line.end)
+            }
+        }
+        exporting = true
+        defer { exporting = false }
+        if staticImage == nil, animated.isEmpty, captionImages.isEmpty { return videoURL }
+        return try? await StoryVideoExporter.export(video: videoURL, canvas: size, staticOverlay: staticImage, animated: animated, captions: captionImages, captionCenterY: 0.8)
+    }
+
     private func saveToPhotos() async {
+        if videoURL != nil {
+            guard let url = await exportVideo() else {
+                app.navigation.flash("Couldn’t export that video", symbol: "exclamationmark.triangle")
+                HapticEngine.shared.play(.failure)
+                return
+            }
+            let saved = await StoryVideoExporter.saveToPhotos(url)
+            app.navigation.flash(saved ? "Video saved to Photos" : "Couldn’t save to Photos", symbol: saved ? "photo.badge.checkmark" : "exclamationmark.triangle")
+            HapticEngine.shared.play(saved ? .saveComplete : .failure)
+            return
+        }
         bakeTask?.cancel()
         await bakePrepared()
         guard let prepared else {
