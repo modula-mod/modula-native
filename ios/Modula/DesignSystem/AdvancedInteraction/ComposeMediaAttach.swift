@@ -134,8 +134,15 @@ struct ComposeMediaAttachStage: View {
     var onPhotosPicked: ([PhotosPickerItem]) -> Void
     var onCameraPhoto: (UIImage) -> Void
     var onCameraVideo: ((URL) -> Void)? = nil
+    /// When set, the Library tab shows the in-app PhotoKit grid instead of the system picker.
+    var photoLibrary: ModulaPhotoLibraryModel? = nil
+    var onAssetsPicked: (([PHAsset]) -> Void)? = nil
+    /// When set, the Camera tab opens the full-screen camera instead of the inline card.
+    var onOpenCamera: (() -> Void)? = nil
 
     @State private var pickerItems: [PhotosPickerItem] = []
+    @State private var gridSelection: [String] = []
+    @State private var gridExpanded = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var scheme
 
@@ -170,6 +177,21 @@ struct ComposeMediaAttachStage: View {
             }
         }
         .animation(motion, value: stage)
+        .sheet(isPresented: $gridExpanded) {
+            if let photoLibrary {
+                NavigationStack {
+                    gridView(photoLibrary, expandable: false)
+                        .padding(.horizontal, 2)
+                        .navigationTitle("Library")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) { Button("Close") { gridExpanded = false } }
+                        }
+                }
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+            }
+        }
         .onChange(of: pickerItems) { _, items in
             guard !items.isEmpty else { return }
             onPhotosPicked(items)
@@ -182,7 +204,11 @@ struct ComposeMediaAttachStage: View {
         HStack(spacing: 10) {
             ForEach(ComposeMediaAttachMode.allCases.filter { modeFilter($0) }) { item in
                 Button {
+                    if item == .camera, let onOpenCamera {
+                    onOpenCamera()
+                } else {
                     withAnimation(motion) { stage = .expanding(item) }
+                }
                     HapticEngine.shared.play(.selection)
                 } label: {
                     HStack(spacing: 6) {
@@ -251,7 +277,43 @@ struct ComposeMediaAttachStage: View {
         }
     }
 
+    private func gridView(_ model: ModulaPhotoLibraryModel, expandable: Bool) -> some View {
+        ModulaPhotoGrid(
+            model: model,
+            selection: $gridSelection,
+            maxSelection: maxSelectionCount,
+            accent: accent,
+            showsCameraTile: UIImagePickerController.isSourceTypeAvailable(.camera),
+            onCamera: {
+                gridExpanded = false
+                if let onOpenCamera { onOpenCamera() } else { withAnimation(motion) { stage = .expanding(.camera) } }
+            },
+            onExpand: expandable ? { gridExpanded = true } : nil,
+            onAdd: {
+                let ids = gridSelection
+                let fetched = PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil)
+                var byID: [String: PHAsset] = [:]
+                fetched.enumerateObjects { asset, _, _ in byID[asset.localIdentifier] = asset }
+                onAssetsPicked?(ids.compactMap { byID[$0] })
+                gridSelection = []
+                gridExpanded = false
+                withAnimation(motion) { stage = .collapsed }
+                HapticEngine.shared.play(.success)
+            }
+        )
+    }
+
+    @ViewBuilder
     private var librarySurface: some View {
+        if let photoLibrary, onAssetsPicked != nil {
+            gridView(photoLibrary, expandable: true)
+                .frame(height: height)
+        } else {
+            legacyLibrarySurface
+        }
+    }
+
+    private var legacyLibrarySurface: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Pick photos or videos. Modula only sees what you choose.")
                 .font(.footnote)
