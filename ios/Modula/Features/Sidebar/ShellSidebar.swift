@@ -95,9 +95,14 @@ struct ShellSidebarContainer<Content: View>: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var scheme
-    /// Live finger translation; reset to 0 inside the settling animation.
-    @State private var drag: CGFloat = 0
-    @State private var dragging = false
+    /// Live finger translation. `@GestureState` resets automatically when the gesture ends
+    /// *or is cancelled* (system edge swipe, scroll view stealing the touch, app backgrounding),
+    /// so the card can never be left parked half-open with `presented == false`.
+    @GestureState(resetTransaction: Transaction(animation: ShellSidebarContainer.settleSpring))
+    private var drag: CGFloat = 0
+    @GestureState private var dragging = false
+
+    static var settleSpring: Animation { .interpolatingSpring(mass: 1, stiffness: 320, damping: 32) }
 
     static var cardCornerRadius: CGFloat { 48 }
 
@@ -154,8 +159,8 @@ struct ShellSidebarContainer<Content: View>: View {
                                 .contentShape(Rectangle())
                                 .offset(x: reduceMotion ? 0 : offset)
                                 .ignoresSafeArea()
-                                .onTapGesture { close(haptic: true) }
-                                .gesture(closeDrag(width: width))
+                                .highPriorityGesture(closeDrag(width: width))
+                                .simultaneousGesture(TapGesture().onEnded { close(haptic: true) })
                                 .accessibilityLabel("Close sidebar")
                                 .accessibilityIdentifier("shell.sidebar.scrim")
                                 .accessibilityAddTraits(.isButton)
@@ -199,46 +204,45 @@ struct ShellSidebarContainer<Content: View>: View {
     }
 
     private var settle: Animation {
-        reduceMotion ? .easeInOut(duration: 0.2) : .interpolatingSpring(mass: 1, stiffness: 320, damping: 32)
+        reduceMotion ? .easeInOut(duration: 0.2) : Self.settleSpring
     }
 
     private func openDrag(width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 8, coordinateSpace: .global)
-            .onChanged { value in
+            .updating($dragging) { value, state, _ in
+                if value.startLocation.x < 30 { state = true }
+            }
+            .updating($drag) { value, state, transaction in
                 guard value.startLocation.x < 30 else { return }
-                if !dragging { dragging = true }
-                var t = Transaction(); t.disablesAnimations = true
-                withTransaction(t) { drag = max(0, value.translation.width) }
+                transaction.disablesAnimations = true
+                state = min(max(0, value.translation.width), width)
             }
             .onEnded { value in
+                guard value.startLocation.x < 30 else { return }
                 let open = Self.shouldEndOpen(translation: value.translation.width,
                                               predicted: value.predictedEndTranslation.width,
                                               startOpen: false, width: width)
                 withAnimation(settle) {
-                    drag = 0
-                    if open { app.navigation.presentSidebar() }
+                    if open { app.navigation.presentSidebar() } else { app.navigation.dismissSidebar() }
                 }
-                dragging = false
                 if open { HapticEngine.shared.play(.contextOpen) }
             }
     }
 
     private func closeDrag(width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 6, coordinateSpace: .global)
-            .onChanged { value in
-                if !dragging { dragging = true }
-                var t = Transaction(); t.disablesAnimations = true
-                withTransaction(t) { drag = min(0, value.translation.width) }
+            .updating($dragging) { _, state, _ in state = true }
+            .updating($drag) { value, state, transaction in
+                transaction.disablesAnimations = true
+                state = max(min(0, value.translation.width), -width)
             }
             .onEnded { value in
                 let open = Self.shouldEndOpen(translation: value.translation.width,
                                               predicted: value.predictedEndTranslation.width,
                                               startOpen: true, width: width)
                 withAnimation(settle) {
-                    drag = 0
-                    if !open { app.navigation.dismissSidebar() }
+                    if open { app.navigation.presentSidebar() } else { app.navigation.dismissSidebar() }
                 }
-                dragging = false
                 if !open { HapticEngine.shared.play(.navigation) }
             }
     }
