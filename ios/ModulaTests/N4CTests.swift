@@ -584,14 +584,20 @@ final class MediaPipelineTests: XCTestCase {
 }
 
 final class MessagingCapabilityHonestyTests: XCTestCase {
-    func testProductionCapabilitiesStayClosedUntilVPS() {
-        XCTAssertFalse(MessagingBackendCapabilities.production.listConversations)
-        XCTAssertFalse(MessagingBackendCapabilities.production.send)
+    func testProductionCapabilitiesMatchLiveVPSRoutes() {
+        // Live since backend migration 075_greenfield_messaging.
+        XCTAssertTrue(MessagingBackendCapabilities.production.listConversations)
+        XCTAssertTrue(MessagingBackendCapabilities.production.send)
+        XCTAssertTrue(MessagingBackendCapabilities.production.messageRequests)
+        XCTAssertTrue(MessagingBackendCapabilities.production.readReceipts)
+        XCTAssertTrue(InMailBackendCapabilities.production.list)
+        XCTAssertTrue(InMailBackendCapabilities.production.reply)
+        // Still not implemented server-side.
         XCTAssertFalse(MessagingBackendCapabilities.production.realtime)
-        XCTAssertFalse(MessagingBackendCapabilities.production.readReceipts)
         XCTAssertFalse(MessagingBackendCapabilities.production.attachments)
-        XCTAssertFalse(InMailBackendCapabilities.production.list)
+        XCTAssertFalse(MessagingBackendCapabilities.production.typing)
         XCTAssertFalse(InMailBackendCapabilities.production.privacySettings)
+        XCTAssertFalse(InMailBackendCapabilities.production.serverSearch)
         XCTAssertTrue(StoryBackendCapabilities.production.list)
         XCTAssertTrue(StoryBackendCapabilities.production.create)
         XCTAssertTrue(ReelBackendCapabilities.production.seedList)
