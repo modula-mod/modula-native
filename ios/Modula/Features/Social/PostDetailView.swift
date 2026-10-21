@@ -174,10 +174,11 @@ struct PostDetailView: View {
                 app.navigation.push(.productHub(.module(module.id, .overview)))
                 HapticEngine.shared.play(.navigation)
             },
-            showsCommentAffordances: false
+            showsCommentAffordances: false,
+            style: .detail
         )
+        // Flush, full-width: bleed past the list's content inset with no gutter.
         .padding(.horizontal, -ModulaLayout.contentInset)
-        .padding(.horizontal, ModulaLayout.postBleedGutter)
     }
 
     private func focusComposer() {
@@ -187,29 +188,23 @@ struct PostDetailView: View {
 
     private func engagementSummary(_ post: SocialPost) -> some View {
         HStack(spacing: 16) {
-            if post.likeCount > 0 {
+            // Same number the heart shows (reactions include likes); comment total lives in the
+            // Comments header so the two can't disagree.
+            let reactions = max(post.reactionCount, post.likeCount)
+            if reactions > 0 {
                 Button {
                     app.navigation.open(.post(postID, .likes))
                 } label: {
-                    Text("\(post.likeCount) likes")
+                    Text(reactions == 1 ? "1 like" : "\(reactions) likes")
                         .font(.subheadline.weight(.semibold))
                 }
                 .buttonStyle(.plain)
-            }
-            if post.replyCount > 0 {
-                Button(action: focusComposer) {
-                    Text(post.replyCount == 1 ? "1 comment" : "\(post.replyCount) comments")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("post.detail.comments.count")
             }
             if post.repostCount > 0 {
                 Button {
                     app.navigation.open(.post(postID, .shares))
                 } label: {
-                    Text("\(post.repostCount) reposts")
+                    Text(post.repostCount == 1 ? "1 repost" : "\(post.repostCount) reposts")
                         .font(.subheadline.weight(.semibold))
                 }
                 .buttonStyle(.plain)
