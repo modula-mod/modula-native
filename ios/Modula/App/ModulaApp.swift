@@ -16,6 +16,9 @@ struct ModulaApp: App {
                 // Web links anywhere in the app open in the Modula browser (Settings → Links).
                 .environment(\.openURL, OpenURLAction { url in ModulaLinkRouter.handle(url, source: nil) })
                 .onAppear {
+                    #if DEBUG
+                    MainThreadHangWatchdog.start()
+                    #endif
                     ModulaBrowserPresenter.shared.environment = environment
                     appDelegate.environment = environment
                     environment.refreshQuickActions()
@@ -125,3 +128,58 @@ final class ModulaAppDelegate: NSObject, UIApplicationDelegate {
         }
     }
 }
+
+#if DEBUG
+import Darwin
+
+/// DEBUG-only main-thread hang watchdog. When the main thread stops answering
+/// for >1.2 s it signals it repeatedly and appends the main-thread backtrace to
+/// Documents/hangs/hang-<ts>.txt (pull with `devicectl device copy from`).
+enum MainThreadHangWatchdog {
+    nonisolated(unsafe) static var fd: Int32 = -1
+    nonisolated(unsafe) static var mainThread: pthread_t?
+    nonisolated(unsafe) static var lastPong = Date()
+    nonisolated(unsafe) static var started = false
+
+    static func start() {
+        guard !started else { return }
+        started = true
+        mainThread = pthread_self()
+        signal(SIGUSR2) { _ in
+            var frames = [UnsafeMutableRawPointer?](repeating: nil, count: 128)
+            let n = backtrace(&frames, 128)
+            let header = "\n--- main thread sample ---\n"
+            _ = header.withCString { write(MainThreadHangWatchdog.fd, $0, strlen($0)) }
+            backtrace_symbols_fd(&frames, n, MainThreadHangWatchdog.fd)
+        }
+        let thread = Thread {
+            var hangSamples = 0
+            while true {
+                DispatchQueue.main.async { MainThreadHangWatchdog.lastPong = Date() }
+                Thread.sleep(forTimeInterval: 0.25)
+                let stalled = Date().timeIntervalSince(lastPong)
+                if stalled > 1.2 {
+                    if hangSamples == 0 { openFile() }
+                    if hangSamples < 12, fd >= 0, let main = mainThread {
+                        pthread_kill(main, SIGUSR2)
+                        hangSamples += 1
+                    }
+                } else if hangSamples > 0 {
+                    if fd >= 0 { close(fd); fd = -1 }
+                    hangSamples = 0
+                }
+            }
+        }
+        thread.name = "modula.hang-watchdog"
+        thread.qualityOfService = .userInteractive
+        thread.start()
+    }
+
+    private static func openFile() {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("hangs", isDirectory: true)
+        try? FileManager.default.createDirectory(at: docs, withIntermediateDirectories: true)
+        let path = docs.appendingPathComponent("hang-\(Int(Date().timeIntervalSince1970)).txt").path
+        fd = open(path, O_WRONLY | O_CREAT | O_APPEND, 0o644)
+    }
+}
+#endif
