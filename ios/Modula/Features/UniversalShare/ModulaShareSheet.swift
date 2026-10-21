@@ -64,10 +64,7 @@ struct ModulaShareSheet: View {
                 case .message:
                     // Capability already gated; open new message with identity context via route.
                     app.navigation.open(.messages(.new))
-                    app.navigation.banner = ModulaBanner(
-                        message: "Message \(person.displayName)",
-                        symbol: "bubble.left"
-                    )
+                    app.navigation.flash("Message \(person.displayName)", symbol: "bubble.left")
                 case .inMail:
                     var draft = ShareCoordinator.inMailPrefill(for: payload)
                     draft.toHandle = person.handle ?? person.id
@@ -107,7 +104,7 @@ struct ModulaShareSheet: View {
             } else if case .module(let id, _, _) = payload {
                 app.navigation.presented = .share(.productHub(.module(id, .overview)))
             } else {
-                app.navigation.banner = ModulaBanner(message: ShareCoordinator.copyLink(payload), symbol: "link")
+                app.navigation.flash(ShareCoordinator.copyLink(payload), symbol: "link")
             }
         case .messages:
             peopleMode = .message
@@ -118,7 +115,7 @@ struct ModulaShareSheet: View {
         case .saveToCollection:
             showCollectionPicker = true
         case .qr:
-            app.navigation.banner = ModulaBanner(message: "QR coming in a later polish pass", symbol: "qrcode")
+            app.navigation.flash("QR coming in a later polish pass", symbol: "qrcode")
             HapticEngine.shared.play(.selection)
         }
     }

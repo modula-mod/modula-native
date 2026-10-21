@@ -52,8 +52,8 @@ struct RootView: View {
         }
         .overlay {
             // Morphs from Dynamic Island (or notch/status fallback). Shared by every `flash`.
-            ModulaIslandBannerHost(banner: navigation.banner)
-                .ignoresSafeArea(edges: .top)
+            // Toasts render in ModulaToastWindow (above sheets); nothing to host here.
+            EmptyView()
         }
         .overlay(alignment: .top) {
             if debugOverlays { ModulaDebugOverlay(route: navigation.currentRoute) }

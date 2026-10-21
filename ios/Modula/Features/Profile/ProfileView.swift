@@ -1329,7 +1329,7 @@ struct ProfileView: View {
                     await app.postActions.toggleSave(resolved)
                     app.home.syncVisibleEngagement()
                 }
-                app.navigation.flash(resolved.saved ? "Removed from Saved" : "Saved", symbol: resolved.saved ? "bookmark.slash" : "bookmark.fill")
+                app.navigation.flash(resolved.saved ? "Removed from Bookmarks" : "Saved to Bookmarks", symbol: resolved.saved ? "bookmark.slash" : "bookmark.fill")
             },
             onShare: {
                 PostSharing.share(resolved, app: app)

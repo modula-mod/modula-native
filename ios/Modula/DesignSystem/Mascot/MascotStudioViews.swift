@@ -375,11 +375,7 @@ struct MascotStudioView: View {
     }
 
     private func showToast(_ text: String) {
-        withAnimation(.snappy) { toast = text }
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(1.8))
-            withAnimation(.snappy) { if toast == text { toast = nil } }
-        }
+        ModulaToastCenter.shared.show(text, symbol: "sparkles", tone: .info)
     }
 
     private func share() {

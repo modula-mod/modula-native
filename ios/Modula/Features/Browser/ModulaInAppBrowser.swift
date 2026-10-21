@@ -815,11 +815,7 @@ struct ModulaInAppBrowserView: View {
     // MARK: Actions
 
     private func show(_ message: String) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { toast = message }
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(1.8))
-            withAnimation(.easeOut(duration: 0.2)) { if toast == message { toast = nil } }
-        }
+        ModulaToastCenter.shared.show(message, symbol: "checkmark.circle")
     }
 
     private func copyLink() {

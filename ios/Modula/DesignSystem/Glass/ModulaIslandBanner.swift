@@ -493,3 +493,250 @@ private extension Comparable {
         min(max(self, range.lowerBound), range.upperBound)
     }
 }
+
+// MARK: - Unified toast system (PR K)
+//
+// One presenter for every confirmation in the app. Glass pill that grows out of
+// (just below) the Dynamic Island, never over the status bar. Duplicates
+// coalesce (×N + bump + timer reset), only one is visible, the rest queue.
+
+enum ModulaToastTone: Sendable {
+    case success, info, warning, error
+
+    var tint: Color {
+        switch self {
+        case .success: .green
+        case .info: .accentColor
+        case .warning: .orange
+        case .error: .red
+        }
+    }
+
+    /// Infer tone from the SF Symbol legacy `flash` callers pass.
+    static func infer(symbol: String) -> ModulaToastTone {
+        if symbol.contains("xmark.octagon") || symbol.contains("exclamationmark.octagon") { return .error }
+        if symbol.contains("exclamationmark") || symbol.contains("slash") && symbol.contains("wifi") { return .warning }
+        if symbol.contains("checkmark") || symbol.contains("fill") { return .success }
+        return .info
+    }
+}
+
+struct ModulaToast: Identifiable, Equatable {
+    let id = UUID()
+    var message: String
+    var symbol: String
+    var tone: ModulaToastTone
+    var actionTitle: String?
+    var action: (@MainActor () -> Void)?
+    var count = 1
+    var bump = 0
+
+    static func == (a: ModulaToast, b: ModulaToast) -> Bool {
+        a.id == b.id && a.count == b.count && a.bump == b.bump && a.message == b.message
+    }
+}
+
+@MainActor
+@Observable
+final class ModulaToastCenter {
+    static let shared = ModulaToastCenter()
+
+    private(set) var current: ModulaToast?
+    private var queue: [ModulaToast] = []
+    private var timer: Task<Void, Never>?
+    private(set) var paused = false
+
+    func show(_ message: String, symbol: String, tone: ModulaToastTone? = nil,
+              actionTitle: String? = nil, action: (@MainActor () -> Void)? = nil) {
+        ModulaToastWindow.installIfNeeded()
+        let resolvedTone = tone ?? ModulaToastTone.infer(symbol: symbol)
+        if var shown = current, shown.message == message {
+            shown.count += 1
+            shown.bump += 1
+            if let action { shown.action = action; shown.actionTitle = actionTitle }
+            current = shown
+            HapticEngine.shared.play(.selection)
+            restartTimer()
+            return
+        }
+        let toast = ModulaToast(message: message, symbol: symbol, tone: resolvedTone, actionTitle: actionTitle, action: action)
+        if current != nil {
+            if !queue.contains(where: { $0.message == message }) {
+                queue.append(toast)
+                if queue.count > 3 { queue.removeFirst() }
+            }
+            return
+        }
+        present(toast)
+    }
+
+    private func present(_ toast: ModulaToast) {
+        current = toast
+        AccessibilityNotification.Announcement(toast.actionTitle.map { "\(toast.message). \($0) available" } ?? toast.message).post()
+        switch toast.tone {
+        case .error, .warning: HapticEngine.shared.play(.lightImpact)
+        default: HapticEngine.shared.play(.selection)
+        }
+        restartTimer()
+    }
+
+    private func restartTimer() {
+        timer?.cancel()
+        guard !paused, let toast = current else { return }
+        let hold: Double = toast.action != nil ? 4.0 : 2.0
+        let id = toast.id
+        timer = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(hold))
+            guard !Task.isCancelled, self?.current?.id == id else { return }
+            self?.dismiss()
+        }
+    }
+
+    func setPaused(_ value: Bool) {
+        paused = value
+        if value { timer?.cancel() } else { restartTimer() }
+    }
+
+    func dismiss() {
+        timer?.cancel()
+        current = nil
+        guard !queue.isEmpty else { return }
+        let next = queue.removeFirst()
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(260))
+            guard self?.current == nil else { self?.queue.insert(next, at: 0); return }
+            self?.present(next)
+        }
+    }
+
+    func performAction() {
+        current?.action?()
+        dismiss()
+    }
+}
+
+struct ModulaToastHost: View {
+    @State private var center = ModulaToastCenter.shared
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @GestureState private var drag: CGFloat = 0
+    @State private var bumpScale: CGFloat = 1
+
+    private var calm: Bool { ModulaEffectGate.reduceMotion(systemReduceMotion) }
+
+    var body: some View {
+        GeometryReader { geo in
+            // Just below the island / notch, inside the safe area.
+            let top = max(geo.safeAreaInsets.top, 20) + 4
+            ZStack(alignment: .top) {
+                if let toast = center.current {
+                    pill(toast)
+                        .id(toast.id)
+                        .scaleEffect(bumpScale)
+                        .offset(y: min(drag, 0))
+                        .padding(.top, top)
+                        .padding(.horizontal, 24)
+                        .transition(calm
+                            ? .opacity
+                            : .asymmetric(
+                                insertion: .scale(scale: 0.35, anchor: .top).combined(with: .offset(y: -top * 0.6)).combined(with: .opacity),
+                                removal: .scale(scale: 0.5, anchor: .top).combined(with: .offset(y: -top * 0.6)).combined(with: .opacity)
+                            ))
+                        .gesture(swipe)
+                        .onLongPressGesture(minimumDuration: 0.05, maximumDistance: 30, pressing: { center.setPaused($0) }, perform: {})
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .ignoresSafeArea(edges: .top)
+            .animation(calm ? .easeOut(duration: 0.18) : .spring(response: 0.42, dampingFraction: 0.78), value: center.current?.id)
+            .onChange(of: center.current?.bump) { _, _ in
+                guard !calm else { return }
+                bumpScale = 1.06
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.55)) { bumpScale = 1 }
+            }
+        }
+    }
+
+    private var swipe: some Gesture {
+        DragGesture(minimumDistance: 6)
+            .updating($drag) { value, state, _ in state = value.translation.height }
+            .onEnded { value in
+                if value.translation.height < -16 || value.predictedEndTranslation.height < -40 {
+                    center.dismiss()
+                }
+            }
+    }
+
+    private func pill(_ toast: ModulaToast) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: toast.symbol)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(toast.tone.tint)
+                .symbolRenderingMode(.hierarchical)
+                .contentTransition(.symbolEffect(.replace))
+            Text(toast.message)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+            if toast.count > 1 {
+                Text("×\(toast.count)")
+                    .font(.caption.weight(.bold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
+            }
+            if let title = toast.actionTitle, toast.action != nil {
+                Button(title) { center.performAction() }
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(Color.accentColor)
+                    .buttonStyle(.plain)
+                    .padding(.leading, 4)
+            }
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 44)
+        .background {
+            if reduceTransparency {
+                Capsule(style: .continuous).fill(Color(uiColor: .secondarySystemBackground))
+            }
+        }
+        .modulaGlass(in: Capsule(style: .continuous))
+        .shadow(color: .black.opacity(0.18), radius: 14, y: 6)
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isStaticText)
+        .accessibilityIdentifier("shell.toast")
+        .accessibilityAction(named: "Dismiss") { center.dismiss() }
+    }
+}
+
+
+/// Passthrough overlay window so toasts sit above sheets and full-screen covers.
+@MainActor
+enum ModulaToastWindow {
+    private static var window: UIWindow?
+
+    static func installIfNeeded() {
+        guard window == nil,
+              let scene = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first(where: { $0.activationState == .foregroundActive }) ?? UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first
+        else { return }
+        let w = PassthroughToastWindow(windowScene: scene)
+        let host = UIHostingController(rootView: ModulaToastHost())
+        host.view.backgroundColor = .clear
+        w.rootViewController = host
+        w.windowLevel = .alert + 1
+        w.backgroundColor = .clear
+        w.isHidden = false
+        window = w
+    }
+}
+
+private final class PassthroughToastWindow: UIWindow {
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        guard let hit = super.hitTest(point, with: event) else { return nil }
+        // Only the pill itself takes touches; everything else falls through.
+        return hit === rootViewController?.view ? nil : hit
+    }
+}
