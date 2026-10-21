@@ -408,6 +408,7 @@
 		N5010000000000000000000B /* InMailViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000B /* InMailViews.swift */; };
 		N5010000000000000000000C /* StoryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000C /* StoryModels.swift */; };
 		N50100000000000000000FFD /* StoryCamera.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000FFD /* StoryCamera.swift */; };
+		N50100000000000000000FFE /* StoryVideo.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000FFE /* StoryVideo.swift */; };
 		N5010000000000000000000D /* StoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000D /* StoryViews.swift */; };
 		N5010000000000000000000E /* ReelModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000E /* ReelModels.swift */; };
 		N5010000000000000000000F /* ReelViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000F /* ReelViewer.swift */; };
@@ -875,6 +876,7 @@
 		N4010000000000000000000B /* InMailViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailViews.swift; path = Features/InMail/InMailViews.swift; sourceTree = "<group>"; };
 		N4010000000000000000000C /* StoryModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryModels.swift; path = Features/Stories/StoryModels.swift; sourceTree = "<group>"; };
 		N40100000000000000000FFD /* StoryCamera.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryCamera.swift; path = Features/Stories/StoryCamera.swift; sourceTree = "<group>"; };
+		N40100000000000000000FFE /* StoryVideo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryVideo.swift; path = Features/Stories/StoryVideo.swift; sourceTree = "<group>"; };
 		N4010000000000000000000D /* StoryViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryViews.swift; path = Features/Stories/StoryViews.swift; sourceTree = "<group>"; };
 		N4010000000000000000000E /* ReelModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelModels.swift; path = Features/Reels/ReelModels.swift; sourceTree = "<group>"; };
 		N4010000000000000000000F /* ReelViewer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelViewer.swift; path = Features/Reels/ReelViewer.swift; sourceTree = "<group>"; };
@@ -1118,6 +1120,7 @@
 				N4010000000000000000000B /* InMailViews.swift */,
 				N4010000000000000000000C /* StoryModels.swift */,
 				N4010000000000000000000D /* StoryViews.swift */,
+				N40100000000000000000FFE /* StoryVideo.swift */,
 				N40100000000000000000FFD /* StoryCamera.swift */,
 				N4010000000000000000000E /* ReelModels.swift */,
 				N4010000000000000000000F /* ReelViewer.swift */,
@@ -1900,6 +1903,7 @@
 				N5010000000000000000000B /* InMailViews.swift in Sources */,
 				N5010000000000000000000C /* StoryModels.swift in Sources */,
 				N5010000000000000000000D /* StoryViews.swift in Sources */,
+				N50100000000000000000FFE /* StoryVideo.swift in Sources */,
 				N50100000000000000000FFD /* StoryCamera.swift in Sources */,
 				N5010000000000000000000E /* ReelModels.swift in Sources */,
 				N5010000000000000000000F /* ReelViewer.swift in Sources */,

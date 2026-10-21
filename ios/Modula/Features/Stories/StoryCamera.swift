@@ -11,7 +11,7 @@ import Vision
 // segmentation (portrait blur / green screen) and Vision face tracking for face effects.
 
 enum StoryCaptureMode: String, CaseIterable, Identifiable, Sendable {
-    case text = "Create", photo = "Photo", video = "Video", boomerang = "Boomerang", handsFree = "Hands-free", layout = "Layout"
+    case text = "Create", photo = "Photo", video = "Video", boomerang = "Boomerang", handsFree = "Hands-free", ar = "AR", layout = "Layout"
     var id: String { rawValue }
 }
 
@@ -369,20 +369,48 @@ struct StoryCaptureStage: View {
     @State private var zoomBase: CGFloat = 1
     @State private var pinchBase: CGFloat?
     @State private var backdropItems: [PhotosPickerItem] = []
+    // Multi-clip video
+    @State private var clips: [StoryClip] = []
+    @State private var speed: StoryClipSpeed = .normal
+    @State private var merging = false
+    // AR world stickers
+    @StateObject private var ar = StoryARController()
+    @State private var arSticker = "✨"
+    private static let arStickers = ["✨", "💜", "🔥", "🎉", "🌟", "🦋", "🍕", "👑", "🫧", "😍"]
+    private var clipsTotal: Double { clips.reduce(0) { $0 + $1.seconds / $1.speed } }
 
     private var modes: [StoryCaptureMode] {
-        canVideo ? StoryCaptureMode.allCases : StoryCaptureMode.allCases.filter { $0 != .video }
+        StoryCaptureMode.allCases.filter { item in
+            if item == .video, !canVideo { return false }
+            if item == .ar, !StoryARController.isSupported { return false }
+            return true
+        }
     }
     private var accent: Color { app.appearance.accent.color }
-    private var recordLimit: Double { mode == .boomerang ? 1.5 : 60 }
+    private var recordLimit: Double {
+        switch mode {
+        case .boomerang: 1.5
+        case .video: max(60 - clips.reduce(0) { $0 + $1.seconds }, 1)
+        default: 60
+        }
+    }
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            preview
-                .ignoresSafeArea()
-                .gesture(pinchGesture)
-                .gesture(swipeFilterGesture)
+            if mode == .ar {
+                StoryARView(controller: ar)
+                    .ignoresSafeArea()
+            } else {
+                preview
+                    .ignoresSafeArea()
+                    .gesture(pinchGesture)
+                    .gesture(swipeFilterGesture)
+            }
+            if merging {
+                ProgressView("Joining clips…").tint(.white).foregroundStyle(.white)
+                    .padding(18).modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
             if screenFlash { Color.white.ignoresSafeArea().transition(.opacity) }
             if let countdown {
                 Text("\(countdown)")
@@ -405,7 +433,17 @@ struct StoryCaptureStage: View {
         }
         .onChange(of: effect) { _, value in engine.set(effect: value) }
         .onChange(of: engine.finishedVideo) { _, url in
-            if let url { onVideo(url); engine.finishedVideo = nil }
+            guard let url else { return }
+            engine.finishedVideo = nil
+            if mode == .video {
+                withAnimation(.snappy) { clips.append(StoryClip(url: url, seconds: max(engine.recordedSeconds, 0.2), speed: speed.rawValue)) }
+                HapticEngine.shared.play(.selection)
+            } else {
+                onVideo(url)
+            }
+        }
+        .onChange(of: mode) { old, new in
+            if new == .ar { engine.stop() } else if old == .ar { engine.start() }
         }
         .onChange(of: backdropItems) { _, items in
             guard let item = items.first else { return }
@@ -473,6 +511,9 @@ struct StoryCaptureStage: View {
                 .padding(.top, 6)
                 .padding(.bottom, 24)
                 .background(alignment: .top) { scrim(top: true) }
+            if mode == .video, !clips.isEmpty || engine.isRecording {
+                segmentBar.padding(.horizontal, 14).padding(.bottom, 8)
+            }
             HStack(alignment: .top) {
                 leftRail
                 Spacer()
@@ -480,7 +521,9 @@ struct StoryCaptureStage: View {
             .padding(.leading, 12)
             .padding(.top, 4)
             Spacer(minLength: 0)
-            if showsEffects { effectsTray.transition(.move(edge: .bottom).combined(with: .opacity)) }
+            if showsEffects, mode != .ar { effectsTray.transition(.move(edge: .bottom).combined(with: .opacity)) }
+            if mode == .video { speedRow.padding(.bottom, 6) }
+            if mode == .ar { arStickerRow.padding(.bottom, 6) }
             bottomControls
                 .padding(.top, 28)
                 .background(alignment: .bottom) { scrim(top: false) }
@@ -532,6 +575,117 @@ struct StoryCaptureStage: View {
                     .disabled(engine.isRecording)
                 }
             }
+        }
+    }
+
+    /// Recorded segments as proportional capsules (60 s budget), plus the live one.
+    private var segmentBar: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            HStack(spacing: 3) {
+                ForEach(clips) { clip in
+                    Capsule().fill(accent)
+                        .frame(width: max(w * clip.seconds / 60 - 3, 4))
+                        .overlay {
+                            if clip.speed != 1 {
+                                Text(StoryClipSpeed(rawValue: clip.speed)?.title ?? "")
+                                    .font(.system(size: 7, weight: .heavy)).foregroundStyle(.white)
+                            }
+                        }
+                }
+                if engine.isRecording {
+                    Capsule().fill(.red).frame(width: max(w * engine.recordedSeconds / 60, 4))
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(height: 8)
+            .background(Capsule().fill(.white.opacity(0.25)))
+        }
+        .frame(height: 8)
+        .accessibilityElement()
+        .accessibilityLabel("\(clips.count) clips recorded")
+    }
+
+    private func undoClip() {
+        guard let last = clips.last else { return }
+        withAnimation(.snappy) { _ = clips.removeLast() }
+        try? FileManager.default.removeItem(at: last.url)
+        HapticEngine.shared.play(.selection)
+    }
+
+    private func finishClips() {
+        guard !clips.isEmpty, !merging else { return }
+        merging = true
+        let current = clips
+        Task {
+            defer { merging = false }
+            do {
+                let url = try await StoryClipMerger.merge(current)
+                clips = []
+                onVideo(url)
+            } catch {
+                app.navigation.flash("Couldn’t join those clips", symbol: "exclamationmark.triangle")
+                HapticEngine.shared.play(.failure)
+            }
+        }
+    }
+
+    private var speedRow: some View {
+        HStack(spacing: 4) {
+            ForEach(StoryClipSpeed.allCases) { item in
+                Button {
+                    speed = item
+                    HapticEngine.shared.play(.selection)
+                } label: {
+                    Text(item.title)
+                        .font(.footnote.weight(.bold).monospacedDigit())
+                        .foregroundStyle(speed == item ? Color.black : Color.white)
+                        .padding(.horizontal, 10).frame(height: 30)
+                        .background { if speed == item { Capsule().fill(.white) } }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Speed \(item.title)\(item.rawValue < 1 ? ", slow motion" : "")")
+                .accessibilityAddTraits(speed == item ? .isSelected : [])
+            }
+        }
+        .padding(3)
+        .modulaGlass(in: Capsule())
+        .disabled(engine.isRecording)
+    }
+
+    private var arStickerRow: some View {
+        HStack(spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Self.arStickers, id: \.self) { emoji in
+                        Button {
+                            arSticker = emoji
+                            ar.sticker = emoji
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            Text(emoji).font(.system(size: 26))
+                                .frame(width: 46, height: 46)
+                                .modulaGlass(in: Circle())
+                                .overlay(Circle().strokeBorder(arSticker == emoji ? Color.white : .clear, lineWidth: 2.5))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 14)
+            }
+            if ar.placed > 0 {
+                Button("Clear") { ar.clear(); HapticEngine.shared.play(.selection) }
+                    .font(.footnote.weight(.semibold)).foregroundStyle(.white)
+                    .padding(.horizontal, 12).frame(height: 34)
+                    .modulaGlass(in: Capsule(), interactive: true)
+                    .padding(.trailing, 14)
+            }
+        }
+        .overlay(alignment: .top) {
+            Text(ar.placed == 0 ? "Tap a surface to place a sticker" : "Move around — stickers stay put")
+                .font(.caption.weight(.semibold)).foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.6), radius: 2)
+                .offset(y: -22)
         }
     }
 
@@ -629,7 +783,7 @@ struct StoryCaptureStage: View {
     private var bottomControls: some View {
         VStack(spacing: 14) {
             ZStack {
-                if mode == .photo || mode == .video || mode == .handsFree || mode == .boomerang {
+                if mode == .photo || mode == .handsFree || mode == .boomerang || (mode == .video && clips.isEmpty && !engine.isRecording) {
                     filterCarousel
                 }
                 shutter
@@ -637,6 +791,17 @@ struct StoryCaptureStage: View {
             .frame(height: 96)
 
             HStack(alignment: .center) {
+                if mode == .video, !clips.isEmpty {
+                    Button { undoClip() } label: {
+                        Image(systemName: "arrow.uturn.backward")
+                            .font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
+                            .frame(width: 44, height: 44)
+                            .modulaGlass(in: Circle(), interactive: true)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(engine.isRecording || merging)
+                    .accessibilityLabel("Undo last clip")
+                } else {
                 PhotosPicker(selection: $libraryItems, maxSelectionCount: 1, matching: canVideo ? .any(of: [.images, .videos]) : .images) {
                     Image(systemName: "photo.on.rectangle.angled")
                         .font(.system(size: 18, weight: .semibold))
@@ -647,8 +812,21 @@ struct StoryCaptureStage: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Photo library")
                 .accessibilityIdentifier("story.create.library")
+                }
                 modePicker
-                Color.clear.frame(width: 44, height: 44)
+                if mode == .video, !clips.isEmpty {
+                    Button { finishClips() } label: {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 17, weight: .bold)).foregroundStyle(.white)
+                            .frame(width: 44, height: 44)
+                            .modulaGlass(in: Circle(), interactive: true, tint: accent, prominent: true)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(engine.isRecording || merging)
+                    .accessibilityLabel("Done, use \(clips.count) clips")
+                } else {
+                    Color.clear.frame(width: 44, height: 44)
+                }
             }
             .padding(.horizontal, 14)
             .padding(.bottom, 8)
@@ -682,7 +860,7 @@ struct StoryCaptureStage: View {
             .onAppear { proxy.scrollTo(mode.id, anchor: .center) }
         }
         .frame(maxWidth: .infinity)
-        .disabled(engine.isRecording || countdown != nil)
+        .disabled(engine.isRecording || countdown != nil || !clips.isEmpty)
     }
 
     private func select(_ item: StoryCaptureMode) {
@@ -761,7 +939,7 @@ struct StoryCaptureStage: View {
         .accessibilityLabel(mode == .photo ? "Take photo, hold to record" : (recording ? "Stop recording" : "Record \(mode.rawValue)"))
         .accessibilityAction { tapShutter() }
         .accessibilityIdentifier("story.camera.shutter")
-        .disabled(!engine.isReady)
+        .disabled(mode != .ar && !engine.isReady)
     }
 
     private var shutterGesture: some Gesture {
@@ -816,6 +994,11 @@ struct StoryCaptureStage: View {
         switch mode {
         case .photo:
             capturePhoto()
+        case .ar:
+            if let image = ar.snapshot() {
+                HapticEngine.shared.play(.actionConfirmed)
+                onPhoto(image)
+            }
         case .video, .handsFree, .boomerang:
             guard canVideo else {
                 app.navigation.flash("Video stories are coming soon", symbol: "video.slash")
