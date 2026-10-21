@@ -41,6 +41,8 @@ struct RootView: View {
         }
         // ChatGPT-style push sidebar: the shell becomes a rounded card that slides right.
         .modulaSidebarContainer()
+        // Pull menu frost covers the entire screen (header, tab bar, Tools bar, edge rail).
+        .overlay { ModulaPullOverlayHost() }
         // Liquid Glass post menu: above tabs and chrome so it can blur the whole screen.
         .overlay { PostMenuHost() }
         .overlay { CommandPaletteHost() }
