@@ -123,6 +123,9 @@ struct ImmersivePostCard: View {
     var onOpenMedia: (@MainActor (SocialPostMedia) -> Void)? = nil
     var onOpenModule: (@MainActor (SocialPostModule) -> Void)? = nil
     var videoCoordinator: FeedVideoCoordinator? = nil
+    /// Post detail shows comments inline below, so the card drops its comment button and
+    /// "Add a comment…" strip there (comment intents focus the inline composer instead).
+    var showsCommentAffordances: Bool = true
 
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -275,7 +278,9 @@ struct ImmersivePostCard: View {
                 .overlay(alignment: .bottomLeading) { captionBlock(canonical, pages: pages, current: current, isVideo: isVideo) }
                 .postMenuLongPress(enabled: !showsReactions && !suppressHeartTap) { menuRequest(anchor: $0) }
                 .environment(\.colorScheme, appScheme)
-                .overlay(alignment: .bottom) { mediaCommentStrip(isVideo: isVideo) }
+                .overlay(alignment: .bottom) {
+                    if showsCommentAffordances { mediaCommentStrip(isVideo: isVideo) }
+                }
             rail(expandable: expandable, gallery: pages)
         }
         .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
@@ -618,11 +623,13 @@ struct ImmersivePostCard: View {
     private func rail(expandable: ModulaAttachment?, gallery: [ModulaAttachment]) -> some View {
         VStack(spacing: 0) {
             heartControl(vertical: true)
-            railButton("Comment", symbol: "bubble.right.fill", count: post.replyCount, active: false) {
-                HapticEngine.shared.play(.contextOpen)
-                onComment()
-            }
+            if showsCommentAffordances {
+                railButton("Comment", symbol: "bubble.right.fill", count: post.replyCount, active: false) {
+                    HapticEngine.shared.play(.contextOpen)
+                    onComment()
+                }
                 .accessibilityIdentifier("home.action.comment.\(post.id)")
+            }
             railButton(post.saved ? "Unsave" : "Save", symbol: post.saved ? "bookmark.fill" : "bookmark", count: 0, active: post.saved, tint: .yellow) {
                 saveBounce += 1
                 HapticEngine.shared.play(.confirmation)
@@ -1185,10 +1192,14 @@ struct ImmersivePostCard: View {
                         .allowsHitTesting(false)
                 }
 
-            commentBar
-                .padding(.horizontal, 14)
-                .padding(.top, 2)
-                .padding(.bottom, 10)
+            if showsCommentAffordances {
+                commentBar
+                    .padding(.horizontal, 14)
+                    .padding(.top, 2)
+                    .padding(.bottom, 10)
+            } else {
+                Color.clear.frame(height: 6)
+            }
         }
         .background {
             RoundedRectangle(cornerRadius: radius, style: .continuous)
@@ -1215,8 +1226,10 @@ struct ImmersivePostCard: View {
             heartControl(vertical: false)
                 .foregroundStyle(.secondary)
             reactionSummaryChip(onMedia: false)
-            pillButton("Comment", symbol: "bubble.right", count: post.replyCount, active: false, action: onComment)
-                .accessibilityIdentifier("home.action.comment.\(post.id)")
+            if showsCommentAffordances {
+                pillButton("Comment", symbol: "bubble.right", count: post.replyCount, active: false, action: onComment)
+                    .accessibilityIdentifier("home.action.comment.\(post.id)")
+            }
             pillButton("Repost", symbol: "arrow.2.squarepath", count: post.repostCount, active: post.reposted, action: onRepost)
                 .accessibilityIdentifier("home.action.repost.\(post.id)")
             Spacer(minLength: 0)

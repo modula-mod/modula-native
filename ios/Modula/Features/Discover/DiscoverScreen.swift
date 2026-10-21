@@ -272,7 +272,10 @@ struct DiscoverScreen: View {
         default:
             LazyVStack(spacing: 14) {
                 ForEach(items) { post in
-                    DiscoverPostCard(post: post) { openPost(post) }
+                    // Same shell as Home: reactions, repost, save, share and "…" menu.
+                    SharedFeedPostCard(post: post.asSocialPost(), identifierPrefix: "discover")
+                        .padding(.horizontal, -ModulaLayout.contentInset)
+                        .padding(.horizontal, ModulaLayout.postBleedGutter)
                 }
                 if state.nextCursor != nil {
                     Button("Load more") {

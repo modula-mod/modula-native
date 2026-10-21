@@ -172,7 +172,7 @@ struct SearchScreen: View {
                 }
             )
         } else if hit.entityType == "post", let post = hit.post {
-            DiscoverPostCard(post: post) { open(hit) }
+            SharedFeedPostCard(post: post.asSocialPost(), identifierPrefix: "search")
         } else if hit.entityType == "topic", let topic = hit.topic {
             DiscoverTopicCard(topic: topic) {
                 // Open a search for the topic instead of a haptic-only tap.
