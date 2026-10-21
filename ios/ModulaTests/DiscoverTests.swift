@@ -297,3 +297,27 @@ final class DiscoverGreenfieldContractTests: XCTestCase {
         }
     }
 }
+final class DiscoverHeaderCollapseTests: XCTestCase {
+    func testHysteresisBand() {
+        XCTAssertFalse(DiscoverHeaderCollapse.isCollapsed(offset: 48, current: false))
+        XCTAssertTrue(DiscoverHeaderCollapse.isCollapsed(offset: 61, current: false))
+        XCTAssertTrue(DiscoverHeaderCollapse.isCollapsed(offset: 30, current: true), "stays collapsed inside the band")
+        XCTAssertFalse(DiscoverHeaderCollapse.isCollapsed(offset: 19, current: true))
+    }
+
+    /// Regression for the Discover freeze: a header-height-induced offset shift of up to the
+    /// band width must never flip the state back (no collapse/expand loop).
+    func testNoOscillationUnderOffsetFeedback() {
+        for start in stride(from: CGFloat(0), through: 200, by: 1) {
+            var state = false
+            var offset = start
+            var flips = 0
+            for _ in 0..<20 {
+                let next = DiscoverHeaderCollapse.isCollapsed(offset: offset, current: state)
+                if next != state { flips += 1; offset += next ? -39 : 39 }
+                state = next
+            }
+            XCTAssertLessThanOrEqual(flips, 1, "offset \(start) oscillated")
+        }
+    }
+}
