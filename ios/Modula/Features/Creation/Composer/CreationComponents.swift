@@ -272,15 +272,6 @@ struct CreationMoreOptionsSheet: View {
                         tile(.mentions, enabled: true) { onMentionsTip() }
                         tile(.hashtags, enabled: true) { onHashtagsTip() }
                     }
-                    section("Coming soon") {
-                        tile(.schedule, enabled: false, soon: true) {}
-                        tile(.contentWarning, enabled: false, soon: true) {}
-                        tile(.location, enabled: false, soon: true) {}
-                    }
-                    Text("Link and Poll insert into your draft as text until structured types ship.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 4)
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 6)

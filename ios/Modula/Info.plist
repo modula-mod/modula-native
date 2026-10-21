@@ -35,6 +35,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Modula shows your photos in its own picker so you can attach them to posts and stories. Nothing is uploaded until you choose it and post.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Modula saves photos you take in the composer and Stories you post to your library when you turn that on in Settings.</string>
 	<key>NSCameraUsageDescription</key>

@@ -1,3 +1,5 @@
+import LinkPresentation
+import Photos
 import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
@@ -29,6 +31,9 @@ struct CreationStudioView: View {
     @State private var appeared = false
     @State private var publishTask: Task<Void, Never>?
     @State private var publishMorph = false
+    @StateObject private var photoLibrary = ModulaPhotoLibraryModel(includeVideos: false)
+    @State private var showsFullCamera = false
+    @State private var cameraLibraryItems: [PhotosPickerItem] = []
 
     init(route: ComposeRoute) {
         self.route = route
@@ -198,12 +203,15 @@ struct CreationStudioView: View {
             } label: {
                 Text(store.draft.kind.publishLabel)
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(store.canPublish ? Color.white : Color.primary.opacity(0.55))
+                    .foregroundStyle(store.canPublish ? Color.white : Color.primary.opacity(0.78))
                     .padding(.horizontal, store.canPublish ? 20 : 16)
                     .padding(.vertical, 8)
+                    .background {
+                        // Disabled: a solid neutral fill keeps the label readable on any backdrop.
+                        if !store.canPublish { Capsule().fill(Color(uiColor: .tertiarySystemFill)) }
+                    }
                     .overlay {
-                        // Disabled: a visible hairline so the pill reads as a button, not a smudge.
-                        Capsule().strokeBorder(Color.primary.opacity(store.canPublish ? 0 : 0.22), lineWidth: 1)
+                        Capsule().strokeBorder(Color.primary.opacity(store.canPublish ? 0 : 0.30), lineWidth: 1)
                     }
                     .scaleEffect(publishMorph ? 0.92 : 1)
                     .modulaGlass(
@@ -268,9 +276,29 @@ struct CreationStudioView: View {
                             },
                             onCameraVideo: { url in
                                 Task { await store.attachCameraVideo(url) }
+                            },
+                            photoLibrary: photoLibrary,
+                            onAssetsPicked: { assets in
+                                Task {
+                                    for asset in assets {
+                                        if let image = await photoLibrary.fullImage(asset) {
+                                            await store.attachCameraImage(image)
+                                        }
+                                    }
+                                }
+                            },
+                            onOpenCamera: {
+                                editorFocused = false
+                                withAnimation(stageMotion) { mediaStage = .collapsed }
+                                showsFullCamera = true
                             }
                         )
                         .modulaGlassID("compose.media.stage", in: glassMorph)
+                    }
+
+                    if store.draft.link == nil, let url = ComposerLinkDetector.firstURL(in: store.draft.text) {
+                        ComposerLinkPreviewCard(url: url)
+                            .transition(.opacity)
                     }
 
                     if !store.draft.media.isEmpty {
@@ -389,7 +417,7 @@ struct CreationStudioView: View {
                 }
             })
 
-            if ModulaPreferences.explainLimitedLibrary, mediaStage == .library {
+            if false, ModulaPreferences.explainLimitedLibrary, mediaStage == .library {
                 HStack(alignment: .top, spacing: 6) {
                     Image(systemName: "lock.fill")
                         .font(.caption2.weight(.semibold))
@@ -428,7 +456,8 @@ struct CreationStudioView: View {
                     onAbbr: { linkSheet = .abbr },
                     onTranslate: nil
                 )
-                .padding(.horizontal, 10)
+                .padding(.leading, mascotShown ? 62 : 10)
+                .padding(.trailing, 10)
                 .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 .accessibilityIdentifier("compose.formatting")
             }
@@ -481,6 +510,31 @@ struct CreationStudioView: View {
         }
         .onChange(of: editorFocused) { _, focused in
             if focused { mediaPanelActive = false }
+        }
+        .fullScreenCover(isPresented: $showsFullCamera) {
+            StoryCaptureStage(
+                canVideo: store.capabilities.videoPost,
+                libraryItems: $cameraLibraryItems,
+                onPhoto: { image in
+                    showsFullCamera = false
+                    Task { await store.attachCameraImage(image) }
+                },
+                onVideo: { url in
+                    showsFullCamera = false
+                    Task { await store.attachCameraVideo(url) }
+                },
+                onText: {},
+                onLayout: {},
+                onClose: { showsFullCamera = false },
+                allowedModes: store.capabilities.videoPost ? [.photo, .video] : [.photo]
+            )
+            .environment(app)
+        }
+        .onChange(of: cameraLibraryItems) { _, items in
+            guard !items.isEmpty else { return }
+            cameraLibraryItems = []
+            showsFullCamera = false
+            Task { await store.attachImages(items) }
         }
     }
 
@@ -560,8 +614,10 @@ struct CreationStudioView: View {
                                 toggleStage(.library)
                             }
                             if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                                barIcon("camera", "Camera", id: "compose.tool.camera", active: mediaStage == .camera, accent: accent) {
-                                    toggleStage(.camera)
+                                barIcon("camera", "Camera", id: "compose.tool.camera", active: showsFullCamera, accent: accent) {
+                                    editorFocused = false
+                                    withAnimation(stageMotion) { mediaStage = .collapsed }
+                                    showsFullCamera = true
                                 }
                             }
                         }
@@ -882,4 +938,66 @@ private struct ComposerBarIconLabel: View {
 private struct ComposerLinkSheetItem: Identifiable {
     let mode: ModulaLinkInsertSheet.Mode
     var id: String { mode == .link ? "link" : "abbr" }
+}
+
+// MARK: - Link preview card (LinkPresentation, on device)
+
+enum ComposerLinkDetector {
+    static func firstURL(in text: String) -> URL? {
+        guard text.contains("."), let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return nil }
+        let range = NSRange(text.startIndex..., in: text)
+        guard let url = detector.firstMatch(in: text, options: [], range: range)?.url,
+              let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http" else { return nil }
+        return url
+    }
+}
+
+struct ComposerLinkPreviewCard: View {
+    let url: URL
+    @State private var metadata: LPLinkMetadata?
+    @State private var failed = false
+
+    var body: some View {
+        Group {
+            if let metadata {
+                ComposerLinkView(metadata: metadata)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 96)
+            } else if !failed {
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text(url.host() ?? url.absoluteString).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                .padding(.horizontal, 12)
+                .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+        }
+        .accessibilityLabel("Link preview for \(url.host() ?? url.absoluteString)")
+        .task(id: url) {
+            metadata = nil
+            failed = false
+            try? await Task.sleep(for: .milliseconds(450))   // debounce while typing
+            guard !Task.isCancelled else { return }
+            let provider = LPMetadataProvider()
+            provider.timeout = 8
+            do {
+                let result = try await provider.startFetchingMetadata(for: url)
+                guard !Task.isCancelled else { return }
+                metadata = result
+            } catch {
+                failed = true
+            }
+        }
+    }
+}
+
+private struct ComposerLinkView: UIViewRepresentable {
+    let metadata: LPLinkMetadata
+    func makeUIView(context: Context) -> LPLinkView {
+        let view = LPLinkView(metadata: metadata)
+        view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return view
+    }
+    func updateUIView(_ uiView: LPLinkView, context: Context) { uiView.metadata = metadata }
 }

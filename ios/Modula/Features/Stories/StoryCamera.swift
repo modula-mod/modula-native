@@ -349,6 +349,8 @@ struct StoryCaptureStage: View {
     var onText: () -> Void
     var onLayout: () -> Void
     var onClose: () -> Void
+    /// Restricts the mode list (e.g. the post composer only offers Photo / Video).
+    var allowedModes: [StoryCaptureMode]? = nil
 
     @StateObject private var engine = StoryCameraEngine()
     @Environment(AppEnvironment.self) private var app
@@ -380,7 +382,7 @@ struct StoryCaptureStage: View {
     private var clipsTotal: Double { clips.reduce(0) { $0 + $1.seconds / $1.speed } }
 
     private var modes: [StoryCaptureMode] {
-        StoryCaptureMode.allCases.filter { item in
+        (allowedModes ?? StoryCaptureMode.allCases).filter { item in
             if item == .video, !canVideo { return false }
             if item == .ar, !StoryARController.isSupported { return false }
             return true
@@ -691,9 +693,9 @@ struct StoryCaptureStage: View {
 
     private var leftRail: some View {
         VStack(alignment: .leading, spacing: 12) {
-            railItem("textformat", "Create") { onText() }
+            if allowedModes?.contains(.text) ?? true { railItem("textformat", "Create") { onText() } }
             railItem("face.smiling", "Effects", active: showsEffects || effect != .none) { showsEffects.toggle() }
-            railItem("rectangle.split.2x2", "Layout") { onLayout() }
+            if allowedModes?.contains(.layout) ?? true { railItem("rectangle.split.2x2", "Layout") { onLayout() } }
             railItem("plus.magnifyingglass", "Zoom 2×", active: engine.zoom > 1.5) {
                 engine.setZoom(engine.zoom > 1.5 ? 1 : 2)
             }
