@@ -220,10 +220,11 @@ struct ShellChromePolicy: Equatable {
         case .profile, .me:
             // Pushed profiles keep the originating tab selected in the bottom bar and hide
             // root-only accessories so chrome does not imply a global Profile switch.
+            // Profile sections live in its sticky tab bar: no edge rail, no Tools bar.
             Self(
                 bottomBarVisible: true,
-                contextRailVisible: true,
-                shellAccessoryVisible: isTabRoot,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
                 topBarStyle: .standard,
                 showsBack: !isTabRoot,
                 showsClose: false,

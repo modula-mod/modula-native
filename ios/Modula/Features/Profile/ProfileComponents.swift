@@ -54,13 +54,29 @@ struct ProfileCover: View {
                     ) { phase in
                         switch phase {
                         case .success(let image):
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: width, height: coverHeight + stretch)
-                                .clipped()
-                                // Banner softens as the page scrolls (and a touch while stretching).
-                                .blur(radius: coverBlur(stretch: stretch), opaque: true)
+                            // The whole banner stays readable: it's shown at full width below the
+                            // status bar (aspect fit), over a blurred fill of itself, so baked-in
+                            // text is never cropped off the sides or hidden behind the nav bar.
+                            let ratio = image.size.width > 0 ? image.size.height / image.size.width : 1 / 3
+                            let fitHeight = min(width * ratio, coverHeight + stretch - safeAreaTop * 0.6)
+                            ZStack(alignment: .bottom) {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: width, height: coverHeight + stretch)
+                                    .clipped()
+                                    .blur(radius: 24, opaque: true)
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: width, height: fitHeight)
+                                    .clipped()
+                                    .padding(.bottom, coverHeight * 0.14)
+                            }
+                            .frame(width: width, height: coverHeight + stretch)
+                            .clipped()
+                            // Banner softens as the page scrolls (and a touch while stretching).
+                            .blur(radius: coverBlur(stretch: stretch), opaque: true)
                         case .failure:
                             fallbackComposition.overlay(alignment: .topTrailing) {
                                 Button("Retry cover", systemImage: "arrow.clockwise") { retryID += 1 }
@@ -99,7 +115,7 @@ struct ProfileCover: View {
 
                 // Liquid bottom fade — soft multi-stop dissolve into the page background.
                 liquidBottomFade
-                    .frame(height: coverHeight * 0.62)
+                    .frame(height: coverHeight * (coverURL == nil ? 0.62 : 0.3))
                     .opacity(0.92 + (0.08 * Double(dissolve)))
                     .allowsHitTesting(false)
             }
@@ -892,8 +908,15 @@ struct ProfileInfoChips: View {
 
     private var chips: [Chip] {
         var items: [Chip] = []
+        // One accurate status: a focus/status message that talks about visibility
+        // ("Sharing publicly") is replaced by the profile's real visibility below.
         if let focus = profile.focusStatus {
-            items.append(Chip(id: "focus", symbol: "circle.fill", title: focus.message ?? focus.label, action: nil))
+            let text = focus.message ?? focus.label
+            let lower = text.lowercased()
+            let talksPrivacy = lower.contains("public") || lower.contains("private") || lower.contains("sharing")
+            if !talksPrivacy {
+                items.append(Chip(id: "focus", symbol: "circle.fill", title: text, action: nil))
+            }
         }
         if let location = profile.location?.label, !location.isEmpty, ProfileFieldPrivacy.isPublic(profile.location?.visibility) {
             items.append(Chip(id: "location", symbol: "mappin.and.ellipse", title: location, action: nil))
