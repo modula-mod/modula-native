@@ -44,6 +44,7 @@ struct ReelTikTokRail: View {
                     .shadow(color: .black.opacity(0.35), radius: 6, y: 2)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("reels.avatar")
             if !following {
                 Button {
                     guard !followBusy else { return }
@@ -65,6 +66,7 @@ struct ReelTikTokRail: View {
                 .buttonStyle(.plain)
                 .offset(y: 10)
                 .accessibilityLabel("Follow \(reel.creator.displayName)")
+                .accessibilityIdentifier("reels.follow")
             }
         }
         .padding(.bottom, 8)
@@ -106,6 +108,7 @@ struct ReelTikTokRail: View {
             .frame(width: 52)
         }
         .buttonStyle(ModulaPressStyle(scale: 0.88, haptic: .selection))
+        .accessibilityIdentifier("reels.rail.\(symbol)")
     }
 }
 
@@ -257,6 +260,7 @@ struct ReelFeedTabs: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(tab == item ? .isSelected : [])
+                .accessibilityIdentifier("reels.tab.\(item.rawValue)")
             }
         }
     }

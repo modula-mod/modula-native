@@ -15,7 +15,15 @@ struct ReelsRouteView: View {
             }
         }
         .toolbar(.hidden, for: .tabBar)
-        .task { await app.reels.loadIfNeeded() }
+        .task {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--uitest-reels-fixture") {
+                app.reels.ingest(seed: ReelUITestFixture.reels)
+                return
+            }
+            #endif
+            await app.reels.loadIfNeeded()
+        }
     }
 }
 
@@ -31,6 +39,7 @@ struct ReelFeedView: View {
     /// (full-screen button) are laid out below it instead of under it.
     @State private var topBarBottom: CGFloat = 0
     @State private var feedTab: ReelFeedTab = .forYou
+    @State private var showsLive = false
 
     var body: some View {
         Group {
@@ -82,11 +91,20 @@ struct ReelFeedView: View {
                 ModulaGlassIconButton(title: "Back", systemImage: "chevron.left", foreground: .white) {
                     app.navigation.close()
                 }
+                .accessibilityIdentifier("reels.back")
                 ReelFeedTabs(tab: $feedTab)
                 Spacer()
-                Button {
-                    HapticEngine.shared.play(.navigation)
-                    app.navigation.open(.compose(.video))
+                Menu {
+                    Button("Post a video", systemImage: "video.badge.plus") {
+                        HapticEngine.shared.play(.navigation)
+                        app.navigation.open(.compose(.video))
+                    }
+                    if LiveFeatureFlags.isEnabled {
+                        Button("Go Live (dev preview)", systemImage: "dot.radiowaves.left.and.right") {
+                            HapticEngine.shared.play(.navigation)
+                            showsLive = true
+                        }
+                    }
                 } label: {
                     Label("Create", systemImage: "video.badge.plus")
                         .font(.subheadline.weight(.semibold))
@@ -94,9 +112,9 @@ struct ReelFeedView: View {
                         .frame(height: 44)
                         .contentShape(Capsule())
                 }
-                .buttonStyle(.modulaPress)
                 .modulaGlass(in: Capsule(), tint: app.appearance.accent.color.opacity(0.45), specular: true)
-                .accessibilityLabel("Post a video")
+                .accessibilityLabel("Create")
+                .accessibilityIdentifier("reels.create")
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 12)
@@ -136,6 +154,7 @@ struct ReelFeedView: View {
                     .presentationBackgroundInteraction(.enabled(upThrough: .medium))
             }
         }
+        .fullScreenCover(isPresented: $showsLive) { LiveHostFlow() }
         .fullScreenCover(item: $expandedVideo) { attachment in
             AttachmentViewerRouter(attachment: attachment, onDismiss: { expandedVideo = nil })
         }
@@ -355,25 +374,26 @@ struct ReelPageView: View {
             HapticEngine.shared.play(.contextOpen)
             showsQuickMenu = true
         }
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { value in
-                    // Hold left/right edge for 2× speed flash (visual; playback rate via toast if controller not exposed here).
-                    let w = UIScreen.main.bounds.width
-                    let onEdge = value.startLocation.x < 28 || value.startLocation.x > w - 28
-                    if onEdge, value.translation == .zero || abs(value.translation.width) < 8 {
-                        if !edgeBoost {
-                            edgeBoost = true
-                            playback.setRate(2)
-                            HapticEngine.shared.play(.selection)
-                        }
+        // Hold the LEFT edge for 2× speed. This used to be a page-wide DragGesture(minimumDistance: 0),
+        // which claimed every touch-down and left every button in Reels dead. Now it is a thin
+        // left strip (mid-height only) so the right-hand rail, top bar and caption stay tappable.
+        .overlay(alignment: .leading) {
+            Color.clear
+                .frame(width: 24)
+                .padding(.vertical, 160)
+                .contentShape(Rectangle())
+                .onLongPressGesture(minimumDuration: 0.25, perform: {}, onPressingChanged: { pressing in
+                    if pressing, !edgeBoost {
+                        edgeBoost = true
+                        playback.setRate(2)
+                        HapticEngine.shared.play(.selection)
+                    } else if !pressing, edgeBoost {
+                        playback.setRate(1)
+                        edgeBoost = false
                     }
-                }
-                .onEnded { _ in
-                    if edgeBoost { playback.setRate(1) }
-                    edgeBoost = false
-                }
-        )
+                })
+                .accessibilityHidden(true)
+        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityAction(named: "Open creator") {
@@ -624,3 +644,24 @@ struct DiscoverReelsShelf: View {
         .accessibilityIdentifier("discover.reels.shelf")
     }
 }
+
+#if DEBUG
+/// Local fixture for UI tests (`--uitest-reels-fixture`); never used in release.
+enum ReelUITestFixture {
+    static var reels: [Reel] {
+        (0..<3).map { i in
+            Reel(
+                id: "uitest-reel-\(i)",
+                postID: "uitest-post-\(i)",
+                creator: SocialAuthor(id: "uitest-creator-\(i)", handle: "creator\(i)", displayName: "Creator \(i)", avatarURL: nil),
+                media: nil,
+                caption: "Fixture reel \(i)",
+                audio: nil,
+                posterColor: ["#1B2A4A", "#3A1B4A", "#1B4A2E"][i],
+                engagement: PostEngagement(liked: false, saved: false, reposted: false, viewerReaction: nil, likeCount: 10 + i, replyCount: 2, repostCount: 0, quoteCount: 0, reactionCount: 10 + i),
+                createdAt: Date()
+            )
+        }
+    }
+}
+#endif

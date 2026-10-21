@@ -10,7 +10,14 @@ import SwiftUI
 
 enum LiveFeatureFlags {
     static let key = "dev.live"
-    static var isEnabled: Bool { UserDefaults.standard.bool(forKey: key) }
+    /// On by default in DEBUG builds (dev preview), off by default in release.
+    static var isEnabled: Bool {
+        #if DEBUG
+        (UserDefaults.standard.object(forKey: key) as? Bool) ?? true
+        #else
+        UserDefaults.standard.bool(forKey: key)
+        #endif
+    }
 }
 
 struct LivePreviewComment: Identifiable, Equatable {
