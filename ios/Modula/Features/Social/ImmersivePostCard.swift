@@ -126,6 +126,11 @@ struct ImmersivePostCard: View {
     /// Post detail shows comments inline below, so the card drops its comment button and
     /// "Add a comment…" strip there (comment intents focus the inline composer instead).
     var showsCommentAffordances: Bool = true
+    /// `.detail` renders the same shell flush and full-width (no card radius, stroke, fill or
+    /// shadow) and drops the in-card "…" because the detail nav bar owns the post menu.
+    var style: Style = .feed
+    enum Style: Sendable { case feed, detail }
+    private var isDetail: Bool { style == .detail }
 
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -158,7 +163,7 @@ struct ImmersivePostCard: View {
     @State private var barSize: CGSize = .zero
     @State private var bursts: [ReactionBurst] = []
 
-    private let radius: CGFloat = 24
+    private var radius: CGFloat { isDetail ? 0 : 24 }
     private var space: String { "immersive.\(post.id)" }
     private var calm: Bool { reduceMotion || ModulaPreferences.extraMotionReduction }
 
@@ -284,9 +289,9 @@ struct ImmersivePostCard: View {
             rail(expandable: expandable, gallery: pages)
         }
         .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-        .overlay { mediaCardStroke }
-        .shadow(color: glow.opacity(0.28), radius: 18, y: 8)
-        .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+        .overlay { if !isDetail { mediaCardStroke } }
+        .shadow(color: glow.opacity(isDetail ? 0 : 0.28), radius: 18, y: 8)
+        .shadow(color: .black.opacity(isDetail ? 0 : 0.12), radius: 4, y: 2)
         .environment(\.colorScheme, .dark)
     }
 
@@ -423,7 +428,7 @@ struct ImmersivePostCard: View {
                     .modulaGlass(in: Capsule(), interactive: false)
                     .accessibilityLabel("Item \(current + 1) of \(pages.count)")
             }
-            moreButton(onMedia: true)
+            if !isDetail { moreButton(onMedia: true) }
         }
         .padding(.horizontal, 12)
         .padding(.top, 12)
@@ -1138,7 +1143,7 @@ struct ImmersivePostCard: View {
                 HStack(alignment: .center, spacing: 10) {
                     authorButton(canonical, onMedia: false)
                     Spacer(minLength: 6)
-                    moreButton(onMedia: false)
+                    if !isDetail { moreButton(onMedia: false) }
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 12)
@@ -1202,27 +1207,33 @@ struct ImmersivePostCard: View {
             }
         }
         .background {
-            RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .fill(reduceTransparency ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(.regularMaterial))
+            if !isDetail {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(reduceTransparency ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(.regularMaterial))
+            }
         }
         .background {
-            RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .fill(LinearGradient(colors: [glow.opacity(0.08), .clear], startPoint: .topLeading, endPoint: .bottomTrailing))
+            if !isDetail {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(LinearGradient(colors: [glow.opacity(0.08), .clear], startPoint: .topLeading, endPoint: .bottomTrailing))
+            }
         }
         .overlay {
+            if !isDetail {
             RoundedRectangle(cornerRadius: radius, style: .continuous)
                 .strokeBorder(
                     LinearGradient(colors: [.white.opacity(0.45), Color.primary.opacity(0.05), .white.opacity(0.14)], startPoint: .topLeading, endPoint: .bottomTrailing),
                     lineWidth: 0.8
                 )
                 .allowsHitTesting(false)
+            }
         }
-        .shadow(color: glow.opacity(0.16), radius: 16, y: 6)
-        .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+        .shadow(color: glow.opacity(isDetail ? 0 : 0.16), radius: 16, y: 6)
+        .shadow(color: .black.opacity(isDetail ? 0 : 0.06), radius: 3, y: 1)
     }
 
     private var textActions: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: isDetail ? 10 : 2) {
             heartControl(vertical: false)
                 .foregroundStyle(.secondary)
             reactionSummaryChip(onMedia: false)

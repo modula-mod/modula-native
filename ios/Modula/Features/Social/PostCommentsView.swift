@@ -428,6 +428,7 @@ struct PostCommentsView: View {
     @State private var assistantDraft: MascotAssistantDraft?
     @State private var assistantHandled: Set<String> = []
     @State private var assistantBrain = MascotBrain()
+    @AppStorage(ModulaMascotSettings.key(for: .comments)) private var commentsMascotShown = ModulaMascotSettings.defaultShown(.comments)
     @State private var sort: CommentSort = .best
     @State private var heartBursts: [SocialCommentID: Int] = [:]
     @State private var searchText = ""
@@ -647,11 +648,9 @@ struct PostCommentsView: View {
     }
 
     private var displayedCount: Int {
-        let live = store.map { roots(sortedItems($0.items)).count } ?? 0
-        // Prefer the live root count once loaded; fall back to the post's replyCount.
-        if store?.isLoading == false, store?.items.isEmpty == false || store?.loadError != nil {
-            return max(live, 0)
-        }
+        // One definition everywhere: total comments *including replies* — the same number the
+        // server's replyCount reports (the old root-only count read 25 vs 30).
+        let live = store?.items.count ?? 0
         return max(commentCount ?? 0, live)
     }
 
@@ -1319,7 +1318,9 @@ struct PostCommentsView: View {
                 .padding(.horizontal, 12)
                 .accessibilityIdentifier("post.comment.composer")
             }
-            .padding(.top, 6)
+            // Reserve headroom for Moliboo, who perches on top of the bar, so he sits on the
+            // composer's own background instead of over the last comments.
+            .padding(.top, commentsMascotShown ? 40 : 6)
             .padding(.bottom, mediaPanelActive ? 10 : 8)
             .frame(maxWidth: .infinity)
             .background(canvas)
