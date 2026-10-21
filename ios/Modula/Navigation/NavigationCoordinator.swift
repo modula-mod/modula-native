@@ -30,14 +30,12 @@ final class NavigationCoordinator {
     /// Short visible + VoiceOver confirmation (e.g. "Link copied").
     /// Uses the shell island-banner slot so features never build ad-hoc toasts.
     func flash(_ message: String, symbol: String = "checkmark.circle") {
-        let next = ModulaBanner(message: message, symbol: symbol)
-        banner = next
-        AccessibilityNotification.Announcement(message).post()
-        Task { @MainActor [weak self] in
-            // Visible hold after morph-in; host collapses back into the island seed.
-            try? await Task.sleep(for: .milliseconds(2_150))
-            if self?.banner?.id == next.id { self?.banner = nil }
-        }
+        ModulaToastCenter.shared.show(message, symbol: symbol)
+    }
+
+    /// Toast with an action button (Undo / View); held longer.
+    func flash(_ message: String, symbol: String, tone: ModulaToastTone? = nil, actionTitle: String, action: @escaping @MainActor () -> Void) {
+        ModulaToastCenter.shared.show(message, symbol: symbol, tone: tone, actionTitle: actionTitle, action: action)
     }
 
     func presentSidebar() { sidebarPresented = true }

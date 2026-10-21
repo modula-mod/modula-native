@@ -844,7 +844,7 @@ struct SharedFeedPostCard: View {
             accent: app.appearance.accent.color,
             onSave: {
                 toggleSave(resolved)
-                app.navigation.flash(resolved.saved ? "Removed from Saved" : "Saved", symbol: resolved.saved ? "bookmark.slash" : "bookmark.fill")
+                app.navigation.flash(resolved.saved ? "Removed from Bookmarks" : "Saved to Bookmarks", symbol: resolved.saved ? "bookmark.slash" : "bookmark.fill")
             },
             onShare: { PostSharing.share(resolved, app: app) }
         ))

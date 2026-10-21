@@ -344,7 +344,7 @@ struct HomeView: View {
                         onSave: {
                             if !resolved.saved { ModulaMascotEvent.post(.save) }
                             Task { await app.home.toggleSave(resolved, mode: mode) }
-                            app.navigation.flash(resolved.saved ? "Removed from Saved" : "Saved", symbol: resolved.saved ? "bookmark.slash" : "bookmark.fill")
+                            app.navigation.flash(resolved.saved ? "Removed from Bookmarks" : "Saved to Bookmarks", symbol: resolved.saved ? "bookmark.slash" : "bookmark.fill")
                         },
                         onShare: {
                             ModulaMascotEvent.post(.share)
