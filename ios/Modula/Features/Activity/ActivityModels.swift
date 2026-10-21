@@ -247,19 +247,20 @@ struct ActivitySummary: Hashable, Sendable {
 }
 
 enum ActivityTimelineSection: String, CaseIterable, Identifiable, Sendable {
+    /// `yesterday` is kept as the case name for callers; it now covers the last 7 days ("This week").
     case today, yesterday, earlier
     var id: Self { self }
     var title: String {
         switch self {
         case .today: "Today"
-        case .yesterday: "Yesterday"
+        case .yesterday: "This week"
         case .earlier: "Earlier"
         }
     }
 
     static func section(for date: Date, now: Date = Date(), calendar: Calendar = .current) -> Self {
         if calendar.isDateInToday(date) { return .today }
-        if calendar.isDateInYesterday(date) { return .yesterday }
+        if let weekAgo = calendar.date(byAdding: .day, value: -7, to: calendar.startOfDay(for: now)), date >= weekAgo { return .yesterday }
         return .earlier
     }
 }

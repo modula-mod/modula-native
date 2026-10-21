@@ -194,7 +194,19 @@ struct ShellChromePolicy: Equatable {
                 immersive: false,
                 hidesForKeyboard: true
             )
-        case .home, .activity:
+        case .activity:
+            // Activity owns its filters (chip row) and Mark all read (nav bar): no rail, no Tools bar.
+            Self(
+                bottomBarVisible: true,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .standard,
+                showsBack: false,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: true
+            )
+        case .home:
             Self(
                 bottomBarVisible: true,
                 contextRailVisible: true,
