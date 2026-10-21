@@ -167,7 +167,18 @@ struct MessagingBackendCapabilities: Sendable, Equatable {
     var archive = false
     var realtime = false
 
-    static let production = MessagingBackendCapabilities()
+    /// Live on api.modula.digital since backend migration 075_greenfield_messaging.
+    static let production = MessagingBackendCapabilities(
+        listConversations: true,
+        listMessages: true,
+        send: true,
+        markRead: true,
+        messageRequests: true,
+        acceptRequest: true,
+        declineRequest: true,
+        unreadSummary: true,
+        readReceipts: true
+    )
 
     enum Paths {
         static func conversations(cursor: String?) -> String {
