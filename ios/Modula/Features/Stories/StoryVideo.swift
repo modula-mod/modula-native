@@ -73,6 +73,27 @@ enum StoryClipMerger {
         try await session.export(to: out, as: .mov)
         return out
     }
+
+    /// Detached copy so the reader's small buffer pool never stalls while we hold frames.
+    private static func copy(_ source: CVPixelBuffer) -> CVPixelBuffer? {
+        var target: CVPixelBuffer?
+        CVPixelBufferCreate(nil, CVPixelBufferGetWidth(source), CVPixelBufferGetHeight(source),
+                            CVPixelBufferGetPixelFormatType(source), nil, &target)
+        guard let target else { return nil }
+        CVPixelBufferLockBaseAddress(source, .readOnly)
+        CVPixelBufferLockBaseAddress(target, [])
+        defer {
+            CVPixelBufferUnlockBaseAddress(target, [])
+            CVPixelBufferUnlockBaseAddress(source, .readOnly)
+        }
+        guard let src = CVPixelBufferGetBaseAddress(source), let dst = CVPixelBufferGetBaseAddress(target) else { return nil }
+        let srcRow = CVPixelBufferGetBytesPerRow(source), dstRow = CVPixelBufferGetBytesPerRow(target)
+        let rows = CVPixelBufferGetHeight(source)
+        for row in 0..<rows {
+            memcpy(dst + row * dstRow, src + row * srcRow, min(srcRow, dstRow))
+        }
+        return target
+    }
 }
 
 // MARK: Captions (on-device Speech)
@@ -132,6 +153,27 @@ enum StoryCaptioner {
         }
         if !words.isEmpty { out.append(StoryCaption(text: words.joined(separator: " "), start: start, end: end + 0.3)) }
         return out
+    }
+
+    /// Detached copy so the reader's small buffer pool never stalls while we hold frames.
+    private static func copy(_ source: CVPixelBuffer) -> CVPixelBuffer? {
+        var target: CVPixelBuffer?
+        CVPixelBufferCreate(nil, CVPixelBufferGetWidth(source), CVPixelBufferGetHeight(source),
+                            CVPixelBufferGetPixelFormatType(source), nil, &target)
+        guard let target else { return nil }
+        CVPixelBufferLockBaseAddress(source, .readOnly)
+        CVPixelBufferLockBaseAddress(target, [])
+        defer {
+            CVPixelBufferUnlockBaseAddress(target, [])
+            CVPixelBufferUnlockBaseAddress(source, .readOnly)
+        }
+        guard let src = CVPixelBufferGetBaseAddress(source), let dst = CVPixelBufferGetBaseAddress(target) else { return nil }
+        let srcRow = CVPixelBufferGetBytesPerRow(source), dstRow = CVPixelBufferGetBytesPerRow(target)
+        let rows = CVPixelBufferGetHeight(source)
+        for row in 0..<rows {
+            memcpy(dst + row * dstRow, src + row * srcRow, min(srcRow, dstRow))
+        }
+        return target
     }
 }
 
@@ -413,5 +455,84 @@ struct StoryARView: UIViewRepresentable {
             controller.place(at: gesture.location(in: view))
             HapticEngine.shared.play(.selection)
         }
+    }
+}
+
+
+// MARK: - Boomerang (forward → reverse, ×3, silent, on device)
+
+enum StoryBoomerang {
+    static func make(from url: URL, loops: Int = 3) async throws -> URL {
+        let asset = AVURLAsset(url: url)
+        guard let track = try await asset.loadTracks(withMediaType: .video).first else { throw StoryVideoError.export }
+        let transform = try await track.load(.preferredTransform)
+        let size = try await track.load(.naturalSize)
+
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
+        output.alwaysCopiesSampleData = false
+        reader.add(output)
+        guard reader.startReading() else { throw reader.error ?? StoryVideoError.export }
+        var frames: [(CVPixelBuffer, CMTime)] = []
+        while let sample = output.copyNextSampleBuffer() {
+            if let source = CMSampleBufferGetImageBuffer(sample), let buffer = copy(source) {
+                frames.append((buffer, CMSampleBufferGetPresentationTimeStamp(sample)))
+            }
+            if frames.count > 240 { break }
+        }
+        guard frames.count > 2 else { throw StoryVideoError.export }
+        let first = frames[0].1
+        let duration = CMTimeSubtract(frames[frames.count - 1].1, first)
+        let step = CMTimeMultiplyByRatio(duration, multiplier: 1, divisor: Int32(max(frames.count - 1, 1)))
+
+        let out = FileManager.default.temporaryDirectory.appending(path: "boomerang-\(UUID().uuidString).mov")
+        let writer = try AVAssetWriter(outputURL: out, fileType: .mov)
+        let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
+            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoWidthKey: size.width,
+            AVVideoHeightKey: size.height,
+        ])
+        input.transform = transform
+        input.expectsMediaDataInRealTime = false
+        let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input, sourcePixelBufferAttributes: nil)
+        writer.add(input)
+        guard writer.startWriting() else { throw writer.error ?? StoryVideoError.export }
+        writer.startSession(atSourceTime: .zero)
+
+        // Forward then reverse (dropping the duplicated turn-around frames).
+        let order = Array(frames.indices) + Array(frames.indices.reversed().dropFirst().dropLast())
+        var time = CMTime.zero
+        for _ in 0..<loops {
+            for index in order {
+                while !input.isReadyForMoreMediaData { try await Task.sleep(for: .milliseconds(5)) }
+                adaptor.append(frames[index].0, withPresentationTime: time)
+                time = CMTimeAdd(time, step)
+            }
+        }
+        input.markAsFinished()
+        await writer.finishWriting()
+        guard writer.status == .completed else { throw writer.error ?? StoryVideoError.export }
+        return out
+    }
+
+    /// Detached copy so the reader's small buffer pool never stalls while we hold frames.
+    private static func copy(_ source: CVPixelBuffer) -> CVPixelBuffer? {
+        var target: CVPixelBuffer?
+        CVPixelBufferCreate(nil, CVPixelBufferGetWidth(source), CVPixelBufferGetHeight(source),
+                            CVPixelBufferGetPixelFormatType(source), nil, &target)
+        guard let target else { return nil }
+        CVPixelBufferLockBaseAddress(source, .readOnly)
+        CVPixelBufferLockBaseAddress(target, [])
+        defer {
+            CVPixelBufferUnlockBaseAddress(target, [])
+            CVPixelBufferUnlockBaseAddress(source, .readOnly)
+        }
+        guard let src = CVPixelBufferGetBaseAddress(source), let dst = CVPixelBufferGetBaseAddress(target) else { return nil }
+        let srcRow = CVPixelBufferGetBytesPerRow(source), dstRow = CVPixelBufferGetBytesPerRow(target)
+        let rows = CVPixelBufferGetHeight(source)
+        for row in 0..<rows {
+            memcpy(dst + row * dstRow, src + row * srcRow, min(srcRow, dstRow))
+        }
+        return target
     }
 }

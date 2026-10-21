@@ -143,11 +143,7 @@ private final class StoryCameraEngine: NSObject, ObservableObject, AVCaptureVide
         if torch, position == .back { setTorch(true) }
         sessionQueue.async { [movieOutput, position] in
             if let connection = movieOutput.connection(with: .video) {
-                if connection.isVideoRotationAngleSupported(90) { connection.videoRotationAngle = 90 }
-                if connection.isVideoMirroringSupported {
-                    connection.automaticallyAdjustsVideoMirroring = false
-                    connection.isVideoMirrored = position == .front
-                }
+                StoryCameraEngine.orient(connection, position: position)
             }
             movieOutput.maxRecordedDuration = CMTime(seconds: maxSeconds, preferredTimescale: 600)
             movieOutput.startRecording(to: url, recordingDelegate: self)
@@ -202,11 +198,9 @@ private final class StoryCameraEngine: NSObject, ObservableObject, AVCaptureVide
                 if self.session.canAddOutput(self.movieOutput) { self.session.addOutput(self.movieOutput) }
                 self.configured = true
             }
-            if let connection = self.videoOutput.connection(with: .video) {
-                if connection.isVideoRotationAngleSupported(90) { connection.videoRotationAngle = 90 }
-                if connection.isVideoMirroringSupported {
-                    connection.automaticallyAdjustsVideoMirroring = false
-                    connection.isVideoMirrored = position == .front
+            for output in [self.videoOutput as AVCaptureOutput, self.movieOutput] {
+                if let connection = output.connection(with: .video) {
+                    StoryCameraEngine.orient(connection, position: position)
                 }
             }
             self.session.commitConfiguration()
@@ -216,6 +210,17 @@ private final class StoryCameraEngine: NSObject, ObservableObject, AVCaptureVide
                 AVCaptureDevice.requestAccess(for: .audio) { granted in if granted { self.configureAndRun() } }
             }
         }
+    }
+
+    /// Portrait, upright, selfie-mirrored for the front camera. Mirroring is set
+    /// *before* rotation: on the front camera, setting it after a 90° rotation
+    /// flips the rotated frame and the image comes out upside down / sideways.
+    nonisolated static func orient(_ connection: AVCaptureConnection, position: AVCaptureDevice.Position) {
+        if connection.isVideoMirroringSupported {
+            connection.automaticallyAdjustsVideoMirroring = false
+            connection.isVideoMirrored = position == .front
+        }
+        if connection.isVideoRotationAngleSupported(90) { connection.videoRotationAngle = 90 }
     }
 
     // MARK: Frames
@@ -445,6 +450,11 @@ struct StoryCaptureStage: View {
             if mode == .video {
                 withAnimation(.snappy) { clips.append(StoryClip(url: url, seconds: max(engine.recordedSeconds, 0.2), speed: speed.rawValue)) }
                 HapticEngine.shared.play(.selection)
+            } else if mode == .boomerang {
+                Task {
+                    let looped = (try? await StoryBoomerang.make(from: url)) ?? url
+                    onVideo(looped)
+                }
             } else {
                 onVideo(url)
             }

@@ -1750,6 +1750,7 @@ struct StoryCreateView: View {
             sheetContent(item)
                 .presentationDetents(item == .stickers ? [.medium, .large] : [.height(item == .poll || item == .countdown ? 340 : 240)])
                 .presentationDragIndicator(.visible)
+                .presentationContentInteraction(.resizes)
                 .presentationBackground(.ultraThinMaterial)
         }
         .accessibilityIdentifier("story.create")
@@ -2630,9 +2631,10 @@ struct StoryCreateView: View {
     }
 
     private var stickerSheet: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                ModulaFlowLayout(spacing: 8) {
+        VStack(spacing: 10) {
+            // Interactive stickers: compact, scrollable tile row with icon previews.
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
                     interactiveChip("Location", symbol: "mappin.and.ellipse") { sheet = .location }
                     interactiveChip("Mention", symbol: "at") { sheet = .mention }
                     interactiveChip("Poll", symbol: "chart.bar.xaxis") { sheet = .poll }
@@ -2650,13 +2652,7 @@ struct StoryCreateView: View {
                         app.navigation.flash("Weather stickers need a weather service — coming soon", symbol: "cloud.sun")
                     }
                     PhotosPicker(selection: $cutoutItems, maxSelectionCount: 1, matching: .images) {
-                        Label("Cutout", systemImage: "person.crop.rectangle.badge.plus")
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(accent)
-                            .padding(.horizontal, 14)
-                            .frame(height: 38)
-                            .background(Color(uiColor: .systemBackground), in: Capsule())
-                            .overlay(Capsule().strokeBorder(accent.opacity(0.35), lineWidth: 1))
+                        StickerToolTile(title: "Cutout", symbol: "person.crop.rectangle.badge.plus", accent: accent)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Sticker from photo")
@@ -2664,51 +2660,44 @@ struct StoryCreateView: View {
                         sheet = nil
                         withAnimation(spring) { tool = .music }
                     }
+                
                 }
-
-                Picker("Sticker type", selection: $stickerTab) {
-                    ForEach(StickerTab.allCases) { tab in Text(tab.rawValue).tag(tab) }
-                }
-                .pickerStyle(.segmented)
-
-                switch stickerTab {
-                case .emoji:
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 56), spacing: 8)], spacing: 8) {
-                        ForEach(Self.emoji, id: \.self) { emoji in
-                            Button { addLayer(.emoji(emoji)); sheet = nil } label: {
-                                Text(emoji).font(.system(size: 36)).frame(width: 56, height: 56)
-                            }
-                            .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
-                            .accessibilityLabel("Add \(emoji)")
-                        }
-                    }
-                case .animated:
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 76), spacing: 8)], spacing: 8) {
-                        ForEach(ModulaAnimatedSticker.Style.allCases) { style in
-                            Button { addLayer(.animated(style.rawValue)); sheet = nil } label: {
-                                ModulaAnimatedSticker(style: style, size: 72)
-                            }
-                            .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
-                        }
-                    }
-                case .mascot:
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 84), spacing: 8)], spacing: 8) {
-                        ForEach(ModulaMascotKind.allCases) { kind in
-                            Button { addLayer(.mascot(kind.rawValue)); sheet = nil } label: {
-                                VStack(spacing: 4) {
-                                    ModulaMascotSticker(kind: kind, size: 76)
-                                    Text(kind.name).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
-                                }
-                            }
-                            .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
-                        }
-                    }
-                case .gif:
-                    gifSection
-                }
+                .padding(.vertical, 2)
             }
-            .padding(20)
+            .contentMargins(.horizontal, 16, for: .scrollContent)
+            .modulaHorizontalEdgeFade()
+            .padding(.top, 14)
+
+            // Shared emoji / Faces / Stickers / GIF panel (same as comments + composer).
+            ModulaComposerMediaPanel(
+                client: app.client,
+                initialTab: .stickers,
+                contentHeight: 420,
+                onEmoji: { emoji in
+                    addLayer(.emoji(emoji)); sheet = nil
+                },
+                onGif: { gif in
+                    sheet = nil
+                    Task { await addGif(gif) }
+                },
+                onSticker: { sticker in
+                    addLayer(Self.storyContent(for: sticker)); sheet = nil
+                }
+            )
         }
+    }
+
+    /// Local sticker tokens become real mascot / animated layers instead of a
+    /// placeholder 🐾 emoji (the "greyed paw").
+    private static func storyContent(for sticker: ModulaSticker) -> StoryLayer.Content {
+        if let local = ModulaLocalSticker.extract(sticker.id).stickers.first {
+            switch local.kind {
+            case .mascot: return .mascot(local.value)
+            case .anim: return .animated(local.value)
+            case .emoji: return .emoji(local.value)
+            }
+        }
+        return .emoji(sticker.emoji)
     }
 
     private func interactiveChip(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
@@ -2716,15 +2705,10 @@ struct StoryCreateView: View {
             action()
             HapticEngine.shared.play(.selection)
         } label: {
-            Label(title, systemImage: symbol)
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(accent)
-                .padding(.horizontal, 14)
-                .frame(height: 38)
-                .background(Color(uiColor: .systemBackground), in: Capsule())
-                .overlay(Capsule().strokeBorder(accent.opacity(0.35), lineWidth: 1))
+            StickerToolTile(title: title, symbol: symbol, accent: accent)
         }
         .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
+        .accessibilityLabel(title)
     }
 
     private var gifSection: some View {
@@ -2907,6 +2891,9 @@ struct StoryCreateView: View {
 
                 Spacer(minLength: 0)
 
+                // Hidden while the camera is up so it never collides with the mode picker
+                // (e.g. "Boomerang"); it appears once there is something to share.
+                if !showsCamera {
                 Button {
                     Task { await publish() }
                 } label: {
@@ -2927,6 +2914,8 @@ struct StoryCreateView: View {
                 .disabled(!canShare || busy || showsCamera)
                 .opacity(!canShare || showsCamera ? 0.45 : 1)
                 .accessibilityIdentifier("story.create.share")
+                .transition(.opacity.combined(with: .scale(0.9)))
+                }
             }
         }
         .padding(.horizontal, 14)
@@ -3354,5 +3343,29 @@ enum StoryTextContrast {
         let luminance = 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0)
         // Contrast vs white = 1.05 / (L + 0.05); vs black = (L + 0.05) / 0.05.
         return (luminance + 0.05) / 0.05 > 1.05 / (luminance + 0.05)
+    }
+}
+
+
+/// Compact visual tile for an interactive story sticker (icon preview + label).
+private struct StickerToolTile: View {
+    let title: String
+    let symbol: String
+    let accent: Color
+
+    var body: some View {
+        VStack(spacing: 5) {
+            Image(systemName: symbol)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 46, height: 46)
+                .background(accent.gradient, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+        }
+        .frame(width: 64)
+        .contentShape(Rectangle())
     }
 }

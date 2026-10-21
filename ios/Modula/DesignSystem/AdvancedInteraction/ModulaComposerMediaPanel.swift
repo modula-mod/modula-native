@@ -487,7 +487,7 @@ struct ModulaStickerPicker: View {
                             HapticEngine.shared.play(.selection)
                         } label: {
                             Group {
-                                if section.isSymbol { Image(systemName: section.icon).font(.system(size: 17, weight: .semibold)) }
+                                if section.isSymbol { Image(systemName: section.icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(selected == section.id ? Color.white : Color.primary) }
                                 else { Text(section.icon).font(.title2) }
                             }
                             .frame(width: 44, height: 38)
