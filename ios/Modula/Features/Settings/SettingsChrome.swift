@@ -261,7 +261,7 @@ struct SettingsScrollCanvas<Content: View>: View {
                 }
                 .padding(.horizontal, ModulaLayout.contentInset)
                 .padding(.top, 10)
-                .padding(.bottom, 28)
+                .padding(.bottom, SettingsInsets.bottom)
             }
             .onAppear { scroll(to: app.navigation.settingsFocusAnchor, proxy: proxy) }
             .onChange(of: app.navigation.settingsFocusAnchor) { _, anchor in
@@ -644,4 +644,337 @@ func settingsDisplayTitle(_ raw: String) -> String {
     }
     if !current.isEmpty { words.append(current) }
     return words.map { special[$0.lowercased()] ?? ($0.prefix(1).uppercased() + $0.dropFirst()) }.joined(separator: " ")
+}
+
+
+/// iOS-Settings-style coloured rounded-square icon tile.
+struct SettingsIconTile: View {
+    let symbol: String
+    var size: CGFloat = 30
+
+    static func color(for symbol: String) -> Color {
+        let map: [(String, Color)] = [
+            ("person", .blue), ("lock", .gray), ("faceid", .green), ("hand.raised", .blue), ("shield", .indigo),
+            ("bell", .red), ("moon", .indigo), ("paintpalette", .cyan), ("accessibility", .blue), ("globe", .blue),
+            ("pawprint", .orange), ("bubble", .green), ("photo", .pink), ("speaker", .pink), ("rectangle.stack", .orange),
+            ("internaldrive", .gray), ("battery", .green), ("network", .blue), ("shippingbox", .brown), ("sparkles", .purple),
+            ("questionmark", .blue), ("info", .gray), ("hammer", .gray), ("brain", .purple), ("slider", .gray),
+            ("hand.draw", .teal), ("keyboard", .gray), ("magnifyingglass", .gray), ("square.and.arrow.up", .blue),
+            ("nosign", .red), ("key", .gray), ("trash", .red), ("envelope", .blue), ("at", .teal), ("laptop", .gray),
+        ]
+        return map.first { symbol.hasPrefix($0.0) || symbol.contains($0.0) }?.1 ?? .accentColor
+    }
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: size * 0.5, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: size, height: size)
+            .background(Self.color(for: symbol).gradient, in: RoundedRectangle(cornerRadius: size * 0.24, style: .continuous))
+            .accessibilityHidden(true)
+    }
+}
+
+/// 52pt row: tile · title (+ optional subtitle) · value · chevron.
+struct SettingsTileRow: View {
+    var title: String
+    var subtitle: String? = nil
+    var value: String? = nil
+    var symbol: String
+    var showsChevron = true
+    var action: () -> Void
+
+    var body: some View {
+        Button {
+            HapticEngine.shared.play(.selection)
+            action()
+        } label: {
+            HStack(spacing: 12) {
+                SettingsIconTile(symbol: symbol)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title).foregroundStyle(.primary).lineLimit(1)
+                    if let subtitle, !subtitle.isEmpty {
+                        Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 8)
+                if let value, !value.isEmpty {
+                    Text(value).foregroundStyle(.secondary).lineLimit(1)
+                }
+                if showsChevron {
+                    Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                }
+            }
+            .frame(minHeight: 52)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// 52pt toggle row with a tile; standard-size system switch.
+struct SettingsTileToggle: View {
+    var title: String
+    var symbol: String
+    @Binding var isOn: Bool
+    var body: some View {
+        Toggle(isOn: $isOn) {
+            HStack(spacing: 12) {
+                SettingsIconTile(symbol: symbol)
+                Text(title).lineLimit(2)
+            }
+        }
+        .toggleStyle(.switch)
+        .frame(minHeight: 52)
+    }
+}
+
+/// Liquid Glass grouped card.
+struct SettingsGlassCard<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View {
+        VStack(spacing: 0) { content }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: false)
+    }
+}
+
+/// Compact identity row: avatar · name / handle · chevron (opens profile edit).
+struct SettingsProfileHeaderRow: View {
+    var name: String
+    var handle: String?
+    var initials: String
+    var avatarURL: URL?
+    var action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                ModulaAvatar(initials: initials, url: avatarURL, size: 56)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name).font(.title3.weight(.semibold)).foregroundStyle(.primary).lineLimit(1)
+                    Text(handle.map { "\($0) · Edit profile" } ?? "Sign in").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .contentShape(Rectangle())
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: true)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("settings.identity.row")
+    }
+}
+
+/// Bottom clearance for every Settings page (tab bar + home indicator + floating buttons).
+enum SettingsInsets {
+    static let bottom: CGFloat = 120
+}
+
+/// Routes that only preview features without a backend. Shown in DEBUG only.
+enum SettingsAudit {
+    static func previewOnly(_ route: SettingsRoute) -> Bool {
+        switch route {
+        case .privacy(.glassPrivacy), .connectors, .integrations, .monetisation, .family,
+             .widgets, .location, .passkeys, .labs, .developer, .features, .updates:
+            return true
+        default:
+            return false
+        }
+    }
+}
+
+
+/// Gestures + Typing + Search + Sharing + Photos + Focus: six thin pages folded into one.
+/// Same storage keys as the old pages. Toggles no code reads (double-tap like, swipe to reply,
+/// composer tool swipe) are not shown.
+struct GeneralBehaviourSettingsPage: View {
+    @AppStorage("settings.gestures.edgeBack") private var edgeBack = true
+    @AppStorage("settings.gestures.shakeUndo") private var shakeUndo = false
+    @AppStorage("settings.keyboard.periodShortcut") private var autocorrect = true
+    @AppStorage("settings.keyboard.capsLock") private var autoCaps = true
+    @AppStorage("settings.finder.includeModules") private var includeModules = true
+    @AppStorage("settings.finder.peopleFirst") private var peopleFirst = false
+    @AppStorage("settings.sharing.includeHandle") private var includeHandle = true
+    @AppStorage("settings.sharing.preferNativeSheet") private var preferNative = true
+    @AppStorage("settings.sharing.copyAsLink") private var copyAsLink = false
+    @AppStorage("settings.photos.autoSaveStories") private var autoSaveStories = false
+    @AppStorage("settings.photos.limitedLibraryHint") private var limitedHint = true
+    @AppStorage("settings.focus.hideBadges") private var hideBadges = false
+    @AppStorage("settings.focus.dimActivity") private var dimActivity = true
+    @AppStorage("settings.focus.allowMentions") private var allowMentions = true
+
+    var body: some View {
+        SettingsScrollCanvas {
+            SettingsGroup(title: "Gestures") {
+                SettingsTileToggle(title: "Edge swipe to go back", symbol: "hand.draw.fill", isOn: $edgeBack).settingsAnchor("gestures.edgeBack")
+                SettingsDivider()
+                SettingsTileToggle(title: "Shake to undo", symbol: "iphone.radiowaves.left.and.right", isOn: $shakeUndo)
+            }
+            SettingsGroup(title: "Typing") {
+                SettingsTileToggle(title: "Autocorrect in composers", symbol: "keyboard", isOn: $autocorrect)
+                SettingsDivider()
+                SettingsTileToggle(title: "Auto-capitalise sentences", symbol: "textformat", isOn: $autoCaps)
+            }
+            SettingsGroup(title: "Search") {
+                SettingsTileToggle(title: "Include modules in results", symbol: "magnifyingglass", isOn: $includeModules)
+                SettingsDivider()
+                SettingsTileToggle(title: "Show people first", symbol: "person.2.fill", isOn: $peopleFirst)
+            }
+            SettingsGroup(title: "Sharing") {
+                SettingsTileToggle(title: "Use the system share sheet", symbol: "square.and.arrow.up", isOn: $preferNative).settingsAnchor("sharing.sheet")
+                SettingsDivider()
+                SettingsTileToggle(title: "Include @handle in share text", symbol: "at", isOn: $includeHandle)
+                SettingsDivider()
+                SettingsTileToggle(title: "Copy link instead of opening sheet", symbol: "link", isOn: $copyAsLink)
+            }
+            SettingsGroup(title: "Photos") {
+                SettingsTileToggle(title: "Save Stories you post to Photos", symbol: "photo.fill", isOn: $autoSaveStories)
+                SettingsDivider()
+                SettingsTileToggle(title: "Explain photo access in the composer", symbol: "photo.badge.exclamationmark", isOn: $limitedHint)
+            }
+            SettingsGroup(title: "During iOS Focus") {
+                SettingsTileToggle(title: "Hide tab badges", symbol: "moon.fill", isOn: $hideBadges)
+                SettingsDivider()
+                SettingsTileToggle(title: "Dim Activity", symbol: "moon.stars.fill", isOn: $dimActivity).settingsAnchor("focus.dimActivity")
+                SettingsDivider()
+                SettingsTileToggle(title: "Still allow @mentions", symbol: "at.badge.plus", isOn: $allowMentions)
+            }
+        }
+        .navigationTitle("Gestures, Typing & Sharing")
+        .navigationBarTitleDisplayMode(.inline)
+        .accessibilityIdentifier("settings.general-behaviour")
+    }
+}
+
+/// Battery & Data + Network folded into one page (same keys).
+struct BatteryNetworkSettingsPage: View {
+    @AppStorage("settings.battery.dataSaver") private var dataSaver = false
+    @AppStorage("settings.battery.reduceMotionExtra") private var reduceMotionExtra = false
+    @AppStorage("settings.battery.pauseAutoplayOnLowPower") private var pauseAutoplay = true
+    @AppStorage("settings.network.preferWiFiUploads") private var preferWiFi = true
+    @AppStorage("settings.network.preloadMedia") private var preload = true
+
+    var body: some View {
+        SettingsScrollCanvas {
+            SettingsGroup(title: "Battery") {
+                SettingsTileToggle(title: "Data saver", symbol: "battery.100.bolt", isOn: $dataSaver).settingsAnchor("battery.dataSaver")
+                SettingsDivider()
+                SettingsTileToggle(title: "Pause autoplay in Low Power Mode", symbol: "bolt.slash.fill", isOn: $pauseAutoplay).settingsAnchor("battery.lowPower")
+                SettingsDivider()
+                SettingsTileToggle(title: "Extra motion reduction", symbol: "waveform.path", isOn: $reduceMotionExtra)
+            }
+            SettingsGroup(title: "Network", subtitle: "Uploads over 25 MB wait for Wi‑Fi on cellular or Low Data Mode.") {
+                SettingsTileToggle(title: "Prefer Wi‑Fi for large uploads", symbol: "network", isOn: $preferWiFi)
+                SettingsDivider()
+                SettingsTileToggle(title: "Preload feed media on Wi‑Fi", symbol: "arrow.down.circle.fill", isOn: $preload)
+            }
+        }
+        .navigationTitle("Battery & Network")
+        .navigationBarTitleDisplayMode(.inline)
+        .accessibilityIdentifier("settings.battery-network")
+    }
+}
+
+/// Privacy, Glass Privacy (debug), Blocked, Security, App Lock and Face ID on one page.
+struct PrivacySafetySettingsPage: View {
+    @Environment(AppEnvironment.self) private var app
+    @State private var showsSetup = false
+    @State private var showsChange = false
+    @State private var confirmSignOutReset = false
+
+    var body: some View {
+        let lock = app.appLock
+        SettingsScrollCanvas {
+            SettingsGroup(title: "Privacy", subtitle: "Your email and phone number are never shown on your profile.") {
+                SettingsTileRow(title: "Blocked Accounts", symbol: "nosign") { app.navigation.open(.settings(.privacy(.blocked))) }
+                SettingsDivider()
+                SettingsTileRow(title: "Safety & Reporting", subtitle: "Muted words, sensitive content", symbol: "shield.checkered") { app.navigation.open(.settings(.safety(.root))) }
+                SettingsDivider()
+                SettingsTileRow(title: "Export Your Data", symbol: "square.and.arrow.up") { app.navigation.open(.settings(.dataStorage(.export))) }
+                SettingsDivider()
+                SettingsTileRow(title: "Make a Privacy Request", symbol: "hand.raised.fill") { app.navigation.open(.settings(.help(.contact))) }
+            }
+            SettingsGroup(title: "Security", subtitle: "App Lock protects the signed-in app on this device. It doesn’t replace account login.") {
+                SettingsTileToggle(title: "App Lock", symbol: "lock.fill", isOn: Binding(
+                    get: { lock.enabled },
+                    set: { value in
+                        if value, (try? lock.setEnabled(true)) == nil {
+                            showsSetup = true
+                        } else if !value {
+                            try? lock.setEnabled(false)
+                            app.refreshLaunchState()
+                        }
+                    }
+                ))
+                .accessibilityIdentifier("settings.applock.enable")
+                if lock.enabled {
+                    SettingsDivider()
+                    HStack(spacing: 12) {
+                        SettingsIconTile(symbol: "timer")
+                        Text("Require")
+                        Spacer()
+                        Picker("Require", selection: Binding(get: { lock.settings.interval }, set: { lock.setInterval($0) })) {
+                            ForEach(AppLockInterval.allCases, id: \.self) { Text($0.title).tag($0) }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                    }
+                    .frame(minHeight: 52)
+                    SettingsDivider()
+                    SettingsTileRow(title: "Change Passcode", symbol: "key.fill") { showsChange = true }
+                }
+                SettingsDivider()
+                SettingsTileToggle(title: "Unlock with \(lock.biometricAvailability.kind.title)", symbol: "faceid", isOn: Binding(
+                    get: { lock.settings.biometricsEnabled },
+                    set: { lock.setBiometricsEnabled($0) }
+                ))
+                .disabled(!lock.biometricAvailability.isUsable)
+                SettingsDivider()
+                SettingsTileToggle(title: "Hide in App Switcher", symbol: "eye.slash.fill", isOn: Binding(
+                    get: { lock.settings.hideInAppSwitcher },
+                    set: { lock.setHideInAppSwitcher($0) }
+                ))
+            }
+            SettingsGroup(title: "Account security") {
+                SettingsTileRow(title: "Password", value: "Reset by email", symbol: "key") { app.navigation.open(.settings(.account(.password))) }
+                SettingsDivider()
+                SettingsTileRow(title: "Sessions", symbol: "laptopcomputer.and.iphone") { app.navigation.open(.settings(.account(.sessions))) }
+            }
+            if lock.enabled {
+                Button("Forgot Passcode? Sign Out and Reset App Lock", role: .destructive) { confirmSignOutReset = true }
+                    .font(.subheadline)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+        }
+        .navigationTitle("Privacy & Safety")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showsSetup) {
+            NavigationStack {
+                PasscodeSetupView(title: "App Lock") { passcode in
+                    try app.appLock.setPasscode(passcode)
+                    try app.appLock.setEnabled(true)
+                    app.refreshLaunchState()
+                }
+            }
+        }
+        .sheet(isPresented: $showsChange) {
+            NavigationStack {
+                PasscodeSetupView(title: "Change Passcode") { passcode in
+                    try app.appLock.setPasscode(passcode)
+                }
+            }
+        }
+        .confirmationDialog("Sign out and reset App Lock?", isPresented: $confirmSignOutReset, titleVisibility: .visible) {
+            Button("Sign Out and Reset", role: .destructive) {
+                Task { await app.performSignOut(resetAppLock: true) }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .accessibilityIdentifier("settings.privacy-security")
+    }
 }
