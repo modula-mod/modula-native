@@ -25,6 +25,8 @@ struct ModulaComposerMediaPanel: View {
     var onSticker: ((ModulaSticker) -> Void)? = nil
 
     @State private var tab: Tab = .emoji
+    /// Extra bottom padding when a parent ignores the safe area and the panel would run under the home indicator.
+    @State private var homeIndicatorPadding: CGFloat = 0
     @Namespace private var tabGlass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(AppEnvironment.self) private var app
@@ -94,7 +96,16 @@ struct ModulaComposerMediaPanel: View {
             Color.clear.frame(height: 6)
                 .padding(.bottom, 4)
         }
+        .padding(.bottom, homeIndicatorPadding)
         .frame(maxWidth: .infinity)
+        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: { maxY in
+            // Stable when bottom-pinned (maxY doesn't move with padding); clamped to the inset otherwise.
+            guard let window = UIApplication.shared.connectedScenes.compactMap({ ($0 as? UIWindowScene)?.keyWindow }).first else { return }
+            let inset = window.safeAreaInsets.bottom
+            let limit = window.bounds.height - inset
+            let needed = min(inset, max(0, maxY - limit))
+            if abs(needed - homeIndicatorPadding) > 1 { homeIndicatorPadding = needed }
+        }
         // Keyboard-replacement surface: opaque enough that the comment list never bleeds
         // through. Liquid Glass is reserved for the small tab chips above — a full-bleed
         // glassEffect here was compositing above the composer and chopping the mascot.
@@ -136,6 +147,8 @@ struct ModulaEmojiGrid: View {
     @AppStorage("composer.emojiSkinTone") private var skinTone = 0
     @State private var query = ""
     @State private var visibleSection = "Frequently used"
+    @State private var sectionOffsets: [String: CGFloat] = [:]
+    @State private var jumping = false
     @Environment(\.colorScheme) private var colorScheme
     @Environment(AppEnvironment.self) private var app
 
@@ -173,8 +186,21 @@ struct ModulaEmojiGrid: View {
         }
         var list = counts.sorted { $0.value > $1.value }.map(\.key)
         for r in recents where !list.contains(r) { list.append(r) }
-        return Array(list.prefix(16))
+        // Whole rows only, so a lone emoji never wraps onto a second line.
+        let columns = 8
+        let count = list.count >= columns ? min(list.count / columns * columns, columns * 2) : list.count
+        return Array(list.prefix(count))
     }
+
+    /// Everyday keywords that Unicode names don't contain.
+    private static let aliases: [String: [String]] = [
+        "love": ["❤️", "😍", "🥰", "😘", "💕", "💖"], "lol": ["😂", "🤣", "😆"], "haha": ["😂", "🤣", "😆"],
+        "cry": ["😭", "😢", "🥲"], "sad": ["😢", "😭", "😞", "🥺"], "happy": ["😀", "😊", "😁", "🥳"],
+        "fire": ["🔥"], "lit": ["🔥"], "ok": ["👌", "👍"], "yes": ["👍", "✅"], "no": ["👎", "❌"],
+        "thanks": ["🙏", "🫶"], "party": ["🥳", "🎉", "🎊"], "angry": ["😡", "😠", "🤬"], "cool": ["😎", "🆒"],
+        "wow": ["😮", "🤯", "😲"], "think": ["🤔"], "eyes": ["👀"], "clap": ["👏"], "heart": ["❤️", "💜", "💙", "💚", "🧡", "💛"],
+        "dead": ["💀"], "skull": ["💀"], "100": ["💯"], "star": ["⭐️", "🌟", "✨"], "sparkle": ["✨"], "pray": ["🙏"],
+    ]
 
     private func render(_ item: Item, tone: Int? = nil) -> String {
         let tone = tone ?? skinTone
@@ -186,7 +212,7 @@ struct ModulaEmojiGrid: View {
         let canvas = ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas
         VStack(spacing: 8) {
             HStack(spacing: 8) {
-                ModulaGlassSearchField(prompt: "Search emoji", text: $query)
+                ModulaGlassSearchField(prompt: "Search emoji or words like “love”", text: $query)
                 Menu {
                     Picker("Skin tone", selection: $skinTone) {
                         ForEach(0..<Self.tones.count, id: \.self) { index in
@@ -194,9 +220,14 @@ struct ModulaEmojiGrid: View {
                         }
                     }
                 } label: {
-                    Text("👋" + Self.tones[skinTone]).font(.title3).frame(width: 40, height: 40)
+                    Text("👋" + Self.tones[skinTone])
+                        .font(.title3)
+                        .frame(width: 44, height: 44)
+                        .overlay(Circle().strokeBorder(Color.accentColor.opacity(0.45), lineWidth: 1.2).padding(2))
+                        .contentShape(Circle())
                 }
-                .modulaGlass(in: Circle())
+                .modulaGlass(in: Circle(), interactive: true)
+                .onChange(of: skinTone) { _, _ in HapticEngine.shared.play(.selection) }
                 .accessibilityLabel("Skin tone")
                 .accessibilityIdentifier("composer.emoji.skintone")
             }
@@ -222,14 +253,18 @@ struct ModulaEmojiGrid: View {
                                     )
                                 }
                             } else {
+                                let aliasGlyphs = Self.aliases.filter { $0.key.hasPrefix(trimmed) }.flatMap(\.value)
                                 let matches = Self.emoji.flatMap(\.2).filter { $0.name.contains(trimmed) }
-                                if matches.isEmpty {
+                                if !aliasGlyphs.isEmpty {
+                                    emojiBlock(title: "Suggested", cells: Array(NSOrderedSet(array: aliasGlyphs)).compactMap { $0 as? String }.map { EmojiCell(id: "alias.\($0)", glyph: $0, item: nil) })
+                                }
+                                if matches.isEmpty && aliasGlyphs.isEmpty {
                                     Text("No emoji for “\(query)”")
                                         .font(.footnote)
                                         .foregroundStyle(.secondary)
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 24)
-                                } else {
+                                } else if !matches.isEmpty {
                                     emojiBlock(
                                         title: "Results",
                                         cells: matches.prefix(120).enumerated().map { index, item in
@@ -240,9 +275,18 @@ struct ModulaEmojiGrid: View {
                             }
                         }
                         .padding(.horizontal, 8)
-                        .padding(.bottom, 10)
+                        // Last row scrolls fully clear of the category bar.
+                        .padding(.bottom, 18)
                     }
+                    .coordinateSpace(name: "emoji.scroll")
                     .scrollIndicators(.hidden)
+                    .onChange(of: sectionOffsets) { _, offsets in
+                        guard !jumping else { return }
+                        // The section whose header has most recently crossed the top wins.
+                        let current = offsets.filter { $0.value <= 40 }.max { $0.value < $1.value }?.key
+                            ?? offsets.min { $0.value < $1.value }?.key
+                        if let current, current != visibleSection { visibleSection = current }
+                    }
 
                     if query.isEmpty {
                         categoryBar(proxy)
@@ -274,24 +318,38 @@ struct ModulaEmojiGrid: View {
                 ForEach(cells) { cell in
                     Button { pick(cell.glyph) } label: {
                         Text(cell.glyph)
-                            .font(.system(size: 28))
+                            .font(.system(size: 30))
                             .frame(maxWidth: .infinity)
-                            .frame(height: 36)
+                            .frame(height: 40)
                             .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(EmojiKeyStyle())
                     .accessibilityLabel(cell.item?.name ?? cell.glyph)
+                    // Touch and hold: big preview + skin tones (when the emoji supports them).
                     .contextMenu {
                         if let item = cell.item, item.base.properties.isEmojiModifierBase {
                             ForEach(0..<Self.tones.count, id: \.self) { tone in
                                 Button(render(item, tone: tone)) { pick(render(item, tone: tone)) }
                             }
+                        } else {
+                            Button("Insert \(cell.glyph)") { pick(cell.glyph) }
                         }
+                    } preview: {
+                        VStack(spacing: 6) {
+                            Text(cell.glyph).font(.system(size: 88))
+                            if let name = cell.item?.name, !name.isEmpty {
+                                Text(name.capitalized).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(20)
                     }
                 }
             }
         }
         .id("section.\(title)")
+        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named("emoji.scroll")).minY } action: { y in
+            sectionOffsets[title] = y
+        }
     }
 
     private func categoryBar(_ proxy: ScrollViewProxy) -> some View {
@@ -300,18 +358,21 @@ struct ModulaEmojiGrid: View {
             ForEach(items, id: \.0) { title, icon in
                 Button {
                     visibleSection = title
+                    jumping = true
                     withAnimation(.snappy) { proxy.scrollTo("section.\(title)", anchor: .top) }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { jumping = false }
                     HapticEngine.shared.play(.selection)
                 } label: {
                     Image(systemName: icon)
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(visibleSection == title ? Color.accentColor : Color.secondary)
-                        .frame(maxWidth: .infinity, minHeight: 32)
+                        .frame(maxWidth: .infinity, minHeight: 34)
                         .background {
                             if visibleSection == title {
-                                Capsule().fill(Color.accentColor.opacity(0.15)).padding(.horizontal, 4)
+                                Capsule().fill(Color.accentColor.opacity(0.18)).padding(.horizontal, 3)
                             }
                         }
+                        .animation(.snappy(duration: 0.18), value: visibleSection)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(title)
@@ -387,11 +448,29 @@ struct ModulaStickerPicker: View {
     @State private var creatingPack = false
     @State private var premiumKind: ModulaMascotKind?
     @State private var custom = ModulaCustomStickerStore.shared
+    @AppStorage("composer.recentStickers") private var recentStickersRaw = ""
+
+    /// Recent stickers persist between sessions as "id|pack|emoji|label" records.
+    private var recentStickers: [ModulaSticker] {
+        recentStickersRaw.split(separator: "\u{1E}").compactMap { record in
+            let p = record.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+            return p.count == 4 ? ModulaSticker(id: p[0], packID: p[1], emoji: p[2], label: p[3]) : nil
+        }
+    }
+
+    private func pickSticker(_ sticker: ModulaSticker) {
+        onPick(sticker)
+        var list = recentStickers.filter { $0.id != sticker.id }
+        list.insert(sticker, at: 0)
+        recentStickersRaw = list.prefix(16).map { "\($0.id)|\($0.packID)|\($0.emoji)|\($0.label)" }.joined(separator: "\u{1E}")
+        HapticEngine.shared.play(.success)
+    }
 
     private struct Section: Identifiable { let id: String; let title: String; let icon: String; let isSymbol: Bool }
 
     private var sections: [Section] {
-        [Section(id: "animated", title: "Animated", icon: "sparkles", isSymbol: true),
+        (recentStickers.isEmpty ? [] : [Section(id: "recent", title: "Recent", icon: "clock", isSymbol: true)])
+        + [Section(id: "animated", title: "Animated", icon: "sparkles", isSymbol: true),
          Section(id: "mascots", title: "Moliboos", icon: "pawprint.fill", isSymbol: true)]
         + packs.map { Section(id: $0.id, title: $0.title, icon: $0.icon, isSymbol: false) }
         + custom.packs.map { Section(id: "custom.\($0.id)", title: $0.title, icon: $0.emoji.first ?? "⭐️", isSymbol: false) }
@@ -447,6 +526,15 @@ struct ModulaStickerPicker: View {
     @ViewBuilder
     private var content: some View {
         switch selected {
+        case "recent":
+            LazyVGrid(columns: columns, spacing: 10) {
+                ForEach(recentStickers) { sticker in
+                    Button { pickSticker(sticker) } label: { ModulaStickerView(emoji: sticker.emoji, size: 64) }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(sticker.label) sticker")
+                        .contextMenu { Button("Send") { pickSticker(sticker) } } preview: { ModulaStickerView(emoji: sticker.emoji, size: 180).padding(12) }
+                }
+            }
         case "animated":
             LazyVGrid(columns: columns, spacing: 10) {
                 ForEach(ModulaAnimatedSticker.Style.allCases) { style in
@@ -459,7 +547,7 @@ struct ModulaStickerPicker: View {
                     let locked = !MascotEntitlements.canUse(kind)
                     Button {
                         if locked { premiumKind = kind; HapticEngine.shared.play(.lightImpact) }
-                        else { onPick(ModulaLocalSticker(kind: .mascot, value: kind.rawValue).asSticker); HapticEngine.shared.play(.success) }
+                        else { pickSticker(ModulaLocalSticker(kind: .mascot, value: kind.rawValue).asSticker) }
                     } label: {
                         ModulaMascotSticker(kind: kind, size: 70)
                             .opacity(locked ? 0.55 : 1)
@@ -469,6 +557,9 @@ struct ModulaStickerPicker: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(kind.name) sticker\(locked ? ", Premium" : "")")
+                    .contextMenu { if !locked { Button("Send") { pickSticker(ModulaLocalSticker(kind: .mascot, value: kind.rawValue).asSticker) } } } preview: {
+                        ModulaMascotSticker(kind: kind, size: 180).padding(12)
+                    }
                 }
             }
         case "mine":
@@ -512,11 +603,12 @@ struct ModulaStickerPicker: View {
             } else if let pack = packs.first(where: { $0.id == selected }) {
                 LazyVGrid(columns: columns, spacing: 10) {
                     ForEach(pack.stickers) { sticker in
-                        Button { onPick(sticker); HapticEngine.shared.play(.success) } label: {
+                        Button { pickSticker(sticker) } label: {
                             ModulaStickerView(emoji: sticker.emoji, size: 64)
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("\(sticker.label) sticker")
+                        .contextMenu { Button("Send") { pickSticker(sticker) } } preview: { ModulaStickerView(emoji: sticker.emoji, size: 180).padding(12) }
                     }
                 }
             } else if failed {
@@ -529,7 +621,7 @@ struct ModulaStickerPicker: View {
     }
 
     private func stickerButton<V: View>(_ sticker: ModulaLocalSticker, @ViewBuilder label: () -> V) -> some View {
-        Button { onPick(sticker.asSticker); HapticEngine.shared.play(.success) } label: { label() }
+        Button { pickSticker(sticker.asSticker) } label: { label() }
             .buttonStyle(.plain)
             .accessibilityLabel("\(sticker.label) sticker")
     }
@@ -644,14 +736,44 @@ struct ModulaGifPicker: View {
         }
     }
 
+    /// Two-column masonry: each GIF keeps its aspect ratio; columns are balanced by height.
+    private func masonry(_ gifs: [ModulaGif]) -> [[ModulaGif]] {
+        var columns: [[ModulaGif]] = [[], []]
+        var heights: [CGFloat] = [0, 0]
+        for gif in gifs {
+            let ratio = CGFloat(gif.height ?? 1) / CGFloat(max(gif.width ?? 1, 1))
+            let i = heights[0] <= heights[1] ? 0 : 1
+            columns[i].append(gif)
+            heights[i] += min(max(ratio, 0.5), 1.8)
+        }
+        return columns
+    }
+
     private func grid(_ gifs: [ModulaGif], paging: Bool) -> some View {
         ScrollView {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 3), spacing: 4) {
-                ForEach(gifs) { gif in
-                    Button { onPick(gif) } label: {
+            HStack(alignment: .top, spacing: 4) {
+                ForEach(Array(masonry(gifs).enumerated()), id: \.offset) { _, column in
+                    LazyVStack(spacing: 4) {
+                        ForEach(column) { gif in
+                            gifCell(gif, paging: paging)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 10)
+            if paging && state == .loading { ProgressView().padding() }
+            Text("Powered by GIPHY").font(.caption2).foregroundStyle(.tertiary).padding(.vertical, 6)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private func gifCell(_ gif: ModulaGif, paging: Bool) -> some View {
+        let ratio = min(max(CGFloat(gif.height ?? 1) / CGFloat(max(gif.width ?? 1, 1)), 0.5), 1.8)
+        return Button { onPick(gif) } label: {
                         ModulaAnimatedRemoteImage(url: gif.previewURL)
-                            .frame(height: 96)
                             .frame(maxWidth: .infinity)
+                            .aspectRatio(1 / ratio, contentMode: .fill)
+                            .background(Color.primary.opacity(0.06))
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                             .overlay(alignment: .topTrailing) {
                                 if favourites.contains(gif) {
@@ -669,12 +791,6 @@ struct ModulaGifPicker: View {
                     .onAppear {
                         if paging, gif.id == items.last?.id, nextOffset != nil { Task { await load(reset: false) } }
                     }
-                }
-            }
-            .padding(.horizontal, 10)
-            if paging && state == .loading { ProgressView().padding() }
-            Text("Powered by GIPHY").font(.caption2).foregroundStyle(.tertiary).padding(.vertical, 6)
-        }
     }
 
     private func emptyState(symbol: String, title: String, message: String, alternatives: Bool = false, retry: Bool = false) -> some View {
@@ -741,5 +857,18 @@ struct ModulaGifPicker: View {
         } catch {
             state = .failed("Try again in a moment.")
         }
+    }
+}
+
+/// iOS-keyboard-like key press: a soft lift + highlight, with no lingering selection state.
+private struct EmojiKeyStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.primary.opacity(configuration.isPressed ? 0.10 : 0))
+            )
+            .scaleEffect(configuration.isPressed ? 1.18 : 1)
+            .animation(.spring(response: 0.18, dampingFraction: 0.6), value: configuration.isPressed)
     }
 }

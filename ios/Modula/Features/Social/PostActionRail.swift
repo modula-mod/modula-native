@@ -82,7 +82,7 @@ struct PostActionRail: View {
             if let onReactLongPress { onReactLongPress() } else { showsReactions = true }
         }
                 .popover(isPresented: $showsReactions) {
-            PostReactionPicker(current: post.viewerReaction, multiEnabled: app.postActions.capabilities.multiReactions,
+            PostReactionPicker(current: post.viewerReaction, multiEnabled: app.postActions.capabilities.multiReactions, postID: post.id,
                 onSelect: { reaction in
                     showsReactions = false
                     Task { await app.postActions.setReaction(post, reaction: reaction) }

@@ -552,6 +552,7 @@ struct PostActions: View {
                 PostReactionPicker(
                     current: post.viewerReaction ?? (post.liked ? .like : nil),
                     multiEnabled: app.postActions.capabilities.multiReactions,
+                    postID: post.id,
                     onSelect: { reaction in
                         showsReactionPicker = false
                         Task { await app.postActions.setReaction(post, reaction: reaction) }
