@@ -248,6 +248,13 @@ struct ShellAccessorySystemSlot: View {
     }
 }
 
+/// Main-thread flag the sidebar sets while its drag is live so UIKit chrome
+/// hooks and Home observers stop writing during the interactive transform.
+@MainActor
+enum ShellChromeFreeze {
+    static var isSidebarDragging = false
+}
+
 @available(iOS 26.0, *)
 private struct TabAccessoryPlatterController: UIViewRepresentable {
     var hidesExpandedPlatter: Bool
@@ -294,14 +301,30 @@ private final class TabAccessoryPlatterHook: UIView {
         applySoon()
     }
 
+    private var applyPending = false
+    private var lastHidden: Bool?
+
+    /// Coalesced: at most one queued pass. The old version ran apply three
+    /// times per layoutSubviews, and apply itself dirtied layout, so any
+    /// per-frame layout (sidebar drag transforms the whole TabView) flooded
+    /// the main queue and hung the app.
     func applySoon() {
-        apply()
-        DispatchQueue.main.async { [weak self] in self?.apply() }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in self?.apply() }
+        guard !applyPending else { return }
+        applyPending = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.applyPending = false
+            self.apply()
+        }
     }
 
     func apply() {
-        if shouldHidePlatter() {
+        guard window != nil, !ShellChromeFreeze.isSidebarDragging else { return }
+        let hide = shouldHidePlatter()
+        // Idempotent: only touch UIKit when the decision actually changes.
+        if lastHidden == hide, !hide { return }
+        lastHidden = hide
+        if hide {
             neutralize()
         } else {
             restore()
@@ -321,9 +344,12 @@ private final class TabAccessoryPlatterHook: UIView {
         var outsideHosting = hosting == nil
         while let view = current {
             if view is UITabBar || view is UIWindow { break }
+            // Never climb past the tab bar controller's container into the
+            // shell / sidebar card views.
+            if view.next is UITabBarController { break }
             if let hosting, view === hosting {
-                view.backgroundColor = .clear
-                view.isOpaque = false
+                if view.backgroundColor != .clear { view.backgroundColor = .clear }
+                if view.isOpaque { view.isOpaque = false }
                 outsideHosting = true
                 current = view.superview
                 continue
@@ -332,8 +358,8 @@ private final class TabAccessoryPlatterHook: UIView {
                 current = view.superview
                 continue
             }
-            view.backgroundColor = .clear
-            view.isOpaque = false
+            if view.backgroundColor != .clear { view.backgroundColor = .clear }
+            if view.isOpaque { view.isOpaque = false }
             if let effectView = view as? UIVisualEffectView {
                 clearEffect(effectView)
                 for subview in effectView.subviews where subview !== effectView.contentView {
