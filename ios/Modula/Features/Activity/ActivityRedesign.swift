@@ -2,27 +2,33 @@ import SwiftUI
 import UIKit
 
 enum ActivityChip: String, CaseIterable, Identifiable, Hashable {
-    case all, mentions, likes, follows, modules
+    case all, mentions, likes, follows, replies, reposts, modules
     var id: Self { self }
     var title: String {
         switch self {
         case .all: "All"; case .mentions: "Mentions"; case .likes: "Likes"
-        case .follows: "Follows"; case .modules: "Modules"
+        case .follows: "Follows"; case .replies: "Replies"; case .reposts: "Reposts"; case .modules: "Modules"
         }
     }
     var symbol: String {
         switch self {
         case .all: "sparkles"; case .mentions: "at"; case .likes: "heart.fill"
-        case .follows: "person.2.fill"; case .modules: "shippingbox.fill"
+        case .follows: "person.2.fill"; case .replies: "arrowshape.turn.up.left.fill"
+        case .reposts: "arrow.2.squarepath"; case .modules: "shippingbox.fill"
         }
     }
-    var filter: ActivityFilter? {
+    /// Client-side matching on the loaded feed (the API has no per-category query for replies/reposts).
+    func matches(_ event: ActivityEvent) -> Bool {
         switch self {
-        case .all: nil; case .mentions: .mentions; case .likes: .reactions
-        case .follows: .following; case .modules: .modules
+        case .all: true
+        case .mentions: event.kind == .mention
+        case .likes: event.kind == .like || event.kind == .reaction
+        case .follows: [.follow, .followRequest, .followAccepted].contains(event.kind)
+        case .replies: event.kind == .comment
+        case .reposts: event.kind == .repost || event.kind == .share
+        case .modules: [.moduleEvent, .moduleUpdate].contains(event.kind)
         }
     }
-    func matches(_ event: ActivityEvent) -> Bool { filter?.matches(event) ?? true }
 }
 
 struct ActivityChipBar: View {
@@ -41,26 +47,24 @@ struct ActivityChipBar: View {
                         withAnimation(.snappy(duration: 0.34, extraBounce: 0.08)) { selection = chip }
                         HapticEngine.shared.play(.selection)
                     } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: chip.symbol).font(.caption.weight(.bold)).symbolEffect(.bounce, value: selected)
-                            Text(chip.title).font(.subheadline.weight(.semibold))
-                            if let count = unread[chip], count > 0 {
-                                Text("\(min(count, 99))").font(.caption2.weight(.bold)).monospacedDigit()
-                                    .padding(.horizontal, 6).padding(.vertical, 2)
-                                    .background(Capsule().fill(selected ? Color.white.opacity(0.25) : accent.opacity(0.18)))
-                                    .contentTransition(.numericText(value: Double(count)))
-                            }
-                        }
-                        .foregroundStyle(selected ? Color.white : Color.primary)
-                        .padding(.horizontal, 14).padding(.vertical, 9)
+                        Text(chip.title).font(.subheadline.weight(.semibold))
+                        .foregroundStyle(selected ? Color(uiColor: .systemBackground) : Color.primary)
+                        .padding(.horizontal, 14).padding(.vertical, 8)
                         .background {
                             if selected {
-                                Capsule().fill(LinearGradient(colors: [accent, accent.opacity(0.78)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                                    .shadow(color: accent.opacity(0.4), radius: 8, y: 3)
+                                Capsule().fill(Color.primary)
                                     .matchedGeometryEffect(id: "activity.chip", in: chipSpace)
                             }
                         }
                         .modulaGlass(in: Capsule(), interactive: true)
+                        .overlay(alignment: .topTrailing) {
+                            if (unread[chip] ?? 0) > 0 {
+                                Circle().fill(accent).frame(width: 8, height: 8)
+                                    .overlay(Circle().stroke(Color(uiColor: .systemBackground), lineWidth: 1.5))
+                                    .offset(x: -2, y: 1)
+                                    .accessibilityLabel("Unread")
+                            }
+                        }
                     }
                     .buttonStyle(ModulaPressStyle(scale: 0.93, haptic: nil))
                     .accessibilityAddTraits(selected ? .isSelected : [])
@@ -69,7 +73,9 @@ struct ActivityChipBar: View {
             }
             .padding(.horizontal, ModulaLayout.contentInset).padding(.vertical, 6)
         }
-        .scrollClipDisabled()
+        .frame(maxWidth: .infinity)
+        .clipped()
+        .background(.bar.opacity(0.001))
     }
 }
 
@@ -101,7 +107,7 @@ struct ActivityCluster: Identifiable, Hashable {
     var isStack: Bool { events.count > 1 }
     var stackHeadline: String? {
         guard events.count > 1 else { return nil }
-        if actors.count >= 2 { return "\(actors.count) people \(lead.descriptionText)" }
+        if actors.count >= 2 { return "\(who) \(lead.descriptionText)" }
         return "\(who) · \(events.count) updates"
     }
     private static func groupKey(_ e: ActivityEvent) -> String? {
@@ -177,17 +183,10 @@ private struct ActivityCardChrome: ViewModifier {
     func body(content: Content) -> some View {
         let accent = app.appearance.accent.color
         let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
-        content.padding(12).frame(maxWidth: .infinity, alignment: .leading)
-            .background { if unread { shape.fill(LinearGradient(colors: [accent.opacity(0.14), accent.opacity(0.03)], startPoint: .topLeading, endPoint: .bottomTrailing)) } }
-            .modulaGlass(in: shape, interactive: false)
-            .overlay {
-                shape.stroke(unread ? AnyShapeStyle(LinearGradient(colors: [accent.opacity(0.55), accent.opacity(0.05)], startPoint: .topLeading, endPoint: .bottomTrailing)) : AnyShapeStyle(Color.primary.opacity(0.06)), lineWidth: unread ? 1 : 0.5)
-            }
-            .overlay(alignment: .leading) {
-                if unread {
-                    Capsule().fill(accent).frame(width: 3.5, height: 26).shadow(color: accent.opacity(0.8), radius: 5).padding(.leading, 3)
-                }
-            }
+        // Flat, list-style row (Instagram/Threads): a faint accent wash marks unread.
+        content.padding(.horizontal, 10).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading)
+            .background { shape.fill(unread ? accent.opacity(0.08) : Color.clear) }
+            .contentShape(shape)
             .animation(.easeOut(duration: 0.3), value: unread)
     }
 }
@@ -312,7 +311,7 @@ struct ActivityClusterCard: View {
                 timeLine
             }
             Spacer(minLength: 4)
-            if !cluster.thumbnails.isEmpty { ActivityThumbnailFan(urls: cluster.thumbnails) }
+            if let u = cluster.thumbnails.first { ActivityThumbnailFan(urls: [u], side: 46) }
         }
     }
     private func followCard(_ actor: ActivityActor) -> some View {
@@ -417,6 +416,7 @@ struct ActivityHorizontalPan: UIGestureRecognizerRepresentable {
 
 struct ActivitySwipeRow<Content: View>: View {
     let isRead: Bool; let onMarkRead: () -> Void; let onDelete: () -> Void
+    var deleteTitle = "Mute"; var deleteSymbol = "speaker.slash.fill"
     @ViewBuilder var content: Content
     @Environment(AppEnvironment.self) private var app
     @State private var offset: CGFloat = 0; @State private var armed = false
@@ -426,13 +426,13 @@ struct ActivitySwipeRow<Content: View>: View {
             HStack {
                 if offset > 0 { action(isRead ? "checkmark.circle.fill" : "envelope.open.fill", isRead ? "Read" : "Mark read", app.appearance.accent.color, offset) }
                 Spacer(minLength: 0)
-                if offset < 0 { action("trash.fill", "Delete", .red, -offset) }
+                if offset < 0 { action(deleteSymbol, deleteTitle, .orange, -offset) }
             }.padding(.horizontal, 18)
             content.offset(x: offset)
         }
         .gesture(ActivityHorizontalPan(onChange: changed, onEnd: ended))
         .accessibilityAction(named: "Mark as read") { onMarkRead() }
-        .accessibilityAction(named: "Delete") { onDelete() }
+        .accessibilityAction(named: Text(deleteTitle)) { onDelete() }
     }
     private func action(_ symbol: String, _ title: String, _ tint: Color, _ reveal: CGFloat) -> some View {
         let p = min(reveal / threshold, 1)
@@ -558,6 +558,7 @@ struct ActivityClusterFeed: View {
     var onOpen: (ActivityEvent) -> Void
     var onMarkRead: ([ActivityEvent]) -> Void
     var onDelete: ([ActivityEvent]) -> Void
+    var onMute: (ActivityCluster) -> Void = { _ in }
     var onAccept: (ActivityEvent) -> Void; var onDecline: (ActivityEvent) -> Void
     var onLoadMore: () -> Void; var hasMore: Bool; var loadingMore: Bool
     var busyEventID: ActivityEventID? = nil
@@ -567,14 +568,14 @@ struct ActivityClusterFeed: View {
     private var calm: Bool { ModulaEffectGate.reduceMotion(systemReduceMotion) }
 
     var body: some View {
-        LazyVStack(alignment: .leading, spacing: 10) {
+        LazyVStack(alignment: .leading, spacing: 2) {
             ForEach(sections, id: \.section) { group in
                 ActivitySectionHeader(title: group.section.title)
                 ForEach(group.clusters) { cluster in
                     let lead = cluster.lead; let busy = busyEventID == lead.id
                     let stacks = cluster.isStack && mode != .requests
                     let isOpen = expanded.contains(cluster.id)
-                    ActivitySwipeRow(isRead: cluster.isRead, onMarkRead: { onMarkRead(cluster.events) }, onDelete: { onDelete(cluster.events) }) {
+                    ActivitySwipeRow(isRead: cluster.isRead, onMarkRead: { onMarkRead(cluster.events) }, onDelete: { onMute(cluster) }) {
                         Button {
                             if stacks {
                                 toggle(cluster)
@@ -686,10 +687,8 @@ struct ActivityClusterFeed: View {
         var buckets: [ActivityTimelineSection: [ActivityEvent]] = [:]
         for e in events {
             let sec: ActivityTimelineSection
-            switch e.groupHint?.lowercased() {
-            case "today": sec = .today; case "yesterday": sec = .yesterday
-            default: sec = ActivityTimelineSection.section(for: e.createdAt)
-            }
+            // Client-side buckets: Today / This week / Earlier.
+            sec = e.groupHint?.lowercased() == "today" ? .today : ActivityTimelineSection.section(for: e.createdAt)
             buckets[sec, default: []].append(e)
         }
         return ActivityTimelineSection.allCases.compactMap { sec in
@@ -738,5 +737,51 @@ struct ActivityCardSkeleton: View {
         }
         .modulaShimmer(!ModulaEffectGate.reduceMotion(reduceMotion))
         .accessibilityIdentifier("activity.loading")
+    }
+}
+
+/// Empty state with real suggestions from `GET /v1/discover` (suggestedProfiles).
+struct ActivitySuggestedPeople: View {
+    @Environment(AppEnvironment.self) private var app
+    @State private var people: [DiscoverPerson] = []
+    @State private var followed: Set<String> = []
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if !people.isEmpty {
+                Text("Suggested for you").font(.headline).padding(.top, 8)
+                ForEach(people.prefix(6)) { person in
+                    HStack(spacing: 12) {
+                        Button { app.navigation.push(.profile(person.id, .overview)) } label: {
+                            HStack(spacing: 12) {
+                                ModulaAvatar(initials: String(person.displayName.prefix(2)).uppercased(), url: person.avatarURL, size: 44, name: person.displayName)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(person.displayName).font(.subheadline.weight(.semibold)).lineLimit(1)
+                                    Text("@\(person.handle)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                }
+                            }
+                        }.buttonStyle(.plain)
+                        Spacer(minLength: 6)
+                        let done = followed.contains(person.id) || person.isFollowing
+                        Button {
+                            guard !done else { return }
+                            Task {
+                                if await app.profile.follow(profileID: person.id, handle: person.handle) {
+                                    followed.insert(person.id); HapticEngine.shared.play(.success)
+                                }
+                            }
+                        } label: {
+                            Text(done ? "Following" : (person.followsViewer ? "Follow back" : "Follow"))
+                                .font(.footnote.weight(.semibold))
+                                .padding(.horizontal, 14).padding(.vertical, 7)
+                                .modulaGlass(in: Capsule(), interactive: true, tint: done ? nil : app.appearance.accent.color.opacity(0.25))
+                        }.buttonStyle(.plain).disabled(done)
+                    }
+                }
+            }
+        }
+        .task {
+            guard ModulaPreferences.showsSuggestedPeople else { return }
+            people = (try? await GreenfieldDiscoverRepository(client: app.client).people(cursor: nil).items) ?? []
+        }
     }
 }
