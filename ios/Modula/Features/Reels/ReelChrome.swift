@@ -5,6 +5,7 @@ import SwiftUI
 struct ReelTikTokRail: View {
     let reel: Reel
     let post: SocialPost
+    var isPlaying: Bool = true
     var onComment: () -> Void
     var onShare: () -> Void
     @Environment(AppEnvironment.self) private var app
@@ -14,17 +15,17 @@ struct ReelTikTokRail: View {
     @State private var spin = false
 
     var body: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) {
             creator
-            railButton(post.liked ? "heart.fill" : "heart", count: max(post.likeCount, post.reactionCount), active: post.liked, tint: .pink) {
+            railButton("heart.fill", count: max(post.likeCount, post.reactionCount), active: post.liked, tint: .red) {
                 Task { await app.postActions.toggleLike(post) }
                 HapticEngine.shared.play(.lightImpact)
             }
-            railButton("bubble.right", count: post.replyCount, active: false) { onComment() }
-            railButton(post.saved ? "bookmark.fill" : "bookmark", count: 0, active: post.saved, tint: .yellow) {
+            railButton("ellipsis.bubble.fill", count: post.replyCount, active: false) { onComment() }
+            railButton("bookmark.fill", count: 0, active: post.saved, tint: .yellow) {
                 Task { await app.postActions.toggleSave(post) }
             }
-            railButton("square.and.arrow.up", count: 0, active: false) { onShare() }
+            railButton("arrowshape.turn.up.right.fill", count: 0, active: false) { onShare() }
             soundDisc
         }
         .foregroundStyle(.white)
@@ -81,9 +82,8 @@ struct ReelTikTokRail: View {
             ModulaAvatar(initials: reel.creator.initials, url: reel.creator.avatarURL, size: 18)
                 .clipShape(Circle())
         }
-        .rotationEffect(.degrees(spin && !ModulaEffectGate.reduceMotion(reduceMotion) ? 360 : 0))
-        .animation(ModulaEffectGate.reduceMotion(reduceMotion) ? nil : .linear(duration: 4).repeatForever(autoreverses: false), value: spin)
-        .onAppear { spin = true }
+        // Spins only while the video is actually playing; static under Reduce Motion.
+        .modifier(DiscSpin(active: isPlaying && !ModulaEffectGate.reduceMotion(reduceMotion)))
         .accessibilityLabel(title)
     }
 
@@ -91,15 +91,17 @@ struct ReelTikTokRail: View {
         Button(action: action) {
             VStack(spacing: 2) {
                 Image(systemName: symbol)
-                    .font(.system(size: 28, weight: .semibold))
+                    .font(.system(size: 30, weight: .semibold))
                     .foregroundStyle(active ? tint : .white)
-                    .shadow(color: .black.opacity(0.4), radius: 4, y: 1)
+                    .shadow(color: .black.opacity(0.45), radius: 3, y: 1)
                     .symbolEffect(.bounce, value: active)
-                if count > 0 {
-                    Text(ModulaCountFormat.compact(count) ?? "\(count)")
-                        .font(.caption2.weight(.semibold))
-                        .shadow(color: .black.opacity(0.5), radius: 2)
-                }
+                    .frame(height: 34)
+                // Always reserve the count line so rail spacing stays even.
+                Text(count > 0 ? (ModulaCountFormat.compact(count) ?? "\(count)") : " ")
+                    .font(.caption2.weight(.semibold))
+                    .monospacedDigit()
+                    .shadow(color: .black.opacity(0.5), radius: 2)
+                    .contentTransition(.numericText())
             }
             .frame(width: 52)
         }
@@ -173,15 +175,8 @@ struct ReelCaptionBlock: View {
         let title = reel.audio.map { a in a.artist.map { "\($0) · \(a.title)" } ?? a.title } ?? "Original audio · \(reel.creator.displayName)"
         return HStack(spacing: 6) {
             Image(systemName: "music.note").font(.caption.weight(.bold))
-            TimelineView(.animation(minimumInterval: 1/30, paused: ModulaEffectGate.reduceMotion(reduceMotion))) { context in
-                let t = ModulaEffectGate.reduceMotion(reduceMotion) ? 0 : context.date.timeIntervalSinceReferenceDate
-                Text(title)
-                    .font(.caption.weight(.medium))
-                    .lineLimit(1)
-                    .offset(x: -CGFloat(t.truncatingRemainder(dividingBy: 8) / 8) * 120)
-            }
-            .frame(maxWidth: 200, alignment: .leading)
-            .clipped()
+            ReelMarqueeText(text: title, reduceMotion: ModulaEffectGate.reduceMotion(reduceMotion))
+                .frame(width: 180, alignment: .leading)
         }
         .foregroundStyle(.white.opacity(0.9))
     }
@@ -302,5 +297,52 @@ struct ReelLoadingShimmer: View {
         .ignoresSafeArea()
         .modulaShimmer(!ModulaEffectGate.reduceMotion(reduceMotion))
         .accessibilityLabel("Loading reels")
+    }
+}
+
+/// Continuous rotation that pauses in place when playback pauses.
+private struct DiscSpin: ViewModifier {
+    var active: Bool
+    func body(content: Content) -> some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !active)) { context in
+            let angle = (context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 5)) / 5 * 360
+            content.rotationEffect(.degrees(active ? angle : 0))
+        }
+    }
+}
+
+/// Seamless looping marquee: scrolls only when the text is wider than the box.
+struct ReelMarqueeText: View {
+    let text: String
+    var reduceMotion: Bool
+    @State private var textWidth: CGFloat = 0
+    @State private var boxWidth: CGFloat = 0
+    private let gap: CGFloat = 36
+    private let speed: Double = 28
+
+    var body: some View {
+        let overflow = textWidth > boxWidth && boxWidth > 0 && !reduceMotion
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !overflow)) { context in
+            let cycle = Double(textWidth + gap)
+            let offset = overflow ? (context.date.timeIntervalSinceReferenceDate * speed).truncatingRemainder(dividingBy: max(cycle, 1)) : 0
+            HStack(spacing: gap) {
+                label
+                if overflow { label }
+            }
+            .offset(x: -offset)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .clipped()
+        .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.85), .init(color: .clear, location: 1)], startPoint: .leading, endPoint: .trailing))
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { boxWidth = $0 }
+        .accessibilityLabel(text)
+    }
+
+    private var label: some View {
+        Text(text)
+            .font(.caption.weight(.medium))
+            .lineLimit(1)
+            .fixedSize()
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { textWidth = $0 }
     }
 }

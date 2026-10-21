@@ -84,7 +84,12 @@ struct AppLockView: View {
             PasscodeDots(filled: digits.count, shakes: shakes, error: shakes > 0 && digits.isEmpty && app.appLock.lastError != nil)
                 .accessibilityLabel("Passcode, \(digits.count) of 6 digits entered")
             PasscodeKeypad(value: $digits, disabled: busy || coolingDown || unlocking, keySize: compact ? 62 : 76) { complete in
-                attempt(complete)
+                // Let the sixth dot visibly fill before checking (UI timing only).
+                busy = true
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(reduceMotion ? 60 : 180))
+                    attempt(complete)
+                }
             }
             .opacity(coolingDown ? 0.45 : 1)
             .scaleEffect(appeared ? 1 : 0.96)
