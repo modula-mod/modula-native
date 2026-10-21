@@ -19,7 +19,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .collections: "Collections"
         case .settings: "Settings"
         case .appearance: "Appearance"
-        case .developer: "Developer"
+        case .developer: "Module Studio"
         }
     }
 
@@ -66,81 +66,190 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
     var section: Section {
         switch self {
         case .saved, .drafts, .collections: .library
-        case .settings, .appearance, .developer: .manage
+        case .settings, .appearance: .manage
+        case .developer: .developer
         }
     }
 
     enum Section: String, CaseIterable, Identifiable {
         case library
         case manage
+        case developer
         var id: String { rawValue }
         var title: String {
             switch self {
             case .library: "Library"
             case .manage: "Manage"
+            case .developer: "Developer"
             }
         }
     }
 }
 
-struct ShellSidebarHost: View {
+/// ChatGPT-style push sidebar. The sidebar sits *behind* the app at full height; the app
+/// slides right as a rounded, slightly dimmed card. Drag is interactive (edge swipe to open,
+/// drag or tap the card to close) and only drives `offset`/`cornerRadius`/`opacity` —
+/// lightweight render properties, never layout — so it tracks the finger at 120 Hz.
+struct ShellSidebarContainer<Content: View>: View {
+    @ViewBuilder var content: Content
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var scheme
+    /// Live finger translation; reset to 0 inside the settling animation.
+    @State private var drag: CGFloat = 0
+    @State private var dragging = false
+
+    static var cardCornerRadius: CGFloat { 48 }
 
     var body: some View {
-        @Bindable var navigation = app.navigation
+        let presented = app.navigation.sidebarPresented
         GeometryReader { geometry in
-            let width = min(320, geometry.size.width * 0.82)
-            ZStack(alignment: .leading) {
-                if navigation.sidebarPresented {
-                    Color.black.opacity(reduceTransparency ? 0.45 : 0.28)
-                        .ignoresSafeArea()
-                        .transition(.opacity)
-                        .onTapGesture { dismiss() }
-                        .accessibilityLabel("Dismiss sidebar")
-                        .accessibilityIdentifier("shell.sidebar.scrim")
-                        .accessibilityAddTraits(.isButton)
-                }
+            let width = Self.sidebarWidth(for: geometry.size.width)
+            let base: CGFloat = presented ? width : 0
+            let offset = min(max(base + drag, 0), width)
+            let progress = width > 0 ? offset / width : 0
+            let visible = presented || dragging
 
-                if navigation.sidebarPresented {
-                    ShellSidebarView(onSelect: open)
-                        .frame(width: width)
+            ZStack(alignment: .leading) {
+                if visible {
+                    ShellSidebarView(width: width, onSelect: open, onClose: { close(haptic: true) })
+                        .frame(width: reduceMotion ? geometry.size.width : width)
                         .frame(maxHeight: .infinity)
-                        .transition(.move(edge: .leading).combined(with: .opacity))
-                        // Keep VoiceOver inside the open sidebar; the two-finger
-                        // "Z" scrub closes it like the scrim tap does.
+                        .opacity(reduceMotion ? progress : 1)
+                        // Subtle parallax: the sidebar drifts in slightly slower than the card.
+                        .offset(x: reduceMotion ? 0 : (progress - 1) * 36)
                         .accessibilityAddTraits(.isModal)
-                        .accessibilityAction(.escape) { dismiss() }
+                        .accessibilityAction(.escape) { close(haptic: true) }
                         .onKeyPress(.escape) {
-                            dismiss()
+                            close(haptic: true)
                             return .handled
                         }
-                        .gesture(
-                            DragGesture(minimumDistance: 24)
-                                .onEnded { value in
-                                    if value.translation.width < -60 { dismiss() }
-                                }
-                        )
+                        .zIndex(reduceMotion ? 1 : 0)
                 }
+
+                content
+                    .background(sidebarBackdrop.ignoresSafeArea())
+                    // Mask (not clipShape) so the card keeps its full-screen, under-the-status-bar extent.
+                    .mask {
+                        RoundedRectangle(cornerRadius: Self.cardCornerRadius * progress, style: .continuous)
+                            .ignoresSafeArea()
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: Self.cardCornerRadius * progress, style: .continuous)
+                            .fill(Color.black.opacity((scheme == .dark ? 0.30 : 0.14) * progress))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: Self.cardCornerRadius * progress, style: .continuous)
+                                    .strokeBorder(Color.primary.opacity(0.10 * progress), lineWidth: 0.75)
+                            )
+                            .allowsHitTesting(false)
+                            .ignoresSafeArea()
+                    }
+                    .shadow(color: .black.opacity(0.22 * progress), radius: 24 * progress, x: -4, y: 0)
+                    .offset(x: reduceMotion ? 0 : offset)
+                    .opacity(reduceMotion ? 1 - progress * 0.6 : 1)
+                    .accessibilityHidden(presented)
+                    .overlay {
+                        if presented {
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .offset(x: reduceMotion ? 0 : offset)
+                                .ignoresSafeArea()
+                                .onTapGesture { close(haptic: true) }
+                                .gesture(closeDrag(width: width))
+                                .accessibilityLabel("Close sidebar")
+                                .accessibilityIdentifier("shell.sidebar.scrim")
+                                .accessibilityAddTraits(.isButton)
+                                .zIndex(2)
+                        }
+                    }
+                    .overlay(alignment: .leading) {
+                        if !presented, app.appearance.edgePicker.side != .left {
+                            Color.clear
+                                .frame(width: 22)
+                                .contentShape(Rectangle())
+                                .ignoresSafeArea(edges: .leading)
+                                .highPriorityGesture(openDrag(width: width))
+                                .accessibilityHidden(true)
+                        }
+                    }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .background(sidebarBackdrop.ignoresSafeArea())
         }
-        .allowsHitTesting(navigation.sidebarPresented)
-        .animation(motion, value: navigation.sidebarPresented)
+        .animation(settle, value: presented)
     }
 
-    private var motion: Animation? {
-        ModulaMotion.animation(.reveal, personality: app.appearance.motion, reduceMotion: reduceMotion)
+    static func sidebarWidth(for total: CGFloat) -> CGFloat {
+        min(total * 0.80, 380)
     }
 
-    private func dismiss() {
-        app.navigation.dismissSidebar()
-        HapticEngine.shared.play(.navigation)
+    /// Velocity-aware decision used by both gestures: projected end beats raw distance.
+    static func shouldEndOpen(translation: CGFloat, predicted: CGFloat, startOpen: Bool, width: CGFloat) -> Bool {
+        let base: CGFloat = startOpen ? width : 0
+        let projected = base + predicted
+        let current = base + translation
+        // A quick flick decides by direction; otherwise snap to the nearer side.
+        if abs(predicted - translation) > width * 0.25 { return projected > width / 2 }
+        return current > width / 2
+    }
+
+    private var sidebarBackdrop: some View {
+        let palette = ModulaPalette.resolve(app.appearance, scheme: scheme)
+        return palette.canvas
+    }
+
+    private var settle: Animation {
+        reduceMotion ? .easeInOut(duration: 0.2) : .interpolatingSpring(mass: 1, stiffness: 320, damping: 32)
+    }
+
+    private func openDrag(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 8, coordinateSpace: .global)
+            .onChanged { value in
+                guard value.startLocation.x < 30 else { return }
+                if !dragging { dragging = true }
+                var t = Transaction(); t.disablesAnimations = true
+                withTransaction(t) { drag = max(0, value.translation.width) }
+            }
+            .onEnded { value in
+                let open = Self.shouldEndOpen(translation: value.translation.width,
+                                              predicted: value.predictedEndTranslation.width,
+                                              startOpen: false, width: width)
+                withAnimation(settle) {
+                    drag = 0
+                    if open { app.navigation.presentSidebar() }
+                }
+                dragging = false
+                if open { HapticEngine.shared.play(.contextOpen) }
+            }
+    }
+
+    private func closeDrag(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 6, coordinateSpace: .global)
+            .onChanged { value in
+                if !dragging { dragging = true }
+                var t = Transaction(); t.disablesAnimations = true
+                withTransaction(t) { drag = min(0, value.translation.width) }
+            }
+            .onEnded { value in
+                let open = Self.shouldEndOpen(translation: value.translation.width,
+                                              predicted: value.predictedEndTranslation.width,
+                                              startOpen: true, width: width)
+                withAnimation(settle) {
+                    drag = 0
+                    if !open { app.navigation.dismissSidebar() }
+                }
+                dragging = false
+                if !open { HapticEngine.shared.play(.navigation) }
+            }
+    }
+
+    private func close(haptic: Bool) {
+        withAnimation(settle) { app.navigation.dismissSidebar() }
+        if haptic { HapticEngine.shared.play(.navigation) }
     }
 
     private func open(_ route: AppRoute, requiresSignIn: Bool) {
-        app.navigation.dismissSidebar()
+        close(haptic: false)
         if requiresSignIn, !app.auth.isSignedIn {
             app.navigation.requestAuthentication(returningTo: route)
         } else {
@@ -150,175 +259,216 @@ struct ShellSidebarHost: View {
     }
 }
 
+/// One sidebar row in the ChatGPT style: monochrome glyph + title, no chevron.
+struct ShellSidebarItem: Identifiable {
+    let id: String
+    let title: String
+    let symbol: String
+    let route: AppRoute
+    let requiresSignIn: Bool
+
+    static func sections() -> [(ShellSidebarDestination.Section, [ShellSidebarItem])] {
+        ShellSidebarDestination.Section.allCases.map { section in
+            var items = ShellSidebarDestination.allCases
+                .filter { $0.section == section }
+                .map { ShellSidebarItem(id: $0.id, title: $0.title, symbol: $0.symbol, route: $0.route, requiresSignIn: $0.requiresSignIn) }
+            #if DEBUG
+            if section == .developer {
+                items.append(ShellSidebarItem(id: "components", title: "Component Catalog", symbol: "square.grid.3x3", route: .developer(.components), requiresSignIn: false))
+                items.append(ShellSidebarItem(id: "diagnostics", title: "Diagnostics & Labs", symbol: "stethoscope", route: .settings(.developer(.root)), requiresSignIn: false))
+            }
+            #endif
+            return (section, items)
+        }
+        .filter { !$0.1.isEmpty }
+    }
+}
+
 struct ShellSidebarView: View {
+    var width: CGFloat = 320
     var onSelect: (AppRoute, Bool) -> Void
+    var onClose: () -> Void = {}
     @Environment(AppEnvironment.self) private var app
-    @Environment(\.colorScheme) private var scheme
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        let palette = ModulaPalette.resolve(app.appearance, scheme: scheme)
-        let opaque = reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
-        VStack(alignment: .leading, spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    header
-                    ForEach(ShellSidebarDestination.Section.allCases) { section in
-                        sidebarSection(section)
-                    }
-                    #if DEBUG
-                    debugSection
-                    #endif
-                }
-                .padding(.horizontal, ModulaLayout.contentInset)
-                .padding(.top, 12)
-                .padding(.bottom, 28)
-            }
-            .modulaSoftScrollEdge()
+        ZStack(alignment: .bottomTrailing) {
+            VStack(alignment: .leading, spacing: 0) {
+                topBar
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 6)
 
-            footer
-                .padding(.horizontal, ModulaLayout.contentInset)
-                .padding(.bottom, 16)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 22) {
+                        ForEach(ShellSidebarItem.sections(), id: \.0.id) { section, items in
+                            sectionView(section, items: items)
+                        }
+                        Text(versionLabel)
+                            .font(.caption2)
+                            .foregroundStyle(.quaternary)
+                            .padding(.horizontal, 12)
+                            .accessibilityLabel(versionLabel)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.top, 10)
+                    .padding(.bottom, 96)
+                }
+                .scrollIndicators(.hidden)
+                .modulaSoftScrollEdge()
+
+                profileRow
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 10)
+            }
+
+            createPill
+                .padding(.trailing, 16)
+                .padding(.bottom, 74)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background {
-            ZStack {
-                palette.canvas
-                if opaque {
-                    Color(uiColor: .secondarySystemBackground).opacity(0.92)
-                } else {
-                    Rectangle().fill(.ultraThinMaterial)
-                    LinearGradient(
-                        colors: [app.appearance.accent.color.opacity(0.10), .clear],
-                        startPoint: .topLeading,
-                        endPoint: .center
-                    )
-                }
-            }
-            .ignoresSafeArea()
-        }
-        .overlay(alignment: .trailing) {
-            Rectangle()
-                .fill(palette.separator.opacity(0.7))
-                .frame(width: 1)
-                .ignoresSafeArea()
-                .accessibilityHidden(true)
-        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("shell.sidebar")
         .accessibilityLabel("Sidebar")
     }
 
-    @ViewBuilder
-    private var header: some View {
-        if let profile = app.profile.ownProfile, app.auth.isSignedIn {
+    private var topBar: some View {
+        HStack(spacing: 12) {
+            ModulaWordmark(height: 20)
+            Spacer(minLength: 0)
             Button {
-                onSelect(.me(.overview), true)
+                onClose()
+                CommandPaletteCenter.shared.present()
             } label: {
-                VStack(alignment: .leading, spacing: 12) {
-                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 60)
-                        .overlay(Circle().strokeBorder(app.appearance.accent.color.opacity(0.45), lineWidth: 2))
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(profile.displayName)
-                            .font(.title3.weight(.bold))
-                            .foregroundStyle(.primary)
-                            .lineLimit(2)
-                        Text("@\(profile.handle)")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.secondary)
-                    }
-                    Text(headerMetrics(profile))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(Color.primary.opacity(0.06), in: Capsule())
-                }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .contentShape(Rectangle())
+                Image(systemName: "magnifyingglass")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
-            .accessibilityIdentifier("shell.sidebar.profile")
-            .accessibilityLabel("\(profile.displayName), @\(profile.handle)")
-        } else {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(app.auth.isSignedIn ? "Profile" : "Sign in")
-                    .font(.title3.weight(.semibold))
-                Text(app.auth.isSignedIn
-                     ? "Your profile is still loading."
-                     : "Saved, drafts and collections stay with your account.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                if !app.auth.isSignedIn {
-                    Button("Sign In") {
-                        onSelect(.auth(.login), false)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(app.appearance.accent.color)
-                    .accessibilityIdentifier("shell.sidebar.sign-in")
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 8)
+            .modulaGlass(in: Circle())
+            .accessibilityLabel("Search")
+            .accessibilityIdentifier("shell.sidebar.search")
         }
+        .frame(minHeight: 48)
     }
 
-    private func sidebarSection(_ section: ShellSidebarDestination.Section) -> some View {
-        let items = ShellSidebarDestination.allCases.filter { $0.section == section }
-        return VStack(alignment: .leading, spacing: 8) {
+    private func sectionView(_ section: ShellSidebarDestination.Section, items: [ShellSidebarItem]) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
             Text(section.title)
-                .font(.subheadline.weight(.semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(.secondary)
-            VStack(spacing: 0) {
-                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    ModulaListRow(
-                        title: item.title,
-                        subtitle: item.subtitle,
-                        symbol: item.symbol
-                    ) {
-                        onSelect(item.route, item.requiresSignIn)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 4)
+                .accessibilityAddTraits(.isHeader)
+            ForEach(items) { item in
+                Button {
+                    onSelect(item.route, item.requiresSignIn)
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: item.symbol)
+                            .font(.body)
+                            .foregroundStyle(.primary)
+                            .frame(width: 24)
+                        Text(item.title)
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
                     }
-                    .accessibilityIdentifier("shell.sidebar.\(item.id)")
-                    if index < items.count - 1 {
-                        SettingsDivider()
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 46)
+                    .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(ShellSidebarRowStyle())
+                .accessibilityIdentifier("shell.sidebar.\(item.id)")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var profileRow: some View {
+        if let profile = app.profile.ownProfile, app.auth.isSignedIn {
+            HStack(spacing: 12) {
+                Button {
+                    onSelect(.me(.overview), true)
+                } label: {
+                    HStack(spacing: 12) {
+                        ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 38)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(profile.displayName)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                            Text("@\(profile.handle)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                        Spacer(minLength: 0)
                     }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("shell.sidebar.profile")
+                .accessibilityLabel("\(profile.displayName), @\(profile.handle)")
+
+                Button {
+                    onSelect(.settings(.root), false)
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 40, height: 40)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Settings")
+                .accessibilityIdentifier("shell.sidebar.gear")
+            }
+        } else {
+            HStack(spacing: 12) {
+                Image(systemName: "person.crop.circle")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+                Text(app.auth.isSignedIn ? "Loading profile…" : "Not signed in")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                if !app.auth.isSignedIn {
+                    Button("Sign In") { onSelect(.auth(.login), false) }
+                        .font(.subheadline.weight(.semibold))
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 14)
+                        .frame(height: 36)
+                        .modulaGlass(in: Capsule())
+                        .accessibilityIdentifier("shell.sidebar.sign-in")
                 }
             }
         }
     }
 
-    #if DEBUG
-    private var debugSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Developer")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-            VStack(spacing: 0) {
-                ModulaListRow(title: "Component Catalog", subtitle: "Visual reference", symbol: "square.grid.3x3") {
-                    onSelect(.developer(.components), false)
-                }
-                .accessibilityIdentifier("shell.sidebar.components")
-                SettingsDivider()
-                ModulaListRow(title: "Developer", subtitle: "Diagnostics and labs", symbol: "hammer") {
-                    onSelect(.settings(.developer(.root)), false)
-                }
-                .accessibilityIdentifier("shell.sidebar.developer")
+    private var createPill: some View {
+        Button {
+            onClose()
+            if app.auth.isSignedIn {
+                app.navigation.presented = .composer(.post)
+            } else {
+                app.navigation.requestAuthentication(returningTo: .compose(.post))
             }
+            HapticEngine.shared.play(.contextOpen)
+        } label: {
+            Label("Post", systemImage: "square.and.pencil")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 20)
+                .frame(height: 48)
+                .contentShape(Capsule())
         }
-    }
-    #endif
-
-    private var footer: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ModulaWordmark(height: 16)
-            Text(versionLabel)
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .accessibilityLabel(versionLabel)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .buttonStyle(.plain)
+        .modulaGlass(in: Capsule(), tint: app.appearance.accent.color, prominent: true)
+        .accessibilityIdentifier("shell.sidebar.create")
     }
 
     private var versionLabel: String {
@@ -326,11 +476,16 @@ struct ShellSidebarView: View {
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
         return "Modula \(version) (\(build))"
     }
+}
 
-    private func headerMetrics(_ profile: ModulaProfile) -> String {
-        let posts = ProfileCountFormatter.compact(profile.postCount)
-        let followers = ProfileCountFormatter.compact(profile.followerCount)
-        return "\(posts) posts · \(followers) followers"
+private struct ShellSidebarRowStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.primary.opacity(configuration.isPressed ? 0.08 : 0))
+            )
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
@@ -360,40 +515,13 @@ struct ShellSidebarTriggerModifier: ViewModifier {
     }
 }
 
-struct ShellSidebarEdgeOpenModifier: ViewModifier {
-    @Environment(AppEnvironment.self) private var app
-
-    func body(content: Content) -> some View {
-        content.overlay(alignment: .leading) {
-            if shouldOfferEdgeOpen {
-                Color.clear
-                    .frame(width: 16)
-                    .contentShape(Rectangle())
-                    .ignoresSafeArea(edges: .leading)
-                    .highPriorityGesture(
-                        DragGesture(minimumDistance: 28)
-                            .onEnded { value in
-                                guard value.startLocation.x < 20, value.translation.width > 56 else { return }
-                                app.navigation.presentSidebar()
-                                HapticEngine.shared.play(.contextOpen)
-                            }
-                    )
-                    .accessibilityHidden(true)
-            }
-        }
-    }
-
-    private var shouldOfferEdgeOpen: Bool {
-        !app.navigation.sidebarPresented && app.appearance.edgePicker.side != .left
-    }
-}
-
 extension View {
     func modulaSidebarTrigger() -> some View {
         modifier(ShellSidebarTriggerModifier())
     }
 
-    func modulaSidebarEdgeOpen() -> some View {
-        modifier(ShellSidebarEdgeOpenModifier())
+    /// ChatGPT-style push sidebar: the app slides right as a rounded card over the sidebar.
+    func modulaSidebarContainer() -> some View {
+        ShellSidebarContainer { self }
     }
 }

@@ -39,8 +39,8 @@ struct RootView: View {
                     .padding(.top, 48)
             }
         }
-        .modulaSidebarEdgeOpen()
-        .overlay { ShellSidebarHost() }
+        // ChatGPT-style push sidebar: the shell becomes a rounded card that slides right.
+        .modulaSidebarContainer()
         // Liquid Glass post menu: above tabs and chrome so it can blur the whole screen.
         .overlay { PostMenuHost() }
         .overlay { CommandPaletteHost() }
