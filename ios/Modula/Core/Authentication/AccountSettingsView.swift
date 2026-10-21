@@ -11,7 +11,8 @@ struct AccountSettingsView: View {
             case .root: AccountRootView()
             case .password: AccountPasswordView()
             case .sessions: AccountSessionsView()
-            case .personalInformation: AccountPersonalInformationView()
+            // Personal Information was a thin duplicate of the Account page.
+            case .personalInformation: AccountRootView()
             case .username: UsernameChangeView()
             case .email: AccountEmailView()
             case .deleteAccount: DeleteAccountView()
@@ -31,50 +32,38 @@ private struct AccountRootView: View {
     var body: some View {
         if let account = app.auth.account {
             SettingsScrollCanvas {
-                AccountIdentityGraphic(
-                    name: account.displayName?.isEmpty == false ? account.displayName! : account.primaryHandle,
-                    handle: "@\(account.primaryHandle)",
-                    status: account.status.capitalized,
-                    avatarURL: app.profile.ownProfile?.avatarURL
-                )
-                SettingsGroup(title: "This account") {
-                    VStack(spacing: 0) {
-                        accountFact("Handle", "@\(account.primaryHandle)", "at")
-                        SettingsDivider()
-                        accountFact("Status", account.status.capitalized, "checkmark.seal")
-                        SettingsDivider()
-                        accountFact("Account ID", redact(account.accountId), "number")
-                        if let email = account.email, !email.isEmpty {
-                            SettingsDivider()
-                            accountFact("Email", email, "envelope")
-                        }
+                // Identity lives in the Settings header row; this page lists each fact once.
+                SettingsGroup(title: "Account") {
+                    SettingsTileRow(title: "Name", value: account.displayName ?? "—", symbol: "person.fill", showsChevron: false) {}
+                        .disabled(true)
+                    SettingsDivider()
+                    SettingsTileRow(title: "Username", value: "@\(account.primaryHandle)", symbol: "at") {
+                        app.navigation.open(.settings(.account(.username)))
                     }
+                    SettingsDivider()
+                    SettingsTileRow(title: "Email", value: account.email ?? "Not provided", symbol: "envelope.fill") {
+                        app.navigation.open(.settings(.account(.email)))
+                    }
+                    SettingsDivider()
+                    SettingsTileRow(title: "Status", value: account.status.capitalized, symbol: "checkmark.seal.fill", showsChevron: false) {}
+                        .disabled(true)
                 }
                 SettingsGroup(title: "Security") {
-                    VStack(spacing: 0) {
-                        SettingsNavigationRow(title: "Personal Information", subtitle: "Private account details", symbol: "person.text.rectangle") {
-                            app.navigation.open(.settings(.account(.personalInformation)))
-                        }
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Username", subtitle: "@\(account.primaryHandle)", symbol: "at") {
-                            app.navigation.open(.settings(.account(.username)))
-                        }
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Email", subtitle: account.email ?? "Not provided on this session", symbol: "envelope") {
-                            app.navigation.open(.settings(.account(.email)))
-                        }
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Password", subtitle: "Reset by email", symbol: "key") {
-                            app.navigation.open(.settings(.account(.password)))
-                        }
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Sessions", subtitle: "Devices signed into this account", symbol: "laptopcomputer.and.iphone") {
-                            app.navigation.open(.settings(.account(.sessions)))
-                        }
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Delete Account", subtitle: "Close this Modula account", symbol: "trash") {
-                            app.navigation.open(.settings(.account(.deleteAccount)))
-                        }
+                    SettingsTileRow(title: "Password", value: "Reset by email", symbol: "key.fill") {
+                        app.navigation.open(.settings(.account(.password)))
+                    }
+                    SettingsDivider()
+                    SettingsTileRow(title: "Sessions", symbol: "laptopcomputer.and.iphone") {
+                        app.navigation.open(.settings(.account(.sessions)))
+                    }
+                    SettingsDivider()
+                    SettingsTileRow(title: "App Lock & Face ID", symbol: "lock.fill") {
+                        app.navigation.open(.settings(.privacy(.root)))
+                    }
+                }
+                SettingsGroup(title: "") {
+                    SettingsTileRow(title: "Delete Account", symbol: "trash.fill") {
+                        app.navigation.open(.settings(.account(.deleteAccount)))
                     }
                 }
                 Button("Sign Out", role: .destructive) {
@@ -257,7 +246,6 @@ private struct AccountPersonalInformationView: View {
             if let account = app.auth.account {
                 LabeledContent("Name", value: account.displayName ?? "—")
                 LabeledContent("Email", value: account.email ?? "Not provided on this session")
-                LabeledContent("Account ID", value: redact(account.accountId))
                 Text("These details are private account metadata. They never appear on Profile.")
                     .foregroundStyle(.secondary)
             }

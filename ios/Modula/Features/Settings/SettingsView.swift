@@ -6,18 +6,17 @@ struct SettingsGroup<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 11) {
-            VStack(alignment: .leading, spacing: 2) {
-                if title == "Modula" {
-                    ModulaWordmark(height: 18)
-                } else {
-                    Text(title).font(.headline)
-                }
-                if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary) }
+        VStack(alignment: .leading, spacing: 8) {
+            if !title.isEmpty {
+                Text(title).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+                    .textCase(.uppercase).padding(.leading, 14)
             }
-            ModulaCard { content }
+            SettingsGlassCard { content }
+            // iOS-style footer, only when a page supplies one.
+            if let subtitle, !subtitle.isEmpty {
+                Text(subtitle).font(.caption).foregroundStyle(.secondary).padding(.horizontal, 14)
+            }
         }
-        .modulaScrollReveal()
     }
 }
 
@@ -29,10 +28,10 @@ struct SettingsToggleCard<Content: View>: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        ModulaCard {
-            VStack(alignment: .leading, spacing: ModulaSpacing.xxs) {
+        SettingsGlassCard {
+            VStack(alignment: .leading, spacing: 0) {
                 content
-                    .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch, alignment: .leading)
+                    .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
             }
         }
         .toggleStyle(.switch)
@@ -41,7 +40,7 @@ struct SettingsToggleCard<Content: View>: View {
 }
 
 struct SettingsDivider: View {
-    var body: some View { Divider().padding(.leading, 43) }
+    var body: some View { Divider().padding(.leading, 42) }
 }
 
 struct SettingsNavigationRow: View {
@@ -50,8 +49,7 @@ struct SettingsNavigationRow: View {
     var symbol: String
     var action: () -> Void
     var body: some View {
-        ModulaListRow(title: title, subtitle: subtitle, symbol: symbol, action: action)
-            .modulaTapRipple(amplitude: 5)
+        SettingsTileRow(title: title, subtitle: subtitle, symbol: symbol, action: action)
     }
 }
 
@@ -92,8 +90,8 @@ private struct AppearanceMenuRow<Value: Hashable, Options: RandomAccessCollectio
 
     var body: some View {
         HStack(spacing: 13) {
-            Image(systemName: symbol).frame(width: 28).foregroundStyle(.tint)
-            Text(title).font(.body.weight(.medium))
+            SettingsIconTile(symbol: symbol)
+            Text(title)
             Spacer()
             Picker(title, selection: $selection) {
                 ForEach(Array(options), id: \.self) { option in Text(label(option)).tag(option) }
@@ -101,7 +99,7 @@ private struct AppearanceMenuRow<Value: Hashable, Options: RandomAccessCollectio
             .labelsHidden()
             .pickerStyle(.menu)
         }
-        .frame(minHeight: 48)
+        .frame(minHeight: 52)
     }
 }
 
@@ -133,249 +131,133 @@ struct SettingsView: View {
     @AppStorage("settings.feed.defaultMode") private var feedMode = "following"
 
     private var isSearching: Bool { !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    private var compactVisible: Bool { !isSearching && headerProgress > 0.35 }
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 24) {
-                ModulaScrollProgressReader()
-
-                if !isSearching {
-                    SettingsCoverHeader(
-                        coverURL: app.profile.ownProfile?.coverURL,
-                        displayName: identityDisplayName,
-                        handle: identityHandle,
-                        initials: identityInitials,
-                        avatarURL: identityAvatarURL,
-                        namespace: identityNamespace,
-                        progress: headerProgress,
-                        onIdentityTap: openAccountOrLogin,
-                        onEdit: openProfileEdit
-                    )
-                }
-
+            LazyVStack(alignment: .leading, spacing: 22) {
                 if isSearching {
-                    SettingsGroup(title: "Results", subtitle: "Matches settings names and descriptions.") {
-                        VStack(spacing: 0) {
-                            ForEach(Array(filteredSearchItems.enumerated()), id: \.element.id) { index, item in
-                                SettingsNavigationRow(title: item.title, subtitle: item.subtitle, symbol: item.symbol) {
-                                    app.navigation.settingsFocusAnchor = item.anchor
-                                    app.navigation.open(.settings(item.route))
-                                }
-                                if index < filteredSearchItems.count - 1 { SettingsDivider() }
+                    SettingsGroup(title: "Results") {
+                        ForEach(Array(filteredSearchItems.enumerated()), id: \.element.id) { index, item in
+                            SettingsTileRow(title: item.title, subtitle: item.subtitle, symbol: item.symbol) {
+                                app.navigation.settingsFocusAnchor = item.anchor
+                                app.navigation.open(.settings(item.route))
                             }
-                            if filteredSearchItems.isEmpty {
-                                ContentUnavailableView.search(text: query)
-                                    .frame(minHeight: 220)
-                            }
+                            if index < filteredSearchItems.count - 1 { SettingsDivider() }
+                        }
+                        if filteredSearchItems.isEmpty {
+                            ContentUnavailableView.search(text: query).frame(minHeight: 220)
                         }
                     }
                 } else {
-                    SettingsGroup(title: "You") {
-                        VStack(spacing: 0) {
-                            SettingsNavigationRow(title: "Account", subtitle: app.auth.account?.primaryHandle ?? "Sign in and personal information", symbol: "person.crop.circle") {
-                                openAccountOrLogin()
-                            }
-                            .contextMenu {
-                                Button("Edit Profile", systemImage: "pencil") { openProfileEdit() }
-                                Button("Modula Code", systemImage: "qrcode") { app.navigation.open(.settings(.qrCode(.root))) }
-                                Button("Creator", systemImage: "paintbrush.pointed") { app.navigation.open(.settings(.creator(.root))) }
-                            }
-                            SettingsDivider()
-                            SettingsNavigationRow(title: "Appearance", subtitle: themeSubtitle, symbol: "paintpalette") {
-                                app.navigation.open(.settings(.appearance(.root)))
-                            }
-                            .contextMenu {
-                                Button("System", systemImage: "circle.lefthalf.filled") { app.appearance.theme = .system }
-                                Button("Light", systemImage: "sun.max") { app.appearance.theme = .light }
-                                Button("Dark", systemImage: "moon") { app.appearance.theme = .dark }
-                                Divider()
-                                Button("Open Appearance", systemImage: "paintpalette") { app.navigation.open(.settings(.appearance(.root))) }
-                            }
-                            SettingsDivider()
-                            category("Personalisation", "Recommendations, stories and captions", "slider.horizontal.3", .personalisation(.root))
-                        }
+                    SettingsProfileHeaderRow(
+                        name: identityDisplayName,
+                        handle: identityHandle,
+                        initials: identityInitials,
+                        avatarURL: identityAvatarURL,
+                        action: { app.auth.account == nil ? openAccountOrLogin() : openProfileEdit() }
+                    )
+
+                    SettingsGlassCard {
+                        row("Account", "person.crop.circle", value: nil, .account(.root))
+                        SettingsDivider()
+                        row("Privacy & Safety", "hand.raised.fill", value: nil, .privacy(.root))
+                        SettingsDivider()
+                        row("Notifications", "bell.badge.fill", value: nil, .notifications(.root))
                     }
 
-                    SettingsGroup(title: "Quick", subtitle: "These change the same device settings as their full pages.") {
-                        VStack(spacing: 0) {
-                            Toggle(isOn: $dataSaver) { quickLabel("Data saver", "battery.100percent", "battery.dataSaver") }
-                            SettingsDivider()
-                            Toggle(isOn: $pauseAutoplay) { quickLabel("Pause autoplay in Low Power", "bolt.slash", "battery.lowPower") }
-                            SettingsDivider()
-                            Toggle(isOn: $hapticOnPlay) { quickLabel("Haptics on play", "hand.tap", "audio.haptics") }
-                            SettingsDivider()
-                            Toggle(isOn: $preferNativeShare) { quickLabel("System share sheet", "square.and.arrow.up", "sharing.sheet") }
-                            SettingsDivider()
-                            Toggle(isOn: $dimActivity) { quickLabel("Dim Activity in Focus", "moon.stars", "focus.dimActivity") }
-                        }
-                        .animation(.spring(response: 0.35, dampingFraction: 0.86), value: dataSaver)
-                        .animation(.spring(response: 0.35, dampingFraction: 0.86), value: dimActivity)
+                    SettingsGlassCard {
+                        row("Appearance", "paintpalette.fill", value: themeValue, .appearance(.root))
+                        SettingsDivider()
+                        row("Accessibility", "accessibility", value: nil, .accessibility(.root))
+                        SettingsDivider()
+                        row("Language & Region", "globe", value: nil, .language(.root))
+                        SettingsDivider()
+                        row("Moliboo", "pawprint.fill", value: nil, .moliboo)
                     }
 
-                    VStack(alignment: .leading, spacing: 11) {
-                        Text("Intelligence").font(.headline)
-                        SettingsIntelligenceCard(status: intelligenceStatus, detail: "Configure") {
-                            app.navigation.open(.settings(.intelligence(.root)))
-                        }
+                    SettingsGlassCard {
+                        row("Feed", "rectangle.stack.fill", value: feedValue, .feed(.root))
+                        SettingsDivider()
+                        row("Chats", "bubble.left.and.bubble.right.fill", value: nil, .chats(.root))
+                        SettingsDivider()
+                        row("Media & Camera", "photo.on.rectangle.angled", value: nil, .media(.root))
+                        SettingsDivider()
+                        row("Audio & Haptics", "speaker.wave.2.fill", value: nil, .audio(.root))
+                        SettingsDivider()
+                        row("Gestures, Typing & Sharing", "hand.draw.fill", value: nil, .gestures(.root))
+                        SettingsDivider()
+                        row("Personalisation", "slider.horizontal.3", value: nil, .personalisation(.root))
+                        SettingsDivider()
+                        row("Intelligence", "brain", value: intelligenceStatus, .intelligence(.root))
                     }
 
-                    SettingsGroup(title: "Experience") {
-                        VStack(spacing: 0) {
-                            SettingsNavigationRow(title: "Feed", subtitle: feedSubtitle, symbol: "rectangle.stack") {
-                                app.navigation.open(.settings(.feed(.root)))
-                            }
-                            .contextMenu {
-                                Button("Following") { feedMode = "following" }
-                                Button("For You") { feedMode = "for-you" }
-                                Button("Modules") { feedMode = "modules" }
-                            }
-                            SettingsDivider()
-                            category("Moliboo", "Choose, dress up, 3D and more", "pawprint.fill", .moliboo); SettingsDivider()
-                            category("Chats", "Composer, previews and chat privacy", "bubble.left.and.bubble.right", .chats(.root)); SettingsDivider()
-                            category("Media", "Quality, camera and photos", "photo.on.rectangle.angled", .media(.root)); SettingsDivider()
-                            category("Audio", "Playback, voice and haptics", "speaker.wave.2", .audio(.root)); SettingsDivider()
-                            category("Notifications", "Push, digests and quiet hours", "bell", .notifications(.root))
-                            .contextMenu { Button("Digests", systemImage: "envelope.open") { quickPane = .digests } }
-                            SettingsDivider()
-                            SettingsNavigationRow(title: "Focus", subtitle: "Behaviour during iOS Focus", symbol: "moon.stars") {
-                                app.navigation.open(.settings(.focus(.root)))
-                            }
-                            .contextMenu {
-                                Toggle("Hide tab badges", isOn: $hideBadges)
-                                Toggle("Dim Activity", isOn: $dimActivity)
-                                Toggle("Allow mentions", isOn: $allowMentions)
-                            }
-                            SettingsDivider()
-                            SettingsNavigationRow(title: "Sharing", subtitle: preferNativeShare ? "System sheet preferred" : "Link share preferred", symbol: "square.and.arrow.up") {
-                                quickPane = .sharing
-                            }
-                            SettingsDivider()
-                            SettingsNavigationRow(title: "Gestures", subtitle: "Touch shortcuts", symbol: "hand.draw") {
-                                quickPane = .gestures
-                            }
-                        }
+                    SettingsGlassCard {
+                        row("Data & Storage", "internaldrive.fill", value: nil, .dataStorage(.root))
+                        SettingsDivider()
+                        row("Battery & Network", "battery.100.bolt", value: dataSaver ? "Data saver" : nil, .battery(.root))
+                        SettingsDivider()
+                        row("Modules", "shippingbox.fill", value: "\(app.catalogue.installedIDs.count)", .modules(.root))
                     }
 
-                    SettingsGroup(title: "System") {
-                        VStack(spacing: 0) {
-                            category("Search", "Lookup behaviour on this device", "magnifyingglass", .finder(.root)); SettingsDivider()
-                            category("Language & Region", "Language, translate, time and units", "globe", .language(.root)); SettingsDivider()
-                            category("Accessibility", "Text, contrast and motion", "accessibility", .accessibility(.root)); SettingsDivider()
-                            category("Data & Storage", "Downloads, cache, backup and export", "internaldrive", .dataStorage(.root)); SettingsDivider()
-                            category("Battery & Data", "Data saver and Low Power", "battery.100.bolt", .battery(.root)); SettingsDivider()
-                            SettingsNavigationRow(title: "Keyboard", subtitle: "Typing shortcuts", symbol: "keyboard") { quickPane = .keyboard }
-                            SettingsDivider()
-                            category("Widgets", "Home Screen surfaces", "rectangle.on.rectangle.angled", .widgets(.root))
-                        }
+                    SettingsGlassCard {
+                        row("What’s New", "sparkles", value: nil, .whatsNew(.root))
+                        SettingsDivider()
+                        row("Help & Status", "questionmark.circle.fill", value: nil, .help(.root))
+                        SettingsDivider()
+                        row("About", "info.circle.fill", value: shortVersion, .about(.root))
                     }
 
-                    SettingsGroup(title: "Privacy & Security") {
-                        VStack(spacing: 0) {
-                            SettingsNavigationRow(title: "Privacy & Security", subtitle: "Security, app lock and blocked accounts", symbol: "lock.shield") {
-                                app.navigation.open(.settings(.privacy(.root)))
-                            }
-                            .contextMenu {
-                                Button("Passkeys", systemImage: "person.badge.key") { app.navigation.open(.settings(.passkeys(.root))) }
-                                Button("Location", systemImage: "location") { app.navigation.open(.settings(.location(.root))) }
-                                Button("Network", systemImage: "network") { app.navigation.open(.settings(.network(.root))) }
-                            }
-                            SettingsDivider()
-                            category("Safety", "Reporting and sensitive content", "shield.checkered", .safety(.root))
-                        }
-                    }
-
-                    SettingsGroup(title: "Platform", subtitle: "Connectors and commerce stay capability-honest.") {
-                        VStack(spacing: 0) {
-                            category("Modules", moduleSummary, "shippingbox", .modules(.root))
-                            SettingsDivider()
-                            SettingsNavigationRow(title: "Platform services", subtitle: "Connectors, integrations, plans and family", symbol: "puzzlepiece.extension") {
-                                app.navigation.open(.settings(.connectors(.root)))
-                            }
-                            .contextMenu {
-                                Button("Connectors", systemImage: "link") { app.navigation.open(.settings(.connectors(.root))) }
-                                Button("Integrations", systemImage: "puzzlepiece.extension") { app.navigation.open(.settings(.integrations(.root))) }
-                                Button("Monetisation", systemImage: "creditcard") { app.navigation.open(.settings(.monetisation(.root))) }
-                                Button("Family", systemImage: "figure.2.and.child.holdinghands") { app.navigation.open(.settings(.family(.root))) }
-                                Button("Updates", systemImage: "arrow.triangle.2.circlepath") { app.navigation.open(.settings(.updates(.root))) }
-                            }
-                        }
-                    }
-
-                    SettingsGroup(title: "Modula", subtitle: versionSummary) {
-                        VStack(spacing: 0) {
-                            category("What’s New", "Release highlights", "sparkles", .whatsNew(.root))
-                            SettingsDivider()
-                            category("Help", "Guides, contact and status", "questionmark.circle", .help(.root))
-                            SettingsDivider()
-                            category("About", "Version, acknowledgements and legal information", "info.circle", .about(.root))
-                            #if DEBUG
-                            SettingsDivider()
-                            category("Developer", "Native shell, bridge and feature diagnostics", "hammer", .developer(.root))
-                            SettingsDivider()
-                            SettingsNavigationRow(title: "Component Catalog", subtitle: "Canonical native visual reference", symbol: "square.grid.3x3") {
-                                app.navigation.open(.developer(.components))
-                            }
-                            SettingsDivider()
-                            SettingsNavigationRow(title: "Runtime diagnostics", subtitle: "N1 runtime and memory evidence", symbol: "stethoscope") {
-                                app.navigation.open(.settings(.developer(.runtime)))
-                            }
+                    #if DEBUG
+                    SettingsGroup(title: "Developer", subtitle: "Debug builds only — includes previews of features without a backend.") {
+                        row("Developer", "hammer.fill", value: nil, .developer(.root))
+                        SettingsDivider()
+                        row("Labs", "flask.fill", value: nil, .labs(.root))
+                        SettingsDivider()
+                        SettingsTileRow(title: "Component Catalog", symbol: "square.grid.3x3.fill") { app.navigation.open(.developer(.components)) }
+                        SettingsDivider()
+                        row("Runtime diagnostics", "stethoscope", value: nil, .developer(.runtime))
                             .accessibilityIdentifier("settings.runtime")
-                            #endif
-                        }
+                        SettingsDivider()
+                        row("Glass Privacy (preview)", "bubble.left.and.bubble.right", value: nil, .privacy(.glassPrivacy))
+                        SettingsDivider()
+                        row("Connectors & Integrations (preview)", "puzzlepiece.extension", value: nil, .connectors(.root))
+                        SettingsDivider()
+                        row("Monetisation (preview)", "creditcard", value: nil, .monetisation(.root))
+                        SettingsDivider()
+                        row("Family (preview)", "figure.2.and.child.holdinghands", value: nil, .family(.root))
+                        SettingsDivider()
+                        row("Widgets & Location (preview)", "rectangle.on.rectangle.angled", value: nil, .widgets(.root))
                     }
+                    #endif
                 }
             }
             .padding(.horizontal, ModulaLayout.contentInset)
-            .padding(.bottom, 28)
+            .padding(.top, 8)
+            .padding(.bottom, SettingsInsets.bottom)
         }
-        .ignoresSafeArea(edges: .top)
-        .modulaScrollProgressTracking(collapseDistance: 88, progress: $headerProgress)
         .modulaSoftScrollEdge()
         .modulaCanvas()
-        .navigationTitle(compactVisible ? "" : "Settings")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbarColorScheme(compactVisible ? colorScheme : .dark, for: .navigationBar)
-        .searchable(text: $query, isPresented: $searchPresented, prompt: "Search Settings")
-        .modulaMinimizedSearchToolbar()
+        .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $query, isPresented: $searchPresented, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search Settings")
         .task { await refreshIntelligenceStatus() }
-        .sheet(item: $quickPane) { pane in
-            SettingsQuickSheet(pane: pane)
-        }
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                if compactVisible {
-                    SettingsCompactIdentity(
-                        namespace: identityNamespace,
-                        displayName: identityDisplayName,
-                        initials: identityInitials,
-                        avatarURL: identityAvatarURL
-                    )
-                    .opacity(reduceMotion ? 1 : Double(ModulaScrollProgress.clamp((headerProgress - 0.35) / 0.4)))
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(headerProgress < 0.45)
-                }
-            }
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Menu {
-                    Section("Shortcuts") {
-                        Button("Appearance", systemImage: "paintpalette") { app.navigation.open(.settings(.appearance(.root))) }
-                        Button("Intelligence", systemImage: "brain") { app.navigation.open(.settings(.intelligence(.root))) }
-                        Button("Privacy & Security", systemImage: "lock.shield") { app.navigation.open(.settings(.privacy(.root))) }
-                        Button("Module Settings", systemImage: "shippingbox") { app.navigation.open(.settings(.modules(.root))) }
-                    }
-                    Section("Information") {
-                        Button("About Modula", systemImage: "info.circle") { app.navigation.open(.settings(.about(.root))) }
-                        Label("Runtime: \(app.runtime.state.capitalized)", systemImage: "memorychip")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis")
-                }
-                .accessibilityLabel("Settings menu")
-            }
-        }
         .accessibilityIdentifier("settings.root")
+    }
+
+    private func row(_ title: String, _ symbol: String, value: String?, _ route: SettingsRoute) -> some View {
+        SettingsTileRow(title: title, value: value, symbol: symbol) { app.navigation.open(.settings(route)) }
+    }
+
+    private var themeValue: String {
+        switch app.appearance.theme { case .system: "System"; case .light: "Light"; case .dark: "Dark" }
+    }
+
+    private var feedValue: String {
+        switch feedMode { case "for-you": "For You"; case "modules": "Modules"; default: "Following" }
+    }
+
+    private var shortVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
     }
 
     private var identityDisplayName: String {
@@ -416,7 +298,13 @@ struct SettingsView: View {
             #else
             false
             #endif
-        }()).map {
+        }()).filter { entry in
+            #if DEBUG
+            return true
+            #else
+            return !SettingsAudit.previewOnly(entry.route)
+            #endif
+        }.map {
             SettingsSearchItem($0.title, $0.subtitle, $0.symbol, $0.route, $0.anchor)
         }
     }
