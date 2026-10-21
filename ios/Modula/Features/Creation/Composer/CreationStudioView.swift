@@ -23,6 +23,8 @@ struct CreationStudioView: View {
     @State private var mediaStage: ComposeMediaStage = .collapsed
     @State private var showFileImporter = false
     @State private var showMoreOptions = false
+    @AppStorage(ModulaMascotSettings.key(for: .other)) private var mascotShown = ModulaMascotSettings.defaultShown(.other)
+    @State private var barScrollWidth: CGFloat = 0
     @State private var localLinkURL = "https://"
     @State private var appeared = false
     @State private var publishTask: Task<Void, Never>?
@@ -170,7 +172,7 @@ struct CreationStudioView: View {
             } label: {
                 Text(store.draft.isPublishing ? "Stop" : "Cancel")
                     .font(.body.weight(.medium))
-                    .foregroundStyle(store.draft.isPublishing ? Color.red.opacity(0.9) : Color.secondary)
+                    .foregroundStyle(store.draft.isPublishing ? Color.red : Color.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     .modulaGlass(in: Capsule(), interactive: true, specular: true)
@@ -196,9 +198,13 @@ struct CreationStudioView: View {
             } label: {
                 Text(store.draft.kind.publishLabel)
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(store.canPublish ? Color.white : Color.secondary)
+                    .foregroundStyle(store.canPublish ? Color.white : Color.primary.opacity(0.55))
                     .padding(.horizontal, store.canPublish ? 20 : 16)
                     .padding(.vertical, 8)
+                    .overlay {
+                        // Disabled: a visible hairline so the pill reads as a button, not a smudge.
+                        Capsule().strokeBorder(Color.primary.opacity(store.canPublish ? 0 : 0.22), lineWidth: 1)
+                    }
                     .scaleEffect(publishMorph ? 0.92 : 1)
                     .modulaGlass(
                         in: Capsule(),
@@ -444,7 +450,7 @@ struct CreationStudioView: View {
             }
             accessoryBar(store)
                 .accessibilitySortPriority(40)
-                .modulaComposerMascot(.other, busy: store.draft.isPublishing, text: store.draft.text, attachmentCount: store.draft.media.count)
+                .modulaComposerMascot(.other, busy: store.draft.isPublishing, text: store.draft.text, attachmentCount: store.draft.media.count, slotted: true)
             if mediaPanelActive {
                 ModulaComposerMediaPanel(
                     client: app.client,
@@ -540,8 +546,15 @@ struct CreationStudioView: View {
         let caps = store.capabilities
         return ModulaGlassGroup(spacing: 6) {
             HStack(spacing: 4) {
+                if mascotShown {
+                    // Moliboo's own reserved slot — it lives here and never covers a control.
+                    Color.clear
+                        .frame(width: 44, height: 44)
+                        .modulaMascotPerch()
+                        .accessibilityHidden(true)
+                }
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 2) {
+                    HStack(spacing: barSpacing(caps)) {
                         if caps.toolEnabled(.photo) {
                             barIcon("photo.on.rectangle.angled", "Photo", id: "compose.tool.photo", active: mediaStage == .library, accent: accent) {
                                 toggleStage(.library)
@@ -592,9 +605,19 @@ struct CreationStudioView: View {
                             showMoreOptions = true
                         }
                     }
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, 6)
                 }
-                .scrollClipDisabled()
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { barScrollWidth = $0 }
+                // Keep icons inside the pill: clip to the capsule and feather both edges.
+                .clipShape(Capsule())
+                .mask {
+                    LinearGradient(stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: .black, location: 0.06),
+                        .init(color: .black, location: 0.94),
+                        .init(color: .clear, location: 1)
+                    ], startPoint: .leading, endPoint: .trailing)
+                }
 
                 if let limit = caps.characterLimit, limit > 0 {
                     CharacterRing(count: store.draft.text.count, limit: limit, accent: accent)
@@ -624,6 +647,17 @@ struct CreationStudioView: View {
         editorFocused = false
         mediaPanelActive = false
         withAnimation(stageMotion) { mediaStage = mediaStage == target ? .collapsed : target }
+    }
+
+    /// Even spacing: spread the icons across the visible scroll width; fall back to tight
+    /// spacing (and scrolling) when they don't fit.
+    private func barSpacing(_ caps: CreationCapabilities) -> CGFloat {
+        var n = 5 // file, media, voice, mention, more
+        if caps.toolEnabled(.photo) { n += UIImagePickerController.isSourceTypeAvailable(.camera) ? 2 : 1 }
+        if caps.videoPost { n += 1 }
+        if caps.pollPost { n += 1 }
+        let free = barScrollWidth - 12 - CGFloat(n) * 44
+        return n > 1 ? max(2, min(14, free / CGFloat(n - 1))) : 2
     }
 
     private func barIcon(_ symbol: String, _ label: String, id: String, active: Bool = false, accent: Color, action: @escaping () -> Void) -> some View {
@@ -839,8 +873,8 @@ private struct ComposerBarIconLabel: View {
         Image(systemName: symbol)
             .font(.system(size: 17, weight: .semibold))
             .foregroundStyle(active ? accent : Color.primary.opacity(0.8))
-            .frame(width: 40, height: 40)
-            .background(Circle().fill(accent.opacity(active ? 0.16 : 0)))
+            .frame(width: 44, height: 44)
+            .background(Circle().fill(accent.opacity(active ? 0.16 : 0)).padding(2))
             .contentShape(Circle())
     }
 }
