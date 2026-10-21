@@ -96,8 +96,18 @@ final class ModulaPhotoLibraryModel: ObservableObject {
         return await withCheckedContinuation { cont in
             PHImageManager.default().requestImage(for: asset, targetSize: size, contentMode: .aspectFit, options: options) { image, info in
                 let degraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
-                if !degraded { cont.resume(returning: image) }
+                if !degraded { cont.resume(returning: image.map(Self.upright)) }
             }
+        }
+    }
+
+    /// Bakes EXIF orientation into the pixels so re-encoding (which strips metadata) keeps the photo upright.
+    nonisolated static func upright(_ image: UIImage) -> UIImage {
+        guard image.imageOrientation != .up else { return image }
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = image.scale
+        return UIGraphicsImageRenderer(size: image.size, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: image.size))
         }
     }
 
@@ -134,6 +144,9 @@ struct ModulaPhotoGrid: View {
     var showsCameraTile = true
     var onCamera: (() -> Void)? = nil
     var onExpand: (() -> Void)? = nil
+    /// Videos are listed (with durations) but only selectable when the destination supports them.
+    var allowsVideo = true
+    var onVideoBlocked: (() -> Void)? = nil
     var onAdd: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -273,6 +286,11 @@ struct ModulaPhotoGrid: View {
 
     private func toggle(_ asset: PHAsset) {
         let id = asset.localIdentifier
+        if asset.mediaType == .video, !allowsVideo {
+            HapticEngine.shared.play(.warning)
+            onVideoBlocked?()
+            return
+        }
         if let i = selection.firstIndex(of: id) {
             selection.remove(at: i)
         } else if selection.count < maxSelection {

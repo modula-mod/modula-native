@@ -31,7 +31,7 @@ struct CreationStudioView: View {
     @State private var appeared = false
     @State private var publishTask: Task<Void, Never>?
     @State private var publishMorph = false
-    @StateObject private var photoLibrary = ModulaPhotoLibraryModel(includeVideos: false)
+    @StateObject private var photoLibrary = ModulaPhotoLibraryModel(includeVideos: true)
     @State private var showsFullCamera = false
     @State private var cameraLibraryItems: [PhotosPickerItem] = []
 
@@ -259,40 +259,7 @@ struct CreationStudioView: View {
                     }
 
                     if mediaStage.isExpanded {
-                        ComposeMediaAttachStage(
-                            stage: $mediaStage,
-                            accent: accent,
-                            idPrefix: "compose.media",
-                            height: 300,
-                            maxSelectionCount: store.capabilities.carouselPost
-                                ? (store.capabilities.maxMediaCount ?? 10) : 1,
-                            matching: .images,
-                            cameraModes: store.capabilities.videoPost ? [.photo, .video] : [.photo],
-                            onPhotosPicked: { items in
-                                Task { await store.attachImages(items) }
-                            },
-                            onCameraPhoto: { image in
-                                Task { await store.attachCameraImage(image) }
-                            },
-                            onCameraVideo: { url in
-                                Task { await store.attachCameraVideo(url) }
-                            },
-                            photoLibrary: photoLibrary,
-                            onAssetsPicked: { assets in
-                                Task {
-                                    for asset in assets {
-                                        if let image = await photoLibrary.fullImage(asset) {
-                                            await store.attachCameraImage(image)
-                                        }
-                                    }
-                                }
-                            },
-                            onOpenCamera: {
-                                editorFocused = false
-                                withAnimation(stageMotion) { mediaStage = .collapsed }
-                                showsFullCamera = true
-                            }
-                        )
+                        mediaAttachStage(store, accent: accent)
                         .modulaGlassID("compose.media.stage", in: glassMorph)
                     }
 
@@ -536,6 +503,53 @@ struct CreationStudioView: View {
             showsFullCamera = false
             Task { await store.attachImages(items) }
         }
+    }
+
+    private func mediaAttachStage(_ store: CreationStudioStore, accent: Color) -> some View {
+        let maxCount = store.capabilities.carouselPost ? (store.capabilities.maxMediaCount ?? 10) : 1
+        let modes: [ModulaInlineCamera.Mode] = store.capabilities.videoPost ? [.photo, .video] : [.photo]
+        return ComposeMediaAttachStage(
+            stage: $mediaStage,
+            accent: accent,
+            idPrefix: "compose.media",
+            height: 300,
+            maxSelectionCount: store.capabilities.carouselPost
+                ? (store.capabilities.maxMediaCount ?? 10) : 1,
+            matching: .images,
+            cameraModes: modes,
+            onPhotosPicked: { items in
+                Task { await store.attachImages(items) }
+            },
+            onCameraPhoto: { image in
+                Task { await store.attachCameraImage(image) }
+            },
+            onCameraVideo: { url in
+                Task { await store.attachCameraVideo(url) }
+            },
+            photoLibrary: photoLibrary,
+            onAssetsPicked: { assets in
+                Task {
+                    for asset in assets {
+                        if asset.mediaType == .video {
+                            if let url = await photoLibrary.videoFile(asset) {
+                                await store.attachCameraVideo(url)
+                            }
+                        } else if let image = await photoLibrary.fullImage(asset) {
+                            await store.attachCameraImage(image)
+                        }
+                    }
+                }
+            },
+            allowsVideo: store.capabilities.videoPost,
+            onVideoBlocked: {
+                app.navigation.flash("Video posts aren’t available yet — pick photos", symbol: "video.slash")
+            },
+            onOpenCamera: {
+                editorFocused = false
+                withAnimation(stageMotion) { mediaStage = .collapsed }
+                showsFullCamera = true
+            }
+        )
     }
 
     private func insertText(_ value: String, _ store: CreationStudioStore) {
