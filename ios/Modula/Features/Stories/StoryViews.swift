@@ -307,6 +307,7 @@ struct StoryViewer: View {
     @State private var expandedVideo: ModulaAttachment?
     @State private var replyDraft = ""
     @State private var reactedLocally = false
+    @State private var burstEmoji: String?
     @State private var confirmMute = false
     @State private var confirmReport = false
 
@@ -381,6 +382,12 @@ struct StoryViewer: View {
             DragGesture(minimumDistance: 40).onEnded { value in
                 if value.translation.height > 80 {
                     app.navigation.close()
+                } else if value.translation.height < -60, abs(value.translation.width) < 80 {
+                    // Swipe up → reply (and quick reactions).
+                    if let item = currentItem, !item.isOwn {
+                        replyFocused = true
+                        HapticEngine.shared.play(.selection)
+                    }
                 }
             }
         )
@@ -540,6 +547,19 @@ struct StoryViewer: View {
             Spacer(minLength: 0)
             bottomChrome(item)
         }
+        // Hold to pause also clears the chrome so the story can be seen unobstructed.
+        .opacity(holding && !replyFocused ? 0 : 1)
+        .animation(.easeOut(duration: 0.15), value: holding)
+        .animation(.snappy, value: replyFocused)
+        .overlay {
+            if let burstEmoji {
+                Text(burstEmoji)
+                    .font(.system(size: 120))
+                    .shadow(radius: 12)
+                    .transition(reduceMotion ? .opacity : .scale(scale: 0.3).combined(with: .opacity))
+                    .allowsHitTesting(false)
+            }
+        }
         .background(alignment: .top) {
             LinearGradient(colors: [.black.opacity(0.55), .clear], startPoint: .top, endPoint: .bottom)
                 .frame(height: 160)
@@ -618,6 +638,11 @@ struct StoryViewer: View {
                     .accessibilityIdentifier("story.caption")
             }
 
+            if replyFocused, let item, !item.isOwn {
+                quickReactions(item)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
             ModulaGlassGroup(spacing: 10) {
                 HStack(spacing: 10) {
                     replyField(item)
@@ -665,6 +690,32 @@ struct StoryViewer: View {
         .modulaGlass(in: Capsule(), tint: teal.opacity(enabled ? 0.35 : 0.12), specular: true)
         .opacity(enabled || own ? 1 : 0.55)
         .accessibilityIdentifier("story.reply")
+    }
+
+    private static let quickEmoji = ["😂", "😮", "😍", "😢", "👏", "🔥", "🎉", "💯"]
+
+    /// Quick reactions (kept on device until the story reactions API ships).
+    private func quickReactions(_ item: StoryItem) -> some View {
+        HStack(spacing: 4) {
+            ForEach(Self.quickEmoji, id: \.self) { emoji in
+                Button {
+                    LocalEmojiReactionStore.shared.set(emoji, for: "story:\(item.id)")
+                    reactedLocally = true
+                    replyFocused = false
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) { burstEmoji = emoji }
+                    HapticEngine.shared.play(.success)
+                    Task {
+                        try? await Task.sleep(for: .seconds(1.1))
+                        withAnimation(.easeOut(duration: 0.25)) { burstEmoji = nil }
+                    }
+                } label: {
+                    Text(emoji).font(.system(size: 30)).frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.85, haptic: nil))
+                .accessibilityLabel("React \(emoji)")
+            }
+        }
+        .padding(.horizontal, 12)
     }
 
     private func reactButton(_ item: StoryItem?) -> some View {
@@ -869,9 +920,16 @@ enum StoryFilterEngine {
     nonisolated(unsafe) private static let context = CIContext(options: [.useSoftwareRenderer: false])
 
     @MainActor
-    static func apply(_ filter: StoryFilter, to image: UIImage) -> UIImage {
-        guard filter.id != "none", let cg = image.cgImage else { return image }
-        let output = ciApply(filter.id, to: CIImage(cgImage: cg))
+    static func apply(_ filter: StoryFilter, to image: UIImage, intensity: Double = 1) -> UIImage {
+        guard filter.id != "none", intensity > 0.01, let cg = image.cgImage else { return image }
+        let source = CIImage(cgImage: cg)
+        var output = ciApply(filter.id, to: source).cropped(to: source.extent)
+        if intensity < 0.99 {
+            output = source.applyingFilter("CIDissolveTransition", parameters: [
+                kCIInputTargetImageKey: output,
+                kCIInputTimeKey: intensity,
+            ]).cropped(to: source.extent)
+        }
         guard let rendered = context.createCGImage(output, from: output.extent) else { return image }
         return UIImage(cgImage: rendered, scale: image.scale, orientation: image.imageOrientation)
     }
@@ -965,7 +1023,7 @@ enum StoryFilterEngine {
 // MARK: - Create Story v2 — model
 
 enum StoryTextStyle: String, CaseIterable, Identifiable, Sendable {
-    case classic, strong, typewriter, serif, neon, outline
+    case classic, strong, typewriter, serif, neon, outline, script, marker, chalk
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -975,8 +1033,12 @@ enum StoryTextStyle: String, CaseIterable, Identifiable, Sendable {
         case .serif: "Editor"
         case .neon: "Neon"
         case .outline: "Outline"
+        case .script: "Script"
+        case .marker: "Marker"
+        case .chalk: "Chalk"
         }
     }
+    /// Story-only display faces; app UI fonts are untouched.
     var font: Font {
         switch self {
         case .classic: .system(size: 30, weight: .bold, design: .rounded)
@@ -985,19 +1047,26 @@ enum StoryTextStyle: String, CaseIterable, Identifiable, Sendable {
         case .serif: .system(size: 30, weight: .semibold, design: .serif)
         case .neon: .system(size: 30, weight: .heavy, design: .rounded)
         case .outline: .system(size: 32, weight: .black, design: .rounded)
+        case .script: .custom("SnellRoundhand-Black", size: 36)
+        case .marker: .custom("MarkerFelt-Wide", size: 30)
+        case .chalk: .custom("ChalkboardSE-Bold", size: 28)
         }
     }
 }
 
 enum StoryTextBackground: String, CaseIterable, Sendable {
-    case none, solid, soft
+    case none, solid, soft, highlight, outline, neon
     var symbol: String {
         switch self {
         case .none: "character"
         case .solid: "character.textbox"
         case .soft: "square.fill.text.grid.1x2"
+        case .highlight: "highlighter"
+        case .outline: "square.dashed"
+        case .neon: "lightbulb.max"
         }
     }
+    var fillsWithColour: Bool { self == .solid || self == .highlight }
 }
 
 enum StoryTextAlign: String, CaseIterable, Sendable {
@@ -1045,12 +1114,14 @@ struct StoryLayer: Identifiable, Equatable {
         case time(Date)
         case addYours(String)
         case reply(String)
+        /// Visual link sticker (baked into the image; not tappable for viewers yet).
+        case link(String)
         /// Subject lifted from a photo; the bitmap lives in the composer's image map (keyed by layer id).
         case cutout
 
         var isInteractive: Bool {
             switch self {
-            case .location, .mention, .poll, .question, .countdown, .music, .slider, .quiz, .addYours, .reply: true
+            case .location, .mention, .link, .poll, .question, .countdown, .music, .slider, .quiz, .addYours, .reply: true
             default: false
             }
         }
@@ -1099,6 +1170,16 @@ struct StoryGradientBG: Identifiable, Hashable, Sendable {
         .init(id: "aurora", title: "Aurora", hexes: ["#0F2027", "#2C5364", "#36D1DC"]),
         .init(id: "peach", title: "Peach", hexes: ["#FFECD2", "#FCB69F"]),
         .init(id: "noir", title: "Noir", hexes: ["#232526", "#414345"]),
+        // Solid colours
+        .init(id: "solid.black", title: "Black", hexes: ["#000000", "#000000"]),
+        .init(id: "solid.white", title: "White", hexes: ["#F7F7F7", "#F7F7F7"]),
+        .init(id: "solid.red", title: "Red", hexes: ["#FF3B30", "#FF3B30"]),
+        .init(id: "solid.orange", title: "Orange", hexes: ["#FF9500", "#FF9500"]),
+        .init(id: "solid.yellow", title: "Yellow", hexes: ["#FFD60A", "#FFD60A"]),
+        .init(id: "solid.green", title: "Green", hexes: ["#34C759", "#34C759"]),
+        .init(id: "solid.blue", title: "Blue", hexes: ["#0A84FF", "#0A84FF"]),
+        .init(id: "solid.purple", title: "Purple", hexes: ["#7656D6", "#7656D6"]),
+        .init(id: "solid.pink", title: "Pink", hexes: ["#FF2D55", "#FF2D55"]),
     ]
 }
 
@@ -1333,12 +1414,37 @@ struct StoryLayerView: View {
                 .background(Color.white, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
         case .mention(let handle):
-            Text("@" + handle.trimmingCharacters(in: CharacterSet(charactersIn: "@")).uppercased())
-                .font(.system(size: 18, weight: .heavy, design: .rounded))
-                .foregroundStyle(LinearGradient(colors: [Color(hex: "#FF9500"), Color(hex: "#FF2D55")], startPoint: .leading, endPoint: .trailing))
-                .padding(.horizontal, 14).padding(.vertical, 9)
-                .background(Color.white, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
+            let clean = handle.trimmingCharacters(in: CharacterSet(charactersIn: "@ "))
+            HStack(spacing: 7) {
+                Image(systemName: "at")
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundStyle(.white)
+                    .frame(width: 24, height: 24)
+                    .background(LinearGradient(colors: [Color(hex: "#FF9500"), Color(hex: "#FF2D55")], startPoint: .topLeading, endPoint: .bottomTrailing), in: Circle())
+                Text((clean.isEmpty ? "username" : clean).lowercased())
+                    .font(.system(size: 18, weight: .heavy, design: .rounded))
+                    .foregroundStyle(LinearGradient(colors: [Color(hex: "#FF9500"), Color(hex: "#FF2D55")], startPoint: .leading, endPoint: .trailing))
+                    .lineLimit(1)
+            }
+            .padding(.leading, 6).padding(.trailing, 14).padding(.vertical, 6)
+            .background(Color.white, in: Capsule())
+            .shadow(color: .black.opacity(0.22), radius: 8, y: 3)
+        case .link(let url):
+            let host = URL(string: url.contains("://") ? url : "https://" + url)?.host() ?? url
+            HStack(spacing: 7) {
+                Image(systemName: "link")
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundStyle(.white)
+                    .frame(width: 24, height: 24)
+                    .background(Color(hex: "#0A84FF"), in: Circle())
+                Text(host.isEmpty ? "Add link" : host.uppercased())
+                    .font(.system(size: 16, weight: .heavy, design: .rounded))
+                    .foregroundStyle(Color(hex: "#0A84FF"))
+                    .lineLimit(1)
+            }
+            .padding(.leading, 6).padding(.trailing, 14).padding(.vertical, 6)
+            .background(Color.white, in: Capsule())
+            .shadow(color: .black.opacity(0.22), radius: 8, y: 3)
         case .poll(let question, let a, let b):
             VStack(spacing: 10) {
                 Text(question)
@@ -1531,7 +1637,7 @@ struct StoryLayerView: View {
     private func textView(_ spec: StoryTextSpec) -> some View {
         let colour = Color(hex: spec.colorHex)
         let darkOnColour = StoryTextContrast.prefersDarkText(hex: spec.colorHex)
-        let foreground: Color = spec.background == .solid ? (darkOnColour ? .black : .white) : colour
+        let foreground: Color = spec.background.fillsWithColour ? (darkOnColour ? .black : .white) : colour
         let display = spec.text.isEmpty ? "Tap to type" : (spec.style == .strong ? spec.text.uppercased() : spec.text)
         return Text(display)
             .font(spec.style.font)
@@ -1549,6 +1655,21 @@ struct StoryLayerView: View {
                 case .none: Color.clear
                 case .solid: RoundedRectangle(cornerRadius: 10, style: .continuous).fill(colour)
                 case .soft: RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.black.opacity(0.45))
+                case .highlight:
+                    // Marker-style swipe: tighter, slightly tilted, translucent.
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(colour.opacity(0.88))
+                        .rotationEffect(.degrees(-1.2))
+                        .padding(.vertical, 3)
+                case .outline:
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(colour, lineWidth: 2.5)
+                case .neon:
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.black.opacity(0.35))
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(colour, lineWidth: 2))
+                        .shadow(color: colour.opacity(0.9), radius: 8)
+                        .shadow(color: colour.opacity(0.5), radius: 18)
                 }
             }
             .frame(maxWidth: 300)
@@ -1632,6 +1753,14 @@ struct StoryCreateView: View {
     @FocusState private var textFocused: Bool
     @State private var draggingID: String?
     @State private var overTrash = false
+    @State private var snapX = false
+    @State private var snapY = false
+    @State private var history: [StoryEditSnapshot] = []
+    @State private var future: [StoryEditSnapshot] = []
+    @State private var committed = StoryEditSnapshot()
+    @State private var restoringHistory = false
+    @State private var filterIntensity: Double = 1
+    @State private var showsDrafts = false
     @State private var dragBase: [String: CGPoint] = [:]
     @State private var scaleBase: [String: CGFloat] = [:]
     @State private var rotationBase: [String: Double] = [:]
@@ -1672,13 +1801,14 @@ struct StoryCreateView: View {
     }
 
     private enum StorySheet: String, Identifiable {
-        case stickers, location, mention, poll, question, countdown, slider, quiz, addYours, reply
+        case stickers, location, mention, link, poll, question, countdown, slider, quiz, addYours, reply
         var id: String { rawValue }
         var title: String {
             switch self {
             case .stickers: "Stickers"
             case .location: "Location"
             case .mention: "Mention"
+            case .link: "Link"
             case .poll: "Poll"
             case .question: "Question"
             case .countdown: "Countdown"
@@ -1733,7 +1863,16 @@ struct StoryCreateView: View {
         }
         .onChange(of: caption) { _, _ in saveDraft() }
         .onChange(of: visibility) { _, _ in saveDraft() }
-        .onChange(of: filter) { _, _ in refilter() }
+        .onChange(of: filter) { _, _ in filterIntensity = 1; refilter() }
+        .onChange(of: filterIntensity) { _, _ in refilter() }
+        .sheet(isPresented: $showsDrafts) {
+            StoryDraftsGallery(currentID: draftID) { id in
+                showsDrafts = false
+                openDraft(id)
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
         .onDisappear {
             bakeTask?.cancel()
             if !published { saveDraft(); app.drafts.flush() }
@@ -1902,11 +2041,27 @@ struct StoryCreateView: View {
                                 HapticEngine.shared.play(.selection)
                             }
                         }
+                        .contextMenu {
+                            Button("Bring to Front", systemImage: "square.3.layers.3d.top.filled") { moveLayer(layer.id, .front) }
+                            Button("Bring Forward", systemImage: "square.2.layers.3d.top.filled") { moveLayer(layer.id, .forward) }
+                            Button("Send Backward", systemImage: "square.2.layers.3d.bottom.filled") { moveLayer(layer.id, .backward) }
+                            Button("Send to Back", systemImage: "square.3.layers.3d.bottom.filled") { moveLayer(layer.id, .back) }
+                            Divider()
+                            Button("Delete", systemImage: "trash", role: .destructive) {
+                                withAnimation(spring) { layers.removeAll { $0.id == layer.id }; gifImages[layer.id] = nil }
+                                scheduleBake()
+                            }
+                        }
                         .gesture(layerGesture(layer.id))
                         .position(x: layer.x * geo.size.width, y: layer.y * geo.size.height)
                         .allowsHitTesting(tool != .draw && editingTextID == nil)
                         .animation(.snappy(duration: 0.18), value: overTrash)
                         .transition(reduceMotion ? .opacity : .scale(scale: 0.4).combined(with: .opacity))
+                }
+
+                if draggingID != nil {
+                    StorySnapGuides(vertical: snapX, horizontal: snapY)
+                        .allowsHitTesting(false)
                 }
 
                 if tool == .draw {
@@ -1980,6 +2135,16 @@ struct StoryCreateView: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("story.create.retake")
+            Menu {
+                Button("New story", systemImage: "plus") { startNewDraft() }
+                Button("Drafts (\(app.drafts.stories.count))", systemImage: "square.stack") { showsDrafts = true }
+            } label: {
+                Image(systemName: "square.stack")
+                    .font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
+                    .frame(width: 40, height: 40)
+                    .modulaGlass(in: Circle(), interactive: true)
+            }
+            .accessibilityLabel("Drafts")
             if bgScale != 1 || bgOffset != .zero {
                 Button {
                     withAnimation(spring) { bgScale = 1; bgOffset = .zero }
@@ -1996,6 +2161,30 @@ struct StoryCreateView: View {
                 .buttonStyle(.plain)
             }
             Spacer()
+            ModulaGlassGroup(spacing: 6) {
+                HStack(spacing: 6) {
+                    Button { undo() } label: {
+                        Image(systemName: "arrow.uturn.backward")
+                            .font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
+                            .frame(width: 40, height: 40)
+                            .modulaGlass(in: Circle(), interactive: true)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(history.isEmpty)
+                    .opacity(history.isEmpty ? 0.4 : 1)
+                    .accessibilityLabel("Undo")
+                    Button { redo() } label: {
+                        Image(systemName: "arrow.uturn.forward")
+                            .font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
+                            .frame(width: 40, height: 40)
+                            .modulaGlass(in: Circle(), interactive: true)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(future.isEmpty)
+                    .opacity(future.isEmpty ? 0.4 : 1)
+                    .accessibilityLabel("Redo")
+                }
+            }
             Button {
                 app.navigation.close()
             } label: {
@@ -2105,8 +2294,18 @@ struct StoryCreateView: View {
                 }
                 let base = dragBase[id] ?? .zero
                 let w = max(canvasSize.width, 1), h = max(canvasSize.height, 1)
-                layers[i].x = min(max(base.x + value.translation.width / w, 0.02), 0.98)
-                layers[i].y = min(max(base.y + value.translation.height / h, 0.02), 0.98)
+                var nx = min(max(base.x + value.translation.width / w, 0.02), 0.98)
+                var ny = min(max(base.y + value.translation.height / h, 0.02), 0.98)
+                // Snap to the centre lines (≈10pt magnet) with a tick on entry.
+                let sx = abs(nx - 0.5) * w < 10, sy = abs(ny - 0.5) * h < 10
+                if sx { nx = 0.5 }
+                if sy { ny = 0.5 }
+                if sx != snapX || sy != snapY {
+                    if (sx && !snapX) || (sy && !snapY) { HapticEngine.shared.play(.selection) }
+                    snapX = sx; snapY = sy
+                }
+                layers[i].x = nx
+                layers[i].y = ny
                 let over = isOverTrash(value.location)
                 if over != overTrash {
                     overTrash = over
@@ -2124,6 +2323,7 @@ struct StoryCreateView: View {
                 }
                 draggingID = nil
                 overTrash = false
+                snapX = false; snapY = false
                 scheduleBake()
             }
         let pinch = MagnifyGesture()
@@ -2438,6 +2638,20 @@ struct StoryCreateView: View {
     @ViewBuilder
     private var filtersChrome: some View {
         if sourceImage != nil && collageLayout == nil {
+            if filter.id != "none" {
+                HStack(spacing: 10) {
+                    Image(systemName: "circle.lefthalf.filled").foregroundStyle(.white.opacity(0.8))
+                    Slider(value: $filterIntensity, in: 0...1)
+                        .tint(.white)
+                        .accessibilityLabel("Filter intensity")
+                    Text("\(Int(filterIntensity * 100))")
+                        .font(.caption.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 34, alignment: .trailing)
+                }
+                .padding(.horizontal, 18)
+                .padding(.bottom, 6)
+            }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
                     ForEach(StoryFilter.catalog) { item in
@@ -2555,6 +2769,10 @@ struct StoryCreateView: View {
             formSheet(item, fields: { glassField("@username", text: $formA) }) {
                 addLayer(.mention(formA))
             }
+        case .link:
+            formSheet(item, fields: { glassField("https://", text: $formA) }) {
+                addLayer(.link(formA.trimmingCharacters(in: .whitespaces)))
+            }
         case .poll:
             formSheet(item, fields: {
                 glassField("Ask a question…", text: $formA)
@@ -2637,6 +2855,7 @@ struct StoryCreateView: View {
                 HStack(spacing: 8) {
                     interactiveChip("Location", symbol: "mappin.and.ellipse") { sheet = .location }
                     interactiveChip("Mention", symbol: "at") { sheet = .mention }
+                    interactiveChip("Link", symbol: "link") { sheet = .link }
                     interactiveChip("Poll", symbol: "chart.bar.xaxis") { sheet = .poll }
                     interactiveChip("Question", symbol: "questionmark.bubble") { sheet = .question }
                     interactiveChip("Countdown", symbol: "timer") { sheet = .countdown }
@@ -2960,6 +3179,10 @@ struct StoryCreateView: View {
         layers = []
         gifImages = [:]
         strokes = []
+        history = []
+        future = []
+        committed = StoryEditSnapshot()
+        filterIntensity = 1
         activeStroke = nil
         editingTextID = nil
         tool = nil
@@ -2972,7 +3195,7 @@ struct StoryCreateView: View {
 
     private func refilter() {
         guard let sourceImage else { return }
-        filteredPreview = StoryFilterEngine.apply(filter, to: sourceImage)
+        filteredPreview = StoryFilterEngine.apply(filter, to: sourceImage, intensity: filterIntensity)
         scheduleBake(delay: 0)
     }
 
@@ -2992,7 +3215,7 @@ struct StoryCreateView: View {
         gradientBG = nil
         collageLayout = nil
         collageImages = []
-        filteredPreview = StoryFilterEngine.apply(filter, to: base)
+        filteredPreview = StoryFilterEngine.apply(filter, to: base, intensity: filterIntensity)
         withAnimation(spring) { showsCamera = false }
         HapticEngine.shared.play(.success)
         scheduleBake(delay: 0)
@@ -3021,7 +3244,60 @@ struct StoryCreateView: View {
         scheduleBake(delay: 0)
     }
 
+    private var currentSnapshot: StoryEditSnapshot { StoryEditSnapshot(layers: layers, strokes: strokes) }
+
+    /// Every finished edit funnels through scheduleBake, so that is where history checkpoints.
+    private func commitHistory() {
+        if restoringHistory { restoringHistory = false; committed = currentSnapshot; return }
+        let now = currentSnapshot
+        guard now != committed else { return }
+        history.append(committed)
+        if history.count > 50 { history.removeFirst() }
+        future.removeAll()
+        committed = now
+    }
+
+    private func undo() {
+        guard let previous = history.popLast() else { return }
+        future.append(currentSnapshot)
+        apply(previous)
+    }
+
+    private func redo() {
+        guard let next = future.popLast() else { return }
+        history.append(currentSnapshot)
+        apply(next)
+    }
+
+    private func apply(_ snapshot: StoryEditSnapshot) {
+        restoringHistory = true
+        withAnimation(spring) {
+            layers = snapshot.layers
+            strokes = snapshot.strokes
+        }
+        HapticEngine.shared.play(.selection)
+        scheduleBake()
+    }
+
+    private func moveLayer(_ id: String, _ move: StoryLayerMove) {
+        guard let i = layers.firstIndex(where: { $0.id == id }) else { return }
+        withAnimation(spring) {
+            let layer = layers.remove(at: i)
+            let target: Int
+            switch move {
+            case .front: target = layers.count
+            case .forward: target = min(i + 1, layers.count)
+            case .backward: target = max(i - 1, 0)
+            case .back: target = 0
+            }
+            layers.insert(layer, at: target)
+        }
+        HapticEngine.shared.play(.selection)
+        scheduleBake()
+    }
+
     private func scheduleBake(delay: Double = 0.35) {
+        commitHistory()
         bakeTask?.cancel()
         bakeTask = Task { @MainActor in
             if delay > 0 { try? await Task.sleep(for: .seconds(delay)) }
@@ -3213,6 +3489,28 @@ struct StoryCreateView: View {
     }
     #endif
 
+    /// Switch to another saved story draft (current work is saved first).
+    private func openDraft(_ id: String) {
+        guard id != draftID else { return }
+        saveDraft()
+        app.drafts.flush()
+        clearMedia()
+        caption = ""
+        restored = false
+        app.drafts.pendingResumeID = id
+        Task { await restoreDraft() }
+    }
+
+    /// Start a fresh story without overwriting the current draft.
+    private func startNewDraft() {
+        saveDraft()
+        app.drafts.flush()
+        clearMedia()
+        caption = ""
+        draftID = "story-\(UUID().uuidString.prefix(8))"
+        withAnimation(spring) { showsCamera = true }
+    }
+
     private func saveDraft() {
         guard restored, !published else { return }
         app.drafts.upsertStory(StoryDraft(id: draftID, mediaAssetIDs: draftMedia.map { [$0.id] } ?? [],
@@ -3367,5 +3665,96 @@ private struct StickerToolTile: View {
         }
         .frame(width: 64)
         .contentShape(Rectangle())
+    }
+}
+
+
+struct StoryEditSnapshot: Equatable {
+    var layers: [StoryLayer] = []
+    var strokes: [StoryDrawStroke] = []
+}
+
+enum StoryLayerMove { case front, forward, backward, back }
+
+/// Centre alignment guides shown while a layer is magnetised to them.
+private struct StorySnapGuides: View {
+    let vertical: Bool
+    let horizontal: Bool
+    var body: some View {
+        ZStack {
+            if vertical {
+                Rectangle().fill(Color.yellow.opacity(0.9)).frame(width: 1).frame(maxHeight: .infinity)
+            }
+            if horizontal {
+                Rectangle().fill(Color.yellow.opacity(0.9)).frame(height: 1).frame(maxWidth: .infinity)
+            }
+        }
+        .animation(.easeOut(duration: 0.12), value: vertical)
+        .animation(.easeOut(duration: 0.12), value: horizontal)
+        .accessibilityHidden(true)
+    }
+}
+
+/// On-device grid of saved story drafts.
+private struct StoryDraftsGallery: View {
+    let currentID: String
+    let onOpen: (String) -> Void
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if app.drafts.stories.isEmpty {
+                    ModulaEmptyState(title: "No drafts", message: "Stories you leave unfinished show up here.", symbol: "square.stack")
+                } else {
+                    ScrollView {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], spacing: 8) {
+                            ForEach(app.drafts.stories.sorted { $0.lastEdited > $1.lastEdited }, id: \.id) { draft in
+                                Button { onOpen(draft.id) } label: { tile(draft) }
+                                    .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
+                                    .contextMenu {
+                                        Button("Delete draft", systemImage: "trash", role: .destructive) {
+                                            app.drafts.discardStory(id: draft.id)
+                                        }
+                                        .disabled(draft.id == currentID)
+                                    }
+                            }
+                        }
+                        .padding(16)
+                    }
+                }
+            }
+            .navigationTitle("Story drafts")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    private func tile(_ draft: StoryDraft) -> some View {
+        ZStack(alignment: .bottomLeading) {
+            Group {
+                if let media = draft.media,
+                   let image = UIImage(contentsOfFile: app.draftMedia.fileURL(media).path) {
+                    Image(uiImage: image).resizable().scaledToFill()
+                } else {
+                    LinearGradient(colors: [Color(hex: "#667EEA"), Color(hex: "#764BA2")], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        .overlay(Image(systemName: "textformat").font(.title2).foregroundStyle(.white.opacity(0.8)))
+                }
+            }
+            .frame(minWidth: 0, maxWidth: .infinity)
+            .aspectRatio(9 / 16, contentMode: .fill)
+            .clipped()
+            Text(draft.lastEdited, format: .relative(presentation: .named))
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(6)
+                .shadow(radius: 2)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            if draft.id == currentID {
+                RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.white, lineWidth: 2)
+            }
+        }
+        .accessibilityLabel("Draft, \(draft.preview)")
     }
 }
