@@ -62,6 +62,20 @@ struct ReelFeedView: View {
             if let focusID { app.reels.activate(focusID) }
             else if let restored = app.reels.restoredID { app.reels.activate(restored) }
         }
+        .overlay(alignment: .top) {
+            if app.reels.loadState == .refreshing {
+                ProgressView()
+                    .tint(.white)
+                    .controlSize(.small)
+                    .padding(8)
+                    .modulaGlass(in: Circle(), interactive: false, tint: .black.opacity(0.3))
+                    .padding(.top, topBarBottom + 6)
+                    .ignoresSafeArea()
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                    .accessibilityLabel("Refreshing")
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: app.reels.loadState == .refreshing)
         .safeAreaInset(edge: .top) {
             // Floating glass chrome over a soft scrim instead of a solid band.
             HStack(spacing: 12) {
@@ -86,9 +100,10 @@ struct ReelFeedView: View {
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 12)
+            .padding(.top, 6)
             .padding(.bottom, 6)
             .background {
-                LinearGradient(colors: [.black.opacity(0.6), .black.opacity(0.25), .clear], startPoint: .top, endPoint: .bottom)
+                LinearGradient(colors: [.black.opacity(0.35), .black.opacity(0.12), .clear], startPoint: .top, endPoint: .bottom)
                     .ignoresSafeArea(edges: .top)
                     .allowsHitTesting(false)
             }
@@ -124,6 +139,7 @@ struct ReelFeedView: View {
         .fullScreenCover(item: $expandedVideo) { attachment in
             AttachmentViewerRouter(attachment: attachment, onDismiss: { expandedVideo = nil })
         }
+        .onChange(of: app.reels.activeID) { _, id in prefetchNeighbours(of: id) }
         .accessibilityIdentifier("reels.feed")
         .accessibilityValue(RouteSerializer.serialize(focusID.map { .reels(.reel($0)) } ?? .reels(.feed)))
     }
@@ -157,7 +173,10 @@ struct ReelFeedView: View {
             .scrollTargetLayout()
         }
         .modulaSoftScrollEdge()
-        .refreshable { await app.reels.refresh() }
+        // Pull past the top of the first reel to refresh; feedback is a small spinner, no text.
+        .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y < -90 } action: { _, pulled in
+            if pulled, app.reels.loadState != .refreshing { Task { await app.reels.refresh() } }
+        }
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: Binding(
             get: { app.reels.activeID },
@@ -167,6 +186,17 @@ struct ReelFeedView: View {
         .background(Color.black)
         .accessibilityAction(named: "Next Reel") { move(1) }
         .accessibilityAction(named: "Previous Reel") { move(-1) }
+    }
+
+    /// Warm the cache for the previous/next two reels so paging never lands on a spinner.
+    private func prefetchNeighbours(of id: ReelID?) {
+        guard let id, let index = app.reels.index(of: id), ModulaPreferences.prefetchesVideo() else { return }
+        let manager = app.attachmentDownloads
+        for offset in [1, -1, 2] {
+            let i = index + offset
+            guard app.reels.items.indices.contains(i), let attachment = app.reels.items[i].attachment else { continue }
+            Task.detached(priority: .utility) { _ = try? await manager.download(attachment) }
+        }
     }
 
     private func move(_ delta: Int) {
@@ -192,6 +222,7 @@ struct ReelPageView: View {
     @State private var showsQuickMenu = false
     @State private var captionsOn = true
     @State private var edgeBoost = false
+    @State private var playback = ModulaVideoPlaybackController()
 
     var body: some View {
         ZStack {
@@ -200,18 +231,30 @@ struct ReelPageView: View {
             if let attachment = reel.attachment, app.reels.capabilities.videoPlayback {
                 ModulaVideoSurface(attachment: attachment, coordinator: coordinator, onExpand: onExpand,
                                    height: nil, cornerRadius: 0, allowsPlayback: isActive,
-                                   controlsTopInset: controlsTopInset)
+                                   controlsTopInset: controlsTopInset, immersive: true,
+                                   externalController: playback)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .scaleEffect(false ? 0.72 : 1, anchor: .top)
                     .clipShape(RoundedRectangle(cornerRadius: false ? 18 : 0, style: .continuous))
             }
             if !clearDisplay {
+                // Legibility scrims: top (tabs/Create), right edge (rail) and bottom (caption),
+                // so overlays stay readable over busy video such as screen recordings.
+                LinearGradient(colors: [.black.opacity(0.32), .black.opacity(0.1), .clear], startPoint: .top, endPoint: .bottom)
+                    .frame(height: controlsTopInset + 40)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+                LinearGradient(colors: [.clear, .black.opacity(0.18)], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: 90)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .allowsHitTesting(false)
                 LinearGradient(
                     stops: [
                         .init(color: .clear, location: 0),
-                        .init(color: .clear, location: 0.52),
-                        .init(color: .black.opacity(0.35), location: 0.72),
-                        .init(color: .black.opacity(0.86), location: 1)
+                        .init(color: .clear, location: 0.74),
+                        .init(color: .black.opacity(0.18), location: 0.84),
+                        .init(color: .black.opacity(0.55), location: 1)
                     ],
                     startPoint: .top, endPoint: .bottom
                 )
@@ -227,6 +270,7 @@ struct ReelPageView: View {
                     ReelTikTokRail(
                         reel: reel,
                         post: resolved,
+                        isPlaying: playback.state == .playing && isActive,
                         onComment: onComment,
                         onShare: {
                             app.navigation.presented = .universalShare(.post(
@@ -241,6 +285,24 @@ struct ReelPageView: View {
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .transition(.opacity)
             }
+            if !clearDisplay, reel.attachment != nil {
+                Button {
+                    playback.toggleMute()
+                    HapticEngine.shared.play(.selection)
+                } label: {
+                    Image(systemName: playback.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 36, height: 36)
+                        .modulaGlass(in: Circle(), tint: .black.opacity(0.25))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(playback.isMuted ? "Unmute" : "Mute")
+                .accessibilityIdentifier("reels.mute")
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .padding(.top, controlsTopInset + 10)
+                .padding(.trailing, 14)
+            }
             if edgeBoost {
                 Text("2×")
                     .font(.title2.weight(.bold))
@@ -254,10 +316,13 @@ struct ReelPageView: View {
             if showsQuickMenu {
                 Color.black.opacity(0.35).ignoresSafeArea().onTapGesture { showsQuickMenu = false }
                 ReelQuickMenu(
-                    rate: 1,
+                    rate: playback.rate,
                     captionsOn: captionsOn,
                     clearDisplay: clearDisplay,
-                    onRate: { app.navigation.flash(String(format: "Speed %.1g×", $0), symbol: "gauge.with.needle") },
+                    onRate: { rate in
+                        playback.setRate(rate)
+                        app.navigation.flash(String(format: "Speed %.2g×", rate), symbol: "gauge.with.needle")
+                    },
                     onNotInterested: {
                         app.postActions.hideLocally(resolved)
                         app.navigation.flash("We'll show fewer like this", symbol: "eye.slash")
@@ -270,7 +335,8 @@ struct ReelPageView: View {
             }
         }
         .contentShape(Rectangle())
-        .simultaneousGesture(
+        // Double tap = like with a heart at the finger; single tap = pause/resume.
+        .gesture(
             SpatialTapGesture(count: 2).onEnded { event in
                 guard ModulaPreferences.doubleTapToLike else { return }
                 heartPoint = event.location
@@ -279,6 +345,11 @@ struct ReelPageView: View {
                 HapticEngine.shared.play(.lightImpact)
                 heartBurst += 1
             }
+            .exclusively(before: TapGesture().onEnded {
+                guard reel.attachment != nil, !showsQuickMenu else { return }
+                playback.toggle()
+                HapticEngine.shared.play(.selection)
+            })
         )
         .onLongPressGesture(minimumDuration: 0.45) {
             HapticEngine.shared.play(.contextOpen)
@@ -293,11 +364,15 @@ struct ReelPageView: View {
                     if onEdge, value.translation == .zero || abs(value.translation.width) < 8 {
                         if !edgeBoost {
                             edgeBoost = true
+                            playback.setRate(2)
                             HapticEngine.shared.play(.selection)
                         }
                     }
                 }
-                .onEnded { _ in edgeBoost = false }
+                .onEnded { _ in
+                    if edgeBoost { playback.setRate(1) }
+                    edgeBoost = false
+                }
         )
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel)

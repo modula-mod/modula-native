@@ -410,6 +410,7 @@
 		N5010000000000000000000E /* ReelModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000E /* ReelModels.swift */; };
 		N5010000000000000000000F /* ReelViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000F /* ReelViewer.swift */; };
 		B34580D3CE7F4E9799B1B33C /* ReelChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44422B2509D46A6802844A3 /* ReelChrome.swift */; };
+		B34580D3CE7F4E9799B1B4AA /* LiveViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44422B2509D46A6802845AA /* LiveViews.swift */; };
 		N50100000000000000000010 /* ProfilePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000010 /* ProfilePresentation.swift */; };
 		N50100000000000000000011 /* ProfileCustomizationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000011 /* ProfileCustomizationViews.swift */; };
 		N50100000000000000000012 /* N4CTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000012 /* N4CTests.swift */; };
@@ -874,6 +875,7 @@
 		N4010000000000000000000E /* ReelModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelModels.swift; path = Features/Reels/ReelModels.swift; sourceTree = "<group>"; };
 		N4010000000000000000000F /* ReelViewer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelViewer.swift; path = Features/Reels/ReelViewer.swift; sourceTree = "<group>"; };
 		A44422B2509D46A6802844A3 /* ReelChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelChrome.swift; path = Features/Reels/ReelChrome.swift; sourceTree = "<group>"; };
+		A44422B2509D46A6802845AA /* LiveViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LiveViews.swift; path = Features/Reels/LiveViews.swift; sourceTree = "<group>"; };
 		N40100000000000000000010 /* ProfilePresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfilePresentation.swift; path = Features/Profile/Customization/ProfilePresentation.swift; sourceTree = "<group>"; };
 		N40100000000000000000011 /* ProfileCustomizationViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileCustomizationViews.swift; path = Features/Profile/Customization/ProfileCustomizationViews.swift; sourceTree = "<group>"; };
 		N40100000000000000000012 /* N4CTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4CTests.swift; sourceTree = "<group>"; };
@@ -1115,6 +1117,7 @@
 				N4010000000000000000000F /* ReelViewer.swift */,
 
 				A44422B2509D46A6802844A3 /* ReelChrome.swift */,
+				A44422B2509D46A6802845AA /* LiveViews.swift */,
 				N40100000000000000000010 /* ProfilePresentation.swift */,
 				N40100000000000000000011 /* ProfileCustomizationViews.swift */,
 				D40100000000000000000001 /* PrivateFileStore.swift */,
@@ -1894,6 +1897,7 @@
 				N5010000000000000000000F /* ReelViewer.swift in Sources */,
 
 				B34580D3CE7F4E9799B1B33C /* ReelChrome.swift in Sources */,
+				B34580D3CE7F4E9799B1B4AA /* LiveViews.swift in Sources */,
 				N50100000000000000000010 /* ProfilePresentation.swift in Sources */,
 				N50100000000000000000011 /* ProfileCustomizationViews.swift in Sources */,
 				F50100000000000000000001 /* ModulaImmersiveSurfaces.swift in Sources */,
