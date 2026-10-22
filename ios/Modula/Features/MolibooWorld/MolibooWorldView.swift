@@ -75,7 +75,6 @@ struct MolibooWorldView: View {
             if shows("backdrop") { MolibooRoomBackdrop(period: period, scrollY: scrollY, animating: motionAllowed && stage.awake, figurines: figurineIDs) }
             ScrollView {
                 VStack(spacing: 20) {
-                    if shows("header") { header }
                     if shows("stage") { navBar; stageArea }
                     if shows("identity") || shows("stage") {
                         heroDashboardCard
@@ -91,17 +90,22 @@ struct MolibooWorldView: View {
             // Clear the floating tab bar so Activities / Choose your Moliboo never clip under it.
             .contentMargins(.bottom, 110, for: .scrollContent)
             // Nothing scrolls under the clock: content fades out beneath a scene-coloured status-bar scrim.
-            .mask {
-                VStack(spacing: 0) {
-                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom).frame(height: 14)
-                    Color.black
-                }
-            }
             .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, y in if route == nil, abs(y - scrollY) >= 1 { scrollY = y } }
             .modifier(MolibooSoftTopEdge())
-            // Collapsing header: once the hero scrolls away, a compact glass bar (portrait + name + stats) takes the top
-            // edge so content never floats under the status bar with nothing behind it.
-            if scrollY > 260 { compactHeader.transition(.move(edge: .top).combined(with: .opacity)) }
+            // Header (back · moliboos title · sparkle · more) is pinned below the safe area (never under
+            // the Dynamic Island) and stays put while content scrolls, over a progressive blur strip.
+            .safeAreaInset(edge: .top, spacing: 8) {
+                if shows("header") {
+                    header
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 6)
+                        .background(alignment: .top) {
+                            MolibooProgressiveStrip()
+                                .opacity(scrollY > 20 ? 1 : 0)
+                                .animation(.easeOut(duration: 0.2), value: scrollY > 20)
+                        }
+                }
+            }
             if let toast { toastView(toast) }
             if showWelcome {
                 // First visit: the welcome lives over the World; "Let's go" morphs its hero onto the pedestal.
@@ -110,7 +114,6 @@ struct MolibooWorldView: View {
                     .zIndex(10)
             }
         }
-        .animation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.82), value: scrollY > 260)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear { if !onboarded { showWelcome = true } }
         .navigationDestination(item: $route) { r in destination(r) }
@@ -241,6 +244,7 @@ struct MolibooWorldView: View {
     /// Compact section switcher — icon-first so it never reads as a second Modula tab bar.
     private var navBar: some View {
         ModulaGlassGroup(spacing: 4) {
+            ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 2) {
                 ForEach(Section.allCases) { s in
                     Button { open(s) } label: {
@@ -248,7 +252,7 @@ struct MolibooWorldView: View {
                             Image(systemName: s == .home ? "house.fill" : s.symbol).font(.caption.weight(.semibold))
                             if !navCollapsed { Text(s.title).font(.caption2.weight(.semibold)).lineLimit(1) }
                         }
-                        .padding(.horizontal, navCollapsed ? 0 : 5).frame(maxWidth: .infinity, minHeight: 32)
+                        .padding(.horizontal, 10).frame(minHeight: 32)
                         .background {
                             if s == .home { Capsule().fill(.white.opacity(period.isDark ? 0.20 : 0.45)).modulaGlassID("world.nav.selected", in: glassNS) }
                         }
@@ -257,14 +261,10 @@ struct MolibooWorldView: View {
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("world.nav.\(s.rawValue)").accessibilityLabel(s.title)
                 }
-                Button { withAnimation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.75)) { navCollapsed.toggle() } } label: {
-                    Image(systemName: navCollapsed ? "chevron.right" : "chevron.left").font(.caption2.weight(.bold))
-                        .frame(width: 26, height: 32).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("world.nav.toggle").accessibilityLabel(navCollapsed ? "Expand menu" : "Collapse menu")
             }
             .padding(3)
+            }
+            .modulaHorizontalEdgeFade(14)
             .modulaGlass(in: Capsule(), interactive: false, tint: glassTint.opacity(0.85), specular: true)
             .modulaGlassID("world.nav", in: glassNS)
             .shadow(color: .black.opacity(0.16), radius: 8, y: 4)
@@ -406,8 +406,16 @@ struct MolibooWorldView: View {
                                 Circle().fill(LinearGradient(colors: [teal, teal.opacity(0.72)], startPoint: .topLeading, endPoint: .bottomTrailing))
                             )
                             .modulaGlass(in: Circle(), interactive: false, tint: teal.opacity(0.35), specular: true)
-                        TextField("Chat with \(displayName)…", text: Binding(get: { chat.draft }, set: { chat.draft = $0; if chat.phase != .composing && !$0.isEmpty { chat.reset() } }))
+                        TextField("", text: Binding(get: { chat.draft }, set: { chat.draft = $0; if chat.phase != .composing && !$0.isEmpty { chat.reset() } }))
                             .font(.body)
+                            // Higher-contrast placeholder than the system default over the scene.
+                            .background(alignment: .leading) {
+                                if chat.draft.isEmpty {
+                                    Text("Chat with \(displayName)…")
+                                        .foregroundStyle(period.isDark ? Color.white.opacity(0.75) : Color.primary.opacity(0.6))
+                                        .allowsHitTesting(false)
+                                }
+                            }
                             .focused($composerFocused)
                             .submitLabel(.send)
                             .onSubmit { send() }
@@ -481,9 +489,10 @@ struct MolibooWorldView: View {
                     quick("Cards", "Trading Cards", "rectangle.portrait.on.rectangle.portrait.angled.fill", .pink, id: "cards") { route = .cards }
                 }
             }
-            .padding(.horizontal, 2)
             .padding(.vertical, 4)
         }
+        .contentMargins(.horizontal, 16, for: .scrollContent)
+        .modulaHorizontalEdgeFade()
     }
 
     private func quick(_ title: String, _ a11y: String, _ symbol: String, _ tint: Color, id: String, _ action: @escaping () -> Void) -> some View {
@@ -516,6 +525,8 @@ struct MolibooWorldView: View {
                 .padding(.vertical, 4)
             }
             .scrollIndicators(.hidden)
+            .contentMargins(.horizontal, 16, for: .scrollContent)
+            .modulaHorizontalEdgeFade()
         }
     }
 
@@ -531,7 +542,8 @@ struct MolibooWorldView: View {
                         Text(a.subtitle)
                             .font(.caption2.weight(.medium))
                             .foregroundStyle(period.isDark ? .white.opacity(0.78) : .secondary)
-                            .lineLimit(1)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.9)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 2)
@@ -585,6 +597,8 @@ struct MolibooWorldView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .contentMargins(.horizontal, 16, for: .scrollContent)
+            .modulaHorizontalEdgeFade()
         }
     }
 

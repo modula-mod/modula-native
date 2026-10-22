@@ -105,6 +105,11 @@ struct MolibooCareState: Codable, Equatable, Sendable {
     var asleep = false
     var lastUpdate: Date = .distantPast
     var lastActivity: MolibooActivity?
+
+    /// Friendly floor for states saved by older builds (which could decay to 0%).
+    mutating func normalizeForDisplay() {
+        energy = max(energy, 35); mood = max(mood, 45)
+    }
     var activityCount: [String: Int] = [:]
 
     var bondLevel: Int { 1 + Int(bondXP / 100) }
@@ -122,8 +127,13 @@ struct MolibooCareState: Codable, Equatable, Sendable {
     /// Slow, wall-clock decay so leaving the app for a while is visible (but never punishing).
     mutating func advance(to now: Date) {
         guard lastUpdate != .distantPast else { lastUpdate = now; return }
-        let h = max(0, now.timeIntervalSince(lastUpdate) / 3600)
+        // Capped and floored: time away shows, but a pet never reads as neglected (0% / red).
+        let h = min(12, max(0, now.timeIntervalSince(lastUpdate) / 3600))
         guard h > 0 else { return }
+        defer {
+            energy = max(energy, 35); mood = max(mood, 45)
+            cleanliness = max(cleanliness, 35); hunger = min(hunger, 70)
+        }
         if asleep {
             energy = Self.clamp(energy + 25 * h)
             if energy >= 100 { asleep = false }
@@ -188,6 +198,7 @@ final class MolibooCareStore {
         var s = MolibooCareState()
         if let d = defaults.data(forKey: Self.key(id)), let decoded = try? JSONDecoder().decode(MolibooCareState.self, from: d) { s = decoded }
         s.advance(to: now())
+        s.normalizeForDisplay()
         states[id] = s
         return s
     }

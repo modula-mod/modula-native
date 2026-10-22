@@ -287,7 +287,7 @@ struct MolibooTradingCardView: View {
                             Circle().fill(LinearGradient(colors: card.element.colors, startPoint: .top, endPoint: .bottom)).frame(width: 8, height: 8)
                             Text(m.name).font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundStyle(.white)
                             Spacer()
-                            Text("\(m.power)").font(.system(size: 13, weight: .heavy, design: .rounded)).monospacedDigit().foregroundStyle(card.rarity.glow)
+                            Text("\(m.power)").font(.system(size: 13, weight: .heavy, design: .rounded)).monospacedDigit().frame(minWidth: 30, alignment: .trailing).foregroundStyle(card.rarity.glow)
                         }
                     }
                 }
