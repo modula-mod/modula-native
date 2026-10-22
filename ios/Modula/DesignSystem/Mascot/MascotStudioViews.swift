@@ -619,10 +619,10 @@ struct MascotStudioView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Daily chest").font(.headline)
                 if let r = chestReward {
-                    Text(rewardText(r)).font(.caption).foregroundStyle(.secondary)
+                    Text(rewardText(r)).font(.caption.weight(.medium)).foregroundStyle(Color.primary.opacity(0.75))
                 } else {
                     Text(progress.canOpenChest ? "Coins and the odd item. Streak: \(progress.streak) day\(progress.streak == 1 ? "" : "s")." : "Come back tomorrow. Streak: \(progress.streak) day\(progress.streak == 1 ? "" : "s").")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption.weight(.medium)).foregroundStyle(Color.primary.opacity(0.75))
                 }
             }
             Spacer()
@@ -640,6 +640,8 @@ struct MascotStudioView: View {
             .disabled(!progress.canOpenChest)
         }
         .padding(14)
+        // Solid-enough card so the copy reads over any stage background.
+        .background(Color(uiColor: .secondarySystemBackground).opacity(0.85), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
     }
 

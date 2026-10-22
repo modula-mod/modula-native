@@ -47,6 +47,8 @@ struct MolibooLivingStudioView: View {
     private let moreTab: MascotStudioView.StudioTab
     init(characterID: String, initialPanel: Panel? = nil, startInPhoto: Bool = false, moreTab: MascotStudioView.StudioTab = .rewards) {
         self.characterID = characterID; self.initialPanel = initialPanel; self.startInPhoto = startInPhoto; self.moreTab = moreTab
+        // Start in photo mode from the first frame (no flash of the normal Studio chrome).
+        _photoMode = State(initialValue: startInPhoto)
     }
 
     private var environment: MolibooEnvironment { MolibooEnvironment(rawValue: envRaw) ?? .meadow }
@@ -372,7 +374,8 @@ struct MolibooLivingStudioView: View {
                 Button { panel = nil } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title2)
-                        .foregroundStyle(.secondary)
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(Color.primary, Color.primary.opacity(0.12))
                         .frame(width: 36, height: 36)
                 }
                 .accessibilityIdentifier("studio.sheet.close")
@@ -387,9 +390,12 @@ struct MolibooLivingStudioView: View {
         .presentationBackgroundInteraction(.enabled(upThrough: p == .wardrobe || p == .more ? .medium : .height(280)))
         .presentationDragIndicator(.visible)
         .presentationBackground {
-            Rectangle().fill(.clear)
-                .modulaGlass(in: Rectangle(), interactive: false, tint: environment.isDark ? Color(red: 0.12, green: 0.12, blue: 0.3).opacity(0.38) : Color.white.opacity(0.22))
-                .ignoresSafeArea()
+            // Clean glass that adapts to the stage: frosted white in light, deep blue in dark.
+            ZStack {
+                Rectangle().fill(environment.isDark ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(.regularMaterial))
+                (environment.isDark ? Color(red: 0.10, green: 0.10, blue: 0.24).opacity(0.45) : Color.white.opacity(0.55))
+            }
+            .ignoresSafeArea()
         }
         .environment(\.colorScheme, environment.isDark ? .dark : .light)
     }
@@ -460,7 +466,7 @@ struct MolibooLivingStudioView: View {
                 Text("Active: \(controller?.expression.title ?? "Idle")")
                     .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             }
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10) {
                 ForEach(MolibooExpression.allCases, id: \.self) { e in
                     let selected = controller?.expression == e && e != .blink
                     Button {
@@ -476,7 +482,7 @@ struct MolibooLivingStudioView: View {
                     .buttonStyle(MolibooSpringPressStyle())
                     .foregroundStyle(selected ? .white : .primary)
                     .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: true,
-                                 tint: selected ? teal : Color.pink.opacity(0.18), prominent: selected)
+                                 tint: selected ? teal : Color.primary.opacity(0.06), prominent: selected)
                     .accessibilityIdentifier("studio.expr.\(e.rawValue)")
                     .accessibilityAddTraits(selected ? .isSelected : [])
                 }
