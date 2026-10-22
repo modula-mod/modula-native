@@ -124,7 +124,9 @@ struct MolibooWardrobeSheet: View {
                     .accessibilityIdentifier("wardrobe.count")
             }
             TextField("Search hats, tops, colours…", text: $query.text)
-                .textFieldStyle(.roundedBorder).autocorrectionDisabled().textInputAutocapitalization(.never).submitLabel(.search)
+                .textFieldStyle(.plain).padding(.horizontal, 12).frame(minHeight: 38)
+                .modulaGlass(in: Capsule(), interactive: false)
+                .autocorrectionDisabled().textInputAutocapitalization(.never).submitLabel(.search)
                 .accessibilityIdentifier("wardrobe.search")
                 .overlay(alignment: .trailing) {
                     if !query.text.isEmpty {
@@ -173,6 +175,7 @@ struct MolibooWardrobeSheet: View {
                 }
             }
         }
+        .modulaHorizontalEdgeFade()
     }
 
     private func chip(_ title: String, on: Bool, id: String, action: @escaping () -> Void) -> some View {
@@ -224,6 +227,7 @@ struct MolibooWardrobeSheet: View {
                 }
             }
         }
+        .modulaHorizontalEdgeFade()
     }
 
     private func tile(_ item: MascotWardrobeItem) -> some View {

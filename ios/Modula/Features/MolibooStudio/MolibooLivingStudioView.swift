@@ -20,6 +20,8 @@ struct MolibooLivingStudioView: View {
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @State private var controller: MolibooSceneController?
+    @State private var stageRevealed = false
+    @Environment(\.dismiss) private var dismissStudio
     @State private var director: MolibooStudioDirector?
     @State private var unavailable = false
     @State private var panel: Panel?
@@ -65,6 +67,21 @@ struct MolibooLivingStudioView: View {
         .animation(reduceMotion ? nil : .snappy, value: photoMode)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: envRaw)
         .toolbar(photoMode ? .hidden : .visible, for: .navigationBar)
+        // Studio and Photo mode own the screen: no global tab bar under them.
+        .toolbar(.hidden, for: .tabBar)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button { dismissStudio() } label: {
+                    Image(systemName: "chevron.left").font(.headline)
+                        .foregroundStyle(environment.isDark ? .white : .black)
+                        .frame(width: 36, height: 36)
+                }
+                .modulaGlass(in: Circle(), interactive: true, specular: true)
+                .accessibilityLabel("Back")
+                .accessibilityIdentifier("studio.back")
+            }
+        }
         .navigationTitle(descriptor?.displayName ?? "Moliboo")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(environment.isDark ? .dark : .light, for: .navigationBar)
@@ -148,7 +165,7 @@ struct MolibooLivingStudioView: View {
                     }
                 }
             }
-            .shadow(color: .black.opacity(environment.isDark ? 0.4 : 0), radius: 3, y: 1)
+            .shadow(color: environment.isDark ? .black.opacity(0.45) : .white.opacity(0.7), radius: 3, y: 1)
             Spacer()
             Menu {
                 Picker("Environment", selection: $envRaw) {
@@ -163,7 +180,9 @@ struct MolibooLivingStudioView: View {
             }
             .accessibilityIdentifier("studio.envMenu")
         }
-        .foregroundStyle(environment.isDark ? .white : .primary)
+        // Text follows the stage, not the app scheme (white-on-white on light stages before).
+        .foregroundStyle(environment.isDark ? .white : .black)
+        .environment(\.colorScheme, environment.isDark ? .dark : .light)
         .padding(.horizontal, 18).padding(.top, 8)
     }
 
@@ -184,6 +203,12 @@ struct MolibooLivingStudioView: View {
                 .simultaneousGesture(TapGesture().onEnded { director?.request(.tap); pulseTick += 1 })
                 .simultaneousGesture(LongPressGesture(minimumDuration: 0.5).onEnded { _ in director?.request(.pet); pulseTick += 1 })
                 .accessibilityIdentifier("moliboo3d.view")
+                // RealityView's first frames are black: fade the stage in once it has rendered.
+                .opacity(stageRevealed ? 1 : 0)
+                .task {
+                    try? await Task.sleep(for: .milliseconds(350))
+                    withAnimation(.easeOut(duration: 0.35)) { stageRevealed = true }
+                }
                 .accessibilityLabel("\(descriptor?.displayName ?? "Moliboo"). Tap to say hi, hold to pet, drag to turn.")
             } else if unavailable || controller?.loadFailed == true {
                 fallback2D.accessibilityIdentifier("moliboo3d.fallback2d")
@@ -238,6 +263,14 @@ struct MolibooLivingStudioView: View {
     private var photoChrome: some View {
         VStack {
             HStack {
+                Button { photoMode = false } label: {
+                    Image(systemName: "xmark").font(.headline)
+                        .foregroundStyle(environment.isDark ? .white : .black)
+                        .frame(width: 44, height: 44)
+                }
+                .modulaGlass(in: Circle(), interactive: true, specular: true)
+                .accessibilityLabel("Close photo mode")
+                .accessibilityIdentifier("studio.photo.close")
                 Spacer()
                 Button("Done") { photoMode = false }
                     .buttonStyle(.borderedProminent)
@@ -345,7 +378,7 @@ struct MolibooLivingStudioView: View {
                 .accessibilityIdentifier("studio.sheet.close")
                 .accessibilityLabel("Close")
             }
-            .padding(.horizontal, 18).padding(.top, 14)
+            .padding(.horizontal, 18).padding(.top, 26)
 
             sheet(for: p)
             Spacer(minLength: 0)

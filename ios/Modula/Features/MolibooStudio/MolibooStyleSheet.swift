@@ -68,6 +68,12 @@ struct MolibooStyleSheet: View {
     /// Character positioning on the stage (size + height), persisted per character.
     private var positionControls: some View {
         VStack(alignment: .leading, spacing: 6) {
+            // Reset lives in its own row so both sliders have the same length.
+            HStack {
+                Text("Position").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                Spacer()
+                Button("Reset") { pose = MolibooStagePose() }.font(.caption.weight(.semibold)).accessibilityIdentifier("studio.pose.reset")
+            }
             HStack {
                 Label("Size", systemImage: "arrow.up.left.and.arrow.down.right").font(.caption.weight(.semibold)).frame(width: 74, alignment: .leading)
                 Slider(value: $pose.scale, in: MolibooStagePose.scaleRange).accessibilityIdentifier("studio.pose.scale")
@@ -75,7 +81,6 @@ struct MolibooStyleSheet: View {
             HStack {
                 Label("Height", systemImage: "arrow.up.and.down").font(.caption.weight(.semibold)).frame(width: 74, alignment: .leading)
                 Slider(value: $pose.lift, in: MolibooStagePose.liftRange).accessibilityIdentifier("studio.pose.lift")
-                Button("Reset") { pose = MolibooStagePose() }.font(.caption).accessibilityIdentifier("studio.pose.reset")
             }
         }
         .onAppear { pose = MolibooStagePose.load(for: controller.descriptor.id) }
@@ -101,6 +106,7 @@ struct MolibooPhotoControls: View {
             Text("Drag to turn · tap to say hi").font(.caption.weight(.semibold))
                 .padding(.horizontal, 12).padding(.vertical, 6)
                 .background(.ultraThinMaterial, in: Capsule())
+                .padding(.top, 10)
         }
         .padding(.bottom, 24)
         .accessibilityElement(children: .contain)
