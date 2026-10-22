@@ -256,6 +256,8 @@ enum ShellChromeFreeze {
     static let cardSpace = "modula.shell.card"
     static let didThaw = Notification.Name("ShellChromeFreeze.didThaw")
     private static var liveDrag = false
+    /// Mirrors `NavigationCoordinator.sidebarPresented`; while open the feed keeps its layout locked.
+    static var sidebarPresented = false
     private static var settleUntil: CFTimeInterval = 0
     private static var thawScheduled = false
 

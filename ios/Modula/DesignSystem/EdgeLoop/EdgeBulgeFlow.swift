@@ -15,7 +15,11 @@ final class EdgePickerBulge {
 
     var isActive: Bool { depth > 0.5 && frame.height > 0 }
 
+    /// Feed layout is locked while the sidebar is open or the card is moving: posts never re-wrap.
+    var isLocked: Bool { ShellChromeFreeze.isSidebarDragging || ShellChromeFreeze.sidebarPresented }
+
     func publish(frame: CGRect, depth: CGFloat, trailing: Bool, metrics: EdgeLoopMetrics) {
+        guard !isLocked else { return }
         let next = SIMD4<Double>(Double(metrics.curveStartFraction), Double(metrics.channelStartFraction), Double(metrics.channelEndFraction), Double(metrics.curveEndFraction))
         if self.frame != frame { self.frame = frame }
         if self.depth != depth { self.depth = depth }
@@ -23,7 +27,7 @@ final class EdgePickerBulge {
         if fractions != next { fractions = next }
     }
 
-    func hide() { if depth != 0 { depth = 0 } }
+    func hide() { guard !isLocked else { return }; if depth != 0 { depth = 0 } }
 
     /// x of the picker's real outline at a global y (nil outside the rail).
     func outlineX(atGlobalY y: CGFloat) -> CGFloat? {
@@ -51,7 +55,7 @@ struct EdgeBulgeFlow: ViewModifier {
     @State private var pendingFrame: CGRect?
 
     /// Gap between content and the picker outline.
-    private static let spacing: CGFloat = 7
+    private static let spacing: CGFloat = 8
 
     func body(content: Content) -> some View {
         let bulge = EdgePickerBulge.shared
@@ -78,7 +82,7 @@ struct EdgeBulgeFlow: ViewModifier {
                                   width: frame.width.rounded(), height: (frame.height / 4).rounded() * 4)
                 } action: { next in
                     // Never relayout feed rows while the sidebar card moves (drag + settle).
-                    if ShellChromeFreeze.isSidebarDragging { pendingFrame = next } else if rowFrame != next { rowFrame = next }
+                    if EdgePickerBulge.shared.isLocked { pendingFrame = next } else if rowFrame != next { rowFrame = next }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: ShellChromeFreeze.didThaw)) { _ in
                     if let pendingFrame, pendingFrame != rowFrame { rowFrame = pendingFrame }
@@ -95,8 +99,10 @@ struct EdgeBulgeFlow: ViewModifier {
               rowFrame.maxY > bulge.frame.minY, rowFrame.minY < bulge.frame.maxY else { return 0 }
         let outerEdge = bulge.trailing ? rowFrame.maxX : rowFrame.minX
         var intrusion: CGFloat = 0
-        var y = max(rowFrame.minY, bulge.frame.minY)
-        let end = min(rowFrame.maxY, bulge.frame.maxY)
+        // Ignore the first/last 16pt of a row (padding) so tall posts don't inset for a sliver of overlap.
+        var y = max(rowFrame.minY + 16, bulge.frame.minY)
+        let end = min(rowFrame.maxY - 16, bulge.frame.maxY)
+        guard end > y else { return 0 }
         while y <= end {
             if let x = bulge.outlineX(atGlobalY: y) {
                 intrusion = max(intrusion, bulge.trailing ? outerEdge - x : x - outerEdge)
@@ -106,8 +112,10 @@ struct EdgeBulgeFlow: ViewModifier {
         if let x = bulge.outlineX(atGlobalY: end) {
             intrusion = max(intrusion, bulge.trailing ? outerEdge - x : x - outerEdge)
         }
-        guard intrusion > 0 else { return 0 }
-        let gap = Self.spacing * min(intrusion / Self.spacing, 1)
+        // Only rows genuinely beside the picker body move; the curve's shallow lead-in doesn't.
+        intrusion = min(intrusion, bulge.depth)
+        guard intrusion > bulge.depth * 0.35 else { return 0 }
+        let gap = Self.spacing
         // 4pt steps: text reflows only when the inset meaningfully changes.
         return ((intrusion + gap) / 4).rounded(.up) * 4
     }

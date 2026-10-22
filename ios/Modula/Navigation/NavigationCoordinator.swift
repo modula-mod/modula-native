@@ -9,7 +9,15 @@ final class NavigationCoordinator {
     var presented: AppPresentation?
     var banner: ModulaBanner?
     /// Leading global sidebar. Not a sixth tab and not Edge Picker.
-    var sidebarPresented = false
+    var sidebarPresented = false {
+        didSet {
+            guard oldValue != sidebarPresented else { return }
+            // Button / programmatic open+close take the same freeze-through-settle path as the swipe,
+            // so feed geometry writers never feed back into layout while the card animates.
+            ShellChromeFreeze.sidebarPresented = sidebarPresented
+            ShellChromeFreeze.holdForSettle()
+        }
+    }
     /// Route to restore after a successful authentication challenge.
     private(set) var pendingReturnRoute: AppRoute?
     /// Settings control to scroll to and briefly emphasize after search.

@@ -158,4 +158,64 @@ final class OnboardingLandingTests: XCTestCase {
         }
         XCTAssertNotEqual(backdrop.points(at: 0), backdrop.points(at: 20), "The backdrop drifts")
     }
+
+    func testPoolCoversEveryLiveParticleWithoutSlotCollisions() {
+        let pool = OnboardingLanding.Emitter.poolSize
+        for time in stride(from: 0.0, through: 200, by: 0.37) {
+            let range = emitter.liveRange(at: time)
+            XCTAssertLessThanOrEqual(range.count, pool, "Live range fits the fixed pool")
+            let alive = range.filter { emitter.state(of: emitter.particle($0), at: time) != nil }
+            let slots = alive.map(OnboardingLanding.Emitter.slot(for:))
+            XCTAssertEqual(Set(slots).count, slots.count, "Two live bubbles never share a slot")
+            XCTAssertTrue(slots.allSatisfy { (0..<pool).contains($0) })
+        }
+    }
+
+    func testStreamIsQuickAndPopIsSnappy() throws {
+        XCTAssertLessThanOrEqual(emitter.interval, 0.18, "At least ~5.5 spawns a second")
+        XCTAssertLessThanOrEqual(emitter.maxLifetime, 5.5, "Crosses the screen in a few seconds")
+        for index in 0..<100 {
+            let p = emitter.particle(index)
+            let early = try XCTUnwrap(emitter.state(of: p, at: p.spawnTime + 0.4))
+            XCTAssertLessThan(early.position.y, -emitter.pop * 0.6, "Mostly clear of the + within 0.4 s (index \(index))")
+        }
+    }
+
+    func testMotionIsContinuousInTime() throws {
+        // At 120 fps nothing should jump: per-frame movement stays small and smooth.
+        let dt = 1.0 / 120
+        for index in 0..<60 {
+            let p = emitter.particle(index)
+            var previous = try XCTUnwrap(emitter.state(of: p, at: p.spawnTime))
+            var t = p.spawnTime + dt
+            while t < p.spawnTime + p.lifetime {
+                let s = try XCTUnwrap(emitter.state(of: p, at: t))
+                XCTAssertLessThan(hypot(s.position.x - previous.position.x, s.position.y - previous.position.y), 8, "No positional jump")
+                XCTAssertLessThan(abs(s.scale - previous.scale), 0.05)
+                XCTAssertLessThan(abs(s.opacity - previous.opacity), 0.08)
+                previous = s
+                t += dt
+            }
+        }
+    }
+
+    func testLightBackdropIsBrightAndColourful() {
+        let backdrop = OnboardingLanding.Backdrop.self
+        XCTAssertEqual(backdrop.lightColors.count, backdrop.width * backdrop.height)
+        XCTAssertEqual(backdrop.colors(dark: true), backdrop.colors)
+        XCTAssertEqual(backdrop.colors(dark: false), backdrop.lightColors)
+        func rgb(_ hex: String) -> (Double, Double, Double) {
+            let v = UInt32(hex.dropFirst(), radix: 16)!
+            return (Double(v >> 16 & 0xFF) / 255, Double(v >> 8 & 0xFF) / 255, Double(v & 0xFF) / 255)
+        }
+        func luminance(_ hex: String) -> Double { let c = rgb(hex); return 0.2126 * c.0 + 0.7152 * c.1 + 0.0722 * c.2 }
+        func saturation(_ hex: String) -> Double { let c = rgb(hex); let hi = max(c.0, c.1, c.2), lo = min(c.0, c.1, c.2); return hi == 0 ? 0 : (hi - lo) / hi }
+        // Bottom row stays near-white for the dark headline and button.
+        for hex in backdrop.lightColors.suffix(backdrop.width) { XCTAssertGreaterThan(luminance(hex), 0.9) }
+        // Middle rows carry colour for the glass to refract.
+        let middle = backdrop.lightColors[backdrop.width..<(backdrop.width * 3)]
+        XCTAssertGreaterThan(middle.map(saturation).reduce(0, +) / Double(middle.count), 0.25)
+        XCTAssertGreaterThan(backdrop.lightColors.map(luminance).reduce(0, +) / 16, 0.6, "Light mode is bright")
+        XCTAssertLessThan(backdrop.colors.map(luminance).reduce(0, +) / 16, 0.2, "Dark mode stays dark")
+    }
 }
