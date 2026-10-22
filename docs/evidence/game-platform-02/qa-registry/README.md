@@ -56,6 +56,9 @@ Eight focused post-merge unit regressions also passed: Ed25519 trust and
 revocation, digest rejection and recovery, permission review, account cache
 isolation, Vault 2.0.2 document handling, and Nodus artifact rollback. These
 are scoped checks rather than full live Vault or Nodus acceptance.
+`WebGameInstalledIsolationTests` passed against the launch verifier: a valid
+installed directory was accepted, then a symlink to an outside file, modified
+asset bytes, and an unlisted file were each rejected before game loading.
 
 The paired physical iPhone 17 Pro Max received a signed Debug build under the
 existing `digital.modula.app.native.qa` bundle ID. The build used the QA API URL

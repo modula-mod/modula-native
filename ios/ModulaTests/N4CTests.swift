@@ -1,3 +1,4 @@
+import CryptoKit
 import ImageIO
 import UIKit
 import XCTest
@@ -46,6 +47,42 @@ final class N4CRouteTests: XCTestCase {
         XCTAssertEqual(NotificationRouteResolver.route(kind: "reel", identifier: "r1"), .reels(.reel("r1")))
         XCTAssertNil(NotificationRouteResolver.route(kind: "conversation", identifier: "../x"))
         XCTAssertNil(NotificationRouteResolver.route(kind: "unknown", identifier: "x"))
+    }
+}
+
+final class WebGameInstalledIsolationTests: XCTestCase {
+    func testLaunchRejectsSymlinkTamperAndUnexpectedMember() throws {
+        let manager = FileManager.default
+        let root = manager.temporaryDirectory.appendingPathComponent("web-game-isolation-\(UUID().uuidString)")
+        defer { try? manager.removeItem(at: root) }
+        let digest = String(repeating: "a", count: 64)
+        let game = root.appendingPathComponent(digest, isDirectory: true)
+        try manager.createDirectory(at: game, withIntermediateDirectories: true)
+        let html = Data("<html><body>verified</body></html>".utf8)
+        let script = Data("window.gameReady = true".utf8)
+        let trusted = ["index.html": html, "game.js": script]
+        for (path, bytes) in trusted { try bytes.write(to: game.appendingPathComponent(path)) }
+        let inventory: [String: Any] = [
+            "schema": "modula.game-files.1",
+            "files": trusted.mapValues { SHA256.hash(data: $0).map { String(format: "%02x", $0) }.joined() },
+        ]
+        try JSONSerialization.data(withJSONObject: inventory)
+            .write(to: game.appendingPathComponent("game.files.json"))
+        XCTAssertNoThrow(try WebGamePackage.verifyInstalled(at: game, expectedSha256: digest, trustedFiles: trusted))
+
+        let outside = root.appendingPathComponent("other-account.js")
+        try script.write(to: outside)
+        try manager.removeItem(at: game.appendingPathComponent("game.js"))
+        try manager.createSymbolicLink(at: game.appendingPathComponent("game.js"), withDestinationURL: outside)
+        XCTAssertThrowsError(try WebGamePackage.verifyInstalled(at: game, expectedSha256: digest, trustedFiles: trusted))
+
+        try manager.removeItem(at: game.appendingPathComponent("game.js"))
+        try Data("window.gameReady = false".utf8).write(to: game.appendingPathComponent("game.js"))
+        XCTAssertThrowsError(try WebGamePackage.verifyInstalled(at: game, expectedSha256: digest, trustedFiles: trusted))
+
+        try script.write(to: game.appendingPathComponent("game.js"))
+        try Data("unlisted".utf8).write(to: game.appendingPathComponent("unlisted.txt"))
+        XCTAssertThrowsError(try WebGamePackage.verifyInstalled(at: game, expectedSha256: digest, trustedFiles: trusted))
     }
 }
 
