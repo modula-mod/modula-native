@@ -64,6 +64,17 @@ path traversal, a symlink member, a native payload, truncated gzip bytes, and
 an incorrect declared digest. These tests cover the shared web package path;
 they do not by themselves establish complete WebKit sandbox isolation.
 
+`WebGameRegistryUITests.testTenLaunchExitCyclesPerSignedGame` passed in 235.772
+seconds: ten launch/exit cycles per engine, with no WebKit interruption overlay
+observed. The four cycle screenshots show the first and tenth launch for each
+game. Measured from tapping Open to the host and WKWebView appearing, Phaser
+was 2.912–3.033 seconds (median 2.988) and PlayCanvas was 2.960–4.230 seconds
+(median 2.988). These timings do not measure the first playable frame. The
+simulator host process had 201 RSS samples, ranging from 223.9 to 457.3 MiB;
+the last sample was 262.9 MiB. This is only the Modula simulator process,
+not aggregate WebKit or physical iPhone memory. FPS, frame stability, audio,
+and retained memory after exit still need dedicated measurements.
+
 The paired physical iPhone 17 Pro Max received a signed Debug build under the
 existing `digital.modula.app.native.qa` bundle ID. The build used the QA API URL
 `https://192.168.4.21:8443`, was signed by team `M29V4ZGUNK`, installed in

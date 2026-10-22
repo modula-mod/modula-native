@@ -138,6 +138,29 @@ final class WebGameRegistryUITests: XCTestCase {
     }
 
     @MainActor
+    func testTenLaunchExitCyclesPerSignedGame() throws {
+        let app = try signedInApp()
+        for (moduleID, title) in [
+            ("digital.modula.orbit-phaser", "Orbit Arena 2D"),
+            ("digital.modula.orbit-playcanvas", "Orbit Arena 3D Web"),
+        ] {
+            for cycle in 1...10 {
+                let primary = try openProduct(app, moduleID: moduleID)
+                XCTAssertEqual(primary.label, "Open", "\(title) unavailable on cycle \(cycle)")
+                let started = Date()
+                primary.tap()
+                XCTAssertTrue(app.buttons["game.host.exit"].waitForExistence(timeout: 20), "\(title) host missing on cycle \(cycle)")
+                XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15), "\(title) WebKit missing on cycle \(cycle)")
+                XCTAssertFalse(app.staticTexts["Game interrupted"].exists, "\(title) WebKit process failed on cycle \(cycle)")
+                print("WEB_GAME_HOST_OPEN \(moduleID) cycle=\(cycle) seconds=\(Date().timeIntervalSince(started))")
+                if cycle == 1 || cycle == 10 { capture(app, name: "qa-\(moduleID)-cycle-\(cycle)") }
+                app.buttons["game.host.exit"].tap()
+                leaveDetail(app)
+            }
+        }
+    }
+
+    @MainActor
     private func signedInApp() throws -> XCUIApplication {
         guard let folder = Bundle(for: Self.self).url(forResource: "GameFixtures", withExtension: nil),
               let data = try? Data(contentsOf: folder.appendingPathComponent("qa-account.json")),
@@ -171,10 +194,13 @@ final class WebGameRegistryUITests: XCTestCase {
 
     @MainActor
     private func openProduct(_ app: XCUIApplication, moduleID: String) throws -> XCUIElement {
-        let modules = app.buttons["tab.modules"].firstMatch
-        if modules.waitForExistence(timeout: 5) { modules.tap() }
-        else { app.buttons["Modules"].firstMatch.tap() }
-        XCTAssertTrue(app.descendants(matching: .any)["product-hub"].waitForExistence(timeout: 20))
+        let hub = app.descendants(matching: .any)["product-hub"]
+        if !hub.exists {
+            let modules = app.buttons["tab.modules"].firstMatch
+            if modules.waitForExistence(timeout: 5) { modules.tap() }
+            else { app.buttons["Modules"].firstMatch.tap() }
+        }
+        XCTAssertTrue(hub.waitForExistence(timeout: 20))
         let card = app.buttons["product.\(moduleID)"].firstMatch
         for _ in 0..<10 where !card.exists { app.swipeUp() }
         XCTAssertTrue(card.waitForExistence(timeout: 12), "QA registry product missing: \(moduleID)")
