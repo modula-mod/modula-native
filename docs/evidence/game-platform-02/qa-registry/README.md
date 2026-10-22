@@ -11,6 +11,18 @@ verified artifact download flow.
 | Orbit Arena 2D (Phaser) | `0d2773e7f59a4d238e30bf05b5db0339b3fd9ad54d453d76b045749226ae4cc8` | `e33f2cdc41e68ec2a5a02e5c171836c7142dc78ac7a8194bfdb3c4f084176c75` | NOVA arena palette and obstacle pattern |
 | Orbit Arena 3D Web (PlayCanvas) | `8495557ba122e547fec9a6170911d57b1f15bab7b04e1661b4d04ffc61186494` | `b82624066e8903dfe4d460fffade919be2ea809bc3d11eb9ca123fd08ac6053b` | Purple 3D arena and orange obstacles |
 
+The signed QA release archives contain these exact frontend and game bytes:
+
+| Game | Version | Frontend SHA-256 | Game archive SHA-256 |
+| --- | --- | --- | --- |
+| Phaser | 0.1.0 | `8e9fe2ccb34fbebb9c35db96ad6488513c21b4c2294ef5855bf09a1fda568795` | `12340a516fcb74b636fc5f2764061b9c7d967017abeda5996d552b203d97c2c2` |
+| Phaser | 0.1.1 | `8e8c7084b1db537876e264b61b16f59e98699dcfd797b5e96c884eab61d8452f` | `ef9a1fccb938cda2c6b12a67c620b053a030bd5493492a040ecc30c1a7bc6e05` |
+| PlayCanvas | 0.1.0 | `94ebe82b0a44e141af1b5df182d618e48923acb43b69ba66bd56f669370ae6e3` | `6d4628adde214203f0bf83595d7422c80ae4c397af30c00e46085942af4acbb3` |
+| PlayCanvas | 0.1.1 | `4edd0c791a5e9831e730b98d828f642f6ee0ae6d8634ef775b3a95463f6fb171` | `01042ceddb64ca3ea436ed267502d9c1cc1e43f369feef21b3b2cec78c304548` |
+
+The current Product Standard PR #8 validator accepted both 0.1.1 product
+directories in development mode with zero errors.
+
 The installed Modula executable was SHA-256
 `0a9484ac0f5b5f51b5ecf046fa036f370487b15e8a146f97f1d089874642ac63`
 for both the 0.1.0 installs and the 0.1.1 updates. The update test used
