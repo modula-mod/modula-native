@@ -307,10 +307,20 @@ final class MolibooSceneController {
         e.transform = .identity
         // Both USDZs carry a root -90° X (Z-up → Y-up) conversion; the anchor already inherits Pebble's,
         // so the correction cancels it once, otherwise the cosmetic would be rotated twice.
-        e.orientation = Self.attachmentOrientation(cfg)
-        let o = cfg.offset + [0, 0, 0]
-        e.position = [o[0], o[1], o[2]]
-        e.scale = [cfg.scale, cfg.scale, cfg.scale]
+        if let fit = MolibooWardrobeFitTable.bundled().fits[descriptor.id]?[id] {
+            // The measured fit table (head top, per-mascot scale) wins over the older hand-tuned manifest numbers,
+            // which oversized the cap so its brim cut through the body. Same transform math as MolibooWardrobeRig.
+            let r = fit.rotationDegrees.map { $0 * .pi / 180 } + [0, 0, 0]
+            e.orientation = simd_quatf(angle: r[2], axis: [0, 0, 1]) * simd_quatf(angle: r[1], axis: [0, 1, 0]) * simd_quatf(angle: r[0], axis: [1, 0, 0])
+            let o = fit.offset + [0, 0, 0]
+            e.position = [o[0], o[1], o[2]]
+            e.scale = fit.scaleVector
+        } else {
+            e.orientation = Self.attachmentOrientation(cfg)
+            let o = cfg.offset + [0, 0, 0]
+            e.position = [o[0], o[1], o[2]]
+            e.scale = [cfg.scale, cfg.scale, cfg.scale]
+        }
         equipped[id] = e
         if !UIAccessibility.isReduceMotionEnabled {   // same equip burst as fit-table items
             MolibooWardrobeRig.burst(.init(effect: .sparkle, duration: 0.45, overshoot: 1.15, pulses: 1), in: anchor, at: e)
