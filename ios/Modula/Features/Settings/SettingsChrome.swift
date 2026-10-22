@@ -1046,6 +1046,11 @@ struct IslandAvatarMerge<Avatar: View>: View {
         return CGRect(x: (width - w) / 2, y: max(safeTop - 48, 9), width: w, height: h)
     }
 
+    static func smooth(_ x: CGFloat, _ a: CGFloat, _ b: CGFloat) -> CGFloat {
+        let t = min(max((x - a) / (b - a), 0), 1)
+        return t * t * (3 - 2 * t)
+    }
+
     /// 0 = avatar at rest · 1 = fully absorbed by the island / top edge.
     static func progress(for frame: CGRect) -> CGFloat {
         guard frame.height > 0 else { return 0 }
@@ -1074,30 +1079,25 @@ struct IslandAvatarMerge<Avatar: View>: View {
                             .opacity(Double(1 - p))
                     } else {
                         if Self.hasIsland, p > 0.3 {
-                            // Same crisp metaball neck as the island toasts (#121): island capsule +
-                            // avatar disc fused by a 2-circle bridge, so the avatar visibly merges
-                            // into the Dynamic Island instead of sliding behind it.
+                            // Gooey drop: island capsule + disc, blurred then alpha-thresholded so
+                            // they fuse with a soft liquid neck (no hard bridge geometry). Drawn in
+                            // pure black so it reads as part of the Dynamic Island.
                             let r = size / 2
-                            Path { path in
-                                path.addPath(Capsule(style: .continuous).path(in: island))
-                                path.addEllipse(in: CGRect(x: cx - r, y: cy - r, width: size, height: size))
-                                if let neck = MetaballBridge.path(
-                                    c1: CGPoint(x: island.midX, y: island.midY),
-                                    r1: island.height / 2,
-                                    c2: CGPoint(x: cx, y: cy),
-                                    r2: r
-                                ) {
-                                    path.addPath(neck)
+                            Canvas { ctx, _ in
+                                ctx.addFilter(.alphaThreshold(min: 0.5, color: .black))
+                                ctx.addFilter(.blur(radius: 7))
+                                ctx.drawLayer { layer in
+                                    layer.fill(Capsule(style: .continuous).path(in: island), with: .color(.black))
+                                    layer.fill(Path(ellipseIn: CGRect(x: cx - r, y: cy - r, width: size, height: size)), with: .color(.black))
                                 }
                             }
-                            .fill(Color.black)
-                            .opacity(Double(min(1, (p - 0.3) / 0.18)))
+                            .opacity(Double(Self.smooth(p, 0.3, 0.55)))
                         }
                         avatar
                             .frame(width: size, height: size)
                             .clipShape(Circle())
-                            .overlay(Circle().fill(Color.black.opacity(Double(max(0, (p - 0.45) / 0.45)))))
-                            .opacity(Self.hasIsland ? Double(1 - max(0, (p - 0.86) / 0.14)) : Double(1 - p))
+                            // The photo dissolves into (or emerges out of) the drop, no dark veil.
+                            .opacity(Self.hasIsland ? Double(1 - Self.smooth(p, 0.55, 0.88)) : Double(1 - p))
                             .position(x: cx, y: cy)
                     }
                 }
