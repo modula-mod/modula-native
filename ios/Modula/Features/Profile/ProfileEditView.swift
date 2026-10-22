@@ -82,6 +82,13 @@ struct ProfileEditView: View {
         .navigationTitle("Edit Profile")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
+        // Legibility plate for Cancel/Save over the cover image.
+        .overlay(alignment: .top) {
+            LinearGradient(colors: [.black.opacity(0.45), .black.opacity(0.15), .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: 130)
+                .ignoresSafeArea(edges: .top)
+                .allowsHitTesting(false)
+        }
         .toolbar(.hidden, for: .tabBar)
         .interactiveDismissDisabled(editing.isDirty)
         .toolbar {

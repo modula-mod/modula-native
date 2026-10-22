@@ -228,8 +228,12 @@ struct ShellSidebarContainer<Content: View>: View {
     }
 
     private var sidebarBackdrop: some View {
+        // Translucent glass drawer (was an opaque canvas slab).
         let palette = ModulaPalette.resolve(app.appearance, scheme: scheme)
-        return palette.canvas
+        return ZStack {
+            Rectangle().fill(.regularMaterial)
+            palette.canvas.opacity(0.45)
+        }
     }
 
     private var settle: Animation {

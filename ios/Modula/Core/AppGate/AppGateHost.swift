@@ -95,6 +95,7 @@ struct AppGateHost: View {
         switch app.gate.state {
         case .booting:
             BootSplashView()
+                .transition(.opacity)
         case .signedOut:
             PreShellAuthHost()
         case .firstRun:
@@ -117,15 +118,30 @@ struct AppGateHost: View {
 
 struct BootSplashView: View {
     var body: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-            Text("Starting Modula")
-                .font(.headline)
-        }
+        // Branded splash matching the launch background (no white "Starting" page). The spinner
+        // only fades in if boot is actually slow.
+        BootSplashContent()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .modulaCanvas()
+        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
         .accessibilityIdentifier("appgate.booting")
         .accessibilityLabel("Starting Modula")
+    }
+}
+
+private struct BootSplashContent: View {
+    @Environment(\.colorScheme) private var scheme
+    @State private var slow = false
+    var body: some View {
+        VStack(spacing: 22) {
+            ModulaWordmark(height: 28, onDark: scheme == .dark)
+            ProgressView()
+                .controlSize(.small)
+                .opacity(slow ? 0.7 : 0)
+        }
+        .task {
+            try? await Task.sleep(for: .milliseconds(900))
+            withAnimation(.easeIn(duration: 0.3)) { slow = true }
+        }
     }
 }
 

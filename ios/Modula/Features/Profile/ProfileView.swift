@@ -260,6 +260,8 @@ struct ProfileView: View {
             // Spinner sits below the header (not in the status bar): content is pulled up
             // by the same amount it's inset, so the cover still bleeds to the top edge.
             .contentMargins(.top, ProfileFullBleedMetrics.windowSafeAreaTop + 44, for: .scrollContent)
+            // Last post clears the floating tab bar.
+            .contentMargins(.bottom, 96, for: .scrollContent)
             .refreshable {
                 // Own task so the refresh control tearing down can't cancel the request.
                 await Task { await refreshCurrent() }.value

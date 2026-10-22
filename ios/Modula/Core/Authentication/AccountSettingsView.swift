@@ -177,6 +177,39 @@ private struct AccountPasswordView: View {
 private struct AccountSessionsView: View {
     @Environment(AppEnvironment.self) private var app
     @State private var sessions: [GreenfieldSessionInfo] = []
+
+    private struct SessionGroup { let key: String; let first: GreenfieldSessionInfo; var count: Int }
+
+    private var groupedSessions: [SessionGroup] {
+        var order: [String] = []
+        var map: [String: SessionGroup] = [:]
+        for s in sessions {
+            let key = s.current ? "current" : [s.platform ?? "", s.userAgent ?? "", s.location ?? ""].joined(separator: "|")
+            if map[key] == nil { order.append(key); map[key] = SessionGroup(key: key, first: s, count: 1) }
+            else { map[key]?.count += 1 }
+        }
+        return order.compactMap { map[$0] }
+    }
+
+    private func deviceName(_ s: GreenfieldSessionInfo) -> String {
+        if let p = s.platform, !p.isEmpty, p.lowercased() != "unknown" { return p }
+        let ua = (s.userAgent ?? "").lowercased()
+        if ua.contains("iphone") { return "iPhone" }
+        if ua.contains("ipad") { return "iPad" }
+        if ua.contains("android") { return "Android" }
+        if ua.contains("mac") { return "Mac" }
+        if ua.contains("windows") { return "Windows PC" }
+        return "Unknown device"
+    }
+
+    private func deviceSymbol(_ s: GreenfieldSessionInfo) -> String {
+        switch deviceName(s) {
+        case "iPhone", "Android": "iphone"
+        case "iPad": "ipad"
+        case "Mac", "Windows PC": "laptopcomputer"
+        default: "questionmark.circle"
+        }
+    }
     @State private var error: String?
     @State private var loaded = false
 
@@ -195,13 +228,29 @@ private struct AccountSessionsView: View {
                     Text("No other signed-in devices.")
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(sessions) { session in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(session.current ? "This session" : (session.platform ?? "Session"))
-                                .font(.headline)
-                            if let agent = session.userAgent { Text(agent).font(.caption).foregroundStyle(.secondary) }
-                            if let last = session.lastActive { Text(last).font(.caption).foregroundStyle(.secondary) }
-                            if let location = session.location { Text(location).font(.caption).foregroundStyle(.secondary) }
+                    // Client-side grouping: identical device/agent/location rows collapse into one
+                    // with a count; missing platform reads as "Unknown device".
+                    ForEach(groupedSessions, id: \.key) { group in
+                        let session = group.first
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: deviceSymbol(session))
+                                .font(.title3)
+                                .foregroundStyle(.secondary)
+                                .frame(width: 28)
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 6) {
+                                    Text(session.current ? "This device" : deviceName(session))
+                                        .font(.headline)
+                                    if group.count > 1 {
+                                        Text("×\(group.count)")
+                                            .font(.caption.weight(.semibold))
+                                            .padding(.horizontal, 6).padding(.vertical, 2)
+                                            .background(Color.primary.opacity(0.08), in: Capsule())
+                                    }
+                                }
+                                if let last = session.lastActive { Text(last).font(.caption).foregroundStyle(.secondary) }
+                                if let location = session.location { Text(location).font(.caption).foregroundStyle(.secondary) }
+                            }
                         }
                     }
                     Button("Sign Out All Other Sessions", role: .destructive) {
