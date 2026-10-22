@@ -123,12 +123,17 @@ struct DiscoverTopicArtwork: View {
         Double(seed.unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) % 997 }) / 997.0 * 0.18 - 0.09
     }
 
+    /// Each topic gets its own hue (stable per seed) so trending cards aren't all one colour.
+    private var seedHue: Double {
+        Double(seed.unicodeScalars.reduce(7) { ($0 &* 131 &+ Int($1.value)) % 7919 }) / 7919.0
+    }
+
     var body: some View {
-        let accent = app.appearance.accent.color
+        let accent = Color(hue: seedHue, saturation: 0.62, brightness: 0.92)
         let drift = !ModulaEffectGate.reduceMotion(systemReduceMotion)
         GeometryReader { proxy in
             ZStack {
-                Color.black
+                LinearGradient(colors: [Color(hue: seedHue, saturation: 0.7, brightness: 0.28), .black], startPoint: .topTrailing, endPoint: .bottomLeading)
                 Circle()
                     .fill(RadialGradient(colors: [accent.modulaAdjusted(hue: hueShift).opacity(0.62), accent.opacity(0.12)], center: .center, startRadius: 4, endRadius: proxy.size.width * 0.5))
                     .frame(width: proxy.size.width * 0.9)

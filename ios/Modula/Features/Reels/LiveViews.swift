@@ -79,14 +79,30 @@ struct LiveSetupView: View {
     var onStart: () -> Void
     @State private var camera = LiveCameraModel()
     @State private var countdown: Int?
+    @State private var look: LiveLook = .natural
+    @State private var beauty = false
+    @State private var audience: LiveAudience = .everyone
+    @State private var commentsOn = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
             LiveCameraPreview(session: camera.session)
                 .ignoresSafeArea()
+                // Local-only looks layered over the preview (nothing is processed or sent).
+                .overlay {
+                    ZStack {
+                        if let tint = look.tint { tint.blendMode(.softLight) }
+                        if beauty { Color.white.opacity(0.18).blendMode(.softLight) }
+                    }
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+                    .animation(.easeInOut(duration: 0.25), value: look)
+                    .animation(.easeInOut(duration: 0.25), value: beauty)
+                }
                 .overlay { if !camera.authorized { cameraDenied } }
-            LinearGradient(colors: [.black.opacity(0.6), .clear, .clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom)
+            // Lighter scrims so the camera preview reads bright, not dim.
+            LinearGradient(colors: [.black.opacity(0.35), .clear, .clear, .black.opacity(0.5)], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea().allowsHitTesting(false)
 
             VStack(spacing: 16) {
@@ -104,6 +120,8 @@ struct LiveSetupView: View {
                 .padding(.horizontal, 14)
 
                 Spacer()
+
+                setupControls
 
                 TextField("Add a title…", text: $title)
                     .font(.title3.weight(.semibold))
@@ -145,6 +163,51 @@ struct LiveSetupView: View {
         .onDisappear { camera.stop() }
     }
 
+    private var setupControls: some View {
+        ModulaGlassGroup(spacing: 8) {
+            HStack(spacing: 8) {
+                Menu {
+                    Picker("Look", selection: $look) {
+                        ForEach(LiveLook.allCases) { Text($0.title).tag($0) }
+                    }
+                } label: {
+                    controlChip(look == .natural ? "Filter" : look.title, symbol: "camera.filters", on: look != .natural)
+                }
+                Button {
+                    beauty.toggle(); HapticEngine.shared.play(.selection)
+                } label: {
+                    controlChip("Beauty", symbol: "sparkles", on: beauty)
+                }
+                .buttonStyle(.plain)
+                Menu {
+                    Picker("Who can watch", selection: $audience) {
+                        ForEach(LiveAudience.allCases) { Label($0.title, systemImage: $0.symbol).tag($0) }
+                    }
+                } label: {
+                    controlChip(audience.title, symbol: audience.symbol, on: false)
+                }
+                Button {
+                    commentsOn.toggle(); HapticEngine.shared.play(.selection)
+                } label: {
+                    controlChip(commentsOn ? "Comments" : "No comments", symbol: commentsOn ? "bubble.left" : "bubble.left.slash", on: commentsOn)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+    }
+
+    private func controlChip(_ title: String, symbol: String, on: Bool) -> some View {
+        Label(title, systemImage: symbol)
+            .font(.caption.weight(.semibold))
+            .lineLimit(1)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .frame(height: 34)
+            .modulaGlass(in: Capsule(), interactive: true, tint: on ? .white.opacity(0.25) : nil)
+            .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
     private var cameraDenied: some View {
         ContentUnavailableView("Camera unavailable", systemImage: "video.slash", description: Text("Allow camera access in Settings to preview your live."))
     }
@@ -166,12 +229,12 @@ struct LiveSetupView: View {
 
 private struct PreviewBadge: View {
     var body: some View {
-        Text("DEV PREVIEW")
-            .font(.caption2.weight(.heavy))
-            .tracking(1)
-            .foregroundStyle(.white)
-            .padding(.horizontal, 10).padding(.vertical, 5)
-            .background(Color.orange.opacity(0.85), in: Capsule())
+        Text("PREVIEW")
+            .font(.system(size: 9, weight: .heavy))
+            .tracking(0.8)
+            .foregroundStyle(.white.opacity(0.9))
+            .padding(.horizontal, 7).padding(.vertical, 3)
+            .background(Color.orange.opacity(0.7), in: Capsule())
             .accessibilityLabel("Developer preview, local data only")
     }
 }
@@ -480,5 +543,39 @@ struct LiveCameraPreview: UIViewRepresentable {
     final class PreviewView: UIView {
         override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
         var previewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
+    }
+}
+
+
+enum LiveLook: String, CaseIterable, Identifiable {
+    case natural, warm, cool, vivid
+    var id: String { rawValue }
+    var title: String { rawValue.capitalized }
+    var tint: Color? {
+        switch self {
+        case .natural: nil
+        case .warm: Color.orange.opacity(0.35)
+        case .cool: Color.blue.opacity(0.3)
+        case .vivid: Color.pink.opacity(0.25)
+        }
+    }
+}
+
+enum LiveAudience: String, CaseIterable, Identifiable {
+    case everyone, followers, closeFriends
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .everyone: "Everyone"
+        case .followers: "Followers"
+        case .closeFriends: "Close friends"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .everyone: "globe"
+        case .followers: "person.2"
+        case .closeFriends: "star.circle"
+        }
     }
 }

@@ -266,7 +266,8 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         return ZStack(alignment: position == .trailing ? .trailing : .leading) {
             loopBackdrop(shellShape: visualShape)
             reel.mask {
-                if placement == .contained {
+                // Small glass pill only: the curved shell rail is no longer drawn on the edge.
+                if placement == .contained || placement == .shellEdge {
                     Capsule().frame(width: metrics.channelDepth)
                 } else {
                     visualShape
@@ -312,7 +313,7 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
 
     @ViewBuilder
     private func loopBackdrop(shellShape: EdgeLoopShape) -> some View {
-        if placement == .contained {
+        if placement == .contained || placement == .shellEdge {
             Capsule()
                 .fill(Color.clear)
                 .frame(width: metrics.channelDepth)

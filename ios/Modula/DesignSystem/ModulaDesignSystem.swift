@@ -1032,3 +1032,24 @@ struct ModulaLoadingState: View { var title = "Loading…"; var body: some View 
 struct ModulaErrorState: View { var message: String; var retry: (() -> Void)?; var body: some View { ContentUnavailableView { Label("Something went wrong", systemImage: "exclamationmark.triangle") } description: { Text(message) } actions: { if let retry { Button("Try Again", action: retry) } } } }
 struct ModulaHero<Content: View>: View { var title: String; var subtitle: String; @ViewBuilder var artwork: Content; var body: some View { ZStack(alignment: .bottomLeading) { artwork.frame(maxWidth: .infinity).frame(height: 260).clipped(); LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .center, endPoint: .bottom); VStack(alignment: .leading) { Text(title).font(.largeTitle.bold()); Text(subtitle) }.foregroundStyle(.white).padding(20) }.clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous)) } }
 struct ModulaMetadataRail: View { var values: [(String, String)]; var body: some View { HStack { ForEach(Array(values.enumerated()), id: \.offset) { _, value in ModulaMetric(value: value.0, label: value.1); Spacer() } }.padding(.vertical, 8) } }
+
+/// Shared section header: one title weight and one subtitle style across Home, Product Hub,
+/// Discover and Activity so sections stop drifting between .title2 / .title3 / .headline.
+struct ModulaSectionHeader: View {
+    var title: String
+    var subtitle: String? = nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.title3.bold())
+                .accessibilityAddTraits(.isHeader)
+            if let subtitle {
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}

@@ -75,6 +75,14 @@ struct ActivityChipBar: View {
         }
         .frame(maxWidth: .infinity)
         .clipped()
+        // Edge fade so the last chip ("Reposts") reads as scrollable, not clipped.
+        .mask {
+            LinearGradient(stops: [
+                .init(color: .black, location: 0),
+                .init(color: .black, location: 0.9),
+                .init(color: .black.opacity(0), location: 1)
+            ], startPoint: .leading, endPoint: .trailing)
+        }
         .background(.bar.opacity(0.001))
     }
 }
@@ -745,10 +753,19 @@ struct ActivitySuggestedPeople: View {
     @Environment(AppEnvironment.self) private var app
     @State private var people: [DiscoverPerson] = []
     @State private var followed: Set<String> = []
+
+    /// Seed/test accounts from staging never belong in suggestions.
+    static func isFixture(_ person: DiscoverPerson) -> Bool {
+        let name = person.displayName.lowercased()
+        let handle = person.handle.lowercased()
+        let markers = ["fixture", "alpha", "test", "block ", "phase ", "qa_", "demo_"]
+        return markers.contains { name.contains($0) || handle.contains($0.trimmingCharacters(in: .whitespaces)) }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if !people.isEmpty {
-                Text("Suggested for you").font(.headline).padding(.top, 8)
+                ModulaSectionHeader(title: "Suggested for you").padding(.top, 8)
                 ForEach(people.prefix(6)) { person in
                     HStack(spacing: 12) {
                         Button { app.navigation.push(.profile(person.id, .overview)) } label: {
@@ -756,7 +773,7 @@ struct ActivitySuggestedPeople: View {
                                 ModulaAvatar(initials: String(person.displayName.prefix(2)).uppercased(), url: person.avatarURL, size: 44, name: person.displayName)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(person.displayName).font(.subheadline.weight(.semibold)).lineLimit(1)
-                                    Text("@\(person.handle)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                    Text(person.followsViewer ? "@\(person.handle) · Follows you" : "@\(person.handle)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
                                 }
                             }
                         }.buttonStyle(.plain)
@@ -781,7 +798,8 @@ struct ActivitySuggestedPeople: View {
         }
         .task {
             guard ModulaPreferences.showsSuggestedPeople else { return }
-            people = (try? await GreenfieldDiscoverRepository(client: app.client).people(cursor: nil).items) ?? []
+            people = ((try? await GreenfieldDiscoverRepository(client: app.client).people(cursor: nil).items) ?? [])
+                .filter { !Self.isFixture($0) }
         }
     }
 }

@@ -8,6 +8,20 @@ import SwiftUI
 // - Reduce Transparency, or iOS 18–25: an opaque-enough material with a hairline,
 //   so text stays legible and nothing pretends to be glass.
 
+/// Appearance → Glass Intensity. Reduce Transparency always wins (opaque fallback).
+enum ModulaGlassIntensity: String, CaseIterable, Identifiable {
+    case clear, standard, frosted
+    static let storageKey = "modula.appearance.glassIntensity"
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .clear: "Clear"
+        case .standard: "Standard"
+        case .frosted: "Frosted"
+        }
+    }
+}
+
 struct ModulaGlassGroup<Content: View>: View {
     var spacing: CGFloat = 8
     @ViewBuilder var content: () -> Content
@@ -28,10 +42,16 @@ private struct ModulaGlassModifier<S: Shape>: ViewModifier {
     var prominent = false
     var specular = false
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @AppStorage(ModulaGlassIntensity.storageKey) private var intensityRaw = ModulaGlassIntensity.standard.rawValue
+
+    private var intensity: ModulaGlassIntensity { ModulaGlassIntensity(rawValue: intensityRaw) ?? .standard }
 
     func body(content: Content) -> some View {
         if #available(iOS 26.0, *), !reduceTransparency {
             content
+                .background {
+                    if intensity == .frosted { shape.fill(.thinMaterial) }
+                }
                 .glassEffect(glass, in: shape)
                 .overlay {
                     if specular {
@@ -59,7 +79,7 @@ private struct ModulaGlassModifier<S: Shape>: ViewModifier {
 
     @available(iOS 26.0, *)
     private var glass: Glass {
-        var value = Glass.regular
+        var value = intensity == .clear ? Glass.clear : Glass.regular
         if let tint { value = value.tint(prominent ? tint : tint.opacity(0.55)) }
         return interactive ? value.interactive() : value
     }

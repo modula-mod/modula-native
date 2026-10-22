@@ -32,27 +32,34 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     LazyVStack(alignment: .leading, spacing: 14) {
                         VStack(alignment: .leading, spacing: 14) {
-                            modeCaption
+                            if !showsStoryTray { modeCaption }
                             if showsStoryTray {
                                 let trayGroups = StoryStore.homeTrayGroups(app.stories.trayGroups)
                                 HStack(spacing: 10) {
+                                    // One header row: Stories + the feed caption ("Following").
                                     Text("Stories")
                                         .font(.subheadline.weight(.semibold))
+                                    Text(mode.heroSubtitle)
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                        .accessibilityIdentifier("home.hero")
+                                        .accessibilityLabel(mode.heroTitle)
                                     Spacer(minLength: 8)
                                     Button {
                                         app.navigation.push(.reels(.feed))
                                         HapticEngine.shared.play(.navigation)
                                     } label: {
-                                        Label("Watch Reels", systemImage: "play.rectangle.fill")
-                                            .font(.caption.weight(.bold))
+                                        Label("Reels", systemImage: "play.rectangle.fill")
+                                            .font(.caption2.weight(.bold))
                                             .foregroundStyle(.white)
-                                            .padding(.horizontal, 14)
-                                            .frame(height: 34)
+                                            .padding(.horizontal, 10)
+                                            .frame(height: 26)
                                             .background(app.appearance.accent.color.gradient, in: Capsule())
                                             .contentShape(Capsule())
                                     }
                                     .buttonStyle(.plain)
-                                    .shadow(color: app.appearance.accent.color.opacity(0.35), radius: 8, y: 3)
+                                    .shadow(color: app.appearance.accent.color.opacity(0.25), radius: 5, y: 2)
                                     .frame(minWidth: 44, minHeight: 44)
                                     .accessibilityLabel("Watch Reels")
                                     .accessibilityIdentifier("home.open-reels")
@@ -137,14 +144,13 @@ struct HomeView: View {
                         .accessibilityAddTraits(.isHeader)
                 }
             }
-            ToolbarItem(placement: .topBarTrailing) {
+            // Create + Messages share one glass capsule instead of two mismatched pills.
+            ToolbarItemGroup(placement: .topBarTrailing) {
                 Button("Create", systemImage: "plus") {
                     app.navigation.open(.compose(.post))
                     HapticEngine.shared.play(.navigation)
                 }
                 .accessibilityIdentifier("home.create")
-            }
-            ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     app.navigation.push(.messages(.inbox))
                     HapticEngine.shared.play(.navigation)
@@ -363,6 +369,14 @@ struct HomeView: View {
                             Task { await app.home.loadMore(mode) }
                         }
                     }
+                }
+                if mode != .forYou, state.loadState == .loaded, app.home.visiblePosts(for: mode).count < 3 {
+                    HomeCatchUpSection(
+                        excluding: Set(app.home.visiblePosts(for: mode).map(\.id)),
+                        onOpen: { openPost($0) }
+                    )
+                    .padding(.horizontal, ModulaLayout.contentInset)
+                    .padding(.top, 8)
                 }
                 if state.loadState == .loadingMore {
                     ProgressView()
@@ -967,5 +981,58 @@ private struct HomeAmbientLayer: View {
         .allowsHitTesting(false)
         .accessibilityHidden(true)
         .task(id: model.postID) { await update() }
+    }
+}
+
+
+/// Short feed? Fill the space with suggested posts from For You (already-fetched data, no new endpoint).
+private struct HomeCatchUpSection: View {
+    let excluding: Set<SocialPostID>
+    var onOpen: (SocialPost) -> Void
+    @Environment(AppEnvironment.self) private var app
+
+    private var posts: [SocialPost] {
+        Array(app.home.visiblePosts(for: .forYou).filter { !excluding.contains($0.id) }.prefix(5))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ModulaSectionHeader(title: "Catch up", subtitle: "Suggested posts while you wait for more")
+            if posts.isEmpty {
+                Text("You're all caught up.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(posts) { post in
+                Button { onOpen(post) } label: {
+                    HStack(alignment: .top, spacing: 10) {
+                        ModulaAvatar(
+                            initials: post.author?.initials ?? "?",
+                            url: post.author?.avatarURL,
+                            size: 34,
+                            name: post.author?.displayName
+                        )
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(post.author?.displayName ?? "Modula")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
+                            if let text = post.text, !text.isEmpty {
+                                Text(text)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(3)
+                                    .multilineTextAlignment(.leading)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(12)
+                    .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: nil))
+            }
+        }
+        .task { await app.home.loadIfNeeded(.forYou, signedIn: app.auth.isSignedIn) }
+        .accessibilityIdentifier("home.catch-up")
     }
 }

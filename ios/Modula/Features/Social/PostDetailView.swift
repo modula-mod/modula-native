@@ -186,34 +186,28 @@ struct PostDetailView: View {
         focusComposerRequest += 1
     }
 
+    /// The action bar already shows like/repost counts, so this is one quiet link to the
+    /// lists instead of a second row of the same numbers.
+    @ViewBuilder
     private func engagementSummary(_ post: SocialPost) -> some View {
-        HStack(spacing: 16) {
-            // Same number the heart shows (reactions include likes); comment total lives in the
-            // Comments header so the two can't disagree.
-            let reactions = max(post.reactionCount, post.likeCount)
-            if reactions > 0 {
-                Button {
-                    app.navigation.open(.post(postID, .likes))
-                } label: {
-                    Text(reactions == 1 ? "1 like" : "\(reactions) likes")
-                        .font(.subheadline.weight(.semibold))
+        let reactions = max(post.reactionCount, post.likeCount)
+        if reactions > 0 || post.repostCount > 0 {
+            Button {
+                app.navigation.open(.post(postID, reactions > 0 ? .likes : .shares))
+                HapticEngine.shared.play(.navigation)
+            } label: {
+                HStack(spacing: 4) {
+                    Text(reactions > 0 ? "See who liked this" : "See who reposted this")
+                    Image(systemName: "chevron.right").font(.caption2.weight(.bold))
                 }
-                .buttonStyle(.plain)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(minHeight: 32)
             }
-            if post.repostCount > 0 {
-                Button {
-                    app.navigation.open(.post(postID, .shares))
-                } label: {
-                    Text(post.repostCount == 1 ? "1 repost" : "\(post.repostCount) reposts")
-                        .font(.subheadline.weight(.semibold))
-                }
-                .buttonStyle(.plain)
-            }
-            Spacer()
+            .buttonStyle(.plain)
+            .padding(.top, 2)
+            .accessibilityLabel(post.voiceOverSummary)
         }
-        .padding(.top, 4)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(post.voiceOverSummary)
     }
 
     private func unavailable(_ message: String) -> some View {

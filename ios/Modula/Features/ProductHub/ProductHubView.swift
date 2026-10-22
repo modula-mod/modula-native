@@ -924,6 +924,7 @@ struct ProductGetOpenControl: View {
 
 struct ProductCategoryChips: View {
     let products: [CatalogueProduct]
+    var selected: String? = nil
     var onOpen: (String) -> Void
     @Environment(AppEnvironment.self) private var app
     private var kinds: [String] {
@@ -938,17 +939,19 @@ struct ProductCategoryChips: View {
     var body: some View {
         let accent = app.appearance.accent.color
         VStack(alignment: .leading, spacing: 10) {
-            Text("Categories").font(.title3.bold())
+            ModulaSectionHeader(title: "Categories")
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(kinds, id: \.self) { kind in
                         Button { onOpen(kind); HapticEngine.shared.play(.selection) } label: {
                             Text(kind.capitalized).font(.subheadline.weight(.semibold))
+                                .foregroundStyle(selected == kind ? accent : .primary)
                                 .padding(.horizontal, 14).padding(.vertical, 9)
-                                .modulaGlass(in: Capsule(), interactive: true, tint: accent.opacity(0.12))
+                                .modulaGlass(in: Capsule(), interactive: true, tint: accent.opacity(selected == kind ? 0.32 : 0.12))
                         }
                         .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
                         .accessibilityIdentifier("product-hub.category.\(kind)")
+                        .accessibilityAddTraits(selected == kind ? .isSelected : [])
                     }
                 }
             }.scrollClipDisabled()
@@ -963,10 +966,7 @@ struct ProductRankedList: View {
     @Environment(AppEnvironment.self) private var app
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.title2.bold())
-                if let subtitle { Text(subtitle).font(.subheadline).foregroundStyle(.secondary) }
-            }
+            ModulaSectionHeader(title: title, subtitle: subtitle)
             ForEach(Array(products.enumerated()), id: \.element.id) { index, product in
                 Button { action(product) } label: {
                     HStack(spacing: 12) {
@@ -1000,10 +1000,7 @@ struct ProductShelf: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.title2.bold())
-                if let subtitle { Text(subtitle).font(.subheadline).foregroundStyle(.secondary) }
-            }
+            ModulaSectionHeader(title: title, subtitle: subtitle)
             ForEach(Array(products.enumerated()), id: \.element.id) { index, product in
                 ProductCard(product: product, installed: installedIDs.contains(product.id)) { action(product) }
                     .modulaScrollReveal(depth: true)
@@ -1027,7 +1024,7 @@ struct ProductHero: View {
             ZStack(alignment: .bottomLeading) {
                 ProductBackdrop(product: product)
                     .modulaHeroSheen(intensity: 0.55)
-                LinearGradient(colors: [.clear, .black.opacity(0.15), .black.opacity(0.82)], startPoint: .top, endPoint: .bottom)
+                LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black.opacity(0.35), location: 0.38), .init(color: .black.opacity(0.9), location: 1)], startPoint: .top, endPoint: .bottom)
                 VStack(alignment: .leading, spacing: 0) {
                     HStack {
                         Text("TODAY")
@@ -1073,6 +1070,7 @@ struct ProductHubView: View {
     let route: ProductHubRoute
     @Environment(AppEnvironment.self) private var app
     @State private var query = ""
+    @State private var categoryFilter: String?
 
     private var visible: [CatalogueProduct] {
         query.isEmpty ? app.catalogue.products : app.catalogue.products.filter {
@@ -1091,7 +1089,8 @@ struct ProductHubView: View {
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.top, 10)
-            .padding(.bottom, 26)
+            // Clear the floating Modules accessory and the tab bar.
+            .padding(.bottom, 140)
             .modulaPullContentEffects()
         }
         .modulaSoftScrollEdge()
@@ -1145,14 +1144,9 @@ struct ProductHubView: View {
     @ViewBuilder private var sessionState: some View {
         if app.auth.busy {
             ProgressView("Restoring secure session…")
-        } else if let account = app.auth.account {
-            Label("Signed in as \(account.primaryHandle)", systemImage: "checkmark.seal.fill")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .modulaGlass(in: Capsule(), interactive: false)
-                .accessibilityIdentifier("account.ready")
+        } else if app.auth.account != nil {
+            // Signed-in state no longer needs a chip; the account lives in the menu.
+            EmptyView()
         } else {
             Button("Sign in to Modula") { app.navigation.open(.auth(.login)) }
                 .buttonStyle(.bordered)
@@ -1172,13 +1166,34 @@ struct ProductHubView: View {
                 ProductHero(product: featured) { open(featured) }
                     .modulaPageEntrance()
             }
-            ProductCategoryChips(products: app.catalogue.products) { kind in
-                app.navigation.open(.productHub(.category(kind)))
+            let installed = app.catalogue.products.filter { app.catalogue.installedIDs.contains($0.id) }
+            if !installed.isEmpty {
+                ProductShelf(
+                    title: "Installed",
+                    subtitle: "On your account",
+                    products: installed,
+                    installedIDs: app.catalogue.installedIDs,
+                    action: open
+                )
+                Button {
+                    app.navigation.open(.productHub(.collection(.updates)))
+                } label: {
+                    Label("Check for updates", systemImage: "arrow.triangle.2.circlepath")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(14)
+                        .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: nil))
+                .accessibilityIdentifier("product-hub.updates")
+            }
+            ProductCategoryChips(products: app.catalogue.products, selected: categoryFilter) { kind in
+                withAnimation(.snappy) { categoryFilter = categoryFilter == kind ? nil : kind }
             }
             ProductRankedList(
-                title: "Top modules",
+                title: categoryFilter.map { "Top \($0.capitalized)" } ?? "Top modules",
                 subtitle: "Ranked by availability and publisher",
-                products: Array(app.catalogue.products.sorted { lhs, rhs in
+                products: Array(app.catalogue.products.filter { categoryFilter == nil || $0.productKind == categoryFilter }.sorted { lhs, rhs in
                     (lhs.installable ? 0 : 1, lhs.name) < (rhs.installable ? 0 : 1, rhs.name)
                 }.prefix(8)),
                 installedIDs: app.catalogue.installedIDs,

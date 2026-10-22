@@ -64,6 +64,9 @@ struct TypographyPreviewCard: View {
             )
             .frame(width: 52, height: 168)
         }
+        // Grow with the sample instead of clipping the last line at larger text sizes.
+        .frame(minHeight: 176)
+        .fixedSize(horizontal: false, vertical: true)
         .padding(16)
         .modulaMaterial(.content, in: RoundedRectangle(cornerRadius: app.appearance.interfaceShape.radius(for: .contentCard), style: .continuous))
         .accessibilityElement(children: .contain)
