@@ -887,6 +887,7 @@ struct PrivacySafetySettingsPage: View {
     @State private var showsSetup = false
     @State private var showsChange = false
     @State private var confirmSignOutReset = false
+    @State private var setupMethod: AppLockMethod?
 
     var body: some View {
         let lock = app.appLock
@@ -941,6 +942,43 @@ struct PrivacySafetySettingsPage: View {
                     set: { lock.setHideInAppSwitcher($0) }
                 ))
             }
+            if lock.enabled {
+                SettingsGroup(title: "Unlock Method", subtitle: "Your passcode always works as a backup, so you can’t get locked out.") {
+                    ForEach(Array(AppLockMethod.allCases.enumerated()), id: \.element) { offset, method in
+                        if offset > 0 { SettingsDivider() }
+                        SettingsTileRow(
+                            title: method.title,
+                            subtitle: method.subtitle,
+                            value: lock.settings.method == method ? "On" : (method != .passcode && !lock.hasSecret(for: method) ? "Set Up" : nil),
+                            symbol: method.symbol
+                        ) {
+                            if method == .passcode || lock.hasSecret(for: method) {
+                                lock.setMethod(method)
+                            } else {
+                                setupMethod = method
+                            }
+                        }
+                        .accessibilityIdentifier("settings.applock.method.\(method.rawValue)")
+                    }
+                    if lock.settings.method != .passcode {
+                        SettingsDivider()
+                        SettingsTileRow(title: "Change \(lock.settings.method.title)", symbol: "arrow.triangle.2.circlepath") { setupMethod = lock.settings.method }
+                    }
+                }
+                SettingsGroup(title: "Lock Screen") {
+                    SettingsTileToggle(title: "Unlock Effects", symbol: "sparkles", isOn: Binding(
+                        get: { lock.settings.effectsEnabled }, set: { lock.setEffectsEnabled($0) }))
+                    SettingsDivider()
+                    SettingsTileToggle(title: "Time & Greeting", symbol: "clock.fill", isOn: Binding(
+                        get: { lock.settings.showsGreeting }, set: { lock.setShowsGreeting($0) }))
+                    SettingsDivider()
+                    SettingsTileToggle(title: "Hide Pattern Trail", symbol: "eye.slash", isOn: Binding(
+                        get: { lock.settings.hidesPatternTrail }, set: { lock.setHidesPatternTrail($0) }))
+                    SettingsDivider()
+                    SettingsTileToggle(title: "Lock Haptics", symbol: "iphone.radiowaves.left.and.right", isOn: Binding(
+                        get: { lock.settings.hapticsEnabled }, set: { lock.setHapticsEnabled($0) }))
+                }
+            }
             SettingsGroup(title: "Account security") {
                 SettingsTileRow(title: "Password", value: "Reset by email", symbol: "key") { app.navigation.open(.settings(.account(.password))) }
                 SettingsDivider()
@@ -967,6 +1005,13 @@ struct PrivacySafetySettingsPage: View {
             NavigationStack {
                 PasscodeSetupView(title: "Change Passcode") { passcode in
                     try app.appLock.setPasscode(passcode)
+                }
+            }
+        }
+        .sheet(item: $setupMethod) { method in
+            NavigationStack {
+                LockSecretSetupView(method: method) { secret in
+                    try app.appLock.setAlternativeSecret(secret, for: method)
                 }
             }
         }
