@@ -274,11 +274,6 @@ struct ProfileView: View {
                 EmptyView()
             }
 
-            if let profile {
-                IslandAvatarMerge(frame: heroAvatarFrame, reduceMotion: navReduceMotion) {
-                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: max(heroAvatarFrame.width, 1))
-                }
-            }
 
             ProfileCollapsedNavBackground(
                 progress: navBarProgress,
@@ -534,9 +529,10 @@ struct ProfileView: View {
                 contextActions: avatarActions(profile),
                 onContextAction: { handleContextAction($0, profile: profile) }
             )
-            // Telegram-style: the hero avatar is handed to IslandAvatarMerge, which
-            // shrinks it into the Dynamic Island as it scrolls up.
-            .opacity(IslandAvatarMerge<EmptyView>.progress(for: heroAvatarFrame) > 0 ? 0 : 1)
+            // The hero avatar stays in the content layer: it shrinks into its own pocket and fades
+            // as it scrolls up (the bar avatar takes over), so it never floats over the details.
+            .scaleEffect(navReduceMotion ? 1 : 1 - 0.45 * IslandAvatarMerge<EmptyView>.progress(for: heroAvatarFrame), anchor: .bottom)
+            .opacity(Double(1 - IslandAvatarMerge<EmptyView>.progress(for: heroAvatarFrame)))
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { heroAvatarFrame = $0 }
         }
     }
@@ -752,19 +748,7 @@ struct ProfileView: View {
             insertion: .opacity.combined(with: .offset(y: 10)),
             removal: .opacity
         ))
-        // Swipe between tabs.
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 30)
-                .onEnded { value in
-                    let dx = value.translation.width, dy = value.translation.height
-                    guard abs(dx) > 70, abs(dx) > abs(dy) * 2,
-                          let index = shelfTabs.firstIndex(of: selected) else { return }
-                    let next = dx < 0 ? index + 1 : index - 1
-                    guard shelfTabs.indices.contains(next) else { return }
-                    withAnimation(ModulaEffectGate.reduceMotion(systemReduceMotion) ? nil : .snappy) { shelf = shelfTabs[next] }
-                    HapticEngine.shared.play(.selection)
-                }
-        )
+        // No swipe-to-switch: horizontal gestures belong to post carousels / media; tabs switch by tap.
         .task(id: selected) {
             guard selected == .modules else { return }
             await app.profile.loadModulesIfNeeded(
@@ -1830,12 +1814,15 @@ private struct ProfileCollapsedNavBackground: View {
         ZStack(alignment: .bottom) {
             if reduceTransparency {
                 Rectangle().fill(Color(uiColor: .systemBackground))
+                Rectangle()
+                    .fill(Color.primary.opacity(0.14))
+                    .frame(height: 1 / UIScreen.main.scale)
             } else {
-                Rectangle().fill(.bar)
+                // Progressive blur: strongest at the top, fading to fully clear — no solid fill.
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.45), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
             }
-            Rectangle()
-                .fill(Color.primary.opacity(0.14))
-                .frame(height: 1 / UIScreen.main.scale)
         }
         .frame(height: height)
         .frame(maxWidth: .infinity)
