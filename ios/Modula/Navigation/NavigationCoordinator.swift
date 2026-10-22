@@ -59,7 +59,19 @@ final class NavigationCoordinator {
             selectedTab = tab
             if isContextRoot(route) { roots[tab] = route; return }
         }
+        // A story viewer left on the stack (closed visually but never popped) made the next
+        // destination — e.g. Saved from the sidebar — flash the Story Viewer first. Drop
+        // stale story routes before pushing anything that isn't itself a story.
+        if !Self.isStoryViewer(route), var path = paths[selectedTab] {
+            while let last = path.last, Self.isStoryViewer(last) { path.removeLast() }
+            paths[selectedTab] = path
+        }
         appendDeduplicatingSearch(route)
+    }
+
+    private static func isStoryViewer(_ route: AppRoute) -> Bool {
+        if case .stories(.story) = route { return true }
+        return false
     }
     /// Search over Search replaces the top instead of stacking: two Search screens meant
     /// closing one revealed the other ("search opens again").

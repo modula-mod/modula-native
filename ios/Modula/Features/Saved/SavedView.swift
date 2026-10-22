@@ -13,8 +13,28 @@ struct SavedView: View {
                     message: "Posts you save are kept, but showing them here isn’t available yet.",
                     symbol: "bookmark"
                 )
-            } else if !app.saved.loaded && app.saved.posts.isEmpty {
-                ProgressView("Loading saved posts…")
+            } else if (!app.saved.loaded || app.saved.loading) && app.saved.posts.isEmpty {
+                // Skeleton instead of a bare spinner (and never an error flash while loading).
+                ScrollView {
+                    VStack(spacing: 14) {
+                        ForEach(0..<3, id: \.self) { _ in
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack(spacing: 10) {
+                                    Circle().fill(Color.primary.opacity(0.08)).frame(width: 36, height: 36)
+                                    RoundedRectangle(cornerRadius: 5).fill(Color.primary.opacity(0.08)).frame(width: 120, height: 12)
+                                }
+                                RoundedRectangle(cornerRadius: 5).fill(Color.primary.opacity(0.06)).frame(height: 12)
+                                RoundedRectangle(cornerRadius: 5).fill(Color.primary.opacity(0.06)).frame(width: 220, height: 12)
+                                RoundedRectangle(cornerRadius: 16).fill(Color.primary.opacity(0.05)).frame(height: 180)
+                            }
+                            .padding(14)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .redacted(reason: .placeholder)
+                }
+                .scrollDisabled(true)
+                .accessibilityLabel("Loading saved posts")
             } else if let error = app.saved.error, app.saved.posts.isEmpty {
                 ModulaErrorState(message: error) {
                     Task { await app.saved.load(force: true) }

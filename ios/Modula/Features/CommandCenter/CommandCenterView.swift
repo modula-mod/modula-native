@@ -255,8 +255,10 @@ struct CommandRow: View {
                 Spacer(minLength: 0)
                 if command.category == .create {
                     Text("Create")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(app.appearance.accent.color)
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .background(app.appearance.accent.color.opacity(0.16), in: Capsule())
                 }
             }
             .padding(.horizontal, 10)

@@ -8,13 +8,13 @@ struct SettingsGroup<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if !title.isEmpty {
-                Text(title).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+                Text(title).font(.footnote.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.68))
                     .textCase(.uppercase).padding(.leading, 14)
             }
             SettingsGlassCard { content }
             // iOS-style footer, only when a page supplies one.
             if let subtitle, !subtitle.isEmpty {
-                Text(subtitle).font(.caption).foregroundStyle(.secondary).padding(.horizontal, 14)
+                Text(subtitle).font(.caption).foregroundStyle(Color.primary.opacity(0.62)).padding(.horizontal, 14)
             }
         }
     }
@@ -161,12 +161,6 @@ struct SettingsView: View {
                     }
 
                     TelegramSettingsCard {
-                        TelegramRow(title: "My Profile", symbol: "person.crop.circle.fill", tint: .red) {
-                            app.navigation.open(app.auth.account == nil ? .auth(.login) : .me(.overview))
-                        }
-                    }
-
-                    TelegramSettingsCard {
                         TelegramRow(title: "Saved", symbol: "bookmark.fill", tint: .blue) { app.navigation.open(.saved(.root)) }
                         TelegramDivider()
                         TelegramRow(title: "Recent Activity", symbol: "clock.fill", tint: .orange, badge: app.activity.state(for: .all).unreadCount) { app.navigation.open(.activity(.all)) }
@@ -185,7 +179,7 @@ struct SettingsView: View {
                         TelegramDivider()
                         TelegramRow(title: "Appearance", symbol: "paintbrush.fill", tint: .cyan, value: themeValue) { app.navigation.open(.settings(.appearance(.root))) }
                         TelegramDivider()
-                        TelegramRow(title: "Power Saving", symbol: "battery.100.bolt", tint: .orange, value: dataSaver ? "Data saver" : nil) { app.navigation.open(.settings(.battery(.root))) }
+                        TelegramRow(title: "Power Saving", symbol: "battery.100.bolt", tint: .orange, value: dataSaver ? "On" : "Off") { app.navigation.open(.settings(.battery(.root))) }
                         TelegramDivider()
                         TelegramRow(title: "Language", symbol: "globe", tint: .purple) { app.navigation.open(.settings(.language(.root))) }
                         TelegramDivider()
@@ -231,15 +225,15 @@ struct SettingsView: View {
                         row("Runtime diagnostics", "stethoscope", value: nil, .developer(.runtime))
                             .accessibilityIdentifier("settings.runtime")
                         SettingsDivider()
-                        row("Glass Privacy (preview)", "bubble.left.and.bubble.right", value: nil, .privacy(.glassPrivacy))
+                        tinted("Glass Privacy (preview)", "eye.slash.circle.fill", .teal, .privacy(.glassPrivacy))
                         SettingsDivider()
-                        row("Connectors & Integrations (preview)", "puzzlepiece.extension", value: nil, .connectors(.root))
+                        tinted("Connectors & Integrations (preview)", "link.circle.fill", .blue, .connectors(.root))
                         SettingsDivider()
-                        row("Monetisation (preview)", "creditcard", value: nil, .monetisation(.root))
+                        tinted("Monetisation (preview)", "creditcard.fill", .green, .monetisation(.root))
                         SettingsDivider()
-                        row("Family (preview)", "figure.2.and.child.holdinghands", value: nil, .family(.root))
+                        tinted("Family (preview)", "figure.2.and.child.holdinghands", .orange, .family(.root))
                         SettingsDivider()
-                        row("Widgets & Location (preview)", "rectangle.on.rectangle.angled", value: nil, .widgets(.root))
+                        tinted("Widgets & Location (preview)", "location.square.fill", .purple, .widgets(.root))
                     }
                     #endif
                 }
@@ -330,6 +324,11 @@ struct SettingsView: View {
         .accessibilityElement(children: .combine)
     }
 
+    /// Developer rows: each gets its own symbol and colour tile (they all looked like the same puzzle piece).
+    private func tinted(_ title: String, _ symbol: String, _ tint: Color, _ route: SettingsRoute) -> some View {
+        TelegramRow(title: title, symbol: symbol, tint: tint) { app.navigation.open(.settings(route)) }
+    }
+
     private func row(_ title: String, _ symbol: String, value: String?, _ route: SettingsRoute) -> some View {
         SettingsTileRow(title: title, value: value, symbol: symbol) { app.navigation.open(.settings(route)) }
     }
@@ -403,7 +402,7 @@ struct SettingsView: View {
             nodusLabel = availability == .available ? "Nodus available" : availability.displayName
         }
         let product = providers.filter { $0.id != DeterministicLocalProvider.providerID }
-        intelligenceStatus = product.isEmpty ? "No product provider registered" : "Local · \(nodusLabel)"
+        intelligenceStatus = product.isEmpty ? "Not set up" : (nodusLabel == "Nodus available" ? "Nodus ready" : "On device")
     }
 
     private var filteredSearchItems: [SettingsSearchItem] { searchItems }

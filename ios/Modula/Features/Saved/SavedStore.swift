@@ -39,6 +39,9 @@ final class SavedStore {
             hasMore = page.hasMore
             loaded = true
             error = nil
+        } catch is CancellationError {
+            // The view's .task is cancelled during the push transition; not a real failure.
+        } catch let url as URLError where url.code == .cancelled {
         } catch {
             self.error = "Saved posts couldn’t be loaded."
             loaded = true

@@ -1073,23 +1073,30 @@ struct IslandAvatarMerge<Avatar: View>: View {
                             .position(x: frame.midX, y: frame.midY)
                             .opacity(Double(1 - p))
                     } else {
-                        if Self.hasIsland, p > 0.42 {
-                            Canvas { ctx, _ in
-                                ctx.addFilter(.alphaThreshold(min: 0.5, color: .black))
-                                ctx.addFilter(.blur(radius: 7))
-                                ctx.drawLayer { layer in
-                                    layer.fill(Path(roundedRect: island, cornerRadius: island.height / 2), with: .color(.black))
-                                    let r = size / 2
-                                    layer.fill(Path(ellipseIn: CGRect(x: cx - r, y: cy - r, width: size, height: size)), with: .color(.black))
+                        if Self.hasIsland, p > 0.3 {
+                            // Same crisp metaball neck as the island toasts (#121): island capsule +
+                            // avatar disc fused by a 2-circle bridge, so the avatar visibly merges
+                            // into the Dynamic Island instead of sliding behind it.
+                            let r = size / 2
+                            Path { path in
+                                path.addPath(Capsule(style: .continuous).path(in: island))
+                                path.addEllipse(in: CGRect(x: cx - r, y: cy - r, width: size, height: size))
+                                if let neck = MetaballBridge.path(
+                                    c1: CGPoint(x: island.midX, y: island.midY),
+                                    r1: island.height / 2,
+                                    c2: CGPoint(x: cx, y: cy),
+                                    r2: r
+                                ) {
+                                    path.addPath(neck)
                                 }
                             }
-                            .opacity(Double(min(1, (p - 0.42) / 0.22)))
+                            .fill(Color.black)
+                            .opacity(Double(min(1, (p - 0.3) / 0.18)))
                         }
                         avatar
                             .frame(width: size, height: size)
                             .clipShape(Circle())
-                            .overlay(Circle().fill(Color.black.opacity(Double(max(0, (p - 0.3) / 0.55)))))
-                            .blur(radius: max(0, p - 0.5) * 12)
+                            .overlay(Circle().fill(Color.black.opacity(Double(max(0, (p - 0.45) / 0.45)))))
                             .opacity(Self.hasIsland ? Double(1 - max(0, (p - 0.86) / 0.14)) : Double(1 - p))
                             .position(x: cx, y: cy)
                     }
@@ -1189,6 +1196,9 @@ struct SettingsQRModal: View {
                 ContentUnavailableView("No profile yet", systemImage: "qrcode", description: Text("Sign in to get your Modula code."))
             }
             VStack {
+                // The profile card has its own "Done"; a second X crammed beside the top-bar
+                // pills only when there's no card.
+                if app.profile.ownProfile == nil {
                 HStack {
                     Button(action: onClose) {
                         Image(systemName: "xmark")
@@ -1201,6 +1211,8 @@ struct SettingsQRModal: View {
                     Spacer()
                 }
                 .padding(.horizontal, 16)
+                .padding(.top, 8)
+                }
                 Spacer()
                 if DataScannerViewController.isSupported {
                     Button {

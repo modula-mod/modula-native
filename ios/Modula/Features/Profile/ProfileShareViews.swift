@@ -175,10 +175,12 @@ struct ModulaProfileCodeView: View {
             }
 
             Text(profile.shareURL.absoluteString)
-                .font(.caption.monospaced())
-                .foregroundStyle(.secondary)
+                .font(.caption.monospaced().weight(.medium))
+                .foregroundStyle(Color.primary.opacity(0.85))
                 .lineLimit(1)
                 .truncationMode(.middle)
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .background(Color(uiColor: .systemBackground).opacity(0.55), in: Capsule())
         }
         .padding(20)
         .modulaGlass(in: RoundedRectangle(cornerRadius: 32, style: .continuous), interactive: false, specular: true)

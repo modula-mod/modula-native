@@ -168,7 +168,7 @@ struct ActivityScreen: View {
                     .background(app.appearance.accent.color.opacity(0.12), in: Circle())
                 VStack(alignment: .leading, spacing: 1) {
                     Text(copy.0).font(.subheadline.weight(.semibold))
-                    Text(copy.1).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    Text(copy.1).font(.caption).foregroundStyle(Color.primary.opacity(0.7)).lineLimit(1)
                 }
                 Spacer(minLength: 6)
                 Button("Find people") {

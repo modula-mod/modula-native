@@ -1311,9 +1311,12 @@ struct StoryBackgroundView: View {
     var body: some View {
         GeometryReader { geo in
             if let collage {
+                // While editing, cells sit below the Retake / close bar so controls never overlap a frame.
+                let inset: CGFloat = showsPlaceholders ? 64 : 0
+                let area = CGSize(width: geo.size.width, height: max(geo.size.height - inset, 1))
                 ZStack(alignment: .topLeading) {
                     Color.black
-                    ForEach(Array(collage.rects(in: geo.size).enumerated()), id: \.offset) { index, rect in
+                    ForEach(Array(collage.rects(in: area).enumerated().map { ($0.offset, $0.element.offsetBy(dx: 0, dy: inset)) }), id: \.0) { index, rect in
                         Group {
                             if index < collageImages.count {
                                 Image(uiImage: collageImages[index])
@@ -1330,9 +1333,9 @@ struct StoryBackgroundView: View {
                                 Color(white: 0.1)
                             }
                         }
-                        .frame(width: max(rect.width - 3, 1), height: max(rect.height - 3, 1))
-                        .clipped()
-                        .offset(x: rect.minX + 1.5, y: rect.minY + 1.5)
+                        .frame(width: max(rect.width - 6, 1), height: max(rect.height - 6, 1))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .offset(x: rect.minX + 3, y: rect.minY + 3)
                     }
                 }
             } else if let image {
@@ -1868,6 +1871,8 @@ struct StoryCreateView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .toolbar(.hidden, for: .navigationBar)
+        // The system back chevron was still drawn under our own close (X) — one control only.
+        .navigationBarBackButtonHidden(true)
         .onChange(of: cutoutItems) { _, items in
             Task { await loadCutout(items) }
         }

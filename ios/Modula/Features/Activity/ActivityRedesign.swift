@@ -807,7 +807,11 @@ enum ModulaFixtureFilter {
     static func isFixture(name: String, handle: String) -> Bool {
         let name = name.lowercased()
         let handle = handle.lowercased()
-        let markers = ["fixture", "alpha", "test", "block ", "phase ", "qa_", "demo_"]
-        return markers.contains { name.contains($0) || handle.contains($0.trimmingCharacters(in: .whitespaces)) }
+        let markers = ["fixture", "alpha", "test", "block ", "phase ", "qa_", "demo_", "searchable", "seed", "dummy", "sample"]
+        if markers.contains(where: { name.contains($0) || handle.contains($0.trimmingCharacters(in: .whitespaces)) }) { return true }
+        // Generated seed accounts end in a hex suffix ("Searchable Founder 3fa9c2", "user_9b1e4d7a").
+        let hexSuffix = #"[\s_\-][0-9a-f]{5,}$"#
+        return name.range(of: hexSuffix, options: .regularExpression) != nil
+            || handle.range(of: hexSuffix, options: .regularExpression) != nil
     }
 }
