@@ -77,8 +77,9 @@ struct WebGamePackage {
         self.files = files
     }
 
-    /// Recheck every byte on launch, including after a force quit. WKWebView is
-    /// handed only this digest-named directory as its local-file read scope.
+    /// Recheck every byte on launch, including after a force quit. The custom
+    /// scheme serves only files from this digest-named directory; WKWebView
+    /// receives no local-file read grant.
     func install(in parent: URL) throws -> URL {
         let destination = parent.appendingPathComponent(sha256, isDirectory: true)
         let partial = parent.appendingPathComponent("\(sha256).partial", isDirectory: true)

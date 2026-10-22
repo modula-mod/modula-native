@@ -50,11 +50,13 @@ struct WebGameHost: View {
                 Color.black.opacity(0.72).ignoresSafeArea()
                 VStack(spacing: 22) {
                     Text("Paused").font(.title.bold())
-                    Button("Resume") { setPaused(false) }.buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("game.host.paused")
+                    Button("Resume") { setPaused(false) }
+                        .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("game.host.resume")
                     Button("Exit game") { close() }.buttonStyle(.bordered)
                 }
                 .foregroundStyle(.white)
-                .accessibilityIdentifier("game.host.paused")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
@@ -155,6 +157,9 @@ private struct WebGameSurface: UIViewRepresentable {
 /// ambiguity. WebKit receives no local-file read grant or Native message bridge.
 private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
     static let scheme = "modula-game"
+    // Applied by the host on the HTML response, independent of any policy
+    // declared by a downloadable package.
+    private static let contentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self' data:; connect-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'"
     let digest: String
     let entryURL: URL
     private let files: [String: Data]
@@ -199,7 +204,13 @@ private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
         case "wav": mime = "audio/wav"
         default: mime = "application/octet-stream"
         }
-        let response = URLResponse(url: url, mimeType: mime, expectedContentLength: bytes.count, textEncodingName: nil)
+        var headers = ["Content-Type": mime, "X-Content-Type-Options": "nosniff",
+                       "Referrer-Policy": "no-referrer", "Cache-Control": "no-store"]
+        if mime == "text/html" { headers["Content-Security-Policy"] = Self.contentSecurityPolicy }
+        guard let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: headers) else {
+            task.didFailWithError(WebGamePackageError.invalid("resource response"))
+            return
+        }
         task.didReceive(response)
         task.didReceive(bytes)
         task.didFinish()

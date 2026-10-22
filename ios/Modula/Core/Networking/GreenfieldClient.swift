@@ -152,6 +152,19 @@ private struct SessionTokens: Codable, Sendable {
         let date = f.date(from: accessExpiresAt) ?? ISO8601DateFormatter().date(from: accessExpiresAt)
         return (date?.timeIntervalSinceNow ?? 0) > 30
     }
+    var refreshValid: Bool {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date = f.date(from: refreshExpiresAt) ?? ISO8601DateFormatter().date(from: refreshExpiresAt)
+        return (date?.timeIntervalSinceNow ?? 0) > 0
+    }
+}
+
+/// Bound to the current keychain session. This permits only a previously
+/// authenticated account to reopen its verified local game cache while offline.
+private struct OfflineAccountRecord: Codable, Sendable {
+    let sessionId: String
+    let account: GreenfieldAccount
 }
 
 private struct Envelope<T: Decodable>: Decodable {
@@ -169,6 +182,7 @@ actor GreenfieldClient {
     private let baseURL: URL?
     private let transport: URLSession
     private let keychain: KeychainStore
+    private let offlineAccountKeychain: KeychainStore
     private var tokens: SessionTokens?
     private var refreshTask: Task<SessionTokens, Error>?
     private var epoch = 0
@@ -185,18 +199,33 @@ actor GreenfieldClient {
 
     init(baseURL: URL?, transport: URLSession = .shared) {
         self.keychain = KeychainStore(namespace: baseURL?.absoluteString ?? "unconfigured")
+        self.offlineAccountKeychain = KeychainStore(namespace: (baseURL?.absoluteString ?? "unconfigured") + "|offline-account")
         self.baseURL = baseURL
         self.transport = transport
     }
 
     func restore() async throws -> GreenfieldAccount? {
         guard let data = try keychain.load() else { return nil }
-        tokens = try JSONDecoder().decode(SessionTokens.self, from: data)
-        _ = try await accessToken()
-        let account: GreenfieldAccount = try await authenticated("GET", path: "/v1/accounts/me")
-        guard account.status == "active" else { throw APIError.unauthenticated }
-        accountID = account.accountId
-        return account
+        let stored = try JSONDecoder().decode(SessionTokens.self, from: data)
+        tokens = stored
+        do {
+            _ = try await accessToken()
+            let account: GreenfieldAccount = try await authenticated("GET", path: "/v1/accounts/me")
+            guard account.status == "active" else { throw APIError.unauthenticated }
+            accountID = account.accountId
+            if let current = tokens {
+                try? offlineAccountKeychain.save(JSONEncoder().encode(OfflineAccountRecord(sessionId: current.sessionId, account: account)))
+            }
+            return account
+        } catch {
+            guard Self.isConnectivityFailure(error), stored.refreshValid,
+                  let cached = try? offlineAccountKeychain.load(),
+                  let record = try? JSONDecoder().decode(OfflineAccountRecord.self, from: cached),
+                  record.sessionId == stored.sessionId,
+                  record.account.status == "active" else { throw error }
+            accountID = record.account.accountId
+            return record.account
+        }
     }
 
     func signIn(email: String, password: String) async throws -> GreenfieldAccount {
@@ -209,7 +238,9 @@ actor GreenfieldClient {
         ]))
         let account: GreenfieldAccount = try await send("GET", path: "/v1/accounts/me", bearer: issued.accessToken)
         guard generation == epoch, account.status == "active" else { throw APIError.accountChanged }
+        try? offlineAccountKeychain.clear()
         try keychain.save(JSONEncoder().encode(issued))
+        try? offlineAccountKeychain.save(JSONEncoder().encode(OfflineAccountRecord(sessionId: issued.sessionId, account: account)))
         tokens = issued; accountID = account.accountId
         return account
     }
@@ -219,6 +250,7 @@ actor GreenfieldClient {
         epoch += 1; refreshTask?.cancel(); refreshTask = nil
         tokens = nil; accountID = nil
         try keychain.clear()
+        try? offlineAccountKeychain.clear()
         if let bearer { let _: JSONValue = try await send("DELETE", path: "/v1/sessions/current", bearer: bearer) }
     }
 
@@ -451,6 +483,7 @@ actor GreenfieldClient {
         refreshTask?.cancel(); refreshTask = nil
         tokens = nil; accountID = nil
         try? keychain.clear()
+        try? offlineAccountKeychain.clear()
     }
     #endif
 
@@ -552,7 +585,18 @@ actor GreenfieldClient {
         refreshTask?.cancel(); refreshTask = nil
         tokens = nil; accountID = nil
         try? keychain.clear()
+        try? offlineAccountKeychain.clear()
         sessionInvalidated?()
+    }
+
+    nonisolated static func isConnectivityFailure(_ error: Error) -> Bool {
+        guard let network = error as? URLError else { return false }
+        switch network.code {
+        case .notConnectedToInternet, .networkConnectionLost, .timedOut,
+             .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed:
+            return true
+        default: return false
+        }
     }
 
     /// Only a definitive rejection of the refresh token ends the session. Offline, timeouts

@@ -812,11 +812,11 @@ final class GreenfieldSessionRecoveryTests: XCTestCase {
     private static let me = #"{"ok":true,"data":{"accountId":"acct-1","primaryHandle":"me","status":"active"}}"#
     private static let unauthorized = #"{"ok":false,"error":{"code":"UNAUTHENTICATED"}}"#
 
-    private func makeClient() -> GreenfieldClient {
+    private func makeClient(baseURL: URL? = nil) -> GreenfieldClient {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [SessionRouterProtocol.self]
         SessionRouterProtocol.log = []
-        return GreenfieldClient(baseURL: URL(string: "https://session-test-\(UUID().uuidString.prefix(8)).modula.test")!,
+        return GreenfieldClient(baseURL: baseURL ?? URL(string: "https://session-test-\(UUID().uuidString.prefix(8)).modula.test")!,
                                 transport: URLSession(configuration: config))
     }
 
@@ -890,6 +890,35 @@ final class GreenfieldSessionRecoveryTests: XCTestCase {
         }
         let hasSession = await client.hasSession()
         XCTAssertTrue(hasSession, "Being offline while the access token expires must not sign the user out")
+    }
+
+    func testColdOfflineRestoreUsesOnlyBoundCachedAccountAndRevocationStillEndsSession() async throws {
+        let origin = URL(string: "https://offline-\(UUID().uuidString.prefix(8)).modula.test")!
+        SessionRouterProtocol.handler = { request in
+            switch (request.httpMethod ?? "", request.url?.path ?? "") {
+            case ("POST", "/v1/sessions"): return (201, Self.tokens(1))
+            case ("GET", "/v1/accounts/me"): return (200, Self.me)
+            default: return (404, "{}")
+            }
+        }
+        _ = try await makeClient(baseURL: origin).signIn(email: "a@b.c", password: "pw")
+        SessionRouterProtocol.handler = { _ in (0, "") }
+        let offline = makeClient(baseURL: origin)
+        let restored = try await offline.restore()
+        XCTAssertEqual(restored?.accountId, "acct-1")
+        let offlineSession = await offline.hasSession()
+        XCTAssertTrue(offlineSession)
+
+        SessionRouterProtocol.handler = { _ in (401, Self.unauthorized) }
+        let revoked = makeClient(baseURL: origin)
+        do {
+            _ = try await revoked.restore()
+            XCTFail("A server rejection must not use the offline identity")
+        } catch {
+            XCTAssertEqual(error as? APIError, .unauthenticated)
+        }
+        let revokedSession = await revoked.hasSession()
+        XCTAssertFalse(revokedSession)
     }
 }
 

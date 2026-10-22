@@ -34,6 +34,10 @@ final class ProductHubStore {
     var settleAttempts = 30
     /// Override in tests. Production scans Application Support and ~/Developer/modula-dev-modules.
     var localDevRoots: [URL] = ProductHubStore.defaultLocalDevRoots()
+    /// Account-scoped catalogue metadata for previously verified web games.
+    /// Offline entries are rebuilt from ACTIVE cache slots before display.
+    var offlineGameCatalogueRoot: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        .appendingPathComponent("Modula/OfflineGameCatalogue", isDirectory: true)
     /// Local-only versions discovered on disk, keyed by module id.
     private(set) var localDevVersions: [String: [String]] = [:]
     /// Permissions the account reviewed for a local development module.
@@ -71,8 +75,10 @@ final class ProductHubStore {
             loaded = true
             installations = await Self.installations(client: client, previous: installations)
             await refreshGameEligibility()
+            saveOfflineGameCatalogue()
         } catch {
             self.error = "Product catalogue is unavailable. Pull to refresh."
+            if GreenfieldClient.isConnectivityFailure(error) { restoreOfflineGameCatalogue() }
         }
         mergeLocalDevModules()
         restoreLocalDevelopmentInstallations()
@@ -89,6 +95,45 @@ final class ProductHubStore {
                 moduleId: product.moduleId, status: "enabled", version: release.version
             )
         }
+    }
+
+    private func offlineGameCatalogueURL(account: String) -> URL {
+        let digest = SHA256.hash(data: Data(account.utf8)).map { String(format: "%02x", $0) }.joined()
+        return offlineGameCatalogueRoot.appendingPathComponent("\(digest).json")
+    }
+
+    private func verifiedOfflineGame(_ product: CatalogueProduct, account: String) -> ModuleCachedRelease? {
+        guard product.productKind == "game", let activation,
+              let release = activation.active(accountID: account, moduleId: product.moduleId),
+              release.hostManifest.runtime == "web-game", release.gameSha256 != nil,
+              (try? activation.store.frontendData(for: release)) != nil,
+              (try? activation.store.verifiedGameEntry(for: release)) != nil else { return nil }
+        return release
+    }
+
+    private func saveOfflineGameCatalogue() {
+        guard let accountID else { return }
+        let games = products.filter { verifiedOfflineGame($0, account: accountID) != nil }
+        guard let data = try? JSONEncoder().encode(games) else { return }
+        try? FileManager.default.createDirectory(at: offlineGameCatalogueRoot, withIntermediateDirectories: true)
+        try? data.write(to: offlineGameCatalogueURL(account: accountID), options: .atomic)
+    }
+
+    private func restoreOfflineGameCatalogue() {
+        guard let accountID,
+              let data = try? Data(contentsOf: offlineGameCatalogueURL(account: accountID)),
+              let cached = try? JSONDecoder().decode([CatalogueProduct].self, from: data) else { return }
+        let games = cached.compactMap { product -> (CatalogueProduct, ModuleCachedRelease)? in
+            guard let release = verifiedOfflineGame(product, account: accountID) else { return nil }
+            return (product, release)
+        }
+        products = games.map { $0.0 }
+        installations = Dictionary(uniqueKeysWithValues: games.map { item in
+            (item.0.moduleId, ModuleInstallation(moduleId: item.0.moduleId, status: "enabled", version: item.1.version))
+        })
+        // Keep `loaded` false: offline launch uses the verified local release,
+        // while install/update and online revocation decisions still need the registry.
+        loaded = false
     }
 
     /// Drops the signed-in account's hub installation list. Cached bytes stay in that
@@ -430,6 +475,7 @@ final class ProductHubStore {
            cached.version == version, cached.frontendSha256 == declaredSha,
            (!isWebGame || cached.gameSha256 == gameSha256) {
             lifecycleErrors[id] = nil
+            if isWebGame { saveOfflineGameCatalogue() }
             return
         }
         var artifact: Data?
@@ -485,6 +531,7 @@ final class ProductHubStore {
             _ = try activation.activate(accountID: account, moduleId: id)
             if let gameReleaseID { eligibleGameReleases[id] = gameReleaseID }
             lifecycleErrors[id] = nil
+            if isWebGame { saveOfflineGameCatalogue() }
         } catch {
             lifecycleErrors[id] = error.localizedDescription
         }
