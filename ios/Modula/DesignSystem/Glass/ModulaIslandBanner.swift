@@ -626,6 +626,18 @@ struct ModulaToastHost: View {
 
     var body: some View {
         GeometryReader { geo in
+            let metrics = IslandBannerMetrics.resolve(safeAreaTop: geo.safeAreaInsets.top, containerWidth: geo.size.width)
+            if metrics.style == .island && !calm {
+                IslandToastPresenter(center: center, metrics: metrics, containerWidth: geo.size.width)
+            } else {
+                glassHost(geo)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func glassHost(_ geo: GeometryProxy) -> some View {
+        Group {
             // Just below the island / notch, inside the safe area.
             let top = max(geo.safeAreaInsets.top, 20) + 4
             ZStack(alignment: .top) {
@@ -710,6 +722,183 @@ struct ModulaToastHost: View {
     }
 }
 
+
+// MARK: - Island toast: emerges from and melts back into the Dynamic Island
+
+/// Same metaball technique as Settings' Telegram avatar merge (`IslandAvatarMerge`):
+/// black shapes drawn in a Canvas layer with blur + alpha threshold so the island
+/// capsule and the growing toast body fuse with a gooey neck. Only used on Dynamic
+/// Island devices with motion allowed; everything else uses the glass pill.
+private struct IslandToastPresenter: View {
+    var center: ModulaToastCenter
+    var metrics: IslandBannerMetrics
+    var containerWidth: CGFloat
+
+    @State private var displayed: ModulaToast?
+    @State private var morph: CGFloat = 0
+    @State private var contentSize = CGSize(width: 200, height: 44)
+    @State private var generation = 0
+    @State private var bumpScale: CGFloat = 1
+    @GestureState private var drag: CGFloat = 0
+
+    var body: some View {
+        // Swiping up pulls the toast back toward the island.
+        let pull = drag < 0 ? max(0, 1 + drag / 140) : 1
+        let m = morph * pull
+        ZStack(alignment: .top) {
+            if let toast = displayed {
+                IslandToastMorph(metrics: metrics, containerWidth: containerWidth,
+                                 bodySize: contentSize, morph: m, bump: bumpScale)
+                    .allowsHitTesting(false)
+                content(toast)
+                    .onGeometryChange(for: CGSize.self) { $0.size } action: { contentSize = $0 }
+                    .opacity(Double(smoothstepToast(0.6, 0.92, m)))
+                    .blur(radius: (1 - smoothstepToast(0.6, 0.95, m)) * 6)
+                    .scaleEffect(bumpScale * (0.88 + 0.12 * smoothstepToast(0.5, 1, m)), anchor: .top)
+                    .padding(.top, bodyTop(m))
+                    .gesture(swipe)
+                    .onLongPressGesture(minimumDuration: 0.05, maximumDistance: 30, pressing: { center.setPaused($0) }, perform: {})
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .ignoresSafeArea(edges: .top)
+        .onAppear { sync(center.current) }
+        .onChange(of: center.current?.id) { _, _ in sync(center.current) }
+        .onChange(of: center.current?.bump) { _, _ in
+            if let c = center.current, c.id == displayed?.id { displayed = c }
+            bumpScale = 1.05
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.55)) { bumpScale = 1 }
+        }
+    }
+
+    /// Top of the toast body: tucked into the island at 0, hanging below it at 1.
+    private func bodyTop(_ m: CGFloat) -> CGFloat {
+        let islandBottom = metrics.topPadding + metrics.seedHeight
+        return metrics.topPadding + (islandBottom + 8 - metrics.topPadding) * m
+    }
+
+    private func sync(_ next: ModulaToast?) {
+        generation += 1
+        let gen = generation
+        if let next {
+            if displayed != nil, morph > 0.85 {
+                // Already open: swap content in place.
+                withAnimation(.easeInOut(duration: 0.2)) { displayed = next }
+                return
+            }
+            displayed = next
+            morph = 0
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.74)) { morph = 1 }
+            return
+        }
+        guard displayed != nil else { return }
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.92)) { morph = 0 }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(460))
+            guard gen == generation, center.current == nil else { return }
+            displayed = nil
+        }
+    }
+
+    private var swipe: some Gesture {
+        DragGesture(minimumDistance: 6)
+            .updating($drag) { value, state, _ in state = value.translation.height }
+            .onEnded { value in
+                if value.translation.height < -16 || value.predictedEndTranslation.height < -40 {
+                    // Continue from the pulled position so it keeps melting upward.
+                    morph = max(0, 1 + value.translation.height / 140)
+                    center.dismiss()
+                }
+            }
+    }
+
+    private func content(_ toast: ModulaToast) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: toast.symbol)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(toast.tone.tint)
+                .symbolRenderingMode(.hierarchical)
+                .contentTransition(.symbolEffect(.replace))
+            Text(toast.message)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+            if toast.count > 1 {
+                Text("×\(toast.count)")
+                    .font(.caption.weight(.bold).monospacedDigit())
+                    .foregroundStyle(.white.opacity(0.6))
+                    .contentTransition(.numericText())
+            }
+            if let title = toast.actionTitle, toast.action != nil {
+                Button(title) { center.performAction() }
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(Color.accentColor)
+                    .buttonStyle(.plain)
+                    .padding(.leading, 4)
+            }
+        }
+        .padding(.horizontal, 18)
+        .frame(minHeight: 46)
+        .frame(maxWidth: containerWidth - 32)
+        .fixedSize(horizontal: true, vertical: true)
+        .contentShape(Capsule(style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isStaticText)
+        .accessibilityIdentifier("shell.toast")
+        .accessibilityAction(named: "Dismiss") { center.dismiss() }
+    }
+}
+
+/// The black island + toast silhouette, fused with blur + alpha threshold.
+private struct IslandToastMorph: View, @MainActor Animatable {
+    var metrics: IslandBannerMetrics
+    var containerWidth: CGFloat
+    var bodySize: CGSize
+    var morph: CGFloat
+    var bump: CGFloat
+
+    var animatableData: CGFloat {
+        get { morph }
+        set { morph = newValue }
+    }
+
+    var body: some View {
+        let island = CGRect(x: (containerWidth - metrics.seedWidth) / 2, y: metrics.topPadding,
+                            width: metrics.seedWidth, height: metrics.seedHeight)
+        let m = max(0, morph)
+        // Body starts as the island itself, then stretches down and widens into the toast.
+        let stretch = smoothstepToast(0, 0.55, m)
+        let widen = smoothstepToast(0.3, 1, m)
+        let w = (island.width + (bodySize.width - island.width) * widen) * bump
+        let h = island.height + (bodySize.height - island.height) * widen
+        let top = island.minY + (island.maxY + 8 - island.minY) * m
+        let body = CGRect(x: (containerWidth - w) / 2, y: top, width: w, height: h)
+        // Neck blob sits in the gap so the two stay fused until the toast settles.
+        let neckW = island.width * (0.55 - 0.25 * widen)
+        let neckH = max(0, (body.minY - island.maxY) + 18) * (1 - smoothstepToast(0.85, 1, m) * 0.6)
+        let neck = CGRect(x: (containerWidth - neckW) / 2, y: island.maxY - 12, width: neckW, height: neckH)
+        Canvas { ctx, _ in
+            ctx.addFilter(.alphaThreshold(min: 0.5, color: .black))
+            ctx.addFilter(.blur(radius: 6 + 4 * stretch * (1 - widen)))
+            ctx.drawLayer { layer in
+                layer.fill(Path(roundedRect: island, cornerRadius: island.height / 2), with: .color(.black))
+                if m > 0.01 {
+                    layer.fill(Path(roundedRect: body, cornerRadius: min(body.height, body.width) / 2), with: .color(.black))
+                    if neckH > 0 { layer.fill(Path(ellipseIn: neck), with: .color(.black)) }
+                }
+            }
+        }
+        .frame(width: containerWidth, height: max(body.maxY + 30, island.maxY + 30))
+        .frame(maxWidth: .infinity, alignment: .top)
+        .accessibilityHidden(true)
+    }
+}
+
+private func smoothstepToast(_ e0: CGFloat, _ e1: CGFloat, _ x: CGFloat) -> CGFloat {
+    let t = min(max((x - e0) / (e1 - e0), 0), 1)
+    return t * t * (3 - 2 * t)
+}
 
 /// Passthrough overlay window so toasts sit above sheets and full-screen covers.
 @MainActor
