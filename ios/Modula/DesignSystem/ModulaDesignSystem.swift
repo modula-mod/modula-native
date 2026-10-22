@@ -1053,3 +1053,4 @@ struct ModulaSectionHeader: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
+
