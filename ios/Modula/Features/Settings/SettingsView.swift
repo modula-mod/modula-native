@@ -600,7 +600,7 @@ struct AppearanceSettingsView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
                 AppearancePreviewView(compact: true)
-                SettingsGroup(title: "Colour", subtitle: "Teal remains the Modula semantic default.") {
+                SettingsGroup(title: "Colour") {
                     VStack(alignment: .leading, spacing: 14) {
                         Text("Theme").font(.subheadline.weight(.semibold))
                         ViewThatFits(in: .horizontal) {
@@ -660,9 +660,7 @@ struct AppearanceSettingsView: View {
                 }
                 SettingsGroup(title: "Interface") {
                     VStack(spacing: 0) {
-                        SettingsNavigationRow(title: "App Icon", subtitle: "Default · device-local", symbol: "app.dashed") {
-                            app.navigation.open(.settings(.appearance(.appIcon)))
-                        }
+                        GlassIntensityRow()
                         SettingsDivider()
                         AppearanceMenuRow(title: "Density", symbol: "arrow.up.left.and.arrow.down.right", selection: $store.density, options: AppearanceStore.Density.allCases, label: display)
                         SettingsDivider()
@@ -730,19 +728,25 @@ struct AppearancePreviewView: View {
                     ModulaAvatar(initials: "M")
                         .accessibilityHidden(true)
                     VStack(alignment: .leading) {
-                        ModulaText(text: "Modula Preview", role: .headline)
-                        Text("How your choices look").font(.caption).foregroundStyle(.secondary)
+                        ModulaText(text: app.auth.account?.primaryHandle ?? "modula", role: .headline)
+                        Text("Just now · Preview").font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
                     ModulaBadge(title: "Live", symbol: "sparkles")
                 }
-                ModulaText(text: "Your digital world, your way.", role: compact ? .headline : .title)
-                HStack {
-                    ModulaMetric(value: "3", label: "Modes"); Spacer()
-                    ModulaMetric(value: "1", label: "Runtime"); Spacer()
-                    ModulaMetric(value: "Swift", label: "Shell")
+                ModulaText(text: "Trying out a new look for my Modula. What do you think? 🎨", role: compact ? .body : .headline)
+                // A realistic mini post, so accent / theme / density changes are visible live.
+                HStack(spacing: 18) {
+                    Label("24", systemImage: "heart.fill").foregroundStyle(app.appearance.accent.color)
+                    Label("6", systemImage: "bubble.left")
+                    Label("2", systemImage: "arrow.2.squarepath")
+                    Spacer()
+                    Image(systemName: "bookmark")
                 }
-                if !compact { ModulaButton(title: "Primary Action", symbol: "arrow.right") {} }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+                if !compact { ModulaButton(title: "Follow", symbol: "person.badge.plus") {} }
             }
         }
     }
@@ -1127,5 +1131,30 @@ private struct FormFieldCatalogSample: View {
             ModulaFormField(title: "Password", symbol: "lock", text: $secret, kind: .secure,
                             focus: $focused, focusValue: Field.secret, identifier: "catalog.form-field.secret")
         }
+    }
+}
+
+
+/// Glass intensity: Clear (iOS 26 clear glass), Standard, or Frosted (extra material backing).
+private struct GlassIntensityRow: View {
+    @AppStorage(ModulaGlassIntensity.storageKey) private var raw = ModulaGlassIntensity.standard.rawValue
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "cube.transparent")
+                .frame(width: 31)
+                .foregroundStyle(.secondary)
+            Text("Glass Intensity")
+            Spacer(minLength: 8)
+            Picker("Glass Intensity", selection: $raw) {
+                ForEach(ModulaGlassIntensity.allCases) { level in
+                    Text(level.title).tag(level.rawValue)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+        }
+        .frame(minHeight: 48)
+        .accessibilityIdentifier("appearance.glass-intensity")
     }
 }

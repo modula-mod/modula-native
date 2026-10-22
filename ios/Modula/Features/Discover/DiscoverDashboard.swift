@@ -113,7 +113,7 @@ struct DiscoverHeroCarousel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Today on Modula").font(.title2.bold())
+            ModulaSectionHeader(title: "Today on Modula")
             TabView(selection: $page) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                     heroCard(item).tag(index).padding(.horizontal, 2)
@@ -155,6 +155,7 @@ struct DiscoverHeroCarousel: View {
                     if let sub = subtitle(item) {
                         Text(sub).font(.subheadline).foregroundStyle(.white.opacity(0.8)).lineLimit(2)
                     }
+                    if case .post(let post) = item { heroPostMeta(post) }
                 }
                 .padding(18)
             }
@@ -166,6 +167,24 @@ struct DiscoverHeroCarousel: View {
         }
         .buttonStyle(.modulaPressTilt)
         .accessibilityLabel(title(item))
+    }
+
+    /// Author + real engagement so a text-only post card isn't an empty black slab.
+    private func heroPostMeta(_ post: DiscoverPost) -> some View {
+        HStack(spacing: 8) {
+            if let author = post.author {
+                ModulaAvatar(initials: author.initials, url: author.avatarURL, size: 22, name: author.displayName)
+                Text(author.displayName).font(.caption.weight(.semibold)).foregroundStyle(.white).lineLimit(1)
+            }
+            Spacer(minLength: 4)
+            if let likes = post.likeCount, likes > 0 {
+                Label("\(likes)", systemImage: "heart.fill").font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
+            }
+            if let replies = post.replyCount, replies > 0 {
+                Label("\(replies)", systemImage: "bubble.left.fill").font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
+            }
+        }
+        .padding(.top, 4)
     }
 
     @ViewBuilder private func heroBackdrop(_ item: DiscoverHeroItem) -> some View {
@@ -181,7 +200,7 @@ struct DiscoverHeroCarousel: View {
                     }
                 }
             } else {
-                LinearGradient(colors: [.indigo, .purple], startPoint: .topLeading, endPoint: .bottomTrailing)
+                DiscoverTopicArtwork(seed: post.id)
             }
         case .module(let product):
             ProductBackdrop(product: product)
@@ -213,7 +232,7 @@ struct DiscoverBentoTopics: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Trending topics").font(.title3.bold())
+            ModulaSectionHeader(title: "Trending topics")
             if dynamicTypeSize.isAccessibilitySize {
                 VStack(spacing: 10) {
                     ForEach(Array(topics.enumerated()), id: \.element.id) { item in

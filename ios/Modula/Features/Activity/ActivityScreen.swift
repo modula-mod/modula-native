@@ -114,7 +114,9 @@ struct ActivityScreen: View {
                 Button {
                     Task { await app.activity.markAllRead(mode: mode) }
                 } label: {
-                    Image(systemName: "checkmark.circle")
+                    Label("Mark all read", systemImage: "checkmark.circle")
+                        .labelStyle(.titleAndIcon)
+                        .font(.subheadline.weight(.semibold))
                 }
                 .disabled(unread == 0)
                 .accessibilityLabel("Mark all as read")
@@ -157,11 +159,27 @@ struct ActivityScreen: View {
             }
         }()
         return VStack(alignment: .leading, spacing: 8) {
-            ActivityLivelyEmptyState(
-                title: copy.0, message: copy.1, symbol: copy.2,
-                actionTitle: "Find people to follow",
-                action: { app.navigation.open(.discover(.people)); HapticEngine.shared.play(.navigation) }
-            )
+            // Compact one-line state instead of half-screen artwork.
+            HStack(spacing: 10) {
+                Image(systemName: copy.2)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(app.appearance.accent.color)
+                    .frame(width: 30, height: 30)
+                    .background(app.appearance.accent.color.opacity(0.12), in: Circle())
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(copy.0).font(.subheadline.weight(.semibold))
+                    Text(copy.1).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 6)
+                Button("Find people") {
+                    app.navigation.open(.discover(.people)); HapticEngine.shared.play(.navigation)
+                }
+                .font(.caption.weight(.semibold))
+                .buttonStyle(.bordered)
+                .buttonBorderShape(.capsule)
+            }
+            .padding(12)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: false)
             ActivitySuggestedPeople()
         }
         .accessibilityIdentifier("activity.empty.\(mode.rawValue)")

@@ -979,8 +979,11 @@ struct ProfileInfoChips: View {
             .accessibilityLabel("Website, \(chip.title)")
             .accessibilityIdentifier("profile.chip.\(chip.id)")
         } else {
+            // Plain metadata (Joined, Private…) reads as one clean line, not a pile of pills.
             label
-                .modulaGlass(in: Capsule(), interactive: false)
+                .padding(.horizontal, -11)
+                .padding(.trailing, 6)
+                .foregroundStyle(.secondary)
                 .accessibilityElement(children: .combine)
                 .accessibilityIdentifier("profile.chip.\(chip.id)")
         }
@@ -2059,8 +2062,10 @@ struct ModulaDecoratedAvatar<Content: View>: View {
                 .overlay { animatedFrameLayer }
 
             if presence != .offline {
+                // Sit the pip on the circle's 45° edge (inside the frame) so the cover
+                // notch / parent clip can never cut it in half.
                 presencePip
-                    .offset(x: -2, y: -2)
+                    .offset(x: -(ringPad + size * 0.146 - pipSize / 2), y: -(ringPad + size * 0.146 - pipSize / 2))
             }
         }
         .frame(width: size + ringPad * 2, height: size + ringPad * 2)
@@ -2248,10 +2253,12 @@ struct ModulaDecoratedAvatar<Content: View>: View {
         }
     }
 
+    private var pipSize: CGFloat { max(12, size * 0.22) }
+
     private var presencePip: some View {
         Circle()
             .fill(presence.color)
-            .frame(width: max(12, size * 0.22), height: max(12, size * 0.22))
+            .frame(width: pipSize, height: pipSize)
             .overlay(Circle().strokeBorder(Color(uiColor: .systemBackground), lineWidth: 2.5))
             .accessibilityLabel(presence.title)
     }

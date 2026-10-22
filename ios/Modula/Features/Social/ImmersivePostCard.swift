@@ -884,13 +884,11 @@ struct ImmersivePostCard: View {
                                 .transition(.scale.combined(with: .opacity))
                         }
                     }
-                    Text(ModulaCountFormat.compact(reactionCount) ?? "\(reactionCount)")
-                        .font(.system(size: 11, weight: .semibold, design: font).monospacedDigit())
-                        .foregroundStyle(onMedia ? Color.white.opacity(0.92) : Color.secondary)
-                        .contentTransition(.numericText())
+                    // The heart beside this already shows the count; the chip is just the stacked
+                    // top reactions, so the same number never appears twice.
                 }
                 .padding(.leading, 4)
-                .padding(.trailing, 9)
+                .padding(.trailing, 4)
                 .padding(.vertical, 3)
                 .modulaGlass(in: Capsule(), interactive: true)
                 .animation(calm ? nil : .spring(response: 0.3, dampingFraction: 0.7), value: emojis)
@@ -1047,7 +1045,7 @@ struct ImmersivePostCard: View {
         Button(action: onComment) {
             HStack(spacing: 8) {
                 if let profile = app.profile.ownProfile {
-                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 22)
+                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 18)
                 } else {
                     Image(systemName: "person.crop.circle.fill")
                         .font(.system(size: 18))
@@ -1063,9 +1061,9 @@ struct ImmersivePostCard: View {
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(.white.opacity(0.55))
             }
-            .padding(.horizontal, 12)
-            .frame(height: 34)
-            .background(.white.opacity(0.12), in: Capsule())
+            .padding(.horizontal, 10)
+            .frame(height: 30)
+            .background(.white.opacity(0.09), in: Capsule())
         }
         .buttonStyle(.plain)
         .padding(.leading, 12)
@@ -1091,7 +1089,7 @@ struct ImmersivePostCard: View {
         Button(action: onComment) {
             HStack(spacing: 8) {
                 if let profile = app.profile.ownProfile {
-                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 22)
+                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 18)
                 } else {
                     Image(systemName: "person.crop.circle.fill")
                         .font(.system(size: 18))
@@ -1100,13 +1098,13 @@ struct ImmersivePostCard: View {
                 }
                 Text("Add a comment…")
                     .font(.system(.caption, design: font, weight: .medium))
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(Color.secondary.opacity(0.8))
                     .lineLimit(1)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 12)
-            .frame(height: 34)
-            .background(Color.primary.opacity(0.06), in: Capsule())
+            .padding(.horizontal, 10)
+            .frame(height: 28)
+            .background(Color.primary.opacity(0.035), in: Capsule())
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)

@@ -192,6 +192,27 @@ struct StoryTray: View {
                     .accessibilityValue(group.isOwn ? (group.isComposerPlaceholder ? "empty" : "active") : "")
                     .accessibilityIdentifier(group.isOwn ? "home.story.own" : "home.story.\(group.id)")
                 }
+                // Nobody you follow has a story up: show people from your feed as dashed
+                // "suggested" rings (tap → profile) so the row isn't just "Your story".
+                if !compact, !groups.contains(where: { !$0.isOwn }) {
+                    ForEach(suggestedAuthors) { author in
+                        Button {
+                            app.navigation.push(.profile(author.id, .overview))
+                            HapticEngine.shared.play(.navigation)
+                        } label: {
+                            trayCell(
+                                avatar: ModulaAvatar(initials: author.initials, url: author.avatarURL, size: avatarSize - 10, name: author.displayName)
+                                    .padding(5)
+                                    .overlay(Circle().strokeBorder(Color.secondary.opacity(0.45), style: StrokeStyle(lineWidth: 1.5, dash: [4, 4]))),
+                                title: author.displayName.split(whereSeparator: \.isWhitespace).first.map(String.init) ?? author.displayName
+                            )
+                            .opacity(0.85)
+                        }
+                        .buttonStyle(ModulaPressStyle(scale: 0.93, haptic: nil))
+                        .accessibilityLabel("Suggested: \(author.displayName)")
+                        .accessibilityIdentifier("home.story.suggested.\(author.id)")
+                    }
+                }
             }
             .padding(.vertical, 4)
         }
@@ -218,6 +239,16 @@ struct StoryTray: View {
         if group.isOwn { return "Your story" }
         let name = group.author.displayName.trimmingCharacters(in: .whitespaces)
         return name.split(whereSeparator: \.isWhitespace).first.map(String.init) ?? name
+    }
+
+    private var suggestedAuthors: [SocialAuthor] {
+        var seen = Set<String>()
+        let own = app.auth.account?.accountId
+        return HomeMode.allCases.flatMap { app.home.visiblePosts(for: $0) }
+            .compactMap(\.author)
+            .filter { $0.id != own && seen.insert($0.id).inserted }
+            .prefix(6)
+            .map { $0 }
     }
 
     private var showsComposer: Bool {

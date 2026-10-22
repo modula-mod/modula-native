@@ -680,15 +680,17 @@ struct PostCommentsView: View {
                         }
                     }
                 } label: {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "arrow.up.arrow.down")
+                            .font(.system(size: 11, weight: .bold))
                         Text(sort.title)
                         Image(systemName: "chevron.down")
                             .font(.system(size: 10, weight: .bold))
                     }
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 34)
                     .modulaGlass(in: Capsule(), interactive: true)
                 }
                 .accessibilityLabel("Sort comments, \(sort.title)")
@@ -810,7 +812,7 @@ struct PostCommentsView: View {
                 .padding(.vertical, 28)
                 .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
             } else {
-                LazyVStack(alignment: .leading, spacing: 18) {
+                LazyVStack(alignment: .leading, spacing: 10) {
                     ForEach(filteredRoots(store)) { comment in
                         commentRow(comment, store: store)
                         let replies = filteredReplies(store, parent: comment)
@@ -845,7 +847,7 @@ struct PostCommentsView: View {
                             } label: {
                                 HStack(spacing: 8) {
                                     Rectangle().frame(width: 20, height: 1)
-                                    Text("View \(comment.replyCount) \(comment.replyCount == 1 ? "reply" : "replies")")
+                                    Text("Show \(comment.replyCount) \(comment.replyCount == 1 ? "reply" : "replies")")
                                     if store.loadingReplies.contains(comment.id) { ProgressView().controlSize(.mini) }
                                     else { Image(systemName: "chevron.down").font(.caption2.weight(.bold)) }
                                 }
@@ -936,6 +938,15 @@ struct PostCommentsView: View {
         return false
     }
 
+    /// A comment that is only a link (optionally behind a repost glyph) renders as just the link card.
+    static func isBareLink(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "🔁↻⟳"))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.contains(" "), let url = URL(string: trimmed), let scheme = url.scheme else { return false }
+        return scheme == "http" || scheme == "https"
+    }
+
     private func commentRow(_ comment: SocialComment, store: PostCommentsStore, indented: Bool = false) -> some View {
         HStack(alignment: .top, spacing: 10) {
             if indented {
@@ -995,7 +1006,7 @@ struct PostCommentsView: View {
                 if !local.stickers.isEmpty {
                     ModulaLocalStickerRow(stickers: local.stickers)
                 }
-                if !local.text.isEmpty {
+                if !local.text.isEmpty, !Self.isBareLink(local.text) {
                     Text(ModulaRichText.attributed(local.text, revealSpoilers: revealedSpoilers.contains(comment.id)))
                         .font(.body)
                         .lineSpacing(3)
@@ -1060,10 +1071,11 @@ struct PostCommentsView: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .buttonStyle(.plain)
-                .frame(minHeight: 44, alignment: .leading)
+                .frame(minHeight: 30, alignment: .leading)
+                .contentShape(Rectangle())
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
         .id(comment.id)
         .overlay(alignment: .topTrailing) {
             if comment.pinned {

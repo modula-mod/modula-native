@@ -702,6 +702,15 @@ struct ProfileView: View {
                 }
             }
             .padding(3)
+            .padding(.trailing, 14)
+            }
+            // Edge fade so a clipped tab ("Mod…") reads as scrollable instead of cut off.
+            .mask {
+                LinearGradient(stops: [
+                    .init(color: .black, location: 0),
+                    .init(color: .black, location: 0.86),
+                    .init(color: .black.opacity(0), location: 1)
+                ], startPoint: .leading, endPoint: .trailing)
             }
             .modulaGlass(in: Capsule(), interactive: false, specular: true)
 
@@ -716,6 +725,13 @@ struct ProfileView: View {
         .padding(.leading, leadingInteractionInset)
         .padding(.trailing, trailingInteractionInset)
         .padding(.vertical, 8)
+        // Blur backing that travels with the pinned bar so posts and the faded cover
+        // stats never ghost through behind the tabs.
+        .background {
+            ProfileShelfBacking()
+                .padding(.top, -64)
+                .allowsHitTesting(false)
+        }
         // Pinned header: slide it down so it rests just below the status bar / nav buttons.
         .visualEffect { content, proxy in
             let minY = proxy.frame(in: .scrollView).minY
@@ -889,7 +905,7 @@ struct ProfileView: View {
             action()
         } label: {
             (Text(ModulaCountFormat.compact(value) ?? "0").font(.subheadline.weight(.bold)).foregroundStyle(.primary)
-             + Text(" \(label)").font(.subheadline).foregroundStyle(.secondary))
+             + Text(" \(label)").font(.subheadline.weight(.medium)).foregroundStyle(Color.primary.opacity(0.72)))
                 .monospacedDigit()
         }
         .buttonStyle(.plain)
@@ -1829,5 +1845,27 @@ private struct ProfileCollapsedNavBackground: View {
         .opacity(progress)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+}
+
+
+/// Progressive blur behind the pinned profile tab bar.
+private struct ProfileShelfBacking: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        let fade = LinearGradient(stops: [
+            .init(color: .black, location: 0),
+            .init(color: .black, location: 0.78),
+            .init(color: .black.opacity(0), location: 1)
+        ], startPoint: .top, endPoint: .bottom)
+        Group {
+            if reduceTransparency {
+                Rectangle().fill(Color(uiColor: .systemBackground))
+            } else {
+                Rectangle().fill(.ultraThinMaterial)
+            }
+        }
+        .mask(fade)
     }
 }
