@@ -17,6 +17,8 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
     case riff, graff, nyx, zip, vex, koda, glitch, jinx, `static`, holo, fuse, skid, mica, rumble, flick
     // Family 004 — Enchanted
     case bramble, ferni, truffle, rootle, willow, pollen, mallow, acora, spindle, glade, lichen, thimble, wyrmi, kiko, eldra
+    // Family 005 — Stardust
+    case astra, nebbi, quori, vesper, pulsa, stellan, cosmi, eclipa, meteo, asteri, zenith, liora, nocta, glint, polaris
     var id: String { rawValue }
 
     var isPremium: Bool {
@@ -26,6 +28,7 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
         case .aura, .soli, .luma, .cheri, .haloa: false
         case .riff, .graff, .koda, .skid, .flick: false
         case .ferni, .truffle, .mallow, .acora, .thimble: false
+        case .astra, .nebbi, .quori, .cosmi, .glint: false
         default: true
         }
     }
@@ -1715,7 +1718,7 @@ enum MolibooFamily: String, CaseIterable, Identifiable, Sendable {
         case .angels: "Celestia"
         case .underground: "The Underground"
         case .enchanted: "The Luminous Wilds"
-        case .stardust: "The Stardust Reaches"
+        case .stardust: "The Stardust Reach"
         case .dreamers: "The Dreaming Vale"
         }
     }
@@ -2305,10 +2308,11 @@ enum MolibooFamilySpecs {
         t[.auri] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.82), palette: .spec(c(0.88, 0.84, 0.98), accent: c(0.56, 0.9, 0.86), light: c(0.98, 0.96, 1)), parts: [.wings(.fairy, c(0.7, 0.9, 1)), .antennae(c(1, 0.7, 0.9)), .sparkles(3)], floats: true, feet: false, form: "Iridescent celestial sprite")
         addUnderground(&t)
         addEnchanted(&t)
+        addStardust(&t)
         return t
     }()
 
-    static let profiles: [ModulaMascotKind: ModulaMascotKind.Profile] = angelProfiles.merging(undergroundProfiles) { a, _ in a }.merging(enchantedProfiles) { a, _ in a }
+    static let profiles: [ModulaMascotKind: ModulaMascotKind.Profile] = angelProfiles.merging(undergroundProfiles) { a, _ in a }.merging(enchantedProfiles) { a, _ in a }.merging(stardustProfiles) { a, _ in a }
 
     static let angelProfiles: [ModulaMascotKind: ModulaMascotKind.Profile] = [
         .aura: .init(number: 26, title: "The Guiding Light", traits: ["Light", "Leader", "Calm"]),
@@ -2410,5 +2414,47 @@ extension MolibooFamilySpecs {
         .wyrmi: .init(number: 68, title: "The Forest Wyrm", traits: ["Dragon", "Magical", "Mischievous"]),
         .kiko: .init(number: 69, title: "The Curious Critter", traits: ["Agile", "Curious", "Energetic"]),
         .eldra: .init(number: 70, title: "The Ancient Spirit", traits: ["Spirit", "Majestic", "Mysterious"]),
+    ]
+}
+
+// MARK: - Family 005 — Stardust (The Stardust Reach)
+
+extension MolibooFamilySpecs {
+    static let starGold = c(1, 0.84, 0.44), nightViolet = c(0.26, 0.2, 0.42), starBlue = c(0.56, 0.74, 1)
+    static func addStardust(_ t: inout [ModulaMascotKind: MolibooSpec]) {
+        let w = c(0.97, 0.96, 1)
+        t[.astra] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.82), palette: .spec(w, accent: starGold, light: .white), parts: [.glow(starGold), .rays(10, starGold), .wings(.fairy, c(0.9, 0.92, 1)), .starCrest, .sparkles(3)], floats: true, feet: false, form: "The star sprite")
+        t[.nebbi] = MolibooSpec(body: .cloud, size: CGSize(width: 1.06, height: 0.86), palette: .spec(c(0.88, 0.8, 0.98), accent: c(0.96, 0.6, 0.86), light: c(0.97, 0.94, 1)), parts: [.glow(c(0.8, 0.6, 1)), .petals(6, c(0.84, 0.66, 0.98)), .sparkles(4)], floats: true, feet: false, form: "The nebula dreamer")
+        t[.quori] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.84), palette: .spec(w, accent: starGold, light: .white), parts: [.ring(starGold), .ears(.cat), .sparkles(2)], hatMaxWidth: 0.48, form: "The ringed wanderer")
+        t[.vesper] = MolibooSpec(body: .round, size: CGSize(width: 0.88, height: 0.82), palette: .spec(nightViolet, accent: c(0.75, 0.7, 1), iris: c(0.85, 0.85, 1), light: c(0.44, 0.36, 0.64)), parts: [.tail(.comet, c(0.5, 0.4, 0.9)), .ears(.fox), .crescent(c(1, 0.9, 0.6)), .sparkles(3)], floats: true, feet: false, form: "The twilight comet")
+        t[.pulsa] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.84), palette: .spec(c(1, 0.92, 0.66), accent: c(1, 0.7, 0.24), light: .white), parts: [.glow(c(1, 0.78, 0.3)), .rays(14, c(1, 0.8, 0.3)), .lightning], floats: true, feet: false, form: "The pulse nova")
+        t[.stellan] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(w, accent: starBlue, light: .white), parts: [.ears(.fox), .starAntlers, .mane(6), .sparkles(2)], hatMaxWidth: 0.46, form: "The cosmic fawn")
+        t[.cosmi] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(w, accent: c(0.6, 0.5, 1), light: .white), parts: [.ears(.bunny), .orbiters(3, starGold), .tail(.fluffy, w)], hatMaxWidth: 0.5, form: "The galaxy hopper")
+        t[.eclipa] = MolibooSpec(body: .round, size: CGSize(width: 0.88, height: 0.84), palette: .spec(c(0.16, 0.13, 0.22), accent: c(1, 0.86, 0.5), iris: c(1, 0.86, 0.5), light: c(0.3, 0.26, 0.4)), parts: [.tail(.curl, c(0.16, 0.13, 0.22)), .ears(.cat), .crescent(c(1, 0.88, 0.55)), .sparkles(3)], hatMaxWidth: 0.48, form: "The moon shadow")
+        t[.meteo] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(c(0.98, 0.6, 0.3), accent: c(1, 0.86, 0.3), light: c(1, 0.84, 0.6)), parts: [.glow(c(1, 0.5, 0.2)), .flame(c(1, 0.46, 0.18)), .ears(.tufts)], form: "The meteor scout")
+        t[.asteri] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.84), palette: .spec(w, accent: c(0.7, 0.8, 1), light: .white), parts: [.glow(c(0.7, 0.8, 1)), .wings(.dart, c(0.76, 0.84, 1)), .starCrest, .sparkles(3)], floats: true, feet: false, form: "The crystal constellation")
+        t[.zenith] = MolibooSpec(body: .round, size: CGSize(width: 0.92, height: 0.86), palette: .spec(c(1, 0.9, 0.66), accent: c(0.9, 0.56, 0.24), light: c(1, 0.97, 0.86)), parts: [.glow(starGold), .mane(12), .wings(.feather, c(1, 0.86, 0.5)), .ears(.round)], form: "The solar guardian")
+        t[.liora] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.84), palette: .spec(w, accent: c(0.5, 0.9, 0.8), light: .white), parts: [.glow(c(0.5, 0.95, 0.85)), .wings(.fairy, c(0.6, 0.94, 0.86)), .petals(5, c(0.94, 0.7, 0.96)), .tail(.ribbon, c(0.6, 0.9, 0.9))], floats: true, feet: false, form: "The aurora bloom")
+        t[.nocta] = MolibooSpec(body: .round, size: CGSize(width: 0.84, height: 0.82), palette: .spec(w, accent: nightViolet, light: .white), parts: [.wings(.moth, nightViolet), .antennae(c(0.7, 0.6, 1)), .sparkles(3)], floats: true, feet: false, form: "The midnight moth")
+        t[.glint] = MolibooSpec(body: .drop, size: CGSize(width: 0.8, height: 0.92), palette: .spec(w, accent: c(0.4, 0.86, 1), light: .white), parts: [.glow(c(0.5, 0.9, 1)), .wings(.dart, c(0.6, 0.9, 1)), .antennae(starGold), .sparkles(4)], floats: true, feet: false, hatScale: 0.8, headTopExtra: 0.16, form: "The stardust pixie")
+        t[.polaris] = MolibooSpec(body: .bell, size: CGSize(width: 0.9, height: 0.92), palette: .spec(w, accent: c(0.36, 0.5, 0.94), light: .white), parts: [.glow(starBlue), .wings(.feather, c(0.86, 0.9, 1)), .compass, .starCrest], floats: true, feet: false, form: "The guiding star")
+    }
+
+    static let stardustProfiles: [ModulaMascotKind: ModulaMascotKind.Profile] = [
+        .astra: .init(number: 71, title: "The Star Sprite", traits: ["Light", "Bright", "Brave"]),
+        .nebbi: .init(number: 72, title: "The Nebula Dreamer", traits: ["Cosmic", "Dreamy", "Gentle"]),
+        .quori: .init(number: 73, title: "The Ringed Wanderer", traits: ["Orbit", "Curious", "Playful"]),
+        .vesper: .init(number: 74, title: "The Twilight Comet", traits: ["Night", "Swift", "Mysterious"]),
+        .pulsa: .init(number: 75, title: "The Pulse Nova", traits: ["Energy", "Bold", "Electric"]),
+        .stellan: .init(number: 76, title: "The Cosmic Fawn", traits: ["Starlight", "Noble", "Graceful"]),
+        .cosmi: .init(number: 77, title: "The Galaxy Hopper", traits: ["Space", "Cheerful", "Adventurous"]),
+        .eclipa: .init(number: 78, title: "The Moon Shadow", traits: ["Eclipse", "Calm", "Enigmatic"]),
+        .meteo: .init(number: 79, title: "The Meteor Scout", traits: ["Fire", "Fast", "Fearless"]),
+        .asteri: .init(number: 80, title: "The Crystal Constellation", traits: ["Crystal", "Wise", "Magical"]),
+        .zenith: .init(number: 81, title: "The Solar Guardian", traits: ["Sun", "Loyal", "Majestic"]),
+        .liora: .init(number: 82, title: "The Aurora Bloom", traits: ["Aurora", "Kind", "Radiant"]),
+        .nocta: .init(number: 83, title: "The Midnight Moth", traits: ["Shadow", "Dreamy", "Quiet"]),
+        .glint: .init(number: 84, title: "The Stardust Pixie", traits: ["Spark", "Tiny", "Energetic"]),
+        .polaris: .init(number: 85, title: "The Guiding Star", traits: ["Guide", "Hopeful", "Serene"]),
     ]
 }
