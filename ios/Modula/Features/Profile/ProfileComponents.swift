@@ -47,7 +47,7 @@ struct ProfileCover: View {
                     ModulaRemoteImage(
                         url: coverURL,
                         cacheKey: "cover:\(coverURL.path)",
-                        maximumPixelSize: max(width, coverHeight) * UIScreen.main.scale,
+                        maximumPixelSize: max(width, coverHeight) * UIScreen.main.scale * 1.5,
                         retryID: retryID
                     ) { phase in
                         switch phase {
@@ -55,24 +55,12 @@ struct ProfileCover: View {
                             // The whole banner stays readable: it's shown at full width below the
                             // status bar (aspect fit), over a blurred fill of itself, so baked-in
                             // text is never cropped off the sides or hidden behind the nav bar.
-                            let ratio = image.size.width > 0 ? image.size.height / image.size.width : 1 / 3
-                            let fitHeight = min(width * ratio, coverHeight + stretch - safeAreaTop * 0.6)
-                            ZStack(alignment: .bottom) {
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: width, height: coverHeight + stretch)
-                                    .clipped()
-                                    .blur(radius: 24, opaque: true)
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: width, height: fitHeight)
-                                    .clipped()
-                                    .padding(.bottom, coverHeight * 0.14)
-                            }
-                            .frame(width: width, height: coverHeight + stretch)
-                            .clipped()
+                            // Edge to edge, aspect-fill, sharp (no letterbox / blurred side fill).
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: width, height: coverHeight + stretch)
+                                .clipped()
                             // Banner softens as the page scrolls (and a touch while stretching).
                             .blur(radius: coverBlur(stretch: stretch), opaque: true)
                         case .failure:
@@ -1158,7 +1146,9 @@ struct ProfileHeroActions: View {
                 .contentShape(Circle())
         }
         .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
-        .modulaGlass(in: Circle(), interactive: true, specular: true)
+        // Non-interactive glass: interactive glass swallowed most taps (QR needed ~5 taps).
+        .modulaGlass(in: Circle(), interactive: false, specular: true)
+        .contentShape(Circle())
         .modulaGlassID(id, in: glass)
         .accessibilityLabel(title)
     }
@@ -1651,7 +1641,8 @@ struct ProfileAvatarContent: View {
 
     var body: some View {
         let selection = MascotSelection.resolve(raw: kindRaw)
-        if useMascot, selection != .off {
+        // The real photo wins wherever one exists, so the profile matches posts/Settings.
+        if useMascot, selection != .off, profile.avatarURL == nil {
             MascotAvatarView(size: size)
         } else {
             ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: size, name: profile.displayName)

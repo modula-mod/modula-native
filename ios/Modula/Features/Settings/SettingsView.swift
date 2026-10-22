@@ -284,7 +284,8 @@ struct SettingsView: View {
             SettingsQRModal { showsQR = false }
                 .transition(.scale)
         }
-        .searchable(text: $query, isPresented: $searchPresented, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search Settings")
+        // Bottom/toolbar search (iOS 26 default) — the nav-bar drawer collided with Back and the title.
+        .searchable(text: $query, isPresented: $searchPresented, prompt: "Search Settings")
         .task { await refreshIntelligenceStatus() }
         .accessibilityIdentifier("settings.root")
     }
@@ -441,7 +442,8 @@ struct SettingsView: View {
         if app.auth.account == nil {
             app.navigation.open(.auth(.login))
         } else {
-            app.navigation.open(.me(.edit))
+            // Push on top of Settings so Cancel/Back returns here (open() swapped the Profile tab root).
+            app.navigation.push(.me(.edit))
         }
     }
 }

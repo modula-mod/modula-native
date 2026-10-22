@@ -109,7 +109,7 @@ struct ModulaProfileCodeView: View {
             }
             .background(
                 ZStack {
-                    ModulaPalette.resolve(app.appearance, scheme: scheme).canvas
+                    ModulaPalette.resolve(app.appearance, scheme: scheme).canvas.opacity(0.55)
                     ModulaAuroraBackground(tint: accent, secondary: nil, intensity: 0.6)
                         .opacity(0.5)
                 }
