@@ -1886,23 +1886,29 @@ private struct ProfileCollapsedNavBackground: View {
 private struct ProfileShelfBacking: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
+    /// True progressive blur: stacked materials, each masked to end lower down, so the blur is
+    /// strongest at the top edge and ramps to zero at the bottom. Only a light tint, no opaque
+    /// fill, so content is visibly blurred under the bar and gradually sharp below.
     var body: some View {
-        let fade = LinearGradient(stops: [
-            .init(color: .black, location: 0),
-            .init(color: .black, location: 0.78),
-            .init(color: .black.opacity(0), location: 1)
-        ], startPoint: .top, endPoint: .bottom)
-        Group {
-            if reduceTransparency {
-                Rectangle().fill(Color(uiColor: .systemBackground))
-            } else {
-                ZStack {
-                    Rectangle().fill(.regularMaterial)
-                    Color(uiColor: .systemBackground).opacity(0.72)
-                }
+        if reduceTransparency {
+            Rectangle().fill(Color(uiColor: .systemBackground))
+                .mask(ramp(end: 1))
+        } else {
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial).mask(ramp(end: 1.0))
+                Rectangle().fill(.thinMaterial).mask(ramp(end: 0.75))
+                Rectangle().fill(.regularMaterial).mask(ramp(end: 0.5))
+                Color(uiColor: .systemBackground).opacity(0.18).mask(ramp(end: 0.85))
             }
         }
-        .mask(fade)
+    }
+
+    private func ramp(end: CGFloat) -> LinearGradient {
+        LinearGradient(stops: [
+            .init(color: .black, location: 0),
+            .init(color: .black, location: end * 0.45),
+            .init(color: .black.opacity(0), location: end)
+        ], startPoint: .top, endPoint: .bottom)
     }
 }
 
