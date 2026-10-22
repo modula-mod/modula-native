@@ -172,6 +172,12 @@ struct ShellSidebarContainer<Content: View>: View {
                     // being dragged so the transform can't feed back into layout.
                     .onChange(of: dragging) { _, isDragging in
                         ShellChromeFreeze.isSidebarDragging = isDragging
+                        // Cancelled gesture (notification, system swipe): settle back to a clean state.
+                        if !isDragging, !app.navigation.sidebarPresented { ShellChromeFreeze.holdForSettle() }
+                    }
+                    // A push while the card is moving (or open) cancels the sidebar cleanly.
+                    .onChange(of: app.navigation.selectedStackHasPushedViews) { _, pushed in
+                        if pushed, app.navigation.sidebarPresented { close(haptic: false) }
                     }
                     .overlay {
                         if presented {
@@ -188,7 +194,10 @@ struct ShellSidebarContainer<Content: View>: View {
                         }
                     }
                     .overlay(alignment: .leading) {
-                        if !presented, app.appearance.edgePicker.side != .left {
+                        // Mutually exclusive with the navigation back swipe: only on a stack root
+                        // with nothing presented, so Back-from-Search can never drag the sidebar.
+                        if !presented, app.appearance.edgePicker.side != .left,
+                           !app.navigation.selectedStackHasPushedViews, app.navigation.presented == nil {
                             Color.clear
                                 .frame(width: 22)
                                 .contentShape(Rectangle())
@@ -238,7 +247,10 @@ struct ShellSidebarContainer<Content: View>: View {
                 state = min(max(0, value.translation.width), width)
             }
             .onEnded { value in
-                guard value.startLocation.x < 30 else { return }
+                ShellChromeFreeze.isSidebarDragging = false
+                guard value.startLocation.x < 30, !app.navigation.selectedStackHasPushedViews else { return }
+                // Mostly-vertical drags never open the sidebar.
+                guard abs(value.translation.width) > abs(value.translation.height) else { return }
                 let open = Self.shouldEndOpen(translation: value.translation.width,
                                               predicted: value.predictedEndTranslation.width,
                                               startOpen: false, width: width)

@@ -904,8 +904,9 @@ struct ImmersivePostCard: View {
         if app.postActions.capabilities.reactionsList {
             app.navigation.push(.post(post.id, .reactions))
             HapticEngine.shared.play(.navigation)
-        } else {
-            app.navigation.flash("Who reacted is coming soon", symbol: "face.smiling")
+        } else if app.postActions.capabilities.likesList {
+            app.navigation.push(.post(post.id, .likes))
+            HapticEngine.shared.play(.navigation)
         }
     }
 

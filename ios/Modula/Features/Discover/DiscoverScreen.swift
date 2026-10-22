@@ -190,6 +190,15 @@ struct DiscoverScreen: View {
                     onModule: openModule,
                     onSeeModules: { app.navigation.replaceContext(with: .discover(.modules)) },
                     onReel: { reel in
+                        guard reel.attachment != nil else {
+                            // Module-backed / non-video item: open its post instead of a blank player.
+                            if let postID = reel.postID {
+                                app.postActions.ingest(reel.asSocialPost())
+                                app.navigation.push(.post(postID, .root))
+                                HapticEngine.shared.play(.navigation)
+                            }
+                            return
+                        }
                         app.reels.ingest(seed: dashboard.reels)
                         app.navigation.push(.reels(.reel(reel.id)))
                         HapticEngine.shared.play(.navigation)

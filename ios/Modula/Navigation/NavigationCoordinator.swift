@@ -62,18 +62,29 @@ final class NavigationCoordinator {
         // A story viewer left on the stack (closed visually but never popped) made the next
         // destination — e.g. Saved from the sidebar — flash the Story Viewer first. Drop
         // stale story routes before pushing anything that isn't itself a story.
-        var path = paths[selectedTab, default: []]
-        if !Self.isStoryViewer(route) {
+        if !Self.isStoryViewer(route), var path = paths[selectedTab] {
             while let last = path.last, Self.isStoryViewer(last) { path.removeLast() }
+            paths[selectedTab] = path
         }
-        path.append(route)
-        paths[selectedTab] = path
+        appendDeduplicatingSearch(route)
     }
 
     private static func isStoryViewer(_ route: AppRoute) -> Bool {
         if case .stories(.story) = route { return true }
         return false
     }
+    /// Search over Search replaces the top instead of stacking: two Search screens meant
+    /// closing one revealed the other ("search opens again").
+    private func appendDeduplicatingSearch(_ route: AppRoute) {
+        if case .search = route, var path = paths[selectedTab], case .search? = path.last {
+            path[path.count - 1] = route
+            paths[selectedTab] = path
+            return
+        }
+        paths[selectedTab, default: []].append(route)
+    }
+    /// True while the selected tab has pushed screens; the sidebar edge swipe yields to Back.
+    var selectedStackHasPushedViews: Bool { !(paths[selectedTab] ?? []).isEmpty }
     /// Routes requested by a running module. Detail destinations (profile,
     /// post) are pushed on the current stack so Back returns to the module
     /// instead of replacing another tab's root (which also tore the module
@@ -124,7 +135,7 @@ final class NavigationCoordinator {
     }
     /// Push onto the selected tab without stealing another tab’s root. Discover/Search use this for profile, post, and module detail so Back restores the current scope.
     func push(_ route: AppRoute) {
-        paths[selectedTab, default: []].append(route)
+        appendDeduplicatingSearch(route)
     }
     func close() {
         if !paths[selectedTab, default: []].isEmpty { paths[selectedTab]?.removeLast() }

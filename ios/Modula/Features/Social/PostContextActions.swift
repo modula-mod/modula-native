@@ -62,8 +62,7 @@ enum PostContextActions {
     /// X-style author section (@handle: Follow, Add to lists, Mute, Block).
     static func authorActions(capabilities: PostBackendCapabilities = .production) -> [ModulaContextAction] {
         var items: [ModulaContextAction] = [
-            .init(id: "follow-author", title: "Follow", systemImage: "person.badge.plus"),
-            .init(id: "lists-author", title: "Add to lists", systemImage: "list.bullet.rectangle")
+            .init(id: "follow-author", title: "Follow", systemImage: "person.badge.plus")
         ]
         if capabilities.muteAuthor {
             items.append(.init(id: "mute-author", title: "Mute", systemImage: "speaker.slash"))
@@ -158,7 +157,6 @@ struct PostOptionsMenuContent: View {
                     if capabilities.muteAuthor {
                         Button("Mute", systemImage: "speaker.slash") { onSelect("mute-author") }
                     }
-                    Button("Add to lists", systemImage: "list.bullet.rectangle") { onSelect("lists-author") }
                     Button("Block", systemImage: "hand.raised", role: .destructive) { onSelect("block-author") }
                 } label: {
                     Label("@\(handle)", systemImage: "person.crop.circle")
@@ -167,7 +165,6 @@ struct PostOptionsMenuContent: View {
             Menu {
                 Button("Not interested in this post", systemImage: "eye.slash") { onSelect("not-interested") }
                 Button("Hide post", systemImage: "rectangle.slash") { onSelect("hide") }
-                Button("Turn on notifications", systemImage: "bell") { onSelect("notify") }
             } label: {
                 Label("Not interested", systemImage: "eye.slash")
             }
@@ -175,7 +172,6 @@ struct PostOptionsMenuContent: View {
                 Menu {
                     Button("Report post", systemImage: "flag", role: .destructive) { onSelect("report") }
                     Button("Mark as spam", systemImage: "exclamationmark.octagon", role: .destructive) { onSelect("spam") }
-                    Button("Request Community Note", systemImage: "megaphone") { onSelect("community-note") }
                 } label: {
                     Label("Report", systemImage: "flag")
                 }
@@ -481,11 +477,9 @@ private struct PostMenuOverlay: View {
                     } else {
                         row("not-interested", "Not interested in this post", "eye.slash")
                         row("interactions", "View Post Interactions", "chart.bar")
-                        row("notify", "Turn on notifications", "bell")
                         row("hide", "Hide post", "rectangle.slash")
                         row("report", "Report post", "flag", destructive: true)
                         row("spam", "Mark as spam", "exclamationmark.circle")
-                        row("community-note", "Request Community Note", "megaphone")
                         if let handle {
                             Divider().overlay(.white.opacity(0.14)).padding(.horizontal, 18).padding(.vertical, 3)
                             row("handle", "@\(handle)", nil, trailing: "chevron.right", emphasized: true)
@@ -528,7 +522,6 @@ private struct PostMenuOverlay: View {
             .accessibilityLabel("Back to post actions")
             Divider().overlay(.white.opacity(0.14)).padding(.horizontal, 18)
             row("follow-author", "Follow", "person.badge.plus", panel: "user")
-            row("lists-author", "Add/remove from Lists", "list.bullet.rectangle", panel: "user")
             if caps.muteAuthor { row("mute-author", "Mute", "speaker.slash", panel: "user") }
             row("block-author", "Block", "nosign", destructive: true, panel: "user")
         }
@@ -845,7 +838,7 @@ enum PostMenuExecutor {
                 app.navigation.push(.messages(.new))
                 app.navigation.flash("Link copied — paste it into your message", symbol: "paperplane")
             } else {
-                app.navigation.flash("Link copied. Messaging is coming soon", symbol: "paperplane")
+                app.navigation.flash("Link copied", symbol: "link")
             }
         case "save":
             hooks.onSave()

@@ -992,7 +992,13 @@ private struct HomeCatchUpSection: View {
     @Environment(AppEnvironment.self) private var app
 
     private var posts: [SocialPost] {
-        Array(app.home.visiblePosts(for: .forYou).filter { !excluding.contains($0.id) }.prefix(5))
+        Array(app.home.visiblePosts(for: .forYou)
+            .filter { !excluding.contains($0.id) }
+            .filter { post in
+                guard let a = post.author else { return true }
+                return !ModulaFixtureFilter.isFixture(name: a.displayName, handle: a.handle)
+            }
+            .prefix(5))
     }
 
     var body: some View {

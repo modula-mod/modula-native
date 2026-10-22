@@ -795,20 +795,11 @@ struct StoryViewer: View {
                         Text(viewers == 1 ? "1 view" : "\(viewers) views")
                     } else if app.stories.capabilities.viewers {
                         Text("Views aren’t loaded yet")
-                    } else {
-                        Text("Insights aren’t available yet")
                     }
                     Button("Share story", systemImage: "square.and.arrow.up") { share(item) }
-                    Button("Delete story", systemImage: "trash", role: .destructive) {
-                        app.navigation.flash("Deleting stories isn’t available yet", symbol: "trash")
-                    }
                 } else {
                     if canReply {
                         Button("Reply in Messages", systemImage: "bubble.left") { reply(item) }
-                    } else {
-                        Button("Reply unavailable", systemImage: "bubble.left") {
-                            app.navigation.flash("Replies aren’t available yet", symbol: "bubble.left")
-                        }
                     }
                     Button("Share", systemImage: "square.and.arrow.up") { share(item) }
                     Button("Mute", systemImage: "speaker.slash") { confirmMute = true }
@@ -2903,9 +2894,6 @@ struct StoryCreateView: View {
                         addLayer(.time(Date()), y: 0.3)
                         sheet = nil
                     }
-                    interactiveChip("Weather", symbol: "cloud.sun") {
-                        app.navigation.flash("Weather stickers need a weather service — coming soon", symbol: "cloud.sun")
-                    }
                     PhotosPicker(selection: $cutoutItems, maxSelectionCount: 1, matching: .images) {
                         StickerToolTile(title: "Cutout", symbol: "person.crop.rectangle.badge.plus", accent: accent)
                     }
@@ -3099,13 +3087,9 @@ struct StoryCreateView: View {
                     Menu {
                         Button { visibility = "public" } label: { Label("Everyone", systemImage: "globe") }
                         Button { visibility = "followers" } label: { Label("Followers", systemImage: "person.2") }
-                        Button {
-                            if app.stories.capabilities.privacy {
-                                visibility = "close_friends"
-                            } else {
-                                app.navigation.flash("Close Friends stories are coming soon", symbol: "star.circle")
-                            }
-                        } label: { Label("Close Friends", systemImage: "star.circle.fill") }
+                        if app.stories.capabilities.privacy {
+                            Button { visibility = "close_friends" } label: { Label("Close Friends", systemImage: "star.circle.fill") }
+                        }
                     } label: {
                         Label(audienceTitle, systemImage: audienceSymbol)
                             .font(.caption.weight(.semibold))
