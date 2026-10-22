@@ -240,8 +240,12 @@ struct MolibooWardrobeSheet: View {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .fill(LinearGradient(colors: [item.tint.opacity(0.35), item.tint.opacity(0.12)], startPoint: .top, endPoint: .bottom))
                         .overlay {
-                            // Real per-item render (shipped thumbnails); the slot glyph only if an item has none.
-                            if let img = MolibooWardrobeThumbs.image(item.id) {
+                            // Live vector preview: this item alone on the selected mascot. Shipped PNG, then slot glyph, as fallbacks.
+                            if let kind = ModulaMascotKind(rawValue: controller.descriptor.id) {
+                                ModulaMascotFigure(kind: kind, pose: .still(), size: 50, outfit: MascotOutfit(items: [item.slot.rawValue: item.id]))
+                                    .frame(height: 58).allowsHitTesting(false)
+                                    .accessibilityHidden(true)
+                            } else if let img = MolibooWardrobeThumbs.image(item.id) {
                                 Image(uiImage: img).resizable().interpolation(.high).scaledToFit().padding(6)
                                     .shadow(color: .black.opacity(0.25), radius: 3, y: 2)
                             } else {
