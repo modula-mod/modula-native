@@ -22,6 +22,8 @@ struct AppLockCredentialStore: AppLockCredentialStoring {
         case .passcode: "passcode-verifier.v1"
         case .pattern: "pattern-verifier.v1"
         case .orbit: "orbit-verifier.v1"
+        case .rhythm: "rhythm-verifier.v1"
+        case .gravity: "gravity-verifier.v1"
         }
     }
 
@@ -61,6 +63,8 @@ struct AppLockCredentialStore: AppLockCredentialStoring {
         case .passcode: value.count == 6 && value.allSatisfy(\.isNumber)
         case .pattern: value.hasPrefix("pattern.v1:") && value.split(separator: "-").count >= PatternLock.minimumDots
         case .orbit: value.hasPrefix("orbit.v1:") && value.split(separator: "-").count == OrbitLock.rings.count
+        case .rhythm: value.hasPrefix("rhythm.v1:") && (RhythmLock.minimumTaps...RhythmLock.maximumTaps).contains(value.split(separator: "-").count)
+        case .gravity: value.hasPrefix("gravity.v1:") && (GravityLock.minimumWells...GravityLock.maximumWells).contains(value.split(separator: "-").count)
         }
     }
 

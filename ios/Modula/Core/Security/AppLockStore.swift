@@ -184,7 +184,12 @@ final class AppLockStore {
                 return true
             }
             registerFailure()
-            lastError = method == .pattern ? "Wrong pattern." : "Rings don’t line up."
+            lastError = switch method {
+            case .pattern: "Wrong pattern."
+            case .rhythm: "That’s not your beat."
+            case .gravity: "Wrong wells."
+            default: "Rings don’t line up."
+            }
             return false
         } catch {
             lastError = "Lock storage is unavailable."
