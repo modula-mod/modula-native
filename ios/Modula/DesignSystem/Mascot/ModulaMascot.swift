@@ -13,6 +13,8 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
     case echo, quill, orbit, prism, wisp, doodle, chime, rolo, pogo, fable
     // Family 002 — Angels
     case aura, soli, luma, vela, cheri, hush, haloa, lyra, celio, dovee, twila, gleam, novael, sera, auri
+    // Family 003 — Underground
+    case riff, graff, nyx, zip, vex, koda, glitch, jinx, `static`, holo, fuse, skid, mica, rumble, flick
     var id: String { rawValue }
 
     var isPremium: Bool {
@@ -20,6 +22,7 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
         case .pip, .moss, .nimbus, .mochi, .sprout, .echo, .orbit, .wisp: false
         // Bible "instantly free" picks per family.
         case .aura, .soli, .luma, .cheri, .haloa: false
+        case .riff, .graff, .koda, .skid, .flick: false
         default: true
         }
     }
@@ -1707,7 +1710,7 @@ enum MolibooFamily: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .originals: "Home"
         case .angels: "Celestia"
-        case .underground: "The Hidden City"
+        case .underground: "The Underground"
         case .enchanted: "The Whispering Woods"
         case .stardust: "The Stardust Reaches"
         case .dreamers: "The Dreaming Vale"
@@ -2297,10 +2300,13 @@ enum MolibooFamilySpecs {
         t[.novael] = MolibooSpec(body: .star, size: CGSize(width: 1.04, height: 1.0), palette: .spec(c(0.92, 0.94, 1), accent: c(0.6, 0.72, 1), light: .white), parts: [.glow(c(0.7, 0.8, 1)), .orbiters(3, gold), .sparkles(2)], floats: true, feet: false, hatScale: 0.62, headTopExtra: 0.12, form: "Living celestial star")
         t[.sera] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.88), palette: .spec(c(0.98, 0.97, 0.95), accent: gold, light: .white), parts: [.wings(.feather, nil), .starCrest, .bowtie(gold)], form: "Winged celestial shield")
         t[.auri] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.82), palette: .spec(c(0.88, 0.84, 0.98), accent: c(0.56, 0.9, 0.86), light: c(0.98, 0.96, 1)), parts: [.wings(.fairy, c(0.7, 0.9, 1)), .antennae(c(1, 0.7, 0.9)), .sparkles(3)], floats: true, feet: false, form: "Iridescent celestial sprite")
+        addUnderground(&t)
         return t
     }()
 
-    static let profiles: [ModulaMascotKind: ModulaMascotKind.Profile] = [
+    static let profiles: [ModulaMascotKind: ModulaMascotKind.Profile] = angelProfiles.merging(undergroundProfiles) { a, _ in a }
+
+    static let angelProfiles: [ModulaMascotKind: ModulaMascotKind.Profile] = [
         .aura: .init(number: 26, title: "The Guiding Light", traits: ["Light", "Leader", "Calm"]),
         .soli: .init(number: 27, title: "The Little Sun", traits: ["Sun", "Energetic", "Joyful"]),
         .luma: .init(number: 28, title: "The Moon Pearl", traits: ["Moon", "Gentle", "Dreamy"]),
@@ -2316,5 +2322,47 @@ enum MolibooFamilySpecs {
         .novael: .init(number: 38, title: "The Cosmic Star", traits: ["Stars", "Powerful", "Majestic"]),
         .sera: .init(number: 39, title: "The Little Sentinel", traits: ["Guardian", "Brave", "Caring"]),
         .auri: .init(number: 40, title: "The Iridescent Spirit", traits: ["Aurora", "Magical", "Unique"]),
+    ]
+}
+
+// MARK: - Family 003 — Underground (sheet art wins over the PDF)
+
+extension MolibooFamilySpecs {
+    static let ink = c(0.12, 0.1, 0.18), cyan = c(0.2, 0.9, 1), magenta = c(1, 0.3, 0.78), neonYellow = c(1, 0.9, 0.25)
+    static func addUnderground(_ t: inout [ModulaMascotKind: MolibooSpec]) {
+        let snow = c(0.97, 0.97, 1)
+        t[.riff] = MolibooSpec(body: .round, size: CGSize(width: 0.94, height: 0.86), palette: .spec(snow, accent: cyan, light: .white), parts: [.glow(cyan), .speakers, .headphones(magenta), .notes], form: "Living pocket speaker")
+        t[.graff] = MolibooSpec(body: .round, size: CGSize(width: 0.92, height: 0.86), palette: .spec(snow, accent: magenta, light: .white), parts: [.paintDrips([magenta, cyan, c(1, 0.62, 0.2), c(0.6, 0.4, 1)]), .bowtie(magenta)], form: "Living paint splash")
+        t[.nyx] = MolibooSpec(body: .ink, size: CGSize(width: 1.06, height: 0.8), palette: .spec(c(0.14, 0.12, 0.24), accent: c(0.62, 0.36, 1), iris: c(0.85, 0.7, 1), light: c(0.3, 0.26, 0.46)), parts: [.glow(c(0.5, 0.3, 0.9)), .roots], feet: false, form: "Living little shadow")
+        t[.zip] = MolibooSpec(body: .round, size: CGSize(width: 0.88, height: 0.82), palette: .spec(c(0.22, 0.22, 0.3), accent: cyan, iris: cyan), parts: [.ears(.bunny), .wheels, .visor(cyan)], feet: false, hatMaxWidth: 0.5, form: "Roller-wheel sprite")
+        t[.vex] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(snow, accent: magenta, light: .white), parts: [.tail(.fox, magenta), .ears(.fox), .crown, .lightning], hatMaxWidth: 0.46, form: "Streetwise miniature fox")
+        t[.koda] = MolibooSpec(body: .round, size: CGSize(width: 0.96, height: 0.86), palette: .spec(c(0.58, 0.44, 0.34), accent: c(1, 0.56, 0.22), light: c(0.95, 0.9, 0.82)), parts: [.tail(.fluffy, c(0.34, 0.26, 0.22)), .ears(.round), .mask(c(0.24, 0.18, 0.16)), .scarf(c(0.2, 0.7, 0.72))], form: "Little raccoon")
+        t[.glitch] = MolibooSpec(body: .square, size: CGSize(width: 0.9, height: 0.84), palette: .spec(snow, accent: c(0.4, 0.5, 1), light: .white), parts: [.glow(c(0.6, 0.5, 1)), .pixels(c(0.5, 0.55, 1)), .pixels(magenta)], form: "Living pixel-cluster creature")
+        t[.jinx] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(c(0.16, 0.13, 0.22), accent: magenta, iris: magenta, light: c(0.32, 0.26, 0.4)), parts: [.tail(.curl, c(0.16, 0.13, 0.22)), .ears(.cat), .crescent(c(1, 0.5, 0.85)), .whiskers], hatMaxWidth: 0.48, form: "Nocturnal alley cat")
+        t[.`static`] = MolibooSpec(body: .cloud, size: CGSize(width: 1.0, height: 0.86), palette: .spec(c(0.9, 0.95, 1), accent: neonYellow, light: .white), parts: [.glow(c(0.6, 0.85, 1)), .lightning, .mane(9), .antennae(neonYellow)], form: "Electric fluff creature")
+        t[.holo] = MolibooSpec(body: .drop, size: CGSize(width: 0.86, height: 0.96), palette: .spec(c(0.66, 0.86, 1), accent: c(0.78, 0.6, 1), light: c(0.92, 0.98, 1)), parts: [.glow(cyan), .fins(c(0.6, 0.8, 1)), .orbiters(2, c(0.8, 0.7, 1))], floats: true, feet: false, hatScale: 0.82, headTopExtra: 0.16, form: "Translucent light projection")
+        t[.fuse] = MolibooSpec(body: .square, size: CGSize(width: 0.86, height: 0.9), palette: .spec(c(0.24, 0.24, 0.3), accent: c(1, 0.78, 0.2), iris: c(1, 0.85, 0.3), light: c(0.42, 0.42, 0.5)), parts: [.lightning, .visor(c(1, 0.8, 0.25)), .feet(c(1, 0.7, 0.2))], form: "Living portable battery")
+        t[.skid] = MolibooSpec(body: .pear, size: CGSize(width: 0.86, height: 0.9), palette: .spec(c(0.56, 0.86, 0.32), accent: c(1, 0.56, 0.22), light: c(0.84, 0.96, 0.66)), parts: [.tail(.lizard, c(0.4, 0.7, 0.3)), .frill(c(0.6, 0.45, 0.95)), .wheels], feet: false, form: "Skate-loving lizard")
+        t[.mica] = MolibooSpec(body: .pear, size: CGSize(width: 0.96, height: 0.86), palette: .spec(c(0.5, 0.38, 0.3), accent: cyan, light: c(0.84, 0.72, 0.6)), parts: [.goggles(cyan), .whiskers], form: "Little tunnelling mole")
+        t[.rumble] = MolibooSpec(body: .pebble, size: CGSize(width: 1.14, height: 0.82), palette: .spec(c(0.4, 0.4, 0.46), accent: c(0.3, 0.6, 1), light: c(0.62, 0.62, 0.68)), parts: [.glow(c(0.3, 0.55, 1)), .shell(c(0.3, 0.32, 0.38))], form: "Living rock creature")
+        t[.flick] = MolibooSpec(body: .round, size: CGSize(width: 0.84, height: 0.82), palette: .spec(snow, accent: magenta, light: .white), parts: [.glow(magenta), .wings(.moth, c(0.9, 0.4, 0.9)), .antennae(c(0.7, 0.4, 1))], floats: true, feet: false, form: "Little luminous moth")
+    }
+
+    static let undergroundProfiles: [ModulaMascotKind: ModulaMascotKind.Profile] = [
+        .riff: .init(number: 41, title: "The Beat Maker", traits: ["Music", "Energetic", "Creative"]),
+        .graff: .init(number: 42, title: "The Paint Sprite", traits: ["Art", "Mischievous", "Expressive"]),
+        .nyx: .init(number: 43, title: "The Shadow Puddle", traits: ["Shadow", "Mysterious", "Calm"]),
+        .zip: .init(number: 44, title: "The Speedster", traits: ["Speed", "Playful", "Adventurous"]),
+        .vex: .init(number: 45, title: "The Street Fox", traits: ["Clever", "Bold", "Rebel"]),
+        .koda: .init(number: 46, title: "The Urban Explorer", traits: ["Explorer", "Curious", "Loyal"]),
+        .glitch: .init(number: 47, title: "The Digital Sprite", traits: ["Tech", "Curious", "Playful"]),
+        .jinx: .init(number: 48, title: "The Midnight Cat", traits: ["Stealth", "Mysterious", "Independent"]),
+        .`static`: .init(number: 49, title: "The Electric Fuzz", traits: ["Electric", "Energetic", "Chaotic"]),
+        .holo: .init(number: 50, title: "The Hologram", traits: ["Illusion", "Adaptive", "Unique"]),
+        .fuse: .init(number: 51, title: "The Battery Buddy", traits: ["Energy", "Helpful", "Reliable"]),
+        .skid: .init(number: 52, title: "The Skate Lizard", traits: ["Sport", "Reckless", "Fun"]),
+        .mica: .init(number: 53, title: "The Crystal Mole", traits: ["Earth", "Collector", "Gentle"]),
+        .rumble: .init(number: 54, title: "The Underground Titan", traits: ["Strength", "Brave", "Protective"]),
+        .flick: .init(number: 55, title: "The Neon Moth", traits: ["Light", "Dreamy", "Magical"]),
     ]
 }
