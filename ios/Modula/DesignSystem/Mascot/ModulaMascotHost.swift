@@ -172,6 +172,7 @@ struct ModulaLiveMascot: View {
     @State private var visible = false
     @State private var motionOn = false
     @State private var frame: CGRect = .zero
+    @State private var frozenFrame: CGRect?
     private let context = MascotContext.shared
 
     /// Whole view's size: figure canvas plus room for glow, bubbles and particles.
@@ -202,7 +203,11 @@ struct ModulaLiveMascot: View {
             }
             .frame(width: c.width, height: c.height)
         }
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { if !ShellChromeFreeze.isSidebarDragging { frame = $0 } }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { if !ShellChromeFreeze.isSidebarDragging { frame = $0 } else { frozenFrame = $0 } }
+        .onReceive(NotificationCenter.default.publisher(for: ShellChromeFreeze.didThaw)) { _ in
+            if let frozenFrame { frame = frozenFrame }
+            frozenFrame = nil
+        }
         .onAppear { visible = true; context.start(); brain.jiggle = kind == .tofu ? 0.05 : 0.025; syncMotion() }
         .onDisappear { visible = false; syncMotion() }
         .onReceive(NotificationCenter.default.publisher(for: ModulaMascotEvent.notification)) { note in

@@ -252,7 +252,40 @@ struct ShellAccessorySystemSlot: View {
 /// hooks and Home observers stop writing during the interactive transform.
 @MainActor
 enum ShellChromeFreeze {
-    static var isSidebarDragging = false
+    /// Posted once the card has fully settled, so frozen writers can re-sync their latest value.
+    static let cardSpace = "modula.shell.card"
+    static let didThaw = Notification.Name("ShellChromeFreeze.didThaw")
+    private static var liveDrag = false
+    private static var settleUntil: CFTimeInterval = 0
+    private static var thawScheduled = false
+
+    /// True while the card is being dragged AND for the whole release / settle animation that
+    /// follows. A fast flick ends the drag almost immediately, but the spring then moves the card
+    /// for ~0.6s; geometry writers must stay frozen for all of it or they feed back into layout.
+    static var isSidebarDragging: Bool {
+        get { liveDrag || CACurrentMediaTime() < settleUntil }
+        set {
+            liveDrag = newValue
+            holdForSettle()
+        }
+    }
+
+    /// Keeps the freeze for the settle animation (spring settles in ~0.6s; padded).
+    static func holdForSettle(_ duration: CFTimeInterval = 0.75) {
+        settleUntil = max(settleUntil, CACurrentMediaTime() + duration)
+        scheduleThaw()
+    }
+
+    private static func scheduleThaw() {
+        guard !thawScheduled else { return }
+        thawScheduled = true
+        let delay = max(0.05, settleUntil - CACurrentMediaTime() + 0.02)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            thawScheduled = false
+            if isSidebarDragging { scheduleThaw(); return }
+            NotificationCenter.default.post(name: didThaw, object: nil)
+        }
+    }
 }
 
 @available(iOS 26.0, *)
@@ -282,9 +315,12 @@ private final class TabAccessoryPlatterHook: UIView {
         isUserInteractionEnabled = false
         isHidden = true
         backgroundColor = .clear
+        NotificationCenter.default.addObserver(self, selector: #selector(thawed), name: ShellChromeFreeze.didThaw, object: nil)
     }
 
     required init?(coder: NSCoder) { nil }
+
+    @objc private func thawed() { applySoon() }
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
