@@ -148,7 +148,10 @@ enum MolibooPackRoller {
         for slot in 0..<MolibooCardCatalogue.packSize {
             var rarity = rollRarity(&rng)
             if slot == MolibooCardCatalogue.packSize - 1, rarity == .common { rarity = .rare }
-            let pool = MolibooCardCatalogue.cards(of: rarity)
+            // No duplicates within one pack: prefer cards not already pulled in this pack.
+            let full = MolibooCardCatalogue.cards(of: rarity)
+            let fresh = full.filter { c in !out.contains { $0.id == c.id } }
+            let pool = fresh.isEmpty ? full : fresh
             out.append(pool[Int(rng.next() % UInt64(pool.count))])
         }
         return out.sorted { $0.rarity < $1.rarity }
@@ -287,7 +290,7 @@ struct MolibooTradingCardView: View {
                             Circle().fill(LinearGradient(colors: card.element.colors, startPoint: .top, endPoint: .bottom)).frame(width: 8, height: 8)
                             Text(m.name).font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundStyle(.white)
                             Spacer()
-                            Text("\(m.power)").font(.system(size: 13, weight: .heavy, design: .rounded)).monospacedDigit().foregroundStyle(card.rarity.glow)
+                            Text("\(m.power)").font(.system(size: 13, weight: .heavy, design: .rounded)).monospacedDigit().frame(minWidth: 30, alignment: .trailing).foregroundStyle(card.rarity.glow)
                         }
                     }
                 }
@@ -515,6 +518,7 @@ struct MolibooPackOpeningView: View {
     @State private var phase: Phase = .sealed
     @State private var revealed = 0
     @State private var wobble = false
+    @State private var fanOut = false
     @State private var legendaryCard: MolibooCard?
     @State private var burst = false
     @State private var flash = false
@@ -605,15 +609,20 @@ struct MolibooPackOpeningView: View {
                 let mid = Double(n - 1) / 2
                 let a = (Double(i) - mid) * 9
                 let shown = i < revealed
+                // Cards rise out of the opened pack as a stack, then fan out one by one.
                 MolibooFlipCard(card: c, faceUp: shown, animating: false, reduceMotion: reduceMotion)
-                    .offset(x: CGFloat(Double(i) - mid) * 62, y: CGFloat(abs(Double(i) - mid)) * 14)
-                    .rotationEffect(.degrees(a), anchor: .bottom)
+                    .offset(x: fanOut ? CGFloat(Double(i) - mid) * 62 : 0,
+                            y: fanOut ? CGFloat(abs(Double(i) - mid)) * 14 : 60)
+                    .rotationEffect(.degrees(fanOut ? a : 0), anchor: .bottom)
+                    .scaleEffect(fanOut ? 1 : 0.85)
+                    .animation(reduceMotion ? nil : .spring(response: 0.55, dampingFraction: 0.78).delay(Double(i) * 0.07), value: fanOut)
                     .zIndex(Double(i))
                     .accessibilityIdentifier("pack.card.\(i)")
             }
         }
         .offset(y: -30)
-        .transition(.scale(scale: 0.3).combined(with: .opacity))
+        .onAppear { fanOut = true }
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     private func tear() {
@@ -669,7 +678,11 @@ struct MolibooFlipCard: View {
                 .rotation3DEffect(.degrees(reduceMotion ? 0 : 180), axis: (0, 1, 0))
                 .opacity(faceUp ? 1 : 0)
         }
+        // rotation3DEffect renders into a layer the size of the view, which cut the rarity glow
+        // into hard vertical edges. Give the glow room inside the layer, then take it back out.
+        .padding(40)
         .rotation3DEffect(.degrees(faceUp && !reduceMotion ? 180 : 0), axis: (0, 1, 0), perspective: 0.5)
+        .padding(-40)
     }
 }
 

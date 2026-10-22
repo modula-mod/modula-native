@@ -47,7 +47,7 @@ struct ProfileCover: View {
                     ModulaRemoteImage(
                         url: coverURL,
                         cacheKey: "cover:\(coverURL.path)",
-                        maximumPixelSize: max(width, coverHeight) * UIScreen.main.scale,
+                        maximumPixelSize: max(width, coverHeight) * UIScreen.main.scale * 1.5,
                         retryID: retryID
                     ) { phase in
                         switch phase {
@@ -55,24 +55,12 @@ struct ProfileCover: View {
                             // The whole banner stays readable: it's shown at full width below the
                             // status bar (aspect fit), over a blurred fill of itself, so baked-in
                             // text is never cropped off the sides or hidden behind the nav bar.
-                            let ratio = image.size.width > 0 ? image.size.height / image.size.width : 1 / 3
-                            let fitHeight = min(width * ratio, coverHeight + stretch - safeAreaTop * 0.6)
-                            ZStack(alignment: .bottom) {
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: width, height: coverHeight + stretch)
-                                    .clipped()
-                                    .blur(radius: 24, opaque: true)
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: width, height: fitHeight)
-                                    .clipped()
-                                    .padding(.bottom, coverHeight * 0.14)
-                            }
-                            .frame(width: width, height: coverHeight + stretch)
-                            .clipped()
+                            // Edge to edge, aspect-fill, sharp (no letterbox / blurred side fill).
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: width, height: coverHeight + stretch)
+                                .clipped()
                             // Banner softens as the page scrolls (and a touch while stretching).
                             .blur(radius: coverBlur(stretch: stretch), opaque: true)
                         case .failure:
@@ -448,28 +436,18 @@ struct ProfileAvatarPocket: View {
                 HapticEngine.shared.play(.lightImpact)
             } label: {
                 ZStack {
+                    // Clean stack: the photo, one thin ring (or the chosen frame), a soft round
+                    // shadow. The thick canvas stroke and the shimmer halo drew a black block and a
+                    // jagged edge over the full-bleed cover.
                     decoratedAvatarContent
-                        .overlay(
-                            Circle()
-                                .strokeBorder(canvas, lineWidth: ring)
-                        )
                         .overlay {
                             if overlayStore.frameID == ProfileAvatarFrame.none.id {
-                                ModulaGlowRing(
-                                    tint: tint ?? app.appearance.accent.color,
-                                    lineWidth: storyRing == nil ? 3 : 1.5,
-                                    glow: storyRing == nil
-                                )
-                                .padding(-1.5)
+                                Circle()
+                                    .strokeBorder(Color.white.opacity(0.9), lineWidth: storyRing == nil ? 2 : 1)
                             }
                         }
-                        .shadow(color: (tint ?? .black).opacity(0.25), radius: 12, y: 4)
-                        .overlay {
-                            if isOwnProfile, let badge = overlayStore.badge {
-                                ProfileFrameShimmer(color: badge.resolvedColor(customHex: overlayStore.customBadgeColorHex))
-                                    .padding(-5)
-                            }
-                        }
+                        .compositingGroup()
+                        .shadow(color: .black.opacity(0.22), radius: 10, y: 3)
 
                     if let storyRing {
                         StoryRing(state: storyRing, size: avatarSize, accent: app.appearance.accent.color, showsAddBadge: false)
@@ -970,6 +948,8 @@ struct ProfileInfoChips: View {
                 .font(.caption.weight(.semibold))
                 .imageScale(chip.id == "focus" ? .small : .medium)
                 .foregroundStyle(chip.id == "focus" ? Color.green : (tappable ? accent : Color.secondary))
+                // Fixed icon box so Joined / Private / etc. share one baseline.
+                .frame(width: 16, height: 16)
             Text(chip.title)
                 .font(.footnote.weight(.medium))
                 .foregroundStyle(tappable ? accent : Color.primary)
@@ -1158,7 +1138,9 @@ struct ProfileHeroActions: View {
                 .contentShape(Circle())
         }
         .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
-        .modulaGlass(in: Circle(), interactive: true, specular: true)
+        // Non-interactive glass: interactive glass swallowed most taps (QR needed ~5 taps).
+        .modulaGlass(in: Circle(), interactive: false, specular: true)
+        .contentShape(Circle())
         .modulaGlassID(id, in: glass)
         .accessibilityLabel(title)
     }
@@ -1651,7 +1633,8 @@ struct ProfileAvatarContent: View {
 
     var body: some View {
         let selection = MascotSelection.resolve(raw: kindRaw)
-        if useMascot, selection != .off {
+        // The real photo wins wherever one exists, so the profile matches posts/Settings.
+        if useMascot, selection != .off, profile.avatarURL == nil {
             MascotAvatarView(size: size)
         } else {
             ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: size, name: profile.displayName)
@@ -2134,9 +2117,10 @@ struct ModulaDecoratedAvatar<Content: View>: View {
         case .pixels(let color):
             Circle().strokeBorder(color, lineWidth: 2)
             ForEach(0..<8, id: \.self) { i in
-                RoundedRectangle(cornerRadius: 1)
+                // Smooth dots instead of square pixels (read as a jagged halo at hero size).
+                Circle()
                     .fill(color)
-                    .frame(width: 5, height: 5)
+                    .frame(width: max(4, size * 0.035), height: max(4, size * 0.035))
                     .offset(y: -(size / 2 + ringPad - 1))
                     .rotationEffect(.degrees(Double(i) * 45))
             }
@@ -2263,7 +2247,7 @@ struct ModulaDecoratedAvatar<Content: View>: View {
         }
     }
 
-    private var pipSize: CGFloat { max(12, size * 0.22) }
+    private var pipSize: CGFloat { max(12, min(size * 0.2, 26)) }
 
     private var presencePip: some View {
         Circle()
@@ -2324,7 +2308,7 @@ struct ProfileAvatarOverlayEditor: View {
                     buildingSection
                     ringSection
                     presenceSection
-                    Text("Frames are saved on this device for now and show wherever your avatar appears in Modula. Other people will see them once Modula’s profile service supports frames.")
+                    Text("Your frame shows wherever your photo appears in Modula.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -2341,6 +2325,8 @@ struct ProfileAvatarOverlayEditor: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .tint(.primary)
+                        .foregroundStyle(.primary)
                 }
             }
             .onAppear(perform: loadDraft)
@@ -2366,9 +2352,9 @@ struct ProfileAvatarOverlayEditor: View {
             .animation(selectionSpring, value: frameID)
 
             VStack(spacing: 4) {
-                Text(badge?.title ?? "No frame")
+                Text(previewTitle)
                     .font(.title3.weight(.semibold))
-                Text(badge?.detail ?? "Pick a frame to let people know what you’re up to.")
+                Text(badge?.detail ?? (selectedRing.id == ProfileAvatarFrame.none.id ? "Pick a frame to let people know what you’re up to." : "Ring frame"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -2381,7 +2367,20 @@ struct ProfileAvatarOverlayEditor: View {
         .padding(.horizontal, 16)
         .modulaGlass(in: RoundedRectangle(cornerRadius: 30, style: .continuous), interactive: false, specular: true)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Preview, \(badge?.title ?? "no frame")")
+        .accessibilityLabel("Preview, \(previewTitle)")
+    }
+
+    private var selectedRing: ProfileAvatarFrame { ProfileAvatarFrame.frame(id: frameID) }
+
+    /// Header mirrors whatever is selected below: banner, ring, or both.
+    private var previewTitle: String {
+        let ring = selectedRing.id == ProfileAvatarFrame.none.id ? nil : selectedRing.title
+        switch (badge?.title, ring) {
+        case let (b?, r?): return "\(b) · \(r)"
+        case let (b?, nil): return b
+        case let (nil, r?): return r
+        default: return "No frame"
+        }
     }
 
     @ViewBuilder
@@ -2432,15 +2431,17 @@ struct ProfileAvatarOverlayEditor: View {
                 .background {
                     if selected {
                         Circle()
-                            .strokeBorder(item?.resolvedColor(customHex: customHex) ?? accent, lineWidth: 2.5)
+                            .strokeBorder(accent, lineWidth: 2.5)
                             .matchedGeometryEffect(id: "status.selection", in: selection)
                     }
                 }
                 Text(item?.title ?? "None")
                     .font(.caption.weight(selected ? .semibold : .medium))
                     .foregroundStyle(selected ? Color.primary : Color.secondary)
-                    .lineLimit(1)
-                    .frame(width: 80)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(width: 80, alignment: .top)
             }
             .contentShape(Rectangle())
         }
@@ -2511,13 +2512,14 @@ struct ProfileAvatarOverlayEditor: View {
                             .labelStyle(.titleAndIcon)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
-                            .foregroundStyle(selected ? Color.primary : Color.secondary)
+                            .foregroundStyle(selected ? Color.white : Color.secondary)
                             .frame(maxWidth: .infinity)
                             .frame(height: 40)
                             .background {
                                 if selected {
                                     Capsule()
-                                        .fill(accent.opacity(0.18))
+                                        .fill(accent)
+                                        .shadow(color: accent.opacity(0.3), radius: 6, y: 2)
                                         .matchedGeometryEffect(id: "visibility.pill", in: selection)
                                 }
                             }
@@ -2627,10 +2629,15 @@ struct ProfileAvatarOverlayEditor: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: nil))
-        .modulaGlass(in: Capsule(), interactive: true, tint: accent, prominent: true, specular: true)
+        .background(accent, in: Capsule())
+        .shadow(color: accent.opacity(0.35), radius: 12, y: 4)
         .padding(.horizontal, 16)
-        .padding(.top, 8)
+        .padding(.top, 10)
         .padding(.bottom, 8)
+        .background(alignment: .top) {
+            Rectangle().fill(.bar).ignoresSafeArea(edges: .bottom)
+                .mask(LinearGradient(colors: [.clear, .black, .black], startPoint: .top, endPoint: .bottom))
+        }
         .accessibilityIdentifier("profile.frames.apply")
     }
 

@@ -700,7 +700,8 @@ struct SettingsTileRow: View {
                 }
                 Spacer(minLength: 8)
                 if let value, !value.isEmpty {
-                    Text(value).foregroundStyle(.secondary).lineLimit(1)
+                    Text(value).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        .padding(.trailing, showsChevron ? 4 : 0)
                 }
                 if showsChevron {
                     Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
@@ -883,7 +884,9 @@ struct BatteryNetworkSettingsPage: View {
 
 /// Privacy, Glass Privacy (debug), Blocked, Security, App Lock and Face ID on one page.
 struct PrivacySafetySettingsPage: View {
+    @AppStorage("modula.lock.backdrop") private var lockBackdrop = "aurora"
     @Environment(AppEnvironment.self) private var app
+    @State private var choosesLockKind = false
     @State private var showsSetup = false
     @State private var showsChange = false
     @State private var confirmSignOutReset = false
@@ -906,7 +909,7 @@ struct PrivacySafetySettingsPage: View {
                     get: { lock.enabled },
                     set: { value in
                         if value, (try? lock.setEnabled(true)) == nil {
-                            showsSetup = true
+                            choosesLockKind = true
                         } else if !value {
                             try? lock.setEnabled(false)
                             app.refreshLaunchState()
@@ -914,6 +917,14 @@ struct PrivacySafetySettingsPage: View {
                     }
                 ))
                 .accessibilityIdentifier("settings.applock.enable")
+                if lock.enabled, lock.isSlideOnly {
+                    SettingsDivider()
+                    Label("Slide to unlock is a privacy screen, not security: anyone holding your phone can open Modula. Add a passcode for real protection.", systemImage: "hand.draw")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 10)
+                        .accessibilityIdentifier("settings.applock.slide-note")
+                }
                 if lock.enabled {
                     SettingsDivider()
                     HStack(spacing: 12) {
@@ -928,7 +939,24 @@ struct PrivacySafetySettingsPage: View {
                     }
                     .frame(minHeight: 52)
                     SettingsDivider()
-                    SettingsTileRow(title: "Change Passcode", symbol: "key.fill") { showsChange = true }
+                    HStack {
+                        Text("Lock Backdrop")
+                        Spacer()
+                        Picker("Lock Backdrop", selection: $lockBackdrop) {
+                            Text("Aurora").tag("aurora")
+                            Text("Spectral Drape").tag("drape")
+                            Text("Perspective Grid").tag("grid")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                    }
+                    .frame(minHeight: 52)
+                    SettingsDivider()
+                    if lock.hasPasscode {
+                        SettingsTileRow(title: "Change Passcode", symbol: "key.fill") { showsChange = true }
+                    } else {
+                        SettingsTileRow(title: "Set Up Passcode", symbol: "key.fill") { showsSetup = true }
+                    }
                 }
                 SettingsDivider()
                 SettingsTileToggle(title: "Unlock with \(lock.biometricAvailability.kind.title)", symbol: "faceid", isOn: Binding(
@@ -984,11 +1012,21 @@ struct PrivacySafetySettingsPage: View {
                 SettingsDivider()
                 SettingsTileRow(title: "Sessions", symbol: "laptopcomputer.and.iphone") { app.navigation.open(.settings(.account(.sessions))) }
             }
-            if lock.enabled {
+            if lock.enabled, !lock.isSlideOnly {
                 Button("Forgot Passcode? Sign Out and Reset App Lock", role: .destructive) { confirmSignOutReset = true }
                     .font(.subheadline)
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
+        }
+        .confirmationDialog("Turn on App Lock", isPresented: $choosesLockKind, titleVisibility: .visible) {
+            Button("Set Up a Passcode") { showsSetup = true }
+            Button("Slide to Unlock Only") {
+                try? app.appLock.setEnabled(true, allowSlideOnly: true)
+                app.refreshLaunchState()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Slide to unlock only is a privacy screen, not security: it hides Modula from glances but anyone with your phone can open it.")
         }
         .navigationTitle("Privacy & Safety")
         .navigationBarTitleDisplayMode(.inline)
@@ -1046,6 +1084,11 @@ struct IslandAvatarMerge<Avatar: View>: View {
         return CGRect(x: (width - w) / 2, y: max(safeTop - 48, 9), width: w, height: h)
     }
 
+    static func smooth(_ x: CGFloat, _ a: CGFloat, _ b: CGFloat) -> CGFloat {
+        let t = min(max((x - a) / (b - a), 0), 1)
+        return t * t * (3 - 2 * t)
+    }
+
     /// 0 = avatar at rest · 1 = fully absorbed by the island / top edge.
     static func progress(for frame: CGRect) -> CGFloat {
         guard frame.height > 0 else { return 0 }
@@ -1073,24 +1116,26 @@ struct IslandAvatarMerge<Avatar: View>: View {
                             .position(x: frame.midX, y: frame.midY)
                             .opacity(Double(1 - p))
                     } else {
-                        if Self.hasIsland, p > 0.42 {
+                        if Self.hasIsland, p > 0.3 {
+                            // Gooey drop: island capsule + disc, blurred then alpha-thresholded so
+                            // they fuse with a soft liquid neck (no hard bridge geometry). Drawn in
+                            // pure black so it reads as part of the Dynamic Island.
+                            let r = size / 2
                             Canvas { ctx, _ in
                                 ctx.addFilter(.alphaThreshold(min: 0.5, color: .black))
                                 ctx.addFilter(.blur(radius: 7))
                                 ctx.drawLayer { layer in
-                                    layer.fill(Path(roundedRect: island, cornerRadius: island.height / 2), with: .color(.black))
-                                    let r = size / 2
+                                    layer.fill(Capsule(style: .continuous).path(in: island), with: .color(.black))
                                     layer.fill(Path(ellipseIn: CGRect(x: cx - r, y: cy - r, width: size, height: size)), with: .color(.black))
                                 }
                             }
-                            .opacity(Double(min(1, (p - 0.42) / 0.22)))
+                            .opacity(Double(Self.smooth(p, 0.3, 0.55)))
                         }
                         avatar
                             .frame(width: size, height: size)
                             .clipShape(Circle())
-                            .overlay(Circle().fill(Color.black.opacity(Double(max(0, (p - 0.3) / 0.55)))))
-                            .blur(radius: max(0, p - 0.5) * 12)
-                            .opacity(Self.hasIsland ? Double(1 - max(0, (p - 0.86) / 0.14)) : Double(1 - p))
+                            // The photo dissolves into (or emerges out of) the drop, no dark veil.
+                            .opacity(Self.hasIsland ? Double(1 - Self.smooth(p, 0.55, 0.88)) : Double(1 - p))
                             .position(x: cx, y: cy)
                     }
                 }
@@ -1189,6 +1234,9 @@ struct SettingsQRModal: View {
                 ContentUnavailableView("No profile yet", systemImage: "qrcode", description: Text("Sign in to get your Modula code."))
             }
             VStack {
+                // The profile card has its own "Done"; a second X crammed beside the top-bar
+                // pills only when there's no card.
+                if app.profile.ownProfile == nil {
                 HStack {
                     Button(action: onClose) {
                         Image(systemName: "xmark")
@@ -1201,6 +1249,8 @@ struct SettingsQRModal: View {
                     Spacer()
                 }
                 .padding(.horizontal, 16)
+                .padding(.top, 8)
+                }
                 Spacer()
                 if DataScannerViewController.isSupported {
                     Button {

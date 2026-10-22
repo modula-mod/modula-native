@@ -173,7 +173,7 @@ struct HomeFeedsSheet: View {
                 .accessibilityIdentifier("home.feeds.refresh")
             }
             Section {
-                Text("Following, For You, and Modules are the live home feeds. Custom lists are not on the API yet.")
+                Text("Choose between Following, For You, and Modules.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

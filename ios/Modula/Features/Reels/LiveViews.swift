@@ -356,12 +356,6 @@ struct LiveRoomView: View {
 
     private var sideActions: some View {
         VStack(spacing: 14) {
-            ModulaGlassIconButton(title: "Gifts (coming soon)", systemImage: "gift", foreground: .white) {
-                HapticEngine.shared.play(.selection)
-            }
-            ModulaGlassIconButton(title: "Reactions (coming soon)", systemImage: "face.smiling", foreground: .white) {
-                HapticEngine.shared.play(.selection)
-            }
             ModulaGlassIconButton(title: "Send heart", systemImage: "heart.fill", foreground: .pink) {
                 sendHeart()
             }

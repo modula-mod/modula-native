@@ -382,6 +382,7 @@ struct ConversationView: View {
             showsAttachments: app.messaging.capabilities.attachments,
             largeText: dynamicTypeSize.isAccessibilitySize
         ) {
+            IslandSendEffect.shared.fire("Message sent", accent: app.appearance.accent.color)
             Task {
                 await app.messaging.send(
                     conversation: conversationID,
@@ -728,15 +729,47 @@ struct MessageRequestRow: View {
     }
 }
 
+/// Pick someone to talk to: real suggested people (fixtures filtered), each opening their
+/// profile where Message / In-Mail lives. In-Mail compose is offered when it can send.
 struct NewConversationView: View {
+    @Environment(AppEnvironment.self) private var app
+
     var body: some View {
-        ModulaEmptyState(
-            title: "New message",
-            message: "Starting a conversation isn’t available yet.",
-            symbol: "square.and.pencil"
-        )
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Button {
+                    app.navigation.push(.search(.section(.people, nil)))
+                    HapticEngine.shared.play(.navigation)
+                } label: {
+                    Label("Search people", systemImage: "magnifyingglass")
+                        .font(.body.weight(.semibold))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16).frame(height: 48)
+                        .modulaGlass(in: Capsule(), interactive: true)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("messages.new.search")
+                if app.inMail.capabilities.send {
+                    Button {
+                        app.navigation.push(.messages(.inMail(.compose)))
+                        HapticEngine.shared.play(.navigation)
+                    } label: {
+                        Label("Write an In-Mail", systemImage: "envelope.badge.fill")
+                            .font(.body.weight(.semibold))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16).frame(height: 48)
+                            .modulaGlass(in: Capsule(), interactive: true)
+                    }
+                    .buttonStyle(.plain)
+                }
+                ActivitySuggestedPeople()
+            }
+            .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.vertical, 12)
+        }
         .modulaSoftScrollEdge()
-        .navigationTitle("New")
+        .navigationTitle("New Message")
+        .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("messages.new")
     }
 }
@@ -861,6 +894,7 @@ struct MessagesFriendlyEmpty: View {
     var retryMessage: String? = nil
     var retry: (() async -> Void)? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(AppEnvironment.self) private var app
     @State private var float = false
 
     private var copy: (title: String, message: String, symbol: String) {
@@ -892,6 +926,20 @@ struct MessagesFriendlyEmpty: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
+            if scope == .inbox {
+                Button {
+                    app.navigation.push(.messages(.new))
+                    HapticEngine.shared.play(.navigation)
+                } label: {
+                    Label("Start a chat", systemImage: "square.and.pencil")
+                        .font(.body.weight(.semibold))
+                        .padding(.horizontal, 22).frame(height: 44)
+                }
+                .buttonStyle(.plain)
+                .modulaGlass(in: Capsule(), tint: Color.accentColor)
+                .padding(.top, 4)
+                .accessibilityIdentifier("messages.empty.start")
+            }
             Spacer(minLength: 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

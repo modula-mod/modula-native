@@ -155,7 +155,9 @@ struct RootView: View {
                 .tabViewBottomAccessory(isEnabled: policy.shellAccessoryVisible) {
                     ShellAccessorySystemSlot(route: navigation.currentRoute)
                 }
-                .tabBarMinimizeBehavior(.onScrollDown)
+                // On Activity the minimised bar collapses to a lone bell + red badge bubble
+                // (bottom-left), which read as a stray notifications button — keep it expanded there.
+                .tabBarMinimizeBehavior(navigation.selectedTab == .activity ? .never : .onScrollDown)
         } else if #available(iOS 26.0, *) {
             tabs(navigation: navigation)
                 .toolbar(policy.bottomBarVisible ? .visible : .hidden, for: .tabBar)
@@ -164,7 +166,9 @@ struct RootView: View {
                         ShellAccessorySystemSlot(route: navigation.currentRoute)
                     }
                 }
-                .tabBarMinimizeBehavior(.onScrollDown)
+                // On Activity the minimised bar collapses to a lone bell + red badge bubble
+                // (bottom-left), which read as a stray notifications button — keep it expanded there.
+                .tabBarMinimizeBehavior(navigation.selectedTab == .activity ? .never : .onScrollDown)
         } else {
             tabs(navigation: navigation, hidesSystemTabBar: true)
                 .safeAreaInset(edge: .bottom, spacing: 0) {

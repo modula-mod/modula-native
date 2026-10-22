@@ -202,7 +202,7 @@ final class CreationStudioStore {
         draft.text += "\(prefix)\(trimmed)"
         showsLocalLinkEditor = false
         textChanged(draft.text)
-        composerTip = "Link added as text. Structured link cards wait on Greenfield."
+        composerTip = "Link added."
         HapticEngine.shared.play(.lightImpact)
     }
 

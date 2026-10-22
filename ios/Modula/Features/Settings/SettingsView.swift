@@ -8,13 +8,13 @@ struct SettingsGroup<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if !title.isEmpty {
-                Text(title).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+                Text(title).font(.footnote.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.8))
                     .textCase(.uppercase).padding(.leading, 14)
             }
             SettingsGlassCard { content }
             // iOS-style footer, only when a page supplies one.
             if let subtitle, !subtitle.isEmpty {
-                Text(subtitle).font(.caption).foregroundStyle(.secondary).padding(.horizontal, 14)
+                Text(subtitle).font(.caption).foregroundStyle(Color.primary.opacity(0.7)).padding(.horizontal, 14)
             }
         }
     }
@@ -71,13 +71,22 @@ private struct AppearanceChoice<Value: Hashable>: View {
                 if selection == value { Image(systemName: "checkmark") }
             }
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(selection == value ? Color.white : Color.primary)
-            .padding(.horizontal, 12)
-            .frame(maxWidth: .infinity, minHeight: 44)
+            // Text/checkmark colour picked by the accent's luminance (white on yellow was unreadable).
+            .foregroundStyle(selection == value ? Self.onColor(app.appearance.accent.color) : Color.primary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity, minHeight: 46)
             .background(selection == value ? app.appearance.accent.color : Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selection == value ? .isSelected : [])
+    }
+
+    static func onColor(_ color: Color) -> Color {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+        let lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
+        return lum > 0.6 ? .black : .white
     }
 }
 
@@ -161,12 +170,6 @@ struct SettingsView: View {
                     }
 
                     TelegramSettingsCard {
-                        TelegramRow(title: "My Profile", symbol: "person.crop.circle.fill", tint: .red) {
-                            app.navigation.open(app.auth.account == nil ? .auth(.login) : .me(.overview))
-                        }
-                    }
-
-                    TelegramSettingsCard {
                         TelegramRow(title: "Saved", symbol: "bookmark.fill", tint: .blue) { app.navigation.open(.saved(.root)) }
                         TelegramDivider()
                         TelegramRow(title: "Recent Activity", symbol: "clock.fill", tint: .orange, badge: app.activity.state(for: .all).unreadCount) { app.navigation.open(.activity(.all)) }
@@ -185,7 +188,7 @@ struct SettingsView: View {
                         TelegramDivider()
                         TelegramRow(title: "Appearance", symbol: "paintbrush.fill", tint: .cyan, value: themeValue) { app.navigation.open(.settings(.appearance(.root))) }
                         TelegramDivider()
-                        TelegramRow(title: "Power Saving", symbol: "battery.100.bolt", tint: .orange, value: dataSaver ? "Data saver" : nil) { app.navigation.open(.settings(.battery(.root))) }
+                        TelegramRow(title: "Power Saving", symbol: "battery.100.bolt", tint: .orange, value: dataSaver ? "On" : "Off") { app.navigation.open(.settings(.battery(.root))) }
                         TelegramDivider()
                         TelegramRow(title: "Language", symbol: "globe", tint: .purple) { app.navigation.open(.settings(.language(.root))) }
                         TelegramDivider()
@@ -231,15 +234,15 @@ struct SettingsView: View {
                         row("Runtime diagnostics", "stethoscope", value: nil, .developer(.runtime))
                             .accessibilityIdentifier("settings.runtime")
                         SettingsDivider()
-                        row("Glass Privacy (preview)", "bubble.left.and.bubble.right", value: nil, .privacy(.glassPrivacy))
+                        tinted("Glass Privacy (preview)", "eye.slash.circle.fill", .teal, .privacy(.glassPrivacy))
                         SettingsDivider()
-                        row("Connectors & Integrations (preview)", "puzzlepiece.extension", value: nil, .connectors(.root))
+                        tinted("Connectors & Integrations (preview)", "link.circle.fill", .blue, .connectors(.root))
                         SettingsDivider()
-                        row("Monetisation (preview)", "creditcard", value: nil, .monetisation(.root))
+                        tinted("Monetisation (preview)", "creditcard.fill", .green, .monetisation(.root))
                         SettingsDivider()
-                        row("Family (preview)", "figure.2.and.child.holdinghands", value: nil, .family(.root))
+                        tinted("Family (preview)", "figure.2.and.child.holdinghands", .orange, .family(.root))
                         SettingsDivider()
-                        row("Widgets & Location (preview)", "rectangle.on.rectangle.angled", value: nil, .widgets(.root))
+                        tinted("Widgets & Location (preview)", "location.square.fill", .purple, .widgets(.root))
                     }
                     #endif
                 }
@@ -258,14 +261,17 @@ struct SettingsView: View {
                 IslandAvatarMerge(frame: avatarFrame, reduceMotion: reduceMotion) { heroAvatar(size: 100) }
             }
         }
-        .navigationTitle("Settings")
+        // Title only once the hero header has collapsed: no cramped title between the buttons.
+        .navigationTitle(collapse > 0.6 ? "Settings" : "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button { showsQR = true } label: { Image(systemName: "qrcode") }
-                    .opacity(Double(1 - collapse))
-                    .disabled(collapse > 0.6)
-                    .accessibilityLabel("My QR code")
+            // Trailing, not leading: an invisible-but-present leading item sat in the same glass
+            // group as Back and soaked up taps meant for it once the header collapsed.
+            ToolbarItem(placement: .topBarTrailing) {
+                if collapse < 0.6 {
+                    Button { showsQR = true } label: { Image(systemName: "qrcode") }
+                        .accessibilityLabel("My QR code")
+                }
             }
             ToolbarItem(placement: .principal) {
                 Text(identityDisplayName)
@@ -290,7 +296,8 @@ struct SettingsView: View {
             SettingsQRModal { showsQR = false }
                 .transition(.scale)
         }
-        .searchable(text: $query, isPresented: $searchPresented, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search Settings")
+        // Bottom/toolbar search (iOS 26 default) — the nav-bar drawer collided with Back and the title.
+        .searchable(text: $query, isPresented: $searchPresented, prompt: "Search Settings")
         .task { await refreshIntelligenceStatus() }
         .accessibilityIdentifier("settings.root")
     }
@@ -328,6 +335,11 @@ struct SettingsView: View {
         .padding(.top, 4)
         .padding(.bottom, 6)
         .accessibilityElement(children: .combine)
+    }
+
+    /// Developer rows: each gets its own symbol and colour tile (they all looked like the same puzzle piece).
+    private func tinted(_ title: String, _ symbol: String, _ tint: Color, _ route: SettingsRoute) -> some View {
+        TelegramRow(title: title, symbol: symbol, tint: tint) { app.navigation.open(.settings(route)) }
     }
 
     private func row(_ title: String, _ symbol: String, value: String?, _ route: SettingsRoute) -> some View {
@@ -403,7 +415,7 @@ struct SettingsView: View {
             nodusLabel = availability == .available ? "Nodus available" : availability.displayName
         }
         let product = providers.filter { $0.id != DeterministicLocalProvider.providerID }
-        intelligenceStatus = product.isEmpty ? "No product provider registered" : "Local · \(nodusLabel)"
+        intelligenceStatus = product.isEmpty ? "Not set up" : (nodusLabel == "Nodus available" ? "Nodus ready" : "On device")
     }
 
     private var filteredSearchItems: [SettingsSearchItem] { searchItems }
@@ -442,7 +454,8 @@ struct SettingsView: View {
         if app.auth.account == nil {
             app.navigation.open(.auth(.login))
         } else {
-            app.navigation.open(.me(.edit))
+            // Push on top of Settings so Cancel/Back returns here (open() swapped the Profile tab root).
+            app.navigation.push(.me(.edit))
         }
     }
 }

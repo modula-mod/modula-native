@@ -20,6 +20,8 @@ struct MolibooLivingStudioView: View {
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @State private var controller: MolibooSceneController?
+    @State private var stageRevealed = false
+    @Environment(\.dismiss) private var dismissStudio
     @State private var director: MolibooStudioDirector?
     @State private var unavailable = false
     @State private var panel: Panel?
@@ -33,6 +35,7 @@ struct MolibooLivingStudioView: View {
     @State private var shots = 0
     @State private var lastShotSubject = false
     @State private var pulseTick = 0
+    @State private var hopUntil = Date.distantPast
     #if DEBUG
     @State private var clipProbe = ""
     #endif
@@ -45,6 +48,8 @@ struct MolibooLivingStudioView: View {
     private let moreTab: MascotStudioView.StudioTab
     init(characterID: String, initialPanel: Panel? = nil, startInPhoto: Bool = false, moreTab: MascotStudioView.StudioTab = .rewards) {
         self.characterID = characterID; self.initialPanel = initialPanel; self.startInPhoto = startInPhoto; self.moreTab = moreTab
+        // Start in photo mode from the first frame (no flash of the normal Studio chrome).
+        _photoMode = State(initialValue: startInPhoto)
     }
 
     private var environment: MolibooEnvironment { MolibooEnvironment(rawValue: envRaw) ?? .meadow }
@@ -65,6 +70,21 @@ struct MolibooLivingStudioView: View {
         .animation(reduceMotion ? nil : .snappy, value: photoMode)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: envRaw)
         .toolbar(photoMode ? .hidden : .visible, for: .navigationBar)
+        // Studio and Photo mode own the screen: no global tab bar under them.
+        .toolbar(.hidden, for: .tabBar)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button { dismissStudio() } label: {
+                    Image(systemName: "chevron.left").font(.headline)
+                        .foregroundStyle(environment.isDark ? .white : .black)
+                        .frame(width: 36, height: 36)
+                }
+                .modulaGlass(in: Circle(), interactive: true, specular: true)
+                .accessibilityLabel("Back")
+                .accessibilityIdentifier("studio.back")
+            }
+        }
         .navigationTitle(descriptor?.displayName ?? "Moliboo")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(environment.isDark ? .dark : .light, for: .navigationBar)
@@ -148,11 +168,16 @@ struct MolibooLivingStudioView: View {
                     }
                 }
             }
-            .shadow(color: .black.opacity(environment.isDark ? 0.4 : 0), radius: 3, y: 1)
+            .shadow(color: environment.isDark ? .black.opacity(0.45) : .white.opacity(0.7), radius: 3, y: 1)
             Spacer()
             Menu {
-                Picker("Environment", selection: $envRaw) {
-                    ForEach(MolibooEnvironment.allCases) { e in Label(e.title, systemImage: e.symbol).tag(e.rawValue) }
+                // Explicit rows read the active background straight from `environment` (the same
+                // value the stage renders), so the checkmark can't drift from what's on screen.
+                ForEach(MolibooEnvironment.allCases) { e in
+                    Button { envRaw = e.rawValue } label: {
+                        if e == environment { Label(e.title, systemImage: "checkmark") } else { Label(e.title, systemImage: e.symbol) }
+                    }
+                    .accessibilityAddTraits(e == environment ? .isSelected : [])
                 }
             } label: {
                 Label(environment.title, systemImage: environment.symbol)
@@ -163,13 +188,17 @@ struct MolibooLivingStudioView: View {
             }
             .accessibilityIdentifier("studio.envMenu")
         }
-        .foregroundStyle(environment.isDark ? .white : .primary)
+        // Text follows the stage, not the app scheme (white-on-white on light stages before).
+        .foregroundStyle(environment.isDark ? .white : .black)
+        .environment(\.colorScheme, environment.isDark ? .dark : .light)
         .padding(.horizontal, 18).padding(.top, 8)
     }
 
     @ViewBuilder private var stage: some View {
         ZStack {
-            if let controller, !controller.loadFailed {
+            if !MolibooFeatureFlags.native3DEnabled {
+                stage2D.accessibilityIdentifier("moliboo2d.stage")
+            } else if let controller, !controller.loadFailed {
                 RealityView { content in
                     content.add(controller.root)
                     content.add(controller.cameraEntity)
@@ -184,7 +213,13 @@ struct MolibooLivingStudioView: View {
                 .simultaneousGesture(TapGesture().onEnded { director?.request(.tap); pulseTick += 1 })
                 .simultaneousGesture(LongPressGesture(minimumDuration: 0.5).onEnded { _ in director?.request(.pet); pulseTick += 1 })
                 .accessibilityIdentifier("moliboo3d.view")
-                .accessibilityLabel("\(descriptor?.displayName ?? "Moliboo"). Tap to say hi, hold to pet, drag to turn.")
+                // RealityView's first frames are black: fade the stage in once it has rendered.
+                .opacity(stageRevealed ? 1 : 0)
+                .task {
+                    try? await Task.sleep(for: .milliseconds(350))
+                    withAnimation(.easeOut(duration: 0.35)) { stageRevealed = true }
+                }
+                .accessibilityLabel("\(descriptor?.displayName ?? "Moliboo"). Tap to say hi, hold to pet.")
             } else if unavailable || controller?.loadFailed == true {
                 fallback2D.accessibilityIdentifier("moliboo3d.fallback2d")
             } else {
@@ -192,6 +227,52 @@ struct MolibooLivingStudioView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// 2D-only stage: the 2D renderer in the live try-on outfit (hat fit comes from the 2D rig), mood from the
+    /// Expressions panel, a breathing bob, a hop on tap, and a soft elliptical contact shadow on the floor.
+    @ViewBuilder private var stage2D: some View {
+        if let kind = ModulaMascotKind(rawValue: characterID) {
+            let s: CGFloat = 150
+            let live = !photoMode || !reduceMotion
+            TimelineView(.animation(paused: reduceMotion || scenePhase != .active || !live)) { tl in
+                let t = tl.date.timeIntervalSinceReferenceDate
+                let breathe = reduceMotion ? 0 : CGFloat(sin(t * 2 * .pi / 3.2))
+                let hopUp = max(0, hopUntil.timeIntervalSince(tl.date)) / 0.45
+                let hop = reduceMotion ? 0 : CGFloat(sin(hopUp * .pi)) * 26
+                ZStack {
+                    Ellipse()
+                        .fill(RadialGradient(colors: [.black.opacity(environment.isDark ? 0.5 : 0.32), .black.opacity(0.12), .clear],
+                                             center: .center, startRadius: 0, endRadius: s * 0.62))
+                        .frame(width: s * 1.25 * (1 - hop / 160), height: s * 0.26)
+                        .blur(radius: 3)
+                        .offset(y: s * 0.62)
+                    ModulaMascotFigure(kind: kind, pose: .still(Self.mood(controller?.expression ?? .idle)), size: s,
+                                       outfit: session?.preview ?? wardrobe.outfit)
+                        .scaleEffect(x: 1 - breathe * 0.01, y: 1 + breathe * 0.015, anchor: .bottom)
+                        .offset(y: -hop)
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { hopUntil = .now.addingTimeInterval(0.45); pulseTick += 1; controller?.setExpression(.happy) }
+            .onLongPressGesture(minimumDuration: 0.5) { pulseTick += 1; controller?.setExpression(.excited) }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(descriptor?.displayName ?? "Moliboo"). Tap to say hi, hold to pet.")
+            .accessibilityAddTraits(.isButton)
+        } else {
+            fallback2D
+        }
+    }
+
+    private static func mood(_ e: MolibooExpression) -> MascotMood {
+        switch e {
+        case .idle, .blink: .idle
+        case .happy: .happy
+        case .excited: .excited
+        case .surprised: .surprised
+        case .sleepy: .sleepy
+        case .sad: .sad
+        }
     }
 
     @ViewBuilder private var fallback2D: some View {
@@ -238,6 +319,14 @@ struct MolibooLivingStudioView: View {
     private var photoChrome: some View {
         VStack {
             HStack {
+                Button { photoMode = false } label: {
+                    Image(systemName: "xmark").font(.headline)
+                        .foregroundStyle(environment.isDark ? .white : .black)
+                        .frame(width: 44, height: 44)
+                }
+                .modulaGlass(in: Circle(), interactive: true, specular: true)
+                .accessibilityLabel("Close photo mode")
+                .accessibilityIdentifier("studio.photo.close")
                 Spacer()
                 Button("Done") { photoMode = false }
                     .buttonStyle(.borderedProminent)
@@ -280,7 +369,7 @@ struct MolibooLivingStudioView: View {
 
     /// Per-character framing; with a sheet up the camera tilts down and pulls back so the Moliboo sits cleanly in the upper stage.
     private func frame(sheetOpen: Bool, animated: Bool) {
-        guard let c = controller else { return }
+        guard MolibooFeatureFlags.native3DEnabled, let c = controller else { return }
         let f = MolibooFraming.for(characterID)
         c.cameraEntity.camera.fieldOfViewInDegrees = f.fov
         let shift: SIMD3<Float> = sheetOpen ? [0, -(f.eye.z * 0.25), f.eye.z * 0.18] : .zero
@@ -339,13 +428,14 @@ struct MolibooLivingStudioView: View {
                 Button { panel = nil } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title2)
-                        .foregroundStyle(.secondary)
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(Color.primary, Color.primary.opacity(0.12))
                         .frame(width: 36, height: 36)
                 }
                 .accessibilityIdentifier("studio.sheet.close")
                 .accessibilityLabel("Close")
             }
-            .padding(.horizontal, 18).padding(.top, 14)
+            .padding(.horizontal, 18).padding(.top, 26)
 
             sheet(for: p)
             Spacer(minLength: 0)
@@ -354,9 +444,12 @@ struct MolibooLivingStudioView: View {
         .presentationBackgroundInteraction(.enabled(upThrough: p == .wardrobe || p == .more ? .medium : .height(280)))
         .presentationDragIndicator(.visible)
         .presentationBackground {
-            Rectangle().fill(.clear)
-                .modulaGlass(in: Rectangle(), interactive: false, tint: environment.isDark ? Color(red: 0.12, green: 0.12, blue: 0.3).opacity(0.38) : Color.white.opacity(0.22))
-                .ignoresSafeArea()
+            // Clean glass that adapts to the stage: frosted white in light, deep blue in dark.
+            ZStack {
+                Rectangle().fill(environment.isDark ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(.regularMaterial))
+                (environment.isDark ? Color(red: 0.10, green: 0.10, blue: 0.24).opacity(0.45) : Color.white.opacity(0.55))
+            }
+            .ignoresSafeArea()
         }
         .environment(\.colorScheme, environment.isDark ? .dark : .light)
     }
@@ -427,7 +520,7 @@ struct MolibooLivingStudioView: View {
                 Text("Active: \(controller?.expression.title ?? "Idle")")
                     .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             }
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10) {
                 ForEach(MolibooExpression.allCases, id: \.self) { e in
                     let selected = controller?.expression == e && e != .blink
                     Button {
@@ -443,7 +536,7 @@ struct MolibooLivingStudioView: View {
                     .buttonStyle(MolibooSpringPressStyle())
                     .foregroundStyle(selected ? .white : .primary)
                     .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: true,
-                                 tint: selected ? teal : Color.pink.opacity(0.18), prominent: selected)
+                                 tint: selected ? teal : Color.primary.opacity(0.06), prominent: selected)
                     .accessibilityIdentifier("studio.expr.\(e.rawValue)")
                     .accessibilityAddTraits(selected ? .isSelected : [])
                 }
@@ -469,6 +562,32 @@ struct MolibooLivingStudioView: View {
         frame(sheetOpen: false, animated: false)
         let ws = MolibooWardrobeSession(store: wardrobe)
         session = ws
+        // 2D-only: the controller stays an unloaded state holder (expression, panels); no RealityKit load.
+        guard !MolibooFeatureFlags.native3DEnabled else { await load3D(c, d, ws); return }
+        openInitial()
+    }
+
+    private func openInitial() {
+        if startInPhoto {
+            photoMode = true
+        } else if let initialPanel {
+            detent = Self.defaultDetent(for: initialPanel)
+            panel = initialPanel
+        }
+        #if DEBUG
+        switch MOL03DebugHarness.panel {
+        case "photo": photoMode = true
+        case let p?:
+            if let target = Panel(rawValue: p) {
+                detent = Self.defaultDetent(for: target)
+                panel = target
+            }
+        case nil: break
+        }
+        #endif
+    }
+
+    private func load3D(_ c: MolibooSceneController, _ d: MolibooCharacterDescriptor, _ ws: MolibooWardrobeSession) async {
         await c.load()
         await c.sync(outfitItemIDs: wardrobe.outfit.equippedIDs)
         if !c.loadFailed {

@@ -11,7 +11,7 @@ enum MolibooSettings {
 
 struct MolibooSettingsView: View {
     @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
-    @AppStorage(MolibooFeatureFlags.native3DKey) private var native3D = MolibooFeatureFlags.native3DDefault
+    private let native3D = MolibooFeatureFlags.native3DEnabled   // 2D-only: always false, no toggle
     @AppStorage(MolibooSettings.animationsKey) private var playful = true
     @AppStorage(MolibooSettings.hapticsKey) private var haptics = true
     @AppStorage(MolibooSettings.onboardedKey) private var onboarded = false
@@ -75,13 +75,15 @@ struct MolibooSettingsView: View {
             .background { MolibooAmbientBackground(ambience: .dreamy, animated: false, fps: 1, density: 0.5, moon: UnitPoint(x: 0.9, y: 0.05), moonScale: 0).ignoresSafeArea() }
             .ignoresSafeArea(edges: .top)
         }
+        // Back / logo / more stay pinned while content scrolls, over a progressive blur strip.
         .overlay(alignment: .top) {
-            GeometryReader { g in
-                Rectangle().fill(.bar).frame(height: g.safeAreaInsets.top).offset(y: -g.safeAreaInsets.top)
-            }
-            .frame(height: 0)
-            .opacity(scrollY > 330 ? 1 : 0).animation(.easeOut(duration: 0.2), value: scrollY > 330)
-            .allowsHitTesting(false).accessibilityHidden(true)
+            hubTopBar
+                .padding(.horizontal, 14).padding(.top, 4).padding(.bottom, 10)
+                .background(alignment: .top) {
+                    MolibooProgressiveStrip()
+                        .opacity(scrollY > 40 ? 1 : 0)
+                        .animation(.easeOut(duration: 0.2), value: scrollY > 40)
+                }
         }
         .toolbar(.hidden, for: .navigationBar)
         .navigationTitle("Moliboo settings")
@@ -107,6 +109,30 @@ struct MolibooSettingsView: View {
         .task(id: animating) { await ambient() }
     }
 
+    private var hubTopBar: some View {
+    HStack {
+        MolibooHubBackButton()
+        Spacer()
+        Image("MoliboosLogo").resizable().scaledToFit().frame(height: 30)
+            .padding(.horizontal, 16).padding(.vertical, 8)
+            .modulaGlass(in: Capsule(), interactive: false, specular: true)
+            .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+            .overlay(alignment: .topTrailing) {
+                Image(systemName: "sparkle").font(.system(size: 13, weight: .bold)).foregroundStyle(.yellow)
+                    .scaleEffect(heart ? 1.2 : 0.8).opacity(heart ? 1 : 0.6).offset(x: 10, y: -8)
+            }
+            .accessibilityLabel("Moliboos").accessibilityIdentifier("moliboo.hub.logo")
+        Spacer()
+        Menu {
+            Button { showOnboarding = true } label: { Label("Replay the welcome", systemImage: "party.popper") }
+        } label: {
+            Image(systemName: "ellipsis").font(.headline).foregroundStyle(.primary).frame(width: 44, height: 44)
+        }
+        .modulaGlass(in: Circle(), specular: true)
+        .accessibilityLabel("More").accessibilityIdentifier("moliboo.hub.more")
+    }
+    }
+
     // MARK: Hero
 
     private var hero: some View {
@@ -114,27 +140,8 @@ struct MolibooSettingsView: View {
         return ZStack(alignment: .top) {
             MolibooGardenScene(animating: animating, parallax: min(0, scrollY) * -0.2 + max(0, scrollY) * 0.15)
             VStack(spacing: 0) {
-                HStack {
-                    MolibooHubBackButton()
-                    Spacer()
-                    Image("MoliboosLogo").resizable().scaledToFit().frame(height: 30)
-                        .padding(.horizontal, 16).padding(.vertical, 8)
-                        .modulaGlass(in: Capsule(), interactive: false, specular: true)
-                        .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
-                        .overlay(alignment: .topTrailing) {
-                            Image(systemName: "sparkle").font(.system(size: 13, weight: .bold)).foregroundStyle(.yellow)
-                                .scaleEffect(heart ? 1.2 : 0.8).opacity(heart ? 1 : 0.6).offset(x: 10, y: -8)
-                        }
-                        .accessibilityLabel("Moliboos").accessibilityIdentifier("moliboo.hub.logo")
-                    Spacer()
-                    Menu {
-                        Button { showOnboarding = true } label: { Label("Replay the welcome", systemImage: "party.popper") }
-                    } label: {
-                        Image(systemName: "ellipsis").font(.headline).foregroundStyle(.primary).frame(width: 44, height: 44)
-                    }
-                    .modulaGlass(in: Circle(), specular: true)
-                    .accessibilityLabel("More").accessibilityIdentifier("moliboo.hub.more")
-                }
+                // Top bar is pinned (overlay below); reserve its space in the hero.
+                Color.clear.frame(height: 44)
                 .padding(.horizontal, 14).padding(.top, 58)
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -233,13 +240,14 @@ struct MolibooSettingsView: View {
 
     private func segmentBar(_ proxy: ScrollViewProxy) -> some View {
         ModulaGlassGroup(spacing: 6) {
+            ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 4) {
                 ForEach(MolibooHubSegment.allCases) { s in
                     Button { pick(s, proxy) } label: {
                         Label(s.title, systemImage: s.icon).labelStyle(.titleAndIcon)
-                            .font(.caption.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.6)
+                            .font(.caption.weight(.semibold)).lineLimit(1).fixedSize()
                             .foregroundStyle(segment == s ? Color.white : Color.primary)
-                            .padding(.horizontal, 4).frame(maxWidth: .infinity, minHeight: 40)
+                            .padding(.horizontal, 12).frame(minHeight: 40)
                             .background {
                                 if segment == s {
                                     Capsule().fill(Color.clear)
@@ -254,6 +262,8 @@ struct MolibooSettingsView: View {
                 }
             }
             .padding(4)
+            }
+            .modulaHorizontalEdgeFade(12)
             .modulaGlass(in: Capsule(), interactive: false, specular: true)
         }
     }
@@ -308,7 +318,7 @@ struct MolibooSettingsView: View {
             }
 
             if MolibooCardFlags.enabled {
-                wideCard("rectangle.portrait.on.rectangle.portrait.angled.fill", .orange, "Trading Cards", "Collect the Founding set", art: .pebble, id: "moliboo.hub.cards") { route = .cards }
+                wideCard("rectangle.portrait.on.rectangle.portrait.angled.fill", .orange, "Trading Cards", "Collect the Founding set", art: nil, id: "moliboo.hub.cards") { route = .cards }
             }
 
             sectionTitle("Profile Moliboo")
@@ -323,17 +333,8 @@ struct MolibooSettingsView: View {
                 toggleCard("hand.tap.fill", .purple, "Haptics", "Little taps", $haptics, "moliboo.hub.haptics")
                 toggleCard("speaker.wave.2.fill", .green, "Moliboo sounds", "Follow silent switch", $sounds, "moliboo.hub.sounds")
                 #if DEBUG
-                toggleCard("crown.fill", .yellow, "Unlock Premium", "Debug builds only", $debugPremium, "moliboo.hub.debugPremium")
+                toggleCard("crown.fill", .yellow, "Unlock Premium", "Preview every cosmetic", $debugPremium, "moliboo.hub.debugPremium")
                 #endif
-            }
-
-            sectionTitle("3D & Advanced")
-            LazyVGrid(columns: cards, spacing: 10) {
-                toggleCard("cube.transparent.fill", .blue, "3D Moliboos", native3D ? "Enable 3D characters" : "Classic 2D look", $native3D, "moliboo.settings.3d")
-            }
-            if native3D {
-                Text("3D is ready for \(MolibooRegistry.available3D.map(\.displayName).formatted(.list(type: .and))).")
-                    .font(.caption).foregroundStyle(.secondary)
             }
 
             sectionTitle("The Originals").id("hub.originals")
@@ -404,7 +405,7 @@ struct MolibooSettingsView: View {
                                 .padding(5)
                                 .background(Color(red: 0.21, green: 0.61, blue: 0.67), in: Circle())
                         }
-                        if has3D {
+                        if has3D && native3D {
                             Text("3D")
                                 .font(.caption2.weight(.heavy))
                                 .foregroundStyle(.white)
@@ -527,7 +528,7 @@ struct MolibooSettingsView: View {
                 }
                 Spacer(minLength: 0)
             }
-            HStack { Spacer(); Toggle(title, isOn: on).labelsHidden().accessibilityIdentifier(id) }
+            HStack { Spacer(); Toggle(title, isOn: on).labelsHidden().tint(.accentColor).accessibilityIdentifier(id) }
         }
         .padding(12).frame(maxWidth: .infinity, minHeight: 100, alignment: .topLeading)
         .background(
@@ -713,8 +714,11 @@ struct MolibooWelcomeSheet: View {
         GeometryReader { geo in
             let w = geo.size.width
             ZStack {
-                Ellipse().fill(RadialGradient(colors: [Color(red: 0.6, green: 0.9, blue: 1).opacity(0.45), .clear], center: .center, startRadius: 4, endRadius: 140))
-                    .frame(width: 280, height: 80).offset(y: 86)
+                // Feathered platform glow (was clipped to a hard-edged oval).
+                Ellipse().fill(Color(red: 0.6, green: 0.9, blue: 1).opacity(0.38))
+                    .frame(width: 260, height: 54)
+                    .blur(radius: 18)
+                    .offset(y: 86)
                 if launching {
                     art(hero).matchedGeometryEffect(id: hero, in: morph).frame(width: 190, height: 190)
                         .modifier(MolibooHeroMorph(ns: heroNS))
@@ -723,9 +727,16 @@ struct MolibooWelcomeSheet: View {
                         let center = i == 1
                         art(id)
                             .matchedGeometryEffect(id: id, in: morph)
-                            .frame(width: center ? 150 : 104, height: center ? 150 : 104)
+                            .frame(width: center ? 136 : 100, height: center ? 136 : 100)
+                            // Grounded: a soft contact shadow under each pet that tightens as it bobs up.
+                            .background(alignment: .bottom) {
+                                Ellipse().fill(Color.black.opacity(0.32))
+                                    .frame(width: (center ? 86 : 62) * (bob ? 0.9 : 1), height: 12)
+                                    .blur(radius: 5)
+                                    .offset(y: 6 + (bob ? 6 : -4) * (i == 1 ? 1 : 0.7))
+                            }
                             .offset(x: CGFloat(i - 1) * w * 0.3 + CGFloat(page - 1) * -10 * CGFloat(i - 1),
-                                    y: (center ? -6 : 22) + (bob ? -6 : 4) * (i == 1 ? 1 : 0.7))
+                                    y: (center ? 4 : 24) + (bob ? -6 : 4) * (i == 1 ? 1 : 0.7))
                             .offset(y: appear ? 0 : 160)
                             .opacity(appear ? 1 : 0)
                             .animation(motionOn ? .spring(response: 0.8, dampingFraction: 0.62).delay(0.15 + Double(i) * 0.12) : nil, value: appear)
@@ -759,7 +770,10 @@ struct MolibooWelcomeSheet: View {
         let p = pages[i]
         let shown = appear && page == i
         return VStack(spacing: 10) {
-            Image(systemName: p.2).font(.title3).foregroundStyle(.pink)
+            Image(systemName: p.2).font(.title3.weight(.semibold)).foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(Color.pink.opacity(0.85), in: Circle())
+                .frame(maxWidth: .infinity)
                 .opacity(shown ? 1 : 0).offset(y: shown ? 0 : 10)
                 .animation(motionOn ? .easeOut(duration: 0.4).delay(0.05) : nil, value: shown)
             Text(p.0).font(.system(.title2, design: .rounded).weight(.heavy)).foregroundStyle(.white).multilineTextAlignment(.center)
@@ -792,5 +806,22 @@ struct MolibooHeroMorph: ViewModifier {
     let ns: Namespace.ID?
     func body(content: Content) -> some View {
         if let ns { content.matchedGeometryEffect(id: "moliboo.hero", in: ns) } else { content }
+    }
+}
+
+
+/// Progressive blur strip for pinned glass top bars: strongest under the status bar, fading to
+/// nothing below the buttons. Light tint only, so the scene stays visible.
+struct MolibooProgressiveStrip: View {
+    var body: some View {
+        ZStack {
+            Rectangle().fill(.ultraThinMaterial)
+                .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.55), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
+            Rectangle().fill(.thinMaterial)
+                .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .clear, location: 0.6)], startPoint: .top, endPoint: .bottom))
+        }
+        .ignoresSafeArea(edges: .top)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }

@@ -472,7 +472,7 @@ struct ImmersivePostCard: View {
             }
             Text("· \(ActivityRelativeTime.string(from: post.createdAt))")
                 .font(.system(.caption, design: font))
-                .foregroundStyle(onMedia ? Color.white.opacity(0.75) : Color.secondary.opacity(0.7))
+                .foregroundStyle(onMedia ? Color.white.opacity(0.9) : Color.primary.opacity(0.62))
                 .lineLimit(1)
                 .layoutPriority(-1)
         }
@@ -904,8 +904,9 @@ struct ImmersivePostCard: View {
         if app.postActions.capabilities.reactionsList {
             app.navigation.push(.post(post.id, .reactions))
             HapticEngine.shared.play(.navigation)
-        } else {
-            app.navigation.flash("Who reacted is coming soon", symbol: "face.smiling")
+        } else if app.postActions.capabilities.likesList {
+            app.navigation.push(.post(post.id, .likes))
+            HapticEngine.shared.play(.navigation)
         }
     }
 

@@ -188,7 +188,7 @@ struct LocationSettingsHost: View {
                     ("Nearby", "Local discovery", "binoculars"),
                     ("Clear history", "Forget places", "trash")
                 ],
-                apiNote: "Location features aren’t available yet. Location access is managed in iOS Settings."
+                apiNote: "Location access is managed in iOS Settings."
             )
         case .map:
             SettingsScrollCanvas {
@@ -221,7 +221,7 @@ struct WidgetsSettingsHost: View {
                     widgetPreview("Module", "shippingbox")
                     widgetPreview("Compose", "plus")
                 }
-                SettingsAPIFootnote(text: "Widgets aren’t available yet. These are previews only.")
+                SettingsAPIFootnote(text: "Previews of Modula widgets.")
             }
             .navigationTitle("Widgets")
             .navigationBarTitleDisplayMode(.inline)

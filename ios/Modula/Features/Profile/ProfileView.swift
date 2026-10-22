@@ -166,6 +166,9 @@ struct ProfileView: View {
                 ModulaProfileCodeView(profile: profile) {
                     showsModulaCode = false
                 }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(32)
             }
         }
         .sheet(item: $activityShare) { item in
@@ -234,6 +237,7 @@ struct ProfileView: View {
             }
             .modulaScrollProgressTracking(collapseDistance: 96, progress: $headerProgress)
             .modulaSoftScrollEdge()
+            .modifier(ProfileTopEdgeEffectHidden())
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
                 geometry.contentOffset.y + geometry.contentInsets.top
             } action: { _, newOffset in
@@ -256,6 +260,8 @@ struct ProfileView: View {
             // Spinner sits below the header (not in the status bar): content is pulled up
             // by the same amount it's inset, so the cover still bleeds to the top edge.
             .contentMargins(.top, ProfileFullBleedMetrics.windowSafeAreaTop + 44, for: .scrollContent)
+            // Last post clears the floating tab bar.
+            .contentMargins(.bottom, 96, for: .scrollContent)
             .refreshable {
                 // Own task so the refresh control tearing down can't cancel the request.
                 await Task { await refreshCurrent() }.value
@@ -282,6 +288,11 @@ struct ProfileView: View {
             ) {
                 EmptyView()
             }
+            // Its fade backdrop is ~150pt tall and sat over the pinned tabs, blurring them.
+            // Clip it to the top bar; the tabs' own strip handles everything below.
+            .frame(height: ProfileFullBleedMetrics.windowSafeAreaTop + 44, alignment: .top)
+            .clipped()
+            .allowsHitTesting(false)
 
 
             ProfileCollapsedNavBackground(
@@ -289,7 +300,23 @@ struct ProfileView: View {
                 height: ProfileFullBleedMetrics.windowSafeAreaTop + 44,
                 reduceTransparency: navReduceTransparency
             )
+
+            // Pinned header strip: a real progressive blur from the top of the screen down past
+            // the tabs, above the feed; the tabs are drawn on top of it (crisp, interactive) and
+            // the system toolbar sits above both.
+            if shelfPinned, let profile {
+                shelfBar(profile, floating: true)
+                    .padding(.top, ProfileFullBleedMetrics.windowSafeAreaTop + 44)
+                    .frame(maxWidth: .infinity, alignment: .top)
+                    .background(alignment: .top) {
+                        ProfileShelfBacking()
+                            .padding(.bottom, -18)
+                            .allowsHitTesting(false)
+                    }
+                    .transition(.opacity)
+            }
         }
+        .animation(.easeOut(duration: 0.15), value: shelfPinned)
         .ignoresSafeArea(edges: .top)
         .modulaCanvas()
         .environment(\.profileAccentColor, profile?.presentation.accent?.color)
@@ -530,8 +557,6 @@ struct ProfileView: View {
                 coverColour: profile.coverColour,
                 tint: heroTint,
                 scrollProgress: headerProgress,
-                pocketCenterX: ModulaLayout.contentInset + avatarSize / 2,
-                pocketRadius: ProfileIdentityMetrics.carveRadius(avatarSize: avatarSize),
                 onTap: { openCoverViewer(profile) },
                 contextActions: ProfileContextActions.coverMenu(isOwn: isOwnProfile, hasCover: profile.coverURL != nil),
                 onContextAction: { handleContextAction($0, profile: profile) }
@@ -548,7 +573,8 @@ struct ProfileView: View {
             // The hero avatar stays in the content layer: it shrinks into its own pocket and fades
             // as it scrolls up (the bar avatar takes over), so it never floats over the details.
             .scaleEffect(navReduceMotion ? 1 : 1 - 0.45 * IslandAvatarMerge<EmptyView>.progress(for: heroAvatarFrame), anchor: .bottom)
-            .opacity(Double(1 - IslandAvatarMerge<EmptyView>.progress(for: heroAvatarFrame)))
+            // Gone well before it reaches the bar (no ghost behind the title).
+            .opacity(Double(max(0, 1 - IslandAvatarMerge<EmptyView>.progress(for: heroAvatarFrame) * 2.2)))
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { heroAvatarFrame = $0 }
         }
     }
@@ -677,10 +703,12 @@ struct ProfileView: View {
         isOwnProfile ? [.posts, .replies, .media, .reels, .modules, .liked, .saved] : [.posts, .replies, .media, .reels, .modules, .liked]
     }
 
-    private func shelfBar(_ profile: ModulaProfile) -> some View {
+    @State private var shelfPinned = false
+
+    private func shelfBar(_ profile: ModulaProfile, floating: Bool = false) -> some View {
         let tabs = shelfTabs
         let selected = tabs.contains(shelf) ? shelf : .posts
-        let stickTop = ProfileFullBleedMetrics.windowSafeAreaTop + 52
+        let stickTop = ProfileFullBleedMetrics.windowSafeAreaTop + 44
         let reduce = ModulaEffectGate.reduceMotion(systemReduceMotion)
         return HStack(spacing: 10) {
             ScrollView(.horizontal, showsIndicators: false) {
@@ -696,11 +724,12 @@ struct ProfileView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Text(tab.title)
-                                .font(.subheadline.weight(.semibold))
+                                .font(.footnote.weight(.semibold))
                                 .lineLimit(1)
+                                .fixedSize()
                         }
-                        .foregroundStyle(isSelected ? heroTint : Color.secondary)
-                        .padding(.horizontal, isSelected ? 14 : 12)
+                        .foregroundStyle(isSelected ? heroTint : Color.primary.opacity(0.62))
+                        .padding(.horizontal, isSelected ? 12 : 9)
                         .frame(height: 38)
                         .background {
                             if isSelected {
@@ -741,24 +770,18 @@ struct ProfileView: View {
         .padding(.leading, leadingInteractionInset)
         .padding(.trailing, trailingInteractionInset)
         .padding(.vertical, 8)
-        // Blur backing that travels with the pinned bar so posts and the faded cover
-        // stats never ghost through behind the tabs.
-        .background {
-            ProfileShelfBacking()
-                .padding(.top, -64)
-                .allowsHitTesting(false)
-                // Only visible once the bar is actually pinned under the header; at rest it
-                // must not frost over Highlights.
-                .visualEffect { content, proxy in
-                    let minY = proxy.frame(in: .scrollView).minY + 64
-                    return content.opacity(minY <= stickTop + 1 ? 1 : 0)
-                }
+        // The in-scroll bar only reports whether it has reached the pin line; once pinned, a
+        // copy is drawn outside the ScrollView (above a real blur strip) and this one hides.
+        // A material inside the scroll content could not blur the posts scrolling under it.
+        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { minY in
+            guard !floating else { return }
+            let pinned = minY <= stickTop + 2
+            if pinned != shelfPinned { shelfPinned = pinned }
         }
-        // Pinned header: slide it down so it rests just below the status bar / nav buttons.
-        .visualEffect { content, proxy in
-            let minY = proxy.frame(in: .scrollView).minY
-            return content.offset(y: max(0, stickTop - minY))
-        }
+        .opacity(floating || !shelfPinned ? 1 : 0)
+        // No manual pin offset: the LazyVStack's pinned section header already rests at the
+        // scroll view's top content margin (status bar + 44, i.e. right under the top bar).
+        // The old offset was added on top of that, which parked the tabs ~100pt too low.
         .zIndex(1)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("profile.tabs")
@@ -774,7 +797,7 @@ struct ProfileView: View {
             case .reels: postsShelf(profile, mediaOnly: true, videoOnly: true)
             case .replies:
                 // Stub: profile posts carry no reply/parent field, so replies can't be listed yet.
-                ModulaEmptyState(title: "Replies", message: "Replies by this profile will show here once the API exposes them.", symbol: "arrowshape.turn.up.left")
+                ModulaEmptyState(title: "Replies", message: "Replies by this profile will show here.", symbol: "arrowshape.turn.up.left")
                     .padding(.vertical, 8)
             case .modules: modulesTab(profile)
             case .saved: savedShelf
@@ -1875,19 +1898,41 @@ private struct ProfileCollapsedNavBackground: View {
 private struct ProfileShelfBacking: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
+    /// True progressive blur: stacked materials, each masked to end lower down, so the blur is
+    /// strongest at the top edge and ramps to zero at the bottom. Only a light tint, no opaque
+    /// fill, so content is visibly blurred under the bar and gradually sharp below.
     var body: some View {
-        let fade = LinearGradient(stops: [
-            .init(color: .black, location: 0),
-            .init(color: .black, location: 0.78),
-            .init(color: .black.opacity(0), location: 1)
-        ], startPoint: .top, endPoint: .bottom)
-        Group {
-            if reduceTransparency {
-                Rectangle().fill(Color(uiColor: .systemBackground))
-            } else {
-                Rectangle().fill(.ultraThinMaterial)
+        if reduceTransparency {
+            Rectangle().fill(Color(uiColor: .systemBackground))
+                .mask(ramp(end: 1))
+        } else {
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial).mask(ramp(end: 1.0))
+                Rectangle().fill(.thinMaterial).mask(ramp(end: 0.75))
+                Rectangle().fill(.regularMaterial).mask(ramp(end: 0.5))
+                Color(uiColor: .systemBackground).opacity(0.3).mask(ramp(end: 0.9))
             }
         }
-        .mask(fade)
+    }
+
+    private func ramp(end: CGFloat) -> LinearGradient {
+        LinearGradient(stops: [
+            .init(color: .black, location: 0),
+            .init(color: .black, location: end * 0.7),
+            .init(color: .black.opacity(0), location: end)
+        ], startPoint: .top, endPoint: .bottom)
+    }
+}
+
+
+/// The system top scroll-edge blur also covered the pinned tabs (they sit right under the
+/// bar); Profile draws its own strip behind the bar + tabs instead.
+private struct ProfileTopEdgeEffectHidden: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.scrollEdgeEffectHidden(true, for: .top)
+        } else {
+            content
+        }
     }
 }

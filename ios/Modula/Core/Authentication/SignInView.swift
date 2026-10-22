@@ -55,7 +55,14 @@ struct SignInView: View {
                 }
             }
         }
-        .background { SignInBackdrop() }
+        .background {
+            PerspectiveGridView()
+                .ignoresSafeArea()
+                .overlay {
+                    // Legibility scrim over the grid for the form.
+                    Color(uiColor: .systemBackground).opacity(0.35).ignoresSafeArea()
+                }
+        }
         .toolbarBackground(.hidden, for: .navigationBar)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("auth.login")

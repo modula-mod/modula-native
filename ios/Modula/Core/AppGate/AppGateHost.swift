@@ -25,7 +25,8 @@ struct AppGateHost: View {
         .onChange(of: app.appLock.isAuthenticating) { _, _ in
             showPrivacyCover = shouldCover(scenePhase)
         }
-        .onChange(of: app.gate.state) { _, _ in
+        .onChange(of: app.gate.state) { _, state in
+            if state == .ready { UserDefaults.standard.removeObject(forKey: AppLockView.pendingKey) }
             showPrivacyCover = shouldCover(scenePhase)
         }
         .onChange(of: app.auth.account?.accountId) { _, _ in
@@ -67,11 +68,34 @@ struct AppGateHost: View {
         #endif
     }
 
+    /// Locked and ready share one tree: the app is built *under* the lock screen, so unlocking
+    /// only fades the lock away instead of constructing the whole RootView after success
+    /// (that cold build was most of the 1–2s Face ID → app delay).
     @ViewBuilder
     private var launchContent: some View {
+        if app.gate.state == .locked || app.gate.state == .ready {
+            ZStack {
+                RootView()
+                    .allowsHitTesting(app.gate.state == .ready)
+                    .accessibilityHidden(app.gate.state != .ready)
+                if app.gate.state == .locked {
+                    AppLockView()
+                        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+                        .transition(.opacity)
+                        .zIndex(1)
+                }
+            }
+        } else {
+            otherLaunchContent
+        }
+    }
+
+    @ViewBuilder
+    private var otherLaunchContent: some View {
         switch app.gate.state {
         case .booting:
             BootSplashView()
+                .transition(.opacity)
         case .signedOut:
             PreShellAuthHost()
         case .firstRun:
@@ -94,15 +118,30 @@ struct AppGateHost: View {
 
 struct BootSplashView: View {
     var body: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-            Text("Starting Modula")
-                .font(.headline)
-        }
+        // Branded splash matching the launch background (no white "Starting" page). The spinner
+        // only fades in if boot is actually slow.
+        BootSplashContent()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .modulaCanvas()
+        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
         .accessibilityIdentifier("appgate.booting")
         .accessibilityLabel("Starting Modula")
+    }
+}
+
+private struct BootSplashContent: View {
+    @Environment(\.colorScheme) private var scheme
+    @State private var slow = false
+    var body: some View {
+        VStack(spacing: 22) {
+            ModulaWordmark(height: 28, onDark: scheme == .dark)
+            ProgressView()
+                .controlSize(.small)
+                .opacity(slow ? 0.7 : 0)
+        }
+        .task {
+            try? await Task.sleep(for: .milliseconds(900))
+            withAnimation(.easeIn(duration: 0.3)) { slow = true }
+        }
     }
 }
 

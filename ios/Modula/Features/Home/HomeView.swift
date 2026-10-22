@@ -35,13 +35,13 @@ struct HomeView: View {
                             if !showsStoryTray { modeCaption }
                             if showsStoryTray {
                                 let trayGroups = StoryStore.homeTrayGroups(app.stories.trayGroups)
-                                HStack(spacing: 10) {
+                                HStack(alignment: .center, spacing: 10) {
                                     // One header row: Stories + the feed caption ("Following").
                                     Text("Stories")
-                                        .font(.subheadline.weight(.semibold))
+                                        .font(.headline)
                                     Text(mode.heroSubtitle)
                                         .font(.caption.weight(.semibold))
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(Color.primary.opacity(0.72))
                                         .lineLimit(1)
                                         .accessibilityIdentifier("home.hero")
                                         .accessibilityLabel(mode.heroTitle)
@@ -60,7 +60,9 @@ struct HomeView: View {
                                     }
                                     .buttonStyle(.plain)
                                     .shadow(color: app.appearance.accent.color.opacity(0.25), radius: 5, y: 2)
-                                    .frame(minWidth: 44, minHeight: 44)
+                                    // 44pt hit area without shifting the pill off the content edge.
+                                    .padding(.vertical, 9)
+                                    .contentShape(Rectangle())
                                     .accessibilityLabel("Watch Reels")
                                     .accessibilityIdentifier("home.open-reels")
                                 }
@@ -73,9 +75,11 @@ struct HomeView: View {
                                         HapticEngine.shared.play(.navigation)
                                     }
                                 )
-                                .padding(.horizontal, -ModulaLayout.contentInset)
-                                .padding(.leading, -leadingInteractionInset)
-                                .contentMargins(.horizontal, ModulaLayout.contentInset, for: .scrollContent)
+                                // Edge to edge: bleed past both content insets so rings scroll off-screen
+                                // under the trailing fade instead of being clipped mid-ring.
+                                .padding(.leading, -(ModulaLayout.contentInset + leadingInteractionInset))
+                                .padding(.trailing, -(ModulaLayout.contentInset + trailingInteractionInset))
+                                .contentMargins(.leading, ModulaLayout.contentInset + leadingInteractionInset, for: .scrollContent)
                                 .transition(.opacity)
                             }
                             if app.home.isOfflineHint && !state.items.isEmpty {
@@ -377,6 +381,7 @@ struct HomeView: View {
                     )
                     .padding(.horizontal, ModulaLayout.contentInset)
                     .padding(.top, 8)
+                    .padding(.bottom, 24)
                 }
                 if state.loadState == .loadingMore {
                     ProgressView()
@@ -992,12 +997,20 @@ private struct HomeCatchUpSection: View {
     @Environment(AppEnvironment.self) private var app
 
     private var posts: [SocialPost] {
-        Array(app.home.visiblePosts(for: .forYou).filter { !excluding.contains($0.id) }.prefix(5))
+        Array(app.home.visiblePosts(for: .forYou)
+            .filter { !excluding.contains($0.id) }
+            .filter { post in
+                guard let a = post.author else { return false }
+                if let own = app.profile.ownProfile, own.handle.caseInsensitiveCompare(a.handle) == .orderedSame { return false }
+                if ModulaFixtureFilter.isFixture(name: a.displayName, handle: a.handle) { return false }
+                return !(post.text ?? "").isEmpty || !post.media.isEmpty
+            }
+            .prefix(5))
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ModulaSectionHeader(title: "Catch up", subtitle: "Suggested posts while you wait for more")
+            ModulaSectionHeader(title: "Catch up", subtitle: "Suggested for you")
             if posts.isEmpty {
                 Text("You're all caught up.")
                     .font(.footnote)
@@ -1025,6 +1038,16 @@ private struct HomeCatchUpSection: View {
                             }
                         }
                         Spacer(minLength: 0)
+                        if let thumb = post.media.lazy.compactMap({ $0.thumbnailURL ?? $0.previewURL ?? $0.url }).first {
+                            AsyncImage(url: thumb) { image in
+                                image.resizable().scaledToFill()
+                            } placeholder: {
+                                Color.primary.opacity(0.06)
+                            }
+                            .frame(width: 56, height: 56)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .accessibilityHidden(true)
+                        }
                     }
                     .padding(12)
                     .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)

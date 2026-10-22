@@ -51,10 +51,16 @@ struct OnboardingLandingView: View {
         // a closure context that was already freed (MOL-02 stability track, EXC_BAD_ACCESS in
         // __swift_closure_destructor for `dragGesture` / `continueButton`).
         ZStack {
-            TimelineView(.animation(paused: reduceMotion)) { context in
-                LandingBackdrop(time: time(at: context.date), isDark: isDark)
-                    .opacity(entrance.backdrop ? 1 : 0)
-            }
+            // Spectral Drape backdrop with a legibility scrim toward the copy.
+            SpectralDrapeView()
+                .ignoresSafeArea()
+                .overlay {
+                    LinearGradient(colors: [.clear, .clear, Color(hex: isDark ? "#0A0A0A" : "#FAFAFC").opacity(0.85)],
+                                   startPoint: .top, endPoint: .bottom)
+                        .ignoresSafeArea()
+                        .allowsHitTesting(false)
+                }
+                .opacity(entrance.backdrop ? 1 : 0)
             VStack(spacing: 0) {
                 stage
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

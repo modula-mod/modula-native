@@ -47,8 +47,17 @@ struct ReelFeedView: View {
             case .loading where app.reels.items.isEmpty:
                 ReelLoadingShimmer()
             case .failed(let message) where app.reels.items.isEmpty:
-                ModulaErrorState(message: message) {
-                    Task { await app.reels.refresh() }
+                if ReelsModuleGate.isPermissionMessage(message) {
+                    ReelsInstallModuleCard {
+                        app.navigation.push(.productHub(.featured))
+                        HapticEngine.shared.play(.navigation)
+                    } onRetry: {
+                        Task { await app.reels.refresh() }
+                    }
+                } else {
+                    ModulaErrorState(message: message) {
+                        Task { await app.reels.refresh() }
+                    }
                 }
             case _ where app.reels.items.isEmpty:
                 ModulaEmptyState(
@@ -665,3 +674,51 @@ enum ReelUITestFixture {
     }
 }
 #endif
+
+
+enum ReelsModuleGate {
+    static func isPermissionMessage(_ message: String) -> Bool {
+        let m = message.lowercased()
+        return m.contains("permission") || m.contains("install and enable") || m.contains("enable this module")
+    }
+}
+
+/// Shown when Reels needs a module the viewer hasn't installed/enabled — never a raw error over a blank player.
+struct ReelsInstallModuleCard: View {
+    var onInstall: () -> Void
+    var onRetry: () -> Void
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "puzzlepiece.extension.fill")
+                .font(.system(size: 34, weight: .semibold))
+                .foregroundStyle(app.appearance.accent.color)
+                .frame(width: 76, height: 76)
+                .modulaGlass(in: Circle(), interactive: false)
+            Text("Install a module to watch")
+                .font(.title3.weight(.semibold))
+            Text("This content comes from a module you haven’t installed or enabled yet.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button(action: onInstall) {
+                Label("Install module", systemImage: "arrow.down.circle.fill")
+                    .font(.body.weight(.semibold))
+                    .padding(.horizontal, 20).frame(height: 44)
+            }
+            .buttonStyle(.plain)
+            .modulaGlass(in: Capsule(), tint: app.appearance.accent.color)
+            Button("Try again", action: onRetry)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        .padding(28)
+        .frame(maxWidth: 360)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 28, style: .continuous), interactive: false)
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("reels.install-module")
+    }
+}

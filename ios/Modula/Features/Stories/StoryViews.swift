@@ -120,8 +120,39 @@ struct StoryTray: View {
     @Environment(AppEnvironment.self) private var app
 
     /// Home uses a larger, image-led disc so "Your story" never truncates to "Your st…".
-    private var avatarSize: CGFloat { compact ? 68 : 82 }
-    private var labelWidth: CGFloat { compact ? 82 : 96 }
+    private var avatarSize: CGFloat { compact ? 68 : 88 }
+    private var labelWidth: CGFloat { compact ? 82 : 92 }
+
+    private var ownHandle: String? { app.auth.account?.primaryHandle.lowercased() }
+
+    private func isSelf(_ handle: String, id: String) -> Bool {
+        if let own = ownHandle, !own.isEmpty, handle.lowercased() == own { return true }
+        if let account = app.auth.account?.accountId, account == id { return true }
+        return false
+    }
+
+    /// One entry per person: a single "you" group (first wins), no duplicate authors
+    /// (the rail can repeat someone by id and by handle).
+    private var displayGroups: [StoryGroup] {
+        var seenIDs = Set<String>()
+        var seenHandles = Set<String>()
+        var hasOwn = false
+        var result: [StoryGroup] = []
+        for var group in groups {
+            if !group.isOwn, isSelf(group.author.handle, id: group.author.id) { group.isOwn = true }
+            if group.isOwn {
+                guard !hasOwn else { continue }
+                hasOwn = true
+                result.insert(group, at: 0)
+                continue
+            }
+            let handle = group.author.handle.lowercased()
+            guard seenIDs.insert(group.author.id).inserted else { continue }
+            if !handle.isEmpty, !seenHandles.insert(handle).inserted { continue }
+            result.append(group)
+        }
+        return result
+    }
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -155,7 +186,7 @@ struct StoryTray: View {
                     .accessibilityValue("empty")
                     .accessibilityIdentifier("home.story.own")
                 }
-                ForEach(groups) { group in
+                ForEach(displayGroups) { group in
                     Button {
                         onSelect(group)
                         HapticEngine.shared.play(.selection)
@@ -194,19 +225,32 @@ struct StoryTray: View {
                 }
                 // Nobody you follow has a story up: show people from your feed as dashed
                 // "suggested" rings (tap → profile) so the row isn't just "Your story".
-                if !compact, !groups.contains(where: { !$0.isOwn }) {
+                if !compact {
                     ForEach(suggestedAuthors) { author in
                         Button {
                             app.navigation.push(.profile(author.id, .overview))
                             HapticEngine.shared.play(.navigation)
                         } label: {
                             trayCell(
-                                avatar: ModulaAvatar(initials: author.initials, url: author.avatarURL, size: avatarSize - 10, name: author.displayName)
-                                    .padding(5)
-                                    .overlay(Circle().strokeBorder(Color.secondary.opacity(0.45), style: StrokeStyle(lineWidth: 1.5, dash: [4, 4]))),
-                                title: author.displayName.split(whereSeparator: \.isWhitespace).first.map(String.init) ?? author.displayName
+                                avatar: ModulaAvatar(initials: author.initials, url: author.avatarURL, size: avatarSize - 12, name: author.displayName)
+                                    .padding(6)
+                                    .overlay(
+                                        Circle().strokeBorder(
+                                            Color.primary.opacity(0.2),
+                                            lineWidth: 2
+                                        )
+                                    )
+                                    .overlay(alignment: .bottomTrailing) {
+                                        Image(systemName: "person.badge.plus")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundStyle(.white)
+                                            .frame(width: 22, height: 22)
+                                            .background(app.appearance.accent.color, in: Circle())
+                                            .overlay(Circle().strokeBorder(Color(uiColor: .systemBackground), lineWidth: 2))
+                                    },
+                                title: author.displayName.split(whereSeparator: \.isWhitespace).first.map(String.init) ?? author.displayName,
+                                secondary: true
                             )
-                            .opacity(0.85)
                         }
                         .buttonStyle(ModulaPressStyle(scale: 0.93, haptic: nil))
                         .accessibilityLabel("Suggested: \(author.displayName)")
@@ -215,18 +259,31 @@ struct StoryTray: View {
                 }
             }
             .padding(.vertical, 4)
+            .padding(.trailing, compact ? 0 : 24)
         }
-        .frame(minHeight: compact ? 104 : 122)
-        .frame(maxHeight: compact ? 120 : 142)
+        // Soft trailing fade: the row reads as scrollable instead of a ring cut in half.
+        .mask {
+            if compact {
+                Rectangle()
+            } else {
+                LinearGradient(
+                    stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.86), .init(color: .clear, location: 1)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            }
+        }
+        .frame(minHeight: compact ? 104 : 128)
+        .frame(maxHeight: compact ? 120 : 148)
         .accessibilityIdentifier("home.story.tray")
     }
 
-    private func trayCell<Avatar: View>(avatar: Avatar, title: String) -> some View {
+    private func trayCell<Avatar: View>(avatar: Avatar, title: String, secondary: Bool = false) -> some View {
         VStack(spacing: 7) {
             avatar
             Text(title)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.primary)
+                .foregroundStyle(secondary ? Color.secondary : Color.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.9)
                 .frame(width: labelWidth)
@@ -241,18 +298,34 @@ struct StoryTray: View {
         return name.split(whereSeparator: \.isWhitespace).first.map(String.init) ?? name
     }
 
+    /// People from your feeds shown after real stories while the row is short. Never you,
+    /// never someone already in the row, never a test fixture, one entry per person.
     private var suggestedAuthors: [SocialAuthor] {
-        var seen = Set<String>()
-        let own = app.auth.account?.accountId
+        let shown = displayGroups.filter { !$0.isOwn }
+        let room = max(0, 6 - shown.count)
+        guard room > 0 else { return [] }
+        var seen = Set(shown.map(\.author.id))
+        var seenKeys = Set(shown.map { $0.author.handle.lowercased() })
+        var seenNames = Set(shown.map { $0.author.displayName.lowercased() })
+        if let own = app.profile.ownProfile {
+            seenNames.insert(own.displayName.lowercased())
+            seenKeys.insert(own.handle.lowercased())
+        }
         return HomeMode.allCases.flatMap { app.home.visiblePosts(for: $0) }
             .compactMap(\.author)
-            .filter { $0.id != own && seen.insert($0.id).inserted }
-            .prefix(6)
+            .filter { author in
+                guard !isSelf(author.handle, id: author.id) else { return false }
+                guard !ModulaFixtureFilter.isFixture(name: author.displayName, handle: author.handle) else { return false }
+                guard seen.insert(author.id).inserted else { return false }
+                guard seenKeys.insert(author.handle.lowercased()).inserted else { return false }
+                return seenNames.insert(author.displayName.lowercased()).inserted
+            }
+            .prefix(room)
             .map { $0 }
     }
 
     private var showsComposer: Bool {
-        onCreate != nil && !groups.contains(where: \.isOwn)
+        onCreate != nil && !displayGroups.contains(where: \.isOwn)
     }
 }
 
@@ -795,20 +868,11 @@ struct StoryViewer: View {
                         Text(viewers == 1 ? "1 view" : "\(viewers) views")
                     } else if app.stories.capabilities.viewers {
                         Text("Views aren’t loaded yet")
-                    } else {
-                        Text("Insights aren’t available yet")
                     }
                     Button("Share story", systemImage: "square.and.arrow.up") { share(item) }
-                    Button("Delete story", systemImage: "trash", role: .destructive) {
-                        app.navigation.flash("Deleting stories isn’t available yet", symbol: "trash")
-                    }
                 } else {
                     if canReply {
                         Button("Reply in Messages", systemImage: "bubble.left") { reply(item) }
-                    } else {
-                        Button("Reply unavailable", systemImage: "bubble.left") {
-                            app.navigation.flash("Replies aren’t available yet", symbol: "bubble.left")
-                        }
                     }
                     Button("Share", systemImage: "square.and.arrow.up") { share(item) }
                     Button("Mute", systemImage: "speaker.slash") { confirmMute = true }
@@ -1320,9 +1384,12 @@ struct StoryBackgroundView: View {
     var body: some View {
         GeometryReader { geo in
             if let collage {
+                // While editing, cells sit below the Retake / close bar so controls never overlap a frame.
+                let inset: CGFloat = showsPlaceholders ? 64 : 0
+                let area = CGSize(width: geo.size.width, height: max(geo.size.height - inset, 1))
                 ZStack(alignment: .topLeading) {
                     Color.black
-                    ForEach(Array(collage.rects(in: geo.size).enumerated()), id: \.offset) { index, rect in
+                    ForEach(Array(collage.rects(in: area).enumerated().map { ($0.offset, $0.element.offsetBy(dx: 0, dy: inset)) }), id: \.0) { index, rect in
                         Group {
                             if index < collageImages.count {
                                 Image(uiImage: collageImages[index])
@@ -1339,9 +1406,9 @@ struct StoryBackgroundView: View {
                                 Color(white: 0.1)
                             }
                         }
-                        .frame(width: max(rect.width - 3, 1), height: max(rect.height - 3, 1))
-                        .clipped()
-                        .offset(x: rect.minX + 1.5, y: rect.minY + 1.5)
+                        .frame(width: max(rect.width - 6, 1), height: max(rect.height - 6, 1))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .offset(x: rect.minX + 3, y: rect.minY + 3)
                     }
                 }
             } else if let image {
@@ -1877,6 +1944,8 @@ struct StoryCreateView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .toolbar(.hidden, for: .navigationBar)
+        // The system back chevron was still drawn under our own close (X) — one control only.
+        .navigationBarBackButtonHidden(true)
         .onChange(of: cutoutItems) { _, items in
             Task { await loadCutout(items) }
         }
@@ -2898,9 +2967,6 @@ struct StoryCreateView: View {
                         addLayer(.time(Date()), y: 0.3)
                         sheet = nil
                     }
-                    interactiveChip("Weather", symbol: "cloud.sun") {
-                        app.navigation.flash("Weather stickers need a weather service — coming soon", symbol: "cloud.sun")
-                    }
                     PhotosPicker(selection: $cutoutItems, maxSelectionCount: 1, matching: .images) {
                         StickerToolTile(title: "Cutout", symbol: "person.crop.rectangle.badge.plus", accent: accent)
                     }
@@ -3094,13 +3160,9 @@ struct StoryCreateView: View {
                     Menu {
                         Button { visibility = "public" } label: { Label("Everyone", systemImage: "globe") }
                         Button { visibility = "followers" } label: { Label("Followers", systemImage: "person.2") }
-                        Button {
-                            if app.stories.capabilities.privacy {
-                                visibility = "close_friends"
-                            } else {
-                                app.navigation.flash("Close Friends stories are coming soon", symbol: "star.circle")
-                            }
-                        } label: { Label("Close Friends", systemImage: "star.circle.fill") }
+                        if app.stories.capabilities.privacy {
+                            Button { visibility = "close_friends" } label: { Label("Close Friends", systemImage: "star.circle.fill") }
+                        }
                     } label: {
                         Label(audienceTitle, systemImage: audienceSymbol)
                             .font(.caption.weight(.semibold))

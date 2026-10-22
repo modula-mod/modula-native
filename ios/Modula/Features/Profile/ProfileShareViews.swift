@@ -65,13 +65,17 @@ struct ProfileShareSheet: View {
     }
 
     private func shareButton(title: String, symbol: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        // The code button is the primary action: solid accent, white text.
+        let primary = title == "Modula Code"
+        return Button(action: action) {
             Label(title, systemImage: symbol)
                 .font(.body.weight(.semibold))
+                .foregroundStyle(primary ? Color.white : Color.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(minHeight: 48)
                 .padding(.horizontal, 14)
-                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(primary ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color.primary.opacity(0.08)),
+                            in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)
@@ -109,7 +113,7 @@ struct ModulaProfileCodeView: View {
             }
             .background(
                 ZStack {
-                    ModulaPalette.resolve(app.appearance, scheme: scheme).canvas
+                    ModulaPalette.resolve(app.appearance, scheme: scheme).canvas.opacity(0.55)
                     ModulaAuroraBackground(tint: accent, secondary: nil, intensity: 0.6)
                         .opacity(0.5)
                 }
@@ -175,10 +179,12 @@ struct ModulaProfileCodeView: View {
             }
 
             Text(profile.shareURL.absoluteString)
-                .font(.caption.monospaced())
-                .foregroundStyle(.secondary)
+                .font(.footnote.monospaced().weight(.semibold))
+                .foregroundStyle(Color.primary)
                 .lineLimit(1)
                 .truncationMode(.middle)
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .background(Color(uiColor: .systemBackground).opacity(0.55), in: Capsule())
         }
         .padding(20)
         .modulaGlass(in: RoundedRectangle(cornerRadius: 32, style: .continuous), interactive: false, specular: true)
@@ -202,6 +208,7 @@ struct ModulaProfileCodeView: View {
                 Button {
                     UIPasteboard.general.string = profile.shareURL.absoluteString
                     HapticEngine.shared.play(.confirmation)
+                    ModulaToastCenter.shared.show("Link copied", symbol: "link", tone: .info)
                     withAnimation(.snappy) { copied = true }
                     Task {
                         try? await Task.sleep(for: .seconds(1.4))

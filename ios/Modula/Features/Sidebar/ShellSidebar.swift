@@ -41,7 +41,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .collections: "rectangle.stack"
         case .settings: "gearshape"
         case .appearance: "paintpalette"
-        case .developer: "hammer"
+        case .developer: "wrench.and.screwdriver"
         }
     }
 
@@ -152,6 +152,18 @@ struct ShellSidebarContainer<Content: View>: View {
                             .allowsHitTesting(false)
                             .ignoresSafeArea()
                     }
+                    // Hide the main screen's nav-bar chrome (… / + buttons) on the peeking card so
+                    // it doesn't sit beside the drawer's own search button.
+                    .overlay(alignment: .top) {
+                        if progress > 0.01 {
+                            sidebarBackdrop
+                                .frame(height: ProfileFullBleedMetrics.windowSafeAreaTop + 52)
+                                .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.75), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
+                                .opacity(Double(min(1, progress * 1.4)))
+                                .ignoresSafeArea(edges: .top)
+                                .allowsHitTesting(false)
+                        }
+                    }
                     .shadow(color: .black.opacity(0.22 * progress), radius: 24 * progress, x: -4, y: 0)
                     .offset(x: reduceMotion ? 0 : offset)
                     .opacity(reduceMotion ? 1 - progress * 0.6 : 1)
@@ -160,6 +172,12 @@ struct ShellSidebarContainer<Content: View>: View {
                     // being dragged so the transform can't feed back into layout.
                     .onChange(of: dragging) { _, isDragging in
                         ShellChromeFreeze.isSidebarDragging = isDragging
+                        // Cancelled gesture (notification, system swipe): settle back to a clean state.
+                        if !isDragging, !app.navigation.sidebarPresented { ShellChromeFreeze.holdForSettle() }
+                    }
+                    // A push while the card is moving (or open) cancels the sidebar cleanly.
+                    .onChange(of: app.navigation.selectedStackHasPushedViews) { _, pushed in
+                        if pushed, app.navigation.sidebarPresented { close(haptic: false) }
                     }
                     .overlay {
                         if presented {
@@ -176,7 +194,10 @@ struct ShellSidebarContainer<Content: View>: View {
                         }
                     }
                     .overlay(alignment: .leading) {
-                        if !presented, app.appearance.edgePicker.side != .left {
+                        // Mutually exclusive with the navigation back swipe: only on a stack root
+                        // with nothing presented, so Back-from-Search can never drag the sidebar.
+                        if !presented, app.appearance.edgePicker.side != .left,
+                           !app.navigation.selectedStackHasPushedViews, app.navigation.presented == nil {
                             Color.clear
                                 .frame(width: 22)
                                 .contentShape(Rectangle())
@@ -207,8 +228,12 @@ struct ShellSidebarContainer<Content: View>: View {
     }
 
     private var sidebarBackdrop: some View {
+        // Translucent glass drawer (was an opaque canvas slab).
         let palette = ModulaPalette.resolve(app.appearance, scheme: scheme)
-        return palette.canvas
+        return ZStack {
+            Rectangle().fill(.regularMaterial)
+            palette.canvas.opacity(0.45)
+        }
     }
 
     private var settle: Animation {
@@ -226,7 +251,10 @@ struct ShellSidebarContainer<Content: View>: View {
                 state = min(max(0, value.translation.width), width)
             }
             .onEnded { value in
-                guard value.startLocation.x < 30 else { return }
+                ShellChromeFreeze.isSidebarDragging = false
+                guard value.startLocation.x < 30, !app.navigation.selectedStackHasPushedViews else { return }
+                // Mostly-vertical drags never open the sidebar.
+                guard abs(value.translation.width) > abs(value.translation.height) else { return }
                 let open = Self.shouldEndOpen(translation: value.translation.width,
                                               predicted: value.predictedEndTranslation.width,
                                               startOpen: false, width: width)
@@ -326,20 +354,20 @@ struct ShellSidebarView: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.top, 10)
-                    .padding(.bottom, 96)
+                    .padding(.bottom, 24)
                 }
                 .scrollIndicators(.hidden)
                 .modulaSoftScrollEdge()
 
-                profileRow
+                // Post sits inline with the profile row instead of floating over the drawer list.
+                HStack(spacing: 10) {
+                    profileRow
+                    createPill
+                }
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                     .padding(.bottom, 10)
             }
-
-            createPill
-                .padding(.trailing, 16)
-                .padding(.bottom, 74)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .accessibilityElement(children: .contain)
@@ -383,7 +411,9 @@ struct ShellSidebarView: View {
                 } label: {
                     HStack(spacing: 14) {
                         Image(systemName: item.symbol)
-                            .font(.body)
+                            .font(.body.weight(.regular))
+                            .symbolVariant(.none)
+                            .imageScale(.medium)
                             .foregroundStyle(.primary)
                             .frame(width: 24)
                         Text(item.title)
@@ -474,15 +504,15 @@ struct ShellSidebarView: View {
             }
             HapticEngine.shared.play(.contextOpen)
         } label: {
-            Label("Post", systemImage: "square.and.pencil")
+            Image(systemName: "square.and.pencil")
                 .font(.body.weight(.semibold))
                 .foregroundStyle(.white)
-                .padding(.horizontal, 20)
-                .frame(height: 48)
-                .contentShape(Capsule())
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .modulaGlass(in: Capsule(), tint: app.appearance.accent.color, prominent: true)
+        .modulaGlass(in: Circle(), tint: app.appearance.accent.color, prominent: true)
+        .accessibilityLabel("New post")
         .accessibilityIdentifier("shell.sidebar.create")
     }
 
