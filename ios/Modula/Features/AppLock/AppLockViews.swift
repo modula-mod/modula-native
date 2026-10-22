@@ -43,12 +43,13 @@ struct AppLockView: View {
             .scrollIndicators(.hidden)
             .scrollDisabled(method != .passcode)
         }
-        .background { LockAmbientBackground(animated: effects).ignoresSafeArea() }
+        .background { LockShaderAurora(animated: effects).ignoresSafeArea() }
         .overlay { successBloom.allowsHitTesting(false) }
-        // Glass blur dissolve into the app.
-        .scaleEffect(unlocking && effects ? 1.1 : 1)
-        .blur(radius: unlocking && effects ? 24 : 0)
-        .opacity(unlocking ? 0 : 1)
+        // One ripple radiates from the lock badge on success.
+        .modifier(LockSuccessRipple(trigger: unlockedIcon && effects))
+        // Shader dissolve into the app (plain fade with effects off / Reduce Motion).
+        .modifier(LockDissolve(progress: unlocking && effects ? 1 : 0))
+        .opacity(unlocking && !effects ? 0 : 1)
         .accessibilityIdentifier("applock.lock")
         .confirmationDialog("Forgot how to unlock?", isPresented: $confirmsForgot, titleVisibility: .visible) {
             Button("Sign Out and Reset App Lock", role: .destructive) {
@@ -211,6 +212,7 @@ struct AppLockView: View {
                     .modifier(ShakeEffect(animatableData: CGFloat(shakes)))
                 }
             }
+            .modifier(LockChromaticShake(trigger: shakes, enabled: effects))
             .opacity(coolingDown ? 0.45 : 1)
             .scaleEffect(appeared ? 1 : (effects ? 0.94 : 1))
             .opacity(appeared ? 1 : 0)
@@ -348,46 +350,6 @@ struct AppLockView: View {
     }
 }
 
-/// Drifting aurora; adapts to light/dark, static with Reduce Motion, solid with Reduce Transparency.
-private struct LockAmbientBackground: View {
-    var animated: Bool
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    var body: some View {
-        let dark = colorScheme == .dark
-        ZStack {
-            Color(uiColor: .systemBackground)
-            if !reduceTransparency {
-                TimelineView(.animation(minimumInterval: 1.0 / 20, paused: !animated)) { context in
-                    let t = animated ? context.date.timeIntervalSinceReferenceDate : 0
-                    Canvas(rendersAsynchronously: true) { ctx, size in
-                        let blobs: [(Color, Double, Double, Double)] = [
-                            (Color(red: 0.35, green: 0.25, blue: 0.95), 0.11, 0.0, 0.55),
-                            (Color(red: 0.10, green: 0.65, blue: 0.95), 0.08, 2.1, 0.45),
-                            (Color(red: 0.85, green: 0.30, blue: 0.75), 0.06, 4.2, 0.40),
-                        ]
-                        ctx.addFilter(.blur(radius: min(size.width, size.height) * 0.18))
-                        for (color, speed, phase, scale) in blobs {
-                            let x = size.width * (0.5 + 0.32 * cos(t * speed + phase))
-                            let y = size.height * (0.45 + 0.28 * sin(t * speed * 1.3 + phase))
-                            let r = size.width * scale
-                            ctx.fill(Path(ellipseIn: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)),
-                                     with: .color(color.opacity(dark ? 0.45 : 0.28)))
-                        }
-                    }
-                }
-                LinearGradient(
-                    colors: dark ? [.black.opacity(0.1), .black.opacity(0.55)] : [.white.opacity(0.05), .white.opacity(0.5)],
-                    startPoint: .top, endPoint: .bottom
-                )
-            }
-        }
-        .drawingGroup()
-        .accessibilityHidden(true)
-    }
-}
-
 private struct ShakeEffect: GeometryEffect {
     var animatableData: CGFloat
     func effectValue(size: CGSize) -> ProjectionTransform {
@@ -418,9 +380,9 @@ struct PasscodeDots: View {
                         // Ripple ring as each dot fills.
                         if ripple {
                             Circle()
-                                .stroke(Color.accentColor, lineWidth: 1.5)
+                                .stroke(Color.primary.opacity(0.5), lineWidth: 1)
                                 .keyframeAnimator(initialValue: 1.0, trigger: on) { view, t in
-                                    view.scaleEffect(1 + 1.6 * t).opacity(on ? (1 - t) * 0.8 : 0)
+                                    view.scaleEffect(1 + 0.45 * t).opacity(on ? (1 - t) * 0.7 : 0)
                                 } keyframes: { _ in
                                     LinearKeyframe(0.0, duration: 0.001)
                                     CubicKeyframe(1.0, duration: 0.45)
@@ -436,18 +398,13 @@ struct PasscodeDots: View {
     }
 }
 
-/// Press feedback for glass keys: scale down plus a soft glow.
+/// Press feedback for glass keys: a slight scale plus a caustic shimmer clipped to the key.
 private struct GlassKeyStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.9 : 1)
-            .background {
-                Circle()
-                    .fill(Color.primary.opacity(configuration.isPressed ? 0.14 : 0))
-                    .blur(radius: 12)
-                    .scaleEffect(1.15)
-            }
-            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+            .overlay { LockKeyShimmer(pressed: configuration.isPressed).clipShape(Circle()).allowsHitTesting(false) }
+            .scaleEffect(configuration.isPressed ? 0.94 : 1)
+            .animation(.spring(response: 0.22, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 
@@ -461,13 +418,13 @@ struct PasscodeKeypad: View {
     private let letters = ["2": "ABC", "3": "DEF", "4": "GHI", "5": "JKL", "6": "MNO", "7": "PQRS", "8": "TUV", "9": "WXYZ"]
 
     var body: some View {
-        ModulaGlassGroup(spacing: 14) {
-            VStack(spacing: 14) {
-                ForEach(rows, id: \.self) { row in
-                    HStack(spacing: 22) {
-                        ForEach(row, id: \.self) { key in
-                            keyButton(key)
-                        }
+        // No GlassEffectContainer and no interactive glass here: interactive Liquid Glass inside a
+        // merging container bloomed the touch into a huge unclipped tinted blob across the pad.
+        VStack(spacing: 14) {
+            ForEach(rows, id: \.self) { row in
+                HStack(spacing: 22) {
+                    ForEach(row, id: \.self) { key in
+                        keyButton(key)
                     }
                 }
             }
@@ -486,12 +443,11 @@ struct PasscodeKeypad: View {
                 HapticEngine.shared.play(.lightImpact)
                 withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) { _ = value.removeLast() }
             } label: {
-                Image(systemName: "delete.left.fill")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(Color.primary.opacity(value.isEmpty ? 0.35 : 0.9))
-                    .frame(width: keySize * 0.78, height: keySize * 0.78)
-                    .modulaGlass(in: Circle())
+                Image(systemName: "delete.left")
+                    .font(.title3.weight(.medium))
+                    .foregroundStyle(Color.primary.opacity(value.isEmpty ? 0.3 : 0.8))
                     .frame(width: keySize, height: keySize)
+                    .modulaGlass(in: Circle(), interactive: false, specular: true)
                     .contentShape(Circle())
             }
             .buttonStyle(GlassKeyStyle())
@@ -517,7 +473,7 @@ struct PasscodeKeypad: View {
                 }
                 .foregroundStyle(.primary)
                 .frame(width: keySize, height: keySize)
-                .modulaGlass(in: Circle(), specular: true)
+                .modulaGlass(in: Circle(), interactive: false, specular: true)
                 .contentShape(Circle())
             }
             .buttonStyle(GlassKeyStyle())
@@ -909,3 +865,116 @@ struct LockSecretSetupView: View {
     }
 }
 
+
+
+// MARK: - Lock shader effects (ModulaEffectKit.metal)
+
+/// Domain-warped noise aurora. Static under Reduce Motion, solid under Reduce Transparency.
+private struct LockShaderAurora: View {
+    var animated: Bool
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        if reduceTransparency {
+            Color(uiColor: .systemBackground)
+        } else {
+            GeometryReader { geo in
+                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !animated)) { context in
+                    let t = animated ? context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 3600) : 12
+                    Rectangle()
+                        .colorEffect(ShaderLibrary.lockAurora(.float2(geo.size), .float(t), .float(colorScheme == .dark ? 1 : 0)))
+                }
+            }
+            .accessibilityHidden(true)
+        }
+    }
+}
+
+/// Short caustic shimmer while a key is held / just released; clipped by the caller.
+private struct LockKeyShimmer: View {
+    var pressed: Bool
+    @State private var start: Date = .distantPast
+    @State private var settled = 0
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        let _ = settled
+        if reduceMotion {
+            Color.primary.opacity(pressed ? 0.12 : 0)
+        } else {
+            let active = Date().timeIntervalSince(start) < 0.6 || pressed
+            GeometryReader { geo in
+                TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !active)) { ctx in
+                    let t = min(1, max(0, ctx.date.timeIntervalSince(start) / 0.55))
+                    Rectangle()
+                        .colorEffect(ShaderLibrary.lockKeyCaustic(.float2(geo.size), .float(pressed ? min(t, 0.35) : t),
+                                                                  .float(colorScheme == .dark ? 1 : 0)))
+                        .opacity(active ? 1 : 0)
+                }
+            }
+            .onChange(of: pressed) { _, now in
+                if now { start = Date() } else {
+                    // Re-render after the shimmer ends so the timeline pauses (no idle 60 fps).
+                    Task { @MainActor in try? await Task.sleep(for: .milliseconds(620)); settled &+= 1 }
+                }
+            }
+        }
+    }
+}
+
+/// Distortion ripple from the lock badge, once, when `trigger` turns on.
+private struct LockSuccessRipple: ViewModifier {
+    var trigger: Bool
+    @State private var start: Date?
+
+    func body(content: Content) -> some View {
+        GeometryReader { geo in
+            let origin = CGPoint(x: geo.size.width / 2, y: geo.size.height * 0.24)
+            TimelineView(.animation(minimumInterval: 1.0 / 60, paused: start == nil)) { ctx in
+                let t = start.map { min(1, ctx.date.timeIntervalSince($0) / 0.6) } ?? 1
+                content
+                    .distortionEffect(ShaderLibrary.lockRipple(.float2(origin), .float(t), .float(10)),
+                                      maxSampleOffset: CGSize(width: 12, height: 12), isEnabled: t < 1)
+            }
+        }
+        .onChange(of: trigger) { _, on in
+            guard on else { return }
+            start = Date()
+            Task { @MainActor in try? await Task.sleep(for: .milliseconds(650)); start = nil }
+        }
+    }
+}
+
+/// Animatable noise dissolve with a glowing edge.
+private struct LockDissolve: ViewModifier, @MainActor Animatable {
+    var progress: CGFloat
+    var animatableData: CGFloat { get { progress } set { progress = newValue } }
+
+    func body(content: Content) -> some View {
+        GeometryReader { geo in
+            content.colorEffect(ShaderLibrary.lockDissolve(.float2(geo.size), .float(progress)), isEnabled: progress > 0.001)
+        }
+    }
+}
+
+/// Wrong code: a brief RGB split that rides on the shake.
+private struct LockChromaticShake: ViewModifier {
+    var trigger: Int
+    var enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.keyframeAnimator(initialValue: 0.0, trigger: trigger) { view, amount in
+                view.layerEffect(ShaderLibrary.lockChromatic(.float(amount)),
+                                 maxSampleOffset: CGSize(width: 8, height: 0), isEnabled: amount > 0.01)
+            } keyframes: { _ in
+                LinearKeyframe(6.0, duration: 0.08)
+                CubicKeyframe(0.0, duration: 0.38)
+            }
+        } else {
+            content
+        }
+    }
+}
