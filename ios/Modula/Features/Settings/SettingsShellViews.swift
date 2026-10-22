@@ -432,7 +432,7 @@ struct MonetisationSettingsHost: View {
             SettingsScrollCanvas {
                 SettingsHeroBanner(
                     title: "Monetisation",
-                    subtitle: "Plans, payouts, and invoices — designed ahead of billing APIs.",
+                    subtitle: "Plans, payouts, and invoices.",
                     symbol: "creditcard"
                 )
                 SettingsSceneGraphic(style: .meter)

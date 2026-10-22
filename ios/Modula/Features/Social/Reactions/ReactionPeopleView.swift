@@ -38,7 +38,7 @@ struct ReactionPeopleView: View {
         if ReactionBackendCapabilities.reactionsListHTTP {
             return "People grouped by reaction."
         }
-        return "Reaction identities aren’t available from Greenfield yet. Counts are shown only when the post payload includes a breakdown."
+        return "People who reacted will appear here."
     }
 
     private func filterChip(title: String, selected: Bool, action: @escaping () -> Void) -> some View {

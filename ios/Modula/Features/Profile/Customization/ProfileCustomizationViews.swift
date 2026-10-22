@@ -31,18 +31,17 @@ struct ProfileAboutField: View {
 struct ProfileAccentPicker: View {
     @Binding var selection: ProfileAccent?
     var writable: Bool
-    @Environment(AppEnvironment.self) private var app
+    var showsTitle = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Profile Accent")
-                .font(.headline)
-            Text("This is how your public Profile identifies itself. It does not change how visitors see Modula’s tab bar or Settings.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if showsTitle {
+                Text("Profile Accent")
+                    .font(.headline)
+            }
             if writable {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
+                    HStack(spacing: 12) {
                         ForEach(ProfileAccent.allCases) { accent in
                             Button {
                                 selection = accent
@@ -50,7 +49,7 @@ struct ProfileAccentPicker: View {
                             } label: {
                                 Circle()
                                     .fill(accent.color)
-                                    .frame(width: 36, height: 36)
+                                    .frame(width: 34, height: 34)
                                     .overlay {
                                         if selection == accent {
                                             Image(systemName: "checkmark")
@@ -58,26 +57,21 @@ struct ProfileAccentPicker: View {
                                                 .foregroundStyle(.white)
                                         }
                                     }
-                                    .overlay(Circle().stroke(Color.primary.opacity(0.15)))
+                                    .padding(3)
+                                    .overlay(Circle().strokeBorder(selection == accent ? accent.color : Color.primary.opacity(0.12), lineWidth: 2))
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(accent.title)
                             .accessibilityAddTraits(selection == accent ? [.isSelected, .isButton] : .isButton)
                         }
                     }
+                    .padding(.vertical, 2)
                 }
             } else if let selection {
-                HStack {
+                HStack(spacing: 10) {
                     Circle().fill(selection.color).frame(width: 22, height: 22)
                     Text(selection.title)
-                    Text("Not writable on Greenfield yet.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
-            } else {
-                Text("No public accent is stored yet.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
             }
         }
         .accessibilityIdentifier("profile.accent.picker")
@@ -89,20 +83,30 @@ struct ProfileLinksEditor: View {
     var writable: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Links")
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 0) {
             if links.isEmpty {
-                Text("No public links yet.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 12) {
+                    Image(systemName: "link")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, height: 32)
+                        .background(Color.primary.opacity(0.06), in: Circle())
+                    Text("No links on your profile")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .frame(minHeight: 44)
             } else {
-                ForEach(links) { link in
-                    HStack {
-                        Image(systemName: "line.3.horizontal")
-                            .foregroundStyle(.tertiary)
-                            .opacity(writable ? 1 : 0)
-                        VStack(alignment: .leading) {
+                ForEach(Array(links.enumerated()), id: \.element.id) { index, link in
+                    if index > 0 { Divider().padding(.leading, 44) }
+                    HStack(spacing: 12) {
+                        Image(systemName: "link")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 32, height: 32)
+                            .background(Color.primary.opacity(0.06), in: Circle())
+                        VStack(alignment: .leading, spacing: 2) {
                             Text(link.label).font(.subheadline.weight(.semibold))
                             Text(link.domain ?? link.url?.host ?? "")
                                 .font(.caption)
@@ -113,67 +117,124 @@ struct ProfileLinksEditor: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    .frame(minHeight: 44)
+                    .frame(minHeight: 48)
                 }
-            }
-            if !writable {
-                Text("Link add, remove, and reorder wait on a Greenfield write contract.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
             }
         }
         .accessibilityIdentifier("profile.links.editor")
     }
 }
 
+/// Compact chip picker of the modules you have installed. Tap a chip to feature or
+/// un-feature it; drag a chip onto the Featured row (or onto another featured chip) to
+/// feature/reorder it.
 struct FeaturedModulesEditor: View {
-    let featuredIDs: [String]
-    let available: [CatalogueProduct]
+    @Binding var featuredIDs: [String]
+    /// Installed modules only.
+    let installed: [CatalogueProduct]
     var writable: Bool
+    var accent: Color = .accentColor
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var featured: [CatalogueProduct] {
+        featuredIDs.compactMap { id in installed.first { $0.moduleId == id } }
+    }
+    private var others: [CatalogueProduct] {
+        installed.filter { !featuredIDs.contains($0.moduleId) }
+    }
+    private var spring: Animation? { reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.8) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Modules")
-                .font(.headline)
-            if featuredIDs.isEmpty && available.isEmpty {
-                Text("No featured modules yet.")
+            if installed.isEmpty {
+                Text("Modules you install can be featured on your profile.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .frame(minHeight: 44, alignment: .leading)
             } else {
-                Text("Featured")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                ForEach(featuredIDs, id: \.self) { id in
-                    HStack {
-                        Image(systemName: "line.3.horizontal")
-                            .opacity(writable ? 1 : 0)
-                        Text(available.first { $0.moduleId == id }?.name ?? id)
-                            .font(.subheadline.weight(.semibold))
-                    }
-                    .frame(minHeight: 44)
-                }
-                let unused = available.filter { !featuredIDs.contains($0.moduleId) }
-                if !unused.isEmpty {
-                    Text("Available")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    ForEach(unused) { product in
-                        HStack {
-                            Image(systemName: "plus")
-                            Text(product.name)
+                row(title: "Featured", items: featured, isFeatured: true)
+                    .dropDestination(for: String.self) { ids, _ in
+                        guard writable, let id = ids.first else { return false }
+                        withAnimation(spring) {
+                            featuredIDs.removeAll { $0 == id }
+                            featuredIDs.append(id)
                         }
-                        .foregroundStyle(.secondary)
-                        .frame(minHeight: 44)
+                        HapticEngine.shared.play(.success)
+                        return true
                     }
+                if !others.isEmpty {
+                    row(title: "Installed", items: others, isFeatured: false)
                 }
-            }
-            if !writable {
-                Text("Featured module order is read-only until Greenfield can persist it.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
             }
         }
         .accessibilityIdentifier("profile.modules.editor")
+    }
+
+    private func row(title: String, items: [CatalogueProduct], isFeatured: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    if items.isEmpty && isFeatured {
+                        Text(writable ? "Tap or drag a module here" : "None featured")
+                            .font(.footnote)
+                            .foregroundStyle(.tertiary)
+                            .padding(.horizontal, 14)
+                            .frame(height: 36)
+                            .overlay(Capsule().strokeBorder(Color.primary.opacity(0.15), style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+                    }
+                    ForEach(items) { product in
+                        chip(product, isFeatured: isFeatured)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+    }
+
+    private func chip(_ product: CatalogueProduct, isFeatured: Bool) -> some View {
+        Button {
+            guard writable else { return }
+            withAnimation(spring) {
+                if isFeatured {
+                    featuredIDs.removeAll { $0 == product.moduleId }
+                } else {
+                    featuredIDs.append(product.moduleId)
+                }
+            }
+            HapticEngine.shared.play(.selection)
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: isFeatured ? "star.fill" : "plus")
+                    .font(.caption.weight(.bold))
+                Text(product.name)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(isFeatured ? Color.white : Color.primary)
+            .padding(.horizontal, 12)
+            .frame(height: 36)
+            .background(isFeatured ? AnyShapeStyle(accent) : AnyShapeStyle(Color.primary.opacity(0.07)), in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(!writable)
+        .draggable(product.moduleId)
+        .dropDestination(for: String.self) { ids, _ in
+            guard writable, isFeatured, let id = ids.first, id != product.moduleId else { return false }
+            withAnimation(spring) {
+                featuredIDs.removeAll { $0 == id }
+                let target = featuredIDs.firstIndex(of: product.moduleId) ?? featuredIDs.endIndex
+                featuredIDs.insert(id, at: target)
+            }
+            HapticEngine.shared.play(.success)
+            return true
+        }
+        .accessibilityLabel(product.name)
+        .accessibilityHint(isFeatured ? "Remove from featured" : "Feature on your profile")
+        .accessibilityAddTraits(isFeatured ? .isSelected : [])
     }
 }
 
@@ -182,7 +243,7 @@ struct ProfileVisitorPreviewBanner: View {
 
     var body: some View {
         HStack {
-            Text("Preview as visitor — public fields only. The server remains the privacy authority.")
+            Text("Previewing your profile as a visitor.")
                 .font(.caption)
             Spacer()
             Button("Exit", action: onExit)

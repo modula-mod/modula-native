@@ -243,7 +243,7 @@ struct QRCodeSettingsHost: View {
                         SettingsPreviewRow(title: "Scan", subtitle: "Camera scanner", symbol: "qrcode.viewfinder", enabled: false)
                     }
                 }
-                SettingsAPIFootnote(text: "Share your code from your profile. Scanning codes isn’t available yet.")
+                SettingsAPIFootnote(text: "Share your code from your profile.")
             }
             .navigationTitle("Modula Code")
             .navigationBarTitleDisplayMode(.inline)
