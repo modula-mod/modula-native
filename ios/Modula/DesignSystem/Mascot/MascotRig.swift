@@ -177,6 +177,26 @@ extension MascotRig {
             r.shape = .roundedRect; r.cornerRadius = 0.28; r.hasLegs = false
         case .glim:
             r.hasFeet = false; r.hasLegs = false; r.floats = true
+        case .echo:
+            r.hatMaxWidth = 0.44                       // between the big ears
+        case .quill:
+            r.hatScale = 0.9
+        case .orbit:
+            r.hasFeet = false; r.hasLegs = false; r.floats = true; r.allowsTop = false
+        case .prism:
+            r.hasFeet = false; r.hasLegs = false; r.hatScale = 0.86
+        case .wisp:
+            r.shape = .drop; r.hasFeet = false; r.hasLegs = false; r.floats = true; r.allowsTop = false
+        case .doodle:
+            r.hasFeet = false; r.hasLegs = false
+        case .chime:
+            r.hasFeet = false; r.hasLegs = false; r.headTopOverride = r.bodyTop + 0.08; r.hatScale = 0.7
+        case .rolo:
+            r.hasLegs = false; r.hatScale = 0.82
+        case .pogo:
+            r.hasFeet = false; r.hatScale = 0.88
+        case .fable:
+            r.hasFeet = false; r.hasLegs = false; r.hatMaxWidth = 0.5
         }
         return r
     }

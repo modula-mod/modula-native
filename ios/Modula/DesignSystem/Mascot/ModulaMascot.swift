@@ -9,11 +9,13 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
     case pip, moss, nimbus, mochi, sprout
     // Premium
     case ember, tuck, bloop, bun, pebble, tofu, comet, puff, bolt, glim
+    // Originals 016–025 (Master Bible v1.0)
+    case echo, quill, orbit, prism, wisp, doodle, chime, rolo, pogo, fable
     var id: String { rawValue }
 
     var isPremium: Bool {
         switch self {
-        case .pip, .moss, .nimbus, .mochi, .sprout: false
+        case .pip, .moss, .nimbus, .mochi, .sprout, .echo, .orbit, .wisp: false
         default: true
         }
     }
@@ -37,6 +39,16 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
         case .puff: "Pufferfish who inflates with excitement"
         case .bolt: "Pocket robot, beeps approvingly"
         case .glim: "Firefly with a glow for late-night writing"
+        case .echo: "Big-eared bat who hears what others miss"
+        case .quill: "Bashful hedgehog, curls up then peeks out"
+        case .orbit: "Tiny planet with a ring and a pocket moon"
+        case .prism: "Living crystal that bends light into colours"
+        case .wisp: "Friendly little spirit that drifts like mist"
+        case .doodle: "Living ink sketch that redraws itself"
+        case .chime: "Little bell that rings with every feeling"
+        case .rolo: "Slow snail philosopher with a spiral shell"
+        case .pogo: "Spring-footed bouncer, always ready to hop"
+        case .fable: "Origami spirit that unfolds into stories"
         }
     }
 
@@ -58,6 +70,16 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
         case .puff: "Excited pufferfish"
         case .bolt: "Pocket robot"
         case .glim: "Late-night firefly"
+        case .echo: "Night-listening bat"
+        case .quill: "Shy hedgehog"
+        case .orbit: "Tiny planet"
+        case .prism: "Living crystal"
+        case .wisp: "Friendly spirit"
+        case .doodle: "Living sketch"
+        case .chime: "Little bell"
+        case .rolo: "Wise snail"
+        case .pogo: "Springy bouncer"
+        case .fable: "Origami storyteller"
         }
     }
 
@@ -79,6 +101,16 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
         case .puff: "puff!"
         case .bolt: "beep boop."
         case .glim: "✧"
+        case .echo: "*ear twitch*"
+        case .quill: "hff!"
+        case .orbit: "whirr~"
+        case .prism: "✶"
+        case .wisp: "oooh~"
+        case .doodle: "*scribble*"
+        case .chime: "ding!"
+        case .rolo: "…slowly."
+        case .pogo: "boing boing!"
+        case .fable: "*rustle*"
         }
     }
 
@@ -102,6 +134,17 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
         case .puff: return Palette(light: c(0.80, 0.96, 1), mid: c(0.48, 0.82, 0.96), dark: c(0.24, 0.58, 0.82), accent: c(1, 0.80, 0.40), iris: c(0.14, 0.26, 0.40), outline: c(0.12, 0.36, 0.56))
         case .bolt: return Palette(light: c(0.92, 0.95, 0.98), mid: c(0.70, 0.76, 0.84), dark: c(0.46, 0.52, 0.62), accent: c(0.36, 0.90, 0.80), iris: c(0.10, 0.56, 0.64), outline: c(0.24, 0.30, 0.40))
         case .glim: return Palette(light: c(0.78, 0.86, 0.56), mid: c(0.52, 0.66, 0.36), dark: c(0.32, 0.44, 0.24), accent: c(1, 0.96, 0.50), iris: c(0.20, 0.26, 0.12), outline: c(0.20, 0.30, 0.14))
+        // Bible palettes: midnight blue / lavender / dusty purple …
+        case .echo: return Palette(light: c(0.62, 0.62, 0.90), mid: c(0.38, 0.38, 0.72), dark: c(0.20, 0.20, 0.46), accent: c(0.80, 0.68, 0.96), iris: c(0.12, 0.10, 0.26), outline: c(0.12, 0.12, 0.30))
+        case .quill: return Palette(light: c(1, 0.90, 0.78), mid: c(0.98, 0.76, 0.58), dark: c(0.80, 0.54, 0.38), accent: c(0.56, 0.36, 0.24), iris: c(0.26, 0.16, 0.10), outline: c(0.40, 0.24, 0.16))
+        case .orbit: return Palette(light: c(0.66, 0.66, 0.96), mid: c(0.42, 0.40, 0.84), dark: c(0.26, 0.22, 0.60), accent: c(0.56, 0.94, 0.80), iris: c(0.12, 0.10, 0.30), outline: c(0.16, 0.14, 0.42))
+        case .prism: return Palette(light: c(0.90, 1, 0.97), mid: c(0.74, 0.88, 0.98), dark: c(0.66, 0.62, 0.92), accent: c(1, 0.70, 0.86), iris: c(0.24, 0.22, 0.44), outline: c(0.36, 0.40, 0.62))
+        case .wisp: return Palette(light: c(1, 1, 1), mid: c(0.86, 0.96, 0.96), dark: c(0.62, 0.82, 0.84), accent: c(0.74, 0.86, 0.94), iris: c(0.16, 0.30, 0.36), outline: c(0.36, 0.56, 0.60))
+        case .doodle: return Palette(light: c(0.44, 0.56, 0.86), mid: c(0.22, 0.32, 0.66), dark: c(0.12, 0.16, 0.36), accent: c(1, 1, 1), iris: c(0.06, 0.08, 0.16), outline: c(0.08, 0.10, 0.20))
+        case .chime: return Palette(light: c(1, 0.96, 0.78), mid: c(0.97, 0.84, 0.48), dark: c(0.78, 0.58, 0.26), accent: c(0.72, 0.46, 0.20), iris: c(0.32, 0.20, 0.08), outline: c(0.50, 0.32, 0.10))
+        case .rolo: return Palette(light: c(1, 0.94, 0.82), mid: c(0.94, 0.82, 0.64), dark: c(0.76, 0.60, 0.42), accent: c(0.72, 0.42, 0.22), iris: c(0.30, 0.18, 0.10), outline: c(0.44, 0.28, 0.14))
+        case .pogo: return Palette(light: c(1, 0.86, 0.78), mid: c(1, 0.62, 0.52), dark: c(0.88, 0.40, 0.36), accent: c(0.40, 0.86, 0.92), iris: c(0.34, 0.14, 0.12), outline: c(0.56, 0.20, 0.18))
+        case .fable: return Palette(light: c(1, 1, 1), mid: c(0.97, 0.93, 0.95), dark: c(0.84, 0.80, 0.92), accent: c(1, 0.76, 0.82), iris: c(0.26, 0.22, 0.36), outline: c(0.44, 0.40, 0.56))
         }
     }
 
@@ -121,6 +164,16 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
         case .puff: CGSize(width: 0.94, height: 0.90)
         case .bolt: CGSize(width: 0.98, height: 0.84)
         case .glim: CGSize(width: 0.86, height: 0.84)
+        case .echo: CGSize(width: 0.92, height: 0.82)
+        case .quill: CGSize(width: 0.98, height: 0.84)
+        case .orbit: CGSize(width: 0.88, height: 0.88)
+        case .prism: CGSize(width: 0.86, height: 0.98)
+        case .wisp: CGSize(width: 0.90, height: 1.04)
+        case .doodle: CGSize(width: 1.0, height: 0.86)
+        case .chime: CGSize(width: 0.94, height: 0.92)
+        case .rolo: CGSize(width: 0.86, height: 0.80)
+        case .pogo: CGSize(width: 0.84, height: 0.90)
+        case .fable: CGSize(width: 0.96, height: 0.88)
         default: CGSize(width: 1.0, height: 0.86)
         }
     }
@@ -128,7 +181,8 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
     var bodyOffsetY: CGFloat {
         switch self {
         case .moss, .pebble: 0.14
-        case .ember, .comet: 0.04
+        case .ember, .comet, .wisp: 0.04
+        case .pogo: -0.02
         case .bloop: 0.0
         default: 0.10
         }
@@ -138,6 +192,8 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
     var footFraction: CGFloat {
         switch self {
         case .bloop: 0.62   // tentacle tips
+        case .pogo: 0.68    // spring feet
+        case .wisp: 0.56
         default: bodyOffsetY + bodySize.height / 2
         }
     }
@@ -158,6 +214,10 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
         case .comet: 0.06
         case .bloop: -0.02
         case .pebble: 0.10
+        case .wisp: -0.06
+        case .prism, .chime: 0.08
+        case .pogo: -0.04
+        case .fable: 0.06
         default: 0.04
         }
     }
@@ -597,7 +657,8 @@ struct ModulaMascotFigure: View {
     }
 
     private func bodyShape() -> AnyShape {
-        switch kind {
+        if let shape = originalsBodyShape() { return shape }
+        return switch kind {
         case .nimbus: AnyShape(MascotCloudShape())
         case .ember: AnyShape(MascotDropShape())
         case .bloop: AnyShape(MascotDomeShape())
@@ -802,6 +863,8 @@ struct ModulaMascotFigure: View {
             }
         case .pebble, .tofu:
             EmptyView()
+        default:
+            originalsBehind(s: s, pal: pal, t: t, a: a)
         }
     }
 
@@ -838,7 +901,7 @@ struct ModulaMascotFigure: View {
         case .bun:
             Ellipse().fill(pal.light).frame(width: s * 0.2, height: s * 0.12).offset(y: s * 0.34)
         default:
-            EmptyView()
+            originalsFront(s: s, pal: pal, t: t, a: a)
         }
         if kind != .tuck && kind != .bolt {
             let blush: Double = pose.conditions.shy ? 0.95 : (pose.eyes == .happy ? 0.85 : (pose.conditions.morning ? 0.7 : 0.5))
@@ -1262,4 +1325,422 @@ extension MascotBrain {
         case .failure: burst(.tear); react(.sad)
         }
     }
+}
+
+// MARK: - Originals 016–025 art
+
+// Native 2D art for Originals 016–025 (Master Bible v1.0): body shapes plus the silhouette parts that sit
+// behind and in front of the shared body/face renderer. All sizes are fractions of the figure size `s`.
+
+extension ModulaMascotFigure {
+    /// Body outline for the new Originals; nil means the shared default.
+    func originalsBodyShape() -> AnyShape? {
+        switch kind {
+        case .prism: AnyShape(MascotCrystalShape())
+        case .wisp: AnyShape(MascotWispShape())
+        case .doodle: AnyShape(MascotInkShape())
+        case .chime: AnyShape(MascotBellShape())
+        case .pogo: AnyShape(MascotPearShape())
+        case .fable: AnyShape(MascotOrigamiShape())
+        default: nil
+        }
+    }
+
+    @ViewBuilder
+    func originalsBehind(s: CGFloat, pal: ModulaMascotKind.Palette, t: Double, a: CGFloat) -> some View {
+        let da = Double(a)
+        let line = max(s * 0.026, 1)
+        switch kind {
+        case .echo:
+            // Scalloped wings, then oversized ears (the ears are the silhouette).
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                MascotBatWing()
+                    .fill(LinearGradient(colors: [pal.mid, pal.dark], startPoint: .top, endPoint: .bottom))
+                    .overlay(MascotBatWing().stroke(pal.outline.opacity(0.6), lineWidth: line))
+                    .frame(width: s * 0.5, height: s * 0.42)
+                    .scaleEffect(x: side, y: 1)
+                    .rotationEffect(.degrees(side * (8 + 10 * sin(t * 2.4) * da)), anchor: side > 0 ? .leading : .trailing)
+                    .offset(x: side * s * 0.52, y: s * 0.08)
+                let twitch = da * max(0, sin(t * 1.7 + side) - 0.9) * 90
+                ZStack {
+                    MascotTriangle().fill(LinearGradient(colors: [pal.mid, pal.dark], startPoint: .top, endPoint: .bottom))
+                    MascotTriangle().stroke(pal.outline.opacity(0.6), lineWidth: line)
+                    MascotTriangle().fill(pal.accent.opacity(0.9)).scaleEffect(x: 0.5, y: 0.62).offset(y: s * 0.06)
+                }
+                .frame(width: s * 0.34, height: s * 0.5)
+                .rotationEffect(.degrees(side * (16 + twitch)), anchor: .bottom)
+                .offset(x: side * s * 0.24, y: -s * 0.4)
+            }
+        case .quill:
+            // Backward-swept spines fanning from the crown.
+            ForEach(0..<7, id: \.self) { i in
+                let ang = Double(i) * 26 - 78
+                MascotTriangle()
+                    .fill(LinearGradient(colors: [pal.accent, pal.accent.opacity(0.8)], startPoint: .top, endPoint: .bottom))
+                    .overlay(MascotTriangle().stroke(pal.outline.opacity(0.55), lineWidth: line))
+                    .frame(width: s * 0.2, height: s * 0.36)
+                    .offset(y: -s * 0.3)
+                    .rotationEffect(.degrees(ang + 18 + 3 * sin(t * 1.5 + Double(i)) * da), anchor: .bottom)
+                    .offset(x: s * 0.06, y: s * 0.12)
+            }
+        case .orbit:
+            // Back half of the slanted ring, kept below the face.
+            MascotRingHalf(front: false)
+                .stroke(LinearGradient(colors: [pal.accent, Color(white: 0.85)], startPoint: .leading, endPoint: .trailing), lineWidth: s * 0.07)
+                .frame(width: s * 1.5, height: s * 0.34)
+                .rotationEffect(.degrees(-12))
+                .offset(y: s * 0.26)
+        case .wisp:
+            Circle().fill(RadialGradient(colors: [pal.accent.opacity(0.5), .clear], center: .center, startRadius: 0, endRadius: s * 0.7))
+                .frame(width: s * 1.4).offset(y: s * 0.02)
+                .opacity(0.7 + 0.3 * sin(t * 1.3))
+        case .chime:
+            // Top loop.
+            Circle().stroke(LinearGradient(colors: [pal.accent, pal.dark], startPoint: .top, endPoint: .bottom), lineWidth: s * 0.06)
+                .frame(width: s * 0.22).offset(y: -s * 0.42)
+        case .rolo:
+            // The big spiral shell sits behind, to the right; eye stalks rise from the head.
+            ZStack {
+                Circle().fill(RadialGradient(colors: [pal.accent.opacity(0.75), pal.accent, pal.dark], center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: s * 0.5))
+                Circle().stroke(pal.outline.opacity(0.6), lineWidth: line)
+                MascotSpiral().stroke(pal.light.opacity(0.85), style: StrokeStyle(lineWidth: s * 0.04, lineCap: .round))
+                    .rotationEffect(.radians(t * 0.15 * da))
+            }
+            .frame(width: s * 0.78, height: s * 0.78)
+            .offset(x: s * 0.38, y: -s * 0.08)
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                Capsule().fill(pal.mid).overlay(Capsule().stroke(pal.outline.opacity(0.5), lineWidth: line))
+                    .frame(width: s * 0.06, height: s * 0.26)
+                    .overlay(alignment: .top) { Circle().fill(pal.mid).overlay(Circle().stroke(pal.outline.opacity(0.5), lineWidth: line)).frame(width: s * 0.1).offset(y: -s * 0.04) }
+                    .rotationEffect(.degrees(side * 14 + 5 * sin(t * 1.2 + side) * da), anchor: .bottom)
+                    .offset(x: side * s * 0.12 - s * 0.04, y: -s * 0.4)
+            }
+        case .pogo:
+            // Spring feet.
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                let squash = 1 + 0.18 * CGFloat(sin(t * 3.2)) * a
+                MascotSpring()
+                    .stroke(LinearGradient(colors: [pal.accent, pal.accent.opacity(0.7)], startPoint: .top, endPoint: .bottom), style: StrokeStyle(lineWidth: s * 0.045, lineCap: .round, lineJoin: .round))
+                    .frame(width: s * 0.16, height: s * 0.26 * squash)
+                    .overlay(alignment: .bottom) { Capsule().fill(pal.dark).frame(width: s * 0.22, height: s * 0.07).offset(y: s * 0.03) }
+                    .offset(x: side * s * 0.18, y: s * 0.52)
+            }
+        case .fable:
+            // Triangular paper flaps (ears) and folded wing tips.
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                MascotTriangle().fill(LinearGradient(colors: [pal.light, pal.dark], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .overlay(MascotTriangle().stroke(pal.outline.opacity(0.55), lineWidth: line))
+                    .frame(width: s * 0.26, height: s * 0.3)
+                    .rotationEffect(.degrees(side * 22), anchor: .bottom)
+                    .offset(x: side * s * 0.26, y: -s * 0.36)
+                MascotTriangle().fill(pal.accent.opacity(0.85))
+                    .overlay(MascotTriangle().stroke(pal.outline.opacity(0.5), lineWidth: line))
+                    .frame(width: s * 0.24, height: s * 0.34)
+                    .rotationEffect(.degrees(side * (100 + 10 * sin(t * 1.8) * da)), anchor: .bottom)
+                    .offset(x: side * s * 0.38, y: s * 0.02)
+            }
+        default:
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    func originalsFront(s: CGFloat, pal: ModulaMascotKind.Palette, t: Double, a: CGFloat) -> some View {
+        let da = Double(a) + 0
+        switch kind {
+        case .quill:
+            // Tiny nose.
+            Circle().fill(pal.accent).frame(width: s * 0.07).offset(y: s * 0.17)
+        case .orbit:
+            MascotRingHalf(front: true)
+                .stroke(LinearGradient(colors: [pal.accent, Color(white: 0.9)], startPoint: .leading, endPoint: .trailing), lineWidth: s * 0.07)
+                .frame(width: s * 1.5, height: s * 0.34)
+                .rotationEffect(.degrees(-12))
+                .offset(y: s * 0.26)
+            // Micro-moon on its own little orbit.
+            let ang = t * 0.9 * da
+            Circle().fill(RadialGradient(colors: [.white, Color(white: 0.75)], center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: s * 0.08))
+                .overlay(Circle().stroke(pal.outline.opacity(0.4), lineWidth: 0.8))
+                .frame(width: s * 0.13)
+                .offset(x: CGFloat(cos(ang)) * s * 0.62, y: -s * 0.34 + CGFloat(sin(ang)) * s * 0.1)
+        case .prism:
+            // Facet lines and a rainbow glint.
+            MascotCrystalFacets().stroke(.white.opacity(0.6), lineWidth: max(s * 0.014, 0.6))
+                .frame(width: s * kind.bodySize.width, height: s * kind.bodySize.height).offset(y: s * kind.bodyOffsetY)
+            Capsule().fill(LinearGradient(colors: ([Color.red, .orange, .yellow, .green, .blue, .purple] as [Color]).map { $0.opacity(0.55) }, startPoint: .leading, endPoint: .trailing))
+                .frame(width: s * 0.36, height: s * 0.05).rotationEffect(.degrees(-28 + 6 * sin(t) * da))
+                .offset(x: s * 0.2, y: -s * 0.26)
+        case .doodle:
+            // Sketchy re-drawn outlines that jitter a little.
+            let j = CGFloat(floor(t * 4).truncatingRemainder(dividingBy: 3)) * a
+            MascotInkShape().stroke(pal.outline.opacity(0.7), style: StrokeStyle(lineWidth: max(s * 0.012, 0.6), dash: [s * 0.08, s * 0.03]))
+                .frame(width: s * kind.bodySize.width * 1.04, height: s * kind.bodySize.height * 1.04)
+                .offset(x: j * 0.8, y: s * kind.bodyOffsetY - j * 0.6)
+            ForEach(0..<3, id: \.self) { i in
+                Circle().fill(pal.mid).frame(width: s * (0.06 - CGFloat(i) * 0.012))
+                    .offset(x: s * (0.46 + CGFloat(i) * 0.08), y: s * (0.38 + CGFloat(i) * 0.04))
+            }
+        case .chime:
+            // Clapper and a floating note.
+            Circle().fill(pal.accent).overlay(Circle().stroke(pal.outline.opacity(0.5), lineWidth: 0.8))
+                .frame(width: s * 0.14)
+                .offset(x: CGFloat(sin(t * 2.4)) * s * 0.05 * a, y: s * 0.56)
+            Text("♪").font(.system(size: s * 0.22, weight: .bold)).foregroundStyle(pal.accent)
+                .offset(x: s * 0.52, y: -s * 0.3 - CGFloat((t * 0.6).truncatingRemainder(dividingBy: 1)) * s * 0.16 * a)
+                .opacity(a > 0 ? 1 - (t * 0.6).truncatingRemainder(dividingBy: 1) : 0.8)
+        case .fable:
+            MascotOrigamiFolds().stroke(pal.outline.opacity(0.35), lineWidth: max(s * 0.012, 0.6))
+                .frame(width: s * kind.bodySize.width, height: s * kind.bodySize.height).offset(y: s * kind.bodyOffsetY)
+        case .wisp:
+            ForEach(0..<3, id: \.self) { i in
+                let u = (t * 0.4 + Double(i) / 3).truncatingRemainder(dividingBy: 1)
+                Circle().fill(.white.opacity(0.7 * (1 - u)))
+                    .frame(width: s * 0.06)
+                    .offset(x: s * (CGFloat(i) - 1) * 0.22, y: s * (0.5 - CGFloat(u) * 0.4 * a))
+            }
+        default:
+            EmptyView()
+        }
+    }
+}
+
+// MARK: - Shapes
+
+struct MascotBatWing: Shape {
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: r.minX, y: r.minY + r.height * 0.3))
+        p.addQuadCurve(to: CGPoint(x: r.maxX, y: r.minY), control: CGPoint(x: r.midX, y: r.minY - r.height * 0.1))
+        p.addLine(to: CGPoint(x: r.maxX - r.width * 0.06, y: r.maxY * 0.9))
+        p.addQuadCurve(to: CGPoint(x: r.minX + r.width * 0.66, y: r.minY + r.height * 0.72), control: CGPoint(x: r.minX + r.width * 0.84, y: r.minY + r.height * 0.62))
+        p.addQuadCurve(to: CGPoint(x: r.minX + r.width * 0.34, y: r.minY + r.height * 0.78), control: CGPoint(x: r.minX + r.width * 0.5, y: r.minY + r.height * 0.6))
+        p.addQuadCurve(to: CGPoint(x: r.minX, y: r.minY + r.height * 0.7), control: CGPoint(x: r.minX + r.width * 0.16, y: r.minY + r.height * 0.6))
+        p.closeSubpath()
+        return p
+    }
+}
+
+struct MascotRingHalf: Shape {
+    var front: Bool
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        p.addArc(center: CGPoint(x: r.midX, y: r.midY), radius: r.width / 2, startAngle: .degrees(front ? 0 : 180), endAngle: .degrees(front ? 180 : 360), clockwise: false)
+        return p.applying(CGAffineTransform(translationX: -r.midX, y: -r.midY).concatenating(CGAffineTransform(scaleX: 1, y: r.height / r.width)).concatenating(CGAffineTransform(translationX: r.midX, y: r.midY)))
+    }
+}
+
+struct MascotCrystalShape: Shape {
+    func path(in r: CGRect) -> Path {
+        let w = r.width, h = r.height
+        let pts = [CGPoint(x: 0.5, y: 0), CGPoint(x: 0.92, y: 0.2), CGPoint(x: 1, y: 0.64), CGPoint(x: 0.62, y: 1), CGPoint(x: 0.3, y: 0.98), CGPoint(x: 0, y: 0.62), CGPoint(x: 0.1, y: 0.18)]
+            .map { CGPoint(x: r.minX + $0.x * w, y: r.minY + $0.y * h) }
+        return Path(roundedPolygon: pts, radius: min(w, h) * 0.08)
+    }
+}
+
+struct MascotCrystalFacets: Shape {
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: r.minX + x * r.width, y: r.minY + y * r.height) }
+        p.move(to: pt(0.1, 0.18)); p.addLine(to: pt(0.36, 0.26)); p.addLine(to: pt(0.5, 0.02))
+        p.move(to: pt(0.36, 0.26)); p.addLine(to: pt(0.72, 0.24)); p.addLine(to: pt(0.92, 0.2))
+        p.move(to: pt(0.72, 0.24)); p.addLine(to: pt(0.5, 0.02))
+        return p
+    }
+}
+
+struct MascotWispShape: Shape {
+    func path(in r: CGRect) -> Path {
+        let w = r.width, h = r.height
+        var p = Path()
+        p.move(to: CGPoint(x: r.midX, y: r.minY))
+        p.addCurve(to: CGPoint(x: r.maxX, y: r.minY + h * 0.42), control1: CGPoint(x: r.minX + w * 0.82, y: r.minY), control2: CGPoint(x: r.maxX, y: r.minY + h * 0.18))
+        p.addCurve(to: CGPoint(x: r.minX + w * 0.66, y: r.maxY - h * 0.12), control1: CGPoint(x: r.maxX, y: r.minY + h * 0.66), control2: CGPoint(x: r.minX + w * 0.82, y: r.minY + h * 0.78))
+        p.addQuadCurve(to: CGPoint(x: r.minX + w * 0.58, y: r.maxY), control: CGPoint(x: r.minX + w * 0.56, y: r.maxY - h * 0.04))
+        p.addQuadCurve(to: CGPoint(x: r.minX + w * 0.4, y: r.maxY - h * 0.1), control: CGPoint(x: r.minX + w * 0.5, y: r.maxY - h * 0.12))
+        p.addQuadCurve(to: CGPoint(x: r.minX + w * 0.24, y: r.maxY - h * 0.04), control: CGPoint(x: r.minX + w * 0.32, y: r.maxY - h * 0.02))
+        p.addCurve(to: CGPoint(x: r.minX, y: r.minY + h * 0.42), control1: CGPoint(x: r.minX + w * 0.1, y: r.minY + h * 0.74), control2: CGPoint(x: r.minX, y: r.minY + h * 0.62))
+        p.addCurve(to: CGPoint(x: r.midX, y: r.minY), control1: CGPoint(x: r.minX, y: r.minY + h * 0.18), control2: CGPoint(x: r.minX + w * 0.18, y: r.minY))
+        p.closeSubpath()
+        return p
+    }
+}
+
+struct MascotInkShape: Shape {
+    func path(in r: CGRect) -> Path {
+        let c = CGPoint(x: r.midX, y: r.midY)
+        let radii: [CGFloat] = [1, 0.9, 1.04, 0.86, 0.98, 1.06, 0.88, 0.96]
+        let pts: [CGPoint] = radii.enumerated().map { i, k in
+            let a = Double(i) / Double(radii.count) * 2 * .pi - .pi / 2
+            return CGPoint(x: c.x + CGFloat(cos(a)) * r.width / 2 * k, y: c.y + CGFloat(sin(a)) * r.height / 2 * k)
+        }
+        var p = Path()
+        for i in 0..<pts.count {
+            let a = pts[i], b = pts[(i + 1) % pts.count]
+            let mid = CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
+            if i == 0 { p.move(to: CGPoint(x: (pts.last!.x + a.x) / 2, y: (pts.last!.y + a.y) / 2)) }
+            p.addQuadCurve(to: mid, control: a)
+        }
+        p.closeSubpath()
+        return p
+    }
+}
+
+struct MascotBellShape: Shape {
+    func path(in r: CGRect) -> Path {
+        let w = r.width, h = r.height
+        var p = Path()
+        p.move(to: CGPoint(x: r.midX, y: r.minY))
+        p.addCurve(to: CGPoint(x: r.minX + w * 0.86, y: r.minY + h * 0.62), control1: CGPoint(x: r.minX + w * 0.84, y: r.minY), control2: CGPoint(x: r.minX + w * 0.8, y: r.minY + h * 0.36))
+        p.addQuadCurve(to: CGPoint(x: r.maxX, y: r.maxY - h * 0.06), control: CGPoint(x: r.minX + w * 0.92, y: r.minY + h * 0.84))
+        p.addQuadCurve(to: CGPoint(x: r.minX, y: r.maxY - h * 0.06), control: CGPoint(x: r.midX, y: r.maxY + h * 0.08))
+        p.addQuadCurve(to: CGPoint(x: r.minX + w * 0.14, y: r.minY + h * 0.62), control: CGPoint(x: r.minX + w * 0.08, y: r.minY + h * 0.84))
+        p.addCurve(to: CGPoint(x: r.midX, y: r.minY), control1: CGPoint(x: r.minX + w * 0.2, y: r.minY + h * 0.36), control2: CGPoint(x: r.minX + w * 0.16, y: r.minY))
+        p.closeSubpath()
+        return p
+    }
+}
+
+struct MascotPearShape: Shape {
+    func path(in r: CGRect) -> Path {
+        let w = r.width, h = r.height
+        var p = Path()
+        p.move(to: CGPoint(x: r.midX, y: r.minY))
+        p.addCurve(to: CGPoint(x: r.maxX, y: r.minY + h * 0.68), control1: CGPoint(x: r.minX + w * 0.8, y: r.minY), control2: CGPoint(x: r.maxX, y: r.minY + h * 0.36))
+        p.addCurve(to: CGPoint(x: r.minX, y: r.minY + h * 0.68), control1: CGPoint(x: r.maxX, y: r.maxY + h * 0.04), control2: CGPoint(x: r.minX, y: r.maxY + h * 0.04))
+        p.addCurve(to: CGPoint(x: r.midX, y: r.minY), control1: CGPoint(x: r.minX, y: r.minY + h * 0.36), control2: CGPoint(x: r.minX + w * 0.2, y: r.minY))
+        p.closeSubpath()
+        return p
+    }
+}
+
+struct MascotOrigamiShape: Shape {
+    func path(in r: CGRect) -> Path {
+        let pts = [CGPoint(x: 0.5, y: 0), CGPoint(x: 0.88, y: 0.14), CGPoint(x: 1, y: 0.56), CGPoint(x: 0.78, y: 1), CGPoint(x: 0.22, y: 1), CGPoint(x: 0, y: 0.56), CGPoint(x: 0.12, y: 0.14)]
+            .map { CGPoint(x: r.minX + $0.x * r.width, y: r.minY + $0.y * r.height) }
+        return Path(roundedPolygon: pts, radius: min(r.width, r.height) * 0.03)
+    }
+}
+
+struct MascotOrigamiFolds: Shape {
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: r.minX + x * r.width, y: r.minY + y * r.height) }
+        p.move(to: pt(0.5, 0)); p.addLine(to: pt(0.5, 0.3))
+        p.move(to: pt(0.12, 0.14)); p.addLine(to: pt(0.5, 0.3)); p.addLine(to: pt(0.88, 0.14))
+        p.move(to: pt(0.22, 1)); p.addLine(to: pt(0.36, 0.78))
+        p.move(to: pt(0.78, 1)); p.addLine(to: pt(0.64, 0.78))
+        return p
+    }
+}
+
+struct MascotSpring: Shape {
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        let coils = 4
+        p.move(to: CGPoint(x: r.midX, y: r.minY))
+        for i in 0..<coils {
+            let y0 = r.minY + r.height * CGFloat(i) / CGFloat(coils)
+            let y1 = r.minY + r.height * (CGFloat(i) + 0.5) / CGFloat(coils)
+            let y2 = r.minY + r.height * CGFloat(i + 1) / CGFloat(coils)
+            _ = y0
+            p.addLine(to: CGPoint(x: r.maxX, y: y1))
+            p.addLine(to: CGPoint(x: r.minX, y: (y1 + y2) / 2 + r.height * 0.04))
+        }
+        p.addLine(to: CGPoint(x: r.midX, y: r.maxY))
+        return p
+    }
+}
+
+extension Path {
+    /// Closed polygon with softly rounded corners.
+    init(roundedPolygon pts: [CGPoint], radius: CGFloat) {
+        self.init()
+        guard pts.count > 2 else { return }
+        let n = pts.count
+        let start = CGPoint(x: (pts[n - 1].x + pts[0].x) / 2, y: (pts[n - 1].y + pts[0].y) / 2)
+        move(to: start)
+        for i in 0..<n {
+            let next = pts[(i + 1) % n]
+            addArc(tangent1End: pts[i], tangent2End: CGPoint(x: (pts[i].x + next.x) / 2, y: (pts[i].y + next.y) / 2), radius: radius)
+        }
+        closeSubpath()
+    }
+}
+
+// MARK: - Roster: families, worlds and catalogue profiles (Master Bible v1.0 + family bibles)
+
+enum MolibooFamily: String, CaseIterable, Identifiable, Sendable {
+    case originals, angels, underground, enchanted, stardust, dreamers
+    var id: String { rawValue }
+    var name: String {
+        switch self {
+        case .originals: "The Originals"
+        case .angels: "Moliboo Angels"
+        case .underground: "Moliboo Underground"
+        case .enchanted: "Moliboo Enchanted"
+        case .stardust: "Moliboo Stardust"
+        case .dreamers: "Moliboo Dreamers"
+        }
+    }
+    /// Working world names from the family bibles (Originals live in the home world).
+    var world: String {
+        switch self {
+        case .originals: "Home"
+        case .angels: "Celestia"
+        case .underground: "The Hidden City"
+        case .enchanted: "The Whispering Woods"
+        case .stardust: "The Stardust Reaches"
+        case .dreamers: "The Dreaming Vale"
+        }
+    }
+    var range: ClosedRange<Int> {
+        switch self {
+        case .originals: 1...25
+        case .angels: 26...40
+        case .underground: 41...55
+        case .enchanted: 56...70
+        case .stardust: 71...85
+        case .dreamers: 86...100
+        }
+    }
+    var kinds: [ModulaMascotKind] { ModulaMascotKind.allCases.filter { $0.family == self }.sorted { $0.number < $1.number } }
+}
+
+extension ModulaMascotKind {
+    struct Profile: Sendable { let number: Int; let title: String; let traits: [String] }
+    var profile: Profile {
+        switch self {
+        case .pip: Profile(number: 1, title: "Social Spark", traits: ["Outgoing", "Affectionate", "Excitable"])
+        case .moss: Profile(number: 2, title: "The Unbothered One", traits: ["Unbothered", "Patient", "Dry humour"])
+        case .nimbus: Profile(number: 3, title: "Wandering Dreamer", traits: ["Dreamy", "Imaginative", "Gentle"])
+        case .mochi: Profile(number: 4, title: "Sleepy Observer", traits: ["Sleepy", "Independent", "Secretly affectionate"])
+        case .sprout: Profile(number: 5, title: "Little Optimist", traits: ["Hopeful", "Nurturing", "Optimistic"])
+        case .ember: Profile(number: 6, title: "Tiny Firecracker", traits: ["Brave", "Impatient", "Passionate"])
+        case .tuck: Profile(number: 7, title: "Curious Scholar", traits: ["Curious", "Bookish", "Precise"])
+        case .bloop: Profile(number: 8, title: "Gentle Drifter", traits: ["Gentle", "Sensitive", "Shy"])
+        case .bun: Profile(number: 9, title: "Little Adventurer", traits: ["Adventurous", "Friendly", "Impulsive"])
+        case .pebble: Profile(number: 10, title: "Quiet Guardian", traits: ["Reserved", "Reliable", "Quietly protective"])
+        case .tofu: Profile(number: 11, title: "Wobbly Optimist", traits: ["Cheerful", "Innocent", "Optimistic"])
+        case .comet: Profile(number: 12, title: "Restless Star", traits: ["Impatient", "Competitive", "Generous"])
+        case .puff: Profile(number: 13, title: "Little Defender", traits: ["Dramatic", "Nervous", "Funny"])
+        case .bolt: Profile(number: 14, title: "Pocket Inventor", traits: ["Analytical", "Inventive", "Curious"])
+        case .glim: Profile(number: 15, title: "Keeper of Little Lights", traits: ["Kind", "Shy", "Guiding"])
+        case .echo: Profile(number: 16, title: "Night Listener", traits: ["Perceptive", "Cautious", "Gentle"])
+        case .quill: Profile(number: 17, title: "Little Protector", traits: ["Protective", "Careful", "Sincere"])
+        case .orbit: Profile(number: 18, title: "Little Explorer", traits: ["Curious", "Philosophical", "Adventurous"])
+        case .prism: Profile(number: 19, title: "Keeper of Colours", traits: ["Mysterious", "Calm", "Artistic"])
+        case .wisp: Profile(number: 20, title: "Friendly Mystery", traits: ["Mischievous", "Elusive", "Kind"])
+        case .doodle: Profile(number: 21, title: "Living Imagination", traits: ["Inventive", "Spontaneous", "Mischievous"])
+        case .chime: Profile(number: 22, title: "Little Music Maker", traits: ["Musical", "Cheerful", "Sensitive"])
+        case .rolo: Profile(number: 23, title: "Slow Philosopher", traits: ["Wise", "Patient", "Quietly funny"])
+        case .pogo: Profile(number: 24, title: "Unstoppable Bouncer", traits: ["Restless", "Playful", "Fearless"])
+        case .fable: Profile(number: 25, title: "Keeper of Stories", traits: ["Thoughtful", "Imaginative", "Reflective"])
+        }
+    }
+    var number: Int { profile.number }
+    var title: String { profile.title }
+    var traits: [String] { profile.traits }
+    var catalogueNumber: String { String(format: "%03d", number) }
+    var family: MolibooFamily { MolibooFamily.allCases.first { $0.range.contains(number) } ?? .originals }
 }
