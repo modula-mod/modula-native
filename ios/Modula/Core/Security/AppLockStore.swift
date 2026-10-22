@@ -30,6 +30,7 @@ final class AppLockStore {
         self.credentials = credentials
         self.biometrics = biometrics
         self.defaults = defaults
+        if credentials is AppLockCredentialStore { AppLockCredentialStore.purgeRetiredVerifiers() }
         var settings = defaults.data(forKey: settingsKey).flatMap {
             try? JSONDecoder().decode(AppLockSettings.self, from: $0)
         } ?? .default
@@ -186,8 +187,9 @@ final class AppLockStore {
             registerFailure()
             lastError = switch method {
             case .pattern: "Wrong pattern."
-            case .rhythm: "That’s not your beat."
-            case .gravity: "Wrong wells."
+            case .seek: "Wrong objects."
+            case .cube: "Wrong glyphs."
+            case .constellation: "Those stars don’t match."
             default: "Rings don’t line up."
             }
             return false

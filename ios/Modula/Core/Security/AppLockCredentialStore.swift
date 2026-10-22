@@ -22,8 +22,21 @@ struct AppLockCredentialStore: AppLockCredentialStoring {
         case .passcode: "passcode-verifier.v1"
         case .pattern: "pattern-verifier.v1"
         case .orbit: "orbit-verifier.v1"
-        case .rhythm: "rhythm-verifier.v1"
-        case .gravity: "gravity-verifier.v1"
+        case .seek: "seek-verifier.v1"
+        case .cube: "cube-verifier.v1"
+        case .constellation: "constellation-verifier.v1"
+        }
+    }
+
+    /// Deletes verifiers for retired unlock methods (Rhythm, Gravity). Safe to call every launch.
+    static func purgeRetiredVerifiers() {
+        for account in ["rhythm-verifier.v1", "gravity-verifier.v1"] {
+            let query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: "digital.modula.app.native.applock",
+                kSecAttrAccount as String: account,
+            ]
+            SecItemDelete(query as CFDictionary)
         }
     }
 
@@ -63,8 +76,9 @@ struct AppLockCredentialStore: AppLockCredentialStoring {
         case .passcode: value.count == 6 && value.allSatisfy(\.isNumber)
         case .pattern: value.hasPrefix("pattern.v1:") && value.split(separator: "-").count >= PatternLock.minimumDots
         case .orbit: value.hasPrefix("orbit.v1:") && value.split(separator: "-").count == OrbitLock.rings.count
-        case .rhythm: value.hasPrefix("rhythm.v1:") && (RhythmLock.minimumTaps...RhythmLock.maximumTaps).contains(value.split(separator: "-").count)
-        case .gravity: value.hasPrefix("gravity.v1:") && (GravityLock.minimumWells...GravityLock.maximumWells).contains(value.split(separator: "-").count)
+        case .seek: value.hasPrefix("seek.v1:") && (SeekLock.minimumPicks...SeekLock.maximumPicks).contains(value.split(separator: "-").count)
+        case .cube: value.hasPrefix("cube.v1:") && (CubeLock.minimumPicks...CubeLock.maximumPicks).contains(value.split(separator: "-").count)
+        case .constellation: value.hasPrefix("constellation.v1:") && (ConstellationLock.minimumStars...ConstellationLock.maximumStars).contains(value.split(separator: "-").count)
         }
     }
 
