@@ -59,6 +59,22 @@ struct AppLockView: View {
                     if lock.unlockBySlide() { lock.haptic(.success); app.refreshLaunchState() }
                 }
                 .buttonStyle(.borderedProminent)
+            } else if lock.settings.method == .pattern {
+                PatternPad(hideTrail: lock.settings.hidesPatternTrail, disabled: busy,
+                           haptics: lock.settings.hapticsEnabled) { nodes in
+                    guard nodes.count >= PatternLock.minimumDots else { lock.haptic(.warning); shakes += 1; return }
+                    safeAttempt(PatternLock.encode(nodes), .pattern)
+                }
+                .aspectRatio(1, contentMode: .fit)
+                .frame(maxWidth: 260)
+                .modifier(ShakeEffect(animatableData: CGFloat(shakes)))
+            } else if lock.settings.method == .orbit {
+                OrbitDial(randomizes: true, disabled: busy, haptics: lock.settings.hapticsEnabled,
+                          actionLabel: "Unlock") { indices in
+                    safeAttempt(OrbitLock.encode(indices), .orbit)
+                }
+                .aspectRatio(1, contentMode: .fit)
+                .frame(maxWidth: 280)
             } else if lock.hasPasscode {
                 PasscodeDots(filled: digits.count, shakes: shakes, error: lock.lastError != nil && digits.isEmpty, ripple: false)
                 PasscodeKeypad(value: $digits, disabled: busy, keySize: 70) { complete in
@@ -95,6 +111,14 @@ struct AppLockView: View {
             Button("Cancel", role: .cancel) {}
         }
         .task { await autoPromptIfNeeded() }
+    }
+
+    private func safeAttempt(_ secret: String, _ m: AppLockMethod) {
+        if lock.unlock(withSecret: secret, method: m) {
+            lock.haptic(.success); app.refreshLaunchState()
+        } else {
+            lock.haptic(.failure); shakes += 1
+        }
     }
 
     private var fancyLock: some View {
@@ -182,6 +206,17 @@ struct AppLockView: View {
                 .fill(RadialGradient(colors: [Color.accentColor.opacity(0.35), .clear], center: .center, startRadius: 0, endRadius: 220))
                 .scaleEffect(unlocking ? 6 : 0.1)
                 .opacity(unlocking ? 0 : (unlockedIcon ? 1 : 0))
+            // Success ripple, restored as a plain overlay ring (no layer effect on the content,
+            // so it can never hide the keypad).
+            Circle()
+                .stroke(Color.accentColor.opacity(0.6), lineWidth: 3)
+                .frame(width: 120, height: 120)
+                .keyframeAnimator(initialValue: CGFloat(0), trigger: unlockedIcon) { ring, p in
+                    ring.scaleEffect(0.6 + 6 * p).opacity(p > 0 && p < 1 ? Double(1 - p) : 0)
+                } keyframes: { _ in
+                    LinearKeyframe(CGFloat(0), duration: 0)
+                    CubicKeyframe(CGFloat(1), duration: 0.6)
+                }
         }
     }
 
