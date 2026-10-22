@@ -382,6 +382,7 @@ struct ConversationView: View {
             showsAttachments: app.messaging.capabilities.attachments,
             largeText: dynamicTypeSize.isAccessibilitySize
         ) {
+            IslandSendEffect.shared.fire("Message sent", accent: app.appearance.accent.color)
             Task {
                 await app.messaging.send(
                     conversation: conversationID,

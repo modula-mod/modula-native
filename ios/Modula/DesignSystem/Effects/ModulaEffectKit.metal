@@ -170,3 +170,23 @@ static inline float lockFbm(float2 p) {
     half4 b = layer.sample(pos - float2(amount, 0));
     return half4(r.r, base.g, b.b, max(base.a, max(r.a, b.a)));
 }
+
+/// Send-to-island edge glow: iridescent (blue/purple/green/pink) band hugging a rounded
+/// card's edge, with drifting sparkles. `intensity` 0…1 grows as the card rises.
+[[ stitchable ]] half4 islandSendGlow(float2 pos, half4 color, float2 size, float time, float intensity, float radius) {
+    float2 h = size * 0.5;
+    float2 q = abs(pos - h) - (h - radius);
+    float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius; // <0 inside
+    float edge = exp(-pow(d / (3.0 + 7.0 * intensity), 2.0));
+    float ang = atan2(pos.y - h.y, pos.x - h.x) + time * 2.2;
+    half3 a = half3(0.25, 0.55, 1.0), b = half3(0.65, 0.35, 1.0), c = half3(0.3, 0.95, 0.6), e = half3(1.0, 0.4, 0.75);
+    float s = 0.5 + 0.5 * sin(ang * 2.0);
+    float t2 = 0.5 + 0.5 * sin(ang * 3.0 + 1.7);
+    half3 hue = mix(mix(a, b, half(s)), mix(c, e, half(s)), half(t2));
+    float2 cell = floor(pos / 9.0);
+    float rnd = fract(sin(dot(cell, float2(12.9898, 78.233))) * 43758.5453);
+    float tw = step(0.93, rnd) * (0.5 + 0.5 * sin(time * 9.0 + rnd * 40.0));
+    float sparkle = tw * exp(-pow(d / 14.0, 2.0)) * intensity;
+    float k = clamp(edge * (0.35 + 0.65 * intensity) + sparkle, 0.0, 1.0);
+    return half4(hue * half(k) + half3(sparkle), half(k));
+}

@@ -627,10 +627,13 @@ struct ModulaToastHost: View {
     var body: some View {
         GeometryReader { geo in
             let metrics = IslandBannerMetrics.resolve(safeAreaTop: geo.safeAreaInsets.top, containerWidth: geo.size.width)
-            if metrics.style == .island && !calm {
-                IslandToastPresenter(center: center, metrics: metrics, containerWidth: geo.size.width)
-            } else {
-                glassHost(geo)
+            ZStack {
+                if metrics.style == .island && !calm {
+                    IslandToastPresenter(center: center, metrics: metrics, containerWidth: geo.size.width)
+                } else {
+                    glassHost(geo)
+                }
+                IslandSendLayer(size: geo.size, safeTop: geo.safeAreaInsets.top, calm: calm)
             }
         }
     }
@@ -927,5 +930,154 @@ private final class PassthroughToastWindow: UIWindow {
         guard let hit = super.hitTest(point, with: event) else { return nil }
         // Only the pill itself takes touches; everything else falls through.
         return hit === rootViewController?.view ? nil : hit
+    }
+}
+
+
+// MARK: - Send into the Dynamic Island (AirDrop-style)
+
+/// Fire-and-forget visual for "sent": a floating card rises with an iridescent edge glow,
+/// genie-squeezes into the Dynamic Island (top-centre pill without one), and a ripple
+/// ring + accent flash mark the absorption. Purely decorative and non-blocking.
+@MainActor @Observable
+final class IslandSendEffect {
+    static let shared = IslandSendEffect()
+    private(set) var token = 0
+    private(set) var title = "Sent"
+    private(set) var symbol = "paperplane.fill"
+    var accent: Color = .accentColor
+
+    func fire(_ title: String = "Sent", symbol: String = "paperplane.fill", accent: Color? = nil) {
+        ModulaToastWindow.installIfNeeded()
+        self.title = title
+        self.symbol = symbol
+        if let accent { self.accent = accent }
+        token &+= 1
+        HapticEngine.shared.play(.lightImpact)
+    }
+}
+
+struct IslandSendLayer: View {
+    var size: CGSize
+    var safeTop: CGFloat
+    var calm: Bool
+    @State private var effect = IslandSendEffect.shared
+    @State private var start: Date?
+    @State private var run = 0
+
+    private let duration: Double = 1.2
+    private var hasIsland: Bool { safeTop >= 58 }
+    private var island: CGRect {
+        let w: CGFloat = hasIsland ? 125 : 110, h: CGFloat = hasIsland ? 37 : 30
+        let y = hasIsland ? max(safeTop - 48, 9) : max(safeTop, 20) + 4
+        return CGRect(x: (size.width - w) / 2, y: y, width: w, height: h)
+    }
+
+    var body: some View {
+        ZStack {
+            if let start {
+                TimelineView(.animation) { ctx in
+                    let t = min(1, ctx.date.timeIntervalSince(start) / (calm ? 0.45 : duration))
+                    if calm { calmFrame(t) } else { frame(t, time: ctx.date.timeIntervalSince(start)) }
+                }
+            }
+        }
+        .frame(width: size.width, height: size.height)
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+        .onChange(of: effect.token) { _, _ in
+            run &+= 1
+            let mine = run
+            start = Date()
+            Task { @MainActor in
+                if calm {
+                    ModulaToastCenter.shared.show(effect.title, symbol: "checkmark.circle")
+                    try? await Task.sleep(for: .milliseconds(480))
+                } else {
+                    try? await Task.sleep(for: .milliseconds(Int(duration * 0.82 * 1000)))
+                    guard mine == run else { return }
+                    HapticEngine.shared.play(.success)
+                    try? await Task.sleep(for: .milliseconds(Int(duration * 0.2 * 1000)))
+                }
+                if mine == run { start = nil }
+            }
+        }
+    }
+
+    private func ease(_ x: Double) -> Double { x < 0.5 ? 4 * x * x * x : 1 - pow(-2 * x + 2, 3) / 2 }
+    private func clamp(_ x: Double) -> Double { min(max(x, 0), 1) }
+
+    @ViewBuilder
+    private func frame(_ t: Double, time: Double) -> some View {
+        // 0–0.15 detach (scale into card) · 0.15–0.72 rise · 0.72–0.86 genie squeeze · 0.86–1 ripple.
+        let detach = ease(clamp(t / 0.15))
+        let rise = ease(clamp((t - 0.15) / 0.57))
+        let squeeze = ease(clamp((t - 0.72) / 0.14))
+        let ripple = clamp((t - 0.84) / 0.16)
+        let startW = min(size.width - 48, 340), startH: CGFloat = 132
+        let cardW = startW * (1 - 0.12 * detach) * (1 - 0.35 * rise)
+        let cardH = startH * (1 - 0.12 * detach) * (1 - 0.35 * rise)
+        let w = cardW + (island.width - cardW) * squeeze
+        let h = cardH + (island.height - cardH) * squeeze
+        let startY = size.height - 150
+        let cy = startY + (island.midY + cardH * 0.35 - startY) * rise + (island.midY - (island.midY + cardH * 0.35)) * squeeze
+        let radius = 26 + (h / 2 - 26) * squeeze
+        let intensity = 0.25 + 0.75 * rise
+        ZStack {
+            if squeeze < 1 {
+                ZStack {
+                    RoundedRectangle(cornerRadius: radius, style: .continuous)
+                        .fill(squeeze > 0.4 ? AnyShapeStyle(Color.black) : AnyShapeStyle(.regularMaterial))
+                    if squeeze < 0.5 {
+                        HStack(spacing: 10) {
+                            Image(systemName: effect.symbol)
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(effect.accent)
+                            Text(effect.title)
+                                .font(.headline)
+                        }
+                        .opacity(1 - squeeze * 2)
+                        .scaleEffect(1 - 0.3 * squeeze)
+                    }
+                    Rectangle()
+                        .fill(.white)
+                        .colorEffect(ShaderLibrary.islandSendGlow(.float2(w + 40, h + 40), .float(time), .float(intensity), .float(radius)))
+                        .frame(width: w + 40, height: h + 40)
+                        .blendMode(.plusLighter)
+                        .opacity(1 - squeeze)
+                }
+                .frame(width: w, height: h)
+                // Genie: the bottom pinches harder than the top as it is sucked upward.
+                .scaleEffect(x: 1 - 0.25 * squeeze * (1 - squeeze) * 4, y: 1, anchor: .top)
+                .shadow(color: effect.accent.opacity(0.35 * intensity), radius: 18)
+                .position(x: size.width / 2, y: cy)
+            }
+            if ripple > 0 {
+                Capsule(style: .continuous)
+                    .strokeBorder(effect.accent.opacity(0.9 * (1 - ripple)), lineWidth: 2.5)
+                    .frame(width: island.width + 70 * ripple, height: island.height + 40 * ripple)
+                    .position(x: island.midX, y: island.midY)
+                Capsule(style: .continuous)
+                    .fill(effect.accent.opacity(0.55 * (1 - ripple)))
+                    .frame(width: island.width, height: island.height)
+                    .blur(radius: 6)
+                    .position(x: island.midX, y: island.midY)
+                    .blendMode(.plusLighter)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func calmFrame(_ t: Double) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: effect.symbol).foregroundStyle(effect.accent)
+            Text(effect.title).font(.headline)
+        }
+        .padding(.horizontal, 22)
+        .frame(height: 64)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .opacity(1 - t)
+        .position(x: size.width / 2, y: size.height - 150)
     }
 }
