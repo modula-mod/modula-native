@@ -50,6 +50,12 @@ whose ACTIVE package bytes reverified under that account; registry install,
 update, and revocation decisions remained unavailable while isolated. This
 proves app transport isolation, not full device offline operation: the simulator
 still had network connectivity outside the injected application transport.
+The same isolated full-round test passed again in 181.788 seconds after the
+Native main merge, with no server transport available to Modula after relaunch.
+Eight focused post-merge unit regressions also passed: Ed25519 trust and
+revocation, digest rejection and recovery, permission review, account cache
+isolation, Vault 2.0.2 document handling, and Nodus artifact rollback. These
+are scoped checks rather than full live Vault or Nodus acceptance.
 
 The paired physical iPhone 17 Pro Max received a signed Debug build under the
 existing `digital.modula.app.native.qa` bundle ID. The build used the QA API URL
