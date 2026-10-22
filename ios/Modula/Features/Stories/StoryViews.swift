@@ -236,7 +236,7 @@ struct StoryTray: View {
                                     .padding(6)
                                     .overlay(
                                         Circle().strokeBorder(
-                                            AngularGradient(colors: [app.appearance.accent.color.opacity(0.55), Color.secondary.opacity(0.25), app.appearance.accent.color.opacity(0.55)], center: .center),
+                                            Color.primary.opacity(0.2),
                                             lineWidth: 2
                                         )
                                     )

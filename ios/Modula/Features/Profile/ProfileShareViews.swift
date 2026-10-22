@@ -175,8 +175,8 @@ struct ModulaProfileCodeView: View {
             }
 
             Text(profile.shareURL.absoluteString)
-                .font(.caption.monospaced().weight(.medium))
-                .foregroundStyle(Color.primary.opacity(0.85))
+                .font(.footnote.monospaced().weight(.semibold))
+                .foregroundStyle(Color.primary)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .padding(.horizontal, 10).padding(.vertical, 5)
@@ -204,6 +204,7 @@ struct ModulaProfileCodeView: View {
                 Button {
                     UIPasteboard.general.string = profile.shareURL.absoluteString
                     HapticEngine.shared.play(.confirmation)
+                    ModulaToastCenter.shared.show("Link copied", symbol: "link", tone: .info)
                     withAnimation(.snappy) { copied = true }
                     Task {
                         try? await Task.sleep(for: .seconds(1.4))
