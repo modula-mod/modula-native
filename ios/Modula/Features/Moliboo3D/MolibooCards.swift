@@ -678,7 +678,11 @@ struct MolibooFlipCard: View {
                 .rotation3DEffect(.degrees(reduceMotion ? 0 : 180), axis: (0, 1, 0))
                 .opacity(faceUp ? 1 : 0)
         }
+        // rotation3DEffect renders into a layer the size of the view, which cut the rarity glow
+        // into hard vertical edges. Give the glow room inside the layer, then take it back out.
+        .padding(40)
         .rotation3DEffect(.degrees(faceUp && !reduceMotion ? 180 : 0), axis: (0, 1, 0), perspective: 0.5)
+        .padding(-40)
     }
 }
 
