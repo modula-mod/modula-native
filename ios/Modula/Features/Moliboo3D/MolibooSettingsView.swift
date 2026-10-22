@@ -723,8 +723,11 @@ struct MolibooWelcomeSheet: View {
         GeometryReader { geo in
             let w = geo.size.width
             ZStack {
-                Ellipse().fill(RadialGradient(colors: [Color(red: 0.6, green: 0.9, blue: 1).opacity(0.45), .clear], center: .center, startRadius: 4, endRadius: 140))
-                    .frame(width: 280, height: 80).offset(y: 86)
+                // Feathered platform glow (was clipped to a hard-edged oval).
+                Ellipse().fill(Color(red: 0.6, green: 0.9, blue: 1).opacity(0.38))
+                    .frame(width: 260, height: 54)
+                    .blur(radius: 18)
+                    .offset(y: 86)
                 if launching {
                     art(hero).matchedGeometryEffect(id: hero, in: morph).frame(width: 190, height: 190)
                         .modifier(MolibooHeroMorph(ns: heroNS))
@@ -733,9 +736,16 @@ struct MolibooWelcomeSheet: View {
                         let center = i == 1
                         art(id)
                             .matchedGeometryEffect(id: id, in: morph)
-                            .frame(width: center ? 150 : 104, height: center ? 150 : 104)
+                            .frame(width: center ? 136 : 100, height: center ? 136 : 100)
+                            // Grounded: a soft contact shadow under each pet that tightens as it bobs up.
+                            .background(alignment: .bottom) {
+                                Ellipse().fill(Color.black.opacity(0.32))
+                                    .frame(width: (center ? 86 : 62) * (bob ? 0.9 : 1), height: 12)
+                                    .blur(radius: 5)
+                                    .offset(y: 6 + (bob ? 6 : -4) * (i == 1 ? 1 : 0.7))
+                            }
                             .offset(x: CGFloat(i - 1) * w * 0.3 + CGFloat(page - 1) * -10 * CGFloat(i - 1),
-                                    y: (center ? -6 : 22) + (bob ? -6 : 4) * (i == 1 ? 1 : 0.7))
+                                    y: (center ? 4 : 24) + (bob ? -6 : 4) * (i == 1 ? 1 : 0.7))
                             .offset(y: appear ? 0 : 160)
                             .opacity(appear ? 1 : 0)
                             .animation(motionOn ? .spring(response: 0.8, dampingFraction: 0.62).delay(0.15 + Double(i) * 0.12) : nil, value: appear)
@@ -769,7 +779,10 @@ struct MolibooWelcomeSheet: View {
         let p = pages[i]
         let shown = appear && page == i
         return VStack(spacing: 10) {
-            Image(systemName: p.2).font(.title3).foregroundStyle(.pink)
+            Image(systemName: p.2).font(.title3.weight(.semibold)).foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(Color.pink.opacity(0.85), in: Circle())
+                .frame(maxWidth: .infinity)
                 .opacity(shown ? 1 : 0).offset(y: shown ? 0 : 10)
                 .animation(motionOn ? .easeOut(duration: 0.4).delay(0.05) : nil, value: shown)
             Text(p.0).font(.system(.title2, design: .rounded).weight(.heavy)).foregroundStyle(.white).multilineTextAlignment(.center)
