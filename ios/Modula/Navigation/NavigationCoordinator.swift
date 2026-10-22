@@ -89,6 +89,10 @@ final class NavigationCoordinator {
             paths[selectedTab] = path
             return
         }
+        // Never stack the same screen twice in a row (double-tapped rows, a row tapped while its
+        // screen is mid-push). Identical adjacent values in a NavigationStack path made Back
+        // appear dead: it popped to an identical copy, and SwiftUI could desync the stack.
+        if paths[selectedTab]?.last == route { return }
         paths[selectedTab, default: []].append(route)
     }
     /// True while the selected tab has pushed screens; the sidebar edge swipe yields to Back.

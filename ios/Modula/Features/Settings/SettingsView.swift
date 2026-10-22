@@ -255,11 +255,13 @@ struct SettingsView: View {
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button { showsQR = true } label: { Image(systemName: "qrcode") }
-                    .opacity(Double(1 - collapse))
-                    .disabled(collapse > 0.6)
-                    .accessibilityLabel("My QR code")
+            // Trailing, not leading: an invisible-but-present leading item sat in the same glass
+            // group as Back and soaked up taps meant for it once the header collapsed.
+            ToolbarItem(placement: .topBarTrailing) {
+                if collapse < 0.6 {
+                    Button { showsQR = true } label: { Image(systemName: "qrcode") }
+                        .accessibilityLabel("My QR code")
+                }
             }
             ToolbarItem(placement: .principal) {
                 Text(identityDisplayName)
