@@ -117,19 +117,20 @@ protocol AppLockCredentialStoring: Sendable {
 /// Which secret a verifier belongs to. The 6-digit passcode is always the master
 /// fallback; pattern and Orbit are optional faster unlocks layered on top.
 enum AppLockSecretKind: String, CaseIterable, Sendable {
-    case passcode, pattern, orbit, rhythm, gravity
+    case passcode, pattern, orbit, seek, cube, constellation
 }
 
 enum AppLockMethod: String, CaseIterable, Codable, Hashable, Sendable {
-    case passcode, pattern, orbit, rhythm, gravity
+    case passcode, pattern, orbit, seek, cube, constellation
 
     var title: String {
         switch self {
         case .passcode: "Passcode"
         case .pattern: "Pattern"
         case .orbit: "Orbit"
-        case .rhythm: "Rhythm"
-        case .gravity: "Gravity"
+        case .seek: "Seek"
+        case .cube: "Cube"
+        case .constellation: "Constellation"
         }
     }
 
@@ -138,8 +139,9 @@ enum AppLockMethod: String, CaseIterable, Codable, Hashable, Sendable {
         case .passcode: "circle.grid.3x3.fill"
         case .pattern: "point.3.connected.trianglepath.dotted"
         case .orbit: "circle.circle"
-        case .rhythm: "metronome.fill"
-        case .gravity: "circle.dotted.and.circle"
+        case .seek: "magnifyingglass.circle.fill"
+        case .cube: "cube.transparent.fill"
+        case .constellation: "sparkles"
         }
     }
 
@@ -148,8 +150,9 @@ enum AppLockMethod: String, CaseIterable, Codable, Hashable, Sendable {
         case .passcode: "6-digit Modula passcode"
         case .pattern: "Draw a line through at least 4 dots"
         case .orbit: "Spin three glyph rings to your secret, like a dial"
-        case .rhythm: "Tap your secret beat on Moliboo, with one or two fingers"
-        case .gravity: "Tilt to roll a marble into your secret wells"
+        case .seek: "Find and tap hidden objects in Moliboo’s scene, in order"
+        case .cube: "Turn a glass cube and pick your glyphs, in order"
+        case .constellation: "Draw a line through your secret stars, in order"
         }
     }
 
@@ -158,8 +161,9 @@ enum AppLockMethod: String, CaseIterable, Codable, Hashable, Sendable {
         case .passcode: .passcode
         case .pattern: .pattern
         case .orbit: .orbit
-        case .rhythm: .rhythm
-        case .gravity: .gravity
+        case .seek: .seek
+        case .cube: .cube
+        case .constellation: .constellation
         }
     }
 }
@@ -181,57 +185,43 @@ enum OrbitLock {
     }
 }
 
-/// Rhythm: a secret beat of 4–8 taps. Each tap is one or two fingers; each gap is quantized to
-/// short/long relative to the user's own tempo (geometric mean of their shortest and longest gap),
-/// so the same beat played faster or slower still matches.
-enum RhythmLock {
-    static let minimumTaps = 4
-    static let maximumTaps = 8
-
-    struct Tap: Equatable { var fingers: Int; var time: TimeInterval }
-
-    static func quantize(_ taps: [Tap]) -> [Bool] {
-        guard taps.count > 1 else { return [] }
-        let gaps = zip(taps.dropFirst(), taps).map { max(0.01, $0.time - $1.time) }
-        guard let mn = gaps.min(), let mx = gaps.max(), mx / mn >= 1.7 else { return gaps.map { _ in false } }
-        let threshold = (mn * mx).squareRoot()
-        return gaps.map { $0 > threshold }
-    }
-
-    /// e.g. "rhythm.v1:1-2S-1L-1S" (finger count, then S/L for the gap before that tap).
-    static func encode(_ taps: [Tap]) -> String {
-        let longs = quantize(taps)
-        let tokens = taps.enumerated().map { i, tap -> String in
-            let f = String(min(2, max(1, tap.fingers)))
-            return i == 0 ? f : f + (longs[i - 1] ? "L" : "S")
-        }
-        return "rhythm.v1:" + tokens.joined(separator: "-")
-    }
-
-    /// 0 weak, 1 okay, 2 strong.
-    static func strength(_ taps: [Tap]) -> Int {
-        let longs = quantize(taps)
-        var score = taps.count
-        if Set(taps.map { min(2, $0.fingers) }).count > 1 { score += 2 }
-        if longs.contains(true) && longs.contains(false) { score += 2 }
-        return score >= 10 ? 2 : score >= 7 ? 1 : 0
+/// Seek: a frosted Moliboo scene hiding 14 objects; tap 4–6 of them in a secret order.
+/// Positions are reshuffled every unlock; the code is the ordered object IDs.
+enum SeekLock {
+    static let objects = ["star.fill", "moon.fill", "leaf.fill", "key.fill", "bell.fill", "gift.fill", "crown.fill",
+                          "fish.fill", "ladybug.fill", "cup.and.saucer.fill", "paperplane.fill", "umbrella.fill",
+                          "balloon.fill", "carrot.fill"]
+    static let minimumPicks = 4
+    static let maximumPicks = 6
+    static func encode(_ ids: [Int]) -> String { "seek.v1:" + ids.map(String.init).joined(separator: "-") }
+    static func strength(_ ids: [Int]) -> Int {
+        let distinct = Set(ids).count
+        return ids.count >= 6 && distinct >= 5 ? 2 : (ids.count >= 5 || distinct >= 4) ? 1 : 0
     }
 }
 
-/// Gravity: tilt the phone to roll a marble into glyph wells in a secret order. Wells are
-/// reshuffled every unlock, so the tilt directions an onlooker sees reveal nothing.
-enum GravityLock {
-    static let glyphs = ["moon.fill", "sun.max.fill", "leaf.fill", "flame.fill", "drop.fill",
-                         "bolt.fill", "snowflake", "star.fill", "heart.fill"]
-    static let minimumWells = 4
-    static let maximumWells = 6
-    static func encode(_ sequence: [Int]) -> String {
-        "gravity.v1:" + sequence.map(String.init).joined(separator: "-")
+/// Cube: six glyphs on a glass cube. Pick 4–6 in a secret order by turning a face to the
+/// front and tapping it. The glyph-to-face mapping is reshuffled after every pick.
+enum CubeLock {
+    static let glyphs = ["sparkle", "flame.fill", "drop.fill", "bolt.fill", "heart.fill", "snowflake"]
+    static let minimumPicks = 4
+    static let maximumPicks = 6
+    static func encode(_ ids: [Int]) -> String { "cube.v1:" + ids.map(String.init).joined(separator: "-") }
+    static func strength(_ ids: [Int]) -> Int {
+        let distinct = Set(ids).count
+        return ids.count >= 6 && distinct >= 4 ? 2 : (ids.count >= 5 || distinct >= 4) ? 1 : 0
     }
-    static func strength(_ sequence: [Int]) -> Int {
-        let distinct = Set(sequence).count
-        return sequence.count >= 6 && distinct >= 5 ? 2 : (sequence.count >= 5 || distinct >= 4) ? 1 : 0
-    }
+}
+
+/// Constellation: 14 named stars scattered at random each unlock. Connect 4–7 distinct stars
+/// in a secret order; the code is the ordered star IDs, so positions reveal nothing.
+enum ConstellationLock {
+    static let stars = ["Vega", "Lyra", "Nova", "Orin", "Sol", "Luma", "Kepler",
+                        "Iris", "Atlas", "Mira", "Rigel", "Zeta", "Echo", "Halo"]
+    static let minimumStars = 4
+    static let maximumStars = 7
+    static func encode(_ ids: [Int]) -> String { "constellation.v1:" + ids.map(String.init).joined(separator: "-") }
+    static func strength(_ ids: [Int]) -> Int { ids.count >= 6 ? 2 : ids.count >= 5 ? 1 : 0 }
 }
 
 enum PatternLock {
@@ -272,7 +262,8 @@ struct AppLockSettings: Codable, Equatable, Sendable {
         interval = try c.decodeIfPresent(AppLockInterval.self, forKey: .interval) ?? .immediately
         biometricsEnabled = try c.decodeIfPresent(Bool.self, forKey: .biometricsEnabled) ?? true
         hideInAppSwitcher = try c.decodeIfPresent(Bool.self, forKey: .hideInAppSwitcher) ?? true
-        method = try c.decodeIfPresent(AppLockMethod.self, forKey: .method) ?? .passcode
+        // Retired methods (Rhythm, Gravity) no longer decode; fall back to the passcode.
+        method = ((try? c.decodeIfPresent(AppLockMethod.self, forKey: .method)) ?? nil) ?? .passcode
         effectsEnabled = try c.decodeIfPresent(Bool.self, forKey: .effectsEnabled) ?? true
         showsGreeting = try c.decodeIfPresent(Bool.self, forKey: .showsGreeting) ?? true
         hidesPatternTrail = try c.decodeIfPresent(Bool.self, forKey: .hidesPatternTrail) ?? false
