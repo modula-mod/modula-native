@@ -69,6 +69,15 @@ is the device screenshot. The app executable SHA-256 was
 The iPhone later became unavailable to Xcode, and the QA certificate profile
 still required completion in iOS Settings. No game was installed or played on
 that physical device, so physical gameplay remains deferred.
+After the Native main merge, a refreshed iPhone QA build succeeded with the
+same bundle ID, Apple Development team `M29V4ZGUNK`, and QA URL
+`https://192.168.4.21:8443`. Its executable SHA-256 is
+`d331e70ca4def9796942ea5e9c220653399f700d460cc3a6b10e9e38488485f1`
+and its Debug dylib SHA-256 is
+`5528a299089418c2d2eef771c00ffddea8900279f5240dd5a906abc0abf50e04`.
+This refreshed build was prepared but could not be installed because CoreDevice
+reported the paired phone unavailable. The earlier QA build remains the one
+actually installed on the phone.
 
 True device offline, physical game acceptance, and the game-specific rollback
 matrix require separate evidence.
