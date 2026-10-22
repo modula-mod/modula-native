@@ -15,6 +15,8 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
     case aura, soli, luma, vela, cheri, hush, haloa, lyra, celio, dovee, twila, gleam, novael, sera, auri
     // Family 003 — Underground
     case riff, graff, nyx, zip, vex, koda, glitch, jinx, `static`, holo, fuse, skid, mica, rumble, flick
+    // Family 004 — Enchanted
+    case bramble, ferni, truffle, rootle, willow, pollen, mallow, acora, spindle, glade, lichen, thimble, wyrmi, kiko, eldra
     var id: String { rawValue }
 
     var isPremium: Bool {
@@ -23,6 +25,7 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
         // Bible "instantly free" picks per family.
         case .aura, .soli, .luma, .cheri, .haloa: false
         case .riff, .graff, .koda, .skid, .flick: false
+        case .ferni, .truffle, .mallow, .acora, .thimble: false
         default: true
         }
     }
@@ -1711,7 +1714,7 @@ enum MolibooFamily: String, CaseIterable, Identifiable, Sendable {
         case .originals: "Home"
         case .angels: "Celestia"
         case .underground: "The Underground"
-        case .enchanted: "The Whispering Woods"
+        case .enchanted: "The Luminous Wilds"
         case .stardust: "The Stardust Reaches"
         case .dreamers: "The Dreaming Vale"
         }
@@ -2301,10 +2304,11 @@ enum MolibooFamilySpecs {
         t[.sera] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.88), palette: .spec(c(0.98, 0.97, 0.95), accent: gold, light: .white), parts: [.wings(.feather, nil), .starCrest, .bowtie(gold)], form: "Winged celestial shield")
         t[.auri] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.82), palette: .spec(c(0.88, 0.84, 0.98), accent: c(0.56, 0.9, 0.86), light: c(0.98, 0.96, 1)), parts: [.wings(.fairy, c(0.7, 0.9, 1)), .antennae(c(1, 0.7, 0.9)), .sparkles(3)], floats: true, feet: false, form: "Iridescent celestial sprite")
         addUnderground(&t)
+        addEnchanted(&t)
         return t
     }()
 
-    static let profiles: [ModulaMascotKind: ModulaMascotKind.Profile] = angelProfiles.merging(undergroundProfiles) { a, _ in a }
+    static let profiles: [ModulaMascotKind: ModulaMascotKind.Profile] = angelProfiles.merging(undergroundProfiles) { a, _ in a }.merging(enchantedProfiles) { a, _ in a }
 
     static let angelProfiles: [ModulaMascotKind: ModulaMascotKind.Profile] = [
         .aura: .init(number: 26, title: "The Guiding Light", traits: ["Light", "Leader", "Calm"]),
@@ -2364,5 +2368,47 @@ extension MolibooFamilySpecs {
         .mica: .init(number: 53, title: "The Crystal Mole", traits: ["Earth", "Collector", "Gentle"]),
         .rumble: .init(number: 54, title: "The Underground Titan", traits: ["Strength", "Brave", "Protective"]),
         .flick: .init(number: 55, title: "The Neon Moth", traits: ["Light", "Dreamy", "Magical"]),
+    ]
+}
+
+// MARK: - Family 004 — Enchanted (sheet art wins over the PDF)
+
+extension MolibooFamilySpecs {
+    static let leaf = c(0.42, 0.7, 0.36), bark = c(0.5, 0.36, 0.26), moss = c(0.5, 0.66, 0.36)
+    static func addEnchanted(_ t: inout [ModulaMascotKind: MolibooSpec]) {
+        let cream = c(0.97, 0.94, 0.88)
+        t[.bramble] = MolibooSpec(body: .round, size: CGSize(width: 0.94, height: 0.86), palette: .spec(c(0.62, 0.46, 0.36), accent: c(0.8, 0.18, 0.3), light: c(0.86, 0.74, 0.62)), parts: [.thorns(leaf), .leaves(3, leaf), .berries(c(0.82, 0.16, 0.3))], form: "Thorny guardian")
+        t[.ferni] = MolibooSpec(body: .pear, size: CGSize(width: 0.86, height: 0.9), palette: .spec(c(0.66, 0.84, 0.5), accent: c(1, 0.86, 0.5), light: c(0.88, 0.96, 0.78)), parts: [.leaves(6, leaf), .petals(3, c(1, 0.8, 0.9))], form: "Leafy sprout")
+        t[.truffle] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.8), palette: .spec(cream, accent: c(0.86, 0.3, 0.26), light: .white), parts: [.mushroomCap(c(0.86, 0.32, 0.26), spots: true)], hatScale: 0.8, headTopExtra: 0.14, form: "Mushroom forager")
+        t[.rootle] = MolibooSpec(body: .round, size: CGSize(width: 0.94, height: 0.86), palette: .spec(bark, accent: c(0.95, 0.68, 0.3), light: c(0.76, 0.62, 0.48)), parts: [.roots, .ears(.tufts), .leaves(2, leaf)], form: "Root burrower")
+        t[.willow] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.86), palette: .spec(c(0.78, 0.84, 0.7), accent: c(0.96, 0.84, 0.9), light: c(0.92, 0.96, 0.88)), parts: [.leaves(9, c(0.56, 0.74, 0.46)), .antlers(bark), .petals(4, c(1, 0.86, 0.92))], form: "Elegant keeper")
+        t[.pollen] = MolibooSpec(body: .round, size: CGSize(width: 0.82, height: 0.8), palette: .spec(c(1, 0.94, 0.78), accent: c(1, 0.78, 0.3), light: .white), parts: [.glow(c(1, 0.84, 0.4)), .wings(.fairy, c(1, 0.86, 0.5)), .petals(5, c(1, 0.86, 0.4)), .sparkles(3)], floats: true, feet: false, form: "Golden pixie")
+        t[.mallow] = MolibooSpec(body: .cloud, size: CGSize(width: 1.04, height: 0.86), palette: .spec(c(1, 0.84, 0.9), accent: c(0.94, 0.4, 0.6), light: c(1, 0.95, 0.97)), parts: [.petals(8, c(1, 0.74, 0.84)), .ears(.floppy)], form: "Dreamy blossom")
+        t[.acora] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.86), palette: .spec(c(0.72, 0.54, 0.36), accent: leaf, light: c(0.9, 0.78, 0.6)), parts: [.tail(.fluffy, c(0.6, 0.42, 0.28)), .mushroomCap(c(0.5, 0.34, 0.22), spots: false), .leaves(1, leaf)], hatScale: 0.82, headTopExtra: 0.1, form: "Acorn guardian")
+        t[.spindle] = MolibooSpec(body: .cloud, size: CGSize(width: 0.98, height: 0.84), palette: .spec(c(0.94, 0.92, 0.98), accent: c(0.7, 0.6, 0.94), light: .white), parts: [.glow(c(0.8, 0.7, 1)), .antennae(c(0.8, 0.7, 1)), .feet(c(0.78, 0.74, 0.9)), .sparkles(2)], form: "Silk weaver")
+        t[.glade] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(cream, accent: c(0.6, 0.86, 0.7), light: .white), parts: [.ears(.fox), .petals(6, c(1, 0.84, 0.9)), .leaves(3, c(0.6, 0.82, 0.5))], hatMaxWidth: 0.48, form: "Meadow spirit")
+        t[.lichen] = MolibooSpec(body: .dome, size: CGSize(width: 1.08, height: 0.82), palette: .spec(c(0.8, 0.84, 0.74), accent: c(0.36, 0.8, 0.78), light: c(0.94, 0.96, 0.9)), parts: [.shell(moss), .leaves(4, moss), .petals(3, c(0.7, 0.6, 0.95))], form: "Moss companion")
+        t[.thimble] = MolibooSpec(body: .round, size: CGSize(width: 0.88, height: 0.84), palette: .spec(cream, accent: c(0.82, 0.28, 0.24), light: .white), parts: [.mushroomCap(c(0.82, 0.3, 0.24), spots: true), .scarf(moss), .lantern(c(1, 0.8, 0.4))], hatScale: 0.8, headTopExtra: 0.14, form: "The herbalist")
+        t[.wyrmi] = MolibooSpec(body: .pear, size: CGSize(width: 0.9, height: 0.88), palette: .spec(c(0.52, 0.76, 0.5), accent: c(0.95, 0.7, 0.3), light: c(0.8, 0.92, 0.74)), parts: [.tail(.lizard, c(0.4, 0.62, 0.38)), .wings(.leaf, c(0.4, 0.66, 0.4)), .frill(c(0.95, 0.72, 0.32)), .leaves(2, leaf)], form: "Forest wyrm")
+        t[.kiko] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(c(0.92, 0.6, 0.34), accent: cream, light: c(1, 0.86, 0.7)), parts: [.tail(.fluffy, c(0.9, 0.56, 0.3)), .ears(.fox), .leaves(2, leaf)], hatMaxWidth: 0.48, form: "Curious critter")
+        t[.eldra] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.88), palette: .spec(c(0.95, 0.96, 0.98), accent: c(0.5, 0.8, 0.9), light: .white), parts: [.glow(c(0.6, 0.86, 1)), .mane(8), .antlers(c(0.86, 0.82, 0.72)), .leaves(3, c(0.56, 0.78, 0.6)), .sparkles(3)], form: "Ancient spirit")
+    }
+
+    static let enchantedProfiles: [ModulaMascotKind: ModulaMascotKind.Profile] = [
+        .bramble: .init(number: 56, title: "The Thorny Guardian", traits: ["Thorn", "Brave", "Protective"]),
+        .ferni: .init(number: 57, title: "The Leafy Sprout", traits: ["Plant", "Gentle", "Bright"]),
+        .truffle: .init(number: 58, title: "The Mushroom Forager", traits: ["Fungi", "Curious", "Cozy"]),
+        .rootle: .init(number: 59, title: "The Root Burrower", traits: ["Earth", "Playful", "Determined"]),
+        .willow: .init(number: 60, title: "The Elegant Keeper", traits: ["Nature", "Graceful", "Wise"]),
+        .pollen: .init(number: 61, title: "The Golden Pixie", traits: ["Light", "Airy", "Joyful"]),
+        .mallow: .init(number: 62, title: "The Dreamy Blossom", traits: ["Flower", "Sweet", "Dreamy"]),
+        .acora: .init(number: 63, title: "The Acorn Guardian", traits: ["Wood", "Nimble", "Adventurous"]),
+        .spindle: .init(number: 64, title: "The Silk Weaver", traits: ["Silk", "Clever", "Delicate"]),
+        .glade: .init(number: 65, title: "The Meadow Spirit", traits: ["Grass", "Peaceful", "Harmonious"]),
+        .lichen: .init(number: 66, title: "The Moss Companion", traits: ["Earth", "Calm", "Wise"]),
+        .thimble: .init(number: 67, title: "The Herbalist", traits: ["Herb", "Inventive", "Friendly"]),
+        .wyrmi: .init(number: 68, title: "The Forest Wyrm", traits: ["Dragon", "Magical", "Mischievous"]),
+        .kiko: .init(number: 69, title: "The Curious Critter", traits: ["Agile", "Curious", "Energetic"]),
+        .eldra: .init(number: 70, title: "The Ancient Spirit", traits: ["Spirit", "Majestic", "Mysterious"]),
     ]
 }
