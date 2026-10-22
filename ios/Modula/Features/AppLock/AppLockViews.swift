@@ -15,6 +15,13 @@ struct AppLockView: View {
     @State private var unlocking = false
     @State private var unlockedIcon = false
     @State private var appeared = false
+    /// Set once the header has real, on-screen geometry. If it never does within 1.5s we
+    /// switch to `safeMode`: a plain keypad with no scroll view, timeline or Metal effects.
+    @State private var contentVisible = false
+    @State private var safeMode = UserDefaults.standard.bool(forKey: AppLockView.pendingKey)
+    /// Set when the animated lock appears, cleared once the app is unlocked. Still set on the
+    /// next launch means the user got stuck last time: open straight into the plain keypad.
+    static let pendingKey = "modula.applock.fancyPending"
     @State private var confirmsForgot = false
     /// Passcode is always one tap away, whatever the chosen method.
     @State private var forcePasscode = false
@@ -32,6 +39,65 @@ struct AppLockView: View {
     private var effects: Bool { lock.settings.effectsEnabled && !reduceMotion }
 
     var body: some View {
+        if safeMode {
+            safeLock
+        } else {
+            fancyLock
+        }
+    }
+
+    // MARK: Safe mode (guaranteed escape)
+
+    private var safeLock: some View {
+        VStack(spacing: 20) {
+            Spacer(minLength: 0)
+            Image(systemName: "lock.fill").font(.title2.weight(.bold))
+            Text(lock.isSlideOnly ? "Modula is locked" : "Enter your Modula passcode")
+                .font(.title3.bold())
+            if lock.isSlideOnly {
+                Button("Unlock") {
+                    if lock.unlockBySlide() { lock.haptic(.success); app.refreshLaunchState() }
+                }
+                .buttonStyle(.borderedProminent)
+            } else if lock.hasPasscode {
+                PasscodeDots(filled: digits.count, shakes: shakes, error: lock.lastError != nil && digits.isEmpty, ripple: false)
+                PasscodeKeypad(value: $digits, disabled: busy, keySize: 70) { complete in
+                    let ok = lock.unlock(withPasscode: complete)
+                    digits = ""
+                    if ok { lock.haptic(.success); app.refreshLaunchState() } else { lock.haptic(.failure); shakes += 1 }
+                }
+            }
+            if let message = lock.lastError {
+                Text(message).font(.footnote.weight(.semibold)).foregroundStyle(.red)
+            }
+            HStack(spacing: 12) {
+                if lock.canUseBiometrics {
+                    Button {
+                        Task { if await lock.unlockWithBiometrics() { lock.haptic(.success); app.refreshLaunchState() } }
+                    } label: {
+                        Label(lock.biometricAvailability.kind.unlockLabel, systemImage: lock.biometricAvailability.kind.systemImage)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                Button("Forgot?") { confirmsForgot = true }
+                    .buttonStyle(.bordered)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+        .accessibilityIdentifier("applock.safe")
+        .confirmationDialog("Forgot how to unlock?", isPresented: $confirmsForgot, titleVisibility: .visible) {
+            Button("Sign Out and Reset App Lock", role: .destructive) {
+                Task { await app.performSignOut(resetAppLock: true) }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .task { await autoPromptIfNeeded() }
+    }
+
+    private var fancyLock: some View {
         GeometryReader { proxy in
             ScrollView {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -61,11 +127,10 @@ struct AppLockView: View {
         .background { LockShaderAurora(animated: effects).ignoresSafeArea() }
         .background { Color(uiColor: .systemBackground).ignoresSafeArea() }
         .overlay { successBloom.allowsHitTesting(false) }
-        // One ripple radiates from the lock badge on success.
-        .modifier(LockSuccessRipple(trigger: unlockedIcon && effects))
-        // Shader dissolve into the app (plain fade with effects off / Reduce Motion).
-        .modifier(LockDissolve(progress: unlocking && effects ? 1 : 0))
-        .opacity(unlocking && !effects ? 0 : 1)
+        // No full-screen shader wrappers around the lock content (ripple/dissolve wrapped the
+        // whole keypad in GeometryReader + TimelineView + layer effects; on device only the
+        // aurora was visible). Plain fade into the app.
+        .opacity(unlocking ? 0 : 1)
         .accessibilityIdentifier("applock.lock")
         .confirmationDialog("Forgot how to unlock?", isPresented: $confirmsForgot, titleVisibility: .visible) {
             Button("Sign Out and Reset App Lock", role: .destructive) {
@@ -75,7 +140,15 @@ struct AppLockView: View {
         } message: {
             Text("Sign out to remove App Lock from this device, then sign back in. Drafts on this device are kept.")
         }
+        .task {
+            // Guaranteed escape: no on-screen lock content after 1.5s → plain safe mode.
+            try? await Task.sleep(for: .milliseconds(1500))
+            print("[AppLock] watchdog contentVisible=\(contentVisible) locked=\(lock.isLocked) slideOnly=\(lock.isSlideOnly) method=\(lock.settings.method)")
+            if !contentVisible { safeMode = true }
+        }
         .onAppear {
+            print("[AppLock] fancy onAppear")
+            UserDefaults.standard.set(true, forKey: AppLockView.pendingKey)
             // Content is always visible; `appeared` only drives a small entry motion.
             withAnimation(effects ? .spring(response: 0.7, dampingFraction: 0.8) : .easeOut(duration: 0.2)) { appeared = true }
         }
@@ -183,6 +256,12 @@ struct AppLockView: View {
                 .multilineTextAlignment(.center)
         }
         .offset(y: appeared ? 0 : (effects ? -24 : 0))
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+            let screen = UIScreen.main.bounds
+            let ok = frame.width > 10 && frame.height > 10 && frame.intersects(screen)
+            print("[AppLock] header frame \(frame) visible=\(ok)")
+            if ok { contentVisible = true }
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Modula is locked. \(instruction)")
         .accessibilityAddTraits(.isHeader)

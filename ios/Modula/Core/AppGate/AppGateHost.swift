@@ -25,7 +25,8 @@ struct AppGateHost: View {
         .onChange(of: app.appLock.isAuthenticating) { _, _ in
             showPrivacyCover = shouldCover(scenePhase)
         }
-        .onChange(of: app.gate.state) { _, _ in
+        .onChange(of: app.gate.state) { _, state in
+            if state == .ready { UserDefaults.standard.removeObject(forKey: AppLockView.pendingKey) }
             showPrivacyCover = shouldCover(scenePhase)
         }
         .onChange(of: app.auth.account?.accountId) { _, _ in
