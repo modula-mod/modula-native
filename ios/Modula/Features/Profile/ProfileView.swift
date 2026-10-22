@@ -11,6 +11,8 @@ struct ProfileView: View {
     @Environment(\.shellChromeMetrics) private var shellChromeMetrics
     @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var headerProgress: CGFloat = 0
+    /// Raw content offset: drives the top-bar title so it only appears once the big name is under it.
+    @State private var scrollOffset: CGFloat = 0
     @State private var heroAvatarFrame: CGRect = .zero
     @Environment(\.accessibilityReduceTransparency) private var navReduceTransparency
     @Environment(\.accessibilityReduceMotion) private var navReduceMotion
@@ -225,6 +227,7 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     ModulaScrollProgressReader()
                     content
+                        .padding(.top, -(ProfileFullBleedMetrics.windowSafeAreaTop + 44))
                         // Clear the tab bar + home indicator so the last post never hides under chrome.
                         .padding(.bottom, shellChromeMetrics.contentBottomInset + 64)
                 }
@@ -232,9 +235,11 @@ struct ProfileView: View {
             .modulaScrollProgressTracking(collapseDistance: 96, progress: $headerProgress)
             .modulaSoftScrollEdge()
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
-                geometry.contentOffset.y
+                geometry.contentOffset.y + geometry.contentInsets.top
             } action: { _, newOffset in
                 headerProgress = ModulaScrollProgress.progress(offsetY: max(0, newOffset), collapseDistance: 96)
+                let clamped = max(0, newOffset.rounded())
+                if abs(clamped - scrollOffset) >= 1 { scrollOffset = clamped }
             }
             // Save the scroll position once scrolling settles rather than on
             // every frame: each write mutated the shared ProfileStore and
@@ -245,11 +250,15 @@ struct ProfileView: View {
                     identity: identity,
                     handleHint: handle,
                     section: section,
-                    offset: context.geometry.contentOffset.y
+                    offset: context.geometry.contentOffset.y + context.geometry.contentInsets.top
                 )
             }
+            // Spinner sits below the header (not in the status bar): content is pulled up
+            // by the same amount it's inset, so the cover still bleeds to the top edge.
+            .contentMargins(.top, ProfileFullBleedMetrics.windowSafeAreaTop + 44, for: .scrollContent)
             .refreshable {
-                await refreshCurrent()
+                // Own task so the refresh control tearing down can't cancel the request.
+                await Task { await refreshCurrent() }.value
                 HapticEngine.shared.play(.lightImpact)
                 ModulaMascotEvent.post(.refresh)
             }
@@ -333,7 +342,14 @@ struct ProfileView: View {
 
     /// 0 → 1 as the name moves into the nav bar (eased so the bar fades in with the title).
     private var navBarProgress: CGFloat {
-        let x = min(max((headerProgress - 0.45) / 0.45, 0), 1)
+        // The big name sits just under the avatar, below the cover. Only once it has
+        // scrolled up under the header bar does the compact avatar + name fade in.
+        let safeTop = ProfileFullBleedMetrics.windowSafeAreaTop
+        let cover = ProfileFullBleedMetrics.coverHeight(sizeClass: sizeClass, safeAreaTop: safeTop, accessibility: false)
+        let avatar = ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass)
+        let nameY = cover + avatar * 0.5 + 24
+        let headerBottom = safeTop + 44
+        let x = min(max((scrollOffset - (nameY - headerBottom)) / 36, 0), 1)
         return x * x * (3 - 2 * x)
     }
 
@@ -731,6 +747,12 @@ struct ProfileView: View {
             ProfileShelfBacking()
                 .padding(.top, -64)
                 .allowsHitTesting(false)
+                // Only visible once the bar is actually pinned under the header; at rest it
+                // must not frost over Highlights.
+                .visualEffect { content, proxy in
+                    let minY = proxy.frame(in: .scrollView).minY + 64
+                    return content.opacity(minY <= stickTop + 1 ? 1 : 0)
+                }
         }
         // Pinned header: slide it down so it rests just below the status bar / nav buttons.
         .visualEffect { content, proxy in

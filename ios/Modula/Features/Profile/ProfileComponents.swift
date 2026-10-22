@@ -38,10 +38,8 @@ struct ProfileCover: View {
     var body: some View {
         GeometryReader { proxy in
             let width = proxy.size.width
-            let stretch: CGFloat = {
-                guard !reduceMotion, proxy.frame(in: .global).minY > 0 else { return 0 }
-                return min(proxy.frame(in: .global).minY * 0.22, 36)
-            }()
+            // Stretch is applied to the whole cover below (scale from the bottom edge).
+            let stretch: CGFloat = 0
             ZStack(alignment: .bottom) {
                 fallbackComposition
                     .opacity(coverURL == nil ? 1 : 0.001)
@@ -125,8 +123,6 @@ struct ProfileCover: View {
                 let minY = proxy.frame(in: .scrollView).minY
                 return content.offset(y: reduceMotion || minY >= 0 ? 0 : -minY * 0.4)
             }
-            .offset(y: reduceMotion ? 0 : -CGFloat(dissolve) * 22)
-            .opacity(1 - (0.32 * Double(dissolve)))
             .mask {
                 if let pocketCenterX, let pocketRadius {
                     // Inverted pocket: a concave notch carved up into the banner's bottom edge.
@@ -147,6 +143,20 @@ struct ProfileCover: View {
             }
         }
         .frame(height: coverHeight)
+        // Stretchy header: on pull-down the cover scales from its bottom edge to fill the gap
+        // (no blank strip). On scroll-up it stays sharp until it slides under the header bar,
+        // then blurs progressively.
+        .visualEffect { [reduceMotion, coverHeight, safeAreaTop] content, proxy in
+            let minY = proxy.frame(in: .scrollView).minY
+            let pull = max(0, minY)
+            let scale = coverHeight > 0 ? (coverHeight + pull) / coverHeight : 1
+            let headerBottom = safeAreaTop + 44
+            let under = max(0, -minY - (coverHeight - headerBottom - 40))
+            let radius = reduceMotion ? 0 : min(under / 80 * 14, 14)
+            return content
+                .scaleEffect(x: scale, y: scale, anchor: .bottom)
+                .blur(radius: radius, opaque: true)
+        }
         .contentShape(Rectangle())
         .onTapGesture {
             onTap?()
@@ -178,7 +188,7 @@ struct ProfileCover: View {
 
     private func coverBlur(stretch: CGFloat) -> CGFloat {
         guard !reduceMotion else { return 0 }
-        return CGFloat(dissolve) * 12 + min(stretch * 0.12, 4)
+        return 0
     }
 
     /// Soft, liquid-feeling seam from photography into the content canvas.
@@ -1073,8 +1083,7 @@ struct ProfileHeroActions: View {
                         pill(messageTitle, symbol: "bubble.left.and.bubble.right", prominent: false, id: "message", action: onMessage)
                             .accessibilityIdentifier("profile.message.cta")
                     }
-                    icon("Notifications", symbol: "bell", id: "notify", action: onNotify)
-                        .accessibilityIdentifier("profile.notify")
+                    // Notifications bell removed: it only flashed "coming soon".
                     if !moreActions.isEmpty {
                         moreMenu
                     }
@@ -1101,7 +1110,7 @@ struct ProfileHeroActions: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
-        .modulaGlass(in: Capsule(), interactive: true, tint: prominent ? tint : nil, prominent: prominent, specular: true)
+        .modifier(ProfilePillSurface(prominent: prominent, tint: tint))
         .modulaGlassID(id, in: glass)
         .accessibilityLabel(title)
     }
@@ -2065,7 +2074,8 @@ struct ModulaDecoratedAvatar<Content: View>: View {
                 // Sit the pip on the circle's 45° edge (inside the frame) so the cover
                 // notch / parent clip can never cut it in half.
                 presencePip
-                    .offset(x: -(ringPad + size * 0.146 - pipSize / 2), y: -(ringPad + size * 0.146 - pipSize / 2))
+                    // Centre the pip exactly on the outer ring at 45°: (D/2)(1 - cos45°) from the corner.
+                    .offset(x: -((size + ringPad * 2) * 0.1464 - pipSize / 2), y: -((size + ringPad * 2) * 0.1464 - pipSize / 2))
             }
         }
         .frame(width: size + ringPad * 2, height: size + ringPad * 2)
@@ -3003,5 +3013,28 @@ struct ProfileBuildingStatusLine: View {
         .disabled(onEdit == nil)
         .accessibilityLabel("Currently building \(text)")
         .accessibilityIdentifier("profile.building")
+    }
+}
+
+
+/// Primary profile CTA (Edit profile) is a solid, clearly-enabled fill — glass over a pale
+/// avatar tint read as disabled. Secondary pills stay Liquid Glass.
+private struct ProfilePillSurface: ViewModifier {
+    var prominent: Bool
+    var tint: Color
+
+    func body(content: Content) -> some View {
+        if prominent {
+            content
+                .background {
+                    Capsule()
+                        .fill(tint)
+                        .overlay(Capsule().fill(Color.black.opacity(0.22)))
+                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 0.6))
+                }
+                .shadow(color: tint.opacity(0.35), radius: 8, y: 3)
+        } else {
+            content.modulaGlass(in: Capsule(), interactive: true, specular: true)
+        }
     }
 }
