@@ -2,6 +2,7 @@ import XCTest
 
 /// Regression: a fast edge flick on Home froze the app (feed rows re-laid out every frame of the
 /// sidebar settle spring). Opens/closes the sidebar 20× fast and 20× slow and checks the app responds.
+@MainActor
 final class SidebarSwipeFreezeUITests: XCTestCase {
     override func setUp() { continueAfterFailure = false }
 
