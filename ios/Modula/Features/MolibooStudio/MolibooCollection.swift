@@ -7,11 +7,30 @@ import UIKit
 enum MolibooPortrait {
     private static var cache: [String: UIImage] = [:]
     static func image(for id: String) -> UIImage? {
+        guard MolibooFeatureFlags.native3DEnabled else { return render2D(id) }
         guard let d = MolibooRegistry.descriptor(for: id) else { return nil }   // only real 3D characters have portraits
         if let i = cache[d.id] { return i }
         guard let url = Bundle.main.url(forResource: "Portrait_\(d.displayName)", withExtension: "png"),
               let i = UIImage(contentsOfFile: url.path) else { return nil }
         cache[d.id] = i
+        return i
+    }
+    /// 2D-only Moliboos: every portrait surface (Home, cards, Welcome, collection, Settings, composer) gets the 2D
+    /// renderer's figure in the current outfit instead of the USDZ-rendered PNG. Cached per character + outfit.
+    private static var cache2D: [String: UIImage] = [:]
+    private static func render2D(_ id: String) -> UIImage? {
+        guard let kind = ModulaMascotKind(rawValue: id) else { return nil }
+        let outfit = MascotWardrobeStore.shared.outfit
+        let key = id + "|" + outfit.items.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ",")
+            + "|" + outfit.dyes.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ",")
+        if let i = cache2D[key] { return i }
+        let s: CGFloat = 180
+        let r = ImageRenderer(content: ModulaMascotFigure(kind: kind, pose: .still(), size: s, outfit: outfit)
+            .frame(width: s * 1.45, height: s * 1.45))
+        r.scale = 2
+        guard let i = r.uiImage else { return nil }
+        if cache2D.count > 64 { cache2D.removeAll() }
+        cache2D[key] = i
         return i
     }
     /// Lightweight 3D presentation (portrait, no RealityKit) is used only with the dev flag on.
@@ -51,7 +70,7 @@ struct MolibooPortraitCompanion: View {
 struct MolibooCollectionView: View {
     enum Filter: String, CaseIterable, Identifiable {
         case all = "All"
-        case threeD = "3D Ready"
+        case threeD = "In Studio"
         case owned = "Unlocked"
         case comingLater = "Coming Later"
         var id: String { rawValue }
@@ -113,7 +132,7 @@ struct MolibooCollectionView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("The Originals")
                     .font(.system(.title3, design: .rounded).weight(.heavy))
-                Text("\(MolibooRegistry.available3D.count) of \(MolibooCosmetics.originals.count) Originals are alive in 3D")
+                Text("\(MolibooRegistry.available3D.count) of \(MolibooCosmetics.originals.count) Originals are ready to play")
                     .font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
                     .accessibilityIdentifier("collection.summary")
             }
@@ -243,13 +262,13 @@ struct MolibooCollectionView: View {
         }
         .buttonStyle(MolibooSpringPressStyle())
         .accessibilityIdentifier("collection.\(id)")
-        .accessibilityLabel("\(name), number \(number), \(has3D ? "3D" : "3D coming later")")
+        .accessibilityLabel("\(name), number \(number), \(has3D ? "in Studio" : "coming later")")
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     @ViewBuilder private func statusBadge(has3D: Bool, kind: ModulaMascotKind?, unlocked: Bool) -> some View {
         if has3D {
-            Text("3D")
+            Text("Studio")
                 .font(.caption2.weight(.heavy))
                 .padding(.horizontal, 8).padding(.vertical, 4)
                 .background(teal, in: Capsule())

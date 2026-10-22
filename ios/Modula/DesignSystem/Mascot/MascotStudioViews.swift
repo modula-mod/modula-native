@@ -272,7 +272,7 @@ struct MascotStudioView: View {
             .onTapGesture { brain.hop(burst: .sparkle); MascotSound.shared.play(.hop) }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(selection.displayName) wearing \(outfitDescription)")
-            .accessibilityHint("Drag to turn, pinch to zoom, tap to hop.")
+            .accessibilityHint("Pinch to zoom, tap to hop.")
 
             HStack(spacing: 8) {
                 ForEach(Emote.allCases) { e in

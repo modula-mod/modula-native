@@ -103,7 +103,7 @@ struct MolibooPhotoControls: View {
             }
             .accessibilityIdentifier("studio.photo.capture")
             .accessibilityLabel("Take photo of \(characterName)")
-            Text("Drag to turn · tap to say hi").font(.caption.weight(.semibold))
+            Text("Tap to say hi · hold to pet").font(.caption.weight(.semibold))
                 .padding(.horizontal, 12).padding(.vertical, 6)
                 .background(.ultraThinMaterial, in: Capsule())
                 .padding(.top, 10)

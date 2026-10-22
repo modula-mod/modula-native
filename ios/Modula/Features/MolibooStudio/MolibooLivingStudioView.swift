@@ -35,6 +35,7 @@ struct MolibooLivingStudioView: View {
     @State private var shots = 0
     @State private var lastShotSubject = false
     @State private var pulseTick = 0
+    @State private var hopUntil = Date.distantPast
     #if DEBUG
     @State private var clipProbe = ""
     #endif
@@ -195,7 +196,9 @@ struct MolibooLivingStudioView: View {
 
     @ViewBuilder private var stage: some View {
         ZStack {
-            if let controller, !controller.loadFailed {
+            if !MolibooFeatureFlags.native3DEnabled {
+                stage2D.accessibilityIdentifier("moliboo2d.stage")
+            } else if let controller, !controller.loadFailed {
                 RealityView { content in
                     content.add(controller.root)
                     content.add(controller.cameraEntity)
@@ -216,7 +219,7 @@ struct MolibooLivingStudioView: View {
                     try? await Task.sleep(for: .milliseconds(350))
                     withAnimation(.easeOut(duration: 0.35)) { stageRevealed = true }
                 }
-                .accessibilityLabel("\(descriptor?.displayName ?? "Moliboo"). Tap to say hi, hold to pet, drag to turn.")
+                .accessibilityLabel("\(descriptor?.displayName ?? "Moliboo"). Tap to say hi, hold to pet.")
             } else if unavailable || controller?.loadFailed == true {
                 fallback2D.accessibilityIdentifier("moliboo3d.fallback2d")
             } else {
@@ -224,6 +227,52 @@ struct MolibooLivingStudioView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// 2D-only stage: the 2D renderer in the live try-on outfit (hat fit comes from the 2D rig), mood from the
+    /// Expressions panel, a breathing bob, a hop on tap, and a soft elliptical contact shadow on the floor.
+    @ViewBuilder private var stage2D: some View {
+        if let kind = ModulaMascotKind(rawValue: characterID) {
+            let s: CGFloat = 150
+            let live = !photoMode || !reduceMotion
+            TimelineView(.animation(paused: reduceMotion || scenePhase != .active || !live)) { tl in
+                let t = tl.date.timeIntervalSinceReferenceDate
+                let breathe = reduceMotion ? 0 : CGFloat(sin(t * 2 * .pi / 3.2))
+                let hopUp = max(0, hopUntil.timeIntervalSince(tl.date)) / 0.45
+                let hop = reduceMotion ? 0 : CGFloat(sin(hopUp * .pi)) * 26
+                ZStack {
+                    Ellipse()
+                        .fill(RadialGradient(colors: [.black.opacity(environment.isDark ? 0.5 : 0.32), .black.opacity(0.12), .clear],
+                                             center: .center, startRadius: 0, endRadius: s * 0.62))
+                        .frame(width: s * 1.25 * (1 - hop / 160), height: s * 0.26)
+                        .blur(radius: 3)
+                        .offset(y: s * 0.62)
+                    ModulaMascotFigure(kind: kind, pose: .still(Self.mood(controller?.expression ?? .idle)), size: s,
+                                       outfit: session?.preview ?? wardrobe.outfit)
+                        .scaleEffect(x: 1 - breathe * 0.01, y: 1 + breathe * 0.015, anchor: .bottom)
+                        .offset(y: -hop)
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { hopUntil = .now.addingTimeInterval(0.45); pulseTick += 1; controller?.setExpression(.happy) }
+            .onLongPressGesture(minimumDuration: 0.5) { pulseTick += 1; controller?.setExpression(.excited) }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(descriptor?.displayName ?? "Moliboo"). Tap to say hi, hold to pet.")
+            .accessibilityAddTraits(.isButton)
+        } else {
+            fallback2D
+        }
+    }
+
+    private static func mood(_ e: MolibooExpression) -> MascotMood {
+        switch e {
+        case .idle, .blink: .idle
+        case .happy: .happy
+        case .excited: .excited
+        case .surprised: .surprised
+        case .sleepy: .sleepy
+        case .sad: .sad
+        }
     }
 
     @ViewBuilder private var fallback2D: some View {
@@ -320,7 +369,7 @@ struct MolibooLivingStudioView: View {
 
     /// Per-character framing; with a sheet up the camera tilts down and pulls back so the Moliboo sits cleanly in the upper stage.
     private func frame(sheetOpen: Bool, animated: Bool) {
-        guard let c = controller else { return }
+        guard MolibooFeatureFlags.native3DEnabled, let c = controller else { return }
         let f = MolibooFraming.for(characterID)
         c.cameraEntity.camera.fieldOfViewInDegrees = f.fov
         let shift: SIMD3<Float> = sheetOpen ? [0, -(f.eye.z * 0.25), f.eye.z * 0.18] : .zero
@@ -513,6 +562,32 @@ struct MolibooLivingStudioView: View {
         frame(sheetOpen: false, animated: false)
         let ws = MolibooWardrobeSession(store: wardrobe)
         session = ws
+        // 2D-only: the controller stays an unloaded state holder (expression, panels); no RealityKit load.
+        guard !MolibooFeatureFlags.native3DEnabled else { await load3D(c, d, ws); return }
+        openInitial()
+    }
+
+    private func openInitial() {
+        if startInPhoto {
+            photoMode = true
+        } else if let initialPanel {
+            detent = Self.defaultDetent(for: initialPanel)
+            panel = initialPanel
+        }
+        #if DEBUG
+        switch MOL03DebugHarness.panel {
+        case "photo": photoMode = true
+        case let p?:
+            if let target = Panel(rawValue: p) {
+                detent = Self.defaultDetent(for: target)
+                panel = target
+            }
+        case nil: break
+        }
+        #endif
+    }
+
+    private func load3D(_ c: MolibooSceneController, _ d: MolibooCharacterDescriptor, _ ws: MolibooWardrobeSession) async {
         await c.load()
         await c.sync(outfitItemIDs: wardrobe.outfit.equippedIDs)
         if !c.loadFailed {
