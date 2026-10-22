@@ -48,6 +48,7 @@ struct EdgeBulgeFlow: ViewModifier {
     @Environment(\.trailingInteractionInset) private var trailingInset
     @Environment(\.leadingInteractionInset) private var leadingInset
     @State private var rowFrame: CGRect = .zero
+    @State private var pendingFrame: CGRect?
 
     /// Gap between content and the picker outline.
     private static let spacing: CGFloat = 7
@@ -68,14 +69,21 @@ struct EdgeBulgeFlow: ViewModifier {
                 .offset(x: (bulge.trailing ? -1 : 1) * abs(follow) * 1, y: follow * 2)
                 // Measured outside the inset: the row's full-width outer frame (no feedback loop).
                 .onGeometryChange(for: CGRect.self) { proxy in
-                    let frame = proxy.frame(in: .global)
+                    let frame = proxy.frame(in: .named(ShellChromeFreeze.cardSpace))
                     let rail = EdgePickerBulge.shared.frame
                     let near = frame.maxY > rail.minY - 80 && frame.minY < rail.maxY + 80
                     // Quantised to 12pt so a scrolling row re-lays out ~1/12 as often (no per-frame storm).
                     guard near else { return CGRect(x: 0, y: -10_000, width: frame.width, height: 0) }
                     return CGRect(x: frame.minX.rounded(), y: (frame.minY / 12).rounded() * 12,
                                   width: frame.width.rounded(), height: (frame.height / 4).rounded() * 4)
-                } action: { rowFrame = $0 }
+                } action: { next in
+                    // Never relayout feed rows while the sidebar card moves (drag + settle).
+                    if ShellChromeFreeze.isSidebarDragging { pendingFrame = next } else if rowFrame != next { rowFrame = next }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: ShellChromeFreeze.didThaw)) { _ in
+                    if let pendingFrame, pendingFrame != rowFrame { rowFrame = pendingFrame }
+                    pendingFrame = nil
+                }
                 .animation(.smooth(duration: 0.3), value: inset)
         }
     }

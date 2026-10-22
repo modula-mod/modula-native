@@ -133,6 +133,9 @@ struct ShellSidebarContainer<Content: View>: View {
                 }
 
                 content
+                    // Card-local space: feed geometry (Edge Picker bulge + rows) is measured here,
+                    // so the card's offset / settle spring never changes those values.
+                    .coordinateSpace(.named(ShellChromeFreeze.cardSpace))
                     .background(sidebarBackdrop.ignoresSafeArea())
                     // Mask (not clipShape) so the card keeps its full-screen, under-the-status-bar extent.
                     .mask {
@@ -215,7 +218,7 @@ struct ShellSidebarContainer<Content: View>: View {
     private func openDrag(width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 8, coordinateSpace: .global)
             .updating($dragging) { value, state, _ in
-                if value.startLocation.x < 30 { state = true }
+                if value.startLocation.x < 30 { state = true; ShellChromeFreeze.isSidebarDragging = true }
             }
             .updating($drag) { value, state, transaction in
                 guard value.startLocation.x < 30 else { return }
@@ -227,6 +230,7 @@ struct ShellSidebarContainer<Content: View>: View {
                 let open = Self.shouldEndOpen(translation: value.translation.width,
                                               predicted: value.predictedEndTranslation.width,
                                               startOpen: false, width: width)
+                ShellChromeFreeze.holdForSettle()
                 withAnimation(settle) {
                     if open { app.navigation.presentSidebar() } else { app.navigation.dismissSidebar() }
                 }
@@ -236,7 +240,7 @@ struct ShellSidebarContainer<Content: View>: View {
 
     private func closeDrag(width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 6, coordinateSpace: .global)
-            .updating($dragging) { _, state, _ in state = true }
+            .updating($dragging) { _, state, _ in state = true; ShellChromeFreeze.isSidebarDragging = true }
             .updating($drag) { value, state, transaction in
                 transaction.disablesAnimations = true
                 state = max(min(0, value.translation.width), -width)
@@ -245,6 +249,7 @@ struct ShellSidebarContainer<Content: View>: View {
                 let open = Self.shouldEndOpen(translation: value.translation.width,
                                               predicted: value.predictedEndTranslation.width,
                                               startOpen: true, width: width)
+                ShellChromeFreeze.holdForSettle()
                 withAnimation(settle) {
                     if open { app.navigation.presentSidebar() } else { app.navigation.dismissSidebar() }
                 }
@@ -253,6 +258,7 @@ struct ShellSidebarContainer<Content: View>: View {
     }
 
     private func close(haptic: Bool) {
+        ShellChromeFreeze.holdForSettle()
         withAnimation(settle) { app.navigation.dismissSidebar() }
         if haptic { HapticEngine.shared.play(.navigation) }
     }
