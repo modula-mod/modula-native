@@ -761,11 +761,9 @@ struct ProfileView: View {
                     return content.opacity(minY <= stickTop + 12 ? 1 : 0)
                 }
         }
-        // Pinned header: slide it down so it rests just below the status bar / nav buttons.
-        .visualEffect { content, proxy in
-            let minY = proxy.frame(in: .scrollView).minY
-            return content.offset(y: max(0, stickTop - minY))
-        }
+        // No manual pin offset: the LazyVStack's pinned section header already rests at the
+        // scroll view's top content margin (status bar + 44, i.e. right under the top bar).
+        // The old offset was added on top of that, which parked the tabs ~100pt too low.
         .zIndex(1)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("profile.tabs")

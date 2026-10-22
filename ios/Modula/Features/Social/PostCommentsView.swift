@@ -1335,7 +1335,25 @@ struct PostCommentsView: View {
             .padding(.top, commentsMascotShown ? 40 : 6)
             .padding(.bottom, mediaPanelActive ? 10 : 8)
             .frame(maxWidth: .infinity)
-            .background(canvas)
+            // Floating glass bar over a soft progressive fade: comments stay visible as they
+            // scroll under it, and the fade (not a solid block) keeps the bar readable. The
+            // top headroom is clear so Moliboo perches above the bar, never on it.
+            .background {
+                if mediaPanelActive {
+                    canvas
+                } else {
+                    ZStack {
+                        Rectangle().fill(.ultraThinMaterial)
+                        canvas.opacity(0.35)
+                    }
+                    .mask(LinearGradient(stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: .black.opacity(0.7), location: 0.45),
+                        .init(color: .black, location: 1)
+                    ], startPoint: .top, endPoint: .bottom))
+                    .ignoresSafeArea(edges: .bottom)
+                }
+            }
             // Keep the composer + mascot above the panel even if a glass layer tries to float.
             .zIndex(2)
 
@@ -1361,7 +1379,9 @@ struct PostCommentsView: View {
         }
         // Solid fill under the whole inset (composer + panel) so nothing from the
         // comment list or the home feed peeks through the home-indicator zone.
-        .background(canvas.ignoresSafeArea(edges: .bottom))
+        .background {
+            if mediaPanelActive { canvas.ignoresSafeArea(edges: .bottom) }
+        }
         .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.34, dampingFraction: 0.85), value: mediaPanelActive)
         .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.36, dampingFraction: 0.82), value: mediaStage)
         .gesture(
