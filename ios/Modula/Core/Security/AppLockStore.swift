@@ -35,7 +35,8 @@ final class AppLockStore {
             try? JSONDecoder().decode(AppLockSettings.self, from: $0)
         } ?? .default
         let hasPasscode = (try? credentials.hasPasscode()) == true
-        if !hasPasscode {
+        // No passcode is allowed when the user chose slide-only (privacy screen) App Lock.
+        if !hasPasscode, !settings.slideOnlyAllowed {
             settings.enabled = false
         }
         if settings.method != .passcode,
@@ -49,7 +50,7 @@ final class AppLockStore {
         if let until = defaults.object(forKey: "modula.native.applock.cooldown.v1") as? Date, until > Date() {
             self.cooldownUntil = ContinuousClock.now.advanced(by: .seconds(until.timeIntervalSinceNow))
         }
-        self.isLocked = startsLockedIfEnabled && settings.enabled && hasPasscode
+        self.isLocked = startsLockedIfEnabled && settings.enabled && (hasPasscode || settings.slideOnlyAllowed)
         self.autoPromptArmed = isLocked
     }
 
@@ -67,7 +68,7 @@ final class AppLockStore {
     var shouldCoverAppSwitcher: Bool { settings.hideInAppSwitcher || requiresUnlock }
 
     func refreshColdLaunchLock() {
-        guard settings.enabled, (try? credentials.hasPasscode()) == true else {
+        guard settings.enabled, hasPasscode || settings.slideOnlyAllowed else {
             isLocked = false
             return
         }
@@ -89,7 +90,7 @@ final class AppLockStore {
             isLocked = false
             return
         }
-        guard (try? credentials.hasPasscode()) == true else {
+        guard hasPasscode || settings.slideOnlyAllowed else {
             isLocked = false
             return
         }
@@ -103,12 +104,32 @@ final class AppLockStore {
         }
     }
 
-    func setEnabled(_ enabled: Bool) throws {
+    var hasPasscode: Bool { (try? credentials.hasPasscode()) == true }
+
+    /// No passcode, pattern or Orbit: the lock screen is a Slide to unlock privacy screen.
+    var isSlideOnly: Bool {
+        !hasPasscode && !hasSecret(for: .pattern) && !hasSecret(for: .orbit)
+    }
+
+    /// Slide to unlock. Only ever succeeds when no secret exists (it is a privacy screen,
+    /// never a bypass of a real passcode/pattern/Orbit).
+    func unlockBySlide() -> Bool {
+        guard settings.enabled, isSlideOnly else { return false }
+        succeed()
+        return true
+    }
+
+    /// `allowSlideOnly`: the user explicitly chose App Lock without a passcode.
+    func setEnabled(_ enabled: Bool, allowSlideOnly: Bool = false) throws {
         if enabled {
-            guard try credentials.hasPasscode() else {
+            if allowSlideOnly {
+                settings.slideOnlyAllowed = true
+            } else if !hasPasscode, !settings.slideOnlyAllowed {
                 lastError = "Create a 6-digit Modula passcode first."
                 throw APIError.secureStorage
             }
+        } else {
+            settings.slideOnlyAllowed = false
         }
         settings.enabled = enabled
         isLocked = enabled
@@ -282,6 +303,7 @@ final class AppLockStore {
     func disableAndClearPasscode() throws {
         try credentials.clear()
         settings.enabled = false
+        settings.slideOnlyAllowed = false
         isLocked = false
         persist()
     }

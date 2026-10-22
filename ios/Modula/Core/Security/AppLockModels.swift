@@ -190,6 +190,8 @@ struct AppLockSettings: Codable, Equatable, Sendable {
     var showsGreeting: Bool = true
     var hidesPatternTrail: Bool = false
     var hapticsEnabled: Bool = true
+    /// App Lock on with no passcode/pattern/Orbit: Slide to unlock privacy screen.
+    var slideOnlyAllowed: Bool = false
 
     static let `default` = AppLockSettings(
         enabled: false,
@@ -217,6 +219,7 @@ struct AppLockSettings: Codable, Equatable, Sendable {
         showsGreeting = try c.decodeIfPresent(Bool.self, forKey: .showsGreeting) ?? true
         hidesPatternTrail = try c.decodeIfPresent(Bool.self, forKey: .hidesPatternTrail) ?? false
         hapticsEnabled = try c.decodeIfPresent(Bool.self, forKey: .hapticsEnabled) ?? true
+        slideOnlyAllowed = try c.decodeIfPresent(Bool.self, forKey: .slideOnlyAllowed) ?? false
     }
 }
 

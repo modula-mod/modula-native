@@ -884,6 +884,7 @@ struct BatteryNetworkSettingsPage: View {
 /// Privacy, Glass Privacy (debug), Blocked, Security, App Lock and Face ID on one page.
 struct PrivacySafetySettingsPage: View {
     @Environment(AppEnvironment.self) private var app
+    @State private var choosesLockKind = false
     @State private var showsSetup = false
     @State private var showsChange = false
     @State private var confirmSignOutReset = false
@@ -906,7 +907,7 @@ struct PrivacySafetySettingsPage: View {
                     get: { lock.enabled },
                     set: { value in
                         if value, (try? lock.setEnabled(true)) == nil {
-                            showsSetup = true
+                            choosesLockKind = true
                         } else if !value {
                             try? lock.setEnabled(false)
                             app.refreshLaunchState()
@@ -914,6 +915,14 @@ struct PrivacySafetySettingsPage: View {
                     }
                 ))
                 .accessibilityIdentifier("settings.applock.enable")
+                if lock.enabled, lock.isSlideOnly {
+                    SettingsDivider()
+                    Label("Slide to unlock is a privacy screen, not security: anyone holding your phone can open Modula. Add a passcode for real protection.", systemImage: "hand.draw")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 10)
+                        .accessibilityIdentifier("settings.applock.slide-note")
+                }
                 if lock.enabled {
                     SettingsDivider()
                     HStack(spacing: 12) {
@@ -928,7 +937,11 @@ struct PrivacySafetySettingsPage: View {
                     }
                     .frame(minHeight: 52)
                     SettingsDivider()
-                    SettingsTileRow(title: "Change Passcode", symbol: "key.fill") { showsChange = true }
+                    if lock.hasPasscode {
+                        SettingsTileRow(title: "Change Passcode", symbol: "key.fill") { showsChange = true }
+                    } else {
+                        SettingsTileRow(title: "Set Up Passcode", symbol: "key.fill") { showsSetup = true }
+                    }
                 }
                 SettingsDivider()
                 SettingsTileToggle(title: "Unlock with \(lock.biometricAvailability.kind.title)", symbol: "faceid", isOn: Binding(
@@ -984,11 +997,21 @@ struct PrivacySafetySettingsPage: View {
                 SettingsDivider()
                 SettingsTileRow(title: "Sessions", symbol: "laptopcomputer.and.iphone") { app.navigation.open(.settings(.account(.sessions))) }
             }
-            if lock.enabled {
+            if lock.enabled, !lock.isSlideOnly {
                 Button("Forgot Passcode? Sign Out and Reset App Lock", role: .destructive) { confirmSignOutReset = true }
                     .font(.subheadline)
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
+        }
+        .confirmationDialog("Turn on App Lock", isPresented: $choosesLockKind, titleVisibility: .visible) {
+            Button("Set Up a Passcode") { showsSetup = true }
+            Button("Slide to Unlock Only") {
+                try? app.appLock.setEnabled(true, allowSlideOnly: true)
+                app.refreshLaunchState()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Slide to unlock only is a privacy screen, not security: it hides Modula from glances but anyone with your phone can open it.")
         }
         .navigationTitle("Privacy & Safety")
         .navigationBarTitleDisplayMode(.inline)

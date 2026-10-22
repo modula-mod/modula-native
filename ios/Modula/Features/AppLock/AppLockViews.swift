@@ -157,10 +157,11 @@ struct AppLockView: View {
     }
 
     private var instruction: String {
+        if lock.isSlideOnly { return "Slide to open Modula." }
         switch method {
-        case .passcode: "Enter your 6-digit Modula passcode."
-        case .pattern: "Draw your unlock pattern."
-        case .orbit: "Spin each ring to your glyph, then tap the centre."
+        case .passcode: return "Enter your 6-digit Modula passcode."
+        case .pattern: return "Draw your unlock pattern."
+        case .orbit: return "Spin each ring to your glyph, then tap the centre."
         }
     }
 
@@ -174,6 +175,16 @@ struct AppLockView: View {
             Spacer(minLength: 0)
             header(now: now)
             Group {
+                if lock.isSlideOnly {
+                    SlideToUnlockTrack(disabled: unlocking, haptics: lock.settings.hapticsEnabled) {
+                        if lock.unlockBySlide() {
+                            lock.haptic(.success)
+                            finishUnlock()
+                        }
+                    }
+                    .frame(maxWidth: compact ? 300 : 340)
+                    .padding(.top, compact ? 8 : 24)
+                } else {
                 switch method {
                 case .passcode:
                     VStack(spacing: compact ? ModulaSpacing.md : 22) {
@@ -214,6 +225,7 @@ struct AppLockView: View {
                     .aspectRatio(1, contentMode: .fit)
                     .frame(maxWidth: compact ? 260 : 320)
                     .modifier(ShakeEffect(animatableData: CGFloat(shakes)))
+                }
                 }
             }
             .modifier(LockChromaticShake(trigger: shakes, enabled: effects))
@@ -274,7 +286,7 @@ struct AppLockView: View {
                     .accessibilityLabel(lock.biometricAvailability.kind.unlockLabel)
                     .accessibilityIdentifier("applock.biometrics")
                 }
-                if lock.settings.method != .passcode {
+                if lock.settings.method != .passcode, lock.hasPasscode, !lock.isSlideOnly {
                     Button {
                         lock.haptic(.selection)
                         hint = nil
@@ -290,6 +302,7 @@ struct AppLockView: View {
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("applock.switch-method")
                 }
+                if !lock.isSlideOnly {
                 Button {
                     lock.haptic(.selection)
                     confirmsForgot = true
@@ -304,6 +317,7 @@ struct AppLockView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Forgot passcode? Sign out")
                 .accessibilityIdentifier("applock.forgot")
+                }
             }
         }
         .opacity(appeared ? 1 : 0)
@@ -982,6 +996,102 @@ private struct LockChromaticShake: ViewModifier {
             }
         } else {
             content
+        }
+    }
+}
+
+
+/// Classic "slide to unlock": glass track, draggable knob, a light sweep across the label.
+/// Reaching the end unlocks at once (haptic); letting go early springs the knob back.
+/// Reduce Motion: static label, no spring.
+struct SlideToUnlockTrack: View {
+    var disabled = false
+    var haptics = true
+    var onUnlock: () -> Void
+
+    @State private var offset: CGFloat = 0
+    @State private var done = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var scheme
+
+    private let height: CGFloat = 64
+    private let inset: CGFloat = 5
+
+    var body: some View {
+        GeometryReader { geo in
+            let knob = height - inset * 2
+            let maxX = max(1, geo.size.width - knob - inset * 2)
+            let progress = min(1, offset / maxX)
+            ZStack(alignment: .leading) {
+                label
+                    .frame(maxWidth: .infinity)
+                    .padding(.leading, knob * 0.6)
+                    .opacity(Double(1 - progress * 1.6))
+                Circle()
+                    .fill(.white)
+                    .overlay(
+                        Image(systemName: "chevron.right.2")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(.black.opacity(0.75))
+                    )
+                    .shadow(color: .black.opacity(0.18), radius: 6, y: 2)
+                    .frame(width: knob, height: knob)
+                    .offset(x: inset + offset)
+                    .gesture(
+                        DragGesture(minimumDistance: 2)
+                            .onChanged { value in
+                                guard !disabled, !done else { return }
+                                offset = min(max(0, value.translation.width), maxX)
+                                if offset >= maxX {
+                                    done = true
+                                    if haptics { HapticEngine.shared.play(.success) }
+                                    onUnlock()
+                                }
+                            }
+                            .onEnded { _ in
+                                guard !done else { return }
+                                withAnimation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.72)) {
+                                    offset = 0
+                                }
+                            }
+                    )
+            }
+            .frame(height: height)
+            .modulaGlass(in: Capsule(), interactive: false, specular: true)
+        }
+        .frame(height: height)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Slide to unlock")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { if !disabled { onUnlock() } }
+        .accessibilityIdentifier("applock.slide")
+    }
+
+    @ViewBuilder
+    private var label: some View {
+        let text = Text("Slide to unlock").font(.title3.weight(.semibold))
+        let base: Color = scheme == .dark ? .white.opacity(0.45) : .black.opacity(0.4)
+        let shine: Color = scheme == .dark ? .white : .white
+        if reduceMotion {
+            text.foregroundStyle(base)
+        } else {
+            TimelineView(.animation) { ctx in
+                let t = ctx.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2.4) / 2.4
+                let x = -0.3 + 1.6 * t
+                text
+                    .foregroundStyle(base)
+                    .overlay {
+                        LinearGradient(
+                            stops: [
+                                .init(color: .clear, location: max(0, x - 0.15)),
+                                .init(color: shine, location: min(1, max(0, x))),
+                                .init(color: .clear, location: min(1, x + 0.15)),
+                            ],
+                            startPoint: .leading, endPoint: .trailing
+                        )
+                        .mask(text)
+                    }
+            }
         }
     }
 }
