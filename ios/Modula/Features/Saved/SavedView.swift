@@ -88,6 +88,8 @@ struct SavedView: View {
                                 videoCoordinator: videoCoordinator,
                                 style: .immersive
                             )
+                                // Media corners follow the card radius.
+                                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                                 .contextMenu {
                                     Button("Unsave", systemImage: "bookmark.slash", role: .destructive) {
                                         Task { await app.saved.unsave(postID: post.id, postActions: app.postActions) }

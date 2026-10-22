@@ -41,7 +41,7 @@ struct HomeView: View {
                                         .font(.headline)
                                     Text(mode.heroSubtitle)
                                         .font(.caption.weight(.semibold))
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(Color.primary.opacity(0.72))
                                         .lineLimit(1)
                                         .accessibilityIdentifier("home.hero")
                                         .accessibilityLabel(mode.heroTitle)

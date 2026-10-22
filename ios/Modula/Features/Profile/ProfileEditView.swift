@@ -292,12 +292,12 @@ struct ProfileEditView: View {
                         Spacer()
                         Image(systemName: "lock.fill")
                             .font(.caption)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 Text("Your username can be changed in Account settings.")
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
                     .padding(.leading, 104)
                     .padding(.bottom, 8)
             }
@@ -361,14 +361,14 @@ struct ProfileEditView: View {
                         .font(.body)
                         .foregroundStyle(.primary)
                     Text(frameSummary)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.footnote.weight(.medium))
+                        .foregroundStyle(Color.primary.opacity(0.7))
                         .lineLimit(1)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
             }
             .frame(minHeight: 60)
             .contentShape(Rectangle())

@@ -65,13 +65,17 @@ struct ProfileShareSheet: View {
     }
 
     private func shareButton(title: String, symbol: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        // The code button is the primary action: solid accent, white text.
+        let primary = title == "Modula Code"
+        return Button(action: action) {
             Label(title, systemImage: symbol)
                 .font(.body.weight(.semibold))
+                .foregroundStyle(primary ? Color.white : Color.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(minHeight: 48)
                 .padding(.horizontal, 14)
-                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(primary ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color.primary.opacity(0.08)),
+                            in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)
