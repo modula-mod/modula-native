@@ -756,10 +756,7 @@ struct ActivitySuggestedPeople: View {
 
     /// Seed/test accounts from staging never belong in suggestions.
     static func isFixture(_ person: DiscoverPerson) -> Bool {
-        let name = person.displayName.lowercased()
-        let handle = person.handle.lowercased()
-        let markers = ["fixture", "alpha", "test", "block ", "phase ", "qa_", "demo_"]
-        return markers.contains { name.contains($0) || handle.contains($0.trimmingCharacters(in: .whitespaces)) }
+        ModulaFixtureFilter.isFixture(name: person.displayName, handle: person.handle)
     }
 
     var body: some View {
@@ -801,5 +798,16 @@ struct ActivitySuggestedPeople: View {
             people = ((try? await GreenfieldDiscoverRepository(client: app.client).people(cursor: nil).items) ?? [])
                 .filter { !Self.isFixture($0) }
         }
+    }
+}
+
+
+/// Seed/test accounts from staging never belong in suggestions or Catch up.
+enum ModulaFixtureFilter {
+    static func isFixture(name: String, handle: String) -> Bool {
+        let name = name.lowercased()
+        let handle = handle.lowercased()
+        let markers = ["fixture", "alpha", "test", "block ", "phase ", "qa_", "demo_"]
+        return markers.contains { name.contains($0) || handle.contains($0.trimmingCharacters(in: .whitespaces)) }
     }
 }

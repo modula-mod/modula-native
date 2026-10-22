@@ -7,6 +7,9 @@ struct SearchScreen: View {
     @State private var chromeScope: ChromeScope
     @State private var searchTask: Task<Void, Never>?
     @State private var dismissedError: String?
+    @State private var allCounts: [ChromeScope: Int] = [:]
+    @Namespace private var scopeNS
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private enum ChromeScope: Hashable, CaseIterable {
         case all, people, posts, modules, topics
@@ -54,6 +57,10 @@ struct SearchScreen: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
+                scopeChips
+                if !typeahead.isEmpty {
+                    typeaheadRow
+                }
                 if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && chromeScope != .topics {
                     DiscoverSearchIdle(onPickRecent: { query = $0 }, onPickSuggestion: { query = $0 })
                 } else {
@@ -67,22 +74,21 @@ struct SearchScreen: View {
         .modulaCanvas()
         .navigationTitle("Search")
         .navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $query, prompt: "Search Modula")
-        .searchScopes($chromeScope) {
-            ForEach(ChromeScope.allCases, id: \.self) { scope in
-                Text(scope.title).tag(scope)
-            }
-        }
+        .searchable(text: $query, prompt: "Search people, posts, modules")
+        .onSubmit(of: .search) { DiscoverSearchRecents.record(query) }
         .modulaMinimizedSearchToolbar()
         .onChange(of: query) { _, _ in scheduleSearch() }
         .onChange(of: chromeScope) { _, _ in
-            syncRoute()
+            // Scope is local state: replacing the route here re-created (popped + pushed) the
+            // whole screen, which flashed the bar, dropped the tabs and looked like Search reopening.
             Task { await app.discover.performSearch(query: query, section: chromeScope.section) }
+        }
+        .onChange(of: app.discover.search.results.count) { _, _ in
+            if chromeScope == .all { allCounts = Self.counts(app.discover.search.results) }
         }
         .task {
             if !query.isEmpty || chromeScope == .topics {
                 await app.discover.performSearch(query: query, section: chromeScope.section)
-                DiscoverSearchRecents.record(query)
             }
         }
         .onDisappear { searchTask?.cancel() }
@@ -107,8 +113,17 @@ struct SearchScreen: View {
                 Task { await app.discover.performSearch(query: query, section: chromeScope.section) }
             }
         case _ where visibleResults.isEmpty:
-            ContentUnavailableView.search(text: query)
-                .frame(minHeight: 240)
+            VStack(spacing: 14) {
+                ContentUnavailableView.search(text: query)
+                    .frame(minHeight: 200)
+                if chromeScope != .all {
+                    Button("Search everything instead") {
+                        withAnimation(reduceMotion ? nil : .snappy) { chromeScope = .all }
+                    }
+                    .font(.subheadline.weight(.semibold))
+                }
+                DiscoverSearchIdle(onPickRecent: { query = $0 }, onPickSuggestion: { query = $0 })
+            }
         default:
             LazyVStack(alignment: .leading, spacing: 12) {
                 ForEach(visibleResults) { hit in
@@ -201,6 +216,7 @@ struct SearchScreen: View {
     }
 
     private func open(_ hit: SearchHit) {
+        DiscoverSearchRecents.record(query)
         if let destination = hit.destination {
             app.navigation.push(destination)
             HapticEngine.shared.play(.navigation)
@@ -213,18 +229,96 @@ struct SearchScreen: View {
             try? await Task.sleep(nanoseconds: 280_000_000)
             guard !Task.isCancelled else { return }
             await app.discover.performSearch(query: query, section: chromeScope.section)
-            DiscoverSearchRecents.record(query)
         }
     }
 
-    private func syncRoute() {
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        let next: AppRoute
-        if let section = chromeScope.section {
-            next = .search(.section(section, trimmed.isEmpty ? nil : trimmed))
-        } else {
-            next = .search(.root(trimmed.isEmpty ? nil : trimmed))
+    private static func counts(_ results: [SearchHit]) -> [ChromeScope: Int] {
+        var c: [ChromeScope: Int] = [:]
+        for hit in results {
+            switch hit.entityType {
+            case "profile": c[.people, default: 0] += 1
+            case "post": c[.posts, default: 0] += 1
+            case "module", "module-release": c[.modules, default: 0] += 1
+            case "topic": c[.topics, default: 0] += 1
+            default: break
+            }
         }
-        app.navigation.replaceTop(with: next)
+        c[.all] = results.count
+        return c
+    }
+
+    private var hasQuery: Bool { !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+    /// Scope chips live in the content (not system search scopes), so they never vanish or
+    /// jump when the search field gains focus. Counts come from the last All-scope results.
+    private var scopeChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(ChromeScope.allCases, id: \.self) { scope in
+                    let selected = scope == chromeScope
+                    Button {
+                        withAnimation(reduceMotion ? nil : .snappy(duration: 0.28)) { chromeScope = scope }
+                        HapticEngine.shared.play(.selection)
+                    } label: {
+                        HStack(spacing: 5) {
+                            Text(scope.title)
+                            if hasQuery, let n = allCounts[scope], n > 0 {
+                                Text("\(n)").font(.caption.weight(.bold).monospacedDigit()).foregroundStyle(.secondary)
+                            }
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(selected ? Color.primary : .secondary)
+                        .padding(.horizontal, 14).frame(height: 34)
+                        .background {
+                            if selected {
+                                Capsule().fill(app.appearance.accent.color.opacity(0.18))
+                                    .matchedGeometryEffect(id: "scope", in: scopeNS)
+                            }
+                        }
+                        .modulaGlass(in: Capsule(), interactive: true)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                    .accessibilityIdentifier("search.scope.\(scope.title.lowercased())")
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .scrollClipDisabled()
+    }
+
+    /// Typeahead: recent searches and trending topics that start with what you've typed.
+    private var typeahead: [String] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard q.count >= 1 else { return [] }
+        let topics = app.discover.trending.dashboard?.topics.map(\.label) ?? []
+        var seen = Set<String>()
+        return (DiscoverSearchRecents.load() + topics)
+            .filter { $0.lowercased().hasPrefix(q) && $0.lowercased() != q }
+            .filter { seen.insert($0.lowercased()).inserted }
+            .prefix(5)
+            .map { $0 }
+    }
+
+    private var typeaheadRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(typeahead, id: \.self) { item in
+                    Button {
+                        query = item
+                        DiscoverSearchRecents.record(item)
+                        HapticEngine.shared.play(.selection)
+                    } label: {
+                        Label(item, systemImage: "arrow.up.left")
+                            .font(.footnote.weight(.semibold))
+                            .padding(.horizontal, 12).frame(height: 30)
+                            .modulaGlass(in: Capsule(), interactive: true)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .scrollClipDisabled()
+        .transition(.opacity)
     }
 }

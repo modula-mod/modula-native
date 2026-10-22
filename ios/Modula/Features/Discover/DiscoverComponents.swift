@@ -489,7 +489,8 @@ struct DiscoverSearchIdle: View {
     var onPickRecent: (String) -> Void
     var onPickSuggestion: (String) -> Void
     @Environment(AppEnvironment.self) private var app
-    private var recents: [String] { DiscoverSearchRecents.load() }
+    @State private var recentsVersion = 0
+    private var recents: [String] { _ = recentsVersion; return DiscoverSearchRecents.load() }
     private var suggestions: [String] {
         let topics = app.discover.trending.dashboard?.topics.prefix(6).map(\.label) ?? []
         return topics.isEmpty ? ["Design", "Modules", "Reels", "Creators", "AI", "Stories"] : Array(topics)
@@ -499,7 +500,11 @@ struct DiscoverSearchIdle: View {
             if !recents.isEmpty {
                 HStack {
                     Text("Recent").font(.title3.bold()); Spacer()
-                    Button("Clear") { DiscoverSearchRecents.clear(); HapticEngine.shared.play(.selection) }
+                    Button("Clear") {
+                        DiscoverSearchRecents.clear()
+                        withAnimation(.snappy) { recentsVersion += 1 }
+                        HapticEngine.shared.play(.selection)
+                    }
                         .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                 }
                 ForEach(recents, id: \.self) { item in
