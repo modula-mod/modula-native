@@ -472,7 +472,7 @@ struct ImmersivePostCard: View {
             }
             Text("· \(ActivityRelativeTime.string(from: post.createdAt))")
                 .font(.system(.caption, design: font))
-                .foregroundStyle(onMedia ? Color.white.opacity(0.75) : Color.secondary.opacity(0.7))
+                .foregroundStyle(onMedia ? Color.white.opacity(0.9) : Color.primary.opacity(0.62))
                 .lineLimit(1)
                 .layoutPriority(-1)
         }

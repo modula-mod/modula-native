@@ -948,6 +948,8 @@ struct ProfileInfoChips: View {
                 .font(.caption.weight(.semibold))
                 .imageScale(chip.id == "focus" ? .small : .medium)
                 .foregroundStyle(chip.id == "focus" ? Color.green : (tappable ? accent : Color.secondary))
+                // Fixed icon box so Joined / Private / etc. share one baseline.
+                .frame(width: 16, height: 16)
             Text(chip.title)
                 .font(.footnote.weight(.medium))
                 .foregroundStyle(tappable ? accent : Color.primary)

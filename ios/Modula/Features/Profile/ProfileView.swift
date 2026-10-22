@@ -710,7 +710,7 @@ struct ProfileView: View {
                                 .lineLimit(1)
                                 .fixedSize()
                         }
-                        .foregroundStyle(isSelected ? heroTint : Color.secondary)
+                        .foregroundStyle(isSelected ? heroTint : Color.primary.opacity(0.62))
                         .padding(.horizontal, isSelected ? 12 : 9)
                         .frame(height: 38)
                         .background {

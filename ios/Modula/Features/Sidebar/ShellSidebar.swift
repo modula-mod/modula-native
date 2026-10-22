@@ -41,7 +41,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .collections: "rectangle.stack"
         case .settings: "gearshape"
         case .appearance: "paintpalette"
-        case .developer: "hammer"
+        case .developer: "wrench.and.screwdriver"
         }
     }
 
@@ -411,7 +411,9 @@ struct ShellSidebarView: View {
                 } label: {
                     HStack(spacing: 14) {
                         Image(systemName: item.symbol)
-                            .font(.body)
+                            .font(.body.weight(.regular))
+                            .symbolVariant(.none)
+                            .imageScale(.medium)
                             .foregroundStyle(.primary)
                             .frame(width: 24)
                         Text(item.title)

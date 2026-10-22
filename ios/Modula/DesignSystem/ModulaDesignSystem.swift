@@ -1047,7 +1047,7 @@ struct ModulaSectionHeader: View {
             if let subtitle {
                 Text(subtitle)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.primary.opacity(0.68))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

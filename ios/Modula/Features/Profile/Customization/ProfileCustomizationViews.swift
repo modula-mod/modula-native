@@ -147,10 +147,20 @@ struct FeaturedModulesEditor: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if installed.isEmpty {
-                Text("Modules you install can be featured on your profile.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(minHeight: 44, alignment: .leading)
+                HStack(spacing: 12) {
+                    Image(systemName: "square.grid.2x2")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("No modules yet").font(.subheadline.weight(.semibold))
+                        Text("Install modules to feature them on your profile.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.2), style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
             } else {
                 row(title: "Featured", items: featured, isFeatured: true)
                     .dropDestination(for: String.self) { ids, _ in
@@ -178,9 +188,9 @@ struct FeaturedModulesEditor: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     if items.isEmpty && isFeatured {
-                        Text(writable ? "Tap or drag a module here" : "None featured")
-                            .font(.footnote)
-                            .foregroundStyle(.tertiary)
+                        Label(writable ? "Tap or drag a module here" : "None featured", systemImage: "plus.circle")
+                            .font(.footnote.weight(.medium))
+                            .foregroundStyle(.secondary)
                             .padding(.horizontal, 14)
                             .frame(height: 36)
                             .overlay(Capsule().strokeBorder(Color.primary.opacity(0.15), style: StrokeStyle(lineWidth: 1, dash: [4, 3])))

@@ -8,13 +8,13 @@ struct SettingsGroup<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if !title.isEmpty {
-                Text(title).font(.footnote.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.68))
+                Text(title).font(.footnote.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.8))
                     .textCase(.uppercase).padding(.leading, 14)
             }
             SettingsGlassCard { content }
             // iOS-style footer, only when a page supplies one.
             if let subtitle, !subtitle.isEmpty {
-                Text(subtitle).font(.caption).foregroundStyle(Color.primary.opacity(0.62)).padding(.horizontal, 14)
+                Text(subtitle).font(.caption).foregroundStyle(Color.primary.opacity(0.7)).padding(.horizontal, 14)
             }
         }
     }
@@ -71,13 +71,22 @@ private struct AppearanceChoice<Value: Hashable>: View {
                 if selection == value { Image(systemName: "checkmark") }
             }
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(selection == value ? Color.white : Color.primary)
-            .padding(.horizontal, 12)
-            .frame(maxWidth: .infinity, minHeight: 44)
+            // Text/checkmark colour picked by the accent's luminance (white on yellow was unreadable).
+            .foregroundStyle(selection == value ? Self.onColor(app.appearance.accent.color) : Color.primary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity, minHeight: 46)
             .background(selection == value ? app.appearance.accent.color : Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selection == value ? .isSelected : [])
+    }
+
+    static func onColor(_ color: Color) -> Color {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+        let lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
+        return lum > 0.6 ? .black : .white
     }
 }
 
@@ -252,7 +261,8 @@ struct SettingsView: View {
                 IslandAvatarMerge(frame: avatarFrame, reduceMotion: reduceMotion) { heroAvatar(size: 100) }
             }
         }
-        .navigationTitle("Settings")
+        // Title only once the hero header has collapsed: no cramped title between the buttons.
+        .navigationTitle(collapse > 0.6 ? "Settings" : "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             // Trailing, not leading: an invisible-but-present leading item sat in the same glass

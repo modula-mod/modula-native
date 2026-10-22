@@ -700,7 +700,8 @@ struct SettingsTileRow: View {
                 }
                 Spacer(minLength: 8)
                 if let value, !value.isEmpty {
-                    Text(value).foregroundStyle(.secondary).lineLimit(1)
+                    Text(value).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        .padding(.trailing, showsChevron ? 4 : 0)
                 }
                 if showsChevron {
                     Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
