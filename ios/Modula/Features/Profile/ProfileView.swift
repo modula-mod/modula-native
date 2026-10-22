@@ -533,8 +533,6 @@ struct ProfileView: View {
                 coverColour: profile.coverColour,
                 tint: heroTint,
                 scrollProgress: headerProgress,
-                pocketCenterX: ModulaLayout.contentInset + avatarSize / 2,
-                pocketRadius: ProfileIdentityMetrics.carveRadius(avatarSize: avatarSize),
                 onTap: { openCoverViewer(profile) },
                 contextActions: ProfileContextActions.coverMenu(isOwn: isOwnProfile, hasCover: profile.coverURL != nil),
                 onContextAction: { handleContextAction($0, profile: profile) }
@@ -684,7 +682,7 @@ struct ProfileView: View {
     private func shelfBar(_ profile: ModulaProfile) -> some View {
         let tabs = shelfTabs
         let selected = tabs.contains(shelf) ? shelf : .posts
-        let stickTop = ProfileFullBleedMetrics.windowSafeAreaTop + 52
+        let stickTop = ProfileFullBleedMetrics.windowSafeAreaTop + 44
         let reduce = ModulaEffectGate.reduceMotion(systemReduceMotion)
         return HStack(spacing: 10) {
             ScrollView(.horizontal, showsIndicators: false) {
@@ -749,14 +747,17 @@ struct ProfileView: View {
         // Blur backing that travels with the pinned bar so posts and the faded cover
         // stats never ghost through behind the tabs.
         .background {
+            // Header strip from the very top of the screen down past the tabs: the top bar
+            // and pinned tabs share one solid-enough progressive blur; content fades under it.
             ProfileShelfBacking()
-                .padding(.top, -64)
+                .padding(.top, -(stickTop + 20))
+                .padding(.bottom, -14)
                 .allowsHitTesting(false)
                 // Only visible once the bar is actually pinned under the header; at rest it
                 // must not frost over Highlights.
                 .visualEffect { content, proxy in
                     // Global frame includes the pin offset, so this is the bar's real position.
-                    let minY = proxy.frame(in: .global).minY + 64
+                    let minY = proxy.frame(in: .global).minY + stickTop + 20
                     return content.opacity(minY <= stickTop + 12 ? 1 : 0)
                 }
         }
@@ -1891,7 +1892,10 @@ private struct ProfileShelfBacking: View {
             if reduceTransparency {
                 Rectangle().fill(Color(uiColor: .systemBackground))
             } else {
-                Rectangle().fill(.ultraThinMaterial)
+                ZStack {
+                    Rectangle().fill(.regularMaterial)
+                    Color(uiColor: .systemBackground).opacity(0.72)
+                }
             }
         }
         .mask(fade)

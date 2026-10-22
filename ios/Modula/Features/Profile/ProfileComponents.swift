@@ -436,28 +436,18 @@ struct ProfileAvatarPocket: View {
                 HapticEngine.shared.play(.lightImpact)
             } label: {
                 ZStack {
+                    // Clean stack: the photo, one thin ring (or the chosen frame), a soft round
+                    // shadow. The thick canvas stroke and the shimmer halo drew a black block and a
+                    // jagged edge over the full-bleed cover.
                     decoratedAvatarContent
-                        .overlay(
-                            Circle()
-                                .strokeBorder(canvas, lineWidth: ring)
-                        )
                         .overlay {
                             if overlayStore.frameID == ProfileAvatarFrame.none.id {
-                                ModulaGlowRing(
-                                    tint: tint ?? app.appearance.accent.color,
-                                    lineWidth: storyRing == nil ? 3 : 1.5,
-                                    glow: storyRing == nil
-                                )
-                                .padding(-1.5)
+                                Circle()
+                                    .strokeBorder(Color.white.opacity(0.9), lineWidth: storyRing == nil ? 2 : 1)
                             }
                         }
-                        .shadow(color: (tint ?? .black).opacity(0.25), radius: 12, y: 4)
-                        .overlay {
-                            if isOwnProfile, let badge = overlayStore.badge {
-                                ProfileFrameShimmer(color: badge.resolvedColor(customHex: overlayStore.customBadgeColorHex))
-                                    .padding(-5)
-                            }
-                        }
+                        .compositingGroup()
+                        .shadow(color: .black.opacity(0.22), radius: 10, y: 3)
 
                     if let storyRing {
                         StoryRing(state: storyRing, size: avatarSize, accent: app.appearance.accent.color, showsAddBadge: false)
@@ -2125,9 +2115,10 @@ struct ModulaDecoratedAvatar<Content: View>: View {
         case .pixels(let color):
             Circle().strokeBorder(color, lineWidth: 2)
             ForEach(0..<8, id: \.self) { i in
-                RoundedRectangle(cornerRadius: 1)
+                // Smooth dots instead of square pixels (read as a jagged halo at hero size).
+                Circle()
                     .fill(color)
-                    .frame(width: 5, height: 5)
+                    .frame(width: max(4, size * 0.035), height: max(4, size * 0.035))
                     .offset(y: -(size / 2 + ringPad - 1))
                     .rotationEffect(.degrees(Double(i) * 45))
             }
