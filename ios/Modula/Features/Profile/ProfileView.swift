@@ -774,7 +774,7 @@ struct ProfileView: View {
             case .reels: postsShelf(profile, mediaOnly: true, videoOnly: true)
             case .replies:
                 // Stub: profile posts carry no reply/parent field, so replies can't be listed yet.
-                ModulaEmptyState(title: "Replies", message: "Replies by this profile will show here once the API exposes them.", symbol: "arrowshape.turn.up.left")
+                ModulaEmptyState(title: "Replies", message: "Replies by this profile will show here.", symbol: "arrowshape.turn.up.left")
                     .padding(.vertical, 8)
             case .modules: modulesTab(profile)
             case .saved: savedShelf

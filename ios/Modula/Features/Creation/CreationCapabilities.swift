@@ -82,12 +82,12 @@ struct CreationCapabilities: Sendable, Equatable {
 
     var unavailableReason: [CreationKind: String] {
         [
-            .photo: "Photo publishing needs a verified media upload contract.",
+            .photo: "Photo posts aren’t available yet.",
             .carousel: "Carousel publishing is off until multi-image upload is verified.",
-            .video: "Video publishing needs a verified codec and upload contract.",
-            .link: "Structured link posts wait on a Greenfield preview/write contract.",
-            .poll: "Polls are not in the current SocialPost contract.",
-            .audio: "Audio posts are not defined on Greenfield yet.",
+            .video: "Video posts aren’t available yet.",
+            .link: "Link posts aren’t available yet.",
+            .poll: "Polls aren’t available yet.",
+            .audio: "Audio posts aren’t available yet.",
             .movie: "Movie is a distinct future kind — not ordinary video upload.",
             .story: "Story publishing is not enabled on this client.",
             .reel: "Reel publishing waits on a verified Reels write path."

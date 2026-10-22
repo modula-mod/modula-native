@@ -238,8 +238,8 @@ enum CreationMoreOption: String, Identifiable, CaseIterable, Sendable {
         case .mentions: "Type @ to find people"
         case .hashtags: "Type # for topic suggestions"
         case .schedule: "Not available yet — drafts stay local"
-        case .contentWarning: "Not on the publish contract yet"
-        case .location: "Not on the SocialPost contract yet"
+        case .contentWarning: "Not available for this post"
+        case .location: "Not available for this post"
         }
     }
 }
@@ -612,7 +612,7 @@ struct LinkPreviewEditor: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else if editableMetadata {
-                Text("Preview fields stay read-only until Greenfield returns them.")
+                Text("The preview is generated from the link.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -694,7 +694,7 @@ struct CreationTextPollEditor: View {
             Label("Local poll draft", systemImage: "chart.bar.fill")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(accent)
-            Text("Structured polls aren’t on the SocialPost contract yet. Insert as text so people can reply — this does not invent a poll API.")
+            Text("Adds your poll to the post as text so people can reply.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             PollEditor(poll: poll, maxOptions: maxOptions) { poll = $0 }

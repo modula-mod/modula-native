@@ -134,11 +134,11 @@ struct CreationStudioView: View {
                     store.showsLocalLinkEditor = false
                 },
                 onMentionsTip: {
-                    store.composerTip = "Type @ followed by a name — suggestions come from Greenfield search."
+                    store.composerTip = "Type @ followed by a name."
                     editorFocused = true
                 },
                 onHashtagsTip: {
-                    store.composerTip = "Type # for topic suggestions from Greenfield."
+                    store.composerTip = "Type # to add a topic."
                     editorFocused = true
                 }
             )
@@ -289,7 +289,7 @@ struct CreationStudioView: View {
                             preview: nil,
                             editableMetadata: false,
                             onChange: { localLinkURL = $0 },
-                            footerNote: "Adds the URL into your post as text. Structured link cards wait on Greenfield."
+                            footerNote: "Adds the link to your post."
                         )
                         HStack {
                             Button("Cancel") {

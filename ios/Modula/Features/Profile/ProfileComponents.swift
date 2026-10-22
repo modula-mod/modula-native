@@ -2263,7 +2263,7 @@ struct ModulaDecoratedAvatar<Content: View>: View {
         }
     }
 
-    private var pipSize: CGFloat { max(12, size * 0.22) }
+    private var pipSize: CGFloat { max(12, min(size * 0.2, 26)) }
 
     private var presencePip: some View {
         Circle()
@@ -2324,7 +2324,7 @@ struct ProfileAvatarOverlayEditor: View {
                     buildingSection
                     ringSection
                     presenceSection
-                    Text("Frames are saved on this device for now and show wherever your avatar appears in Modula. Other people will see them once Modula’s profile service supports frames.")
+                    Text("Your frame shows wherever your photo appears in Modula.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -2341,6 +2341,8 @@ struct ProfileAvatarOverlayEditor: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .tint(.primary)
+                        .foregroundStyle(.primary)
                 }
             }
             .onAppear(perform: loadDraft)
@@ -2366,9 +2368,9 @@ struct ProfileAvatarOverlayEditor: View {
             .animation(selectionSpring, value: frameID)
 
             VStack(spacing: 4) {
-                Text(badge?.title ?? "No frame")
+                Text(previewTitle)
                     .font(.title3.weight(.semibold))
-                Text(badge?.detail ?? "Pick a frame to let people know what you’re up to.")
+                Text(badge?.detail ?? (selectedRing.id == ProfileAvatarFrame.none.id ? "Pick a frame to let people know what you’re up to." : "Ring frame"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -2381,7 +2383,20 @@ struct ProfileAvatarOverlayEditor: View {
         .padding(.horizontal, 16)
         .modulaGlass(in: RoundedRectangle(cornerRadius: 30, style: .continuous), interactive: false, specular: true)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Preview, \(badge?.title ?? "no frame")")
+        .accessibilityLabel("Preview, \(previewTitle)")
+    }
+
+    private var selectedRing: ProfileAvatarFrame { ProfileAvatarFrame.frame(id: frameID) }
+
+    /// Header mirrors whatever is selected below: banner, ring, or both.
+    private var previewTitle: String {
+        let ring = selectedRing.id == ProfileAvatarFrame.none.id ? nil : selectedRing.title
+        switch (badge?.title, ring) {
+        case let (b?, r?): return "\(b) · \(r)"
+        case let (b?, nil): return b
+        case let (nil, r?): return r
+        default: return "No frame"
+        }
     }
 
     @ViewBuilder
@@ -2432,15 +2447,17 @@ struct ProfileAvatarOverlayEditor: View {
                 .background {
                     if selected {
                         Circle()
-                            .strokeBorder(item?.resolvedColor(customHex: customHex) ?? accent, lineWidth: 2.5)
+                            .strokeBorder(accent, lineWidth: 2.5)
                             .matchedGeometryEffect(id: "status.selection", in: selection)
                     }
                 }
                 Text(item?.title ?? "None")
                     .font(.caption.weight(selected ? .semibold : .medium))
                     .foregroundStyle(selected ? Color.primary : Color.secondary)
-                    .lineLimit(1)
-                    .frame(width: 80)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(width: 80, alignment: .top)
             }
             .contentShape(Rectangle())
         }
@@ -2511,13 +2528,14 @@ struct ProfileAvatarOverlayEditor: View {
                             .labelStyle(.titleAndIcon)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
-                            .foregroundStyle(selected ? Color.primary : Color.secondary)
+                            .foregroundStyle(selected ? Color.white : Color.secondary)
                             .frame(maxWidth: .infinity)
                             .frame(height: 40)
                             .background {
                                 if selected {
                                     Capsule()
-                                        .fill(accent.opacity(0.18))
+                                        .fill(accent)
+                                        .shadow(color: accent.opacity(0.3), radius: 6, y: 2)
                                         .matchedGeometryEffect(id: "visibility.pill", in: selection)
                                 }
                             }
@@ -2627,10 +2645,15 @@ struct ProfileAvatarOverlayEditor: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: nil))
-        .modulaGlass(in: Capsule(), interactive: true, tint: accent, prominent: true, specular: true)
+        .background(accent, in: Capsule())
+        .shadow(color: accent.opacity(0.35), radius: 12, y: 4)
         .padding(.horizontal, 16)
-        .padding(.top, 8)
+        .padding(.top, 10)
         .padding(.bottom, 8)
+        .background(alignment: .top) {
+            Rectangle().fill(.bar).ignoresSafeArea(edges: .bottom)
+                .mask(LinearGradient(colors: [.clear, .black, .black], startPoint: .top, endPoint: .bottom))
+        }
         .accessibilityIdentifier("profile.frames.apply")
     }
 

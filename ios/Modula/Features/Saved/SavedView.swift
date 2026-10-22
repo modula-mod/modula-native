@@ -10,7 +10,7 @@ struct SavedView: View {
             if app.saved.backendListOpen {
                 ModulaEmptyState(
                     title: "Saved",
-                    message: "Posts you save are kept, but showing them here isn’t available yet.",
+                    message: "Posts you save will show up here.",
                     symbol: "bookmark"
                 )
             } else if (!app.saved.loaded || app.saved.loading) && app.saved.posts.isEmpty {

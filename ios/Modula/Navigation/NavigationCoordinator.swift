@@ -247,6 +247,18 @@ struct ShellChromePolicy: Equatable {
                 immersive: false,
                 hidesForKeyboard: true
             )
+        case .profile(_, .edit), .me(.edit):
+            // Editing is a focused task: no tab bar, no accessory bubble.
+            Self(
+                bottomBarVisible: false,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .standard,
+                showsBack: false,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: true
+            )
         case .profile, .me:
             // Pushed profiles keep the originating tab selected in the bottom bar and hide
             // root-only accessories so chrome does not imply a global Profile switch.

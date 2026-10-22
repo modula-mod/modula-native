@@ -420,7 +420,48 @@ final class ProfileStore {
     }
 
     func beginEditing(from profile: ModulaProfile) {
-        editing = ProfileEditingState(draft: .from(profile), status: .idle)
+        // Keep an in-progress edit of the same profile (e.g. returning from the frames sheet).
+        if let current = editing.draft, editing.status == .dirty, current.expectedVersion == profile.version {
+            return
+        }
+        var draft = ProfileEditDraft.from(profile)
+        var status: ProfileEditingState.Status = .idle
+        // Restore an autosaved draft for this profile version (survives relaunch).
+        if let data = UserDefaults.standard.data(forKey: Self.draftKey(profile)),
+           let saved = try? JSONDecoder().decode(AutosavedDraft.self, from: data),
+           saved.version == profile.version {
+            draft.displayName = saved.displayName
+            draft.bio = saved.bio
+            draft.headline = saved.headline
+            if draft != .from(profile) { status = .dirty }
+        }
+        editingKey = Self.draftKey(profile)
+        editing = ProfileEditingState(draft: draft, status: status)
+    }
+
+    private struct AutosavedDraft: Codable {
+        var version: Int?
+        var displayName: String
+        var bio: String
+        var headline: String
+    }
+
+    private var editingKey: String?
+
+    private static func draftKey(_ profile: ModulaProfile) -> String {
+        "profile.edit.draft.\(profile.id)"
+    }
+
+    private func autosaveDraft() {
+        guard let key = editingKey, let draft = editing.draft else { return }
+        let saved = AutosavedDraft(version: draft.expectedVersion, displayName: draft.displayName, bio: draft.bio, headline: draft.headline)
+        if let data = try? JSONEncoder().encode(saved) {
+            UserDefaults.standard.set(data, forKey: key)
+        }
+    }
+
+    private func clearAutosavedDraft() {
+        if let key = editingKey { UserDefaults.standard.removeObject(forKey: key) }
     }
 
     func updateEditingDraft(_ transform: (inout ProfileEditDraft) -> Void) {
@@ -431,10 +472,12 @@ final class ProfileStore {
         if draft != previous, editing.status != .saving {
             editing.status = .dirty
             editing.error = nil
+            autosaveDraft()
         }
     }
 
     func discardEditing() {
+        clearAutosavedDraft()
         editing = ProfileEditingState()
     }
 
@@ -451,6 +494,7 @@ final class ProfileStore {
         do {
             let profile = try await repository.updateMe(draft)
             editing.status = .saved
+            clearAutosavedDraft()
             editing.draft = .from(profile)
             applyOwn(profile)
             HapticEngine.shared.play(.saveComplete)
