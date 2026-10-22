@@ -1325,7 +1325,12 @@ struct PostCommentsView: View {
                     showsFormatting: true,
                     onVoiceNote: { note in Task { await store?.addVoiceNote(note) } },
                     mascot: .comments,
-                    onSend: { Task { _ = await store?.send() } }
+                    onSend: {
+                        // The send starts immediately; the island effect is decorative.
+                        // Failures still surface through the composer error / island toast.
+                        IslandSendEffect.shared.fire(store?.replyingTo == nil ? "Comment sent" : "Reply sent", accent: app.appearance.accent.color)
+                        Task { _ = await store?.send() }
+                    }
                 )
                 .padding(.horizontal, 12)
                 .accessibilityIdentifier("post.comment.composer")
