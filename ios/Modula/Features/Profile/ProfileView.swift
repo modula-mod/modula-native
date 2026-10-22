@@ -300,7 +300,23 @@ struct ProfileView: View {
                 height: ProfileFullBleedMetrics.windowSafeAreaTop + 44,
                 reduceTransparency: navReduceTransparency
             )
+
+            // Pinned header strip: a real progressive blur from the top of the screen down past
+            // the tabs, above the feed; the tabs are drawn on top of it (crisp, interactive) and
+            // the system toolbar sits above both.
+            if shelfPinned, let profile {
+                shelfBar(profile, floating: true)
+                    .padding(.top, ProfileFullBleedMetrics.windowSafeAreaTop + 44)
+                    .frame(maxWidth: .infinity, alignment: .top)
+                    .background(alignment: .top) {
+                        ProfileShelfBacking()
+                            .padding(.bottom, -18)
+                            .allowsHitTesting(false)
+                    }
+                    .transition(.opacity)
+            }
         }
+        .animation(.easeOut(duration: 0.15), value: shelfPinned)
         .ignoresSafeArea(edges: .top)
         .modulaCanvas()
         .environment(\.profileAccentColor, profile?.presentation.accent?.color)
@@ -687,7 +703,9 @@ struct ProfileView: View {
         isOwnProfile ? [.posts, .replies, .media, .reels, .modules, .liked, .saved] : [.posts, .replies, .media, .reels, .modules, .liked]
     }
 
-    private func shelfBar(_ profile: ModulaProfile) -> some View {
+    @State private var shelfPinned = false
+
+    private func shelfBar(_ profile: ModulaProfile, floating: Bool = false) -> some View {
         let tabs = shelfTabs
         let selected = tabs.contains(shelf) ? shelf : .posts
         let stickTop = ProfileFullBleedMetrics.windowSafeAreaTop + 44
@@ -752,23 +770,15 @@ struct ProfileView: View {
         .padding(.leading, leadingInteractionInset)
         .padding(.trailing, trailingInteractionInset)
         .padding(.vertical, 8)
-        // Blur backing that travels with the pinned bar so posts and the faded cover
-        // stats never ghost through behind the tabs.
-        .background {
-            // Header strip from the very top of the screen down past the tabs: the top bar
-            // and pinned tabs share one solid-enough progressive blur; content fades under it.
-            ProfileShelfBacking()
-                .padding(.top, -(stickTop + 20))
-                .padding(.bottom, -14)
-                .allowsHitTesting(false)
-                // Only visible once the bar is actually pinned under the header; at rest it
-                // must not frost over Highlights.
-                .visualEffect { content, proxy in
-                    // Global frame includes the pin offset, so this is the bar's real position.
-                    let minY = proxy.frame(in: .global).minY + stickTop + 20
-                    return content.opacity(minY <= stickTop + 12 ? 1 : 0)
-                }
+        // The in-scroll bar only reports whether it has reached the pin line; once pinned, a
+        // copy is drawn outside the ScrollView (above a real blur strip) and this one hides.
+        // A material inside the scroll content could not blur the posts scrolling under it.
+        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { minY in
+            guard !floating else { return }
+            let pinned = minY <= stickTop + 2
+            if pinned != shelfPinned { shelfPinned = pinned }
         }
+        .opacity(floating || !shelfPinned ? 1 : 0)
         // No manual pin offset: the LazyVStack's pinned section header already rests at the
         // scroll view's top content margin (status bar + 44, i.e. right under the top bar).
         // The old offset was added on top of that, which parked the tabs ~100pt too low.
@@ -1900,7 +1910,7 @@ private struct ProfileShelfBacking: View {
                 Rectangle().fill(.ultraThinMaterial).mask(ramp(end: 1.0))
                 Rectangle().fill(.thinMaterial).mask(ramp(end: 0.75))
                 Rectangle().fill(.regularMaterial).mask(ramp(end: 0.5))
-                Color(uiColor: .systemBackground).opacity(0.18).mask(ramp(end: 0.85))
+                Color(uiColor: .systemBackground).opacity(0.3).mask(ramp(end: 0.9))
             }
         }
     }
@@ -1908,7 +1918,7 @@ private struct ProfileShelfBacking: View {
     private func ramp(end: CGFloat) -> LinearGradient {
         LinearGradient(stops: [
             .init(color: .black, location: 0),
-            .init(color: .black, location: end * 0.45),
+            .init(color: .black, location: end * 0.7),
             .init(color: .black.opacity(0), location: end)
         ], startPoint: .top, endPoint: .bottom)
     }
