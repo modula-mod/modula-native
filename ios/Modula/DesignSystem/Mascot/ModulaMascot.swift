@@ -19,6 +19,8 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
     case bramble, ferni, truffle, rootle, willow, pollen, mallow, acora, spindle, glade, lichen, thimble, wyrmi, kiko, eldra
     // Family 005 — Stardust
     case astra, nebbi, quori, vesper, pulsa, stellan, cosmi, eclipa, meteo, asteri, zenith, liora, nocta, glint, polaris
+    // Family 006 — Dreamers
+    case dozi, lulli, moona, nuzzle, drifty, hushby, swayla, snoomi, velvi, minku, tufti, winkle, sonata, comfi, somna
     var id: String { rawValue }
 
     var isPremium: Bool {
@@ -29,6 +31,7 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
         case .riff, .graff, .koda, .skid, .flick: false
         case .ferni, .truffle, .mallow, .acora, .thimble: false
         case .astra, .nebbi, .quori, .cosmi, .glint: false
+        case .dozi, .lulli, .nuzzle, .tufti, .comfi: false
         default: true
         }
     }
@@ -2309,10 +2312,11 @@ enum MolibooFamilySpecs {
         addUnderground(&t)
         addEnchanted(&t)
         addStardust(&t)
+        addDreamers(&t)
         return t
     }()
 
-    static let profiles: [ModulaMascotKind: ModulaMascotKind.Profile] = angelProfiles.merging(undergroundProfiles) { a, _ in a }.merging(enchantedProfiles) { a, _ in a }.merging(stardustProfiles) { a, _ in a }
+    static let profiles: [ModulaMascotKind: ModulaMascotKind.Profile] = angelProfiles.merging(undergroundProfiles) { a, _ in a }.merging(enchantedProfiles) { a, _ in a }.merging(stardustProfiles) { a, _ in a }.merging(dreamerProfiles) { a, _ in a }
 
     static let angelProfiles: [ModulaMascotKind: ModulaMascotKind.Profile] = [
         .aura: .init(number: 26, title: "The Guiding Light", traits: ["Light", "Leader", "Calm"]),
@@ -2456,5 +2460,47 @@ extension MolibooFamilySpecs {
         .nocta: .init(number: 83, title: "The Midnight Moth", traits: ["Shadow", "Dreamy", "Quiet"]),
         .glint: .init(number: 84, title: "The Stardust Pixie", traits: ["Spark", "Tiny", "Energetic"]),
         .polaris: .init(number: 85, title: "The Guiding Star", traits: ["Guide", "Hopeful", "Serene"]),
+    ]
+}
+
+// MARK: - Family 006 — Dreamers (The Dreaming Vale)
+
+extension MolibooFamilySpecs {
+    static let dreamBlue = c(0.4, 0.44, 0.8), dreamLilac = c(0.84, 0.78, 0.98)
+    static func addDreamers(_ t: inout [ModulaMascotKind: MolibooSpec]) {
+        let w = c(0.98, 0.96, 1)
+        t[.dozi] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.82), palette: .spec(c(0.92, 0.88, 1), accent: c(1, 0.74, 0.86), light: .white), parts: [.wings(.fairy, c(0.86, 0.8, 1)), .nightcap(dreamBlue), .sparkles(2)], floats: true, feet: false, form: "The sleepy sprite")
+        t[.lulli] = MolibooSpec(body: .cloud, size: CGSize(width: 1.08, height: 0.84), palette: .spec(w, accent: c(1, 0.8, 0.5), light: .white), parts: [.glow(dreamLilac), .notes, .sparkles(4)], floats: true, feet: false, form: "The lullaby cloud")
+        t[.moona] = MolibooSpec(body: .round, size: CGSize(width: 0.84, height: 0.82), palette: .spec(c(0.94, 0.9, 1), accent: starGold, light: .white), parts: [.crescent(c(1, 0.9, 0.6)), .nightcap(c(0.56, 0.5, 0.86)), .ears(.round)], form: "The crescent dreamer")
+        t[.nuzzle] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(c(1, 0.86, 0.88), accent: c(0.96, 0.6, 0.7), light: c(1, 0.96, 0.96)), parts: [.tail(.fluffy, c(1, 0.92, 0.94)), .ears(.fox), .petals(3, c(1, 0.8, 0.86))], hatMaxWidth: 0.48, form: "The pillow fox")
+        t[.drifty] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(w, accent: dreamBlue, light: .white), parts: [.ears(.floppy), .blanket(c(0.5, 0.56, 0.9)), .sparkles(2)], form: "The blanket hopper")
+        t[.hushby] = MolibooSpec(body: .cloud, size: CGSize(width: 1.06, height: 0.86), palette: .spec(w, accent: starGold, light: .white), parts: [.shell(c(0.98, 0.96, 1)), .ears(.floppy), .sparkles(2)], form: "The cloud sheep")
+        t[.swayla] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.82), palette: .spec(c(0.82, 0.76, 0.96), accent: c(1, 0.78, 0.4), light: c(0.96, 0.94, 1)), parts: [.antennae(c(0.6, 0.5, 0.9)), .lantern(c(1, 0.8, 0.4)), .wings(.round, c(0.6, 0.5, 0.86))], form: "The night lantern")
+        t[.snoomi] = MolibooSpec(body: .round, size: CGSize(width: 0.96, height: 0.82), palette: .spec(w, accent: c(0.64, 0.7, 0.96), light: .white), parts: [.nightcap(c(0.64, 0.7, 0.96)), .feet(w)], form: "The marshmallow napper")
+        t[.velvi] = MolibooSpec(body: .round, size: CGSize(width: 0.84, height: 0.82), palette: .spec(w, accent: c(0.74, 0.56, 0.96), light: .white), parts: [.wings(.moth, c(0.8, 0.62, 0.98)), .antennae(starGold), .mane(6)], floats: true, feet: false, form: "The dream moth")
+        t[.minku] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.82), palette: .spec(c(0.5, 0.42, 0.62), accent: c(1, 0.84, 0.86), light: c(0.72, 0.64, 0.84)), parts: [.wings(.bat, c(0.4, 0.32, 0.54)), .ears(.bat), .sparkles(2)], floats: true, feet: false, hatMaxWidth: 0.46, form: "The sleepy bat")
+        t[.tufti] = MolibooSpec(body: .round, size: CGSize(width: 0.92, height: 0.82), palette: .spec(c(1, 0.94, 0.88), accent: starGold, light: .white), parts: [.ears(.floppy), .starCrest], form: "The drowsy bunny")
+        t[.winkle] = MolibooSpec(body: .wide, size: CGSize(width: 1.14, height: 0.78), palette: .spec(c(0.5, 0.5, 0.86), accent: starGold, light: c(0.84, 0.84, 1)), parts: [.tail(.whale, c(0.42, 0.42, 0.78)), .fins(c(0.44, 0.44, 0.8)), .sparkles(4)], floats: true, feet: false, form: "The dream whale")
+        t[.sonata] = MolibooSpec(body: .round, size: CGSize(width: 0.84, height: 0.82), palette: .spec(c(0.92, 0.86, 1), accent: starGold, light: .white), parts: [.petals(6, c(0.84, 0.74, 0.98)), .notes, .bowtie(starGold)], form: "The music box spirit")
+        t[.comfi] = MolibooSpec(body: .round, size: CGSize(width: 0.96, height: 0.86), palette: .spec(c(0.82, 0.62, 0.42), accent: c(0.96, 0.88, 0.74), light: c(0.96, 0.84, 0.68)), parts: [.ears(.round), .nightcap(dreamBlue), .blanket(c(0.56, 0.5, 0.86))], form: "The cozy bear")
+        t[.somna] = MolibooSpec(body: .round, size: CGSize(width: 0.88, height: 0.86), palette: .spec(w, accent: c(0.6, 0.76, 1), light: .white), parts: [.glow(c(0.7, 0.8, 1)), .antlers(c(0.94, 0.9, 0.78)), .mane(8), .sparkles(3)], form: "The keeper of dreams")
+    }
+
+    static let dreamerProfiles: [ModulaMascotKind: ModulaMascotKind.Profile] = [
+        .dozi: .init(number: 86, title: "The Sleepy Sprite", traits: ["Sleep", "Gentle", "Cozy"]),
+        .lulli: .init(number: 87, title: "The Lullaby Cloud", traits: ["Song", "Dreamy", "Calm"]),
+        .moona: .init(number: 88, title: "The Crescent Dreamer", traits: ["Moon", "Quiet", "Magical"]),
+        .nuzzle: .init(number: 89, title: "The Pillow Fox", traits: ["Comfort", "Sweet", "Loyal"]),
+        .drifty: .init(number: 90, title: "The Blanket Hopper", traits: ["Plush", "Bouncy", "Playful"]),
+        .hushby: .init(number: 91, title: "The Cloud Sheep", traits: ["Rest", "Soft", "Peaceful"]),
+        .swayla: .init(number: 92, title: "The Night Lantern", traits: ["Glow", "Soothing", "Wise"]),
+        .snoomi: .init(number: 93, title: "The Marshmallow Napper", traits: ["Nap", "Tender", "Friendly"]),
+        .velvi: .init(number: 94, title: "The Dream Moth", traits: ["Twilight", "Elegant", "Gentle"]),
+        .minku: .init(number: 95, title: "The Sleepy Bat", traits: ["Night", "Shy", "Curious"]),
+        .tufti: .init(number: 96, title: "The Drowsy Bunny", traits: ["Snuggle", "Tiny", "Cheerful"]),
+        .winkle: .init(number: 97, title: "The Dream Whale", traits: ["Float", "Wonder", "Calm"]),
+        .sonata: .init(number: 98, title: "The Music Box Spirit", traits: ["Melody", "Graceful", "Enchanting"]),
+        .comfi: .init(number: 99, title: "The Cozy Bear", traits: ["Warm", "Protective", "Kind"]),
+        .somna: .init(number: 100, title: "The Keeper of Dreams", traits: ["Dream", "Guardian", "Serene"]),
     ]
 }
