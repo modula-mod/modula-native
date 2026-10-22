@@ -75,6 +75,15 @@ the last sample was 262.9 MiB. This is only the Modula simulator process,
 not aggregate WebKit or physical iPhone memory. FPS, frame stability, audio,
 and retained memory after exit still need dedicated measurements.
 
+A synthetic web-game slot test passed for both Phaser and PlayCanvas module
+identities through the same generic activation controller. Wrong game digest,
+truncated download, invalid package, and revoked descriptor staging left the
+0.1.0 ACTIVE release usable. An incompatible host range failed compatibility
+evaluation. A forced 0.1.1 activation health failure restored 0.1.0, retained
+the `activation-health` audit reason, and reverified the recovered game after
+recreating the controller. This is a cache/activation matrix with a minimal
+test package, not a live-registry rollback of both actual game releases.
+
 The paired physical iPhone 17 Pro Max received a signed Debug build under the
 existing `digital.modula.app.native.qa` bundle ID. The build used the QA API URL
 `https://192.168.4.21:8443`, was signed by team `M29V4ZGUNK`, installed in

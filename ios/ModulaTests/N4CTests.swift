@@ -51,6 +51,75 @@ final class N4CRouteTests: XCTestCase {
 }
 
 final class WebGameInstalledIsolationTests: XCTestCase {
+    @MainActor
+    func testBothWebGameSlotsPreserveActiveAcrossRejectedUpdatesAndHealthRollback() throws {
+        let encoded = "H4sIAAAAAAAC/+3VwW6DMAwGYB4F5dLLQAQIsG7dZS8waU8QEmdQQeggTKuqvvuydqrUnrf2sP+72HIs5RBbaa2mz7hxfRf8mcQr8vwQvcuYpEl6yo/1sszyIEyCK5gnJ0d/ZfA/PfbkZNg4t4nofW4/Vux5sI6si15JzWPrttHL0LVqy0J1PFgxTUbOnYumUYULO1haPISTGtvNT2mizviS77ekztuGen1eYk8B3NCb7Ck2bUdTvJ4Ge5P95+XF/vOkECn2/xp2bFIN9ZItWT/ouZPx90REx4ng7I4dMrbcsfb0U/heRfeq0iZLJBniRghDWV2LLBNFqmvNOelEC1GYjJeiqnmdllqbvKJKluTfm+332D0AAAAAAAAAAAAAAAAAAACA3/AFxMM1iwAoAAA="
+        let archive = try XCTUnwrap(Data(base64Encoded: encoded))
+        func digest(_ bytes: Data) -> String {
+            SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+        }
+        func frontend(_ id: String, _ version: String) -> Data {
+            Data("""
+            {"schema":"modula.frontend.1.0","frontendSchemaVersion":"1.0.0","mpsVersion":"1.0","productId":"\(id)","releaseVersion":"\(version)","mode":"declarative","entry":"home","hostRuntime":{"versionRange":">=1.0.0"},"routes":[{"path":"/","viewId":"home"}],"views":[{"id":"home","kind":"dashboard","root":{"type":"section","children":[{"type":"text","text":"\(version)"}]}}],"accessibility":{"declaration":"host-baseline-with-product-semantics","screenReader":true,"scalableText":true,"keyboardNavigation":true,"reduceMotion":true}}
+            """.utf8)
+        }
+        func manifest(_ id: String, _ version: String, minHostVersion: String = ">=1.0.0") -> ModuleManifest {
+            ModuleManifest(id: id, name: id, version: version, runtime: "web-game", entry: "index.html",
+                           permissions: [], minHostVersion: minHostVersion,
+                           minBridgeVersion: "0.1.0", collections: [])
+        }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("game-rollback-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let controller = ModuleActivationController(store: ModuleArtifactStore(root: root))
+        let account = "account-game-rollback"
+        for engine in ["phaser", "playcanvas"] {
+            let id = "digital.modula.orbit-\(engine)"
+            let initial = frontend(id, "0.1.0")
+            let update = frontend(id, "0.1.1")
+            let host = manifest(id, "0.1.1")
+            func stage(_ game: Data, _ gameDigest: String, descriptor: ModuleInstallDescriptor? = nil) throws {
+                try controller.stageVerified(accountID: account, moduleId: id, version: "0.1.1", releaseId: "\(engine)-v2",
+                                             frontend: update, frontendSha256: digest(update),
+                                             mediaType: ProductUIDocument.mediaType, hostManifest: host,
+                                             descriptor: descriptor, gameArchive: game, gameSha256: gameDigest)
+            }
+            try controller.stageVerified(accountID: account, moduleId: id, version: "0.1.0", releaseId: "\(engine)-v1",
+                                         frontend: initial, frontendSha256: digest(initial),
+                                         mediaType: ProductUIDocument.mediaType, hostManifest: manifest(id, "0.1.0"),
+                                         descriptor: nil, gameArchive: archive, gameSha256: digest(archive))
+            _ = try controller.activate(accountID: account, moduleId: id)
+            XCTAssertNoThrow(try controller.store.verifiedGameEntry(for: XCTUnwrap(controller.active(accountID: account, moduleId: id))))
+
+            XCTAssertThrowsError(try stage(archive, String(repeating: "0", count: 64)), "\(engine) wrong digest")
+            let incomplete = Data(archive.dropLast(5))
+            XCTAssertThrowsError(try stage(incomplete, digest(incomplete)), "\(engine) incomplete download")
+            let invalid = Data([0x4d, 0x5a, 0x00])
+            XCTAssertThrowsError(try stage(invalid, digest(invalid)), "\(engine) invalid package")
+            let revokedJSON: JSONValue = .object([
+                "descriptorVersion": .string("1.0.0"), "moduleId": .string(id),
+                "version": .string("0.1.1"), "registryReleaseId": .string("\(engine)-v2"),
+                "descriptorSha256": .string(String(repeating: "a", count: 64)),
+                "trust": .object(["revoked": .bool(true), "quarantined": .bool(false)]),
+            ])
+            let revoked = try XCTUnwrap(ModuleInstallDescriptor(json: revokedJSON))
+            XCTAssertThrowsError(try stage(archive, digest(archive), descriptor: revoked), "\(engine) revoked release")
+            XCTAssertNotEqual(ModuleCompatibility.evaluate(manifest(id, "0.1.1", minHostVersion: ">=99.0.0"),
+                                                           hostVersions: ModuleCompatibility.advertisedHostVersions,
+                                                           bridgeVersion: "0.1.0"), .compatible)
+            XCTAssertEqual(controller.active(accountID: account, moduleId: id)?.version, "0.1.0")
+
+            try stage(archive, digest(archive))
+            controller.failNextActivationHealth = true
+            XCTAssertThrowsError(try controller.activate(accountID: account, moduleId: id))
+            XCTAssertEqual(controller.active(accountID: account, moduleId: id)?.version, "0.1.0")
+            XCTAssertEqual(controller.store.index(accountID: account, moduleId: id).lastAuditReason, "activation-health")
+            let reloaded = ModuleActivationController(store: ModuleArtifactStore(root: root))
+            let recovered = try XCTUnwrap(reloaded.active(accountID: account, moduleId: id))
+            XCTAssertEqual(recovered.version, "0.1.0")
+            XCTAssertNoThrow(try reloaded.store.verifiedGameEntry(for: recovered))
+        }
+    }
+
     func testArchiveRejectsTraversalLinksNativePayloadAndIncompleteBytes() throws {
         // Tiny deterministic ustar/gzip fixtures exercise the real archive parser.
         let archives = [
