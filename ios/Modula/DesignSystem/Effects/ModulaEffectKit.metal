@@ -98,3 +98,75 @@ static inline float fxBlob(float2 uv, float2 centre, float radius) {
     half lift = half(spot * strength) * color.a;
     return half4(min(color.rgb + lift, half3(color.a)), color.a);
 }
+
+// MARK: - Lock screen shaders (App Lock: passcode / pattern / Orbit)
+// All single-pass, no loops (except the fixed 3-octave noise), at most 3 layer samples.
+
+static inline float lockNoise(float2 p) {
+    float2 i = floor(p), f = fract(p);
+    float a = fxHash(i), b = fxHash(i + float2(1, 0)), c = fxHash(i + float2(0, 1)), d = fxHash(i + float2(1, 1));
+    float2 u = f * f * (3.0 - 2.0 * f);
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+static inline float lockFbm(float2 p) {
+    float v = 0.0, a = 0.5;
+    v += a * lockNoise(p); p *= 2.02; a *= 0.5;
+    v += a * lockNoise(p); p *= 2.03; a *= 0.5;
+    v += a * lockNoise(p);
+    return v;
+}
+
+/// Soft aurora: domain-warped noise mixed between three brand hues. `dark` 0/1.
+[[ stitchable ]] half4 lockAurora(float2 pos, half4 color, float2 size, float time, float dark) {
+    float2 uv = pos / max(size, float2(1));
+    float2 q = uv * float2(2.2, 3.0);
+    float w = lockFbm(q + float2(time * 0.03, -time * 0.02));
+    float n = lockFbm(q + w * 1.6 + float2(-time * 0.025, time * 0.04));
+    half3 c1 = half3(0.36, 0.27, 0.95), c2 = half3(0.10, 0.66, 0.92), c3 = half3(0.86, 0.32, 0.74);
+    half3 tint = mix(mix(c1, c2, half(smoothstep(0.25, 0.65, n))), c3, half(smoothstep(0.6, 0.9, w)));
+    half3 base = dark > 0.5 ? half3(0.03, 0.03, 0.06) : half3(0.97, 0.97, 0.99);
+    half amount = dark > 0.5 ? 0.42 : 0.22;
+    half fade = half(mix(1.0, 0.55, uv.y));
+    return half4(mix(base, tint, amount * fade), 1.0);
+}
+
+/// Press shimmer inside a key: a caustic sweep plus a soft spot at the touch, already clipped by the caller.
+[[ stitchable ]] half4 lockKeyCaustic(float2 pos, half4 color, float2 size, float t, float dark) {
+    if (color.a <= 0.0) return color;
+    float2 uv = pos / max(size, float2(1));
+    float c = lockNoise(uv * 5.0 + float2(t * 2.0, -t * 1.4));
+    float band = smoothstep(0.55, 0.95, c) * (1.0 - smoothstep(0.0, 1.0, t));
+    float spot = (1.0 - smoothstep(0.0, 0.55, distance(uv, float2(0.5)))) * (1.0 - t);
+    half k = half(clamp(band * 0.55 + spot * 0.35, 0.0, 1.0));
+    half3 glow = dark > 0.5 ? half3(1.0) : half3(0.35, 0.55, 0.75);
+    return half4(glow * k, k) * color.a;
+}
+
+/// One-shot ripple distortion radiating from `origin`. t: 0→1 over the ripple.
+[[ stitchable ]] float2 lockRipple(float2 pos, float2 origin, float t, float amplitude) {
+    float d = distance(pos, origin);
+    float front = t * 520.0;
+    float ring = exp(-pow((d - front) / 36.0, 2.0));
+    float2 dir = d > 0.001 ? (pos - origin) / d : float2(0);
+    return pos + dir * sin((d - front) * 0.12) * amplitude * ring * (1.0 - t);
+}
+
+/// Noise dissolve with a glowing edge. progress 0 = intact, 1 = gone.
+[[ stitchable ]] half4 lockDissolve(float2 pos, half4 color, float2 size, float progress) {
+    float n = lockFbm(pos / 38.0);
+    float edge = progress * 1.15 - 0.075;
+    if (n < edge) return half4(0);
+    float glow = 1.0 - smoothstep(0.0, 0.08, n - edge);
+    half3 rim = half3(0.55, 0.85, 1.0);
+    return half4(mix(color.rgb, rim * color.a, half(glow * step(0.001, progress))), color.a);
+}
+
+/// Chromatic split for wrong-code shake. amount in points (0 = off).
+[[ stitchable ]] half4 lockChromatic(float2 pos, SwiftUI::Layer layer, float amount) {
+    half4 base = layer.sample(pos);
+    if (amount <= 0.01) return base;
+    half4 r = layer.sample(pos + float2(amount, 0));
+    half4 b = layer.sample(pos - float2(amount, 0));
+    return half4(r.r, base.g, b.b, max(base.a, max(r.a, b.a)));
+}
