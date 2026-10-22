@@ -51,6 +51,30 @@ final class N4CRouteTests: XCTestCase {
 }
 
 final class WebGameInstalledIsolationTests: XCTestCase {
+    func testArchiveRejectsTraversalLinksNativePayloadAndIncompleteBytes() throws {
+        // Tiny deterministic ustar/gzip fixtures exercise the real archive parser.
+        let archives = [
+            "valid": "H4sIAAAAAAAC/+3VwW6DMAwGYB4F5dLLQAQIsG7dZS8waU8QEmdQQeggTKuqvvuydqrUnrf2sP+72HIs5RBbaa2mz7hxfRf8mcQr8vwQvcuYpEl6yo/1sszyIEyCK5gnJ0d/ZfA/PfbkZNg4t4nofW4/Vux5sI6si15JzWPrttHL0LVqy0J1PFgxTUbOnYumUYULO1haPISTGtvNT2mizviS77ekztuGen1eYk8B3NCb7Ck2bUdTvJ4Ge5P95+XF/vOkECn2/xp2bFIN9ZItWT/ouZPx90REx4ng7I4dMrbcsfb0U/heRfeq0iZLJBniRghDWV2LLBNFqmvNOelEC1GYjJeiqnmdllqbvKJKluTfm+332D0AAAAAAAAAAAAAAAAAAACA3/AFxMM1iwAoAAA=",
+            "traversal": "H4sIAAAAAAAC/+3WTU7DMBAF4Bwl8qYbEuIkbkKhbLgAEidw7DFNlZ8SO4iq6t0xDapU2EK76Ps2tsYjeWG/xHWn6SNeubYJ/k3izfP8MHo/xyRN0uN8qhdFlgdhEpzBaJ0c/JbBdXpoyclw5dwmorexfl+yp75z1LnohdQ41G4bPfdNrbYsVNPCkmkycmxcZAcVzrq+o9l9aNVQb75LlhrjS76/I3Xa1lfr0xJ7DOCC4viWrJIbitf2Uvn3q7/yL1Lk/xymw0cOrtWrbCk2dUPWfwD67iL558WP/z9P5sj/eeyYVStqJVuwttdjI+OvGxFNN4KzG3aYscWO1ceXou9VdKdKbbJEkiFuhDCUVZXIMjFPdaU5J51oIeYm44UoK16lhdYmL6mUBfnzZvs9sgcAAAAAAAAAAAAAAAAA8Jc+AZRabE4AKAAA",
+            "symlink": "H4sIAAAAAAAC/+3WS26DMBAGYI6CvMmmUAwYaNp00wtU6gmMPS5EPFIwVaMod6+bVJHSLrppkkX+b+PRMJIRY4+oO00fYWXbxjuZyMnSdLc6P9cojuJDvM/neZJ6fuSdwTRaObgtvev00JKVfmXtKqC3qX5fsKe+s9TZ4IXUNNR2HTz3Ta3WzFf7BwumycipscE4KH/W9R3N7v1RDfXqOzVSY1zK1Xekjsv6cnmcYo8eXNCrbClcjifd46/7/yvmsYgzz4/D8La3FQ2BVKqfOnuKF73y+7/rv6kbGt3H7buL9J/nP+Y/jzIRY/6fw4aNqqJWsjlrez01Mvw6EcH+RHB2w3YRm29YffhTcLWK7lShTRJJMsSNEIaSshRJIrJYl5pz0pEWIjMJz0VR8jLOtTZpQYXMyfWbbbeYvQAAAAAAAAAAAAAAAAAAAP/lE107p+gAKAAA",
+            "native": "H4sIAAAAAAAC/+3WTW7DIBAFYB/FYpNNbYFtbDdtuukFKvUEGIaGyD+pjaNGUe5eN6kipd22ySLv24CGkVjAE7jW0Ee89E0d/Bs+ybPsME5+jjzhyWl+rBdFmgUhDy5gHLzqpy2D2/TYkFfh0vt1RO+j2yzYc9d6an30Snrsnd9GL13t9JaF+riwYIasGmsfDb0OZ23X0uwhHHTv1t+lgWo7lab+lvR5W1etzkvsKYAroo2rY7OtXXW9/HOe/sp/kiD/l1ApgxDcsDfVUGxdTUO8Grr2KvkXxY/3X/BcIv8XsWODXlKj2Jw1nRlrFX/diOh4IwS7Y4cZm++YO/0Up15N97o0NuWKLAkrpaW0qmSayjwxlRGCDDdS5jYVhSwrUSWFMTYrqVQFTefN9ntkDwAAAAAAAAAAAAAAAADgL30CL2xWwAAoAAA=",
+        ]
+        func parse(_ label: String) throws -> WebGamePackage {
+            let bytes = try XCTUnwrap(Data(base64Encoded: XCTUnwrap(archives[label])))
+            let digest = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+            return try WebGamePackage(archive: bytes, expectedSha256: digest)
+        }
+        XCTAssertEqual(try parse("valid").files.keys.sorted(), ["index.html"])
+        for label in ["traversal", "symlink", "native"] {
+            XCTAssertThrowsError(try parse(label), "Unsafe archive accepted: \(label)")
+        }
+        let complete = try XCTUnwrap(Data(base64Encoded: XCTUnwrap(archives["valid"])))
+        let incomplete = Data(complete.dropLast(5))
+        let digest = SHA256.hash(data: incomplete).map { String(format: "%02x", $0) }.joined()
+        XCTAssertThrowsError(try WebGamePackage(archive: incomplete, expectedSha256: digest))
+        XCTAssertThrowsError(try WebGamePackage(archive: complete, expectedSha256: String(repeating: "0", count: 64)))
+    }
+
     func testLaunchRejectsSymlinkTamperAndUnexpectedMember() throws {
         let manager = FileManager.default
         let root = manager.temporaryDirectory.appendingPathComponent("web-game-isolation-\(UUID().uuidString)")

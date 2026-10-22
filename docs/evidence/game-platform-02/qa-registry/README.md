@@ -59,6 +59,10 @@ are scoped checks rather than full live Vault or Nodus acceptance.
 `WebGameInstalledIsolationTests` passed against the launch verifier: a valid
 installed directory was accepted, then a symlink to an outside file, modified
 asset bytes, and an unlisted file were each rejected before game loading.
+The archive parser also accepted a valid minimal package and rejected ustar
+path traversal, a symlink member, a native payload, truncated gzip bytes, and
+an incorrect declared digest. These tests cover the shared web package path;
+they do not by themselves establish complete WebKit sandbox isolation.
 
 The paired physical iPhone 17 Pro Max received a signed Debug build under the
 existing `digital.modula.app.native.qa` bundle ID. The build used the QA API URL
