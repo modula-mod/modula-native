@@ -237,6 +237,7 @@ struct ProfileView: View {
             }
             .modulaScrollProgressTracking(collapseDistance: 96, progress: $headerProgress)
             .modulaSoftScrollEdge()
+            .modifier(ProfileTopEdgeEffectHidden())
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
                 geometry.contentOffset.y + geometry.contentInsets.top
             } action: { _, newOffset in
@@ -285,6 +286,11 @@ struct ProfileView: View {
             ) {
                 EmptyView()
             }
+            // Its fade backdrop is ~150pt tall and sat over the pinned tabs, blurring them.
+            // Clip it to the top bar; the tabs' own strip handles everything below.
+            .frame(height: ProfileFullBleedMetrics.windowSafeAreaTop + 44, alignment: .top)
+            .clipped()
+            .allowsHitTesting(false)
 
 
             ProfileCollapsedNavBackground(
@@ -1897,5 +1903,18 @@ private struct ProfileShelfBacking: View {
             }
         }
         .mask(fade)
+    }
+}
+
+
+/// The system top scroll-edge blur also covered the pinned tabs (they sit right under the
+/// bar); Profile draws its own strip behind the bar + tabs instead.
+private struct ProfileTopEdgeEffectHidden: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.scrollEdgeEffectHidden(true, for: .top)
+        } else {
+            content
+        }
     }
 }
