@@ -170,8 +170,13 @@ struct MolibooLivingStudioView: View {
             .shadow(color: environment.isDark ? .black.opacity(0.45) : .white.opacity(0.7), radius: 3, y: 1)
             Spacer()
             Menu {
-                Picker("Environment", selection: $envRaw) {
-                    ForEach(MolibooEnvironment.allCases) { e in Label(e.title, systemImage: e.symbol).tag(e.rawValue) }
+                // Explicit rows read the active background straight from `environment` (the same
+                // value the stage renders), so the checkmark can't drift from what's on screen.
+                ForEach(MolibooEnvironment.allCases) { e in
+                    Button { envRaw = e.rawValue } label: {
+                        if e == environment { Label(e.title, systemImage: "checkmark") } else { Label(e.title, systemImage: e.symbol) }
+                    }
+                    .accessibilityAddTraits(e == environment ? .isSelected : [])
                 }
             } label: {
                 Label(environment.title, systemImage: environment.symbol)
