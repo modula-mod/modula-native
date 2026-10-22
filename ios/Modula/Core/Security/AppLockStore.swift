@@ -187,9 +187,6 @@ final class AppLockStore {
             registerFailure()
             lastError = switch method {
             case .pattern: "Wrong pattern."
-            case .seek: "Wrong objects."
-            case .cube: "Wrong glyphs."
-            case .constellation: "Those stars don’t match."
             default: "Rings don’t line up."
             }
             return false

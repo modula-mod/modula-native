@@ -266,8 +266,7 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
         return ZStack(alignment: position == .trailing ? .trailing : .leading) {
             loopBackdrop(shellShape: visualShape)
             reel.mask {
-                // Small glass pill only: the curved shell rail is no longer drawn on the edge.
-                if placement == .contained || placement == .shellEdge {
+                if placement == .contained {
                     Capsule().frame(width: metrics.channelDepth)
                 } else {
                     visualShape
@@ -313,7 +312,7 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
 
     @ViewBuilder
     private func loopBackdrop(shellShape: EdgeLoopShape) -> some View {
-        if placement == .contained || placement == .shellEdge {
+        if placement == .contained {
             Capsule()
                 .fill(Color.clear)
                 .frame(width: metrics.channelDepth)
@@ -337,18 +336,30 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
                 )
                 .animation(expansionAnimation, value: bodyDepth)
         } else {
-            // Clean, slim Liquid Glass channel: real glass + faint accent tint + hairline rim.
-            let bodyAccent = quiet ? 0.04 : (awake ? 0.10 : 0.07)
+            // Carved channel = Liquid Glass + quiet accent tint (not a flat black rail).
+            let sink = bodySinkOpacity
+            let edgeBoost = awake ? 1.15 : (quiet ? 0.75 : 1.0)
+            let bodyAccent = quiet ? 0.06 : (awake ? 0.14 : 0.1)
             shellShape
                 .fill(Color.clear)
                 .modulaChrome(in: shellShape, opaque: false)
+                .overlay(shellShape.fill(Color.black.opacity(sink)))
                 .overlay(shellShape.fill(app.appearance.accent.color.opacity(bodyAccent)))
                 .overlay(
                     shellShape.stroke(
-                        Color.white.opacity(colorScheme == .dark ? 0.14 : 0.32),
-                        lineWidth: higherContrast ? 1.1 : 0.5
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity((colorScheme == .dark ? 0.16 : 0.24) * edgeBoost),
+                                app.appearance.accent.color.opacity(0.12 * edgeBoost),
+                                Color.white.opacity(0.02)
+                            ],
+                            startPoint: position == .trailing ? .leading : .trailing,
+                            endPoint: position == .trailing ? .trailing : .leading
+                        ),
+                        lineWidth: higherContrast ? 1.15 : 0.7
                     )
                 )
+                .shadow(color: .black.opacity(quiet ? 0.03 : 0.06), radius: 4, x: position == .trailing ? 2 : -2, y: 0)
                 .animation(expansionAnimation, value: bodyDepth)
                 .animation(expansionAnimation, value: awake)
         }

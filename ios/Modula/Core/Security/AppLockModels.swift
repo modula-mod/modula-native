@@ -117,20 +117,17 @@ protocol AppLockCredentialStoring: Sendable {
 /// Which secret a verifier belongs to. The 6-digit passcode is always the master
 /// fallback; pattern and Orbit are optional faster unlocks layered on top.
 enum AppLockSecretKind: String, CaseIterable, Sendable {
-    case passcode, pattern, orbit, seek, cube, constellation
+    case passcode, pattern, orbit
 }
 
 enum AppLockMethod: String, CaseIterable, Codable, Hashable, Sendable {
-    case passcode, pattern, orbit, seek, cube, constellation
+    case passcode, pattern, orbit
 
     var title: String {
         switch self {
         case .passcode: "Passcode"
         case .pattern: "Pattern"
         case .orbit: "Orbit"
-        case .seek: "Seek"
-        case .cube: "Cube"
-        case .constellation: "Constellation"
         }
     }
 
@@ -139,9 +136,6 @@ enum AppLockMethod: String, CaseIterable, Codable, Hashable, Sendable {
         case .passcode: "circle.grid.3x3.fill"
         case .pattern: "point.3.connected.trianglepath.dotted"
         case .orbit: "circle.circle"
-        case .seek: "magnifyingglass.circle.fill"
-        case .cube: "cube.transparent.fill"
-        case .constellation: "sparkles"
         }
     }
 
@@ -150,9 +144,6 @@ enum AppLockMethod: String, CaseIterable, Codable, Hashable, Sendable {
         case .passcode: "6-digit Modula passcode"
         case .pattern: "Draw a line through at least 4 dots"
         case .orbit: "Spin three glyph rings to your secret, like a dial"
-        case .seek: "Find and tap hidden objects in Moliboo’s scene, in order"
-        case .cube: "Turn a glass cube and pick your glyphs, in order"
-        case .constellation: "Draw a line through your secret stars, in order"
         }
     }
 
@@ -161,9 +152,6 @@ enum AppLockMethod: String, CaseIterable, Codable, Hashable, Sendable {
         case .passcode: .passcode
         case .pattern: .pattern
         case .orbit: .orbit
-        case .seek: .seek
-        case .cube: .cube
-        case .constellation: .constellation
         }
     }
 }
@@ -183,45 +171,6 @@ enum OrbitLock {
     static func encode(_ indices: [Int]) -> String {
         "orbit.v1:" + indices.map(String.init).joined(separator: "-")
     }
-}
-
-/// Seek: a frosted Moliboo scene hiding 14 objects; tap 4–6 of them in a secret order.
-/// Positions are reshuffled every unlock; the code is the ordered object IDs.
-enum SeekLock {
-    static let objects = ["star.fill", "moon.fill", "leaf.fill", "key.fill", "bell.fill", "gift.fill", "crown.fill",
-                          "fish.fill", "ladybug.fill", "cup.and.saucer.fill", "paperplane.fill", "umbrella.fill",
-                          "balloon.fill", "carrot.fill"]
-    static let minimumPicks = 4
-    static let maximumPicks = 6
-    static func encode(_ ids: [Int]) -> String { "seek.v1:" + ids.map(String.init).joined(separator: "-") }
-    static func strength(_ ids: [Int]) -> Int {
-        let distinct = Set(ids).count
-        return ids.count >= 6 && distinct >= 5 ? 2 : (ids.count >= 5 || distinct >= 4) ? 1 : 0
-    }
-}
-
-/// Cube: six glyphs on a glass cube. Pick 4–6 in a secret order by turning a face to the
-/// front and tapping it. The glyph-to-face mapping is reshuffled after every pick.
-enum CubeLock {
-    static let glyphs = ["sparkle", "flame.fill", "drop.fill", "bolt.fill", "heart.fill", "snowflake"]
-    static let minimumPicks = 4
-    static let maximumPicks = 6
-    static func encode(_ ids: [Int]) -> String { "cube.v1:" + ids.map(String.init).joined(separator: "-") }
-    static func strength(_ ids: [Int]) -> Int {
-        let distinct = Set(ids).count
-        return ids.count >= 6 && distinct >= 4 ? 2 : (ids.count >= 5 || distinct >= 4) ? 1 : 0
-    }
-}
-
-/// Constellation: 14 named stars scattered at random each unlock. Connect 4–7 distinct stars
-/// in a secret order; the code is the ordered star IDs, so positions reveal nothing.
-enum ConstellationLock {
-    static let stars = ["Vega", "Lyra", "Nova", "Orin", "Sol", "Luma", "Kepler",
-                        "Iris", "Atlas", "Mira", "Rigel", "Zeta", "Echo", "Halo"]
-    static let minimumStars = 4
-    static let maximumStars = 7
-    static func encode(_ ids: [Int]) -> String { "constellation.v1:" + ids.map(String.init).joined(separator: "-") }
-    static func strength(_ ids: [Int]) -> Int { ids.count >= 6 ? 2 : ids.count >= 5 ? 1 : 0 }
 }
 
 enum PatternLock {
@@ -262,7 +211,7 @@ struct AppLockSettings: Codable, Equatable, Sendable {
         interval = try c.decodeIfPresent(AppLockInterval.self, forKey: .interval) ?? .immediately
         biometricsEnabled = try c.decodeIfPresent(Bool.self, forKey: .biometricsEnabled) ?? true
         hideInAppSwitcher = try c.decodeIfPresent(Bool.self, forKey: .hideInAppSwitcher) ?? true
-        // Retired methods (Rhythm, Gravity) no longer decode; fall back to the passcode.
+        // Retired methods (Rhythm, Gravity, Seek, Cube, Constellation) no longer decode; fall back to the passcode.
         method = ((try? c.decodeIfPresent(AppLockMethod.self, forKey: .method)) ?? nil) ?? .passcode
         effectsEnabled = try c.decodeIfPresent(Bool.self, forKey: .effectsEnabled) ?? true
         showsGreeting = try c.decodeIfPresent(Bool.self, forKey: .showsGreeting) ?? true

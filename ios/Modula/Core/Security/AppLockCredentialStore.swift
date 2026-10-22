@@ -22,15 +22,12 @@ struct AppLockCredentialStore: AppLockCredentialStoring {
         case .passcode: "passcode-verifier.v1"
         case .pattern: "pattern-verifier.v1"
         case .orbit: "orbit-verifier.v1"
-        case .seek: "seek-verifier.v1"
-        case .cube: "cube-verifier.v1"
-        case .constellation: "constellation-verifier.v1"
         }
     }
 
-    /// Deletes verifiers for retired unlock methods (Rhythm, Gravity). Safe to call every launch.
+    /// Deletes verifiers for retired unlock methods (Rhythm, Gravity, Seek, Cube, Constellation). Safe to call every launch.
     static func purgeRetiredVerifiers() {
-        for account in ["rhythm-verifier.v1", "gravity-verifier.v1"] {
+        for account in ["rhythm-verifier.v1", "gravity-verifier.v1", "seek-verifier.v1", "cube-verifier.v1", "constellation-verifier.v1"] {
             let query: [String: Any] = [
                 kSecClass as String: kSecClassGenericPassword,
                 kSecAttrService as String: "digital.modula.app.native.applock",
@@ -76,9 +73,6 @@ struct AppLockCredentialStore: AppLockCredentialStoring {
         case .passcode: value.count == 6 && value.allSatisfy(\.isNumber)
         case .pattern: value.hasPrefix("pattern.v1:") && value.split(separator: "-").count >= PatternLock.minimumDots
         case .orbit: value.hasPrefix("orbit.v1:") && value.split(separator: "-").count == OrbitLock.rings.count
-        case .seek: value.hasPrefix("seek.v1:") && (SeekLock.minimumPicks...SeekLock.maximumPicks).contains(value.split(separator: "-").count)
-        case .cube: value.hasPrefix("cube.v1:") && (CubeLock.minimumPicks...CubeLock.maximumPicks).contains(value.split(separator: "-").count)
-        case .constellation: value.hasPrefix("constellation.v1:") && (ConstellationLock.minimumStars...ConstellationLock.maximumStars).contains(value.split(separator: "-").count)
         }
     }
 
