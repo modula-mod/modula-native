@@ -183,7 +183,7 @@ struct AppLockView: View {
                         PasscodeKeypad(value: $digits, disabled: disabled, keySize: compact ? 62 : 76) { complete in
                             busy = true
                             Task { @MainActor in
-                                try? await Task.sleep(for: .milliseconds(reduceMotion ? 60 : 180))
+                                try? await Task.sleep(for: .milliseconds(reduceMotion ? 30 : 90))
                                 attempt(complete)
                             }
                         }
@@ -318,16 +318,22 @@ struct AppLockView: View {
     }
 
     /// Success morph: lock pops open, a soft bloom expands, then the glass dissolves into the app.
+    /// Timing: before, success waited 220ms + 380ms of fixed sleeps (effects on) and *then* built
+    /// RootView from scratch. Now there are no sleeps: the lock fades over 0.28s (0.15s calm) in
+    /// the same transaction that flips the gate, and the app is already built underneath.
     private func finishUnlock() {
+        let started = ContinuousClock.now
         digits = ""
         hint = nil
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { unlockedIcon = true }
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(effects ? 220 : 0))
-            withAnimation(.easeIn(duration: effects ? 0.38 : 0.15)) { unlocking = true }
-            try? await Task.sleep(for: .milliseconds(effects ? 380 : 150))
+        unlockedIcon = true
+        withAnimation(.easeOut(duration: effects ? 0.28 : 0.15)) {
+            unlocking = true
             app.refreshLaunchState()
         }
+        #if DEBUG
+        let elapsed = ContinuousClock.now - started
+        print("[AppLock] success → dismiss started in \(elapsed.components.attoseconds / 1_000_000_000_000_000)ms (fade \(effects ? 280 : 150)ms)")
+        #endif
     }
 
     private func biometric() async {

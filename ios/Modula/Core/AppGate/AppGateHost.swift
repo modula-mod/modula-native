@@ -67,8 +67,30 @@ struct AppGateHost: View {
         #endif
     }
 
+    /// Locked and ready share one tree: the app is built *under* the lock screen, so unlocking
+    /// only fades the lock away instead of constructing the whole RootView after success
+    /// (that cold build was most of the 1–2s Face ID → app delay).
     @ViewBuilder
     private var launchContent: some View {
+        if app.gate.state == .locked || app.gate.state == .ready {
+            ZStack {
+                RootView()
+                    .allowsHitTesting(app.gate.state == .ready)
+                    .accessibilityHidden(app.gate.state != .ready)
+                if app.gate.state == .locked {
+                    AppLockView()
+                        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+                        .transition(.opacity)
+                        .zIndex(1)
+                }
+            }
+        } else {
+            otherLaunchContent
+        }
+    }
+
+    @ViewBuilder
+    private var otherLaunchContent: some View {
         switch app.gate.state {
         case .booting:
             BootSplashView()

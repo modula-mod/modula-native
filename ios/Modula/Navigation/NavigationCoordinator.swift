@@ -59,8 +59,20 @@ final class NavigationCoordinator {
             selectedTab = tab
             if isContextRoot(route) { roots[tab] = route; return }
         }
+        appendDeduplicatingSearch(route)
+    }
+    /// Search over Search replaces the top instead of stacking: two Search screens meant
+    /// closing one revealed the other ("search opens again").
+    private func appendDeduplicatingSearch(_ route: AppRoute) {
+        if case .search = route, var path = paths[selectedTab], case .search? = path.last {
+            path[path.count - 1] = route
+            paths[selectedTab] = path
+            return
+        }
         paths[selectedTab, default: []].append(route)
     }
+    /// True while the selected tab has pushed screens; the sidebar edge swipe yields to Back.
+    var selectedStackHasPushedViews: Bool { !(paths[selectedTab] ?? []).isEmpty }
     /// Routes requested by a running module. Detail destinations (profile,
     /// post) are pushed on the current stack so Back returns to the module
     /// instead of replacing another tab's root (which also tore the module
@@ -111,7 +123,7 @@ final class NavigationCoordinator {
     }
     /// Push onto the selected tab without stealing another tab’s root. Discover/Search use this for profile, post, and module detail so Back restores the current scope.
     func push(_ route: AppRoute) {
-        paths[selectedTab, default: []].append(route)
+        appendDeduplicatingSearch(route)
     }
     func close() {
         if !paths[selectedTab, default: []].isEmpty { paths[selectedTab]?.removeLast() }
