@@ -11,7 +11,7 @@ enum MolibooSettings {
 
 struct MolibooSettingsView: View {
     @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
-    @AppStorage(MolibooFeatureFlags.native3DKey) private var native3D = MolibooFeatureFlags.native3DDefault
+    private let native3D = MolibooFeatureFlags.native3DEnabled   // 2D-only: always false, no toggle
     @AppStorage(MolibooSettings.animationsKey) private var playful = true
     @AppStorage(MolibooSettings.hapticsKey) private var haptics = true
     @AppStorage(MolibooSettings.onboardedKey) private var onboarded = false
@@ -337,15 +337,6 @@ struct MolibooSettingsView: View {
                 #endif
             }
 
-            sectionTitle("3D & Advanced")
-            LazyVGrid(columns: cards, spacing: 10) {
-                toggleCard("cube.transparent.fill", .blue, "3D Moliboos", native3D ? "Enable 3D characters" : "Classic 2D look", $native3D, "moliboo.settings.3d")
-            }
-            if native3D {
-                Text("3D is ready for \(MolibooRegistry.available3D.map(\.displayName).formatted(.list(type: .and))).")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-
             sectionTitle("The Originals").id("hub.originals")
             originals
             Text("25 founding Moliboos. Collect them as they arrive.").font(.caption).foregroundStyle(.secondary)
@@ -414,7 +405,7 @@ struct MolibooSettingsView: View {
                                 .padding(5)
                                 .background(Color(red: 0.21, green: 0.61, blue: 0.67), in: Circle())
                         }
-                        if has3D {
+                        if has3D && native3D {
                             Text("3D")
                                 .font(.caption2.weight(.heavy))
                                 .foregroundStyle(.white)

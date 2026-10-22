@@ -670,8 +670,8 @@ struct MolibooWorldView: View {
     }
 
     private func openStudio(_ r: Route) {
-        guard MolibooRegistry.descriptor(for: characterID) != nil, MolibooFeatureFlags.native3DEnabled else {
-            flash("\(displayName)'s Studio needs 3D Moliboos (Settings → Moliboo → 3D).")
+        guard MolibooRegistry.descriptor(for: characterID) != nil else {
+            flash("\(displayName)'s Studio is coming soon.")
             return
         }
         route = r

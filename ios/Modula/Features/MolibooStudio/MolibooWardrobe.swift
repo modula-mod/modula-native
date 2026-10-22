@@ -168,7 +168,6 @@ struct MolibooWardrobeSheet: View {
                 }
                 .pickerStyle(.segmented).frame(width: 130)
                 .accessibilityIdentifier("wardrobe.ownership")
-                chip("3D", on: query.only3D, id: "wardrobe.filter.3d") { query.only3D.toggle() }
                 chip("All slots", on: query.slot == nil, id: "wardrobe.slot.all") { query.slot = nil }
                 ForEach(MascotWardrobeSlot.allCases) { s in
                     chip(s.title, on: query.slot == s, id: "wardrobe.slot.\(s.rawValue)") { query.slot = query.slot == s ? nil : s }
@@ -253,7 +252,7 @@ struct MolibooWardrobeSheet: View {
                             }
                         }
                     HStack(spacing: 2) {
-                        if in3D { Text("3D").font(.system(size: 9, weight: .bold)).padding(3).background(Color.accentColor, in: Capsule()).foregroundStyle(.white) }
+                        if in3D && MolibooFeatureFlags.native3DEnabled { Text("3D").font(.system(size: 9, weight: .bold)).padding(3).background(Color.accentColor, in: Capsule()).foregroundStyle(.white) }
                         if !owned { Image(systemName: "lock.fill").font(.system(size: 9)).padding(3) }
                     }
                     .padding(4)
@@ -266,7 +265,7 @@ struct MolibooWardrobeSheet: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("wardrobe.item.\(item.id)")
-        .accessibilityLabel("\(item.name), \(item.slot.title)\(in3D ? ", 3D" : "")\(owned ? "" : ", locked")\(on ? ", trying on" : "")")
+        .accessibilityLabel("\(item.name), \(item.slot.title)\(owned ? "" : ", locked")\(on ? ", trying on" : "")")
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 }
