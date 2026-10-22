@@ -49,9 +49,9 @@ struct MolibooSettingsView: View {
     private let cards = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
 
     private var kinds: [ModulaMascotKind] {
-        var ks = ModulaMascotKind.allCases.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.personality.localizedCaseInsensitiveContains(search) }
+        var ks = ModulaMascotKind.allCases.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.personality.localizedCaseInsensitiveContains(search) || $0.title.localizedCaseInsensitiveContains(search) }
         switch sort {
-        case .catalogue: break
+        case .catalogue: ks.sort { $0.number < $1.number }
         case .name: ks.sort { $0.name < $1.name }
         case .premium: ks.sort { ($0.isPremium ? 0 : 1, $0.name) < ($1.isPremium ? 0 : 1, $1.name) }
         }
@@ -289,8 +289,21 @@ struct MolibooSettingsView: View {
             if searching {
                 ModulaGlassSearchField(prompt: "Search Moliboos", text: $search).transition(.move(edge: .top).combined(with: .opacity))
             }
-            LazyVGrid(columns: grid, spacing: 12) {
-                ForEach(kinds) { k in characterCard(k) }
+            // Grouped by family, each with its world.
+            ForEach(MolibooFamily.allCases) { fam in
+                let ks = kinds.filter { $0.family == fam }
+                if !ks.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(fam.name).font(.headline)
+                        Text("\(fam.world) · \(ks.count) Moliboo\(ks.count == 1 ? "" : "s")").font(.caption).foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 4)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityAddTraits(.isHeader)
+                    LazyVGrid(columns: grid, spacing: 12) {
+                        ForEach(ks) { k in characterCard(k) }
+                    }
+                }
             }
             HStack(spacing: 10) {
                 offCard.frame(maxWidth: .infinity)

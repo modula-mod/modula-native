@@ -591,20 +591,31 @@ struct MolibooWorldView: View {
     private var collection: some View {
         VStack(alignment: .leading, spacing: 10) {
             sectionTitle("Choose your Moliboo") { route = .settings }
-            ScrollView(.horizontal) {
-                HStack(spacing: 10) {
-                    ForEach(MolibooRegistry.available3D.map(\.id), id: \.self) { id in collectionTile(id) }
+            ForEach(MolibooFamily.allCases) { fam in
+                let ids = fam.kinds.map(\.rawValue)
+                if !ids.isEmpty {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(fam.name).font(.subheadline.weight(.bold))
+                        Text(fam.world).font(.caption).opacity(0.75)
+                    }
+                    .padding(.horizontal, 16)
+                    .accessibilityAddTraits(.isHeader)
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 10) {
+                            ForEach(ids, id: \.self) { id in collectionTile(id) }
+                        }
+                    }
+                    .scrollIndicators(.hidden)
+                    .contentMargins(.horizontal, 16, for: .scrollContent)
+                    .modulaHorizontalEdgeFade()
                 }
             }
-            .scrollIndicators(.hidden)
-            .contentMargins(.horizontal, 16, for: .scrollContent)
-            .modulaHorizontalEdgeFade()
         }
     }
 
     private func collectionTile(_ id: String) -> some View {
         let selected = id == characterID
-        let num = MolibooRegistry.descriptor(for: id)?.canonicalNumber ?? ((MolibooCosmetics.originals.firstIndex(of: id) ?? 0) + 1)
+        let num = ModulaMascotKind(rawValue: id)?.number ?? MolibooRegistry.descriptor(for: id)?.canonicalNumber ?? 0
         return Button { withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.6)) { kindRaw = id } } label: {
             VStack(spacing: 4) {
                 if let img = MolibooPortrait.image(for: id) {
@@ -615,7 +626,7 @@ struct MolibooWorldView: View {
                 Text(String(format: "#%03d", num))
                     .font(.caption2.weight(.bold).monospaced())
                     .opacity(0.82)
-                Text(MolibooRegistry.descriptor(for: id)?.displayName ?? id.capitalized).font(.caption.weight(.bold))
+                Text(ModulaMascotKind(rawValue: id)?.name ?? id.capitalized).font(.caption.weight(.bold))
                 if ModulaMascotKind(rawValue: id)?.isPremium == true {
                     Label("Premium", systemImage: "crown.fill").font(.caption2.weight(.semibold)).foregroundStyle(.orange)
                 }
