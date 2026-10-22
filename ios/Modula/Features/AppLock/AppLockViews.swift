@@ -573,6 +573,22 @@ struct PasscodeDots: View {
 }
 
 /// Press feedback for glass keys: a slight scale plus a caustic shimmer clipped to the key.
+/// Each key is its own independent Liquid Glass circle (interactive press), never inside a
+/// merging glass container and never under a layer/distortion effect. Reduce Transparency
+/// gets a solid key.
+private struct LockKeyGlass: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    func body(content: Content) -> some View {
+        if reduceTransparency {
+            content
+                .background(Color(uiColor: .secondarySystemBackground), in: Circle())
+                .overlay(Circle().strokeBorder(Color.primary.opacity(0.15), lineWidth: 0.75))
+        } else {
+            content.modulaGlass(in: Circle(), interactive: true, specular: true)
+        }
+    }
+}
+
 private struct GlassKeyStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -627,8 +643,7 @@ struct PasscodeKeypad: View {
                     .font(.title3.weight(.medium))
                     .foregroundStyle(Color.primary.opacity(value.isEmpty ? 0.3 : 0.8))
                     .frame(width: keySize, height: keySize)
-                    .background(.ultraThinMaterial, in: Circle())
-                    .overlay(Circle().strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.75))
+                    .modifier(LockKeyGlass())
                     .contentShape(Circle())
             }
             .buttonStyle(GlassKeyStyle())
@@ -654,8 +669,7 @@ struct PasscodeKeypad: View {
                 }
                 .foregroundStyle(.primary)
                 .frame(width: keySize, height: keySize)
-                .background(.ultraThinMaterial, in: Circle())
-                .overlay(Circle().strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.75))
+                .modifier(LockKeyGlass())
                 .contentShape(Circle())
             }
             .buttonStyle(GlassKeyStyle())
