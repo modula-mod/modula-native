@@ -8,12 +8,20 @@ struct AppLockView: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.scenePhase) private var scenePhase
     @State private var digits = ""
     @State private var busy = false
     @State private var shakes = 0
     @State private var unlocking = false
     @State private var unlockedIcon = false
     @State private var appeared = false
+    /// Set once the header has real, on-screen geometry. If it never does within 1.5s we
+    /// switch to `safeMode`: a plain keypad with no scroll view, timeline or Metal effects.
+    @State private var contentVisible = false
+    @State private var safeMode = UserDefaults.standard.bool(forKey: AppLockView.pendingKey)
+    /// Set when the animated lock appears, cleared once the app is unlocked. Still set on the
+    /// next launch means the user got stuck last time: open straight into the plain keypad.
+    static let pendingKey = "modula.applock.fancyPending"
     @State private var confirmsForgot = false
     /// Passcode is always one tap away, whatever the chosen method.
     @State private var forcePasscode = false
@@ -31,6 +39,89 @@ struct AppLockView: View {
     private var effects: Bool { lock.settings.effectsEnabled && !reduceMotion }
 
     var body: some View {
+        if safeMode {
+            safeLock
+        } else {
+            fancyLock
+        }
+    }
+
+    // MARK: Safe mode (guaranteed escape)
+
+    private var safeLock: some View {
+        VStack(spacing: 20) {
+            Spacer(minLength: 0)
+            Image(systemName: "lock.fill").font(.title2.weight(.bold))
+            Text(lock.isSlideOnly ? "Modula is locked" : "Enter your Modula passcode")
+                .font(.title3.bold())
+            if lock.isSlideOnly {
+                Button("Unlock") {
+                    if lock.unlockBySlide() { lock.haptic(.success); app.refreshLaunchState() }
+                }
+                .buttonStyle(.borderedProminent)
+            } else if lock.settings.method == .pattern {
+                PatternPad(hideTrail: lock.settings.hidesPatternTrail, disabled: busy,
+                           haptics: lock.settings.hapticsEnabled) { nodes in
+                    guard nodes.count >= PatternLock.minimumDots else { lock.haptic(.warning); shakes += 1; return }
+                    safeAttempt(PatternLock.encode(nodes), .pattern)
+                }
+                .aspectRatio(1, contentMode: .fit)
+                .frame(maxWidth: 260)
+                .modifier(ShakeEffect(animatableData: CGFloat(shakes)))
+            } else if lock.settings.method == .orbit {
+                OrbitDial(randomizes: true, disabled: busy, haptics: lock.settings.hapticsEnabled,
+                          actionLabel: "Unlock") { indices in
+                    safeAttempt(OrbitLock.encode(indices), .orbit)
+                }
+                .aspectRatio(1, contentMode: .fit)
+                .frame(maxWidth: 280)
+            } else if lock.hasPasscode {
+                PasscodeDots(filled: digits.count, shakes: shakes, error: lock.lastError != nil && digits.isEmpty, ripple: false)
+                PasscodeKeypad(value: $digits, disabled: busy, keySize: 70) { complete in
+                    let ok = lock.unlock(withPasscode: complete)
+                    digits = ""
+                    if ok { lock.haptic(.success); app.refreshLaunchState() } else { lock.haptic(.failure); shakes += 1 }
+                }
+            }
+            if let message = lock.lastError {
+                Text(message).font(.footnote.weight(.semibold)).foregroundStyle(.red)
+            }
+            HStack(spacing: 12) {
+                if lock.canUseBiometrics {
+                    Button {
+                        Task { if await lock.unlockWithBiometrics() { lock.haptic(.success); app.refreshLaunchState() } }
+                    } label: {
+                        Label(lock.biometricAvailability.kind.unlockLabel, systemImage: lock.biometricAvailability.kind.systemImage)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                Button("Forgot?") { confirmsForgot = true }
+                    .buttonStyle(.bordered)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+        .accessibilityIdentifier("applock.safe")
+        .confirmationDialog("Forgot how to unlock?", isPresented: $confirmsForgot, titleVisibility: .visible) {
+            Button("Sign Out and Reset App Lock", role: .destructive) {
+                Task { await app.performSignOut(resetAppLock: true) }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .task { await autoPromptIfNeeded() }
+    }
+
+    private func safeAttempt(_ secret: String, _ m: AppLockMethod) {
+        if lock.unlock(withSecret: secret, method: m) {
+            lock.haptic(.success); app.refreshLaunchState()
+        } else {
+            lock.haptic(.failure); shakes += 1
+        }
+    }
+
+    private var fancyLock: some View {
         GeometryReader { proxy in
             ScrollView {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -41,15 +132,29 @@ struct AppLockView: View {
             }
             .scrollBounceBehavior(.basedOnSize)
             .scrollIndicators(.hidden)
-            .scrollDisabled(method != .passcode)
+            .scrollDisabled(method != .passcode || lock.isSlideOnly)
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if lock.isSlideOnly {
+                SlideToUnlockTrack(disabled: unlocking, haptics: lock.settings.hapticsEnabled) {
+                    if lock.unlockBySlide() {
+                        lock.haptic(.success)
+                        finishUnlock()
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
+            }
+        }
+        // Fail-safe: a solid base under the shader so a failed/slow Metal effect still leaves
+        // a normal background, never a blank or garbled screen.
         .background { LockShaderAurora(animated: effects).ignoresSafeArea() }
+        .background { Color(uiColor: .systemBackground).ignoresSafeArea() }
         .overlay { successBloom.allowsHitTesting(false) }
-        // One ripple radiates from the lock badge on success.
-        .modifier(LockSuccessRipple(trigger: unlockedIcon && effects))
-        // Shader dissolve into the app (plain fade with effects off / Reduce Motion).
-        .modifier(LockDissolve(progress: unlocking && effects ? 1 : 0))
-        .opacity(unlocking && !effects ? 0 : 1)
+        // No full-screen shader wrappers around the lock content (ripple/dissolve wrapped the
+        // whole keypad in GeometryReader + TimelineView + layer effects; on device only the
+        // aurora was visible). Plain fade into the app.
+        .opacity(unlocking ? 0 : 1)
         .accessibilityIdentifier("applock.lock")
         .confirmationDialog("Forgot how to unlock?", isPresented: $confirmsForgot, titleVisibility: .visible) {
             Button("Sign Out and Reset App Lock", role: .destructive) {
@@ -59,12 +164,37 @@ struct AppLockView: View {
         } message: {
             Text("Sign out to remove App Lock from this device, then sign back in. Drafts on this device are kept.")
         }
+        .task {
+            // Guaranteed escape: no on-screen lock content after 1.5s → plain safe mode.
+            try? await Task.sleep(for: .milliseconds(1500))
+            print("[AppLock] watchdog contentVisible=\(contentVisible) locked=\(lock.isLocked) slideOnly=\(lock.isSlideOnly) method=\(lock.settings.method)")
+            if !contentVisible { safeMode = true }
+        }
         .onAppear {
+            print("[AppLock] fancy onAppear")
+            UserDefaults.standard.set(true, forKey: AppLockView.pendingKey)
+            // Content is always visible; `appeared` only drives a small entry motion.
             withAnimation(effects ? .spring(response: 0.7, dampingFraction: 0.8) : .easeOut(duration: 0.2)) { appeared = true }
         }
         .task {
-            if lock.consumeAutoPrompt() {
-                await biometric()
+            appeared = true
+            await autoPromptIfNeeded()
+        }
+        // Cold launch can build this view while the scene is still inactive; Face ID can't
+        // present then, so try again once the app is actually active.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                appeared = true
+                Task { await autoPromptIfNeeded() }
+            }
+        }
+        // Re-locked while a previous unlock animation was in flight: reset so the keypad is
+        // usable again (a stuck `unlocking` dissolved the whole lock content).
+        .onChange(of: lock.isLocked) { _, locked in
+            if locked {
+                unlocking = false
+                unlockedIcon = false
+                busy = false
             }
         }
     }
@@ -76,6 +206,17 @@ struct AppLockView: View {
                 .fill(RadialGradient(colors: [Color.accentColor.opacity(0.35), .clear], center: .center, startRadius: 0, endRadius: 220))
                 .scaleEffect(unlocking ? 6 : 0.1)
                 .opacity(unlocking ? 0 : (unlockedIcon ? 1 : 0))
+            // Success ripple, restored as a plain overlay ring (no layer effect on the content,
+            // so it can never hide the keypad).
+            Circle()
+                .stroke(Color.accentColor.opacity(0.6), lineWidth: 3)
+                .frame(width: 120, height: 120)
+                .keyframeAnimator(initialValue: CGFloat(0), trigger: unlockedIcon) { ring, p in
+                    ring.scaleEffect(0.6 + 6 * p).opacity(p > 0 && p < 1 ? Double(1 - p) : 0)
+                } keyframes: { _ in
+                    LinearKeyframe(CGFloat(0), duration: 0)
+                    CubicKeyframe(CGFloat(1), duration: 0.6)
+                }
         }
     }
 
@@ -150,7 +291,12 @@ struct AppLockView: View {
                 .multilineTextAlignment(.center)
         }
         .offset(y: appeared ? 0 : (effects ? -24 : 0))
-        .opacity(appeared ? 1 : 0)
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+            let screen = UIScreen.main.bounds
+            let ok = frame.width > 10 && frame.height > 10 && frame.intersects(screen)
+            print("[AppLock] header frame \(frame) visible=\(ok)")
+            if ok { contentVisible = true }
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Modula is locked. \(instruction)")
         .accessibilityAddTraits(.isHeader)
@@ -176,14 +322,7 @@ struct AppLockView: View {
             header(now: now)
             Group {
                 if lock.isSlideOnly {
-                    SlideToUnlockTrack(disabled: unlocking, haptics: lock.settings.hapticsEnabled) {
-                        if lock.unlockBySlide() {
-                            lock.haptic(.success)
-                            finishUnlock()
-                        }
-                    }
-                    .frame(maxWidth: compact ? 300 : 340)
-                    .padding(.top, compact ? 8 : 24)
+                    EmptyView()
                 } else {
                 switch method {
                 case .passcode:
@@ -231,7 +370,6 @@ struct AppLockView: View {
             .modifier(LockChromaticShake(trigger: shakes, enabled: effects))
             .opacity(coolingDown ? 0.45 : 1)
             .scaleEffect(appeared ? 1 : (effects ? 0.94 : 1))
-            .opacity(appeared ? 1 : 0)
             .transition(.blurReplace)
             statusLine(cooldown: cooldown, coolingDown: coolingDown)
             footerButtons
@@ -320,7 +458,6 @@ struct AppLockView: View {
                 }
             }
         }
-        .opacity(appeared ? 1 : 0)
     }
 
     private func attempt(_ secret: String) {
@@ -354,6 +491,13 @@ struct AppLockView: View {
         let elapsed = ContinuousClock.now - started
         print("[AppLock] success → dismiss started in \(elapsed.components.attoseconds / 1_000_000_000_000_000)ms (fade \(effects ? 280 : 150)ms)")
         #endif
+    }
+
+    private func autoPromptIfNeeded() async {
+        guard UIApplication.shared.applicationState == .active else { return }
+        if lock.consumeAutoPrompt() {
+            await biometric()
+        }
     }
 
     private func biometric() async {
@@ -1001,8 +1145,9 @@ private struct LockChromaticShake: ViewModifier {
 }
 
 
-/// Classic "slide to unlock": glass track, draggable knob, a light sweep across the label.
-/// Reaching the end unlocks at once (haptic); letting go early springs the knob back.
+/// Classic iPhone "slide to unlock": dark inset rounded track, glossy knob with an arrow,
+/// light-grey label with a white shimmer sweeping left to right; the label fades as the knob
+/// moves. Reaching the end unlocks at once (haptic); letting go early springs back.
 /// Reduce Motion: static label, no spring.
 struct SlideToUnlockTrack: View {
     var disabled = false
@@ -1012,30 +1157,31 @@ struct SlideToUnlockTrack: View {
     @State private var offset: CGFloat = 0
     @State private var done = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorScheme) private var scheme
 
-    private let height: CGFloat = 64
+    private let height: CGFloat = 72
     private let inset: CGFloat = 5
+    private let radius: CGFloat = 14
 
     var body: some View {
         GeometryReader { geo in
-            let knob = height - inset * 2
-            let maxX = max(1, geo.size.width - knob - inset * 2)
+            let knobW: CGFloat = 86
+            let maxX = max(1, geo.size.width - knobW - inset * 2)
             let progress = min(1, offset / maxX)
             ZStack(alignment: .leading) {
+                // Dark inset track.
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(LinearGradient(colors: [Color(white: 0.08), Color(white: 0.2)], startPoint: .top, endPoint: .bottom))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: radius, style: .continuous)
+                            .strokeBorder(LinearGradient(colors: [.black.opacity(0.8), .white.opacity(0.25)], startPoint: .top, endPoint: .bottom), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.35), radius: 3, y: 1)
                 label
                     .frame(maxWidth: .infinity)
-                    .padding(.leading, knob * 0.6)
-                    .opacity(Double(1 - progress * 1.6))
-                Circle()
-                    .fill(.white)
-                    .overlay(
-                        Image(systemName: "chevron.right.2")
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundStyle(.black.opacity(0.75))
-                    )
-                    .shadow(color: .black.opacity(0.18), radius: 6, y: 2)
-                    .frame(width: knob, height: knob)
+                    .padding(.leading, knobW)
+                    .opacity(Double(max(0, 1 - progress * 2.2)))
+                knob
+                    .frame(width: knobW, height: height - inset * 2)
                     .offset(x: inset + offset)
                     .gesture(
                         DragGesture(minimumDistance: 2)
@@ -1050,14 +1196,12 @@ struct SlideToUnlockTrack: View {
                             }
                             .onEnded { _ in
                                 guard !done else { return }
-                                withAnimation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.72)) {
+                                withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.75)) {
                                     offset = 0
                                 }
                             }
                     )
             }
-            .frame(height: height)
-            .modulaGlass(in: Capsule(), interactive: false, specular: true)
         }
         .frame(height: height)
         .accessibilityElement(children: .ignore)
@@ -1067,25 +1211,46 @@ struct SlideToUnlockTrack: View {
         .accessibilityIdentifier("applock.slide")
     }
 
+    private var knob: some View {
+        RoundedRectangle(cornerRadius: radius - 3, style: .continuous)
+            .fill(LinearGradient(colors: [Color(white: 0.98), Color(white: 0.78)], startPoint: .top, endPoint: .bottom))
+            .overlay(alignment: .top) {
+                // Gloss on the upper half.
+                RoundedRectangle(cornerRadius: radius - 3, style: .continuous)
+                    .fill(LinearGradient(colors: [.white.opacity(0.9), .white.opacity(0.15)], startPoint: .top, endPoint: .bottom))
+                    .frame(maxHeight: .infinity)
+                    .mask(VStack(spacing: 0) { Rectangle(); Color.clear })
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: radius - 3, style: .continuous)
+                    .strokeBorder(Color(white: 0.55), lineWidth: 0.5)
+            )
+            .overlay(
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundStyle(Color(white: 0.55))
+            )
+            .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
+    }
+
     @ViewBuilder
     private var label: some View {
-        let text = Text("Slide to unlock").font(.title3.weight(.semibold))
-        let base: Color = scheme == .dark ? .white.opacity(0.45) : .black.opacity(0.4)
-        let shine: Color = scheme == .dark ? .white : .white
+        let text = Text("slide to unlock").font(.system(size: 22, weight: .regular))
+        let grey = Color(white: 0.55)
         if reduceMotion {
-            text.foregroundStyle(base)
+            text.foregroundStyle(grey)
         } else {
             TimelineView(.animation) { ctx in
-                let t = ctx.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2.4) / 2.4
-                let x = -0.3 + 1.6 * t
+                let t = ctx.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2.6) / 2.6
+                let x = -0.25 + 1.5 * t
                 text
-                    .foregroundStyle(base)
+                    .foregroundStyle(grey)
                     .overlay {
                         LinearGradient(
                             stops: [
-                                .init(color: .clear, location: max(0, x - 0.15)),
-                                .init(color: shine, location: min(1, max(0, x))),
-                                .init(color: .clear, location: min(1, x + 0.15)),
+                                .init(color: .clear, location: min(1, max(0, x - 0.12))),
+                                .init(color: .white, location: min(1, max(0, x))),
+                                .init(color: .clear, location: min(1, max(0, x + 0.12))),
                             ],
                             startPoint: .leading, endPoint: .trailing
                         )
