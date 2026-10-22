@@ -36,6 +36,9 @@ The six additional simulator captures show touch movement, round completion,
 and restart for each engine. Both round-complete frames show a score of 10;
 the restart frames show score 0 and a fresh 60-second timer. The test exercised
 host pause/resume, PlayCanvas in-game pause/resume, exit, and game switching.
+After merging Native main through `15e24e1`, the same live QA gameplay test
+passed again in 193.271 seconds. The account-bound offline restore unit test
+also passed on that merged build.
 
 `WebGameRegistryUITests.testInstalledRegistryGamesLaunchWithAppTransportIsolated`
 passed in 179.801 seconds after a force quit and cold relaunch with the app's
