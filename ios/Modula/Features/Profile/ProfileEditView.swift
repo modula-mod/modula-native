@@ -107,14 +107,9 @@ struct ProfileEditView: View {
                 .accessibilityIdentifier("profile.edit.save")
                 .accessibilityLabel(editing.status == .saving ? "Saving" : "Save")
             }
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button(focus == .bio ? "Done" : "Next") { advanceFocus() }
-                    .fontWeight(.semibold)
-            }
         }
         .sensoryFeedback(.selection, trigger: mediaMenu)
-        .confirmationDialog(mediaMenuTitle, isPresented: mediaMenuPresented, titleVisibility: .visible, presenting: mediaMenu) { kind in
+        .confirmationDialog(mediaMenuTitle, isPresented: mediaMenuPresented, titleVisibility: .hidden, presenting: mediaMenu) { kind in
             Button(hasMedia(kind) ? "Change \(kind == .avatar ? "Photo" : "Cover")" : "Add \(kind == .avatar ? "Photo" : "Cover")") {
                 mediaAction = .pick(kind)
             }

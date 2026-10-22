@@ -166,6 +166,9 @@ struct ProfileView: View {
                 ModulaProfileCodeView(profile: profile) {
                     showsModulaCode = false
                 }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(32)
             }
         }
         .sheet(item: $activityShare) { item in
@@ -548,7 +551,8 @@ struct ProfileView: View {
             // The hero avatar stays in the content layer: it shrinks into its own pocket and fades
             // as it scrolls up (the bar avatar takes over), so it never floats over the details.
             .scaleEffect(navReduceMotion ? 1 : 1 - 0.45 * IslandAvatarMerge<EmptyView>.progress(for: heroAvatarFrame), anchor: .bottom)
-            .opacity(Double(1 - IslandAvatarMerge<EmptyView>.progress(for: heroAvatarFrame)))
+            // Gone well before it reaches the bar (no ghost behind the title).
+            .opacity(Double(max(0, 1 - IslandAvatarMerge<EmptyView>.progress(for: heroAvatarFrame) * 2.2)))
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { heroAvatarFrame = $0 }
         }
     }
@@ -696,11 +700,12 @@ struct ProfileView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Text(tab.title)
-                                .font(.subheadline.weight(.semibold))
+                                .font(.footnote.weight(.semibold))
                                 .lineLimit(1)
+                                .fixedSize()
                         }
                         .foregroundStyle(isSelected ? heroTint : Color.secondary)
-                        .padding(.horizontal, isSelected ? 14 : 12)
+                        .padding(.horizontal, isSelected ? 12 : 9)
                         .frame(height: 38)
                         .background {
                             if isSelected {
@@ -750,8 +755,9 @@ struct ProfileView: View {
                 // Only visible once the bar is actually pinned under the header; at rest it
                 // must not frost over Highlights.
                 .visualEffect { content, proxy in
-                    let minY = proxy.frame(in: .scrollView).minY + 64
-                    return content.opacity(minY <= stickTop + 1 ? 1 : 0)
+                    // Global frame includes the pin offset, so this is the bar's real position.
+                    let minY = proxy.frame(in: .global).minY + 64
+                    return content.opacity(minY <= stickTop + 12 ? 1 : 0)
                 }
         }
         // Pinned header: slide it down so it rests just below the status bar / nav buttons.

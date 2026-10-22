@@ -201,6 +201,7 @@ struct AppLockView: View {
                         hint = nil
                         attempt(PatternLock.encode(nodes))
                     }
+                    .aspectRatio(1, contentMode: .fit)
                     .frame(maxWidth: compact ? 240 : 300)
                     .modifier(ShakeEffect(animatableData: CGFloat(shakes)))
                 case .orbit:
@@ -208,6 +209,9 @@ struct AppLockView: View {
                               actionLabel: "Unlock") { indices in
                         attempt(OrbitLock.encode(indices))
                     }
+                    // GeometryReader-based dial: inside the ScrollView it got no height and drew
+                    // up into the status bar. A square frame keeps it centred under the header.
+                    .aspectRatio(1, contentMode: .fit)
                     .frame(maxWidth: compact ? 260 : 320)
                     .modifier(ShakeEffect(animatableData: CGFloat(shakes)))
                 }
@@ -499,15 +503,18 @@ struct PasscodeKeypad: View {
 }
 
 struct PrivacyCoverView: View {
+    @Environment(\.colorScheme) private var scheme
     var body: some View {
         ZStack {
-            Color.black.opacity(0.92)
+            // Follows the app's light/dark appearance (was always a dark slab).
+            Rectangle().fill(.regularMaterial)
+            Color(uiColor: .systemBackground).opacity(0.55)
             VStack(spacing: 12) {
                 Image(systemName: "lock.fill")
                     .font(.largeTitle)
-                ModulaWordmark(height: 20, onDark: true)
+                ModulaWordmark(height: 20, onDark: scheme == .dark)
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(.primary)
         }
         .ignoresSafeArea()
         .accessibilityLabel("Modula is hidden")

@@ -53,6 +53,14 @@ final class NavigationCoordinator {
         open(route); return true
     }
     func open(_ route: AppRoute) {
+        // Edit Profile is a task on top of wherever you are, never a tab root swap.
+        switch route {
+        case .me(.edit), .profile(_, .edit):
+            push(route)
+            return
+        default:
+            break
+        }
         if let tab = route.tab {
             // A tab switch lands on another stack; the tapped card isn't there to morph from.
             if tab != selectedTab { ModulaHeroMorph.disarm() }
