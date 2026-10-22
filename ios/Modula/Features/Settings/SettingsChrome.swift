@@ -883,7 +883,7 @@ struct BatteryNetworkSettingsPage: View {
 
 /// Privacy, Glass Privacy (debug), Blocked, Security, App Lock and Face ID on one page.
 struct PrivacySafetySettingsPage: View {
-    @AppStorage("modula.lock.drapeBackdrop") private var drapeBackdrop = false
+    @AppStorage("modula.lock.backdrop") private var lockBackdrop = "aurora"
     @Environment(AppEnvironment.self) private var app
     @State private var choosesLockKind = false
     @State private var showsSetup = false
@@ -938,8 +938,18 @@ struct PrivacySafetySettingsPage: View {
                     }
                     .frame(minHeight: 52)
                     SettingsDivider()
-                    Toggle("Spectral Drape Backdrop", isOn: $drapeBackdrop)
-                        .frame(minHeight: 52)
+                    HStack {
+                        Text("Lock Backdrop")
+                        Spacer()
+                        Picker("Lock Backdrop", selection: $lockBackdrop) {
+                            Text("Aurora").tag("aurora")
+                            Text("Spectral Drape").tag("drape")
+                            Text("Perspective Grid").tag("grid")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                    }
+                    .frame(minHeight: 52)
                     SettingsDivider()
                     if lock.hasPasscode {
                         SettingsTileRow(title: "Change Passcode", symbol: "key.fill") { showsChange = true }

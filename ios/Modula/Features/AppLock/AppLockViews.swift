@@ -18,7 +18,7 @@ struct AppLockView: View {
     /// Set once the header has real, on-screen geometry. If it never does within 1.5s we
     /// switch to `safeMode`: a plain keypad with no scroll view, timeline or Metal effects.
     @State private var contentVisible = false
-    @AppStorage("modula.lock.drapeBackdrop") private var drapeBackdrop = false
+    @AppStorage("modula.lock.backdrop") private var lockBackdrop = "aurora"
     @State private var safeMode = UserDefaults.standard.bool(forKey: AppLockView.pendingKey)
     /// Set when the animated lock appears, cleared once the app is unlocked. Still set on the
     /// next launch means the user got stuck last time: open straight into the plain keypad.
@@ -151,8 +151,10 @@ struct AppLockView: View {
         // a normal background, never a blank or garbled screen.
         // Backdrop only: lock content renders independently of it.
         .background {
-            if drapeBackdrop {
+            if lockBackdrop == "drape" {
                 SpectralDrapeView(interactive: false).ignoresSafeArea()
+            } else if lockBackdrop == "grid" {
+                PerspectiveGridView().ignoresSafeArea()
             } else {
                 LockShaderAurora(animated: effects).ignoresSafeArea()
             }
