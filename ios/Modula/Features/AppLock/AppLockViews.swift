@@ -337,7 +337,7 @@ struct AppLockView: View {
                     VStack(spacing: compact ? ModulaSpacing.md : 22) {
                         PasscodeDots(filled: digits.count, shakes: shakes,
                                      error: shakes > 0 && digits.isEmpty && lock.lastError != nil,
-                                     ripple: effects)
+                                     ripple: false)
                             .accessibilityLabel("Passcode, \(digits.count) of 6 digits entered")
                         PasscodeKeypad(value: $digits, disabled: disabled, keySize: compact ? 62 : 76) { complete in
                             busy = true
@@ -375,10 +375,12 @@ struct AppLockView: View {
                 }
                 }
             }
-            .modifier(LockChromaticShake(trigger: shakes, enabled: effects))
             .opacity(coolingDown ? 0.45 : 1)
             .scaleEffect(appeared ? 1 : (effects ? 0.94 : 1))
-            .transition(.blurReplace)
+            // One method view at a time: the old one fades out fully before the new one fades in.
+            .id(method)
+            .transition(.asymmetric(insertion: .opacity.animation(.easeOut(duration: 0.18).delay(0.14)),
+                                    removal: .opacity.animation(.easeIn(duration: 0.12))))
             statusLine(cooldown: cooldown, coolingDown: coolingDown)
             footerButtons
             Spacer(minLength: 0)
@@ -572,7 +574,13 @@ struct PasscodeDots: View {
 private struct GlassKeyStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .overlay { LockKeyShimmer(pressed: configuration.isPressed).clipShape(Circle()).allowsHitTesting(false) }
+            // Local feedback only: a highlight inside the key circle plus a small scale. No shader,
+            // nothing that can spill outside the key.
+            .overlay {
+                Circle().fill(Color.primary.opacity(configuration.isPressed ? 0.14 : 0))
+                    .allowsHitTesting(false)
+            }
+            .clipShape(Circle())
             .scaleEffect(configuration.isPressed ? 0.94 : 1)
             .animation(.spring(response: 0.22, dampingFraction: 0.7), value: configuration.isPressed)
     }
@@ -617,7 +625,8 @@ struct PasscodeKeypad: View {
                     .font(.title3.weight(.medium))
                     .foregroundStyle(Color.primary.opacity(value.isEmpty ? 0.3 : 0.8))
                     .frame(width: keySize, height: keySize)
-                    .modulaGlass(in: Circle(), interactive: false, specular: true)
+                    .background(.ultraThinMaterial, in: Circle())
+                    .overlay(Circle().strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.75))
                     .contentShape(Circle())
             }
             .buttonStyle(GlassKeyStyle())
@@ -643,7 +652,8 @@ struct PasscodeKeypad: View {
                 }
                 .foregroundStyle(.primary)
                 .frame(width: keySize, height: keySize)
-                .modulaGlass(in: Circle(), interactive: false, specular: true)
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay(Circle().strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.75))
                 .contentShape(Circle())
             }
             .buttonStyle(GlassKeyStyle())
