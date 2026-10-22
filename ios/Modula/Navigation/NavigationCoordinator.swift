@@ -59,7 +59,20 @@ final class NavigationCoordinator {
             selectedTab = tab
             if isContextRoot(route) { roots[tab] = route; return }
         }
-        paths[selectedTab, default: []].append(route)
+        // A story viewer left on the stack (closed visually but never popped) made the next
+        // destination — e.g. Saved from the sidebar — flash the Story Viewer first. Drop
+        // stale story routes before pushing anything that isn't itself a story.
+        var path = paths[selectedTab, default: []]
+        if !Self.isStoryViewer(route) {
+            while let last = path.last, Self.isStoryViewer(last) { path.removeLast() }
+        }
+        path.append(route)
+        paths[selectedTab] = path
+    }
+
+    private static func isStoryViewer(_ route: AppRoute) -> Bool {
+        if case .stories(.story) = route { return true }
+        return false
     }
     /// Routes requested by a running module. Detail destinations (profile,
     /// post) are pushed on the current stack so Back returns to the module

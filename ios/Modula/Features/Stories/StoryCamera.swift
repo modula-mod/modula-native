@@ -692,6 +692,11 @@ struct StoryCaptureStage: View {
     }
 
     private var arStickerRow: some View {
+        // One sticker tray: hint + emoji row + Clear in a single glass panel above the mode bar.
+        VStack(alignment: .leading, spacing: 8) {
+            Text(ar.placed == 0 ? "Tap a surface to place a sticker" : "Move around — stickers stay put")
+                .font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.9))
+                .padding(.horizontal, 14)
         HStack(spacing: 8) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -719,12 +724,11 @@ struct StoryCaptureStage: View {
                     .padding(.trailing, 14)
             }
         }
-        .overlay(alignment: .top) {
-            Text(ar.placed == 0 ? "Tap a surface to place a sticker" : "Move around — stickers stay put")
-                .font(.caption.weight(.semibold)).foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.6), radius: 2)
-                .offset(y: -22)
         }
+        .padding(.vertical, 10)
+        .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
+        .padding(.horizontal, 10)
     }
 
     private var leftRail: some View {

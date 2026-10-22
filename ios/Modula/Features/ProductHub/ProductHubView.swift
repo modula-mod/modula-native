@@ -850,7 +850,7 @@ struct ProductCard: View {
                 ProductArtwork(product: product, size: 64)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(product.name).font(.headline).foregroundStyle(.primary)
-                    Text(product.description)
+                    Text(product.displayDescription)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
@@ -910,10 +910,16 @@ struct ProductGetOpenControl: View {
                     .onAppear { spin = true }.onDisappear { spin = false }
                 Image(systemName: "arrow.down").font(.caption.weight(.bold)).foregroundStyle(accent)
             } else {
-                Text(installed ? "OPEN" : (product.installable ? "GET" : "SOON"))
+                Group {
+                    if installed || product.installable {
+                        Text(installed ? "OPEN" : "GET")
+                    } else {
+                        Label("Soon", systemImage: "clock").labelStyle(.titleAndIcon)
+                    }
+                }
                     .font(.footnote.weight(.bold))
-                    .foregroundStyle(product.installable || installed ? accent : .secondary)
-                    .padding(.horizontal, 14).padding(.vertical, 6)
+                    .foregroundStyle(product.installable || installed ? accent : Color.primary.opacity(0.6))
+                    .padding(.horizontal, 12).padding(.vertical, 6)
                     .modulaGlass(in: Capsule(), interactive: false, tint: (product.installable || installed) ? accent.opacity(0.14) : nil)
             }
         }
@@ -1040,7 +1046,7 @@ struct ProductHero: View {
                     Spacer(minLength: 12)
                     Text(product.name).font(.largeTitle.bold()).foregroundStyle(.white).lineLimit(2)
                         .shadow(color: .black.opacity(0.35), radius: 8, y: 2)
-                    Text(product.description).font(.subheadline).foregroundStyle(.white.opacity(0.88)).lineLimit(3).padding(.top, 6)
+                    Text(product.displayDescription).font(.subheadline).foregroundStyle(.white.opacity(0.88)).lineLimit(3).padding(.top, 6)
                     HStack(spacing: 8) {
                         Text(product.publisherName).font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.7))
                         Spacer()
@@ -1159,8 +1165,9 @@ struct ProductHubView: View {
         } else if let error = app.catalogue.error, app.catalogue.products.isEmpty {
             ModulaErrorState(message: error) { Task { await app.catalogue.load() } }
         } else if query.isEmpty {
-            let featured = app.catalogue.product("digital.modula.vault-notes")
-                ?? app.catalogue.products.first(where: \.installable)
+            // Feature something you don't have yet; fall back to Vault Notes (shown as "Open").
+            let featured = app.catalogue.products.first(where: { $0.installable && !app.catalogue.installedIDs.contains($0.id) })
+                ?? app.catalogue.product("digital.modula.vault-notes")
                 ?? app.catalogue.products.first
             if let featured {
                 ProductHero(product: featured) { open(featured) }
@@ -1201,8 +1208,9 @@ struct ProductHubView: View {
             )
             ProductShelf(
                 title: "From Modula",
-                subtitle: "Every module from the registry",
-                products: visible,
+                subtitle: "More from the registry",
+                // Installed modules already have their own shelf above.
+                products: visible.filter { !app.catalogue.installedIDs.contains($0.id) },
                 installedIDs: app.catalogue.installedIDs,
                 action: open
             )
@@ -1240,7 +1248,7 @@ struct ModuleDetailView: View {
                             VStack(alignment: .leading, spacing: 7) {
                                 ModulaText(text: product.name, role: .hero)
                                 PublisherLabel(name: product.publisherName)
-                                Text(product.description)
+                                Text(product.displayDescription)
                                     .font(.body)
                                     .foregroundStyle(.secondary)
                             }
@@ -1305,7 +1313,7 @@ struct ModuleDetailView: View {
                 ModulaCard {
                     VStack(alignment: .leading, spacing: 12) {
                         ModulaText(text: "About this module", role: .headline)
-                        Text(product.description)
+                        Text(product.displayDescription)
                         Divider()
                         ModulaListRow(title: "Permissions & privacy", subtitle: "Review available declarations", symbol: "hand.raised") {
                             app.navigation.open(.productHub(.module(moduleID, .permissions)))
@@ -1414,5 +1422,18 @@ enum VerifiedFrontendSelection {
         if let artifact, sha256(artifact) == declared { return artifact }
         if let hosted, sha256(hosted) == declared { return hosted }
         return nil
+    }
+}
+
+
+extension CatalogueProduct {
+    /// Registry seed rows ship internal copy ("Planned first-party module placeholder");
+    /// show a short human description instead.
+    var displayDescription: String {
+        let lower = description.lowercased()
+        if lower.contains("placeholder") || lower.contains("planned first-party") || description.isEmpty {
+            return installable ? "A first-party Modula module." : "Coming soon from Modula."
+        }
+        return description
     }
 }
