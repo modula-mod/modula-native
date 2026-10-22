@@ -101,7 +101,10 @@ final class MolibooSceneController {
 
     /// Soft oval under the character. Cheap substitute for the DynamicLightShadow we opted out of; keeps the model grounded.
     static func attachContactShadow(under character: Entity, on root: Entity) {
-        let mesh = MeshResource.generatePlane(width: 0.14, depth: 0.09)
+        let bounds = character.visualBounds(relativeTo: root)
+        // Sized to the character's footprint: an ellipse a bit wider than the body, flatter front-to-back.
+        let w = max(0.06, bounds.extents.x * 1.15)
+        let mesh = MeshResource.generatePlane(width: w, depth: w * 0.55)
         // A plain unlit colour renders as an opaque black rectangle on device (no alpha blending on a colour-only
         // material). Use a soft radial-falloff texture with transparent blending so it reads as an oval contact shadow.
         var mat = UnlitMaterial()
@@ -113,13 +116,13 @@ final class MolibooSceneController {
         }
         let blob = ModelEntity(mesh: mesh, materials: [mat])
         blob.name = "ContactShadow"
-        blob.orientation = simd_quatf(angle: -.pi / 2, axis: [1, 0, 0])
-        let bounds = character.visualBounds(relativeTo: root)
+        // generatePlane(width:depth:) is already horizontal (XZ, facing +Y), so no rotation: the old -90° X
+        // stood it upright behind the pet instead of lying on the floor.
         blob.position = [bounds.center.x, bounds.min.y + 0.0005, bounds.center.z]
         root.addChild(blob)
     }
 
-    /// 64×64 radial falloff (black, alpha 0.28 → 0), cached.
+    /// 64×64 radial falloff (black, alpha 0.42 → 0.18 → 0), cached.
     private static var cachedShadowTexture: TextureResource?
     private static func contactShadowTexture() -> TextureResource? {
         if let t = cachedShadowTexture { return t }
@@ -127,8 +130,8 @@ final class MolibooSceneController {
         guard let ctx = CGContext(data: nil, width: n, height: n, bitsPerComponent: 8, bytesPerRow: n * 4,
                                   space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
               let grad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
-                                    colors: [CGColor(red: 0, green: 0, blue: 0, alpha: 0.28), CGColor(red: 0, green: 0, blue: 0, alpha: 0)] as CFArray,
-                                    locations: [0, 1]) else { return nil }
+                                    colors: [CGColor(red: 0, green: 0, blue: 0, alpha: 0.42), CGColor(red: 0, green: 0, blue: 0, alpha: 0.18), CGColor(red: 0, green: 0, blue: 0, alpha: 0)] as CFArray,
+                                    locations: [0, 0.45, 1]) else { return nil }
         let c = CGPoint(x: CGFloat(n) / 2, y: CGFloat(n) / 2)
         ctx.drawRadialGradient(grad, startCenter: c, startRadius: 0, endCenter: c, endRadius: CGFloat(n) / 2, options: [])
         guard let img = ctx.makeImage(),
