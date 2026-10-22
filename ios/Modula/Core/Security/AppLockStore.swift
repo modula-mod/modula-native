@@ -37,7 +37,17 @@ final class AppLockStore {
         if !hasPasscode {
             settings.enabled = false
         }
+        if settings.method != .passcode,
+           (try? credentials.hasSecret(settings.method.secretKind)) != true {
+            settings.method = .passcode
+        }
         self.settings = settings
+        // Restore rate limiting across relaunches so killing the app doesn't reset it.
+        let savedFailures = defaults.integer(forKey: "modula.native.applock.failures.v1")
+        self.failedAttempts = savedFailures
+        if let until = defaults.object(forKey: "modula.native.applock.cooldown.v1") as? Date, until > Date() {
+            self.cooldownUntil = ContinuousClock.now.advanced(by: .seconds(until.timeIntervalSinceNow))
+        }
         self.isLocked = startsLockedIfEnabled && settings.enabled && hasPasscode
         self.autoPromptArmed = isLocked
     }
@@ -124,6 +134,81 @@ final class AppLockStore {
         lastError = nil
         failedAttempts = 0
         cooldownUntil = nil
+        persistFailures()
+    }
+
+    // MARK: - Methods, effects, alternative secrets
+
+    var attemptsBeforeCooldown: Int {
+        max(0, AppLockAttemptPolicy.freeAttempts - failedAttempts)
+    }
+
+    func hasSecret(for method: AppLockMethod) -> Bool {
+        (try? credentials.hasSecret(method.secretKind)) == true
+    }
+
+    /// Stores a pattern/Orbit verifier (salted PBKDF2, Keychain, this device only) and switches to it.
+    func setAlternativeSecret(_ value: String, for method: AppLockMethod) throws {
+        guard method != .passcode else { try setPasscode(value); return }
+        try credentials.setSecret(value, kind: method.secretKind)
+        settings.method = method
+        persist()
+    }
+
+    func setMethod(_ method: AppLockMethod) {
+        guard method == .passcode || hasSecret(for: method) else { return }
+        settings.method = method
+        persist()
+    }
+
+    func setEffectsEnabled(_ value: Bool) { settings.effectsEnabled = value; persist() }
+    func setShowsGreeting(_ value: Bool) { settings.showsGreeting = value; persist() }
+    func setHidesPatternTrail(_ value: Bool) { settings.hidesPatternTrail = value; persist() }
+    func setHapticsEnabled(_ value: Bool) { settings.hapticsEnabled = value; persist() }
+
+    func haptic(_ semantic: HapticSemantic) {
+        guard settings.hapticsEnabled else { return }
+        HapticEngine.shared.play(semantic)
+    }
+
+    /// Verifies a pattern/Orbit attempt. Shares the passcode's attempt counter and cooldown.
+    func unlock(withSecret value: String, method: AppLockMethod) -> Bool {
+        if method == .passcode { return unlock(withPasscode: value) }
+        if let cooldownUntil, ContinuousClock.now < cooldownUntil {
+            lastError = "Too many attempts. Try again shortly."
+            return false
+        }
+        do {
+            if try credentials.verifySecret(value, kind: method.secretKind) {
+                succeed()
+                return true
+            }
+            registerFailure()
+            lastError = method == .pattern ? "Wrong pattern." : "Rings don’t line up."
+            return false
+        } catch {
+            lastError = "Lock storage is unavailable."
+            return false
+        }
+    }
+
+    private func succeed() {
+        isLocked = false
+        failedAttempts = 0
+        cooldownUntil = nil
+        lastError = nil
+        persistFailures()
+    }
+
+    private func persistFailures() {
+        defaults.set(failedAttempts, forKey: "modula.native.applock.failures.v1")
+        if let cooldownUntil {
+            let remaining = cooldownUntil - ContinuousClock.now
+            let secs = Double(remaining.components.seconds) + Double(remaining.components.attoseconds) / 1e18
+            defaults.set(Date().addingTimeInterval(max(0, secs)), forKey: "modula.native.applock.cooldown.v1")
+        } else {
+            defaults.removeObject(forKey: "modula.native.applock.cooldown.v1")
+        }
     }
 
     func unlock(withPasscode passcode: String) -> Bool {
@@ -134,10 +219,7 @@ final class AppLockStore {
         do {
             let ok = try credentials.verifyPasscode(passcode)
             if ok {
-                isLocked = false
-                failedAttempts = 0
-                cooldownUntil = nil
-                lastError = nil
+                succeed()
                 return true
             }
             registerFailure()
@@ -162,8 +244,7 @@ final class AppLockStore {
         autoPromptArmed = false
         switch result {
         case .success:
-            isLocked = false
-            lastError = nil
+            succeed()
             return true
         case .cancelled:
             lastError = nil
@@ -191,6 +272,7 @@ final class AppLockStore {
         cooldownUntil = nil
         lastError = nil
         defaults.removeObject(forKey: settingsKey)
+        persistFailures()
     }
 
     func disableAndClearPasscode() throws {
@@ -206,6 +288,7 @@ final class AppLockStore {
         if delay > .seconds(0) {
             cooldownUntil = ContinuousClock.now.advanced(by: delay)
         }
+        persistFailures()
     }
 
     private func persist() {
