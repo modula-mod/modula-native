@@ -234,7 +234,7 @@ extension View {
     @ViewBuilder
     func modulaSoftScrollEdge() -> some View {
         if #available(iOS 26.0, *) {
-            self.scrollEdgeEffectStyle(.soft, for: .top)
+            self.scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
         } else {
             self
         }

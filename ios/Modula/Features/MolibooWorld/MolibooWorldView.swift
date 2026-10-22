@@ -700,9 +700,7 @@ struct MolibooWorldView: View {
     }
 
     private func flash(_ s: String) {
-        toast = s
-        UIAccessibility.post(notification: .announcement, argument: s)
-        Task { try? await Task.sleep(for: .seconds(2.2)); if toast == s { toast = nil } }
+        ModulaToastCenter.shared.show(s, symbol: "sparkles", tone: .info)
     }
 
     private func toastView(_ s: String) -> some View {

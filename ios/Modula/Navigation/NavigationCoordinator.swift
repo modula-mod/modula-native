@@ -9,7 +9,15 @@ final class NavigationCoordinator {
     var presented: AppPresentation?
     var banner: ModulaBanner?
     /// Leading global sidebar. Not a sixth tab and not Edge Picker.
-    var sidebarPresented = false
+    var sidebarPresented = false {
+        didSet {
+            guard oldValue != sidebarPresented else { return }
+            // Button / programmatic open+close take the same freeze-through-settle path as the swipe,
+            // so feed geometry writers never feed back into layout while the card animates.
+            ShellChromeFreeze.sidebarPresented = sidebarPresented
+            ShellChromeFreeze.holdForSettle()
+        }
+    }
     /// Route to restore after a successful authentication challenge.
     private(set) var pendingReturnRoute: AppRoute?
     /// Settings control to scroll to and briefly emphasize after search.
@@ -30,14 +38,12 @@ final class NavigationCoordinator {
     /// Short visible + VoiceOver confirmation (e.g. "Link copied").
     /// Uses the shell island-banner slot so features never build ad-hoc toasts.
     func flash(_ message: String, symbol: String = "checkmark.circle") {
-        let next = ModulaBanner(message: message, symbol: symbol)
-        banner = next
-        AccessibilityNotification.Announcement(message).post()
-        Task { @MainActor [weak self] in
-            // Visible hold after morph-in; host collapses back into the island seed.
-            try? await Task.sleep(for: .milliseconds(2_150))
-            if self?.banner?.id == next.id { self?.banner = nil }
-        }
+        ModulaToastCenter.shared.show(message, symbol: symbol)
+    }
+
+    /// Toast with an action button (Undo / View); held longer.
+    func flash(_ message: String, symbol: String, tone: ModulaToastTone? = nil, actionTitle: String, action: @escaping @MainActor () -> Void) {
+        ModulaToastCenter.shared.show(message, symbol: symbol, tone: tone, actionTitle: actionTitle, action: action)
     }
 
     func presentSidebar() { sidebarPresented = true }
@@ -194,7 +200,19 @@ struct ShellChromePolicy: Equatable {
                 immersive: false,
                 hidesForKeyboard: true
             )
-        case .home, .activity:
+        case .activity:
+            // Activity owns its filters (chip row) and Mark all read (nav bar): no rail, no Tools bar.
+            Self(
+                bottomBarVisible: true,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .standard,
+                showsBack: false,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: true
+            )
+        case .home:
             Self(
                 bottomBarVisible: true,
                 contextRailVisible: true,
@@ -208,10 +226,11 @@ struct ShellChromePolicy: Equatable {
         case .profile, .me:
             // Pushed profiles keep the originating tab selected in the bottom bar and hide
             // root-only accessories so chrome does not imply a global Profile switch.
+            // Profile sections live in its sticky tab bar: no edge rail, no Tools bar.
             Self(
                 bottomBarVisible: true,
-                contextRailVisible: true,
-                shellAccessoryVisible: isTabRoot,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
                 topBarStyle: .standard,
                 showsBack: !isTabRoot,
                 showsClose: false,

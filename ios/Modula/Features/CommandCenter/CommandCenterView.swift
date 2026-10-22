@@ -278,6 +278,7 @@ struct CommandRow: View {
 struct CreateActionPicker: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dismiss) private var dismiss
+    @State private var showsLive = false
 
     private var capabilities: CommandCapabilitySnapshot {
         CommandCapabilitySnapshot(
@@ -310,7 +311,23 @@ struct CreateActionPicker: View {
                     .disabled(item.availability == .requiresSignIn && !app.auth.isSignedIn)
                     .accessibilityLabel(item.title)
                 }
+                if LiveFeatureFlags.isEnabled {
+                    Button {
+                        showsLive = true
+                    } label: {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Go Live")
+                                Text("Developer preview · not broadcast").font(.caption).foregroundStyle(.secondary)
+                            }
+                        } icon: {
+                            Image(systemName: "dot.radiowaves.left.and.right").foregroundStyle(.red)
+                        }
+                    }
+                    .accessibilityIdentifier("create.live")
+                }
             }
+            .fullScreenCover(isPresented: $showsLive) { LiveHostFlow() }
             .modulaSoftScrollEdge()
             .navigationTitle("Create")
             .toolbar {

@@ -12,6 +12,8 @@
 		5446F9A7CFA04E0D940811DD /* PDFImmersiveReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA5B12DBD0541F38FC76EC2 /* PDFImmersiveReader.swift */; };
 		7ED9D8977FD243F1A81DFEED /* PDFReading.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BB21356FB1D4171B5159E7E /* PDFReading.swift */; };
 		838D878E1CDE4F0798B71159 /* PDFInlinePostUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B02FB311CBAA4285B556D18C /* PDFInlinePostUITests.swift */; };
+		5EE15A11C0DE4A7E8B1A2D02 /* SidebarSwipeFreezeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EE15A11C0DE4A7E8B1A2D01 /* SidebarSwipeFreezeUITests.swift */; };
+		5EE15A11C0DE4A7E8B1A2C02 /* ReelsTapUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EE15A11C0DE4A7E8B1A2C01 /* ReelsTapUITests.swift */; };
 		647C9C0055154B72875252C7 /* PDFInlineCarouselTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA7F7ED971B64DE79A592E1E /* PDFInlineCarouselTests.swift */; };
 		4725F6109BFA4B45A3FAB4FD /* PDFInlineLab.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7E1CFA0E65045DBBB9D7870 /* PDFInlineLab.swift */; };
 		498A2A6A47D9466587CF839C /* PDFInlineCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C60B54CD0D8A4495985F84DD /* PDFInlineCarousel.swift */; };
@@ -96,6 +98,7 @@
 		C1DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift */; };
 		C12F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift */; };
 		C17A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift in Sources */ = {isa = PBXBuildFile; fileRef = C07A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift */; };
+		C1MODULAPHOTOGRID00001 /* ModulaPhotoGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0MODULAPHOTOGRID00001 /* ModulaPhotoGrid.swift */; };
 		C1COMPOSEMEDIAATTACH01 /* ComposeMediaAttach.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0COMPOSEMEDIAATTACH01 /* ComposeMediaAttach.swift */; };
 		C1B5F34784604E6B40CAC97C /* ModulaRichFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B5F34784604E6B40CAC97C /* ModulaRichFormat.swift */; };
 		C18FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift */; };
@@ -409,10 +412,13 @@
 		N5010000000000000000000A /* InMailStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000A /* InMailStore.swift */; };
 		N5010000000000000000000B /* InMailViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000B /* InMailViews.swift */; };
 		N5010000000000000000000C /* StoryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000C /* StoryModels.swift */; };
+		N50100000000000000000FFD /* StoryCamera.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000FFD /* StoryCamera.swift */; };
+		N50100000000000000000FFE /* StoryVideo.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000FFE /* StoryVideo.swift */; };
 		N5010000000000000000000D /* StoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000D /* StoryViews.swift */; };
 		N5010000000000000000000E /* ReelModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000E /* ReelModels.swift */; };
 		N5010000000000000000000F /* ReelViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000F /* ReelViewer.swift */; };
 		B34580D3CE7F4E9799B1B33C /* ReelChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44422B2509D46A6802844A3 /* ReelChrome.swift */; };
+		B34580D3CE7F4E9799B1B4AA /* LiveViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44422B2509D46A6802845AA /* LiveViews.swift */; };
 		N50100000000000000000010 /* ProfilePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000010 /* ProfilePresentation.swift */; };
 		N50100000000000000000011 /* ProfileCustomizationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000011 /* ProfileCustomizationViews.swift */; };
 		N50100000000000000000012 /* N4CTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000012 /* N4CTests.swift */; };
@@ -475,6 +481,8 @@
 		DAA5B12DBD0541F38FC76EC2 /* PDFImmersiveReader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PDFImmersiveReader.swift; path = Features/Social/PDFImmersiveReader.swift; sourceTree = "<group>"; };
 		7BB21356FB1D4171B5159E7E /* PDFReading.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PDFReading.swift; path = Features/Social/PDFReading.swift; sourceTree = "<group>"; };
 		B02FB311CBAA4285B556D18C /* PDFInlinePostUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PDFInlinePostUITests.swift; sourceTree = "<group>"; };
+		5EE15A11C0DE4A7E8B1A2D01 /* SidebarSwipeFreezeUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SidebarSwipeFreezeUITests.swift; sourceTree = "<group>"; };
+		5EE15A11C0DE4A7E8B1A2C01 /* ReelsTapUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReelsTapUITests.swift; sourceTree = "<group>"; };
 		AA7F7ED971B64DE79A592E1E /* PDFInlineCarouselTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PDFInlineCarouselTests.swift; sourceTree = "<group>"; };
 		F7E1CFA0E65045DBBB9D7870 /* PDFInlineLab.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PDFInlineLab.swift; path = Features/Social/PDFInlineLab.swift; sourceTree = "<group>"; };
 		C60B54CD0D8A4495985F84DD /* PDFInlineCarousel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PDFInlineCarousel.swift; path = Features/Social/PDFInlineCarousel.swift; sourceTree = "<group>"; };
@@ -559,6 +567,7 @@
 		C0DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommentAttachExtras.swift; path = Features/Social/CommentAttachExtras.swift; sourceTree = "<group>"; };
 		C02F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaStickerExtras.swift; path = DesignSystem/AdvancedInteraction/ModulaStickerExtras.swift; sourceTree = "<group>"; };
 		C07A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaInlineCamera.swift; path = DesignSystem/AdvancedInteraction/ModulaInlineCamera.swift; sourceTree = "<group>"; };
+		C0MODULAPHOTOGRID00001 /* ModulaPhotoGrid.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaPhotoGrid.swift; path = DesignSystem/AdvancedInteraction/ModulaPhotoGrid.swift; sourceTree = "<group>"; };
 		C0COMPOSEMEDIAATTACH01 /* ComposeMediaAttach.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ComposeMediaAttach.swift; path = DesignSystem/AdvancedInteraction/ComposeMediaAttach.swift; sourceTree = "<group>"; };
 		C0B5F34784604E6B40CAC97C /* ModulaRichFormat.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaRichFormat.swift; path = DesignSystem/AdvancedInteraction/ModulaRichFormat.swift; sourceTree = "<group>"; };
 		C08FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaMascotHost.swift; path = DesignSystem/Mascot/ModulaMascotHost.swift; sourceTree = "<group>"; };
@@ -876,10 +885,13 @@
 		N4010000000000000000000A /* InMailStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailStore.swift; path = Features/InMail/InMailStore.swift; sourceTree = "<group>"; };
 		N4010000000000000000000B /* InMailViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailViews.swift; path = Features/InMail/InMailViews.swift; sourceTree = "<group>"; };
 		N4010000000000000000000C /* StoryModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryModels.swift; path = Features/Stories/StoryModels.swift; sourceTree = "<group>"; };
+		N40100000000000000000FFD /* StoryCamera.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryCamera.swift; path = Features/Stories/StoryCamera.swift; sourceTree = "<group>"; };
+		N40100000000000000000FFE /* StoryVideo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryVideo.swift; path = Features/Stories/StoryVideo.swift; sourceTree = "<group>"; };
 		N4010000000000000000000D /* StoryViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryViews.swift; path = Features/Stories/StoryViews.swift; sourceTree = "<group>"; };
 		N4010000000000000000000E /* ReelModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelModels.swift; path = Features/Reels/ReelModels.swift; sourceTree = "<group>"; };
 		N4010000000000000000000F /* ReelViewer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelViewer.swift; path = Features/Reels/ReelViewer.swift; sourceTree = "<group>"; };
 		A44422B2509D46A6802844A3 /* ReelChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelChrome.swift; path = Features/Reels/ReelChrome.swift; sourceTree = "<group>"; };
+		A44422B2509D46A6802845AA /* LiveViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LiveViews.swift; path = Features/Reels/LiveViews.swift; sourceTree = "<group>"; };
 		N40100000000000000000010 /* ProfilePresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfilePresentation.swift; path = Features/Profile/Customization/ProfilePresentation.swift; sourceTree = "<group>"; };
 		N40100000000000000000011 /* ProfileCustomizationViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileCustomizationViews.swift; path = Features/Profile/Customization/ProfileCustomizationViews.swift; sourceTree = "<group>"; };
 		N40100000000000000000012 /* N4CTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4CTests.swift; sourceTree = "<group>"; };
@@ -1031,6 +1043,8 @@
 				35F1D3F0EE4EADF1CF62C7DA /* MOL03PickerAmbientUITests.swift */,
 				05594AC12F22DBDCED56C4CE /* MOL03SettingsHubUITests.swift */,
 				B02FB311CBAA4285B556D18C /* PDFInlinePostUITests.swift */,
+				5EE15A11C0DE4A7E8B1A2C01 /* ReelsTapUITests.swift */,
+				5EE15A11C0DE4A7E8B1A2D01 /* SidebarSwipeFreezeUITests.swift */,
 				5E18744FE79D44EEB5422B45 /* MOL04CardsUITests.swift */,
 				471F7AF99CDC198799763F9B /* MOL03WorldUITests.swift */,
 				271267906D77E83307E9ECE3 /* MOL03OriginalsUITests.swift */,
@@ -1118,10 +1132,13 @@
 				N4010000000000000000000B /* InMailViews.swift */,
 				N4010000000000000000000C /* StoryModels.swift */,
 				N4010000000000000000000D /* StoryViews.swift */,
+				N40100000000000000000FFE /* StoryVideo.swift */,
+				N40100000000000000000FFD /* StoryCamera.swift */,
 				N4010000000000000000000E /* ReelModels.swift */,
 				N4010000000000000000000F /* ReelViewer.swift */,
 
 				A44422B2509D46A6802844A3 /* ReelChrome.swift */,
+				A44422B2509D46A6802845AA /* LiveViews.swift */,
 				N40100000000000000000010 /* ProfilePresentation.swift */,
 				N40100000000000000000011 /* ProfileCustomizationViews.swift */,
 				D40100000000000000000001 /* PrivateFileStore.swift */,
@@ -1205,6 +1222,7 @@
 				C02F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift */,
 				C07A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift */,
 				C0COMPOSEMEDIAATTACH01 /* ComposeMediaAttach.swift */,
+				C0MODULAPHOTOGRID00001 /* ModulaPhotoGrid.swift */,
 				C0B5F34784604E6B40CAC97C /* ModulaRichFormat.swift */,
 				C08FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift */,
 				C0F05546B4D00806E53DCE68 /* ModulaMascot.swift */,
@@ -1765,6 +1783,8 @@
 				929CC2DCFFFC0BC5DAE061DA /* MOL03PickerAmbientUITests.swift in Sources */,
 				ECD753AFA25857E5171A9671 /* MOL03SettingsHubUITests.swift in Sources */,
 				838D878E1CDE4F0798B71159 /* PDFInlinePostUITests.swift in Sources */,
+				5EE15A11C0DE4A7E8B1A2C02 /* ReelsTapUITests.swift in Sources */,
+				5EE15A11C0DE4A7E8B1A2D02 /* SidebarSwipeFreezeUITests.swift in Sources */,
 				8597201344E341F88520A56D /* MOL04CardsUITests.swift in Sources */,
 				78F1133071E4CE06BFD5A6E8 /* MOL03WorldUITests.swift in Sources */,
 				A536B925EA5BECC1C2A7F339 /* MOL03OriginalsUITests.swift in Sources */,
@@ -1900,10 +1920,13 @@
 				N5010000000000000000000B /* InMailViews.swift in Sources */,
 				N5010000000000000000000C /* StoryModels.swift in Sources */,
 				N5010000000000000000000D /* StoryViews.swift in Sources */,
+				N50100000000000000000FFE /* StoryVideo.swift in Sources */,
+				N50100000000000000000FFD /* StoryCamera.swift in Sources */,
 				N5010000000000000000000E /* ReelModels.swift in Sources */,
 				N5010000000000000000000F /* ReelViewer.swift in Sources */,
 
 				B34580D3CE7F4E9799B1B33C /* ReelChrome.swift in Sources */,
+				B34580D3CE7F4E9799B1B4AA /* LiveViews.swift in Sources */,
 				N50100000000000000000010 /* ProfilePresentation.swift in Sources */,
 				N50100000000000000000011 /* ProfileCustomizationViews.swift in Sources */,
 				F50100000000000000000001 /* ModulaImmersiveSurfaces.swift in Sources */,
@@ -1929,6 +1952,7 @@
 				C12F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift in Sources */,
 				C17A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift in Sources */,
 				C1COMPOSEMEDIAATTACH01 /* ComposeMediaAttach.swift in Sources */,
+				C1MODULAPHOTOGRID00001 /* ModulaPhotoGrid.swift in Sources */,
 				C1B5F34784604E6B40CAC97C /* ModulaRichFormat.swift in Sources */,
 				C18FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift in Sources */,
 				C1F05546B4D00806E53DCE68 /* ModulaMascot.swift in Sources */,

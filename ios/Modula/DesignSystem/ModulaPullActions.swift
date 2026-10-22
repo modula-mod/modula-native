@@ -164,6 +164,9 @@ struct ModulaPullActionsModifier: ViewModifier {
     @State private var refreshing = false
     @State private var atTop = true
     @State private var interacting = false
+    @State private var anchorY: CGFloat = 0
+    @State private var frozenAnchorY: CGFloat?
+    @State private var ownerID = UUID()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorScheme) private var colorScheme
@@ -213,18 +216,15 @@ struct ModulaPullActionsModifier: ViewModifier {
             }
             .simultaneousGesture(directionGesture)
             .scrollClipDisabled()
-            .overlay { frostOverlay }
-            .overlay(alignment: .top) {
-                if pull >= revealDistance || refreshing {
-                    ModulaPullActionsChooser(
-                        destination: destination,
-                        refreshing: refreshing,
-                        progress: refreshing ? 1 : min(max((pull - revealDistance) / max(armDistance - revealDistance, 1), 0), 1),
-                        liftsAboveContent: liftsAboveContent
-                    )
-                    .padding(.top, 6)
-                }
+            // The frost + chooser render at the app root (ModulaPullOverlayHost) so the blur
+            // covers the whole screen — header, tab bar, Tools bar and edge rail included.
+            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { if !ShellChromeFreeze.isSidebarDragging { anchorY = $0 } else { frozenAnchorY = $0 } }
+            .onReceive(NotificationCenter.default.publisher(for: ShellChromeFreeze.didThaw)) { _ in
+                if let frozenAnchorY { anchorY = frozenAnchorY }
+                frozenAnchorY = nil
             }
+            .onChange(of: overlayState) { _, state in publish(state) }
+            .onDisappear { ModulaPullOverlayCenter.shared.clear(owner: ownerID) }
             .accessibilityAction(named: "Refresh") {
                 Task { await runRefresh() }
             }
@@ -233,26 +233,26 @@ struct ModulaPullActionsModifier: ViewModifier {
             .accessibilityAction(named: "AI Mode") { onAI() }
     }
 
-    /// Frosts the live feed (and the rubber-band gap) so pull actions sit on glass, not a black void.
-    @ViewBuilder
-    private var frostOverlay: some View {
-        let visible = progress > 0.05 || refreshing
-        if visible {
-            let opaque = reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
-            ZStack {
-                if opaque {
-                    Color.primary.opacity(0.22 * progress)
-                        .blendMode(.overlay)
-                    Color.black.opacity((colorScheme == .dark ? 0.38 : 0.16) * progress)
-                } else {
-                    Rectangle()
-                        .fill(.ultraThinMaterial)
-                        .opacity(Double(min(0.28 + progress * 0.62, 0.9)))
-                    Color.black.opacity((colorScheme == .dark ? 0.2 : 0.06) * progress)
-                }
-            }
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
+    private var overlayState: ModulaPullOverlayState? {
+        guard progress > 0.05 || refreshing else { return nil }
+        return ModulaPullOverlayState(
+            progress: progress,
+            chooserVisible: pull >= revealDistance || refreshing,
+            chooserProgress: refreshing ? 1 : min(max((pull - revealDistance) / max(armDistance - revealDistance, 1), 0), 1),
+            destination: destination,
+            refreshing: refreshing,
+            interacting: interacting,
+            anchorY: anchorY,
+            liftsAboveContent: liftsAboveContent
+        )
+    }
+
+    private func publish(_ state: ModulaPullOverlayState?) {
+        let center = ModulaPullOverlayCenter.shared
+        if let state {
+            center.show(state, owner: ownerID) { reset() }
+        } else {
+            center.clear(owner: ownerID)
         }
     }
 
@@ -393,9 +393,104 @@ private struct ModulaPullContentEffectsModifier: ViewModifier {
     func body(content: Content) -> some View {
         let t = min(max(progress, 0), 1)
         content
-            .blur(radius: (reduceMotion || reduceTransparency) ? 0 : t * 14)
             .opacity(1 - t * 0.06)
             .scaleEffect(reduceMotion ? 1 : 1 - t * 0.02, anchor: .top)
             .offset(y: reduceMotion ? 0 : -min(pull * 0.68, 88))
+    }
+}
+
+struct ModulaPullOverlayState: Equatable {
+    var progress: CGFloat
+    var chooserVisible: Bool
+    var chooserProgress: CGFloat
+    var destination: ModulaPullDestination
+    var refreshing: Bool
+    var interacting: Bool
+    var anchorY: CGFloat
+    var liftsAboveContent: Bool
+}
+
+/// Shared pull-menu state so the frost can live above the whole shell.
+@MainActor @Observable
+final class ModulaPullOverlayCenter {
+    static let shared = ModulaPullOverlayCenter()
+    private(set) var state: ModulaPullOverlayState?
+    /// Set when the user taps outside during a refresh; hides the chrome until the pull cycle ends.
+    private(set) var dismissed = false
+    @ObservationIgnored private var owner: UUID?
+    @ObservationIgnored private var onDismiss: (() -> Void)?
+
+    func show(_ state: ModulaPullOverlayState, owner: UUID, onDismiss: @escaping () -> Void) {
+        if self.owner != owner { dismissed = false }
+        self.owner = owner
+        self.onDismiss = onDismiss
+        if self.state != state { self.state = state }
+    }
+
+    func clear(owner: UUID) {
+        guard self.owner == owner else { return }
+        state = nil
+        dismissed = false
+        self.owner = nil
+        onDismiss = nil
+    }
+
+    func dismiss() {
+        dismissed = true
+        onDismiss?()
+    }
+}
+
+/// Full-screen frost + pull chooser, mounted at the app root above all chrome.
+struct ModulaPullOverlayHost: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var colorScheme
+    private var center = ModulaPullOverlayCenter.shared
+
+    var body: some View {
+        if let state = center.state, !center.dismissed {
+            let p = min(max(state.progress, 0), 1)
+            let opaque = reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
+            ZStack(alignment: .top) {
+                Group {
+                    if opaque {
+                        // No translucency: a solid-ish dim instead of a blur.
+                        Color.black.opacity((colorScheme == .dark ? 0.55 : 0.28) * p)
+                    } else {
+                        ZStack {
+                            Rectangle()
+                                .fill(.ultraThinMaterial)
+                                // Reduce Motion: no progressive ramp, just present.
+                                .opacity(reduceMotion ? 0.9 : Double(min(0.2 + p * 0.75, 0.95)))
+                            Color.black.opacity((colorScheme == .dark ? 0.22 : 0.08) * (reduceMotion ? 1 : p))
+                        }
+                    }
+                }
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                // While the finger drives the pull, let touches reach the scroll view; once released
+                // (e.g. refreshing) the frost is a tap-to-dismiss surface.
+                .allowsHitTesting(!state.interacting)
+                .onTapGesture { center.dismiss() }
+                .accessibilityLabel("Dismiss")
+                .accessibilityAddTraits(.isButton)
+
+                if state.chooserVisible {
+                    ModulaPullActionsChooser(
+                        destination: state.destination,
+                        refreshing: state.refreshing,
+                        progress: state.chooserProgress,
+                        liftsAboveContent: state.liftsAboveContent
+                    )
+                    .padding(.top, max(state.anchorY, 0) + 6)
+                    .frame(maxWidth: .infinity, alignment: .top)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .ignoresSafeArea()
+            .transition(.opacity)
+        }
     }
 }

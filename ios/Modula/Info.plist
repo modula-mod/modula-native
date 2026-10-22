@@ -35,6 +35,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Modula shows your photos in its own picker so you can attach them to posts and stories. Nothing is uploaded until you choose it and post.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Modula saves photos you take in the composer and Stories you post to your library when you turn that on in Settings.</string>
 	<key>NSCameraUsageDescription</key>
@@ -44,7 +46,7 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Modula uses the microphone so you can dictate into Nodus on this iPhone. Audio is recognized on device and is not uploaded.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Modula uses on-device speech recognition to turn your voice into text in Nodus. Speech audio does not leave this iPhone.</string>
+	<string>Modula uses on-device speech recognition to turn your voice into text in Nodus and to caption your story videos. Speech audio does not leave this iPhone.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Modula uses Face ID to unlock the app after you enable App Lock. Face ID never replaces your Modula account sign-in, and biometric data never leaves this device.</string>
 	<key>ModulaNodusChatEnabled</key>

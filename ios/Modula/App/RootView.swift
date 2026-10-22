@@ -39,8 +39,10 @@ struct RootView: View {
                     .padding(.top, 48)
             }
         }
-        .modulaSidebarEdgeOpen()
-        .overlay { ShellSidebarHost() }
+        // ChatGPT-style push sidebar: the shell becomes a rounded card that slides right.
+        .modulaSidebarContainer()
+        // Pull menu frost covers the entire screen (header, tab bar, Tools bar, edge rail).
+        .overlay { ModulaPullOverlayHost() }
         // Liquid Glass post menu: above tabs and chrome so it can blur the whole screen.
         .overlay { PostMenuHost() }
         .overlay { CommandPaletteHost() }
@@ -50,8 +52,8 @@ struct RootView: View {
         }
         .overlay {
             // Morphs from Dynamic Island (or notch/status fallback). Shared by every `flash`.
-            ModulaIslandBannerHost(banner: navigation.banner)
-                .ignoresSafeArea(edges: .top)
+            // Toasts render in ModulaToastWindow (above sheets); nothing to host here.
+            EmptyView()
         }
         .overlay(alignment: .top) {
             if debugOverlays { ModulaDebugOverlay(route: navigation.currentRoute) }

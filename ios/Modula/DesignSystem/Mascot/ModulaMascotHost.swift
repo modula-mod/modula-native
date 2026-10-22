@@ -172,6 +172,7 @@ struct ModulaLiveMascot: View {
     @State private var visible = false
     @State private var motionOn = false
     @State private var frame: CGRect = .zero
+    @State private var frozenFrame: CGRect?
     private let context = MascotContext.shared
 
     /// Whole view's size: figure canvas plus room for glow, bubbles and particles.
@@ -202,7 +203,11 @@ struct ModulaLiveMascot: View {
             }
             .frame(width: c.width, height: c.height)
         }
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { if !ShellChromeFreeze.isSidebarDragging { frame = $0 } else { frozenFrame = $0 } }
+        .onReceive(NotificationCenter.default.publisher(for: ShellChromeFreeze.didThaw)) { _ in
+            if let frozenFrame { frame = frozenFrame }
+            frozenFrame = nil
+        }
         .onAppear { visible = true; context.start(); brain.jiggle = kind == .tofu ? 0.05 : 0.025; syncMotion() }
         .onDisappear { visible = false; syncMotion() }
         .onReceive(NotificationCenter.default.publisher(for: ModulaMascotEvent.notification)) { note in
@@ -392,8 +397,8 @@ extension View {
 
     /// Draws the mascot (if enabled for `placement`) above everything in this composer, perched on the
     /// `modulaMascotPerch()` bar (or this view's own bounds), `trailingInset` in from its right edge.
-    func modulaComposerMascot(_ placement: ModulaMascotPlacement, busy: Bool = false, text: String = "", attachmentCount: Int = 0, trailingInset: CGFloat = 26) -> some View {
-        modifier(ModulaComposerMascotModifier(placement: placement, busy: busy, text: text, attachmentCount: attachmentCount, trailingInset: trailingInset))
+    func modulaComposerMascot(_ placement: ModulaMascotPlacement, busy: Bool = false, text: String = "", attachmentCount: Int = 0, trailingInset: CGFloat = 26, slotted: Bool = false) -> some View {
+        modifier(ModulaComposerMascotModifier(placement: placement, busy: busy, text: text, attachmentCount: attachmentCount, trailingInset: trailingInset, slotted: slotted))
     }
 }
 
@@ -403,12 +408,16 @@ struct ModulaComposerMascotModifier: ViewModifier {
     var text: String
     var attachmentCount: Int
     var trailingInset: CGFloat
+    /// When true the mascot sits *inside* the `modulaMascotPerch()` slot (centred, scaled to fit)
+    /// instead of standing on top of the bar, so it can never cover neighbouring controls.
+    var slotted: Bool = false
     @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
     @AppStorage private var shown: Bool
     @State private var touch: CGPoint?
     private let size: CGFloat = 48
 
-    init(placement: ModulaMascotPlacement, busy: Bool, text: String, attachmentCount: Int, trailingInset: CGFloat) {
+    init(placement: ModulaMascotPlacement, busy: Bool, text: String, attachmentCount: Int, trailingInset: CGFloat, slotted: Bool = false) {
+        self.slotted = slotted
         self.placement = placement
         self.busy = busy
         self.text = text
@@ -439,10 +448,11 @@ struct ModulaComposerMascotModifier: ViewModifier {
                 .overlayPreferenceValue(MascotPerchKey.self) { anchor in
                     GeometryReader { proxy in
                         let bar = anchor.map { proxy[$0] } ?? CGRect(origin: .zero, size: proxy.size)
-                        let x = bar.maxX - trailingInset - size * kind.bodySize.width / 2
-                        // Feet sink ~6pt into the bar's top edge.
-                        let y = bar.minY + 6 - kind.footFraction * size
-                        ModulaComposerMascot(kind: kind, busy: busy, touch: touch, text: text, attachmentCount: attachmentCount, placement: placement, size: size, custom: custom) { kindRaw = $0.rawValue }
+                        let s: CGFloat = slotted ? min(bar.height, bar.width) * 0.95 : size
+                        let x = slotted ? bar.midX : bar.maxX - trailingInset - size * kind.bodySize.width / 2
+                        // Slotted: feet rest on the slot floor. Perched: feet sink ~6pt into the bar's top edge.
+                        let y = slotted ? bar.maxY - 2 - kind.footFraction * s : bar.minY + 6 - kind.footFraction * size
+                        ModulaComposerMascot(kind: kind, busy: busy, touch: touch, text: text, attachmentCount: attachmentCount, placement: placement, size: s, custom: custom) { kindRaw = $0.rawValue }
                             .position(x: x, y: y)
                     }
                 }

@@ -1,3 +1,5 @@
+import LinkPresentation
+import Photos
 import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
@@ -23,10 +25,15 @@ struct CreationStudioView: View {
     @State private var mediaStage: ComposeMediaStage = .collapsed
     @State private var showFileImporter = false
     @State private var showMoreOptions = false
+    @AppStorage(ModulaMascotSettings.key(for: .other)) private var mascotShown = ModulaMascotSettings.defaultShown(.other)
+    @State private var barScrollWidth: CGFloat = 0
     @State private var localLinkURL = "https://"
     @State private var appeared = false
     @State private var publishTask: Task<Void, Never>?
     @State private var publishMorph = false
+    @StateObject private var photoLibrary = ModulaPhotoLibraryModel(includeVideos: true)
+    @State private var showsFullCamera = false
+    @State private var cameraLibraryItems: [PhotosPickerItem] = []
 
     init(route: ComposeRoute) {
         self.route = route
@@ -170,7 +177,7 @@ struct CreationStudioView: View {
             } label: {
                 Text(store.draft.isPublishing ? "Stop" : "Cancel")
                     .font(.body.weight(.medium))
-                    .foregroundStyle(store.draft.isPublishing ? Color.red.opacity(0.9) : Color.secondary)
+                    .foregroundStyle(store.draft.isPublishing ? Color.red : Color.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     .modulaGlass(in: Capsule(), interactive: true, specular: true)
@@ -196,9 +203,16 @@ struct CreationStudioView: View {
             } label: {
                 Text(store.draft.kind.publishLabel)
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(store.canPublish ? Color.white : Color.secondary)
+                    .foregroundStyle(store.canPublish ? Color.white : Color.primary.opacity(0.78))
                     .padding(.horizontal, store.canPublish ? 20 : 16)
                     .padding(.vertical, 8)
+                    .background {
+                        // Disabled: a solid neutral fill keeps the label readable on any backdrop.
+                        if !store.canPublish { Capsule().fill(Color(uiColor: .tertiarySystemFill)) }
+                    }
+                    .overlay {
+                        Capsule().strokeBorder(Color.primary.opacity(store.canPublish ? 0 : 0.30), lineWidth: 1)
+                    }
                     .scaleEffect(publishMorph ? 0.92 : 1)
                     .modulaGlass(
                         in: Capsule(),
@@ -245,26 +259,13 @@ struct CreationStudioView: View {
                     }
 
                     if mediaStage.isExpanded {
-                        ComposeMediaAttachStage(
-                            stage: $mediaStage,
-                            accent: accent,
-                            idPrefix: "compose.media",
-                            height: 300,
-                            maxSelectionCount: store.capabilities.carouselPost
-                                ? (store.capabilities.maxMediaCount ?? 10) : 1,
-                            matching: .images,
-                            cameraModes: store.capabilities.videoPost ? [.photo, .video] : [.photo],
-                            onPhotosPicked: { items in
-                                Task { await store.attachImages(items) }
-                            },
-                            onCameraPhoto: { image in
-                                Task { await store.attachCameraImage(image) }
-                            },
-                            onCameraVideo: { url in
-                                Task { await store.attachCameraVideo(url) }
-                            }
-                        )
+                        mediaAttachStage(store, accent: accent)
                         .modulaGlassID("compose.media.stage", in: glassMorph)
+                    }
+
+                    if store.draft.link == nil, let url = ComposerLinkDetector.firstURL(in: store.draft.text) {
+                        ComposerLinkPreviewCard(url: url)
+                            .transition(.opacity)
                     }
 
                     if !store.draft.media.isEmpty {
@@ -383,7 +384,7 @@ struct CreationStudioView: View {
                 }
             })
 
-            if ModulaPreferences.explainLimitedLibrary, mediaStage == .library {
+            if false, ModulaPreferences.explainLimitedLibrary, mediaStage == .library {
                 HStack(alignment: .top, spacing: 6) {
                     Image(systemName: "lock.fill")
                         .font(.caption2.weight(.semibold))
@@ -422,7 +423,8 @@ struct CreationStudioView: View {
                     onAbbr: { linkSheet = .abbr },
                     onTranslate: nil
                 )
-                .padding(.horizontal, 10)
+                .padding(.leading, mascotShown ? 62 : 10)
+                .padding(.trailing, 10)
                 .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 .accessibilityIdentifier("compose.formatting")
             }
@@ -444,7 +446,7 @@ struct CreationStudioView: View {
             }
             accessoryBar(store)
                 .accessibilitySortPriority(40)
-                .modulaComposerMascot(.other, busy: store.draft.isPublishing, text: store.draft.text, attachmentCount: store.draft.media.count)
+                .modulaComposerMascot(.other, busy: store.draft.isPublishing, text: store.draft.text, attachmentCount: store.draft.media.count, slotted: true)
             if mediaPanelActive {
                 ModulaComposerMediaPanel(
                     client: app.client,
@@ -476,6 +478,78 @@ struct CreationStudioView: View {
         .onChange(of: editorFocused) { _, focused in
             if focused { mediaPanelActive = false }
         }
+        .fullScreenCover(isPresented: $showsFullCamera) {
+            StoryCaptureStage(
+                canVideo: store.capabilities.videoPost,
+                libraryItems: $cameraLibraryItems,
+                onPhoto: { image in
+                    showsFullCamera = false
+                    Task { await store.attachCameraImage(image) }
+                },
+                onVideo: { url in
+                    showsFullCamera = false
+                    Task { await store.attachCameraVideo(url) }
+                },
+                onText: {},
+                onLayout: {},
+                onClose: { showsFullCamera = false },
+                allowedModes: store.capabilities.videoPost ? [.photo, .video] : [.photo]
+            )
+            .environment(app)
+        }
+        .onChange(of: cameraLibraryItems) { _, items in
+            guard !items.isEmpty else { return }
+            cameraLibraryItems = []
+            showsFullCamera = false
+            Task { await store.attachImages(items) }
+        }
+    }
+
+    private func mediaAttachStage(_ store: CreationStudioStore, accent: Color) -> some View {
+        let maxCount = store.capabilities.carouselPost ? (store.capabilities.maxMediaCount ?? 10) : 1
+        let modes: [ModulaInlineCamera.Mode] = store.capabilities.videoPost ? [.photo, .video] : [.photo]
+        return ComposeMediaAttachStage(
+            stage: $mediaStage,
+            accent: accent,
+            idPrefix: "compose.media",
+            height: 300,
+            maxSelectionCount: store.capabilities.carouselPost
+                ? (store.capabilities.maxMediaCount ?? 10) : 1,
+            matching: .images,
+            cameraModes: modes,
+            onPhotosPicked: { items in
+                Task { await store.attachImages(items) }
+            },
+            onCameraPhoto: { image in
+                Task { await store.attachCameraImage(image) }
+            },
+            onCameraVideo: { url in
+                Task { await store.attachCameraVideo(url) }
+            },
+            photoLibrary: photoLibrary,
+            onAssetsPicked: { assets in
+                Task {
+                    for asset in assets {
+                        if asset.mediaType == .video {
+                            if let url = await photoLibrary.videoFile(asset) {
+                                await store.attachCameraVideo(url)
+                            }
+                        } else if let image = await photoLibrary.fullImage(asset) {
+                            await store.attachCameraImage(image)
+                        }
+                    }
+                }
+            },
+            allowsVideo: store.capabilities.videoPost,
+            onVideoBlocked: {
+                app.navigation.flash("Video posts aren’t available yet — pick photos", symbol: "video.slash")
+            },
+            onOpenCamera: {
+                editorFocused = false
+                withAnimation(stageMotion) { mediaStage = .collapsed }
+                showsFullCamera = true
+            }
+        )
     }
 
     private func insertText(_ value: String, _ store: CreationStudioStore) {
@@ -540,15 +614,24 @@ struct CreationStudioView: View {
         let caps = store.capabilities
         return ModulaGlassGroup(spacing: 6) {
             HStack(spacing: 4) {
+                if mascotShown {
+                    // Moliboo's own reserved slot — it lives here and never covers a control.
+                    Color.clear
+                        .frame(width: 44, height: 44)
+                        .modulaMascotPerch()
+                        .accessibilityHidden(true)
+                }
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 2) {
+                    HStack(spacing: barSpacing(caps)) {
                         if caps.toolEnabled(.photo) {
                             barIcon("photo.on.rectangle.angled", "Photo", id: "compose.tool.photo", active: mediaStage == .library, accent: accent) {
                                 toggleStage(.library)
                             }
                             if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                                barIcon("camera", "Camera", id: "compose.tool.camera", active: mediaStage == .camera, accent: accent) {
-                                    toggleStage(.camera)
+                                barIcon("camera", "Camera", id: "compose.tool.camera", active: showsFullCamera, accent: accent) {
+                                    editorFocused = false
+                                    withAnimation(stageMotion) { mediaStage = .collapsed }
+                                    showsFullCamera = true
                                 }
                             }
                         }
@@ -592,9 +675,19 @@ struct CreationStudioView: View {
                             showMoreOptions = true
                         }
                     }
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, 6)
                 }
-                .scrollClipDisabled()
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { barScrollWidth = $0 }
+                // Keep icons inside the pill: clip to the capsule and feather both edges.
+                .clipShape(Capsule())
+                .mask {
+                    LinearGradient(stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: .black, location: 0.06),
+                        .init(color: .black, location: 0.94),
+                        .init(color: .clear, location: 1)
+                    ], startPoint: .leading, endPoint: .trailing)
+                }
 
                 if let limit = caps.characterLimit, limit > 0 {
                     CharacterRing(count: store.draft.text.count, limit: limit, accent: accent)
@@ -624,6 +717,17 @@ struct CreationStudioView: View {
         editorFocused = false
         mediaPanelActive = false
         withAnimation(stageMotion) { mediaStage = mediaStage == target ? .collapsed : target }
+    }
+
+    /// Even spacing: spread the icons across the visible scroll width; fall back to tight
+    /// spacing (and scrolling) when they don't fit.
+    private func barSpacing(_ caps: CreationCapabilities) -> CGFloat {
+        var n = 5 // file, media, voice, mention, more
+        if caps.toolEnabled(.photo) { n += UIImagePickerController.isSourceTypeAvailable(.camera) ? 2 : 1 }
+        if caps.videoPost { n += 1 }
+        if caps.pollPost { n += 1 }
+        let free = barScrollWidth - 12 - CGFloat(n) * 44
+        return n > 1 ? max(2, min(14, free / CGFloat(n - 1))) : 2
     }
 
     private func barIcon(_ symbol: String, _ label: String, id: String, active: Bool = false, accent: Color, action: @escaping () -> Void) -> some View {
@@ -839,8 +943,8 @@ private struct ComposerBarIconLabel: View {
         Image(systemName: symbol)
             .font(.system(size: 17, weight: .semibold))
             .foregroundStyle(active ? accent : Color.primary.opacity(0.8))
-            .frame(width: 40, height: 40)
-            .background(Circle().fill(accent.opacity(active ? 0.16 : 0)))
+            .frame(width: 44, height: 44)
+            .background(Circle().fill(accent.opacity(active ? 0.16 : 0)).padding(2))
             .contentShape(Circle())
     }
 }
@@ -848,4 +952,66 @@ private struct ComposerBarIconLabel: View {
 private struct ComposerLinkSheetItem: Identifiable {
     let mode: ModulaLinkInsertSheet.Mode
     var id: String { mode == .link ? "link" : "abbr" }
+}
+
+// MARK: - Link preview card (LinkPresentation, on device)
+
+enum ComposerLinkDetector {
+    static func firstURL(in text: String) -> URL? {
+        guard text.contains("."), let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return nil }
+        let range = NSRange(text.startIndex..., in: text)
+        guard let url = detector.firstMatch(in: text, options: [], range: range)?.url,
+              let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http" else { return nil }
+        return url
+    }
+}
+
+struct ComposerLinkPreviewCard: View {
+    let url: URL
+    @State private var metadata: LPLinkMetadata?
+    @State private var failed = false
+
+    var body: some View {
+        Group {
+            if let metadata {
+                ComposerLinkView(metadata: metadata)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 96)
+            } else if !failed {
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text(url.host() ?? url.absoluteString).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                .padding(.horizontal, 12)
+                .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+        }
+        .accessibilityLabel("Link preview for \(url.host() ?? url.absoluteString)")
+        .task(id: url) {
+            metadata = nil
+            failed = false
+            try? await Task.sleep(for: .milliseconds(450))   // debounce while typing
+            guard !Task.isCancelled else { return }
+            let provider = LPMetadataProvider()
+            provider.timeout = 8
+            do {
+                let result = try await provider.startFetchingMetadata(for: url)
+                guard !Task.isCancelled else { return }
+                metadata = result
+            } catch {
+                failed = true
+            }
+        }
+    }
+}
+
+private struct ComposerLinkView: UIViewRepresentable {
+    let metadata: LPLinkMetadata
+    func makeUIView(context: Context) -> LPLinkView {
+        let view = LPLinkView(metadata: metadata)
+        view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return view
+    }
+    func updateUIView(_ uiView: LPLinkView, context: Context) { uiView.metadata = metadata }
 }

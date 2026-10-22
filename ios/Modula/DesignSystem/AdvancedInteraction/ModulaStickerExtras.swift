@@ -217,19 +217,22 @@ struct ModulaKaomojiGrid: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 10, pinnedViews: [.sectionHeaders]) {
+            LazyVStack(alignment: .leading, spacing: 14) {
                 if !recents.isEmpty { section("Recent", recents) }
                 ForEach(ModulaKaomoji.sections, id: \.0) { title, faces in section(title, faces) }
             }
             .padding(.horizontal, 12)
-            .padding(.bottom, 12)
+            .padding(.bottom, 24)
         }
+        .scrollIndicators(.hidden)
         .accessibilityIdentifier("composer.panel.kaomoji")
     }
 
     private func section(_ title: String, _ faces: [String]) -> some View {
-        Section {
-            ModulaFlowLayout(spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary).padding(.horizontal, 2)
+            // Equal-size cells in a fixed 3-column grid; no glass per chip, so nothing stays highlighted.
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
                 ForEach(faces, id: \.self) { face in
                     Button {
                         onPick(face)
@@ -238,14 +241,19 @@ struct ModulaKaomojiGrid: View {
                         recentRaw = list.prefix(12).joined(separator: "\u{1F}")
                         HapticEngine.shared.play(.selection)
                     } label: {
-                        Text(face).font(.callout).lineLimit(1).padding(.horizontal, 12).frame(height: 36)
+                        Text(face)
+                            .font(.callout)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                            .padding(.horizontal, 6)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 42)
+                            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
-                    .buttonStyle(.plain)
-                    .modulaGlass(in: Capsule())
+                    .buttonStyle(KaomojiKeyStyle())
+                    .accessibilityLabel(face)
                 }
             }
-        } header: {
-            Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary).padding(.vertical, 2)
         }
     }
 }
@@ -407,5 +415,18 @@ extension View {
                 LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing).frame(width: width)
             }
         }
+    }
+}
+
+private struct KaomojiKeyStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(.primary)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.primary.opacity(configuration.isPressed ? 0.14 : 0.06))
+            )
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .animation(.snappy(duration: 0.15), value: configuration.isPressed)
     }
 }

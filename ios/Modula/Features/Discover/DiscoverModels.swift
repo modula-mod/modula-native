@@ -446,7 +446,8 @@ extension DiscoverPost {
             SocialAuthor(id: $0.id, handle: $0.handle, displayName: $0.displayName, avatarURL: $0.avatarURL)
         }
         let media: [SocialPostMedia] = {
-            guard let media else { return [] }
+            // Colour-only placeholders (no URL) aren't real media; render as a text post.
+            guard let media, media.url != nil else { return [] }
             return [
                 SocialPostMedia(
                     id: "\(id)-media",

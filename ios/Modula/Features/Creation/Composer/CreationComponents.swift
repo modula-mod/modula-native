@@ -256,111 +256,118 @@ struct CreationMoreOptionsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private let columns = [GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12)]
+
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    optionRow(.files, available: capabilities.mediaUpload, action: {
-                        dismiss()
-                        onFiles()
-                    })
-                    optionRow(.link, available: true, action: {
-                        dismiss()
-                        onLink()
-                    })
-                    optionRow(.poll, available: true, action: {
-                        dismiss()
-                        onPoll()
-                    })
-                } header: {
-                    Text("Attach")
-                } footer: {
-                    Text("Photo and Camera live on the composer rail. Link and Poll insert into your draft as text until Greenfield structured types are enabled.")
+        VStack(spacing: 0) {
+            header
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    section("Add to post") {
+                        tile(.files, enabled: capabilities.mediaUpload) { onFiles() }
+                        tile(.link, enabled: true) { onLink() }
+                        tile(.poll, enabled: true) { onPoll() }
+                    }
+                    section("Writing") {
+                        tile(.mentions, enabled: true) { onMentionsTip() }
+                        tile(.hashtags, enabled: true) { onHashtagsTip() }
+                    }
                 }
-
-                Section {
-                    optionRow(.mentions, available: capabilities.mentionsLookup, action: {
-                        dismiss()
-                        onMentionsTip()
-                    })
-                    optionRow(.hashtags, available: capabilities.topicsLookup, action: {
-                        dismiss()
-                        onHashtagsTip()
-                    })
-                } header: {
-                    Text("Writing")
-                }
-
-                Section {
-                    placeholderRow(.schedule)
-                    placeholderRow(.contentWarning)
-                    placeholderRow(.location)
-                } header: {
-                    Text("Coming later")
-                } footer: {
-                    Text("These stay visible so the composer shows the roadmap — they don’t invent APIs or fake publish.")
-                }
+                .padding(.horizontal, 18)
+                .padding(.top, 6)
+                .padding(.bottom, 24)
             }
-            .listStyle(.insetGrouped)
-            .navigationTitle("More")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
+            .scrollBounceBehavior(.basedOnSize)
         }
+        .modifier(MoreSheetBackground())
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        .presentationCornerRadius(32)
         .accessibilityIdentifier("compose.more.sheet")
     }
 
-    private func optionRow(_ option: CreationMoreOption, available: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            label(option, badge: available ? nil : "Limited")
+    private var header: some View {
+        HStack {
+            Text("More")
+                .font(.title3.weight(.bold))
+                .accessibilityAddTraits(.isHeader)
+            Spacer()
+            Button("Done") { dismiss() }
+                .font(.body.weight(.semibold))
+                .foregroundStyle(Color.primary)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .modulaGlass(in: Capsule(), interactive: true, specular: true)
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("compose.more.done")
         }
-        .disabled(!available && option != .link && option != .poll && option != .mentions && option != .hashtags)
+        .padding(.horizontal, 18)
+        .padding(.top, 22)
+        .padding(.bottom, 12)
+    }
+
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        let tiles = content()
+        return VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .padding(.horizontal, 4)
+            ModulaGlassGroup(spacing: 12) {
+                LazyVGrid(columns: columns, spacing: 12) { tiles }
+            }
+        }
+    }
+
+    private func tile(_ option: CreationMoreOption, enabled: Bool, soon: Bool = false, action: @escaping () -> Void) -> some View {
+        Button {
+            HapticEngine.shared.play(.selection)
+            dismiss()
+            action()
+        } label: {
+            VStack(spacing: 8) {
+                Image(systemName: option.symbol)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(soon ? Color.secondary : accent)
+                    .frame(height: 28)
+                Text(option.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(soon ? Color.secondary : Color.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.85)
+                if soon {
+                    Text("Soon")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(.secondary.opacity(0.14), in: Capsule())
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 96)
+            .padding(.vertical, 6)
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: enabled, tint: soon ? nil : accent.opacity(0.12), specular: !soon)
+            .opacity(soon ? 0.55 : (enabled ? 1 : 0.7))
+        }
+        .buttonStyle(.plain)
+        .disabled(soon || !enabled)
+        .accessibilityLabel(option.title)
+        .accessibilityHint(option.subtitle)
         .accessibilityIdentifier("compose.more.\(option.rawValue)")
     }
+}
 
-    private func placeholderRow(_ option: CreationMoreOption) -> some View {
-        label(option, badge: "Not yet")
-            .foregroundStyle(.secondary)
-            .accessibilityIdentifier("compose.more.\(option.rawValue)")
-            .accessibilityHint(option.subtitle)
-    }
-
-    private func label(_ option: CreationMoreOption, badge: String?) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: option.symbol)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(accent)
-                .frame(width: 36, height: 36)
-                .modulaGlass(in: RoundedRectangle(cornerRadius: 10, style: .continuous), interactive: false, tint: accent.opacity(0.28), specular: true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(option.title)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(Color.primary)
-                Text(option.subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 0)
-            if let badge {
-                Text(badge)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(.secondary.opacity(0.12), in: Capsule())
-            } else {
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-            }
+/// Liquid Glass sheet background on iOS 26; thin material fallback before that.
+private struct MoreSheetBackground: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26, *) {
+            content.presentationBackground(.clear).background(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 32)).ignoresSafeArea())
+        } else {
+            content.presentationBackground(.ultraThinMaterial)
         }
-        .contentShape(Rectangle())
     }
 }
 

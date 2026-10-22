@@ -274,7 +274,10 @@ struct ModulaVideoSurface: View {
     var controlsTopInset: CGFloat = 0
     /// Immersive feed card: no expand button (the rail has one), thin progress bar + time.
     var immersive = false
-    @State private var controller = ModulaVideoPlaybackController()
+    /// Optional host-owned controller (Reels drives pause/speed/mute from its own gestures).
+    var externalController: ModulaVideoPlaybackController? = nil
+    @State private var ownController = ModulaVideoPlaybackController()
+    private var controller: ModulaVideoPlaybackController { externalController ?? ownController }
     @State private var download = AttachmentDownloadModel()
     @State private var decodedPoster: UIImage?
     @State private var waitingForTap = false
@@ -358,7 +361,7 @@ struct ModulaVideoSurface: View {
             }
         }
         .overlay {
-            if immersive, controller.player != nil, controller.state != .playing {
+            if immersive, controller.player != nil, controller.state == .paused {
                 Image(systemName: "play.fill")
                     .font(.system(size: 26, weight: .semibold))
                     .foregroundStyle(.white)

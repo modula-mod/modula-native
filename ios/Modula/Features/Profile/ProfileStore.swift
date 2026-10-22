@@ -134,21 +134,27 @@ final class ProfileStore {
                 return
             }
             if hasContent {
+                // Cached profile stays on screen; a transient refresh failure isn't worth a toast.
                 state.loadState = .loaded
                 state.lastError = api.userFacingMessage
                 sessions[key] = state
-                actionError = api.userFacingMessage
             } else {
                 state.loadState = .failed(api.userFacingMessage)
                 state.lastError = api.userFacingMessage
                 sessions[key] = state
             }
         } catch {
+            // Pull-to-refresh used to cancel its own request (the refresh task is torn down
+            // when the view re-renders), which surfaced as a bogus "Unable to load profile."
+            // Cancellation and transient failures over cached content are silent.
+            let cancelled = error is CancellationError || (error as? URLError)?.code == .cancelled
+            #if DEBUG
+            print("[Profile] refresh failed (\(cancelled ? "cancelled" : "error")): \(error)")
+            #endif
             let message = "Unable to load profile."
-            if hasContent {
-                state.loadState = .loaded
+            if hasContent || cancelled {
+                state.loadState = hasContent ? .loaded : .idle
                 sessions[key] = state
-                actionError = message
             } else {
                 state.loadState = .failed(message)
                 sessions[key] = state

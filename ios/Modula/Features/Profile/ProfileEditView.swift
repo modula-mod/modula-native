@@ -3,6 +3,7 @@ import SwiftUI
 struct ProfileEditView: View {
     @Environment(AppEnvironment.self) private var app
     @State private var confirmsDiscard = false
+    @State private var confirmsLogOut = false
     @State private var mediaAction: ProfileMediaWorkspaceAction?
     @State private var mediaViewer: ModulaMediaViewerItem?
     @State private var showsAvatarOverlays = false
@@ -50,6 +51,22 @@ struct ProfileEditView: View {
                 .disabled(editing.status == .saving || draft?.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true)
                 .accessibilityIdentifier("profile.edit.save")
                 .accessibilityLabel(editing.status == .saving ? "Saving" : "Save")
+
+                TelegramSettingsCard {
+                    TelegramRow(title: "Log Out", symbol: "rectangle.portrait.and.arrow.right", tint: .red, titleColor: .red) {
+                        confirmsLogOut = true
+                    }
+                }
+                .padding(.top, 12)
+                .confirmationDialog("Log out of Modula?", isPresented: $confirmsLogOut, titleVisibility: .visible) {
+                    Button("Log Out", role: .destructive) {
+                        Task {
+                            await app.performSignOut()
+                            app.navigation.close()
+                        }
+                    }
+                    Button("Cancel", role: .cancel) {}
+                }
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.top, 12)

@@ -24,7 +24,10 @@ struct SettingsDestinationHost: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        destination.modulaSoftScrollEdge()
+        destination
+            .modulaSoftScrollEdge()
+            // Forms/Lists: keep the last row (and footers) clear of the tab bar and floating buttons.
+            .contentMargins(.bottom, SettingsInsets.bottom, for: .scrollContent)
     }
 
     @ViewBuilder
@@ -61,28 +64,21 @@ struct SettingsDestinationHost: View {
             MediaSettingsHost(route: nested)
         case .feed(let nested):
             FeedSettingsHost(route: nested)
-        case .battery(let nested):
-            BatterySettingsHost(route: nested)
+        case .battery, .network:
+            BatteryNetworkSettingsPage()
         case .safety(let nested):
             SafetySettingsHost(route: nested)
         case .camera(let nested):
             CameraSettingsHost(route: nested)
-        case .gestures(let nested):
-            GesturesSettingsHost(route: nested)
-        case .finder(let nested):
-            FinderSettingsHost(route: nested)
-        case .sharing(let nested):
-            SharingSettingsHost(route: nested)
+        case .gestures, .finder, .sharing, .keyboard, .photos, .focus:
+            GeneralBehaviourSettingsPage()
         case .location(let nested):
             LocationSettingsHost(route: nested)
         case .widgets(let nested):
             WidgetsSettingsHost(route: nested)
         case .labs(let nested):
             LabsSettingsHost(route: nested)
-        case .photos(let nested):
-            PhotosSettingsHost(route: nested)
-        case .network(let nested):
-            NetworkSettingsHost(route: nested)
+
         case .digests(let nested):
             DigestsSettingsHost(route: nested)
         case .help(let nested):
@@ -91,8 +87,7 @@ struct SettingsDestinationHost: View {
             WhatsNewSettingsHost(route: nested)
         case .creator(let nested):
             CreatorSettingsHost(route: nested)
-        case .focus(let nested):
-            FocusSettingsHost(route: nested)
+
         case .passkeys(let nested):
             PasskeysSettingsHost(route: nested)
         case .translate(let nested):
@@ -103,8 +98,7 @@ struct SettingsDestinationHost: View {
             FamilySettingsHost(route: nested)
         case .timeUnits(let nested):
             TimeUnitsSettingsHost(route: nested)
-        case .keyboard(let nested):
-            KeyboardSettingsHost(route: nested)
+
         case .connectors(let nested):
             ConnectorsSettingsHost(route: nested)
         case .integrations(let nested):
@@ -252,78 +246,9 @@ struct PrivacySecurityHost: View {
 
     var body: some View {
         switch route {
-        case .root:
-            SettingsScrollCanvas {
-                SettingsHeroBanner(
-                    title: "Privacy & Security",
-                    subtitle: "Locks, biometrics, and account protection.",
-                    symbol: "lock.shield"
-                )
-                PrivacyLayersGraphic()
-                SettingsGroup(title: "Privacy") {
-                    VStack(spacing: 0) {
-                        SettingsNavigationRow(title: "Privacy", subtitle: "Profile visibility", symbol: "hand.raised") {
-                            app.navigation.open(.settings(.privacy(.privacy)))
-                        }
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Glass Privacy", subtitle: "Conversation levels", symbol: "bubble.left.and.bubble.right") {
-                            app.navigation.open(.settings(.privacy(.glassPrivacy)))
-                        }
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Blocked Accounts", subtitle: "People you’ve blocked", symbol: "nosign") {
-                            app.navigation.open(.settings(.privacy(.blocked)))
-                        }
-                    }
-                }
-                SettingsGroup(title: "Security") {
-                    VStack(spacing: 0) {
-                        SettingsNavigationRow(title: "Security", subtitle: "Account & device", symbol: "lock") {
-                            app.navigation.open(.settings(.privacy(.security)))
-                        }
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "App Lock", subtitle: "Passcode for this device", symbol: "lock.fill") {
-                            app.navigation.open(.settings(.privacy(.appLock)))
-                        }
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Face ID & Biometrics", subtitle: "Unlock with biometrics", symbol: "faceid") {
-                            app.navigation.open(.settings(.privacy(.biometrics)))
-                        }
-                    }
-                }
-            }
-            .modulaSoftScrollEdge()
-            .navigationTitle("Privacy & Security")
-            .navigationBarTitleDisplayMode(.inline)
-            .accessibilityIdentifier("settings.privacy-security")
-        case .privacy:
-            Form {
-                Section {
-                    Text("Your email and phone number are never shown on your profile.")
-                }
-                Section("Your data") {
-                    Button {
-                        app.navigation.open(.settings(.dataStorage(.export)))
-                    } label: {
-                        Label("Export your data", systemImage: "square.and.arrow.up")
-                    }
-                    Button {
-                        app.navigation.open(.settings(.help(.contact)))
-                    } label: {
-                        Label("Make a privacy request", systemImage: "hand.raised")
-                    }
-                }
-            }
-            .modulaSoftScrollEdge()
-            .navigationTitle("Privacy")
-        case .security:
-            Form {
-                Button("App Lock") { app.navigation.open(.settings(.privacy(.appLock))) }
-                Button("Face ID") { app.navigation.open(.settings(.privacy(.biometrics))) }
-                Button("Sessions") { app.navigation.open(.settings(.account(.sessions))) }
-                Button("Password") { app.navigation.open(.settings(.account(.password))) }
-            }
-            .modulaSoftScrollEdge()
-            .navigationTitle("Security")
+        case .root, .privacy, .security, .appLock, .biometrics:
+            // One page: Privacy + Security + App Lock + Face ID (old sub-routes land here).
+            PrivacySafetySettingsPage()
         case .glassPrivacy:
             SettingsDesignedUnavailableCanvas(
                 title: "Glass Privacy",
@@ -347,10 +272,6 @@ struct PrivacySecurityHost: View {
             )
         case .blocked:
             RelationshipListView(kind: .blocked)
-        case .appLock:
-            AppLockSettingsView()
-        case .biometrics:
-            BiometricsSettingsView()
         }
     }
 }

@@ -123,6 +123,14 @@ struct ImmersivePostCard: View {
     var onOpenMedia: (@MainActor (SocialPostMedia) -> Void)? = nil
     var onOpenModule: (@MainActor (SocialPostModule) -> Void)? = nil
     var videoCoordinator: FeedVideoCoordinator? = nil
+    /// Post detail shows comments inline below, so the card drops its comment button and
+    /// "Add a comment…" strip there (comment intents focus the inline composer instead).
+    var showsCommentAffordances: Bool = true
+    /// `.detail` renders the same shell flush and full-width (no card radius, stroke, fill or
+    /// shadow) and drops the in-card "…" because the detail nav bar owns the post menu.
+    var style: Style = .feed
+    enum Style: Sendable { case feed, detail }
+    private var isDetail: Bool { style == .detail }
 
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -155,7 +163,7 @@ struct ImmersivePostCard: View {
     @State private var barSize: CGSize = .zero
     @State private var bursts: [ReactionBurst] = []
 
-    private let radius: CGFloat = 24
+    private var radius: CGFloat { isDetail ? 0 : 24 }
     private var space: String { "immersive.\(post.id)" }
     private var calm: Bool { reduceMotion || ModulaPreferences.extraMotionReduction }
 
@@ -275,13 +283,15 @@ struct ImmersivePostCard: View {
                 .overlay(alignment: .bottomLeading) { captionBlock(canonical, pages: pages, current: current, isVideo: isVideo) }
                 .postMenuLongPress(enabled: !showsReactions && !suppressHeartTap) { menuRequest(anchor: $0) }
                 .environment(\.colorScheme, appScheme)
-                .overlay(alignment: .bottom) { mediaCommentStrip(isVideo: isVideo) }
+                .overlay(alignment: .bottom) {
+                    if showsCommentAffordances { mediaCommentStrip(isVideo: isVideo) }
+                }
             rail(expandable: expandable, gallery: pages)
         }
         .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-        .overlay { mediaCardStroke }
-        .shadow(color: glow.opacity(0.28), radius: 18, y: 8)
-        .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+        .overlay { if !isDetail { mediaCardStroke } }
+        .shadow(color: glow.opacity(isDetail ? 0 : 0.28), radius: 18, y: 8)
+        .shadow(color: .black.opacity(isDetail ? 0 : 0.12), radius: 4, y: 2)
         .environment(\.colorScheme, .dark)
     }
 
@@ -418,7 +428,7 @@ struct ImmersivePostCard: View {
                     .modulaGlass(in: Capsule(), interactive: false)
                     .accessibilityLabel("Item \(current + 1) of \(pages.count)")
             }
-            moreButton(onMedia: true)
+            if !isDetail { moreButton(onMedia: true) }
         }
         .padding(.horizontal, 12)
         .padding(.top, 12)
@@ -618,11 +628,13 @@ struct ImmersivePostCard: View {
     private func rail(expandable: ModulaAttachment?, gallery: [ModulaAttachment]) -> some View {
         VStack(spacing: 0) {
             heartControl(vertical: true)
-            railButton("Comment", symbol: "bubble.right.fill", count: post.replyCount, active: false) {
-                HapticEngine.shared.play(.contextOpen)
-                onComment()
-            }
+            if showsCommentAffordances {
+                railButton("Comment", symbol: "bubble.right.fill", count: post.replyCount, active: false) {
+                    HapticEngine.shared.play(.contextOpen)
+                    onComment()
+                }
                 .accessibilityIdentifier("home.action.comment.\(post.id)")
+            }
             railButton(post.saved ? "Unsave" : "Save", symbol: post.saved ? "bookmark.fill" : "bookmark", count: 0, active: post.saved, tint: .yellow) {
                 saveBounce += 1
                 HapticEngine.shared.play(.confirmation)
@@ -872,13 +884,11 @@ struct ImmersivePostCard: View {
                                 .transition(.scale.combined(with: .opacity))
                         }
                     }
-                    Text(ModulaCountFormat.compact(reactionCount) ?? "\(reactionCount)")
-                        .font(.system(size: 11, weight: .semibold, design: font).monospacedDigit())
-                        .foregroundStyle(onMedia ? Color.white.opacity(0.92) : Color.secondary)
-                        .contentTransition(.numericText())
+                    // The heart beside this already shows the count; the chip is just the stacked
+                    // top reactions, so the same number never appears twice.
                 }
                 .padding(.leading, 4)
-                .padding(.trailing, 9)
+                .padding(.trailing, 4)
                 .padding(.vertical, 3)
                 .modulaGlass(in: Capsule(), interactive: true)
                 .animation(calm ? nil : .spring(response: 0.3, dampingFraction: 0.7), value: emojis)
@@ -1035,7 +1045,7 @@ struct ImmersivePostCard: View {
         Button(action: onComment) {
             HStack(spacing: 8) {
                 if let profile = app.profile.ownProfile {
-                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 22)
+                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 18)
                 } else {
                     Image(systemName: "person.crop.circle.fill")
                         .font(.system(size: 18))
@@ -1051,9 +1061,9 @@ struct ImmersivePostCard: View {
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(.white.opacity(0.55))
             }
-            .padding(.horizontal, 12)
-            .frame(height: 34)
-            .background(.white.opacity(0.12), in: Capsule())
+            .padding(.horizontal, 10)
+            .frame(height: 30)
+            .background(.white.opacity(0.09), in: Capsule())
         }
         .buttonStyle(.plain)
         .padding(.leading, 12)
@@ -1079,7 +1089,7 @@ struct ImmersivePostCard: View {
         Button(action: onComment) {
             HStack(spacing: 8) {
                 if let profile = app.profile.ownProfile {
-                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 22)
+                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 18)
                 } else {
                     Image(systemName: "person.crop.circle.fill")
                         .font(.system(size: 18))
@@ -1088,13 +1098,13 @@ struct ImmersivePostCard: View {
                 }
                 Text("Add a comment…")
                     .font(.system(.caption, design: font, weight: .medium))
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(Color.secondary.opacity(0.8))
                     .lineLimit(1)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 12)
-            .frame(height: 34)
-            .background(Color.primary.opacity(0.06), in: Capsule())
+            .padding(.horizontal, 10)
+            .frame(height: 28)
+            .background(Color.primary.opacity(0.035), in: Capsule())
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -1131,7 +1141,7 @@ struct ImmersivePostCard: View {
                 HStack(alignment: .center, spacing: 10) {
                     authorButton(canonical, onMedia: false)
                     Spacer(minLength: 6)
-                    moreButton(onMedia: false)
+                    if !isDetail { moreButton(onMedia: false) }
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 12)
@@ -1185,38 +1195,50 @@ struct ImmersivePostCard: View {
                         .allowsHitTesting(false)
                 }
 
-            commentBar
-                .padding(.horizontal, 14)
-                .padding(.top, 2)
-                .padding(.bottom, 10)
+            if showsCommentAffordances {
+                commentBar
+                    .padding(.horizontal, 14)
+                    .padding(.top, 2)
+                    .padding(.bottom, 10)
+            } else {
+                Color.clear.frame(height: 6)
+            }
         }
         .background {
-            RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .fill(reduceTransparency ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(.regularMaterial))
+            if !isDetail {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(reduceTransparency ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(.regularMaterial))
+            }
         }
         .background {
-            RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .fill(LinearGradient(colors: [glow.opacity(0.08), .clear], startPoint: .topLeading, endPoint: .bottomTrailing))
+            if !isDetail {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(LinearGradient(colors: [glow.opacity(0.08), .clear], startPoint: .topLeading, endPoint: .bottomTrailing))
+            }
         }
         .overlay {
+            if !isDetail {
             RoundedRectangle(cornerRadius: radius, style: .continuous)
                 .strokeBorder(
                     LinearGradient(colors: [.white.opacity(0.45), Color.primary.opacity(0.05), .white.opacity(0.14)], startPoint: .topLeading, endPoint: .bottomTrailing),
                     lineWidth: 0.8
                 )
                 .allowsHitTesting(false)
+            }
         }
-        .shadow(color: glow.opacity(0.16), radius: 16, y: 6)
-        .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+        .shadow(color: glow.opacity(isDetail ? 0 : 0.16), radius: 16, y: 6)
+        .shadow(color: .black.opacity(isDetail ? 0 : 0.06), radius: 3, y: 1)
     }
 
     private var textActions: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: isDetail ? 10 : 2) {
             heartControl(vertical: false)
                 .foregroundStyle(.secondary)
             reactionSummaryChip(onMedia: false)
-            pillButton("Comment", symbol: "bubble.right", count: post.replyCount, active: false, action: onComment)
-                .accessibilityIdentifier("home.action.comment.\(post.id)")
+            if showsCommentAffordances {
+                pillButton("Comment", symbol: "bubble.right", count: post.replyCount, active: false, action: onComment)
+                    .accessibilityIdentifier("home.action.comment.\(post.id)")
+            }
             pillButton("Repost", symbol: "arrow.2.squarepath", count: post.repostCount, active: post.reposted, action: onRepost)
                 .accessibilityIdentifier("home.action.repost.\(post.id)")
             Spacer(minLength: 0)
