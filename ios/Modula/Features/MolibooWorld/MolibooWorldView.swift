@@ -16,7 +16,7 @@ struct MolibooWorldView: View {
             }
         }
     }
-    enum Route: Hashable { case studio(String), wardrobe(String), photo(String), collection, cards, settings }
+    enum Route: Hashable { case studio(String), wardrobe(String), photo(String), collection, cards, settings, classicStudio(MascotStudioView.StudioTab) }
 
     @Environment(AppEnvironment.self) private var app
     @Environment(\.scenePhase) private var scenePhase
@@ -682,7 +682,8 @@ struct MolibooWorldView: View {
 
     private func openStudio(_ r: Route) {
         guard MolibooRegistry.descriptor(for: characterID) != nil else {
-            flash("\(displayName)'s Studio is coming soon.")
+            // Family 002+ Moliboos have no stage descriptor: open the full 2D Studio (wardrobe, emotes, photo).
+            route = .classicStudio(.wardrobe)
             return
         }
         route = r
@@ -696,6 +697,7 @@ struct MolibooWorldView: View {
         case .collection: MolibooCollectionView()
         case .cards: MolibooCardBinderView()
         case .settings: MolibooSettingsView()
+        case .classicStudio(let tab): MascotStudioView(initialTab: tab)
         }
     }
 

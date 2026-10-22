@@ -11,11 +11,15 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
     case ember, tuck, bloop, bun, pebble, tofu, comet, puff, bolt, glim
     // Originals 016–025 (Master Bible v1.0)
     case echo, quill, orbit, prism, wisp, doodle, chime, rolo, pogo, fable
+    // Family 002 — Angels
+    case aura, soli, luma, vela, cheri, hush, haloa, lyra, celio, dovee, twila, gleam, novael, sera, auri
     var id: String { rawValue }
 
     var isPremium: Bool {
         switch self {
         case .pip, .moss, .nimbus, .mochi, .sprout, .echo, .orbit, .wisp: false
+        // Bible "instantly free" picks per family.
+        case .aura, .soli, .luma, .cheri, .haloa: false
         default: true
         }
     }
@@ -49,6 +53,7 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
         case .rolo: "Slow snail philosopher with a spiral shell"
         case .pogo: "Spring-footed bouncer, always ready to hop"
         case .fable: "Origami spirit that unfolds into stories"
+        default: "\(title): \((spec?.form ?? "").lowercased())"
         }
     }
 
@@ -80,6 +85,7 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
         case .rolo: "Wise snail"
         case .pogo: "Springy bouncer"
         case .fable: "Origami storyteller"
+        default: spec?.form ?? title
         }
     }
 
@@ -111,6 +117,7 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
         case .rolo: "…slowly."
         case .pogo: "boing boing!"
         case .fable: "*rustle*"
+        default: "✧"
         }
     }
 
@@ -135,16 +142,17 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
         case .bolt: return Palette(light: c(0.92, 0.95, 0.98), mid: c(0.70, 0.76, 0.84), dark: c(0.46, 0.52, 0.62), accent: c(0.36, 0.90, 0.80), iris: c(0.10, 0.56, 0.64), outline: c(0.24, 0.30, 0.40))
         case .glim: return Palette(light: c(0.78, 0.86, 0.56), mid: c(0.52, 0.66, 0.36), dark: c(0.32, 0.44, 0.24), accent: c(1, 0.96, 0.50), iris: c(0.20, 0.26, 0.12), outline: c(0.20, 0.30, 0.14))
         // Bible palettes: midnight blue / lavender / dusty purple …
-        case .echo: return Palette(light: c(0.62, 0.62, 0.90), mid: c(0.38, 0.38, 0.72), dark: c(0.20, 0.20, 0.46), accent: c(0.80, 0.68, 0.96), iris: c(0.12, 0.10, 0.26), outline: c(0.12, 0.12, 0.30))
+        case .echo: return Palette(light: c(0.66, 0.52, 0.86), mid: c(0.46, 0.30, 0.70), dark: c(0.26, 0.16, 0.44), accent: c(0.86, 0.66, 0.96), iris: c(0.14, 0.08, 0.24), outline: c(0.16, 0.08, 0.28))
         case .quill: return Palette(light: c(1, 0.90, 0.78), mid: c(0.98, 0.76, 0.58), dark: c(0.80, 0.54, 0.38), accent: c(0.56, 0.36, 0.24), iris: c(0.26, 0.16, 0.10), outline: c(0.40, 0.24, 0.16))
         case .orbit: return Palette(light: c(0.66, 0.66, 0.96), mid: c(0.42, 0.40, 0.84), dark: c(0.26, 0.22, 0.60), accent: c(0.56, 0.94, 0.80), iris: c(0.12, 0.10, 0.30), outline: c(0.16, 0.14, 0.42))
         case .prism: return Palette(light: c(0.90, 1, 0.97), mid: c(0.74, 0.88, 0.98), dark: c(0.66, 0.62, 0.92), accent: c(1, 0.70, 0.86), iris: c(0.24, 0.22, 0.44), outline: c(0.36, 0.40, 0.62))
         case .wisp: return Palette(light: c(1, 1, 1), mid: c(0.86, 0.96, 0.96), dark: c(0.62, 0.82, 0.84), accent: c(0.74, 0.86, 0.94), iris: c(0.16, 0.30, 0.36), outline: c(0.36, 0.56, 0.60))
-        case .doodle: return Palette(light: c(0.44, 0.56, 0.86), mid: c(0.22, 0.32, 0.66), dark: c(0.12, 0.16, 0.36), accent: c(1, 1, 1), iris: c(0.06, 0.08, 0.16), outline: c(0.08, 0.10, 0.20))
+        case .doodle: return Palette(light: c(1, 1, 1), mid: c(0.97, 0.97, 0.98), dark: c(0.84, 0.85, 0.88), accent: c(0.12, 0.12, 0.14), iris: c(0.06, 0.06, 0.08), outline: c(0.06, 0.06, 0.08))
         case .chime: return Palette(light: c(1, 0.96, 0.78), mid: c(0.97, 0.84, 0.48), dark: c(0.78, 0.58, 0.26), accent: c(0.72, 0.46, 0.20), iris: c(0.32, 0.20, 0.08), outline: c(0.50, 0.32, 0.10))
         case .rolo: return Palette(light: c(1, 0.94, 0.82), mid: c(0.94, 0.82, 0.64), dark: c(0.76, 0.60, 0.42), accent: c(0.72, 0.42, 0.22), iris: c(0.30, 0.18, 0.10), outline: c(0.44, 0.28, 0.14))
-        case .pogo: return Palette(light: c(1, 0.86, 0.78), mid: c(1, 0.62, 0.52), dark: c(0.88, 0.40, 0.36), accent: c(0.40, 0.86, 0.92), iris: c(0.34, 0.14, 0.12), outline: c(0.56, 0.20, 0.18))
+        case .pogo: return Palette(light: c(1, 0.74, 0.66), mid: c(0.98, 0.44, 0.38), dark: c(0.80, 0.24, 0.22), accent: c(0.98, 0.56, 0.44), iris: c(0.34, 0.14, 0.12), outline: c(0.56, 0.20, 0.18))
         case .fable: return Palette(light: c(1, 1, 1), mid: c(0.97, 0.93, 0.95), dark: c(0.84, 0.80, 0.92), accent: c(1, 0.76, 0.82), iris: c(0.26, 0.22, 0.36), outline: c(0.44, 0.40, 0.56))
+        default: return spec?.palette ?? Palette(light: .white, mid: .gray, dark: .gray, accent: .pink, iris: .black, outline: .black)
         }
     }
 
@@ -174,7 +182,7 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
         case .rolo: CGSize(width: 0.86, height: 0.80)
         case .pogo: CGSize(width: 0.84, height: 0.90)
         case .fable: CGSize(width: 0.96, height: 0.88)
-        default: CGSize(width: 1.0, height: 0.86)
+        default: spec?.size ?? CGSize(width: 1.0, height: 0.86)
         }
     }
 
@@ -184,7 +192,7 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
         case .ember, .comet, .wisp: 0.04
         case .pogo: -0.02
         case .bloop: 0.0
-        default: 0.10
+        default: spec.map { [.drop, .star].contains($0.body) ? 0.04 : 0.10 } ?? 0.10
         }
     }
 
@@ -218,7 +226,7 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
         case .prism, .chime: 0.08
         case .pogo: -0.04
         case .fable: 0.06
-        default: 0.04
+        default: spec.map { [.drop, .star].contains($0.body) ? 0.10 : 0.04 } ?? 0.04
         }
     }
     var eyeSpread: CGFloat {
@@ -658,6 +666,7 @@ struct ModulaMascotFigure: View {
 
     private func bodyShape() -> AnyShape {
         if let shape = originalsBodyShape() { return shape }
+        if let sp = kind.spec { return specBodyShape(sp.body) }
         return switch kind {
         case .nimbus: AnyShape(MascotCloudShape())
         case .ember: AnyShape(MascotDropShape())
@@ -968,6 +977,7 @@ struct ModulaMascotFigure: View {
     @ViewBuilder
     private func accessories(s: CGFloat, pal: ModulaMascotKind.Palette, t: Double, a: CGFloat) -> some View {
         let top = -s * (kind.bodySize.height / 2 - kind.bodyOffsetY) // top of body
+        if let sp = kind.spec { specParts(sp, layer: .top, s: s, pal: pal, t: t, a: a) }
         if pose.conditions.night && outfit.item(for: .hat) == nil && outfit.item(for: .seasonal) == nil && outfit.item(for: .hair) == nil {
             // Nightcap with a pom-pom.
             ZStack(alignment: .topTrailing) {
@@ -1416,6 +1426,15 @@ extension ModulaMascotFigure {
                     .offset(x: side * s * 0.12 - s * 0.04, y: -s * 0.4)
             }
         case .pogo:
+            // Antenna eyes-stalks (crab-like, per the founding sheet).
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                VStack(spacing: 0) {
+                    Circle().fill(pal.mid).overlay(Circle().stroke(pal.outline.opacity(0.5), lineWidth: line)).frame(width: s * 0.1)
+                    Capsule().fill(pal.dark).frame(width: s * 0.03, height: s * 0.18)
+                }
+                .rotationEffect(.degrees(side * 24 + 6 * sin(t * 2.2 + side) * da), anchor: .bottom)
+                .offset(x: side * s * 0.14, y: -s * 0.46)
+            }
             // Spring feet.
             ForEach([-1.0, 1.0], id: \.self) { side in
                 let squash = 1 + 0.18 * CGFloat(sin(t * 3.2)) * a
@@ -1440,7 +1459,7 @@ extension ModulaMascotFigure {
                     .offset(x: side * s * 0.38, y: s * 0.02)
             }
         default:
-            EmptyView()
+            if let sp = kind.spec { specParts(sp, layer: .back, s: s, pal: pal, t: t, a: a) }
         }
     }
 
@@ -1477,7 +1496,7 @@ extension ModulaMascotFigure {
                 .frame(width: s * kind.bodySize.width * 1.04, height: s * kind.bodySize.height * 1.04)
                 .offset(x: j * 0.8, y: s * kind.bodyOffsetY - j * 0.6)
             ForEach(0..<3, id: \.self) { i in
-                Circle().fill(pal.mid).frame(width: s * (0.06 - CGFloat(i) * 0.012))
+                Circle().fill(pal.accent).frame(width: s * (0.06 - CGFloat(i) * 0.012))
                     .offset(x: s * (0.46 + CGFloat(i) * 0.08), y: s * (0.38 + CGFloat(i) * 0.04))
             }
         case .chime:
@@ -1499,7 +1518,7 @@ extension ModulaMascotFigure {
                     .offset(x: s * (CGFloat(i) - 1) * 0.22, y: s * (0.5 - CGFloat(u) * 0.4 * a))
             }
         default:
-            EmptyView()
+            if let sp = kind.spec { specParts(sp, layer: .front, s: s, pal: pal, t: t, a: a) }
         }
     }
 }
@@ -1736,6 +1755,7 @@ extension ModulaMascotKind {
         case .rolo: Profile(number: 23, title: "Slow Philosopher", traits: ["Wise", "Patient", "Quietly funny"])
         case .pogo: Profile(number: 24, title: "Unstoppable Bouncer", traits: ["Restless", "Playful", "Fearless"])
         case .fable: Profile(number: 25, title: "Keeper of Stories", traits: ["Thoughtful", "Imaginative", "Reflective"])
+        default: MolibooFamilySpecs.profiles[self] ?? Profile(number: 999, title: name, traits: [])
         }
     }
     var number: Int { profile.number }
@@ -1743,4 +1763,558 @@ extension ModulaMascotKind {
     var traits: [String] { profile.traits }
     var catalogueNumber: String { String(format: "%03d", number) }
     var family: MolibooFamily { MolibooFamily.allCases.first { $0.range.contains(number) } ?? .originals }
+}
+
+// MARK: - Family parts kit (Families 002–006)
+//
+// Data-driven 2D characters: a body outline, a palette and a list of silhouette parts. Every part is a
+// native SwiftUI shape scaled to the figure size `s`, so the shared face, expressions, idle motion, wardrobe
+// rig (head anchor + hat scale) and ground shadow work for every family member.
+
+enum MolibooSpecBody: Sendable {
+    case round, wide, tall, pear, drop, heart, star, cloud, crystal, ink, bell, wisp, origami, square, dome, pebble
+}
+
+enum MolibooEar: Sendable { case cat, fox, bat, bunny, round, mouse, tufts, floppy, ring }
+enum MolibooWing: Sendable { case feather, bat, moth, insect, fairy, leaf, dart, round }
+enum MolibooTail: Sendable { case fluffy, ribbon, curl, lizard, whale, fox, comet, disk, plume, spring }
+
+enum MolibooPart: Sendable {
+    case halo, starCrest, heartAntenna, nightcap(Color), crown
+    case wings(MolibooWing, Color?), ears(MolibooEar), tail(MolibooTail, Color?)
+    case rays(Int, Color?), mane(Int), crescent(Color?), ring(Color?), harp, sparkles(Int), notes
+    case antennae(Color?), leaves(Int, Color?), petals(Int, Color?), mushroomCap(Color, spots: Bool), thorns(Color?)
+    case antlers(Color?), starAntlers, shell(Color?), speakers, headphones(Color?), pixels(Color?), lightning
+    case wheels, fins(Color?), orbiters(Int, Color?), compass, flame(Color?), mask(Color), hood(Color), roots
+    case paintDrips([Color]), goggles(Color), whiskers, bowtie(Color), scarf(Color), blanket(Color), lantern(Color)
+    case glow(Color), feet(Color?), beak, berries(Color), feathers(Color?), frill(Color?), visor(Color), cheeksStars
+}
+
+struct MolibooSpec: Sendable {
+    var body: MolibooSpecBody = .round
+    var size = CGSize(width: 0.98, height: 0.86)
+    var palette: ModulaMascotKind.Palette
+    var parts: [MolibooPart] = []
+    var floats = false
+    var feet = true
+    var hatScale: CGFloat = 1
+    var hatMaxWidth: CGFloat? = nil
+    var headTopExtra: CGFloat? = nil
+    var form: String = ""
+}
+
+extension ModulaMascotKind.Palette {
+    /// Builds a full shading palette from a main colour, an accent and an eye colour.
+    static func spec(_ mid: Color, accent: Color, iris: Color = Color(red: 0.16, green: 0.12, blue: 0.24), light: Color? = nil, dark: Color? = nil, outline: Color? = nil) -> Self {
+        let ui = UIColor(mid)
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        ui.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+        let l = light ?? Color(hue: h, saturation: s * 0.45, brightness: min(1, b * 1.12 + 0.08))
+        let d = dark ?? Color(hue: h, saturation: min(1, s * 1.15 + 0.05), brightness: b * 0.72)
+        let o = outline ?? Color(hue: h, saturation: min(1, s * 0.9 + 0.2), brightness: b * 0.42)
+        return .init(light: l, mid: mid, dark: d, accent: accent, iris: iris, outline: o)
+    }
+}
+
+struct MascotHeartShape: Shape {
+    func path(in r: CGRect) -> Path {
+        let w = r.width, h = r.height
+        var p = Path()
+        p.move(to: CGPoint(x: r.midX, y: r.maxY))
+        p.addCurve(to: CGPoint(x: r.minX, y: r.minY + h * 0.32), control1: CGPoint(x: r.minX + w * 0.22, y: r.maxY - h * 0.16), control2: CGPoint(x: r.minX, y: r.minY + h * 0.58))
+        p.addCurve(to: CGPoint(x: r.midX, y: r.minY + h * 0.2), control1: CGPoint(x: r.minX, y: r.minY), control2: CGPoint(x: r.minX + w * 0.42, y: r.minY - h * 0.02))
+        p.addCurve(to: CGPoint(x: r.maxX, y: r.minY + h * 0.32), control1: CGPoint(x: r.minX + w * 0.58, y: r.minY - h * 0.02), control2: CGPoint(x: r.maxX, y: r.minY))
+        p.addCurve(to: CGPoint(x: r.midX, y: r.maxY), control1: CGPoint(x: r.maxX, y: r.minY + h * 0.58), control2: CGPoint(x: r.maxX - w * 0.22, y: r.maxY - h * 0.16))
+        p.closeSubpath()
+        return p
+    }
+}
+
+struct MascotCrescentShape: Shape {
+    func path(in r: CGRect) -> Path {
+        var outer = Path(ellipseIn: r)
+        let inner = Path(ellipseIn: r.offsetBy(dx: r.width * 0.3, dy: -r.height * 0.12))
+        outer = outer.subtracting(inner)
+        return outer
+    }
+}
+
+struct MascotFeatherWing: Shape {
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: r.minX, y: r.maxY * 0.75 + r.minY * 0.25))
+        p.addQuadCurve(to: CGPoint(x: r.maxX, y: r.minY), control: CGPoint(x: r.minX + r.width * 0.3, y: r.minY))
+        p.addQuadCurve(to: CGPoint(x: r.minX + r.width * 0.8, y: r.minY + r.height * 0.42), control: CGPoint(x: r.maxX, y: r.minY + r.height * 0.3))
+        p.addQuadCurve(to: CGPoint(x: r.minX + r.width * 0.62, y: r.minY + r.height * 0.7), control: CGPoint(x: r.minX + r.width * 0.84, y: r.minY + r.height * 0.62))
+        p.addQuadCurve(to: CGPoint(x: r.minX + r.width * 0.32, y: r.maxY), control: CGPoint(x: r.minX + r.width * 0.6, y: r.minY + r.height * 0.92))
+        p.addQuadCurve(to: CGPoint(x: r.minX, y: r.maxY * 0.75 + r.minY * 0.25), control: CGPoint(x: r.minX + r.width * 0.1, y: r.maxY))
+        p.closeSubpath()
+        return p
+    }
+}
+
+extension ModulaMascotFigure {
+    func specBodyShape(_ b: MolibooSpecBody) -> AnyShape {
+        switch b {
+        case .round, .wide, .tall: AnyShape(Ellipse())
+        case .pear: AnyShape(MascotPearShape())
+        case .drop: AnyShape(MascotDropShape())
+        case .heart: AnyShape(MascotHeartShape())
+        case .star: AnyShape(MascotStarShape())
+        case .cloud: AnyShape(MascotCloudShape())
+        case .crystal: AnyShape(MascotCrystalShape())
+        case .ink: AnyShape(MascotInkShape())
+        case .bell: AnyShape(MascotBellShape())
+        case .wisp: AnyShape(MascotWispShape())
+        case .origami: AnyShape(MascotOrigamiShape())
+        case .square: AnyShape(RoundedRectangle(cornerRadius: size * 0.24, style: .continuous))
+        case .dome: AnyShape(MascotDomeShape())
+        case .pebble: AnyShape(MascotPebbleShape())
+        }
+    }
+
+    enum SpecLayer { case back, front, top }
+
+    @ViewBuilder
+    func specParts(_ spec: MolibooSpec, layer: SpecLayer, s: CGFloat, pal: ModulaMascotKind.Palette, t: Double, a: CGFloat) -> some View {
+        ForEach(Array(spec.parts.enumerated()), id: \.offset) { i, part in
+            specPart(part, spec: spec, layer: layer, s: s, pal: pal, t: t, a: a, seed: Double(i))
+        }
+    }
+
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    @ViewBuilder
+    private func specPart(_ part: MolibooPart, spec: MolibooSpec, layer: SpecLayer, s: CGFloat, pal: ModulaMascotKind.Palette, t: Double, a: CGFloat, seed: Double) -> some View {
+        let da = Double(a)
+        let line = max(s * 0.024, 0.9)
+        let bw = s * spec.size.width, bh = s * spec.size.height
+        let top = -s * (spec.size.height / 2 - kind.bodyOffsetY)
+        let cy = s * kind.bodyOffsetY
+        let gold = Color(red: 1, green: 0.84, blue: 0.42)
+        switch (part, layer) {
+        // ── Back layer ───────────────────────────────────────────
+        case (.glow(let c), .back):
+            Circle().fill(RadialGradient(colors: [c.opacity(0.55), c.opacity(0)], center: .center, startRadius: 0, endRadius: s * 0.8))
+                .frame(width: s * 1.6).offset(y: cy).opacity(0.75 + 0.25 * sin(t * 1.4 + seed))
+        case (.rays(let n, let c), .back):
+            ForEach(0..<n, id: \.self) { k in
+                MascotTriangle().fill(LinearGradient(colors: [c ?? pal.accent, (c ?? pal.accent).opacity(0.6)], startPoint: .top, endPoint: .bottom))
+                    .overlay(MascotTriangle().stroke(pal.outline.opacity(0.35), lineWidth: line))
+                    .frame(width: s * 0.2, height: s * 0.24)
+                    .offset(y: -max(bw, bh) * 0.5 - s * 0.08)
+                    .rotationEffect(.degrees(Double(k) / Double(n) * 360 + 6 * sin(t * 0.8) * da))
+                    .offset(y: cy)
+            }
+        case (.mane(let n), .back):
+            ForEach(0..<n, id: \.self) { k in
+                Ellipse().fill(LinearGradient(colors: [pal.accent, pal.dark], startPoint: .top, endPoint: .bottom))
+                    .overlay(Ellipse().stroke(pal.outline.opacity(0.4), lineWidth: line))
+                    .frame(width: s * 0.22, height: s * 0.36)
+                    .offset(y: -s * 0.42)
+                    .rotationEffect(.degrees(Double(k) / Double(n) * 360))
+                    .offset(y: cy - s * 0.06)
+            }
+        case (.wings(let style, let c), .back):
+            let col = c ?? .white
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                let flap = (style == .insect || style == .dart || style == .fairy ? 16 * sin(t * 12) : 10 * sin(t * 2.2)) * da
+                Group {
+                    switch style {
+                    case .feather:
+                        MascotFeatherWing().fill(LinearGradient(colors: [col, col.opacity(0.75)], startPoint: .top, endPoint: .bottom))
+                            .overlay(MascotFeatherWing().stroke(pal.outline.opacity(0.3), lineWidth: line))
+                            .frame(width: s * 0.46, height: s * 0.4)
+                    case .bat:
+                        MascotBatWing().fill(LinearGradient(colors: [col, pal.dark], startPoint: .top, endPoint: .bottom))
+                            .overlay(MascotBatWing().stroke(pal.outline.opacity(0.55), lineWidth: line))
+                            .frame(width: s * 0.5, height: s * 0.42)
+                    case .moth, .round:
+                        ZStack {
+                            Ellipse().fill(LinearGradient(colors: [col, pal.dark], startPoint: .top, endPoint: .bottom))
+                            Ellipse().stroke(pal.outline.opacity(0.5), lineWidth: line)
+                            Circle().fill(style == .moth ? pal.accent.opacity(0.9) : .clear).frame(width: s * 0.12).offset(x: s * 0.04, y: -s * 0.04)
+                        }
+                        .frame(width: s * 0.44, height: s * 0.5)
+                    case .insect, .fairy:
+                        Ellipse().fill(col.opacity(style == .fairy ? 0.6 : 0.5))
+                            .overlay(Ellipse().stroke(pal.outline.opacity(0.3), lineWidth: line * 0.7))
+                            .frame(width: s * 0.3, height: s * 0.46)
+                    case .leaf:
+                        MascotLeaf().fill(LinearGradient(colors: [col, pal.dark], startPoint: .leading, endPoint: .trailing))
+                            .overlay(MascotLeaf().stroke(pal.outline.opacity(0.5), lineWidth: line))
+                            .frame(width: s * 0.46, height: s * 0.24)
+                    case .dart:
+                        VStack(spacing: s * 0.01) {
+                            ForEach(0..<3, id: \.self) { _ in MascotTriangle().rotation(.degrees(90)).fill(col.opacity(0.75)).frame(width: s * 0.22, height: s * 0.09) }
+                        }
+                    }
+                }
+                .scaleEffect(x: side, y: 1)
+                .rotationEffect(.degrees(side * (style == .insect || style == .fairy || style == .moth ? 30 : 6) + side * flap), anchor: side > 0 ? .leading : .trailing)
+                .offset(x: side * (bw * 0.5 + s * 0.14), y: cy - s * 0.04)
+            }
+        case (.ears(let style), .back):
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                let twitch = da * max(0, sin(t * 1.7 + side) - 0.92) * 80
+                Group {
+                    switch style {
+                    case .cat, .fox, .bat:
+                        ZStack {
+                            MascotTriangle().fill(LinearGradient(colors: [pal.mid, pal.dark], startPoint: .top, endPoint: .bottom))
+                            MascotTriangle().stroke(pal.outline.opacity(0.55), lineWidth: line)
+                            MascotTriangle().fill(pal.accent.opacity(0.85)).scaleEffect(0.5).offset(y: s * 0.04)
+                        }
+                        .frame(width: s * (style == .bat ? 0.32 : 0.28), height: s * (style == .fox ? 0.38 : style == .bat ? 0.46 : 0.3))
+                    case .bunny, .floppy:
+                        ZStack {
+                            Capsule().fill(LinearGradient(colors: [pal.light, pal.mid], startPoint: .top, endPoint: .bottom))
+                            Capsule().stroke(pal.outline.opacity(0.5), lineWidth: line)
+                            Capsule().fill(pal.accent.opacity(0.7)).scaleEffect(x: 0.45, y: 0.75)
+                        }
+                        .frame(width: s * 0.18, height: s * 0.46)
+                        .rotationEffect(.degrees(style == .floppy ? side * 60 : 0), anchor: .bottom)
+                    case .round, .mouse:
+                        ZStack {
+                            Circle().fill(pal.mid)
+                            Circle().stroke(pal.outline.opacity(0.5), lineWidth: line)
+                            Circle().fill(pal.accent.opacity(0.7)).scaleEffect(0.55)
+                        }
+                        .frame(width: s * (style == .mouse ? 0.34 : 0.22))
+                    case .tufts:
+                        MascotTriangle().fill(pal.dark).overlay(MascotTriangle().stroke(pal.outline.opacity(0.5), lineWidth: line))
+                            .frame(width: s * 0.16, height: s * 0.24)
+                    case .ring:
+                        Circle().stroke(LinearGradient(colors: [pal.accent, gold], startPoint: .top, endPoint: .bottom), lineWidth: s * 0.05)
+                            .frame(width: s * 0.26)
+                            .rotation3DEffect(.degrees(30 * sin(t * 2) * da), axis: (x: 0, y: 1, z: 0))
+                    }
+                }
+                .rotationEffect(.degrees(side * (style == .round || style == .mouse ? 0 : 18) + side * twitch), anchor: .bottom)
+                .offset(x: side * bw * (style == .mouse || style == .round ? 0.36 : 0.26), y: top + s * (style == .bunny || style == .floppy ? -0.16 : style == .round || style == .mouse ? 0.02 : -0.06))
+            }
+        case (.tail(let style, let c), .back):
+            let col = c ?? pal.mid
+            let wag = 10 * sin(t * 1.6 + seed) * da
+            Group {
+                switch style {
+                case .fluffy, .fox:
+                    Ellipse().fill(LinearGradient(colors: [col, style == .fox ? .white : pal.dark], startPoint: .leading, endPoint: .trailing))
+                        .overlay(Ellipse().stroke(pal.outline.opacity(0.45), lineWidth: line))
+                        .frame(width: s * 0.42, height: s * 0.26)
+                case .ribbon, .comet, .plume:
+                    MascotTail().stroke(LinearGradient(colors: [col, (c ?? pal.accent).opacity(0.1)], startPoint: .leading, endPoint: .trailing), style: StrokeStyle(lineWidth: s * (style == .plume ? 0.16 : 0.1), lineCap: .round))
+                        .frame(width: s * 0.6, height: s * 0.4)
+                case .curl:
+                    MascotTail().stroke(col, style: StrokeStyle(lineWidth: s * 0.09, lineCap: .round)).frame(width: s * 0.34, height: s * 0.4)
+                case .lizard:
+                    MascotTriangle().rotation(.degrees(90)).fill(col).overlay(MascotTriangle().rotation(.degrees(90)).stroke(pal.outline.opacity(0.5), lineWidth: line))
+                        .frame(width: s * 0.42, height: s * 0.16)
+                case .whale:
+                    MascotHeartShape().rotation(.degrees(-90)).fill(col).overlay(MascotHeartShape().rotation(.degrees(-90)).stroke(pal.outline.opacity(0.5), lineWidth: line))
+                        .frame(width: s * 0.26, height: s * 0.26)
+                case .disk:
+                    Circle().fill(RadialGradient(colors: [gold, col], center: .center, startRadius: 0, endRadius: s * 0.12)).frame(width: s * 0.22)
+                case .spring:
+                    MascotSpring().stroke(col, style: StrokeStyle(lineWidth: s * 0.04, lineCap: .round)).frame(width: s * 0.12, height: s * 0.24).rotationEffect(.degrees(-60))
+                }
+            }
+            .rotationEffect(.degrees(wag), anchor: .leading)
+            .offset(x: bw * 0.5 + s * 0.16, y: cy + s * 0.08)
+        case (.crescent(let c), .back):
+            MascotCrescentShape().fill(LinearGradient(colors: [c ?? .white, (c ?? pal.accent).opacity(0.8)], startPoint: .top, endPoint: .bottom))
+                .overlay(MascotCrescentShape().stroke(pal.outline.opacity(0.35), lineWidth: line))
+                .frame(width: s * 1.25, height: s * 1.25)
+                .rotationEffect(.degrees(-20 + 4 * sin(t * 0.7) * da))
+                .offset(x: -s * 0.12, y: cy - s * 0.04)
+        case (.ring(let c), .back):
+            MascotRingHalf(front: false).stroke(c ?? gold, lineWidth: s * 0.06)
+                .frame(width: bw * 1.5, height: s * 0.32).rotationEffect(.degrees(-14)).offset(y: cy + s * 0.08)
+        case (.harp, .back):
+            ZStack {
+                MascotTail().stroke(gold, style: StrokeStyle(lineWidth: s * 0.06, lineCap: .round)).frame(width: s * 0.42, height: s * 0.7)
+                ForEach(0..<4, id: \.self) { k in Capsule().fill(Color.white.opacity(0.8)).frame(width: 1, height: s * (0.36 + CGFloat(k) * 0.06)).offset(x: s * (-0.08 + CGFloat(k) * 0.06)) }
+            }
+            .offset(x: bw * 0.42, y: cy - s * 0.06)
+        case (.shell(let c), .back):
+            ZStack {
+                Circle().fill(RadialGradient(colors: [(c ?? pal.accent).opacity(0.75), c ?? pal.accent, pal.dark], center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: s * 0.5))
+                Circle().stroke(pal.outline.opacity(0.55), lineWidth: line)
+                MascotSpiral().stroke(pal.light.opacity(0.8), style: StrokeStyle(lineWidth: s * 0.035, lineCap: .round))
+            }
+            .frame(width: s * 0.74, height: s * 0.74).offset(x: s * 0.34, y: cy - s * 0.16)
+        case (.thorns(let c), .back), (.feathers(let c), .back):
+            ForEach(0..<7, id: \.self) { k in
+                MascotTriangle().fill(c ?? pal.dark).overlay(MascotTriangle().stroke(pal.outline.opacity(0.45), lineWidth: line))
+                    .frame(width: s * 0.14, height: s * 0.24).offset(y: -max(bw, bh) * 0.48 - s * 0.04)
+                    .rotationEffect(.degrees(Double(k) * 24 - 72 + 3 * sin(t + Double(k)) * da)).offset(y: cy)
+            }
+        case (.frill(let c), .back):
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                ForEach(0..<3, id: \.self) { k in
+                    MascotFrond().fill(c ?? pal.accent).overlay(MascotFrond().stroke(pal.outline.opacity(0.5), lineWidth: line))
+                        .frame(width: s * 0.13, height: s * 0.3).offset(y: -s * 0.15)
+                        .rotationEffect(.degrees(side * (50 + Double(k - 1) * 28 + 7 * sin(t * 3 + Double(k)) * da)), anchor: .bottom)
+                        .offset(x: side * bw * 0.4, y: cy)
+                }
+            }
+        case (.fins(let c), .back):
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                MascotTriangle().rotation(.degrees(side * 90)).fill(c ?? pal.accent).overlay(MascotTriangle().rotation(.degrees(side * 90)).stroke(pal.outline.opacity(0.5), lineWidth: line))
+                    .frame(width: s * 0.26, height: s * 0.2)
+                    .rotationEffect(.degrees(side * 10 * sin(t * 2.4) * da))
+                    .offset(x: side * (bw * 0.5 + s * 0.08), y: cy + s * 0.06)
+            }
+        case (.flame(let c), .back):
+            MascotDropShape().fill(LinearGradient(colors: [Color(red: 1, green: 0.9, blue: 0.4), c ?? .orange], startPoint: .bottom, endPoint: .top))
+                .frame(width: s * 0.4, height: s * 0.62).rotationEffect(.degrees(-70 + 6 * sin(t * 6) * da))
+                .offset(x: -bw * 0.5 - s * 0.12, y: cy)
+        case (.blanket(let c), .back):
+            RoundedRectangle(cornerRadius: s * 0.12).fill(c).overlay(RoundedRectangle(cornerRadius: s * 0.12).stroke(pal.outline.opacity(0.4), lineWidth: line))
+                .frame(width: bw * 1.25, height: bh * 0.6).rotationEffect(.degrees(-6)).offset(y: cy + bh * 0.22)
+        case (.roots, .back):
+            ForEach(0..<4, id: \.self) { k in
+                Capsule().fill(pal.dark).frame(width: s * 0.05, height: s * 0.2)
+                    .rotationEffect(.degrees(Double(k - 2) * 18 + 9)).offset(x: s * (CGFloat(k) - 1.5) * 0.12, y: cy + bh * 0.5 + s * 0.04)
+            }
+        case (.wheels, .back):
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                Circle().fill(Color(white: 0.2)).overlay(Circle().stroke(pal.accent, lineWidth: s * 0.03)).frame(width: s * 0.2)
+                    .rotationEffect(.radians(t * 4 * da)).offset(x: side * bw * 0.3, y: cy + bh * 0.5)
+            }
+        case (.feet(let c), .back):
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                Ellipse().fill(c ?? pal.dark).overlay(Ellipse().stroke(pal.outline.opacity(0.5), lineWidth: line))
+                    .frame(width: s * 0.2, height: s * 0.1).offset(x: side * bw * 0.22, y: cy + bh * 0.48)
+            }
+        case (.antlers, .back), (.starAntlers, .back):
+            let col = Self.antlerColor(part)
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                ZStack {
+                    Capsule().fill(col).frame(width: s * 0.045, height: s * 0.34)
+                    Capsule().fill(col).frame(width: s * 0.04, height: s * 0.16).rotationEffect(.degrees(side * 40)).offset(x: side * s * 0.05, y: -s * 0.06)
+                    if Self.isStarAntlers(part) { MascotSparkleShape().fill(gold).frame(width: s * 0.1, height: s * 0.1).offset(y: -s * 0.18) }
+                }
+                .rotationEffect(.degrees(side * 20), anchor: .bottom)
+                .offset(x: side * bw * 0.2, y: top - s * 0.12)
+            }
+        // ── Front layer (under the face) ─────────────────────────
+        case (.ring(let c), .front):
+            MascotRingHalf(front: true).stroke(c ?? gold, lineWidth: s * 0.06)
+                .frame(width: bw * 1.5, height: s * 0.32).rotationEffect(.degrees(-14)).offset(y: cy + s * 0.08)
+        case (.speakers, .front):
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                ZStack {
+                    Circle().fill(Color(white: 0.12))
+                    Circle().stroke(pal.accent, lineWidth: s * 0.02).scaleEffect(0.78 + 0.08 * CGFloat(sin(t * 6)) * a)
+                    Circle().fill(pal.accent.opacity(0.7)).scaleEffect(0.3)
+                }
+                .frame(width: s * 0.2).offset(x: side * bw * 0.34, y: cy + bh * 0.2)
+            }
+        case (.pixels(let c), .front):
+            ForEach(0..<5, id: \.self) { k in
+                Rectangle().fill((c ?? pal.accent).opacity(0.8)).frame(width: s * 0.07, height: s * 0.07)
+                    .offset(x: s * (CGFloat(k % 3) - 1) * 0.3 + s * 0.05, y: cy + s * (CGFloat(k / 3) * 0.24 - 0.3))
+                    .opacity(0.5 + 0.5 * sin(t * 3 + Double(k)))
+            }
+        case (.paintDrips(let cs), .front):
+            ForEach(Array(cs.enumerated()), id: \.offset) { k, c in
+                Capsule().fill(c).frame(width: s * 0.08, height: s * (0.14 + CGFloat(k % 2) * 0.08))
+                    .offset(x: s * (CGFloat(k) - CGFloat(cs.count - 1) / 2) * 0.16, y: cy + bh * 0.42)
+            }
+        case (.berries(let c), .front):
+            ForEach(0..<6, id: \.self) { k in
+                Circle().fill(c.opacity(0.85)).overlay(Circle().stroke(pal.outline.opacity(0.3), lineWidth: 0.6)).frame(width: s * 0.12)
+                    .offset(x: s * [-0.3, 0.32, -0.36, 0.36, -0.2, 0.24][k], y: cy + s * [0.22, 0.18, -0.06, -0.02, 0.34, 0.32][k])
+            }
+        case (.lightning, .front):
+            Image(systemName: "bolt.fill").font(.system(size: s * 0.18)).foregroundStyle(Color(red: 1, green: 0.9, blue: 0.3))
+                .offset(x: bw * 0.42, y: top + s * 0.04).opacity(0.6 + 0.4 * sin(t * 5))
+        case (.scarf(let c), .front):
+            Capsule().fill(c).overlay(Capsule().stroke(pal.outline.opacity(0.4), lineWidth: line))
+                .frame(width: bw * 0.78, height: s * 0.09).offset(y: s * (kind.mouthY + 0.1))
+        case (.bowtie(let c), .front):
+            HStack(spacing: 0) { MascotTriangle().rotation(.degrees(90)).fill(c); MascotTriangle().rotation(.degrees(-90)).fill(c) }
+                .frame(width: s * 0.22, height: s * 0.1).offset(y: s * (kind.mouthY + 0.1))
+        case (.whiskers, .front):
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                ForEach(0..<2, id: \.self) { k in
+                    Capsule().fill(pal.outline.opacity(0.5)).frame(width: s * 0.16, height: 1)
+                        .rotationEffect(.degrees(side * (Double(k) * 14 - 7))).offset(x: side * s * 0.34, y: s * (kind.mouthY - 0.02) + CGFloat(k) * s * 0.04)
+                }
+            }
+        case (.beak, .front):
+            MascotTriangle().rotation(.degrees(180)).fill(Color(red: 0.98, green: 0.72, blue: 0.3))
+                .frame(width: s * 0.1, height: s * 0.08).offset(y: s * (kind.mouthY - 0.08))
+        case (.cheeksStars, .front):
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                MascotSparkleShape().fill(pal.accent.opacity(0.9)).frame(width: s * 0.08, height: s * 0.08).offset(x: side * s * 0.3, y: s * (kind.eyeY + 0.16))
+            }
+        // ── Top layer (over the face) ───────────────────────────
+        case (.halo, .top):
+            Ellipse().stroke(LinearGradient(colors: [gold, Color(red: 1, green: 0.96, blue: 0.7)], startPoint: .leading, endPoint: .trailing), lineWidth: s * 0.045)
+                .shadow(color: gold.opacity(0.8), radius: s * 0.05)
+                .frame(width: s * 0.5, height: s * 0.13)
+                .offset(y: top - s * 0.2 - CGFloat(sin(t * 1.5)) * s * 0.02 * a)
+        case (.starCrest, .top):
+            MascotStarShape().fill(LinearGradient(colors: [Color(red: 1, green: 0.95, blue: 0.6), gold], startPoint: .top, endPoint: .bottom))
+                .overlay(MascotStarShape().stroke(Color(red: 0.7, green: 0.5, blue: 0.1).opacity(0.6), lineWidth: line * 0.8))
+                .frame(width: s * 0.2, height: s * 0.2).offset(y: top - s * 0.04)
+        case (.heartAntenna, .top):
+            VStack(spacing: 0) {
+                MascotHeartShape().fill(pal.accent).frame(width: s * 0.13, height: s * 0.12)
+                Capsule().fill(pal.dark).frame(width: s * 0.025, height: s * 0.12)
+            }
+            .rotationEffect(.degrees(8 * sin(t * 2) * da), anchor: .bottom).offset(y: top - s * 0.1)
+        case (.antennae(let c), .top):
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                VStack(spacing: 0) {
+                    Circle().fill(c ?? pal.accent).frame(width: s * 0.09)
+                    Capsule().fill(pal.dark).frame(width: s * 0.025, height: s * 0.18)
+                }
+                .rotationEffect(.degrees(side * 22 + 6 * sin(t * 2 + side) * da), anchor: .bottom)
+                .offset(x: side * s * 0.12, y: top - s * 0.1)
+            }
+        case (.nightcap(let c), .top):
+            ZStack(alignment: .topTrailing) {
+                MascotCapShape().fill(LinearGradient(colors: [c, c.opacity(0.75)], startPoint: .top, endPoint: .bottom))
+                    .overlay(MascotCapShape().stroke(pal.outline.opacity(0.5), lineWidth: line))
+                Circle().fill(.white).frame(width: s * 0.12).offset(x: s * 0.04, y: -s * 0.03)
+            }
+            .frame(width: s * 0.5, height: s * 0.34).rotationEffect(.degrees(-14 + 3 * sin(t * 0.8) * da)).offset(x: -s * 0.04, y: top - s * 0.06)
+        case (.crown, .top):
+            Image(systemName: "crown.fill").font(.system(size: s * 0.2)).foregroundStyle(LinearGradient(colors: [Color(red: 1, green: 0.95, blue: 0.6), gold], startPoint: .top, endPoint: .bottom))
+                .offset(y: top - s * 0.06)
+        case (.leaves(let n, let c), .top):
+            ForEach(0..<n, id: \.self) { k in
+                MascotLeaf().fill(LinearGradient(colors: [c ?? Color(red: 0.5, green: 0.8, blue: 0.4), (c ?? Color(red: 0.3, green: 0.6, blue: 0.3)).opacity(0.85)], startPoint: .leading, endPoint: .trailing))
+                    .overlay(MascotLeaf().stroke(pal.outline.opacity(0.4), lineWidth: line * 0.8))
+                    .frame(width: s * 0.24, height: s * 0.11)
+                    .offset(x: s * 0.1)
+                    .rotationEffect(.degrees(-90 + (Double(k) - Double(n - 1) / 2) * 40 + 4 * sin(t * 1.3 + Double(k)) * da), anchor: .leading)
+                    .offset(y: top)
+            }
+        case (.petals(let n, let c), .top):
+            ZStack {
+                ForEach(0..<n, id: \.self) { k in
+                    Ellipse().fill(c ?? pal.accent).overlay(Ellipse().stroke(pal.outline.opacity(0.35), lineWidth: line * 0.7))
+                        .frame(width: s * 0.1, height: s * 0.18).offset(y: -s * 0.08).rotationEffect(.degrees(Double(k) / Double(n) * 360))
+                }
+                Circle().fill(Color(red: 1, green: 0.88, blue: 0.4)).frame(width: s * 0.09)
+            }
+            .offset(x: s * 0.16, y: top - s * 0.02)
+        case (.mushroomCap(let c, let spots), .top):
+            ZStack {
+                MascotDomeShape().fill(LinearGradient(colors: [c.opacity(0.85), c], startPoint: .top, endPoint: .bottom))
+                MascotDomeShape().stroke(pal.outline.opacity(0.5), lineWidth: line)
+                if spots { ForEach(0..<3, id: \.self) { k in Circle().fill(.white.opacity(0.9)).frame(width: s * 0.08).offset(x: s * (CGFloat(k) - 1) * 0.18, y: -s * (k == 1 ? 0.07 : 0.0)) } }
+            }
+            .frame(width: bw * 1.18, height: s * 0.36).offset(y: top + s * 0.02)
+        case (.hood(let c), .top):
+            MascotDomeShape().fill(c).overlay(MascotDomeShape().stroke(pal.outline.opacity(0.4), lineWidth: line))
+                .frame(width: bw * 1.04, height: s * 0.3).offset(y: top + s * 0.06)
+        case (.mask(let c), .top):
+            Capsule().fill(c.opacity(0.92)).frame(width: s * 0.66, height: s * 0.2).offset(y: s * kind.eyeY)
+                .blendMode(.multiply)
+        case (.goggles(let c), .top):
+            HStack(spacing: s * 0.02) { Circle().stroke(c, lineWidth: s * 0.04); Circle().stroke(c, lineWidth: s * 0.04) }
+                .frame(width: s * 0.56, height: s * 0.27).offset(y: top + s * 0.02)
+        case (.visor(let c), .top):
+            Capsule().fill(LinearGradient(colors: [c.opacity(0.7), c.opacity(0.35)], startPoint: .top, endPoint: .bottom))
+                .frame(width: s * 0.62, height: s * 0.16).offset(y: top + s * 0.06)
+        case (.headphones(let c), .top):
+            ZStack {
+                MascotRingHalf(front: false).stroke(c ?? pal.accent, lineWidth: s * 0.05).frame(width: bw * 0.98, height: bh * 0.8)
+                ForEach([-1.0, 1.0], id: \.self) { side in
+                    Capsule().fill(c ?? pal.accent).frame(width: s * 0.12, height: s * 0.22).offset(x: side * bw * 0.49)
+                }
+            }
+            .offset(y: cy - bh * 0.06)
+        case (.lantern(let c), .top):
+            VStack(spacing: 0) {
+                Capsule().fill(pal.dark).frame(width: s * 0.02, height: s * 0.14)
+                RoundedRectangle(cornerRadius: s * 0.03).fill(c).frame(width: s * 0.12, height: s * 0.14).shadow(color: c, radius: s * 0.06)
+            }
+            .offset(x: bw * 0.52, y: cy + s * 0.04)
+        case (.compass, .top):
+            ZStack {
+                Circle().stroke(Color(red: 0.86, green: 0.9, blue: 1), lineWidth: s * 0.025).frame(width: s * 0.36)
+                ForEach(0..<4, id: \.self) { k in MascotTriangle().fill(k == 0 ? gold : Color(red: 0.7, green: 0.8, blue: 1)).frame(width: s * 0.08, height: s * 0.14).offset(y: -s * 0.12).rotationEffect(.degrees(Double(k) * 90)) }
+            }
+            .rotationEffect(.degrees(20 * sin(t * 0.6) * da)).offset(y: top - s * 0.14)
+        case (.orbiters(let n, let c), .top):
+            ForEach(0..<n, id: \.self) { k in
+                let ang = t * 0.9 * da + Double(k) / Double(n) * 2 * .pi
+                MascotSparkleShape().fill(c ?? gold).frame(width: s * 0.1, height: s * 0.1)
+                    .offset(x: CGFloat(cos(ang)) * s * 0.66, y: cy - s * 0.16 + CGFloat(sin(ang)) * s * 0.14)
+            }
+        case (.sparkles(let n), .top):
+            ForEach(0..<n, id: \.self) { k in
+                MascotSparkleShape().fill(gold.opacity(0.9)).frame(width: s * 0.08, height: s * 0.08)
+                    .offset(x: s * [0.56, -0.58, 0.48, -0.44, 0.0][k % 5], y: cy + s * [-0.42, -0.3, 0.3, 0.38, -0.62][k % 5])
+                    .opacity(0.4 + 0.6 * abs(sin(t * 1.4 + Double(k))))
+            }
+        case (.notes, .top):
+            Text("♪").font(.system(size: s * 0.2, weight: .bold)).foregroundStyle(pal.accent)
+                .offset(x: s * 0.56, y: top - CGFloat((t * 0.6).truncatingRemainder(dividingBy: 1)) * s * 0.16 * a)
+        default:
+            EmptyView()
+        }
+    }
+
+    static func isStarAntlers(_ part: MolibooPart) -> Bool { if case .starAntlers = part { return true }; return false }
+
+    static func antlerColor(_ part: MolibooPart) -> Color {
+        if case .antlers(let c) = part { return c ?? Color(red: 0.62, green: 0.44, blue: 0.3) }
+        return Color(red: 0.86, green: 0.94, blue: 1)
+    }
+}
+
+// MARK: - Family specs and profiles
+
+extension ModulaMascotKind {
+    var spec: MolibooSpec? { MolibooFamilySpecs.table[self] }
+}
+
+enum MolibooFamilySpecs {
+    static func c(_ r: Double, _ g: Double, _ b: Double) -> Color { Color(red: r, green: g, blue: b) }
+    static let pearl = c(0.97, 0.95, 0.99), gold = c(1, 0.82, 0.38)
+
+    static let table: [ModulaMascotKind: MolibooSpec] = {
+        var t: [ModulaMascotKind: MolibooSpec] = [:]
+        // Family 002 — Angels (Celestia)
+        t[.aura] = MolibooSpec(body: .pear, size: CGSize(width: 0.9, height: 0.9), palette: .spec(pearl, accent: gold, light: .white), parts: [.glow(gold), .rays(6, gold), .wings(.feather, nil), .starCrest, .sparkles(3)], floats: true, feet: false, form: "Celestial light guardian")
+        t[.soli] = MolibooSpec(body: .round, size: CGSize(width: 0.94, height: 0.9), palette: .spec(c(1, 0.8, 0.32), accent: c(1, 0.62, 0.3), light: c(1, 0.95, 0.7)), parts: [.glow(c(1, 0.78, 0.3)), .rays(8, c(1, 0.72, 0.28)), .cheeksStars], floats: true, feet: false, form: "Miniature living sun")
+        t[.luma] = MolibooSpec(body: .round, size: CGSize(width: 0.78, height: 0.76), palette: .spec(c(0.88, 0.9, 0.99), accent: c(0.7, 0.72, 0.98)), parts: [.crescent(c(0.96, 0.95, 0.88)), .starCrest, .sparkles(3)], floats: true, feet: false, form: "Living moon pearl")
+        t[.vela] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.82), palette: .spec(c(0.98, 0.95, 0.97), accent: c(1, 0.74, 0.84), light: .white), parts: [.tail(.fox, c(0.86, 0.8, 0.98)), .ears(.fox), .starCrest], hatMaxWidth: 0.46, form: "Tiny magical sky fox")
+        t[.cheri] = MolibooSpec(body: .heart, size: CGSize(width: 0.98, height: 0.9), palette: .spec(c(1, 0.78, 0.84), accent: c(0.96, 0.44, 0.6)), parts: [.wings(.feather, nil), .heartAntenna, .halo], floats: true, feet: false, form: "Heart-shaped cherub")
+        t[.hush] = MolibooSpec(body: .cloud, size: CGSize(width: 1.12, height: 0.82), palette: .spec(c(0.96, 0.96, 1), accent: c(0.8, 0.84, 1), light: .white), parts: [.wings(.feather, nil), .starCrest], floats: true, feet: false, form: "Feather-cloud being")
+        t[.haloa] = MolibooSpec(body: .round, size: CGSize(width: 0.92, height: 0.84), palette: .spec(c(0.98, 0.96, 0.92), accent: gold, light: .white), parts: [.glow(gold), .halo, .sparkles(4)], floats: true, feet: false, form: "Celestial ring spirit")
+        t[.lyra] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(c(0.97, 0.95, 0.99), accent: c(0.72, 0.6, 0.96), light: .white), parts: [.harp, .wings(.feather, c(0.9, 0.86, 1)), .starCrest, .notes], form: "Living miniature harp")
+        t[.celio] = MolibooSpec(body: .wide, size: CGSize(width: 1.12, height: 0.78), palette: .spec(c(0.62, 0.8, 0.98), accent: gold, light: c(0.9, 0.96, 1)), parts: [.tail(.whale, c(0.5, 0.7, 0.96)), .fins(c(0.52, 0.72, 0.96)), .starCrest], floats: true, feet: false, form: "Floating celestial whale")
+        t[.dovee] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.86), palette: .spec(c(0.98, 0.98, 1), accent: c(0.7, 0.86, 0.6), light: .white), parts: [.wings(.feather, nil), .leaves(2, c(0.56, 0.74, 0.42)), .beak], form: "Pearl-white dove")
+        t[.twila] = MolibooSpec(body: .round, size: CGSize(width: 0.84, height: 0.84), palette: .spec(c(0.36, 0.3, 0.52), accent: c(0.9, 0.78, 0.5), iris: c(0.9, 0.8, 0.5)), parts: [.wings(.moth, c(0.5, 0.4, 0.74)), .antennae(gold), .sparkles(2)], floats: true, feet: false, form: "Celestial moth")
+        t[.gleam] = MolibooSpec(body: .drop, size: CGSize(width: 0.84, height: 0.98), palette: .spec(c(0.9, 0.94, 1), accent: c(0.72, 0.84, 1), light: .white), parts: [.glow(c(0.8, 0.9, 1)), .wings(.feather, nil), .halo], floats: true, feet: false, hatScale: 0.8, headTopExtra: 0.17, form: "Living droplet of light")
+        t[.novael] = MolibooSpec(body: .star, size: CGSize(width: 1.04, height: 1.0), palette: .spec(c(0.92, 0.94, 1), accent: c(0.6, 0.72, 1), light: .white), parts: [.glow(c(0.7, 0.8, 1)), .orbiters(3, gold), .sparkles(2)], floats: true, feet: false, hatScale: 0.62, headTopExtra: 0.12, form: "Living celestial star")
+        t[.sera] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.88), palette: .spec(c(0.98, 0.97, 0.95), accent: gold, light: .white), parts: [.wings(.feather, nil), .starCrest, .bowtie(gold)], form: "Winged celestial shield")
+        t[.auri] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.82), palette: .spec(c(0.88, 0.84, 0.98), accent: c(0.56, 0.9, 0.86), light: c(0.98, 0.96, 1)), parts: [.wings(.fairy, c(0.7, 0.9, 1)), .antennae(c(1, 0.7, 0.9)), .sparkles(3)], floats: true, feet: false, form: "Iridescent celestial sprite")
+        return t
+    }()
+
+    static let profiles: [ModulaMascotKind: ModulaMascotKind.Profile] = [
+        .aura: .init(number: 26, title: "The Guiding Light", traits: ["Light", "Leader", "Calm"]),
+        .soli: .init(number: 27, title: "The Little Sun", traits: ["Sun", "Energetic", "Joyful"]),
+        .luma: .init(number: 28, title: "The Moon Pearl", traits: ["Moon", "Gentle", "Dreamy"]),
+        .vela: .init(number: 29, title: "The Celestial Fox", traits: ["Sky", "Elegant", "Wise"]),
+        .cheri: .init(number: 30, title: "The Heart Spirit", traits: ["Love", "Kind", "Playful"]),
+        .hush: .init(number: 31, title: "The Feather Guardian", traits: ["Cloud", "Protective", "Peaceful"]),
+        .haloa: .init(number: 32, title: "The Halo Keeper", traits: ["Light", "Holy", "Serene"]),
+        .lyra: .init(number: 33, title: "The Musical Spirit", traits: ["Music", "Creative", "Inspiring"]),
+        .celio: .init(number: 34, title: "The Sky Whale", traits: ["Sky", "Adventurous", "Friendly"]),
+        .dovee: .init(number: 35, title: "The Celestial Dove", traits: ["Peace", "Loyal", "Brave"]),
+        .twila: .init(number: 36, title: "The Twilight Moth", traits: ["Twilight", "Mysterious", "Curious"]),
+        .gleam: .init(number: 37, title: "The Radiant Droplet", traits: ["Light", "Pure", "Optimistic"]),
+        .novael: .init(number: 38, title: "The Cosmic Star", traits: ["Stars", "Powerful", "Majestic"]),
+        .sera: .init(number: 39, title: "The Little Sentinel", traits: ["Guardian", "Brave", "Caring"]),
+        .auri: .init(number: 40, title: "The Iridescent Spirit", traits: ["Aurora", "Magical", "Unique"]),
+    ]
 }

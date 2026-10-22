@@ -197,6 +197,24 @@ extension MascotRig {
             r.hasFeet = false; r.hatScale = 0.88
         case .fable:
             r.hasFeet = false; r.hasLegs = false; r.hatMaxWidth = 0.5
+        default:
+            if let sp = k.spec {
+                switch sp.body {
+                case .cloud: r.shape = .cloud
+                case .drop, .wisp: r.shape = .drop
+                case .dome: r.shape = .dome
+                case .pebble: r.shape = .pebble
+                case .square: r.shape = .square
+                case .star: r.shape = .star
+                case .tall, .pear, .bell, .crystal: r.shape = .tall
+                case .wide: r.shape = .wide
+                default: r.shape = .round
+                }
+                r.hasFeet = sp.feet; r.hasLegs = sp.feet; r.floats = sp.floats
+                r.hatScale = sp.hatScale; r.hatMaxWidth = sp.hatMaxWidth
+                if let extra = sp.headTopExtra { r.headTopOverride = r.bodyTop + extra }
+                if sp.body == .star || sp.body == .wisp { r.allowsTop = false }
+            }
         }
         return r
     }
