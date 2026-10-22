@@ -1,3 +1,4 @@
+import CoreMotion
 import SwiftUI
 
 extension AppLockMethod: Identifiable {
@@ -160,6 +161,8 @@ struct AppLockView: View {
         case .passcode: "Enter your 6-digit Modula passcode."
         case .pattern: "Draw your unlock pattern."
         case .orbit: "Spin each ring to your glyph, then tap the centre."
+        case .rhythm: "Tap your beat on Moliboo."
+        case .gravity: "Tilt to roll the marble into your wells."
         }
     }
 
@@ -208,6 +211,18 @@ struct AppLockView: View {
                         attempt(OrbitLock.encode(indices))
                     }
                     .frame(maxWidth: compact ? 260 : 320)
+                    .modifier(ShakeEffect(animatableData: CGFloat(shakes)))
+                case .rhythm:
+                    RhythmPad(disabled: disabled, haptics: lock.settings.hapticsEnabled, actionLabel: "Unlock") { taps in
+                        attempt(RhythmLock.encode(taps))
+                    }
+                    .frame(maxWidth: compact ? 240 : 300)
+                    .modifier(ShakeEffect(animatableData: CGFloat(shakes)))
+                case .gravity:
+                    GravityBoard(disabled: disabled, haptics: lock.settings.hapticsEnabled, actionLabel: "Unlock") { seq in
+                        attempt(GravityLock.encode(seq))
+                    }
+                    .frame(maxWidth: compact ? 250 : 310)
                     .modifier(ShakeEffect(animatableData: CGFloat(shakes)))
                 }
             }
@@ -826,15 +841,14 @@ struct LockSecretSetupView: View {
             VStack(spacing: 6) {
                 Text(first == nil ? "Create your \(method.title.lowercased())" : "Confirm your \(method.title.lowercased())")
                     .font(.title2.bold())
-                Text(method == .orbit
-                     ? (first == nil ? "Spin each ring so your chosen glyph sits under the top marker, then tap the centre." : "The rings were shuffled. Line up the same glyphs again.")
-                     : (first == nil ? "Connect at least \(PatternLock.minimumDots) dots." : "Draw it once more."))
+                Text(setupInstruction)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
             Group {
-                if method == .pattern {
+                switch method {
+                case .pattern:
                     PatternPad { nodes in
                         guard nodes.count >= PatternLock.minimumDots else {
                             fail("Connect at least \(PatternLock.minimumDots) dots.")
@@ -843,7 +857,17 @@ struct LockSecretSetupView: View {
                         submit(PatternLock.encode(nodes))
                     }
                     .frame(maxWidth: 280)
-                } else {
+                case .rhythm:
+                    RhythmPad(actionLabel: first == nil ? "Set" : "Confirm", showsStrength: first == nil) { taps in
+                        submit(RhythmLock.encode(taps))
+                    }
+                    .frame(maxWidth: 280)
+                case .gravity:
+                    GravityBoard(actionLabel: first == nil ? "Set" : "Confirm", showsStrength: first == nil) { seq in
+                        submit(GravityLock.encode(seq))
+                    }
+                    .frame(maxWidth: 300)
+                default:
                     OrbitDial(randomizes: first != nil, actionLabel: first == nil ? "Set" : "Confirm") { indices in
                         submit(OrbitLock.encode(indices))
                     }
@@ -863,6 +887,15 @@ struct LockSecretSetupView: View {
         .padding(24)
         .navigationTitle(method.title)
         .accessibilityIdentifier("applock.setup.\(method.rawValue)")
+    }
+
+    private var setupInstruction: String {
+        switch method {
+        case .orbit: first == nil ? "Spin each ring so your chosen glyph sits under the top marker, then tap the centre." : "The rings were shuffled. Line up the same glyphs again."
+        case .rhythm: first == nil ? "Tap a beat of 4–8 taps on Moliboo. Mix short and long gaps, and one- and two-finger taps." : "Play the same beat again. Your tempo can differ."
+        case .gravity: first == nil ? "Tilt your phone to roll the marble into 4–6 wells, in order. Your secret is the glyphs, not the positions." : "The wells were shuffled. Roll into the same glyphs again."
+        default: first == nil ? "Connect at least \(PatternLock.minimumDots) dots." : "Draw it once more."
+        }
     }
 
     private func fail(_ message: String) {
@@ -894,5 +927,430 @@ struct LockSecretSetupView: View {
             round += 1
             fail("They didn’t match. Start again.")
         }
+    }
+}
+
+// MARK: - Rhythm (tap a secret beat on Moliboo)
+
+/// Captures taps with their simultaneous finger count (1 or 2). Touches that land within a
+/// short window are merged into one tap so a two-finger tap never registers as two beats.
+private struct RhythmTouchSurface: UIViewRepresentable {
+    var onTap: (_ fingers: Int, _ time: TimeInterval, _ location: CGPoint) -> Void
+
+    func makeUIView(context: Context) -> TouchView {
+        let view = TouchView()
+        view.isMultipleTouchEnabled = true
+        view.backgroundColor = .clear
+        view.onTap = onTap
+        return view
+    }
+    func updateUIView(_ view: TouchView, context: Context) { view.onTap = onTap }
+
+    final class TouchView: UIView {
+        var onTap: ((Int, TimeInterval, CGPoint) -> Void)?
+        private var pendingFingers = 0
+        private var pendingTime: TimeInterval = 0
+        private var pendingLocation: CGPoint = .zero
+        private var pendingWork: DispatchWorkItem?
+
+        override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+            guard let first = touches.first else { return }
+            if pendingWork == nil {
+                pendingFingers = 0
+                pendingTime = first.timestamp
+                pendingLocation = first.location(in: self)
+                let work = DispatchWorkItem { [weak self] in self?.commit() }
+                pendingWork = work
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.09, execute: work)
+            }
+            pendingFingers += touches.count
+        }
+
+        private func commit() {
+            pendingWork = nil
+            onTap?(min(2, max(1, pendingFingers)), pendingTime, pendingLocation)
+        }
+    }
+}
+
+struct RhythmPad: View {
+    var disabled = false
+    var haptics = true
+    var actionLabel: String
+    var showsStrength = false
+    var onSubmit: ([RhythmLock.Tap]) -> Void
+
+    @State private var taps: [RhythmLock.Tap] = []
+    @State private var bounce = 0
+    @State private var squish = false
+    @State private var ripples: [Ripple] = []
+    @State private var idleTask: Task<Void, Never>?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private struct Ripple: Identifiable { let id = UUID(); var point: CGPoint; var two: Bool; var grown = false }
+
+    var body: some View {
+        VStack(spacing: 18) {
+            GeometryReader { geo in
+                let size = min(geo.size.width, geo.size.height)
+                ZStack {
+                    Circle().fill(.clear)
+                        .modulaGlass(in: Circle(), interactive: false, specular: true)
+                    ForEach(ripples) { ripple in
+                        Circle()
+                            .stroke(Color.accentColor.opacity(ripple.grown ? 0 : 0.55), lineWidth: ripple.two ? 4 : 2.5)
+                            .frame(width: ripple.grown ? size * 0.9 : 30, height: ripple.grown ? size * 0.9 : 30)
+                            .position(ripple.point)
+                            .allowsHitTesting(false)
+                    }
+                    MolibooBeatFace(squish: squish, blink: bounce)
+                        .frame(width: size * 0.56, height: size * 0.56)
+                        .scaleEffect(x: squish && !reduceMotion ? 1.12 : 1, y: squish && !reduceMotion ? 0.86 : 1)
+                        .molibooJoyPulse(trigger: bounce)
+                        .allowsHitTesting(false)
+                    RhythmTouchSurface { fingers, time, point in registerTap(fingers: fingers, time: time, point: point) }
+                        .clipShape(Circle())
+                        .accessibilityLabel("Rhythm pad, \(taps.count) taps")
+                        .accessibilityAddTraits(.allowsDirectInteraction)
+                }
+                .frame(width: size, height: size)
+            }
+            .aspectRatio(1, contentMode: .fit)
+
+            // Uniform beat dots: count only, never spacing or finger count.
+            HStack(spacing: 10) {
+                ForEach(0..<RhythmLock.maximumTaps, id: \.self) { i in
+                    Circle()
+                        .fill(i < taps.count ? Color.accentColor : Color.primary.opacity(0.15))
+                        .frame(width: 10, height: 10)
+                        .scaleEffect(i == taps.count - 1 && !reduceMotion ? 1.3 : 1)
+                }
+            }
+            .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.5), value: taps.count)
+            .accessibilityHidden(true)
+
+            if showsStrength && taps.count >= RhythmLock.minimumTaps {
+                let level = RhythmLock.strength(taps)
+                Label(["Weak beat: add two-finger taps or a long pause", "Okay beat", "Strong beat"][level],
+                      systemImage: ["exclamationmark.triangle.fill", "checkmark.circle", "checkmark.seal.fill"][level])
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle([Color.orange, .secondary, .green][level])
+            }
+
+            HStack(spacing: 12) {
+                Button("Clear") { reset() }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 18).frame(height: 40)
+                    .modulaGlass(in: Capsule())
+                    .opacity(taps.isEmpty ? 0.4 : 1)
+                    .disabled(taps.isEmpty)
+                Button(actionLabel) { submit() }
+                    .buttonStyle(.plain)
+                    .font(.body.weight(.semibold))
+                    .padding(.horizontal, 22).frame(height: 40)
+                    .modulaGlass(in: Capsule(), tint: .accentColor)
+                    .opacity(taps.count >= RhythmLock.minimumTaps ? 1 : 0.4)
+                    .disabled(taps.count < RhythmLock.minimumTaps || disabled)
+                    .accessibilityIdentifier("applock.rhythm.submit")
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("applock.rhythm")
+        .onDisappear { idleTask?.cancel() }
+    }
+
+    private func registerTap(fingers: Int, time: TimeInterval, point: CGPoint) {
+        guard !disabled, taps.count < RhythmLock.maximumTaps else { return }
+        taps.append(.init(fingers: fingers, time: time))
+        if haptics { HapticEngine.shared.play(fingers > 1 ? .mediumImpact : .lightImpact) }
+        bounce += 1
+        if !reduceMotion {
+            withAnimation(.spring(response: 0.12, dampingFraction: 0.4)) { squish = true }
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.45).delay(0.08)) { squish = false }
+            let ripple = Ripple(point: point, two: fingers > 1)
+            ripples.append(ripple)
+            withAnimation(.easeOut(duration: 0.6)) {
+                if let i = ripples.firstIndex(where: { $0.id == ripple.id }) { ripples[i].grown = true }
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(650))
+                ripples.removeAll { $0.id == ripple.id }
+            }
+        }
+        // Auto-submit after a quiet pause long enough to clearly end the beat.
+        idleTask?.cancel()
+        if taps.count == RhythmLock.maximumTaps { submit(); return }
+        let gaps = zip(taps.dropFirst(), taps).map { $0.time - $1.time }
+        let wait = max(1.4, (gaps.max() ?? 0) * 2.2)
+        idleTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(wait))
+            guard !Task.isCancelled, taps.count >= RhythmLock.minimumTaps else { return }
+            submit()
+        }
+    }
+
+    private func submit() {
+        idleTask?.cancel()
+        guard !disabled, taps.count >= RhythmLock.minimumTaps else { return }
+        let captured = taps
+        reset()
+        onSubmit(captured)
+    }
+
+    private func reset() {
+        idleTask?.cancel()
+        taps = []
+    }
+}
+
+/// A small, friendly Moliboo-style face drawn in code (no assets), so the lock works before sign-in.
+private struct MolibooBeatFace: View {
+    var squish: Bool
+    var blink: Int
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(LinearGradient(colors: [Color(red: 0.36, green: 0.86, blue: 0.84), Color(red: 0.16, green: 0.58, blue: 0.66)],
+                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+                .shadow(color: Color(red: 0.2, green: 0.7, blue: 0.75).opacity(0.45), radius: 16, y: 6)
+            Circle().fill(.white.opacity(0.35)).frame(width: 26, height: 14).offset(x: -18, y: -30).blur(radius: 2)
+            HStack(spacing: 22) {
+                Capsule().fill(.black.opacity(0.8)).frame(width: 9, height: squish ? 3 : 14)
+                Capsule().fill(.black.opacity(0.8)).frame(width: 9, height: squish ? 3 : 14)
+            }
+            .offset(y: -6)
+            Capsule().fill(.black.opacity(0.7)).frame(width: squish ? 20 : 14, height: squish ? 10 : 5).offset(y: 16)
+        }
+    }
+}
+
+// MARK: - Gravity (tilt a marble into secret glyph wells)
+
+@MainActor
+final class GravityEngine: ObservableObject {
+    @Published var marble = CGPoint(x: 0.5, y: 0.5)
+    @Published var capturedWell: Int?
+    var velocity = CGVector.zero
+    var dragging = false
+    private let motion = CMMotionManager()
+    private var timer: Timer?
+    private var gravity = CGVector.zero
+    var onStep: (() -> Void)?
+
+    var motionAvailable: Bool { motion.isDeviceMotionAvailable }
+
+    func start(useMotion: Bool) {
+        if useMotion, motion.isDeviceMotionAvailable {
+            motion.deviceMotionUpdateInterval = 1 / 60
+            motion.startDeviceMotionUpdates(to: .main) { [weak self] data, _ in
+                guard let g = data?.gravity else { return }
+                MainActor.assumeIsolated { self?.gravity = CGVector(dx: g.x, dy: -g.y) }
+            }
+        }
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 1 / 60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.tick() }
+        }
+    }
+
+    func stop() {
+        motion.stopDeviceMotionUpdates()
+        timer?.invalidate()
+        timer = nil
+    }
+
+    private func tick() {
+        guard !dragging, capturedWell == nil else { onStep?(); return }
+        let dt: CGFloat = 1 / 60
+        velocity.dx = (velocity.dx + gravity.dx * 1.8 * dt) * 0.985
+        velocity.dy = (velocity.dy + gravity.dy * 1.8 * dt) * 0.985
+        var p = CGPoint(x: marble.x + velocity.dx * dt, y: marble.y + velocity.dy * dt)
+        let r: CGFloat = 0.06
+        if p.x < r { p.x = r; velocity.dx = -velocity.dx * 0.45 }
+        if p.x > 1 - r { p.x = 1 - r; velocity.dx = -velocity.dx * 0.45 }
+        if p.y < r { p.y = r; velocity.dy = -velocity.dy * 0.45 }
+        if p.y > 1 - r { p.y = 1 - r; velocity.dy = -velocity.dy * 0.45 }
+        marble = p
+        onStep?()
+    }
+}
+
+struct GravityBoard: View {
+    var disabled = false
+    var haptics = true
+    var actionLabel: String
+    var showsStrength = false
+    var onSubmit: ([Int]) -> Void
+
+    @StateObject private var engine = GravityEngine()
+    /// layout[slot] = glyph index; reshuffled every time the board appears.
+    @State private var layout: [Int] = Array(0..<GravityLock.glyphs.count).shuffled()
+    @State private var sequence: [Int] = []
+    @State private var armedOutOf: Int?
+    @State private var pulse = 0
+    @State private var rippleSlot: Int?
+    @State private var rippleGrown = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private func slotCenter(_ slot: Int) -> CGPoint {
+        CGPoint(x: 0.2 + CGFloat(slot % 3) * 0.3, y: 0.2 + CGFloat(slot / 3) * 0.3)
+    }
+    private var usesTilt: Bool { !reduceMotion && engine.motionAvailable }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            GeometryReader { geo in
+                let size = min(geo.size.width, geo.size.height)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 34, style: .continuous).fill(.clear)
+                        .modulaGlass(in: RoundedRectangle(cornerRadius: 34, style: .continuous), interactive: false, specular: true)
+                    ForEach(0..<layout.count, id: \.self) { slot in
+                        let c = slotCenter(slot)
+                        let active = engine.capturedWell == slot
+                        ZStack {
+                            Circle().fill(Color.primary.opacity(active ? 0.22 : 0.08))
+                                .overlay(Circle().stroke(Color.primary.opacity(0.12), lineWidth: 1))
+                                .shadow(color: .black.opacity(0.18), radius: 3, y: 2)
+                            Image(systemName: GravityLock.glyphs[layout[slot]])
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(active ? Color.accentColor : Color.primary.opacity(0.6))
+                        }
+                        .frame(width: size * 0.17, height: size * 0.17)
+                        .position(x: c.x * size, y: c.y * size)
+                        .accessibilityHidden(true)
+                    }
+                    if let slot = rippleSlot {
+                        let c = slotCenter(slot)
+                        Circle().stroke(Color.accentColor.opacity(rippleGrown ? 0 : 0.6), lineWidth: 3)
+                            .frame(width: rippleGrown ? size * 0.5 : size * 0.12, height: rippleGrown ? size * 0.5 : size * 0.12)
+                            .position(x: c.x * size, y: c.y * size)
+                            .allowsHitTesting(false)
+                    }
+                    Circle()
+                        .fill(RadialGradient(colors: [.white, Color.accentColor, Color.accentColor.opacity(0.7)],
+                                             center: UnitPoint(x: 0.35, y: 0.3), startRadius: 1, endRadius: size * 0.07))
+                        .shadow(color: Color.accentColor.opacity(0.8), radius: 12)
+                        .frame(width: size * 0.12, height: size * 0.12)
+                        .scaleEffect(engine.capturedWell != nil && !reduceMotion ? 0.7 : 1)
+                        .position(x: engine.marble.x * size, y: engine.marble.y * size)
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { v in
+                                    guard !disabled, engine.capturedWell == nil else { return }
+                                    engine.dragging = true
+                                    engine.velocity = .zero
+                                    engine.marble = CGPoint(x: min(0.94, max(0.06, v.location.x / size)),
+                                                            y: min(0.94, max(0.06, v.location.y / size)))
+                                    checkWells()
+                                }
+                                .onEnded { _ in engine.dragging = false }
+                        )
+                        .accessibilityLabel("Marble")
+                }
+                .frame(width: size, height: size)
+                .coordinateSpace(name: "gravity")
+            }
+            .aspectRatio(1, contentMode: .fit)
+
+            HStack(spacing: 10) {
+                ForEach(0..<GravityLock.maximumWells, id: \.self) { i in
+                    Circle()
+                        .fill(i < sequence.count ? Color.accentColor : Color.primary.opacity(0.15))
+                        .frame(width: 10, height: 10)
+                }
+            }
+            .accessibilityHidden(true)
+
+            Text(usesTilt ? "Tilt to roll. You can also drag the marble." : "Drag the marble into your wells.")
+                .font(.caption).foregroundStyle(.secondary)
+
+            if showsStrength && sequence.count >= GravityLock.minimumWells {
+                let level = GravityLock.strength(sequence)
+                Label(["Weak: use more, different wells", "Okay", "Strong"][level],
+                      systemImage: ["exclamationmark.triangle.fill", "checkmark.circle", "checkmark.seal.fill"][level])
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle([Color.orange, .secondary, .green][level])
+            }
+
+            HStack(spacing: 12) {
+                Button("Clear") { sequence = [] }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 18).frame(height: 40)
+                    .modulaGlass(in: Capsule())
+                    .opacity(sequence.isEmpty ? 0.4 : 1)
+                    .disabled(sequence.isEmpty)
+                Button(actionLabel) { submit() }
+                    .buttonStyle(.plain)
+                    .font(.body.weight(.semibold))
+                    .padding(.horizontal, 22).frame(height: 40)
+                    .modulaGlass(in: Capsule(), tint: .accentColor)
+                    .opacity(sequence.count >= GravityLock.minimumWells ? 1 : 0.4)
+                    .disabled(sequence.count < GravityLock.minimumWells || disabled)
+                    .accessibilityIdentifier("applock.gravity.submit")
+            }
+        }
+        .molibooJoyPulse(trigger: pulse)
+        .onAppear {
+            layout = Array(0..<GravityLock.glyphs.count).shuffled()
+            engine.marble = CGPoint(x: 0.5, y: 0.5)
+            engine.onStep = { checkWells() }
+            engine.start(useMotion: usesTilt)
+        }
+        .onDisappear { engine.stop() }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("applock.gravity")
+    }
+
+    private func checkWells() {
+        guard engine.capturedWell == nil else { return }
+        let m = engine.marble
+        func dist(_ slot: Int) -> CGFloat { let c = slotCenter(slot); return hypot(c.x - m.x, c.y - m.y) }
+        if let armed = armedOutOf {
+            if dist(armed) > 0.13 { armedOutOf = nil } else { return }
+        }
+        guard !disabled, sequence.count < GravityLock.maximumWells,
+              let slot = (0..<layout.count).first(where: { dist($0) < 0.06 }) else { return }
+        capture(slot)
+    }
+
+    private func capture(_ slot: Int) {
+        engine.capturedWell = slot
+        engine.velocity = .zero
+        engine.dragging = false
+        withAnimation(reduceMotion ? nil : .spring(response: 0.2, dampingFraction: 0.6)) { engine.marble = slotCenter(slot) }
+        sequence.append(layout[slot])
+        pulse += 1
+        if haptics { HapticEngine.shared.play(.mediumImpact) }
+        if !reduceMotion {
+            rippleSlot = slot; rippleGrown = false
+            withAnimation(.easeOut(duration: 0.55)) { rippleGrown = true }
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(380))
+            // Pop back out toward the board centre.
+            let c = slotCenter(slot)
+            let away = CGVector(dx: 0.5 - c.x, dy: 0.5 - c.y)
+            let len = max(0.001, hypot(away.dx, away.dy))
+            armedOutOf = slot
+            engine.capturedWell = nil
+            if len > 0.01 {
+                engine.velocity = CGVector(dx: away.dx / len * 0.5, dy: away.dy / len * 0.5)
+            } else {
+                engine.velocity = CGVector(dx: 0, dy: -0.5)
+            }
+            if haptics { HapticEngine.shared.play(.lightImpact) }
+            rippleSlot = nil
+            if sequence.count == GravityLock.maximumWells { submit() }
+        }
+    }
+
+    private func submit() {
+        guard !disabled, sequence.count >= GravityLock.minimumWells else { return }
+        let captured = sequence
+        sequence = []
+        layout = Array(0..<GravityLock.glyphs.count).shuffled()
+        engine.marble = CGPoint(x: 0.5, y: 0.5)
+        engine.velocity = .zero
+        onSubmit(captured)
     }
 }
