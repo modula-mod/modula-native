@@ -138,32 +138,32 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
     var palette: Palette {
         func c(_ r: Double, _ g: Double, _ b: Double) -> Color { Color(red: r, green: g, blue: b) }
         switch self {
-        case .pip: return Palette(light: c(1, 0.86, 0.90), mid: c(0.98, 0.64, 0.76), dark: c(0.84, 0.40, 0.58), accent: c(0.96, 0.34, 0.56), iris: c(0.36, 0.20, 0.32), outline: c(0.52, 0.20, 0.36))
-        case .moss: return Palette(light: c(0.80, 0.96, 0.64), mid: c(0.48, 0.81, 0.42), dark: c(0.24, 0.58, 0.30), accent: c(0.99, 0.93, 0.70), iris: c(0.62, 0.45, 0.10), outline: c(0.12, 0.36, 0.19))
-        case .nimbus: return Palette(light: c(1, 1, 1), mid: c(0.86, 0.91, 1), dark: c(0.60, 0.71, 0.95), accent: c(0.60, 0.76, 1), iris: c(0.22, 0.33, 0.62), outline: c(0.33, 0.43, 0.74))
-        case .mochi: return Palette(light: c(0.97, 0.96, 0.99), mid: c(0.80, 0.79, 0.87), dark: c(0.57, 0.56, 0.67), accent: c(1, 0.66, 0.75), iris: c(0.30, 0.58, 0.42), outline: c(0.34, 0.33, 0.45))
-        case .sprout: return Palette(light: c(0.99, 0.94, 0.72), mid: c(0.93, 0.80, 0.48), dark: c(0.76, 0.60, 0.30), accent: c(0.45, 0.80, 0.36), iris: c(0.36, 0.24, 0.12), outline: c(0.45, 0.32, 0.14))
-        case .ember: return Palette(light: c(1, 0.93, 0.56), mid: c(1, 0.65, 0.28), dark: c(0.92, 0.35, 0.19), accent: c(1, 0.85, 0.35), iris: c(0.42, 0.16, 0.08), outline: c(0.60, 0.19, 0.09))
-        case .tuck: return Palette(light: c(0.88, 0.74, 0.58), mid: c(0.67, 0.51, 0.37), dark: c(0.45, 0.32, 0.23), accent: c(0.99, 0.90, 0.74), iris: c(0.95, 0.62, 0.12), outline: c(0.29, 0.19, 0.12))
-        case .bloop: return Palette(light: c(0.93, 0.86, 1), mid: c(0.74, 0.60, 0.98), dark: c(0.50, 0.38, 0.86), accent: c(0.98, 0.62, 0.92), iris: c(0.28, 0.18, 0.52), outline: c(0.36, 0.24, 0.64))
-        case .bun: return Palette(light: c(1, 0.98, 0.95), mid: c(0.93, 0.88, 0.84), dark: c(0.76, 0.69, 0.66), accent: c(1, 0.72, 0.78), iris: c(0.36, 0.22, 0.20), outline: c(0.46, 0.36, 0.34))
-        case .pebble: return Palette(light: c(0.84, 0.88, 0.92), mid: c(0.62, 0.67, 0.74), dark: c(0.42, 0.47, 0.55), accent: c(0.50, 0.76, 0.46), iris: c(0.18, 0.22, 0.30), outline: c(0.25, 0.29, 0.36))
-        case .tofu: return Palette(light: c(1, 1, 0.97), mid: c(0.96, 0.95, 0.88), dark: c(0.82, 0.80, 0.70), accent: c(1, 0.70, 0.62), iris: c(0.25, 0.22, 0.20), outline: c(0.52, 0.48, 0.38))
-        case .comet: return Palette(light: c(1, 0.98, 0.70), mid: c(1, 0.86, 0.36), dark: c(0.95, 0.64, 0.18), accent: c(0.55, 0.80, 1), iris: c(0.30, 0.20, 0.10), outline: c(0.62, 0.40, 0.08))
-        case .puff: return Palette(light: c(0.80, 0.96, 1), mid: c(0.48, 0.82, 0.96), dark: c(0.24, 0.58, 0.82), accent: c(1, 0.80, 0.40), iris: c(0.14, 0.26, 0.40), outline: c(0.12, 0.36, 0.56))
-        case .bolt: return Palette(light: c(0.92, 0.95, 0.98), mid: c(0.70, 0.76, 0.84), dark: c(0.46, 0.52, 0.62), accent: c(0.36, 0.90, 0.80), iris: c(0.10, 0.56, 0.64), outline: c(0.24, 0.30, 0.40))
-        case .glim: return Palette(light: c(0.78, 0.86, 0.56), mid: c(0.52, 0.66, 0.36), dark: c(0.32, 0.44, 0.24), accent: c(1, 0.96, 0.50), iris: c(0.20, 0.26, 0.12), outline: c(0.20, 0.30, 0.14))
-        // Bible palettes: midnight blue / lavender / dusty purple …
-        case .echo: return Palette(light: c(0.66, 0.52, 0.86), mid: c(0.46, 0.30, 0.70), dark: c(0.26, 0.16, 0.44), accent: c(0.86, 0.66, 0.96), iris: c(0.14, 0.08, 0.24), outline: c(0.16, 0.08, 0.28))
-        case .quill: return Palette(light: c(1, 0.90, 0.78), mid: c(0.98, 0.76, 0.58), dark: c(0.80, 0.54, 0.38), accent: c(0.56, 0.36, 0.24), iris: c(0.26, 0.16, 0.10), outline: c(0.40, 0.24, 0.16))
-        case .orbit: return Palette(light: c(0.66, 0.66, 0.96), mid: c(0.42, 0.40, 0.84), dark: c(0.26, 0.22, 0.60), accent: c(0.56, 0.94, 0.80), iris: c(0.12, 0.10, 0.30), outline: c(0.16, 0.14, 0.42))
-        case .prism: return Palette(light: c(0.90, 1, 0.97), mid: c(0.74, 0.88, 0.98), dark: c(0.66, 0.62, 0.92), accent: c(1, 0.70, 0.86), iris: c(0.24, 0.22, 0.44), outline: c(0.36, 0.40, 0.62))
-        case .wisp: return Palette(light: c(1, 1, 1), mid: c(0.86, 0.96, 0.96), dark: c(0.62, 0.82, 0.84), accent: c(0.74, 0.86, 0.94), iris: c(0.16, 0.30, 0.36), outline: c(0.36, 0.56, 0.60))
-        case .doodle: return Palette(light: c(1, 1, 1), mid: c(0.97, 0.97, 0.98), dark: c(0.84, 0.85, 0.88), accent: c(0.12, 0.12, 0.14), iris: c(0.06, 0.06, 0.08), outline: c(0.06, 0.06, 0.08))
-        case .chime: return Palette(light: c(1, 0.96, 0.78), mid: c(0.97, 0.84, 0.48), dark: c(0.78, 0.58, 0.26), accent: c(0.72, 0.46, 0.20), iris: c(0.32, 0.20, 0.08), outline: c(0.50, 0.32, 0.10))
-        case .rolo: return Palette(light: c(1, 0.94, 0.82), mid: c(0.94, 0.82, 0.64), dark: c(0.76, 0.60, 0.42), accent: c(0.72, 0.42, 0.22), iris: c(0.30, 0.18, 0.10), outline: c(0.44, 0.28, 0.14))
-        case .pogo: return Palette(light: c(1, 0.74, 0.66), mid: c(0.98, 0.44, 0.38), dark: c(0.80, 0.24, 0.22), accent: c(0.98, 0.56, 0.44), iris: c(0.34, 0.14, 0.12), outline: c(0.56, 0.20, 0.18))
-        case .fable: return Palette(light: c(1, 1, 1), mid: c(0.97, 0.93, 0.95), dark: c(0.84, 0.80, 0.92), accent: c(1, 0.76, 0.82), iris: c(0.26, 0.22, 0.36), outline: c(0.44, 0.40, 0.56))
+        case .pip: return Palette(light: c(1, 0.88, 0.94), mid: c(1, 0.62, 0.78), dark: c(0.86, 0.36, 0.58), accent: c(1, 0.42, 0.7), iris: c(0.28, 0.14, 0.28), outline: c(0.58, 0.22, 0.4))
+        case .moss: return Palette(light: c(0.9, 0.98, 0.78), mid: c(0.52, 0.84, 0.42), dark: c(0.22, 0.56, 0.28), accent: c(0.98, 0.96, 0.86), iris: c(0.18, 0.22, 0.14), outline: c(0.12, 0.36, 0.18))
+        case .nimbus: return Palette(light: c(1, 1, 1), mid: c(0.88, 0.93, 1), dark: c(0.62, 0.74, 0.96), accent: c(0.62, 0.8, 1), iris: c(0.2, 0.3, 0.56), outline: c(0.36, 0.46, 0.74))
+        case .mochi: return Palette(light: c(0.98, 0.96, 1), mid: c(0.86, 0.82, 0.94), dark: c(0.64, 0.6, 0.78), accent: c(1, 0.7, 0.8), iris: c(0.28, 0.2, 0.36), outline: c(0.4, 0.34, 0.5))
+        case .sprout: return Palette(light: c(1, 0.96, 0.72), mid: c(0.98, 0.82, 0.38), dark: c(0.82, 0.58, 0.22), accent: c(0.42, 0.78, 0.34), iris: c(0.28, 0.2, 0.1), outline: c(0.5, 0.34, 0.12))
+        case .ember: return Palette(light: c(1, 0.94, 0.5), mid: c(1, 0.58, 0.22), dark: c(0.92, 0.3, 0.12), accent: c(1, 0.86, 0.3), iris: c(0.36, 0.12, 0.06), outline: c(0.58, 0.16, 0.08))
+        case .tuck: return Palette(light: c(0.94, 0.82, 0.66), mid: c(0.7, 0.5, 0.34), dark: c(0.42, 0.28, 0.18), accent: c(1, 0.72, 0.28), iris: c(0.22, 0.14, 0.1), outline: c(0.28, 0.16, 0.1))
+        case .bloop: return Palette(light: c(0.96, 0.88, 1), mid: c(0.78, 0.58, 0.98), dark: c(0.52, 0.34, 0.86), accent: c(1, 0.66, 0.9), iris: c(0.26, 0.14, 0.46), outline: c(0.38, 0.22, 0.62))
+        case .bun: return Palette(light: c(1, 1, 1), mid: c(0.96, 0.94, 0.94), dark: c(0.84, 0.8, 0.8), accent: c(1, 0.74, 0.8), iris: c(0.28, 0.18, 0.18), outline: c(0.5, 0.4, 0.4))
+        case .pebble: return Palette(light: c(0.92, 0.96, 1), mid: c(0.72, 0.82, 0.9), dark: c(0.5, 0.6, 0.72), accent: c(0.42, 0.78, 0.56), iris: c(0.2, 0.26, 0.34), outline: c(0.3, 0.38, 0.48))
+        case .tofu: return Palette(light: c(1, 1, 0.98), mid: c(0.98, 0.96, 0.9), dark: c(0.88, 0.84, 0.74), accent: c(1, 0.72, 0.5), iris: c(0.22, 0.18, 0.16), outline: c(0.56, 0.5, 0.4))
+        case .comet: return Palette(light: c(1, 0.98, 0.72), mid: c(1, 0.86, 0.28), dark: c(0.96, 0.6, 0.14), accent: c(0.45, 0.78, 1), iris: c(0.28, 0.18, 0.08), outline: c(0.62, 0.4, 0.08))
+        case .puff: return Palette(light: c(0.82, 0.96, 1), mid: c(0.5, 0.84, 0.98), dark: c(0.26, 0.58, 0.84), accent: c(1, 0.82, 0.36), iris: c(0.12, 0.24, 0.38), outline: c(0.12, 0.36, 0.56))
+        case .bolt: return Palette(light: c(0.96, 0.98, 1), mid: c(0.82, 0.88, 0.94), dark: c(0.52, 0.6, 0.72), accent: c(0.3, 0.9, 0.95), iris: c(0.1, 0.7, 0.8), outline: c(0.28, 0.36, 0.48))
+        case .glim: return Palette(light: c(0.82, 0.94, 0.56), mid: c(0.52, 0.76, 0.34), dark: c(0.3, 0.48, 0.2), accent: c(1, 0.94, 0.36), iris: c(0.16, 0.22, 0.1), outline: c(0.18, 0.32, 0.12))
+        // Sheet palettes for Originals 016–025
+        case .echo: return Palette(light: c(0.62, 0.46, 0.84), mid: c(0.4, 0.24, 0.62), dark: c(0.22, 0.12, 0.36), accent: c(1, 0.7, 0.84), iris: c(0.12, 0.06, 0.2), outline: c(0.14, 0.06, 0.24))
+        case .quill: return Palette(light: c(1, 0.94, 0.86), mid: c(0.98, 0.86, 0.7), dark: c(0.9, 0.62, 0.4), accent: c(0.9, 0.56, 0.3), iris: c(0.24, 0.14, 0.08), outline: c(0.44, 0.28, 0.16))
+        case .orbit: return Palette(light: c(0.62, 0.78, 1), mid: c(0.34, 0.5, 0.92), dark: c(0.18, 0.28, 0.64), accent: c(0.96, 0.56, 0.9), iris: c(0.1, 0.12, 0.3), outline: c(0.14, 0.18, 0.42))
+        case .prism: return Palette(light: c(0.92, 0.96, 1), mid: c(0.74, 0.78, 1), dark: c(0.7, 0.52, 0.94), accent: c(1, 0.6, 0.9), iris: c(0.24, 0.2, 0.42), outline: c(0.4, 0.36, 0.64))
+        case .wisp: return Palette(light: c(1, 1, 1), mid: c(0.86, 0.96, 1), dark: c(0.58, 0.78, 0.96), accent: c(0.7, 0.88, 1), iris: c(0.16, 0.3, 0.42), outline: c(0.36, 0.52, 0.7))
+        case .doodle: return Palette(light: c(1, 1, 1), mid: c(0.98, 0.98, 0.99), dark: c(0.9, 0.9, 0.92), accent: c(0.12, 0.12, 0.14), iris: c(0.06, 0.06, 0.08), outline: c(0.08, 0.08, 0.1))
+        case .chime: return Palette(light: c(1, 0.94, 0.7), mid: c(0.96, 0.78, 0.34), dark: c(0.72, 0.5, 0.18), accent: c(0.86, 0.62, 0.22), iris: c(0.28, 0.16, 0.06), outline: c(0.48, 0.3, 0.08))
+        case .rolo: return Palette(light: c(1, 0.94, 0.84), mid: c(0.94, 0.82, 0.64), dark: c(0.72, 0.52, 0.34), accent: c(0.66, 0.4, 0.2), iris: c(0.26, 0.16, 0.08), outline: c(0.42, 0.26, 0.12))
+        case .pogo: return Palette(light: c(1, 0.7, 0.62), mid: c(0.98, 0.36, 0.34), dark: c(0.78, 0.18, 0.2), accent: c(1, 0.5, 0.4), iris: c(0.3, 0.1, 0.1), outline: c(0.52, 0.14, 0.14))
+        case .fable: return Palette(light: c(1, 1, 0.98), mid: c(0.97, 0.94, 0.88), dark: c(0.88, 0.82, 0.72), accent: c(1, 0.82, 0.3), iris: c(0.24, 0.18, 0.14), outline: c(0.5, 0.42, 0.32))
         default: return spec?.palette ?? Palette(light: .white, mid: .gray, dark: .gray, accent: .pink, iris: .black, outline: .black)
         }
     }
@@ -723,12 +723,11 @@ struct ModulaMascotFigure: View {
                     .overlay(RoundedRectangle(cornerRadius: s * 0.18, style: .continuous).stroke(pal.accent.opacity(0.4), lineWidth: 1))
                     .offset(y: h * 0.06)
             }
-            if kind == .pebble {
-                // Moss cap.
-                ForEach(0..<4, id: \.self) { i in
-                    Ellipse().fill(pal.accent.opacity(0.95)).frame(width: s * 0.2, height: s * 0.1)
-                        .offset(x: CGFloat(i - 2) * s * 0.11 + s * 0.06, y: -h * 0.44 + CGFloat(abs(i - 1)) * s * 0.02)
-                }
+            if kind == .tofu {
+                // Soft inner cube glow.
+                RoundedRectangle(cornerRadius: s * 0.18, style: .continuous)
+                    .fill(RadialGradient(colors: [pal.accent.opacity(0.35), .clear], center: .center, startRadius: 0, endRadius: s * 0.4))
+                    .frame(width: w * 0.7, height: h * 0.7)
             }
         }
         .frame(width: w, height: h)
@@ -741,18 +740,25 @@ struct ModulaMascotFigure: View {
         let outline = StrokeStyle(lineWidth: max(s * 0.026, 1))
         switch kind {
         case .pip:
+            // Three frilly gill stalks per side + floating bubbles (sheet 001).
             ForEach(0..<3, id: \.self) { i in
-                let base = Double(i - 1) * 30
-                let wave = 9 * sin(t * 3.1 + Double(i) * 0.9) * da
+                let base = Double(i - 1) * 28
+                let wave = 10 * sin(t * 3.1 + Double(i) * 0.9) * da
                 ForEach([-1.0, 1.0], id: \.self) { side in
                     MascotFrond()
                         .fill(LinearGradient(colors: [pal.accent, pal.dark], startPoint: .top, endPoint: .bottom))
                         .overlay(MascotFrond().stroke(pal.outline.opacity(0.55), style: outline))
-                        .frame(width: s * 0.15, height: s * 0.36)
-                        .offset(y: -s * 0.18)
-                        .rotationEffect(.degrees(side * (62 - base + wave)), anchor: .bottom)
-                        .offset(x: side * s * 0.40, y: s * 0.04)
+                        .frame(width: s * 0.16, height: s * 0.4)
+                        .offset(y: -s * 0.2)
+                        .rotationEffect(.degrees(side * (64 - base + wave)), anchor: .bottom)
+                        .offset(x: side * s * 0.42, y: s * 0.02)
                 }
+            }
+            ForEach(0..<4, id: \.self) { i in
+                let u = (t * 0.35 + Double(i) * 0.22).truncatingRemainder(dividingBy: 1)
+                Circle().stroke(pal.accent.opacity(0.55 * (1 - u)), lineWidth: max(s * 0.018, 0.7))
+                    .frame(width: s * (0.08 + CGFloat(i % 2) * 0.04))
+                    .offset(x: s * (0.5 + CGFloat(i) * 0.06), y: s * (0.1 - CGFloat(u) * 0.5 * a))
             }
         case .mochi:
             MascotTail()
@@ -791,14 +797,7 @@ struct ModulaMascotFigure: View {
                 .offset(x: side * s * 0.32, y: -s * 0.32)
             }
         case .moss:
-            ForEach([-1.0, 1.0], id: \.self) { side in
-                ZStack {
-                    Circle().fill(RadialGradient(colors: [pal.light, pal.mid], center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: s * 0.24))
-                    Circle().stroke(pal.outline.opacity(0.55), style: outline)
-                }
-                .frame(width: s * 0.40, height: s * 0.40)
-                .offset(x: side * s * 0.25, y: -s * 0.14)
-            }
+            originalsMossBehind(s: s, pal: pal, t: t, a: a)
         case .ember:
             ForEach(0..<3, id: \.self) { i in
                 let flick = 1 + 0.18 * sin(t * 9 + Double(i) * 2.1) * da + 0.08 * sin(t * 15.3 + Double(i)) * da
@@ -810,32 +809,36 @@ struct ModulaMascotFigure: View {
                     .offset(x: CGFloat(i - 1) * s * 0.17, y: -s * (i == 1 ? 0.40 : 0.30))
             }
         case .nimbus:
-            Circle()
-                .fill(RadialGradient(colors: [pal.light, pal.mid], center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: s * 0.12))
-                .overlay(Circle().stroke(pal.outline.opacity(0.45), lineWidth: max(s * 0.02, 0.8)))
-                .frame(width: s * 0.2, height: s * 0.2)
-                .offset(x: -s * 0.62 + CGFloat(sin(t * 0.7)) * s * 0.05 * a, y: -s * 0.22 + CGFloat(cos(t * 0.9)) * s * 0.04 * a)
+            originalsNimbusBehind(s: s, pal: pal, t: t, a: a)
         case .sprout:
+            // Large paired leaves on a stem (sheet 005 — bigger than Moss).
             let lean = 8 * sin(t * 1.2) * da
             ZStack {
-                Capsule().fill(pal.accent.opacity(0.9)).frame(width: s * 0.05, height: s * 0.24).offset(y: -s * 0.1)
+                Capsule().fill(Color(red: 0.3, green: 0.7, blue: 0.32)).frame(width: s * 0.06, height: s * 0.28).offset(y: -s * 0.1)
                 ForEach([-1.0, 1.0], id: \.self) { side in
                     MascotLeaf()
-                        .fill(LinearGradient(colors: [pal.accent.opacity(0.85), Color(red: 0.25, green: 0.6, blue: 0.25)], startPoint: .top, endPoint: .bottom))
-                        .overlay(MascotLeaf().stroke(Color(red: 0.16, green: 0.4, blue: 0.16).opacity(0.6), lineWidth: max(s * 0.02, 0.8)))
-                        .frame(width: s * 0.26, height: s * 0.14)
-                        .rotationEffect(.degrees(side * -24 + side * 6 * sin(t * 2 + side) * da), anchor: side > 0 ? .leading : .trailing)
-                        .offset(x: side * s * 0.13, y: -s * 0.22)
+                        .fill(LinearGradient(colors: [Color(red: 0.55, green: 0.9, blue: 0.4), Color(red: 0.22, green: 0.58, blue: 0.24)], startPoint: .top, endPoint: .bottom))
+                        .overlay(MascotLeaf().stroke(Color(red: 0.14, green: 0.38, blue: 0.14).opacity(0.6), lineWidth: max(s * 0.02, 0.8)))
+                        .frame(width: s * 0.36, height: s * 0.2)
+                        .rotationEffect(.degrees(side * -30 + side * 7 * sin(t * 2 + side) * da), anchor: side > 0 ? .leading : .trailing)
+                        .offset(x: side * s * 0.16, y: -s * 0.26)
                 }
             }
             .rotationEffect(.degrees(lean), anchor: .bottom)
-            .offset(y: -s * 0.26)
+            .offset(y: -s * 0.3)
         case .bloop:
+            // Six dangling tentacles + bubbles (sheet 008).
+            ForEach(0..<6, id: \.self) { i in
+                MascotTentacle(phase: t * 2.4 + Double(i) * 1.05, amp: a)
+                    .stroke(LinearGradient(colors: [pal.mid, pal.accent.opacity(0.75)], startPoint: .top, endPoint: .bottom), style: StrokeStyle(lineWidth: s * 0.065, lineCap: .round))
+                    .frame(width: s * 0.11, height: s * 0.36)
+                    .offset(x: CGFloat(i) * s * 0.14 - s * 0.35, y: s * 0.44)
+            }
             ForEach(0..<4, id: \.self) { i in
-                MascotTentacle(phase: t * 2.4 + Double(i) * 1.3, amp: a)
-                    .stroke(LinearGradient(colors: [pal.mid, pal.accent.opacity(0.7)], startPoint: .top, endPoint: .bottom), style: StrokeStyle(lineWidth: s * 0.07, lineCap: .round))
-                    .frame(width: s * 0.12, height: s * 0.34)
-                    .offset(x: CGFloat(i) * s * 0.2 - s * 0.3, y: s * 0.42)
+                let u = (t * 0.4 + Double(i) * 0.2).truncatingRemainder(dividingBy: 1)
+                Circle().stroke(Color(red: 0.55, green: 0.85, blue: 1).opacity(0.55 * (1 - u)), lineWidth: max(s * 0.016, 0.7))
+                    .frame(width: s * (0.07 + CGFloat(i % 2) * 0.03))
+                    .offset(x: s * (0.42 + CGFloat(i) * 0.05), y: s * (0.05 - CGFloat(u) * 0.45 * a))
             }
         case .puff:
             ForEach(0..<10, id: \.self) { i in
@@ -864,25 +867,41 @@ struct ModulaMascotFigure: View {
                     .offset(x: side * s * 0.52, y: s * 0.1)
             }
         case .glim:
+            // Translucent wings, glow abdomen, tiny antennae (sheet 015 — keep id `glim`).
             ForEach([-1.0, 1.0], id: \.self) { side in
                 Ellipse().fill(Color.white.opacity(0.55)).overlay(Ellipse().stroke(pal.outline.opacity(0.35), lineWidth: 0.8))
-                    .frame(width: s * 0.3, height: s * 0.42)
+                    .frame(width: s * 0.32, height: s * 0.44)
                     .rotationEffect(.degrees(side * (35 + 18 * sin(t * 14) * da)), anchor: .bottom)
-                    .offset(x: side * s * 0.2, y: -s * 0.18)
+                    .offset(x: side * s * 0.22, y: -s * 0.16)
+            }
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                Capsule().fill(pal.mid).frame(width: s * 0.03, height: s * 0.14)
+                    .overlay(alignment: .top) { Circle().fill(pal.accent).frame(width: s * 0.06).offset(y: -s * 0.02) }
+                    .rotationEffect(.degrees(side * 18 + 4 * sin(t * 2 + side) * da), anchor: .bottom)
+                    .offset(x: side * s * 0.1, y: -s * 0.42)
             }
             let pulse = 0.7 + 0.3 * sin(t * 2.2)
-            Circle().fill(RadialGradient(colors: [pal.accent, pal.accent.opacity(0.0)], center: .center, startRadius: 0, endRadius: s * 0.3))
-                .frame(width: s * 0.6).opacity(pulse)
-                .offset(x: s * 0.36, y: s * 0.42)
-            Circle().fill(pal.accent).frame(width: s * 0.22).overlay(Circle().stroke(pal.outline.opacity(0.4), lineWidth: 0.8))
-                .offset(x: s * 0.34, y: s * 0.40)
+            Circle().fill(RadialGradient(colors: [pal.accent, pal.accent.opacity(0.0)], center: .center, startRadius: 0, endRadius: s * 0.32))
+                .frame(width: s * 0.64).opacity(pulse)
+                .offset(x: s * 0.28, y: s * 0.4)
+            Circle().fill(pal.accent).frame(width: s * 0.24).overlay(Circle().stroke(pal.outline.opacity(0.4), lineWidth: 0.8))
+                .offset(x: s * 0.26, y: s * 0.38)
         case .comet:
+            // Blue–gold trail streaks + sparkles (sheet 012).
             ForEach(0..<3, id: \.self) { i in
-                Capsule().fill(LinearGradient(colors: [pal.accent.opacity(0.0), pal.accent.opacity(0.8)], startPoint: .trailing, endPoint: .leading))
-                    .frame(width: s * (0.5 - CGFloat(i) * 0.1), height: s * 0.07)
-                    .offset(x: s * 0.62 + CGFloat(sin(t * 3 + Double(i))) * 2 * a, y: CGFloat(i - 1) * s * 0.13 + s * 0.1)
+                Capsule().fill(LinearGradient(colors: [pal.accent.opacity(0.0), pal.accent.opacity(0.9)], startPoint: .trailing, endPoint: .leading))
+                    .frame(width: s * (0.56 - CGFloat(i) * 0.1), height: s * 0.08)
+                    .offset(x: s * 0.64 + CGFloat(sin(t * 3 + Double(i))) * 2 * a, y: CGFloat(i - 1) * s * 0.14 + s * 0.08)
             }
-        case .pebble, .tofu:
+            ForEach(0..<4, id: \.self) { i in
+                MascotSparkleShape().fill(Color.white.opacity(0.85))
+                    .frame(width: s * 0.1, height: s * 0.1)
+                    .offset(x: s * (0.55 + CGFloat(i) * 0.08), y: s * (-0.1 + CGFloat(i % 2) * 0.2))
+                    .opacity(0.6 + 0.4 * sin(t * 2 + Double(i)))
+            }
+        case .pebble:
+            originalsPebbleBehind(s: s, pal: pal, t: t, a: a)
+        case .tofu:
             EmptyView()
         default:
             originalsBehind(s: s, pal: pal, t: t, a: a)
@@ -910,11 +929,10 @@ struct ModulaMascotFigure: View {
                     .offset(x: side * s * 0.43, y: s * 0.22)
             }
         case .moss:
-            let puff = 0.65 + 0.35 * max(0, sin(t * 1.4)) * Double(a)
-            Ellipse().fill(RadialGradient(colors: [pal.accent, pal.accent.opacity(0.7)], center: .center, startRadius: 0, endRadius: s * 0.2))
-                .overlay(Ellipse().stroke(pal.outline.opacity(0.25), lineWidth: 0.8))
-                .frame(width: s * 0.36 * puff, height: s * 0.22 * puff)
-                .offset(y: s * 0.38)
+            // Pale belly patch (sheet 002).
+            Ellipse().fill(RadialGradient(colors: [Color.white.opacity(0.95), pal.accent.opacity(0.85)], center: .center, startRadius: 0, endRadius: s * 0.22))
+                .frame(width: s * 0.42, height: s * 0.28)
+                .offset(y: s * 0.28)
         case .puff:
             Ellipse().fill(pal.accent.opacity(0.9)).frame(width: s * 0.22, height: s * 0.12)
                 .rotationEffect(.degrees(-30 + 12 * sin(t * 5) * Double(a)))
@@ -1356,6 +1374,74 @@ extension MascotBrain {
 
 extension ModulaMascotFigure {
     /// Body outline for the new Originals; nil means the shared default.
+    @ViewBuilder
+    func originalsMossBehind(s: CGFloat, pal: ModulaMascotKind.Palette, t: Double, a: CGFloat) -> some View {
+        let da = Double(a)
+        let outline = StrokeStyle(lineWidth: max(s * 0.026, 1))
+        let pad = Color(red: 0.16, green: 0.46, blue: 0.28)
+        Ellipse().fill(RadialGradient(colors: [Color(red: 0.28, green: 0.62, blue: 0.36), pad], center: UnitPoint(x: 0.4, y: 0.35), startRadius: 0, endRadius: s * 0.55))
+            .overlay(Ellipse().stroke(Color(red: 0.08, green: 0.28, blue: 0.16).opacity(0.7), style: outline))
+            .frame(width: s * 1.18, height: s * 0.34)
+            .offset(y: s * 0.52)
+        ZStack {
+            Capsule().fill(Color(red: 0.3, green: 0.7, blue: 0.32)).frame(width: s * 0.035, height: s * 0.12).offset(y: -s * 0.04)
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                MascotLeaf()
+                    .fill(LinearGradient(colors: [Color(red: 0.5, green: 0.86, blue: 0.4), Color(red: 0.22, green: 0.56, blue: 0.26)], startPoint: .top, endPoint: .bottom))
+                    .overlay(MascotLeaf().stroke(Color(red: 0.12, green: 0.36, blue: 0.16).opacity(0.55), lineWidth: max(s * 0.016, 0.7)))
+                    .frame(width: s * 0.16, height: s * 0.1)
+                    .rotationEffect(.degrees(side * -28 + 4 * sin(t * 1.6 + side) * da), anchor: side > 0 ? .leading : .trailing)
+                    .offset(x: side * s * 0.08, y: -s * 0.1)
+            }
+        }
+        .offset(y: -s * 0.34)
+    }
+
+    @ViewBuilder
+    func originalsNimbusBehind(s: CGFloat, pal: ModulaMascotKind.Palette, t: Double, a: CGFloat) -> some View {
+        ForEach(0..<4, id: \.self) { i in
+            let x: CGFloat = i == 0 ? -0.52 : (i == 1 ? 0.5 : (i == 2 ? -0.38 : 0.4))
+            let y: CGFloat = i == 0 ? -0.18 : (i == 1 ? -0.12 : (i == 2 ? 0.22 : 0.26))
+            let r: CGFloat = i == 0 ? 0.28 : (i == 1 ? 0.24 : (i == 2 ? 0.22 : 0.2))
+            Circle().fill(RadialGradient(colors: [pal.light, pal.mid], center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: s * r * 0.6))
+                .overlay(Circle().stroke(pal.outline.opacity(0.35), lineWidth: max(s * 0.016, 0.7)))
+                .frame(width: s * r, height: s * r)
+                .offset(x: s * x + CGFloat(sin(t * 0.8 + Double(x))) * s * 0.02 * a, y: s * y)
+        }
+        ForEach(0..<5, id: \.self) { i in
+            let u = (t * 0.28 + Double(i) * 0.17).truncatingRemainder(dividingBy: 1)
+            Circle().fill(pal.accent.opacity(0.45 * (1 - u)))
+                .frame(width: s * (0.06 + CGFloat(i % 3) * 0.02))
+                .offset(x: s * (0.46 + CGFloat(i) * 0.05), y: s * (-0.1 - CGFloat(u) * 0.4 * a))
+        }
+    }
+
+    @ViewBuilder
+    func originalsPebbleBehind(s: CGFloat, pal: ModulaMascotKind.Palette, t _: Double, a _: CGFloat) -> some View {
+        ZStack {
+            MascotCapShape()
+                .fill(LinearGradient(colors: [Color(red: 0.45, green: 0.7, blue: 0.95), Color(red: 0.28, green: 0.5, blue: 0.82)], startPoint: .top, endPoint: .bottom))
+                .overlay(MascotCapShape().stroke(Color(red: 0.16, green: 0.3, blue: 0.52).opacity(0.7), lineWidth: max(s * 0.018, 0.7)))
+                .frame(width: s * 0.28, height: s * 0.18)
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                MascotLeaf()
+                    .fill(LinearGradient(colors: [Color(red: 0.5, green: 0.86, blue: 0.42), Color(red: 0.22, green: 0.56, blue: 0.26)], startPoint: .top, endPoint: .bottom))
+                    .frame(width: s * 0.14, height: s * 0.08)
+                    .rotationEffect(.degrees(side * -40), anchor: side > 0 ? .leading : .trailing)
+                    .offset(x: side * s * 0.08, y: -s * 0.08)
+            }
+        }
+        .offset(x: -s * 0.06, y: -s * 0.38)
+        Ellipse().fill(LinearGradient(colors: [pal.light, pal.dark], startPoint: .top, endPoint: .bottom))
+            .overlay(Ellipse().stroke(pal.outline.opacity(0.45), lineWidth: 0.7))
+            .frame(width: s * 0.12, height: s * 0.084)
+            .offset(x: -s * 0.55, y: s * 0.42)
+        Ellipse().fill(LinearGradient(colors: [pal.light, pal.dark], startPoint: .top, endPoint: .bottom))
+            .overlay(Ellipse().stroke(pal.outline.opacity(0.45), lineWidth: 0.7))
+            .frame(width: s * 0.08, height: s * 0.056)
+            .offset(x: -s * 0.42, y: s * 0.48)
+    }
+
     func originalsBodyShape() -> AnyShape? {
         switch kind {
         case .prism: AnyShape(MascotCrystalShape())
@@ -1374,25 +1460,31 @@ extension ModulaMascotFigure {
         let line = max(s * 0.026, 1)
         switch kind {
         case .echo:
-            // Scalloped wings, then oversized ears (the ears are the silhouette).
+            // Scalloped wings, oversized pink-inner ears, floating crescent (sheet 016).
             ForEach([-1.0, 1.0], id: \.self) { side in
                 MascotBatWing()
                     .fill(LinearGradient(colors: [pal.mid, pal.dark], startPoint: .top, endPoint: .bottom))
                     .overlay(MascotBatWing().stroke(pal.outline.opacity(0.6), lineWidth: line))
-                    .frame(width: s * 0.5, height: s * 0.42)
+                    .frame(width: s * 0.52, height: s * 0.44)
                     .scaleEffect(x: side, y: 1)
                     .rotationEffect(.degrees(side * (8 + 10 * sin(t * 2.4) * da)), anchor: side > 0 ? .leading : .trailing)
-                    .offset(x: side * s * 0.52, y: s * 0.08)
+                    .offset(x: side * s * 0.54, y: s * 0.06)
                 let twitch = da * max(0, sin(t * 1.7 + side) - 0.9) * 90
                 ZStack {
                     MascotTriangle().fill(LinearGradient(colors: [pal.mid, pal.dark], startPoint: .top, endPoint: .bottom))
                     MascotTriangle().stroke(pal.outline.opacity(0.6), lineWidth: line)
-                    MascotTriangle().fill(pal.accent.opacity(0.9)).scaleEffect(x: 0.5, y: 0.62).offset(y: s * 0.06)
+                    MascotTriangle().fill(pal.accent.opacity(0.95)).scaleEffect(x: 0.52, y: 0.64).offset(y: s * 0.06)
                 }
-                .frame(width: s * 0.34, height: s * 0.5)
+                .frame(width: s * 0.36, height: s * 0.52)
                 .rotationEffect(.degrees(side * (16 + twitch)), anchor: .bottom)
-                .offset(x: side * s * 0.24, y: -s * 0.4)
+                .offset(x: side * s * 0.24, y: -s * 0.42)
             }
+            MascotCrescentShape()
+                .fill(LinearGradient(colors: [.white, Color(white: 0.9)], startPoint: .top, endPoint: .bottom))
+                .overlay(MascotCrescentShape().stroke(pal.outline.opacity(0.25), lineWidth: 0.7))
+                .frame(width: s * 0.18, height: s * 0.18)
+                .offset(x: s * 0.42, y: -s * 0.48)
+                .opacity(0.85 + 0.15 * sin(t * 1.4))
         case .quill:
             // Backward-swept spines fanning from the crown.
             ForEach(0..<7, id: \.self) { i in
@@ -1406,10 +1498,10 @@ extension ModulaMascotFigure {
                     .offset(x: s * 0.06, y: s * 0.12)
             }
         case .orbit:
-            // Back half of the slanted ring, kept below the face.
+            // Multicolour Saturn ring (sheet 018).
             MascotRingHalf(front: false)
-                .stroke(LinearGradient(colors: [pal.accent, Color(white: 0.85)], startPoint: .leading, endPoint: .trailing), lineWidth: s * 0.07)
-                .frame(width: s * 1.5, height: s * 0.34)
+                .stroke(LinearGradient(colors: [Color(red: 0.7, green: 0.4, blue: 1), Color(red: 1, green: 0.6, blue: 0.35), .white], startPoint: .leading, endPoint: .trailing), lineWidth: s * 0.08)
+                .frame(width: s * 1.55, height: s * 0.36)
                 .rotationEffect(.degrees(-12))
                 .offset(y: s * 0.26)
         case .wisp:
@@ -1457,19 +1549,29 @@ extension ModulaMascotFigure {
                     .offset(x: side * s * 0.18, y: s * 0.52)
             }
         case .fable:
-            // Triangular paper flaps (ears) and folded wing tips.
+            // Paper flaps + gold origami crown (sheet 025).
             ForEach([-1.0, 1.0], id: \.self) { side in
                 MascotTriangle().fill(LinearGradient(colors: [pal.light, pal.dark], startPoint: .topLeading, endPoint: .bottomTrailing))
                     .overlay(MascotTriangle().stroke(pal.outline.opacity(0.55), lineWidth: line))
                     .frame(width: s * 0.26, height: s * 0.3)
                     .rotationEffect(.degrees(side * 22), anchor: .bottom)
                     .offset(x: side * s * 0.26, y: -s * 0.36)
-                MascotTriangle().fill(pal.accent.opacity(0.85))
+                MascotTriangle().fill(Color(red: 0.96, green: 0.9, blue: 0.78).opacity(0.95))
                     .overlay(MascotTriangle().stroke(pal.outline.opacity(0.5), lineWidth: line))
                     .frame(width: s * 0.24, height: s * 0.34)
                     .rotationEffect(.degrees(side * (100 + 10 * sin(t * 1.8) * da)), anchor: .bottom)
                     .offset(x: side * s * 0.38, y: s * 0.02)
             }
+            ZStack {
+                ForEach(0..<3, id: \.self) { i in
+                    MascotTriangle().fill(LinearGradient(colors: [Color(red: 1, green: 0.9, blue: 0.4), Color(red: 0.9, green: 0.65, blue: 0.2)], startPoint: .top, endPoint: .bottom))
+                        .overlay(MascotTriangle().stroke(Color(red: 0.55, green: 0.35, blue: 0.08).opacity(0.55), lineWidth: line))
+                        .frame(width: s * 0.12, height: s * 0.16)
+                        .offset(x: CGFloat(i - 1) * s * 0.1)
+                }
+            }
+            .rotationEffect(.degrees(-8))
+            .offset(y: -s * 0.48)
         default:
             if let sp = kind.spec { specParts(sp, layer: .back, s: s, pal: pal, t: t, a: a) }
         }
@@ -1484,16 +1586,20 @@ extension ModulaMascotFigure {
             Circle().fill(pal.accent).frame(width: s * 0.07).offset(y: s * 0.17)
         case .orbit:
             MascotRingHalf(front: true)
-                .stroke(LinearGradient(colors: [pal.accent, Color(white: 0.9)], startPoint: .leading, endPoint: .trailing), lineWidth: s * 0.07)
-                .frame(width: s * 1.5, height: s * 0.34)
+                .stroke(LinearGradient(colors: [Color(red: 0.7, green: 0.4, blue: 1), Color(red: 1, green: 0.6, blue: 0.35), .white], startPoint: .leading, endPoint: .trailing), lineWidth: s * 0.08)
+                .frame(width: s * 1.55, height: s * 0.36)
                 .rotationEffect(.degrees(-12))
                 .offset(y: s * 0.26)
-            // Micro-moon on its own little orbit.
-            let ang = t * 0.9 * da
-            Circle().fill(RadialGradient(colors: [.white, Color(white: 0.75)], center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: s * 0.08))
-                .overlay(Circle().stroke(pal.outline.opacity(0.4), lineWidth: 0.8))
-                .frame(width: s * 0.13)
-                .offset(x: CGFloat(cos(ang)) * s * 0.62, y: -s * 0.34 + CGFloat(sin(ang)) * s * 0.1)
+            ForEach(0..<3, id: \.self) { i in
+                let phase = Double(i) * 2.1
+                let ang = t * 0.7 * da + phase
+                let col: Color = i == 0 ? Color(red: 0.55, green: 0.85, blue: 1) : (i == 1 ? Color(red: 0.55, green: 0.95, blue: 0.6) : Color(red: 0.86, green: 0.6, blue: 1))
+                let rad: CGFloat = i == 0 ? 0.11 : (i == 1 ? 0.09 : 0.08)
+                Circle().fill(RadialGradient(colors: [col, col.opacity(0.7)], center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: s * 0.08))
+                    .overlay(Circle().stroke(pal.outline.opacity(0.35), lineWidth: 0.7))
+                    .frame(width: s * rad)
+                    .offset(x: CGFloat(cos(ang)) * s * 0.64, y: -s * 0.3 + CGFloat(sin(ang)) * s * 0.14)
+            }
         case .prism:
             // Facet lines and a rainbow glint.
             MascotCrystalFacets().stroke(.white.opacity(0.6), lineWidth: max(s * 0.014, 0.6))
@@ -1502,23 +1608,33 @@ extension ModulaMascotFigure {
                 .frame(width: s * 0.36, height: s * 0.05).rotationEffect(.degrees(-28 + 6 * sin(t) * da))
                 .offset(x: s * 0.2, y: -s * 0.26)
         case .doodle:
-            // Sketchy re-drawn outlines that jitter a little.
+            // Sketchy outline + floating hearts (sheet 021).
             let j = CGFloat(floor(t * 4).truncatingRemainder(dividingBy: 3)) * a
-            MascotInkShape().stroke(pal.outline.opacity(0.7), style: StrokeStyle(lineWidth: max(s * 0.012, 0.6), dash: [s * 0.08, s * 0.03]))
-                .frame(width: s * kind.bodySize.width * 1.04, height: s * kind.bodySize.height * 1.04)
+            MascotInkShape().stroke(pal.outline.opacity(0.75), style: StrokeStyle(lineWidth: max(s * 0.018, 0.8), dash: [s * 0.06, s * 0.025]))
+                .frame(width: s * kind.bodySize.width * 1.05, height: s * kind.bodySize.height * 1.05)
                 .offset(x: j * 0.8, y: s * kind.bodyOffsetY - j * 0.6)
             ForEach(0..<3, id: \.self) { i in
-                Circle().fill(pal.accent).frame(width: s * (0.06 - CGFloat(i) * 0.012))
-                    .offset(x: s * (0.46 + CGFloat(i) * 0.08), y: s * (0.38 + CGFloat(i) * 0.04))
+                MascotHeartShape()
+                    .fill(Color.white.opacity(0.95))
+                    .overlay(MascotHeartShape().stroke(pal.outline.opacity(0.35), lineWidth: 0.6))
+                    .frame(width: s * (0.1 - CGFloat(i) * 0.015), height: s * (0.1 - CGFloat(i) * 0.015))
+                    .offset(x: s * (0.42 + CGFloat(i) * 0.08), y: -s * (0.28 + CGFloat(i) * 0.08) - CGFloat(sin(t + Double(i))) * s * 0.02 * a)
             }
         case .chime:
-            // Clapper and a floating note.
+            // Clapper + floating notes and sparkles (sheet 022).
             Circle().fill(pal.accent).overlay(Circle().stroke(pal.outline.opacity(0.5), lineWidth: 0.8))
                 .frame(width: s * 0.14)
                 .offset(x: CGFloat(sin(t * 2.4)) * s * 0.05 * a, y: s * 0.56)
-            Text("♪").font(.system(size: s * 0.22, weight: .bold)).foregroundStyle(pal.accent)
-                .offset(x: s * 0.52, y: -s * 0.3 - CGFloat((t * 0.6).truncatingRemainder(dividingBy: 1)) * s * 0.16 * a)
-                .opacity(a > 0 ? 1 - (t * 0.6).truncatingRemainder(dividingBy: 1) : 0.8)
+            ForEach(0..<3, id: \.self) { i in
+                let u = (t * 0.45 + Double(i) * 0.28).truncatingRemainder(dividingBy: 1)
+                Text(i == 1 ? "♫" : "♪").font(.system(size: s * (0.18 - CGFloat(i) * 0.02), weight: .bold)).foregroundStyle(pal.accent.opacity(1 - u * 0.5))
+                    .offset(x: s * (0.42 + CGFloat(i) * 0.08), y: -s * (0.2 + CGFloat(u) * 0.28 * a) + CGFloat(i) * s * 0.06)
+            }
+            ForEach(0..<3, id: \.self) { i in
+                MascotSparkleShape().fill(pal.light.opacity(0.9))
+                    .frame(width: s * 0.08, height: s * 0.08)
+                    .offset(x: -s * (0.4 + CGFloat(i) * 0.06), y: -s * (0.1 + CGFloat(i) * 0.08))
+            }
         case .fable:
             MascotOrigamiFolds().stroke(pal.outline.opacity(0.35), lineWidth: max(s * 0.012, 0.6))
                 .frame(width: s * kind.bodySize.width, height: s * kind.bodySize.height).offset(y: s * kind.bodyOffsetY)
