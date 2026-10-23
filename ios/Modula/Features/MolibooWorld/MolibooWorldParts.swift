@@ -111,13 +111,7 @@ struct MolibooStageCharacter: View {
     var body: some View {
         let live = animating && stage.awake
         ZStack {
-            pedestal(live: live).offset(y: 96)
-            if emotion == .thinking {
-                Circle().fill(RadialGradient(colors: [.cyan.opacity(0.55), .clear], center: .center, startRadius: 10, endRadius: 130))
-                    .frame(width: 260, height: 260)
-                    .phaseAnimator([0.7, 1.0], trigger: live) { v, p in v.opacity(live ? p : 0.85) }
-                    .accessibilityIdentifier("world.stage.glow")
-            }
+            softContactShadow.offset(y: 96)
             TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !live)) { tl in
                 let t = tl.date.timeIntervalSinceReferenceDate
                 let breath = live ? sin(t * 2 * .pi / emotion.breathPeriod) : 0
@@ -177,44 +171,20 @@ struct MolibooStageCharacter: View {
             .scaleEffect(emotion == .excited ? 1.15 : 1)
     }
 
-    /// Mossy rock pedestal with grass tufts and a soft glow that pulses while the stage is live.
-    private func pedestal(live: Bool) -> some View {
-        ZStack {
-            Ellipse().fill(RadialGradient(colors: [Color(red: 0.55, green: 0.95, blue: 0.75).opacity(0.55), .clear], center: .center, startRadius: 10, endRadius: 140))
-                .frame(width: 300, height: 110)
-                .phaseAnimator([0.65, 1.0], trigger: live) { v, p in v.opacity(live ? p : 0.8).scaleEffect(live ? 0.96 + p * 0.04 : 1) } animation: { _ in .easeInOut(duration: 1.6) }
-            Ellipse().fill(LinearGradient(colors: [Color(red: 0.46, green: 0.44, blue: 0.46), Color(red: 0.28, green: 0.27, blue: 0.30)], startPoint: .top, endPoint: .bottom))
-                .frame(width: 210, height: 60).offset(y: 16)
-                .shadow(color: .black.opacity(0.35), radius: 10, y: 8)
-            Ellipse().fill(LinearGradient(colors: [Color(red: 0.50, green: 0.74, blue: 0.36), Color(red: 0.28, green: 0.52, blue: 0.24)], startPoint: .top, endPoint: .bottom))
-                .frame(width: 200, height: 44)
-                .molibooCaustics(animated: live)   // moving light caustics across the moss
-            // Luminous rim light around the moss top and a soft halo under the character.
-            Ellipse().stroke(LinearGradient(colors: [Color(red: 0.75, green: 1, blue: 0.85).opacity(0.9), Color(red: 0.4, green: 0.9, blue: 0.8).opacity(0.2)], startPoint: .top, endPoint: .bottom), lineWidth: 2.5)
-                .frame(width: 202, height: 46).blur(radius: 1.2)
-            Ellipse().fill(RadialGradient(colors: [Color(red: 0.85, green: 1, blue: 0.9).opacity(0.55), .clear], center: .center, startRadius: 2, endRadius: 70))
-                .frame(width: 150, height: 34).offset(y: -6).blendMode(.screen)
-            Canvas { ctx, size in
-                for i in 0..<26 {
-                    let fi = Double(i)
-                    let x = size.width * (0.08 + 0.84 * (fi * 0.618).truncatingRemainder(dividingBy: 1))
-                    let y = size.height * (0.30 + 0.5 * (fi * 0.377).truncatingRemainder(dividingBy: 1))
-                    var blade = Path(); blade.move(to: CGPoint(x: x, y: y)); blade.addLine(to: CGPoint(x: x + CGFloat(sin(fi)) * 3, y: y - 7 - CGFloat(i % 3) * 2))
-                    ctx.stroke(blade, with: .color(Color(red: 0.62, green: 0.84, blue: 0.44).opacity(0.9)), lineWidth: 1.6)
-                }
-            }
-            .frame(width: 196, height: 44)
-        }
-        .accessibilityHidden(true)
+    /// Soft contact shadow only — no moss rock / platform glow.
+    private var softContactShadow: some View {
+        Ellipse()
+            .fill(Color.primary.opacity(0.12))
+            .frame(width: 130, height: 24)
+            .blur(radius: 8)
+            .accessibilityHidden(true)
     }
 
     @ViewBuilder private var figure: some View {
         let live = animating && stage.awake
         if let img = MolibooPortrait.image(for: characterID) {
             Image(uiImage: img).resizable().interpolation(.high).antialiased(true).scaledToFit().frame(width: 230, height: 230)
-                .molibooShimmer(0.22, animated: live)
-                .shadow(color: Color(red: 0.21, green: 0.78, blue: 0.82).opacity(0.38), radius: 14, y: 0)
-                .shadow(color: .black.opacity(0.28), radius: 10, y: 8)
+                .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
         } else if let kind = ModulaMascotKind(rawValue: characterID) {
             ModulaMascotFigure(kind: kind, pose: .still(), size: 110, outfit: MascotWardrobeStore.shared.outfit)
         } else {
