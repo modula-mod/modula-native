@@ -26,10 +26,32 @@ failure, including the persisted audit reason.
 The generic host now shows the game name, a generic game icon, verified-package state,
 WebKit estimated navigation progress, and an Exit action while loading. It
 transitions to gameplay when WebKit finishes the document navigation. This
-progress is not a first-playable-frame measurement. The focused Swift suite
-builds this host, but the live QA gameplay UI test was not rerun after this
-presentation change because the configured QA API at `192.168.4.21:8443`
-was unreachable from the Mac.
+progress is not a first-playable-frame measurement. After this presentation
+change, `WebGameRegistryUITests/testPlayBothInstalledRegistryGamesThroughRoundCompletion`
+passed on the iPhone 17 Pro Max simulator (iOS 26.3.1) against the restricted
+signed QA registry. It opened the installed Phaser and PlayCanvas releases,
+exercised touch and host pause/resume, completed a round in each game,
+restarted each, and returned to Modula. The result bundle is
+`Test-Modula-2026.10.23_21-36-10-+0100.xcresult` (1 passed, 0 failed);
+the task evidence directory contains its exported round-complete screenshots.
+The Mac reached the QA API through a temporary SSH tunnel and a known local
+QA TLS proxy. This was a simulator run; it did not establish physical GPU,
+audio, or thermal acceptance. An earlier attempt encountered an intermittent
+simulator `AURemoteIO::Cleanup` crash before game presentation; the clean
+rerun above passed. The crash remains a simulator reliability observation,
+not an established GameHost fault.
+The host also returns `.deny` from WebKit's media-capture, device-motion, and
+(on iOS 27+) geolocation permission callbacks. The focused Swift suite was
+rebuilt after that source change and passed 3/3 in
+`Test-Modula-2026.10.23_21-42-58-+0100.xcresult`. The preceding live-game
+UI run used the same host presentation but predates these permission callbacks.
+
+`WebGameRegistryUITests/testInstalledRegistryGamesLaunchWithAppTransportIsolated`
+also passed (1/1) in `Test-Modula-2026.10.23_21-39-44-+0100.xcresult`.
+It completed a cached round in each game while the app's registry transport
+was isolated. This is `APP_TRANSPORT_OFFLINE` evidence only. It does not show
+that all simulator radios or external WebKit network paths were disabled;
+`FULL_DEVICE_OFFLINE` still needs a physical Airplane Mode run.
 
 Reproduce on a Mac with Xcode 27.1, Node 22, CocoaPods and an available
 iOS Simulator:
@@ -47,8 +69,9 @@ xcodebuild test -workspace ios/Modula.xcworkspace -scheme Modula \
 ```
 
 The new `native-boundaries.yml` workflow covers the Node and source-boundary
-steps. GitHub CI does not yet run Xcode or a physical device. The Swift test
-above remains a mandatory manual gate for this PR. Iframe and popup behavior,
+steps. GitHub CI does not yet run Xcode or a physical device. The Swift and
+signed QA simulator tests above remain mandatory manual gates for this PR.
+Iframe and popup behavior,
 real signed-release rollback, full-device offline operation, first playable
 frame performance, and physical iPhone GPU/audio/thermal acceptance remain
 unverified. The older QA registry README records the existing simulator gameplay and
