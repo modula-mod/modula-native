@@ -37,8 +37,8 @@ enum MolibooCardRarity: String, CaseIterable, Codable, Comparable, Sendable {
         }
     }
     var glow: Color { frame[0] }
-    var glowRadius: CGFloat { [3, 7, 11, 16][rank] }
-    var holoStrength: Double { [0.12, 0.28, 0.42, 0.6][rank] }
+    var glowRadius: CGFloat { [1, 2, 3, 5][rank] }
+    var holoStrength: Double { [0.04, 0.10, 0.16, 0.22][rank] }
     var sparkleCount: Int { [6, 12, 20, 34][rank] }
     /// Pack roll weights (out of 100).
     var weight: Int { [62, 26, 10, 2][rank] }
@@ -254,10 +254,12 @@ struct MolibooTradingCardView: View {
 
     var body: some View {
         ZStack {
-            if faceDown { back } else {
-                // Metal holo foil scaled by rarity + live tilt; Legendary adds a shimmer sweep & specular rim. Still frame when not animating.
-                front.molibooHoloFoil(foilStrength, tilt: tilt, animated: animating)
-                    .modifier(MolibooLegendaryShimmer(on: card.rarity >= .rare, strength: card.rarity == .legendary ? 0.72 : 0.35, animated: animating))
+            if faceDown { back } else if animating {
+                // Live inspect/pack only — binder slots stay flat (no continuous foil/shimmer).
+                front.molibooHoloFoil(foilStrength * 0.55, tilt: tilt, animated: true)
+                    .modifier(MolibooLegendaryShimmer(on: card.rarity == .legendary, strength: 0.4, animated: true))
+            } else {
+                front
             }
         }
         .frame(width: Self.base.width, height: Self.base.height)
@@ -312,17 +314,17 @@ struct MolibooTradingCardView: View {
             }
             .padding(12)
             holo
-            shape.strokeBorder(AngularGradient(colors: card.rarity.frame, center: .center, angle: .degrees(Double(tilt.width) * 60)), lineWidth: 5)
+            shape.strokeBorder(AngularGradient(colors: card.rarity.frame, center: .center, angle: .degrees(Double(tilt.width) * 60)), lineWidth: animating ? 3.5 : 2)
         }
         .clipShape(shape)
-        .shadow(color: card.rarity.glow.opacity(0.7), radius: card.rarity.glowRadius)
+        .shadow(color: .black.opacity(animating ? 0.25 : 0.12), radius: animating ? card.rarity.glowRadius : 4, y: 2)
     }
 
     private var art: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(RadialGradient(colors: [card.element.colors[0], card.element.colors[1]], center: .center, startRadius: 4, endRadius: 130))
-            MolibooSparkleField(count: card.rarity.sparkleCount, color: card.rarity == .common ? .white : card.rarity.glow, animating: animating)
+            MolibooSparkleField(count: animating ? card.rarity.sparkleCount : max(2, card.rarity.sparkleCount / 3), color: card.rarity == .common ? .white : card.rarity.glow, animating: animating)
             if let kind = card.kind { MolibooHubArt(kind: kind, size: 140).offset(x: tilt.width * -6, y: tilt.height * -4) }
         }
         .frame(height: 150)
@@ -403,49 +405,55 @@ struct MolibooCardBinderView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 18) {
+            VStack(spacing: 28) {
                 header
-                LazyVGrid(columns: columns, spacing: 16) {
+                LazyVGrid(columns: columns, spacing: 20) {
                     ForEach(MolibooCardCatalogue.cards) { c in slot(c) }
                 }
-                Text("Founding packs are free. Cards are saved on this device.")
-                    .font(.caption2).foregroundStyle(.secondary).padding(.bottom, 24)
+                Text("Founding packs are free. Cards stay on this device.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .padding(.bottom, 32)
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 20)
         }
-        .contentMargins(.bottom, 84, for: .scrollContent)
-        .background(LinearGradient(colors: [Color(red: 0.10, green: 0.10, blue: 0.22), Color(red: 0.05, green: 0.16, blue: 0.20)], startPoint: .top, endPoint: .bottom).ignoresSafeArea())
+        .contentMargins(.bottom, 40, for: .scrollContent)
+        .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Cards")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .environment(\.colorScheme, .dark)
+        .toolbar(.hidden, for: .tabBar)
         .accessibilityIdentifier("cards.binder")
         .fullScreenCover(item: Binding(get: { pack.map(MolibooPackBox.init) }, set: { pack = $0?.cards })) { box in
             MolibooPackOpeningView(cards: box.cards) { pack = nil }
         }
         .sheet(item: $inspecting) { c in
-            MolibooCardInspectView(card: c).presentationBackground(.ultraThinMaterial)
-                .navigationTransition(.zoom(sourceID: c.id, in: cardNS))   // card zooms out of its binder slot
+            MolibooCardInspectView(card: c)
+                .presentationBackground(Color(uiColor: .systemBackground))
+                .navigationTransition(.zoom(sourceID: c.id, in: cardNS))
         }
     }
 
     private var header: some View {
-        VStack(spacing: 12) {
-            Image("MoliboosLogo").resizable().scaledToFit().frame(height: 34).accessibilityLabel("Moliboos")
-            Text(MolibooCardCatalogue.collectionName).font(.system(.title2, design: .rounded).weight(.heavy)).foregroundStyle(.white)
-            ProgressView(value: Double(store.uniqueOwned), total: Double(store.total)).tint(Color(red: 0.21, green: 0.61, blue: 0.67))
-            Text("\(store.uniqueOwned) of \(store.total) collected").font(.footnote.weight(.semibold)).foregroundStyle(.white.opacity(0.75))
+        VStack(alignment: .leading, spacing: 14) {
+            Text(MolibooCardCatalogue.collectionName)
+                .font(.title2.weight(.bold))
+            ProgressView(value: Double(store.uniqueOwned), total: Double(store.total))
+                .tint(Color(red: 0.21, green: 0.61, blue: 0.67))
+            Text("\(store.uniqueOwned) of \(store.total) collected")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
                 .accessibilityIdentifier("cards.progress")
             Button { pack = store.openFoundingPack() } label: {
-                Label("Open a free Founding pack", systemImage: "gift.fill").font(.headline).foregroundStyle(.white)
-                    .frame(maxWidth: .infinity, minHeight: 50)
+                Label("Open free pack", systemImage: "gift.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 48)
             }
             .buttonStyle(.plain)
-            .modulaGlass(in: Capsule(), tint: Color(red: 0.21, green: 0.61, blue: 0.67), prominent: true)
+            .modulaGlass(in: Capsule(), interactive: true, tint: Color(red: 0.21, green: 0.61, blue: 0.67).opacity(0.35), prominent: true)
             .accessibilityIdentifier("cards.openPack")
         }
-        .padding(16)
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 26, style: .continuous), interactive: false, specular: true)
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .padding(.top, 8)
     }
 
@@ -463,12 +471,17 @@ struct MolibooCardBinderView: View {
             .matchedTransitionSource(id: c.id, in: cardNS) { $0.clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous)) }
             .accessibilityIdentifier("cards.slot.\(c.characterID)")
         } else {
-            RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(.white.opacity(0.25), style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.08), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+                )
                 .frame(width: 160, height: 224)
                 .overlay {
                     VStack(spacing: 6) {
-                        Image(systemName: "questionmark").font(.title.weight(.heavy)).foregroundStyle(.white.opacity(0.35))
-                        Text(c.rarity.title).font(.caption2.weight(.bold)).foregroundStyle(c.rarity.glow.opacity(0.7))
+                        Image(systemName: "questionmark").font(.title2.weight(.semibold)).foregroundStyle(.tertiary)
+                        Text(c.rarity.title).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
                     }
                 }
                 .accessibilityElement().accessibilityLabel("Not collected yet")
@@ -529,9 +542,10 @@ struct MolibooPackOpeningView: View {
 
     var body: some View {
         ZStack {
-            RadialGradient(colors: [Color(red: 0.18, green: 0.22, blue: 0.42), Color(red: 0.03, green: 0.03, blue: 0.10)], center: .center, startRadius: 10, endRadius: 520)
+            Color(uiColor: .systemBackground).ignoresSafeArea()
+            LinearGradient(colors: [Color.primary.opacity(0.04), Color.clear], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
-            MolibooSparkleField(count: 40, color: .white, animating: motionOn).ignoresSafeArea().opacity(0.6)
+            MolibooSparkleField(count: 12, color: .primary.opacity(0.35), animating: motionOn).ignoresSafeArea().opacity(0.35)
             if phase == .sealed || phase == .tearing { packView.modifier(MolibooDissolve(progress: phase == .tearing ? 1 : 0)) }
             if phase == .fanned || phase == .legendary || phase == .done { fan }
             if phase == .legendary, let c = legendaryCard { MolibooLegendaryReveal(card: c, animating: motionOn) { continueAfterLegendary() } }
@@ -555,7 +569,6 @@ struct MolibooPackOpeningView: View {
             }
             .padding(20)
         }
-        .preferredColorScheme(.dark)
     }
 
     private var packView: some View {
@@ -564,8 +577,9 @@ struct MolibooPackOpeningView: View {
                 // body
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .fill(LinearGradient(colors: [Color(red: 0.21, green: 0.61, blue: 0.67), Color(red: 0.36, green: 0.24, blue: 0.70), Color(red: 0.95, green: 0.55, blue: 0.70)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .overlay(MolibooSparkleField(count: 18, color: .white, animating: motionOn).clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous)))
-                    .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).strokeBorder(.white.opacity(0.6), lineWidth: 3))
+                    .overlay(MolibooSparkleField(count: 8, color: .white, animating: motionOn).clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous)))
+                    .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).strokeBorder(.white.opacity(0.35), lineWidth: 1.5))
                     .offset(y: phase == .tearing ? 40 : 0)
                     .opacity(phase == .tearing ? 0 : 1)
                 VStack(spacing: 10) {

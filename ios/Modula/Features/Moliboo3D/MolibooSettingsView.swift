@@ -49,9 +49,9 @@ struct MolibooSettingsView: View {
     private let cards = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
 
     private var kinds: [ModulaMascotKind] {
-        var ks = ModulaMascotKind.allCases.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.personality.localizedCaseInsensitiveContains(search) }
+        var ks = ModulaMascotKind.allCases.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.personality.localizedCaseInsensitiveContains(search) || $0.title.localizedCaseInsensitiveContains(search) }
         switch sort {
-        case .catalogue: break
+        case .catalogue: ks.sort { $0.number < $1.number }
         case .name: ks.sort { $0.name < $1.name }
         case .premium: ks.sort { ($0.isPremium ? 0 : 1, $0.name) < ($1.isPremium ? 0 : 1, $1.name) }
         }
@@ -68,7 +68,7 @@ struct MolibooSettingsView: View {
                 }
             }
             .scrollIndicators(.hidden)
-            .contentMargins(.bottom, 96, for: .scrollContent)
+            .contentMargins(.bottom, 36, for: .scrollContent)
             .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, y in
                 if route == nil, abs(y - scrollY) >= 2 { scrollY = y }
             }
@@ -86,6 +86,7 @@ struct MolibooSettingsView: View {
                 }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
         .navigationTitle("Moliboo settings")
         .accessibilityIdentifier("settings.moliboo")
         .navigationDestination(item: $route) { r in
@@ -152,14 +153,18 @@ struct MolibooSettingsView: View {
                     }
                     .padding(.top, 18)
                     Spacer()
-                    if kind != nil { statsCard(state) }
                 }
                 .padding(.horizontal, 16)
                 Spacer(minLength: 0)
             }
-            stage.padding(.top, 150)
+            stage.padding(.top, 120)
+            if kind != nil {
+                statsCard(state)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+            }
         }
-        .frame(height: 400)
+        .frame(height: 420)
         .clipped()
     }
 
@@ -195,13 +200,13 @@ struct MolibooSettingsView: View {
     }
 
     private func statsCard(_ s: MolibooCareState) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        HStack(spacing: 16) {
             stat("heart.fill", .pink, "\(Int(s.mood.rounded()))%", "Mood")
             stat("bolt.fill", .yellow, "\(Int(s.energy.rounded()))%", "Energy")
             stat("star.fill", .orange, "Lv. \(s.bondLevel)", "Bond")
         }
-        .padding(12)
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false, specular: true)
+        .padding(.horizontal, 16).padding(.vertical, 10)
+        .modulaGlass(in: Capsule(), interactive: false, specular: true)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("moliboo.hub.stats")
     }
@@ -289,8 +294,21 @@ struct MolibooSettingsView: View {
             if searching {
                 ModulaGlassSearchField(prompt: "Search Moliboos", text: $search).transition(.move(edge: .top).combined(with: .opacity))
             }
-            LazyVGrid(columns: grid, spacing: 12) {
-                ForEach(kinds) { k in characterCard(k) }
+            // Grouped by family, each with its world.
+            ForEach(MolibooFamily.allCases) { fam in
+                let ks = kinds.filter { $0.family == fam }
+                if !ks.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(fam.name).font(.headline)
+                        Text("\(fam.world) · \(ks.count) Moliboo\(ks.count == 1 ? "" : "s")").font(.caption).foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 4)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityAddTraits(.isHeader)
+                    LazyVGrid(columns: grid, spacing: 12) {
+                        ForEach(ks) { k in characterCard(k) }
+                    }
+                }
             }
             HStack(spacing: 10) {
                 offCard.frame(maxWidth: .infinity)
@@ -414,10 +432,9 @@ struct MolibooSettingsView: View {
                         }
                         if k.isPremium {
                             Image(systemName: locked ? "lock.fill" : "crown.fill")
-                                .font(.caption2.weight(.bold))
-                                .foregroundStyle(.orange)
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(.secondary)
                                 .padding(5)
-                                .background(Circle().fill(Color.orange.opacity(0.2)))
                         }
                     }
                     .padding(8)
@@ -439,8 +456,7 @@ struct MolibooSettingsView: View {
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(uiColor: .secondarySystemGroupedBackground)))
-            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(selected ? Color(red: 0.21, green: 0.61, blue: 0.67) : Color.primary.opacity(0.08), lineWidth: selected ? 2.5 : 1))
-            .shadow(color: selected ? Color(red: 0.21, green: 0.61, blue: 0.67).opacity(0.28) : .black.opacity(0.05), radius: selected ? 10 : 4, y: 3)
+            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(selected ? Color(red: 0.21, green: 0.61, blue: 0.67) : Color.primary.opacity(0.06), lineWidth: selected ? 1.5 : 0.5))
         }
         .buttonStyle(MolibooSpringPress(enabled: motionOn))
         .accessibilityIdentifier("moliboo.hub.char.\(k.rawValue)")
@@ -813,13 +829,16 @@ struct MolibooHeroMorph: ViewModifier {
 /// Progressive blur strip for pinned glass top bars: strongest under the status bar, fading to
 /// nothing below the buttons. Light tint only, so the scene stays visible.
 struct MolibooProgressiveStrip: View {
+    @Environment(\.colorScheme) private var scheme
     var body: some View {
-        ZStack {
-            Rectangle().fill(.ultraThinMaterial)
-                .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.55), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
-            Rectangle().fill(.thinMaterial)
-                .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .clear, location: 0.6)], startPoint: .top, endPoint: .bottom))
-        }
+        // Solid wash — no Material. Material + mask on a pinned header re-composites every scroll frame.
+        Rectangle()
+            .fill(Color(uiColor: .systemBackground).opacity(scheme == .dark ? 0.94 : 0.92))
+        .mask(LinearGradient(stops: [
+            .init(color: .black, location: 0),
+            .init(color: .black, location: 0.62),
+            .init(color: .clear, location: 1)
+        ], startPoint: .top, endPoint: .bottom))
         .ignoresSafeArea(edges: .top)
         .allowsHitTesting(false)
         .accessibilityHidden(true)

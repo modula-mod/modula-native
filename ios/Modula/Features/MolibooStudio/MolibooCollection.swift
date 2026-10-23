@@ -7,32 +7,54 @@ import UIKit
 enum MolibooPortrait {
     private static var cache: [String: UIImage] = [:]
     static func image(for id: String) -> UIImage? {
-        guard MolibooFeatureFlags.native3DEnabled else { return render2D(id) }
-        guard let d = MolibooRegistry.descriptor(for: id) else { return nil }   // only real 3D characters have portraits
+        guard MolibooFeatureFlags.native3DEnabled else { return render2D(id, pointSize: 180, scale: 2) }
+        guard let d = MolibooRegistry.descriptor(for: id) else { return render2D(id, pointSize: 180, scale: 2) }
         if let i = cache[d.id] { return i }
         guard let url = Bundle.main.url(forResource: "Portrait_\(d.displayName)", withExtension: "png"),
-              let i = UIImage(contentsOfFile: url.path) else { return nil }
+              let i = UIImage(contentsOfFile: url.path) else { return render2D(id, pointSize: 180, scale: 2) }
         cache[d.id] = i
         return i
     }
-    /// 2D-only Moliboos: every portrait surface (Home, cards, Welcome, collection, Settings, composer) gets the 2D
-    /// renderer's figure in the current outfit instead of the USDZ-rendered PNG. Cached per character + outfit.
+
+    /// Small static thumb for scrolling roster tiles. Never live SwiftUI figures.
+    static func thumb(for id: String) -> UIImage? {
+        render2D(id, pointSize: 64, scale: 2, cachePrefix: "thumb|")
+    }
+
+    /// 2D-only Moliboos: ImageRenderer snapshot of the figure, cached. Cap is large enough for all 100
+    /// characters + a few outfit variants so scroll never thrash-clears and re-renders.
     private static var cache2D: [String: UIImage] = [:]
-    private static func render2D(_ id: String) -> UIImage? {
+    private static let cache2DCap = 256
+
+    private static func outfitKey(_ outfit: MascotOutfit) -> String {
+        outfit.items.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ",")
+            + "|" + outfit.dyes.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ",")
+    }
+
+    private static func render2D(_ id: String, pointSize: CGFloat, scale: CGFloat, cachePrefix: String = "") -> UIImage? {
         guard let kind = ModulaMascotKind(rawValue: id) else { return nil }
         let outfit = MascotWardrobeStore.shared.outfit
-        let key = id + "|" + outfit.items.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ",")
-            + "|" + outfit.dyes.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ",")
+        let key = cachePrefix + id + "|" + outfitKey(outfit) + "|\(Int(pointSize))x\(Int(scale))"
         if let i = cache2D[key] { return i }
-        let s: CGFloat = 180
-        let r = ImageRenderer(content: ModulaMascotFigure(kind: kind, pose: .still(), size: s, outfit: outfit)
+        let s = pointSize
+        let r = ImageRenderer(content: ModulaMascotFigure(kind: kind, pose: .still(), size: s, outfit: .empty)
             .frame(width: s * 1.45, height: s * 1.45))
-        r.scale = 2
+        r.scale = scale
         guard let i = r.uiImage else { return nil }
-        if cache2D.count > 64 { cache2D.removeAll() }
+        if cache2D.count >= cache2DCap {
+            // Drop oldest half (dict order is insertion order) instead of wiping — keeps warm thumbs.
+            let drop = cache2D.keys.prefix(cache2DCap / 2)
+            for k in drop { cache2D.removeValue(forKey: k) }
+        }
         cache2D[key] = i
         return i
     }
+
+    /// Warm tile thumbs off the critical path so Choose-your-Moliboo scroll never ImageRenderer-stalls.
+    static func warmThumbs(ids: [String]) {
+        for id in ids { _ = thumb(for: id) }
+    }
+
     /// Lightweight 3D presentation (portrait, no RealityKit) is used only with the dev flag on.
     static func usesPortrait(_ id: String) -> Bool { MolibooFeatureFlags.native3DEnabled && image(for: id) != nil }
 }
@@ -125,6 +147,7 @@ struct MolibooCollectionView: View {
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Search Originals by name or #")
         .navigationDestination(item: $studioFor) { id in MolibooLivingStudioView(characterID: id) }
+        .toolbar(.hidden, for: .tabBar)
     }
 
     private var headerCard: some View {
@@ -256,9 +279,8 @@ struct MolibooCollectionView: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .strokeBorder(selected ? teal : Color.primary.opacity(0.08), lineWidth: selected ? 2.5 : 1)
+                    .strokeBorder(selected ? teal : Color.primary.opacity(0.06), lineWidth: selected ? 1.5 : 0.5)
             )
-            .shadow(color: selected ? teal.opacity(0.28) : .black.opacity(0.05), radius: selected ? 10 : 4, y: 3)
         }
         .buttonStyle(MolibooSpringPressStyle())
         .accessibilityIdentifier("collection.\(id)")
