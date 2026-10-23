@@ -42,6 +42,16 @@ Debug build script copied a verified Nodus model from the local developer
 cache into the app (947 MiB `Nodus/`, including a 923 MiB model file), and
 the debug dylib occupied 435 MiB. This is not a production download-size
 measurement. Native main PR #167 removed the Xcode Release override that
-forced that experimental model into Release; the Release preparation script
-now reports model bundling disabled. A fresh Release app and compressed
-distribution archive must be measured separately before size acceptance.
+forced that experimental model into Release.
+
+A fresh **unsigned Release iPhone** build after that fix occupied 188,456 KiB
+as an app bundle. A local ZIP of that bundle was 62,672,384 bytes. This ZIP
+is a compression proxy, not an App Store download or signed IPA. The build
+reported `Nodus R7 experimental bundling disabled for Release`; neither
+`model.safetensors` nor `game.tgz` was present in the app. The Release
+executable SHA-256 was
+`07c27f2ac44300e182902e7e8a2a147c3656a90f09b2c6590738ed12f82bb160`.
+The simulator test app's data container occupied 35,600 KiB, separate from
+the app bundle; it includes test/runtime data and is not a clean optional
+package baseline. Signed distribution and a fresh-install data container
+still need measurement.
