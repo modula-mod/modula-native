@@ -824,18 +824,11 @@ struct MolibooHeroMorph: ViewModifier {
 /// Progressive blur strip for pinned glass top bars: strongest under the status bar, fading to
 /// nothing below the buttons. Light tint only, so the scene stays visible.
 struct MolibooProgressiveStrip: View {
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorScheme) private var scheme
     var body: some View {
-        // Opaque enough that roster cards never bleed through the pinned logo.
-        ZStack {
-            if reduceTransparency {
-                Rectangle().fill(scheme == .dark ? Color.black : Color(uiColor: .systemBackground))
-            } else {
-                Rectangle().fill(.regularMaterial)
-                Rectangle().fill((scheme == .dark ? Color.black : Color.white).opacity(scheme == .dark ? 0.45 : 0.55))
-            }
-        }
+        // Solid wash — no Material. Material + mask on a pinned header re-composites every scroll frame.
+        Rectangle()
+            .fill(Color(uiColor: .systemBackground).opacity(scheme == .dark ? 0.94 : 0.92))
         .mask(LinearGradient(stops: [
             .init(color: .black, location: 0),
             .init(color: .black, location: 0.62),

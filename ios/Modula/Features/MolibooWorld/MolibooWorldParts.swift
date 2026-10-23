@@ -112,7 +112,7 @@ struct MolibooStageCharacter: View {
         let live = animating && stage.awake
         ZStack {
             softContactShadow.offset(y: 96)
-            TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !live)) { tl in
+            TimelineView(.animation(minimumInterval: 1.0 / 12, paused: !live)) { tl in
                 let t = tl.date.timeIntervalSinceReferenceDate
                 let breath = live ? sin(t * 2 * .pi / emotion.breathPeriod) : 0
                 let bob = live ? sin(t * 2 * .pi / (emotion.breathPeriod * 1.6)) * 4 : 0   // gentle idle float
@@ -174,9 +174,9 @@ struct MolibooStageCharacter: View {
     /// Soft contact shadow only — no moss rock / platform glow.
     private var softContactShadow: some View {
         Ellipse()
-            .fill(Color.primary.opacity(0.12))
-            .frame(width: 130, height: 24)
-            .blur(radius: 8)
+            .fill(Color.primary.opacity(0.10))
+            .frame(width: 120, height: 18)
+            // No blur — soft alpha ellipse is enough and much cheaper while the hero TimelineView runs.
             .accessibilityHidden(true)
     }
 
@@ -184,7 +184,7 @@ struct MolibooStageCharacter: View {
         let live = animating && stage.awake
         if let img = MolibooPortrait.image(for: characterID) {
             Image(uiImage: img).resizable().interpolation(.high).antialiased(true).scaledToFit().frame(width: 230, height: 230)
-                .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
+                .shadow(color: .black.opacity(0.10), radius: 4, y: 2)
         } else if let kind = ModulaMascotKind(rawValue: characterID) {
             ModulaMascotFigure(kind: kind, pose: .still(), size: 110, outfit: MascotWardrobeStore.shared.outfit)
         } else {

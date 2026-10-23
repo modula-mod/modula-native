@@ -1851,7 +1851,18 @@ enum MolibooFamily: String, CaseIterable, Identifiable, Sendable {
         case .dreamers: 86...100
         }
     }
-    var kinds: [ModulaMascotKind] { ModulaMascotKind.allCases.filter { $0.family == self }.sorted { $0.number < $1.number } }
+    /// Precomputed once — filtering allCases on every World body eval was O(families × kinds).
+    var kinds: [ModulaMascotKind] { Self.kindsByFamily[self] ?? [] }
+    private static let kindsByFamily: [MolibooFamily: [ModulaMascotKind]] = {
+        var map: [MolibooFamily: [ModulaMascotKind]] = [:]
+        for k in ModulaMascotKind.allCases {
+            map[k.family, default: []].append(k)
+        }
+        for f in MolibooFamily.allCases {
+            map[f] = (map[f] ?? []).sorted { $0.number < $1.number }
+        }
+        return map
+    }()
 }
 
 extension ModulaMascotKind {
