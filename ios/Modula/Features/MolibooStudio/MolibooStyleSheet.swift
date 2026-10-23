@@ -1,15 +1,15 @@
 import SwiftUI
 
-/// Style sheet (Living Studio). Environment + the Signature Cap quick toggle; the full wardrobe is its own panel.
+/// Style sheet (Living Studio). Scene backgrounds from `MolibooEnvironment` + optional Signature Cap / pose.
 struct MolibooStyleSheet: View {
-    let controller: MolibooSceneController
+    var controller: MolibooSceneController?
     @Binding var environment: String
     private var wardrobe = MascotWardrobeStore.shared
     private let capID = MolibooCosmetics.signatureCapID
-
     var onOutfitChange: () -> Void = {}
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(controller: MolibooSceneController, environment: Binding<String>, onOutfitChange: @escaping () -> Void = {}) {
+    init(controller: MolibooSceneController?, environment: Binding<String>, onOutfitChange: @escaping () -> Void = {}) {
         self.controller = controller
         self._environment = environment
         self.onOutfitChange = onOutfitChange
@@ -17,69 +17,87 @@ struct MolibooStyleSheet: View {
 
     @State private var pose = MolibooStagePose()
 
+    private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Style").font(.headline)
-            positionControls
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(MolibooEnvironment.allCases) { e in
-                        Button { environment = e.rawValue } label: {
-                            VStack(spacing: 6) {
-                                RoundedRectangle(cornerRadius: 12).fill(LinearGradient(colors: e.sky, startPoint: .top, endPoint: .bottom))
-                                    .overlay(Image(systemName: e.symbol).foregroundStyle(e.isDark ? .white : .primary))
-                                    .frame(width: 64, height: 48)
-                                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(environment == e.rawValue ? Color.accentColor : .clear, lineWidth: 2))
-                                Text(e.title).font(.caption2)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Scene").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                    LazyVGrid(columns: columns, spacing: 12) {
+                        ForEach(MolibooEnvironment.allCases) { e in
+                            Button { environment = e.rawValue } label: {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                        .fill(LinearGradient(colors: e.sky, startPoint: .top, endPoint: .bottom))
+                                        .overlay {
+                                            Image(systemName: e.symbol)
+                                                .font(.title2.weight(.semibold))
+                                                .foregroundStyle(e.isDark ? .white : .primary.opacity(0.85))
+                                        }
+                                        .frame(height: 88)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                                .strokeBorder(environment == e.rawValue ? Color.accentColor : Color.primary.opacity(0.06),
+                                                              lineWidth: environment == e.rawValue ? 2 : 0.5)
+                                        )
+                                    Text(e.title).font(.subheadline.weight(.semibold))
+                                }
                             }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("studio.env.\(e.rawValue)")
+                            .accessibilityAddTraits(environment == e.rawValue ? .isSelected : [])
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("studio.env.\(e.rawValue)")
                     }
                 }
-            }
-            if controller.isSupported(wardrobeItemID: capID) {
-                let on = controller.equipped[capID] != nil
-                Button {
-                    Task {
-                        if on { controller.unequip(wardrobeItemID: capID) } else { await controller.equip(wardrobeItemID: capID) }
-                        save()
-                        onOutfitChange()
+
+                if let controller, controller.isSupported(wardrobeItemID: capID) {
+                    let on = controller.equipped[capID] != nil
+                    Button {
+                        Task {
+                            if on { controller.unequip(wardrobeItemID: capID) } else { await controller.equip(wardrobeItemID: capID) }
+                            save(controller)
+                            onOutfitChange()
+                        }
+                    } label: {
+                        Label(on ? "Take off Signature Cap" : "Wear Signature Cap",
+                              systemImage: on ? "checkmark.circle.fill" : "graduationcap.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 48)
                     }
-                } label: {
-                    Label(on ? "Take off Signature Cap" : "Wear Signature Cap", systemImage: on ? "checkmark.circle.fill" : "graduationcap.fill")
-                        .frame(maxWidth: .infinity)
+                    .buttonStyle(.plain)
+                    .modulaGlass(in: Capsule(), interactive: true, tint: on ? .green.opacity(0.25) : Color.primary.opacity(0.04), specular: true)
+                    .accessibilityIdentifier("studio.style.cap")
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(on ? .green : .accentColor)
-                .accessibilityIdentifier("studio.style.cap")
-            } else {
-                Label("No 3D cosmetics fit this Moliboo yet.", systemImage: "info.circle").font(.footnote).foregroundStyle(.secondary)
+
+                if let controller {
+                    positionControls(controller)
+                }
             }
+            .padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 36)
         }
-        .padding(20)
     }
 
-    /// Writes through the shared store (ownership-checked), keeping the rest of the outfit.
-    private func save() {
+    private func save(_ controller: MolibooSceneController) {
         guard let item = MascotWardrobeCatalog.item(id: capID) else { return }
         if controller.equipped[capID] != nil { wardrobe.equip(item) } else if wardrobe.outfit.contains(item) { wardrobe.unequip(item.slot) }
     }
-    /// Character positioning on the stage (size + height), persisted per character.
-    private var positionControls: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            // Reset lives in its own row so both sliders have the same length.
+
+    private func positionControls(_ controller: MolibooSceneController) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Position").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                Text("Position").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                 Spacer()
-                Button("Reset") { pose = MolibooStagePose() }.font(.caption.weight(.semibold)).accessibilityIdentifier("studio.pose.reset")
+                Button("Reset") { pose = MolibooStagePose() }
+                    .font(.caption.weight(.semibold))
+                    .accessibilityIdentifier("studio.pose.reset")
             }
             HStack {
-                Label("Size", systemImage: "arrow.up.left.and.arrow.down.right").font(.caption.weight(.semibold)).frame(width: 74, alignment: .leading)
+                Text("Size").font(.caption.weight(.semibold)).frame(width: 56, alignment: .leading)
                 Slider(value: $pose.scale, in: MolibooStagePose.scaleRange).accessibilityIdentifier("studio.pose.scale")
             }
             HStack {
-                Label("Height", systemImage: "arrow.up.and.down").font(.caption.weight(.semibold)).frame(width: 74, alignment: .leading)
+                Text("Height").font(.caption.weight(.semibold)).frame(width: 56, alignment: .leading)
                 Slider(value: $pose.lift, in: MolibooStagePose.liftRange).accessibilityIdentifier("studio.pose.lift")
             }
         }
@@ -99,20 +117,19 @@ struct MolibooPhotoControls: View {
                     Circle().fill(.white).frame(width: 66, height: 66)
                     Circle().stroke(.white, lineWidth: 4).frame(width: 78, height: 78)
                 }
-                .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
+                .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
             }
             .accessibilityIdentifier("studio.photo.capture")
             .accessibilityLabel("Take photo of \(characterName)")
             Text("Tap to say hi · hold to pet").font(.caption.weight(.semibold))
-                .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(.ultraThinMaterial, in: Capsule())
+                .padding(.horizontal, 14).padding(.vertical, 8)
+                .modulaGlass(in: Capsule(), interactive: false, specular: false)
                 .padding(.top, 10)
         }
-        .padding(.bottom, 24)
+        .padding(.bottom, 28)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("studio.photo.controls")
     }
-
 }
 
 /// Stage position of the character (Studio "positioning"). Applied to the controller root, so wardrobe follows.

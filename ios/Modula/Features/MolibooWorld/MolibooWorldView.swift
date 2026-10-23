@@ -94,16 +94,16 @@ struct MolibooWorldView: View {
                         stageArea.padding(.top, 12)
                     }
                     if shows("identity") || shows("stage") { heroDashboardCard }
-                    if shows("quick") { quickActions }
+                    if shows("quick") { quickActions.padding(.horizontal, -24) }
                     if shows("composer") { composer }
-                    if shows("activities") { activities.padding(.top, 12) }
-                    if shows("collection") { collection.padding(.top, 12) }
+                    if shows("activities") { activities.padding(.top, 12).padding(.horizontal, -24) }
+                    if shows("collection") { collection.padding(.top, 12).padding(.horizontal, -24) }
                 }
                 .padding(.horizontal, 24).padding(.bottom, 48)
             }
             .scrollIndicators(.hidden)
             // Clear the floating tab bar so Activities / Choose your Moliboo never clip under it.
-            .contentMargins(.bottom, 110, for: .scrollContent)
+            .contentMargins(.bottom, 36, for: .scrollContent)
             // Nothing scrolls under the clock: content fades out beneath a scene-coloured status-bar scrim.
             .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, y in if route == nil, abs(y - scrollY) >= 8 { scrollY = y } }
             .modifier(MolibooSoftTopEdge())
@@ -129,6 +129,7 @@ struct MolibooWorldView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
         .onAppear { if !onboarded { showWelcome = true } }
         .navigationDestination(item: $route) { r in destination(r) }
         .sheet(isPresented: $showSwitcher) { switcher.presentationDetents([.medium]) }

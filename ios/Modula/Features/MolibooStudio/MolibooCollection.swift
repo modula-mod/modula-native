@@ -147,6 +147,7 @@ struct MolibooCollectionView: View {
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Search Originals by name or #")
         .navigationDestination(item: $studioFor) { id in MolibooLivingStudioView(characterID: id) }
+        .toolbar(.hidden, for: .tabBar)
     }
 
     private var headerCard: some View {

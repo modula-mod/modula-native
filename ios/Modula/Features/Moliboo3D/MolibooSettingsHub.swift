@@ -10,7 +10,7 @@ enum MolibooHubSegment: String, CaseIterable, Identifiable {
     case collection, studio, settings, originals
     var id: String { rawValue }
     var title: String {
-        switch self { case .collection: "Collection"; case .studio: "Studio"; case .settings: "Settings"; case .originals: "The Originals" }
+        switch self { case .collection: "Collection"; case .studio: "Studio"; case .settings: "Settings"; case .originals: "Originals" }
     }
     var icon: String {
         switch self { case .collection: "square.grid.2x2.fill"; case .studio: "tshirt.fill"; case .settings: "gearshape.fill"; case .originals: "crown.fill" }
