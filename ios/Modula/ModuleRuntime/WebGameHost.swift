@@ -187,6 +187,10 @@ private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
     }
 
     func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
+        serve(task)
+    }
+
+    fileprivate func serve(_ task: WKURLSchemeTask) {
         guard let url = task.request.url, contains(url),
               let bytes = files[String(url.path.dropFirst())] else {
             task.didFailWithError(WebGamePackageError.invalid("unlisted resource"))
@@ -223,9 +227,14 @@ private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
 }
 
 #if DEBUG
+@MainActor
 enum WebGameResourceProbe {
     static func allows(entry: URL, request: URL) throws -> Bool {
         try VerifiedGameSchemeHandler(entry: entry).contains(request)
+    }
+
+    static func serve(entry: URL, task: WKURLSchemeTask) throws {
+        try VerifiedGameSchemeHandler(entry: entry).serve(task)
     }
 }
 #endif

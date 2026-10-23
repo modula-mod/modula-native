@@ -1,8 +1,23 @@
 import CryptoKit
 import ImageIO
 import UIKit
+import WebKit
 import XCTest
 @testable import Modula
+
+private final class RecordingGameSchemeTask: NSObject, WKURLSchemeTask {
+    let request: URLRequest
+    var response: URLResponse?
+    var body = Data()
+    var finished = false
+    var failure: Error?
+
+    init(_ url: URL) { request = URLRequest(url: url) }
+    func didReceive(_ response: URLResponse) { self.response = response }
+    func didReceive(_ data: Data) { body.append(data) }
+    func didFinish() { finished = true }
+    func didFailWithError(_ error: Error) { failure = error }
+}
 
 final class N4CRouteTests: XCTestCase {
     func testMessagesCanonicalDefaultsAndRoundTrips() throws {
@@ -92,6 +107,13 @@ final class WebGameInstalledIsolationTests: XCTestCase {
             let gameDigest = try XCTUnwrap(controller.active(accountID: account, moduleId: id)?.gameSha256)
             let acceptedURL = try XCTUnwrap(URL(string: "modula-game://\(gameDigest)/index.html"))
             XCTAssertTrue(try WebGameResourceProbe.allows(entry: entry, request: acceptedURL))
+            let acceptedTask = RecordingGameSchemeTask(acceptedURL)
+            try WebGameResourceProbe.serve(entry: entry, task: acceptedTask)
+            XCTAssertTrue(acceptedTask.finished)
+            XCTAssertNil(acceptedTask.failure)
+            let csp = (acceptedTask.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Security-Policy")
+            XCTAssertTrue(csp?.contains("connect-src 'none'") == true)
+            XCTAssertEqual(acceptedTask.body, try XCTUnwrap(WebGamePackage(archive: archive, expectedSha256: digest(archive)).files["index.html"]))
             for hostile in [
                 "modula-game://\(gameDigest)/../index.html",
                 "modula-game://\(gameDigest)/%2e%2e/index.html",
@@ -103,6 +125,10 @@ final class WebGameInstalledIsolationTests: XCTestCase {
             ] {
                 XCTAssertFalse(try WebGameResourceProbe.allows(entry: entry, request: XCTUnwrap(URL(string: hostile))),
                                "Unexpected game resource: \(hostile)")
+                let rejectedTask = RecordingGameSchemeTask(try XCTUnwrap(URL(string: hostile)))
+                try WebGameResourceProbe.serve(entry: entry, task: rejectedTask)
+                XCTAssertFalse(rejectedTask.finished)
+                XCTAssertNotNil(rejectedTask.failure)
             }
 
             XCTAssertThrowsError(try stage(archive, String(repeating: "0", count: 64)), "\(engine) wrong digest")

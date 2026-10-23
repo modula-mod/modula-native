@@ -2,11 +2,12 @@
 
 On 2026-10-23, Xcode 27.1 built the GameHost on an iOS Simulator and ran
 `ModulaTests/WebGameInstalledIsolationTests`: 3 tests passed, 0 failed. The
-result bundle is `Test-Modula-2026.10.23_09-17-14-+0100.xcresult` in the
+latest result is `Test-Modula-2026.10.23_15-23-25-+0100.xcresult` in the
 task's temporary DerivedData directory. The tests exercise the actual
-`VerifiedGameSchemeHandler` through a Debug-only probe. Its membership check
-accepts a listed digest resource; parent paths, encoded paths, another digest, query URLs,
-`file://` and `https://` requests fail the handler's membership check.
+`VerifiedGameSchemeHandler` through a Debug-only probe. A listed digest
+resource is served with the expected bytes and host CSP response. Parent
+paths, encoded paths, another digest, query URLs, `file://` and `https://`
+requests fail the handler's response path.
 The parser rejects traversal, links, native payloads, case-colliding members,
 truncated gzip and wrong digests. Installed assets reject symlinks, modified
 bytes and unexpected files. Both game identities retain ACTIVE after
