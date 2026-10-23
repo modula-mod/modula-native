@@ -19,6 +19,18 @@ private final class RecordingGameSchemeTask: NSObject, WKURLSchemeTask {
     func didFailWithError(_ error: Error) { failure = error }
 }
 
+private final class RecordingGameNavigation: NSObject, WKNavigationDelegate {
+    let finished: XCTestExpectation
+    var failure: Error?
+
+    init(finished: XCTestExpectation) { self.finished = finished }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { finished.fulfill() }
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        failure = error
+        finished.fulfill()
+    }
+}
+
 final class N4CRouteTests: XCTestCase {
     func testMessagesCanonicalDefaultsAndRoundTrips() throws {
         XCTAssertEqual(RouteParser.parse("/messages"), .messages(.inbox))
@@ -67,7 +79,7 @@ final class N4CRouteTests: XCTestCase {
 
 final class WebGameInstalledIsolationTests: XCTestCase {
     @MainActor
-    func testBothWebGameSlotsPreserveActiveAcrossRejectedUpdatesAndHealthRollback() throws {
+    func testBothWebGameSlotsPreserveActiveAcrossRejectedUpdatesAndHealthRollback() async throws {
         let encoded = "H4sIAAAAAAAC/+3VwW6DMAwGYB4F5dLLQAQIsG7dZS8waU8QEmdQQeggTKuqvvuydqrUnrf2sP+72HIs5RBbaa2mz7hxfRf8mcQr8vwQvcuYpEl6yo/1sszyIEyCK5gnJ0d/ZfA/PfbkZNg4t4nofW4/Vux5sI6si15JzWPrttHL0LVqy0J1PFgxTUbOnYumUYULO1haPISTGtvNT2mizviS77ekztuGen1eYk8B3NCb7Ck2bUdTvJ4Ge5P95+XF/vOkECn2/xp2bFIN9ZItWT/ouZPx90REx4ng7I4dMrbcsfb0U/heRfeq0iZLJBniRghDWV2LLBNFqmvNOelEC1GYjJeiqnmdllqbvKJKluTfm+332D0AAAAAAAAAAAAAAAAAAACA3/AFxMM1iwAoAAA="
         let archive = try XCTUnwrap(Data(base64Encoded: encoded))
         func digest(_ bytes: Data) -> String {
@@ -114,6 +126,34 @@ final class WebGameInstalledIsolationTests: XCTestCase {
             let csp = (acceptedTask.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Security-Policy")
             XCTAssertTrue(csp?.contains("connect-src 'none'") == true)
             XCTAssertEqual(acceptedTask.body, try XCTUnwrap(WebGamePackage(archive: archive, expectedSha256: digest(archive)).files["index.html"]))
+            let navigationFinished = expectation(description: "\(engine) game document loaded")
+            let navigation = RecordingGameNavigation(finished: navigationFinished)
+            let browser = try WebGameResourceProbe.browser(entry: entry)
+            browser.navigationDelegate = navigation
+            browser.load(URLRequest(url: acceptedURL))
+            await fulfillment(of: [navigationFinished], timeout: 10)
+            XCTAssertNil(navigation.failure)
+            let nativeHandlers = try await browser.evaluateJavaScript("Object.keys(window.webkit?.messageHandlers || {}).length")
+            XCTAssertEqual(nativeHandlers as? Int, 0)
+            let cookie = try await browser.evaluateJavaScript("(() => { try { return document.cookie } catch (_) { return '' } })()")
+            XCTAssertEqual(cookie as? String, "")
+            _ = try await browser.evaluateJavaScript("""
+                (() => {
+                window.__gameCSPViolations = [];
+                document.addEventListener('securitypolicyviolation', event =>
+                    window.__gameCSPViolations.push(event.violatedDirective));
+                fetch('https://127.0.0.1:9/blocked').catch(() => {});
+                return true;
+                })()
+                """)
+            var blockedNetwork = false
+            for _ in 0..<30 {
+                let violations = try await browser.evaluateJavaScript("window.__gameCSPViolations") as? [String] ?? []
+                if violations.contains(where: { $0.contains("connect-src") }) { blockedNetwork = true; break }
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            XCTAssertTrue(blockedNetwork, "\(engine) browser did not enforce connect-src CSP")
+            browser.stopLoading()
             for hostile in [
                 "modula-game://\(gameDigest)/../index.html",
                 "modula-game://\(gameDigest)/%2e%2e/index.html",

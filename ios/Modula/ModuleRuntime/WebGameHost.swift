@@ -236,5 +236,13 @@ enum WebGameResourceProbe {
     static func serve(entry: URL, task: WKURLSchemeTask) throws {
         try VerifiedGameSchemeHandler(entry: entry).serve(task)
     }
+
+    static func browser(entry: URL) throws -> WKWebView {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .nonPersistent()
+        configuration.setURLSchemeHandler(try VerifiedGameSchemeHandler(entry: entry),
+                                          forURLScheme: VerifiedGameSchemeHandler.scheme)
+        return WKWebView(frame: .zero, configuration: configuration)
+    }
 }
 #endif
