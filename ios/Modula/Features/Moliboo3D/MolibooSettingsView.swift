@@ -427,10 +427,9 @@ struct MolibooSettingsView: View {
                         }
                         if k.isPremium {
                             Image(systemName: locked ? "lock.fill" : "crown.fill")
-                                .font(.caption2.weight(.bold))
-                                .foregroundStyle(.orange)
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(.secondary)
                                 .padding(5)
-                                .background(Circle().fill(Color.orange.opacity(0.2)))
                         }
                     }
                     .padding(8)
@@ -452,8 +451,7 @@ struct MolibooSettingsView: View {
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(uiColor: .secondarySystemGroupedBackground)))
-            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(selected ? Color(red: 0.21, green: 0.61, blue: 0.67) : Color.primary.opacity(0.08), lineWidth: selected ? 2.5 : 1))
-            .shadow(color: selected ? Color(red: 0.21, green: 0.61, blue: 0.67).opacity(0.28) : .black.opacity(0.05), radius: selected ? 10 : 4, y: 3)
+            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(selected ? Color(red: 0.21, green: 0.61, blue: 0.67) : Color.primary.opacity(0.06), lineWidth: selected ? 1.5 : 0.5))
         }
         .buttonStyle(MolibooSpringPress(enabled: motionOn))
         .accessibilityIdentifier("moliboo.hub.char.\(k.rawValue)")
@@ -826,13 +824,23 @@ struct MolibooHeroMorph: ViewModifier {
 /// Progressive blur strip for pinned glass top bars: strongest under the status bar, fading to
 /// nothing below the buttons. Light tint only, so the scene stays visible.
 struct MolibooProgressiveStrip: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var scheme
     var body: some View {
+        // Opaque enough that roster cards never bleed through the pinned logo.
         ZStack {
-            Rectangle().fill(.ultraThinMaterial)
-                .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.55), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
-            Rectangle().fill(.thinMaterial)
-                .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .clear, location: 0.6)], startPoint: .top, endPoint: .bottom))
+            if reduceTransparency {
+                Rectangle().fill(scheme == .dark ? Color.black : Color(uiColor: .systemBackground))
+            } else {
+                Rectangle().fill(.regularMaterial)
+                Rectangle().fill((scheme == .dark ? Color.black : Color.white).opacity(scheme == .dark ? 0.45 : 0.55))
+            }
         }
+        .mask(LinearGradient(stops: [
+            .init(color: .black, location: 0),
+            .init(color: .black, location: 0.62),
+            .init(color: .clear, location: 1)
+        ], startPoint: .top, endPoint: .bottom))
         .ignoresSafeArea(edges: .top)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
