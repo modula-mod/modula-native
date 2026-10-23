@@ -256,9 +256,8 @@ struct MolibooCollectionView: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .strokeBorder(selected ? teal : Color.primary.opacity(0.08), lineWidth: selected ? 2.5 : 1)
+                    .strokeBorder(selected ? teal : Color.primary.opacity(0.06), lineWidth: selected ? 1.5 : 0.5)
             )
-            .shadow(color: selected ? teal.opacity(0.28) : .black.opacity(0.05), radius: selected ? 10 : 4, y: 3)
         }
         .buttonStyle(MolibooSpringPressStyle())
         .accessibilityIdentifier("collection.\(id)")
