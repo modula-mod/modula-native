@@ -143,16 +143,23 @@ final class WebGameInstalledIsolationTests: XCTestCase {
                 document.addEventListener('securitypolicyviolation', event =>
                     window.__gameCSPViolations.push(event.violatedDirective));
                 fetch('https://127.0.0.1:9/blocked').catch(() => {});
+                const script = document.createElement('script');
+                script.src = 'https://127.0.0.1:9/blocked.js';
+                document.head.appendChild(script);
                 return true;
                 })()
                 """)
             var blockedNetwork = false
+            var blockedScript = false
             for _ in 0..<30 {
                 let violations = try await browser.evaluateJavaScript("window.__gameCSPViolations") as? [String] ?? []
-                if violations.contains(where: { $0.contains("connect-src") }) { blockedNetwork = true; break }
+                blockedNetwork = violations.contains(where: { $0.contains("connect-src") })
+                blockedScript = violations.contains(where: { $0.contains("script-src") })
+                if blockedNetwork && blockedScript { break }
                 try await Task.sleep(for: .milliseconds(100))
             }
             XCTAssertTrue(blockedNetwork, "\(engine) browser did not enforce connect-src CSP")
+            XCTAssertTrue(blockedScript, "\(engine) browser did not block an external script")
             browser.stopLoading()
             for hostile in [
                 "modula-game://\(gameDigest)/../index.html",
