@@ -11,6 +11,9 @@ struct WebGameHost: View {
     @State private var paused = false
     @State private var processFailed = false
     @State private var webView: WKWebView?
+    @State private var packageVerified = false
+    @State private var documentReady = false
+    @State private var loadingProgress = 0.0
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -32,8 +35,34 @@ struct WebGameHost: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .background(.black)
-                WebGameSurface(entry: entry, processFailed: $processFailed, webView: $webView)
+                WebGameSurface(entry: entry, processFailed: $processFailed, webView: $webView,
+                               packageVerified: $packageVerified, documentReady: $documentReady,
+                               loadingProgress: $loadingProgress)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            if !documentReady && !processFailed {
+                Color.black.ignoresSafeArea()
+                VStack(spacing: 18) {
+                    Image(systemName: "gamecontroller.fill")
+                        .font(.system(size: 48))
+                        .accessibilityHidden(true)
+                    Text(name).font(.title2.bold()).multilineTextAlignment(.center)
+                    Text(packageVerified ? "Verified game package" : "Verifying game package")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    ProgressView(value: loadingProgress)
+                        .tint(.white)
+                        .frame(maxWidth: 240)
+                    Text(packageVerified ? "Loading game…" : "Checking installation…")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("Exit game", action: close)
+                        .buttonStyle(.bordered)
+                }
+                .foregroundStyle(.white)
+                .padding(32)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityIdentifier("game.host.loading")
             }
             if processFailed {
                 ContentUnavailableView {
@@ -85,6 +114,9 @@ private struct WebGameSurface: UIViewRepresentable {
     let entry: URL
     @Binding var processFailed: Bool
     @Binding var webView: WKWebView?
+    @Binding var packageVerified: Bool
+    @Binding var documentReady: Bool
+    @Binding var loadingProgress: Double
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -100,6 +132,7 @@ private struct WebGameSurface: UIViewRepresentable {
             configuration.setURLSchemeHandler(handler, forURLScheme: VerifiedGameSchemeHandler.scheme)
             context.coordinator.handler = handler
             gameURL = handler.entryURL
+            DispatchQueue.main.async { packageVerified = true }
         } catch {
             gameURL = nil
             DispatchQueue.main.async { processFailed = true }
@@ -111,6 +144,11 @@ private struct WebGameSurface: UIViewRepresentable {
         view.backgroundColor = .black
         view.scrollView.isScrollEnabled = false
         view.scrollView.contentInsetAdjustmentBehavior = .never
+        let coordinator = context.coordinator
+        coordinator.progressObservation = view.observe(\.estimatedProgress, options: [.initial, .new]) { [weak coordinator] _, change in
+            guard let progress = change.newValue else { return }
+            DispatchQueue.main.async { coordinator?.parent.loadingProgress = progress }
+        }
         if let gameURL { view.load(URLRequest(url: gameURL)) }
         DispatchQueue.main.async { webView = view }
         return view
@@ -119,6 +157,7 @@ private struct WebGameSurface: UIViewRepresentable {
     func updateUIView(_ view: WKWebView, context: Context) {}
 
     static func dismantleUIView(_ view: WKWebView, coordinator: Coordinator) {
+        coordinator.progressObservation = nil
         view.stopLoading()
         view.navigationDelegate = nil
         view.uiDelegate = nil
@@ -129,7 +168,18 @@ private struct WebGameSurface: UIViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         let parent: WebGameSurface
         var handler: VerifiedGameSchemeHandler?
+        var progressObservation: NSKeyValueObservation?
         init(_ parent: WebGameSurface) { self.parent = parent }
+
+        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+            DispatchQueue.main.async { self.parent.documentReady = false }
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            DispatchQueue.main.async {
+                withAnimation(.easeOut(duration: 0.2)) { self.parent.documentReady = true }
+            }
+        }
 
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction) async -> WKNavigationActionPolicy {
             guard let url = action.request.url, let handler,

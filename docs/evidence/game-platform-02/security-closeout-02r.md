@@ -2,7 +2,7 @@
 
 On 2026-10-23, Xcode 27.1 built the GameHost on an iOS Simulator and ran
 `ModulaTests/WebGameInstalledIsolationTests`: 3 tests passed, 0 failed. The
-latest result is `Test-Modula-2026.10.23_15-42-56-+0100.xcresult` in the
+latest result is `Test-Modula-2026.10.23_15-48-33-+0100.xcresult` in the
 task's temporary DerivedData directory. The tests exercise the actual
 `VerifiedGameSchemeHandler` through a Debug-only probe. A listed digest
 resource is served with the expected bytes and host CSP response. Parent
@@ -14,11 +14,22 @@ produces a `connect-src` violation and an external script produces a
 `script-src` violation. This checks browser enforcement of
 the host CSP without putting tokens in the fixture or contacting an external
 asset host.
+Xcode stalled in a macOS file-coordination read when opening the source
+workspace under Documents, so the latest run used a temporary local copy;
+`cmp` confirmed the GameHost and test source files matched the branch.
 The parser rejects traversal, links, native payloads, case-colliding members,
 truncated gzip and wrong digests. Installed assets reject symlinks, modified
 bytes and unexpected files. Both game identities retain ACTIVE after
 rejected staging and restore PREVIOUS_GOOD after a synthetic activation
 failure, including the persisted audit reason.
+
+The generic host now shows the game name, a generic game icon, verified-package state,
+WebKit estimated navigation progress, and an Exit action while loading. It
+transitions to gameplay when WebKit finishes the document navigation. This
+progress is not a first-playable-frame measurement. The focused Swift suite
+builds this host, but the live QA gameplay UI test was not rerun after this
+presentation change because the configured QA API at `192.168.4.21:8443`
+was unreachable from the Mac.
 
 Reproduce on a Mac with Xcode 27.1, Node 22, CocoaPods and an available
 iOS Simulator:
