@@ -146,7 +146,7 @@ struct MolibooWardrobeSheet: View {
             .contentMargins(.bottom, 28, for: .scrollContent)
             .scrollDismissesKeyboard(.immediately)
         }
-        .padding(.horizontal, 20).padding(.top, 12)
+        .padding(.horizontal, 24).padding(.top, 8)
         .onChange(of: session.previewIDs) { _, ids in
             Task {
                 await controller.sync(outfitItemIDs: ids)
@@ -187,18 +187,24 @@ struct MolibooWardrobeSheet: View {
     }
 
     private var actionBar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             Button("Apply") { session.apply() }.buttonStyle(.borderedProminent).disabled(!session.canApply)
                 .accessibilityIdentifier("wardrobe.apply")
             Button("Revert") { session.revert() }.buttonStyle(.bordered).disabled(!session.isPreviewing)
                 .accessibilityIdentifier("wardrobe.revert")
-            Button { session.undo() } label: { Label("Undo", systemImage: "arrow.uturn.backward") }
-                .buttonStyle(.bordered).disabled(!session.canUndo || session.isPreviewing)
-                .accessibilityIdentifier("wardrobe.undo")
             Spacer()
-            Button { saving = true } label: { Label("Save", systemImage: "square.and.arrow.down") }
-                .buttonStyle(.bordered).disabled(session.isPreviewing && !session.canApply)
-                .accessibilityIdentifier("wardrobe.save")
+            Menu {
+                Button { session.undo() } label: { Label("Undo", systemImage: "arrow.uturn.backward") }
+                    .disabled(!session.canUndo || session.isPreviewing)
+                Button { saving = true } label: { Label("Save outfit…", systemImage: "square.and.arrow.down") }
+                    .disabled(session.isPreviewing && !session.canApply)
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .font(.title3)
+                    .frame(width: 36, height: 36)
+            }
+            .accessibilityIdentifier("wardrobe.more")
+            .accessibilityLabel("More wardrobe actions")
         }
         .font(.subheadline)
         .overlay(alignment: .bottomLeading) {
@@ -240,13 +246,8 @@ struct MolibooWardrobeSheet: View {
                         .fill(LinearGradient(colors: [item.tint.opacity(0.35), item.tint.opacity(0.12)], startPoint: .top, endPoint: .bottom))
                         .overlay {
                             // Live vector preview: this item alone on the selected mascot. Shipped PNG, then slot glyph, as fallbacks.
-                            if let kind = ModulaMascotKind(rawValue: controller.descriptor.id) {
-                                ModulaMascotFigure(kind: kind, pose: .still(), size: 50, outfit: MascotOutfit(items: [item.slot.rawValue: item.id]))
-                                    .frame(height: 58).allowsHitTesting(false)
-                                    .accessibilityHidden(true)
-                            } else if let img = MolibooWardrobeThumbs.image(item.id) {
-                                Image(uiImage: img).resizable().interpolation(.high).scaledToFit().padding(6)
-                                    .shadow(color: .black.opacity(0.25), radius: 3, y: 2)
+                            if let img = MolibooWardrobeThumbs.image(item.id) {
+                                Image(uiImage: img).resizable().interpolation(.medium).scaledToFit().padding(8)
                             } else {
                                 Image(systemName: item.slot.symbol).font(.title3).foregroundStyle(item.tint)
                             }
@@ -332,5 +333,89 @@ struct MolibooPhotoPreview: View {
             .navigationTitle("Photo").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done", action: onDone).accessibilityIdentifier("studio.photo.previewDone") } }
         }
+    }
+}
+
+
+/// 2D-only wardrobe sheet: same catalog try-on via `MolibooWardrobeSession`, no RealityKit controller.
+struct MolibooWardrobeSheet2D: View {
+    @Bindable var session: MolibooWardrobeSession
+    @State private var query = MolibooWardrobeQuery()
+    @State private var saving = false
+    @State private var outfitName = ""
+    private let columns = [GridItem(.adaptive(minimum: 108), spacing: 14)]
+
+    private var results: [MascotWardrobeItem] {
+        query.filter(MascotWardrobeCatalog.all, owns: session.store.owns, supports3D: { _ in false })
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            TextField("Search hats, tops…", text: $query.text)
+                .textFieldStyle(.plain).padding(.horizontal, 14).frame(minHeight: 44)
+                .modulaGlass(in: Capsule(), interactive: false)
+                .autocorrectionDisabled().textInputAutocapitalization(.never).submitLabel(.search)
+                .accessibilityIdentifier("wardrobe.search")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    chip("All", on: query.slot == nil) { query.slot = nil }
+                    ForEach(MascotWardrobeSlot.allCases) { s in
+                        chip(s.title, on: query.slot == s) { query.slot = query.slot == s ? nil : s }
+                    }
+                }
+            }
+            HStack(spacing: 10) {
+                Button("Apply") { session.apply() }.disabled(!session.canApply)
+                Button("Revert") { session.revert() }.disabled(!session.isPreviewing)
+                Spacer()
+                Button("Save") { saving = true }.disabled(session.isPreviewing && !session.canApply)
+            }
+            .font(.subheadline.weight(.semibold))
+            .buttonStyle(.bordered)
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 14) {
+                    ForEach(results, id: \.id) { item in
+                        let on = session.preview.contains(item)
+                        Button { session.tryOn(item) } label: {
+                            VStack(spacing: 8) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                                        .frame(height: 88)
+                                    if let img = MolibooWardrobeThumbs.image(item.id) {
+                                        Image(uiImage: img).resizable().scaledToFit().padding(10)
+                                    } else {
+                                        Image(systemName: "tshirt").font(.title2).foregroundStyle(.secondary)
+                                    }
+                                }
+                                Text(item.name).font(.caption.weight(.semibold)).lineLimit(1)
+                            }
+                            .overlay(alignment: .topTrailing) {
+                                if on { Image(systemName: "checkmark.circle.fill").foregroundStyle(.white, Color.accentColor).padding(6) }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("wardrobe.item.\(item.id)")
+                        .accessibilityAddTraits(on ? .isSelected : [])
+                    }
+                }
+                .padding(.bottom, 40)
+            }
+        }
+        .padding(.horizontal, 24).padding(.top, 4)
+        .alert("Save outfit", isPresented: $saving) {
+            TextField("Name", text: $outfitName)
+            Button("Save") { session.save(named: outfitName); outfitName = "" }
+            Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    private func chip(_ title: String, on: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title).font(.caption.weight(.semibold))
+                .padding(.horizontal, 12).padding(.vertical, 8)
+                .background(on ? Color.accentColor.opacity(0.18) : Color.primary.opacity(0.06), in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }

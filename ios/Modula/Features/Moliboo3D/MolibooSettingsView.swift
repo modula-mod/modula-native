@@ -68,7 +68,7 @@ struct MolibooSettingsView: View {
                 }
             }
             .scrollIndicators(.hidden)
-            .contentMargins(.bottom, 96, for: .scrollContent)
+            .contentMargins(.bottom, 36, for: .scrollContent)
             .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, y in
                 if route == nil, abs(y - scrollY) >= 2 { scrollY = y }
             }
@@ -86,6 +86,7 @@ struct MolibooSettingsView: View {
                 }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
         .navigationTitle("Moliboo settings")
         .accessibilityIdentifier("settings.moliboo")
         .navigationDestination(item: $route) { r in
@@ -152,14 +153,18 @@ struct MolibooSettingsView: View {
                     }
                     .padding(.top, 18)
                     Spacer()
-                    if kind != nil { statsCard(state) }
                 }
                 .padding(.horizontal, 16)
                 Spacer(minLength: 0)
             }
-            stage.padding(.top, 150)
+            stage.padding(.top, 120)
+            if kind != nil {
+                statsCard(state)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+            }
         }
-        .frame(height: 400)
+        .frame(height: 420)
         .clipped()
     }
 
@@ -195,13 +200,13 @@ struct MolibooSettingsView: View {
     }
 
     private func statsCard(_ s: MolibooCareState) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        HStack(spacing: 16) {
             stat("heart.fill", .pink, "\(Int(s.mood.rounded()))%", "Mood")
             stat("bolt.fill", .yellow, "\(Int(s.energy.rounded()))%", "Energy")
             stat("star.fill", .orange, "Lv. \(s.bondLevel)", "Bond")
         }
-        .padding(12)
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false, specular: true)
+        .padding(.horizontal, 16).padding(.vertical, 10)
+        .modulaGlass(in: Capsule(), interactive: false, specular: true)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("moliboo.hub.stats")
     }

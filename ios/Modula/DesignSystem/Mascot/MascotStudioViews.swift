@@ -1348,7 +1348,7 @@ struct MolibooStudioEntry: View {
     @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
     var body: some View {
         if MolibooFeatureFlags.native3DEnabled, MolibooRegistry.has3D(kindRaw) {
-            MolibooLivingStudioView(characterID: kindRaw, initialPanel: tab.map { $0 == .wardrobe ? .wardrobe : .more }, moreTab: tab ?? .rewards)
+            MolibooLivingStudioView(characterID: kindRaw, initialPanel: tab.map { $0 == .wardrobe ? .wardrobe : .style }, moreTab: tab ?? .rewards)
         } else {
             MascotStudioView(initialTab: tab ?? .wardrobe)
         }
