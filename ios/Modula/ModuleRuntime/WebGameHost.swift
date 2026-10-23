@@ -180,7 +180,10 @@ private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
 
     func contains(_ url: URL) -> Bool {
         guard url.scheme == Self.scheme, url.host == digest else { return false }
-        return files[String(url.path.dropFirst())] != nil && url.query == nil && url.fragment == nil
+        let path = String(url.path.dropFirst())
+        return URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedPath == "/" + path
+            && files[path] != nil
+            && url.query == nil && url.fragment == nil
     }
 
     func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
@@ -218,3 +221,11 @@ private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
 
     func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {}
 }
+
+#if DEBUG
+enum WebGameResourceProbe {
+    static func allows(entry: URL, request: URL) throws -> Bool {
+        try VerifiedGameSchemeHandler(entry: entry).contains(request)
+    }
+}
+#endif

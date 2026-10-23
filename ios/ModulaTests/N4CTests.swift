@@ -88,7 +88,22 @@ final class WebGameInstalledIsolationTests: XCTestCase {
                                          mediaType: ProductUIDocument.mediaType, hostManifest: manifest(id, "0.1.0"),
                                          descriptor: nil, gameArchive: archive, gameSha256: digest(archive))
             _ = try controller.activate(accountID: account, moduleId: id)
-            XCTAssertNoThrow(try controller.store.verifiedGameEntry(for: XCTUnwrap(controller.active(accountID: account, moduleId: id))))
+            let entry = try controller.store.verifiedGameEntry(for: XCTUnwrap(controller.active(accountID: account, moduleId: id)))
+            let gameDigest = try XCTUnwrap(controller.active(accountID: account, moduleId: id)?.gameSha256)
+            let acceptedURL = try XCTUnwrap(URL(string: "modula-game://\(gameDigest)/index.html"))
+            XCTAssertTrue(try WebGameResourceProbe.allows(entry: entry, request: acceptedURL))
+            for hostile in [
+                "modula-game://\(gameDigest)/../index.html",
+                "modula-game://\(gameDigest)/%2e%2e/index.html",
+                "modula-game://\(gameDigest)/%69ndex.html",
+                "modula-game://\(gameDigest)/index.html?other=1",
+                "modula-game://\(String(repeating: "0", count: 64))/index.html",
+                "file:///private/var/mobile/Containers/Data/index.html",
+                "https://example.invalid/index.html",
+            ] {
+                XCTAssertFalse(try WebGameResourceProbe.allows(entry: entry, request: XCTUnwrap(URL(string: hostile))),
+                               "Unexpected game resource: \(hostile)")
+            }
 
             XCTAssertThrowsError(try stage(archive, String(repeating: "0", count: 64)), "\(engine) wrong digest")
             let incomplete = Data(archive.dropLast(5))
@@ -127,6 +142,7 @@ final class WebGameInstalledIsolationTests: XCTestCase {
             "traversal": "H4sIAAAAAAAC/+3WTU7DMBAF4Bwl8qYbEuIkbkKhbLgAEidw7DFNlZ8SO4iq6t0xDapU2EK76Ps2tsYjeWG/xHWn6SNeubYJ/k3izfP8MHo/xyRN0uN8qhdFlgdhEpzBaJ0c/JbBdXpoyclw5dwmorexfl+yp75z1LnohdQ41G4bPfdNrbYsVNPCkmkycmxcZAcVzrq+o9l9aNVQb75LlhrjS76/I3Xa1lfr0xJ7DOCC4viWrJIbitf2Uvn3q7/yL1Lk/xymw0cOrtWrbCk2dUPWfwD67iL558WP/z9P5sj/eeyYVStqJVuwttdjI+OvGxFNN4KzG3aYscWO1ceXou9VdKdKbbJEkiFuhDCUVZXIMjFPdaU5J51oIeYm44UoK16lhdYmL6mUBfnzZvs9sgcAAAAAAAAAAAAAAAAA8Jc+AZRabE4AKAAA",
             "symlink": "H4sIAAAAAAAC/+3WS26DMBAGYI6CvMmmUAwYaNp00wtU6gmMPS5EPFIwVaMod6+bVJHSLrppkkX+b+PRMJIRY4+oO00fYWXbxjuZyMnSdLc6P9cojuJDvM/neZJ6fuSdwTRaObgtvev00JKVfmXtKqC3qX5fsKe+s9TZ4IXUNNR2HTz3Ta3WzFf7BwumycipscE4KH/W9R3N7v1RDfXqOzVSY1zK1Xekjsv6cnmcYo8eXNCrbClcjifd46/7/yvmsYgzz4/D8La3FQ2BVKqfOnuKF73y+7/rv6kbGt3H7buL9J/nP+Y/jzIRY/6fw4aNqqJWsjlrez01Mvw6EcH+RHB2w3YRm29YffhTcLWK7lShTRJJMsSNEIaSshRJIrJYl5pz0pEWIjMJz0VR8jLOtTZpQYXMyfWbbbeYvQAAAAAAAAAAAAAAAAAAAP/lE107p+gAKAAA",
             "native": "H4sIAAAAAAAC/+3WTW7DIBAFYB/FYpNNbYFtbDdtuukFKvUEGIaGyD+pjaNGUe5eN6kipd22ySLv24CGkVjAE7jW0Ee89E0d/Bs+ybPsME5+jjzhyWl+rBdFmgUhDy5gHLzqpy2D2/TYkFfh0vt1RO+j2yzYc9d6an30Snrsnd9GL13t9JaF+riwYIasGmsfDb0OZ23X0uwhHHTv1t+lgWo7lab+lvR5W1etzkvsKYAroo2rY7OtXXW9/HOe/sp/kiD/l1ApgxDcsDfVUGxdTUO8Grr2KvkXxY/3X/BcIv8XsWODXlKj2Jw1nRlrFX/diOh4IwS7Y4cZm++YO/0Up15N97o0NuWKLAkrpaW0qmSayjwxlRGCDDdS5jYVhSwrUSWFMTYrqVQFTefN9ntkDwAAAAAAAAAAAAAAAADgL30CL2xWwAAoAAA=",
+            "caseCollision": "H4sIAAAAAAAC/+3Xy2rcMBQGYD+K0SabeNBdcpIphKy6aCn0CXQ56jj4ko7lkBDy7lUyQ2Cy6SqTljkfGAlZSFrol+VujPCw2uShrz4MLbSUr2XxvqSc8rf6rt0YIauaVkewzNlty5TVaboaILt6k/NdA7+X7n5NbqYxw5ibnxCWbZcfmx9T34VHUofdizWJkNzS52behvpsnEY4u6znsO3u9k0z9Kk0lf4jhMNuk789bCJfKvSJBteNq9v5Q+f4W/4pFe/zzznF/B/Dw5phCE7Yt+uv3//B/FPM/7HyzzEEJ+yXG2CVuh7mcgpM46fkX3J5mH9GteKY/2N4InPYwODIBRmmuPRu9bIjmt2OYOScvNbIxRPp3v4US98AbbAxCeogAUtKJRDeKyGU5tFHxiDSqJROghllPfPcxJikBesMMMPLwPubZxmMJU61ZyxwAdyGwBWNEE0KlLY2CsuFs1Ibp6SQNDEXJCihgrdKStmKVAbbf8bKYK1g1rZKB+HKhKBTWY1ihkrNmQFebpatN6VHlD5qIQy0Ukuvy+OifVnZ8zOeCgghhBBCCCGEEEIIIYQQ+p/9AVJilh4AKAAA",
         ]
         func parse(_ label: String) throws -> WebGamePackage {
             let bytes = try XCTUnwrap(Data(base64Encoded: XCTUnwrap(archives[label])))
@@ -134,7 +150,7 @@ final class WebGameInstalledIsolationTests: XCTestCase {
             return try WebGamePackage(archive: bytes, expectedSha256: digest)
         }
         XCTAssertEqual(try parse("valid").files.keys.sorted(), ["index.html"])
-        for label in ["traversal", "symlink", "native"] {
+        for label in ["traversal", "symlink", "native", "caseCollision"] {
             XCTAssertThrowsError(try parse(label), "Unsafe archive accepted: \(label)")
         }
         let complete = try XCTUnwrap(Data(base64Encoded: XCTUnwrap(archives["valid"])))

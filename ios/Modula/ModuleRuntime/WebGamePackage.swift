@@ -29,18 +29,25 @@ struct WebGamePackage {
         }
         let tar = try Self.inflate(archive)
         var files = [String: Data]()
+        var foldedPaths = Set<String>()
         var offset = 0
         var foundEnd = false
         while offset + 512 <= tar.count {
             let header = Array(tar[offset..<(offset + 512)])
             if header.allSatisfy({ $0 == 0 }) { foundEnd = true; break }
             guard files.count < 512 else { throw WebGamePackageError.invalid("too many members") }
+            guard Array(header[257..<263]) == [117, 115, 116, 97, 114, 0] else {
+                throw WebGamePackageError.invalid("unsupported tar format")
+            }
             let checksum = try Self.octal(header[148..<156])
             var actualChecksum = 0
             for index in header.indices { actualChecksum += (148..<156).contains(index) ? 32 : Int(header[index]) }
             guard checksum == actualChecksum else { throw WebGamePackageError.invalid("tar checksum") }
             let path = try Self.ascii(header[0..<100])
             guard Self.safe(path), files[path] == nil else { throw WebGamePackageError.invalid("unsafe or duplicate path") }
+            guard foldedPaths.insert(path.lowercased()).inserted else {
+                throw WebGamePackageError.invalid("case-conflicting path")
+            }
             let kind = header[156]
             guard kind == 0 || kind == 48 else { throw WebGamePackageError.invalid("non-regular member") }
             guard !Self.nativePayload(path) else { throw WebGamePackageError.invalid("native payload") }
@@ -127,7 +134,8 @@ struct WebGamePackage {
             guard values.isRegularFile == true else { throw WebGamePackageError.invalid("installed member type") }
             actual.append(path)
         }
-        guard Set(actual) == Set(inventory.files.keys).union(["game.files.json"]) else {
+        guard Set(actual) == Set(inventory.files.keys).union(["game.files.json"]),
+              Set(actual.map { $0.lowercased() }).count == actual.count else {
             throw WebGamePackageError.invalid("installed member set")
         }
         for (path, digest) in inventory.files {
