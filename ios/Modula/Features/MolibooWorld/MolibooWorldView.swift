@@ -105,7 +105,7 @@ struct MolibooWorldView: View {
             // Clear the floating tab bar so Activities / Choose your Moliboo never clip under it.
             .contentMargins(.bottom, 110, for: .scrollContent)
             // Nothing scrolls under the clock: content fades out beneath a scene-coloured status-bar scrim.
-            .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, y in if route == nil, abs(y - scrollY) >= 1 { scrollY = y } }
+            .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, y in if route == nil, abs(y - scrollY) >= 8 { scrollY = y } }
             .modifier(MolibooSoftTopEdge())
             // Header (back · moliboos title · sparkle · more) is pinned below the safe area (never under
             // the Dynamic Island) and stays put while content scrolls, over a progressive blur strip.
@@ -146,6 +146,9 @@ struct MolibooWorldView: View {
             care.refresh(characterID)
             stage.wake(allowed: motionAllowed, for: MolibooStageState.launchWakeSeconds)   // brief hello, then settle
             stage.startAmbient { motionAllowed && route == nil && sheet == nil }
+            // Prefetch static roster thumbs so family grids never ImageRenderer mid-scroll.
+            let ids = MolibooFamily.allCases.flatMap { $0.kinds.map(\.rawValue) }
+            Task(priority: .utility) { MolibooPortrait.warmThumbs(ids: ids) }
         }
         .onChange(of: scenePhase) { _, p in
             if p == .active { care.refresh(characterID); stage.wake(allowed: motionAllowed, for: MolibooStageState.launchWakeSeconds) } else { stage.sleepNow() }
@@ -232,7 +235,7 @@ struct MolibooWorldView: View {
                         .blur(radius: reduceMotion ? 0 : 8)
                         .offset(y: 108)
                         .allowsHitTesting(false)
-                    MolibooStageCharacter(characterID: characterID, emotion: emotion, stage: stage, animating: motionAllowed,
+                    MolibooStageCharacter(characterID: characterID, emotion: emotion, stage: stage, animating: motionAllowed && scrollY < 90,
                                           gaze: chat?.isTyping == true ? 1 : 0)
                         .frame(width: 248, height: 248)
                         .molibooRipple(trigger: rippleTick, origin: CGPoint(x: 124, y: 130))
@@ -338,7 +341,8 @@ struct MolibooWorldView: View {
             stat("star.fill", .orange, "Lv. \(careState.bondLevel)", "Bond", id: "bond")
         }
         .contentTransition(.numericText())
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: careState)
+        // careState changes are discrete — no implicit animation (was contributing to scroll jank)
+        // .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: careState)
     }
 
     private var compactHeader: some View {
@@ -537,7 +541,7 @@ struct MolibooWorldView: View {
             .foregroundStyle(.primary)
             .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
-        .buttonStyle(MolibooSpringPressStyle())
+        .buttonStyle(.plain)
         .accessibilityIdentifier("world.activity.\(a.rawValue)")
     }
 
@@ -571,23 +575,26 @@ struct MolibooWorldView: View {
     private var collection: some View {
         VStack(alignment: .leading, spacing: 18) {
             sectionTitle("Choose your Moliboo") { route = .collection }
+            // Lazy rows: only on-screen family strips mount cells. Tiles are static UIImage thumbs —
+            // never live ModulaMascotFigure / TimelineView (that was the main World scroll jank).
             ForEach(MolibooFamily.allCases) { fam in
                 let ids = fam.kinds.map(\.rawValue)
                 if !ids.isEmpty {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(fam.name).font(.subheadline.weight(.bold))
-                        Text(fam.world).font(.caption).opacity(0.75)
-                    }
-                    .padding(.horizontal, 16)
-                    .accessibilityAddTraits(.isHeader)
-                    ScrollView(.horizontal) {
-                        HStack(spacing: 10) {
-                            ForEach(ids, id: \.self) { id in collectionTile(id) }
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text(fam.name).font(.subheadline.weight(.bold))
+                            Text(fam.world).font(.caption).foregroundStyle(.secondary)
                         }
+                        .padding(.horizontal, 16)
+                        .accessibilityAddTraits(.isHeader)
+                        ScrollView(.horizontal) {
+                            LazyHStack(spacing: 10) {
+                                ForEach(ids, id: \.self) { id in collectionTile(id) }
+                            }
+                        }
+                        .scrollIndicators(.hidden)
+                        .contentMargins(.horizontal, 24, for: .scrollContent)
                     }
-                    .scrollIndicators(.hidden)
-                    .contentMargins(.horizontal, 24, for: .scrollContent)
-                    .modulaHorizontalEdgeFade()
                 }
             }
         }
@@ -595,20 +602,20 @@ struct MolibooWorldView: View {
 
     private func collectionTile(_ id: String) -> some View {
         let selected = id == characterID
-        let num = ModulaMascotKind(rawValue: id)?.number ?? MolibooRegistry.descriptor(for: id)?.canonicalNumber ?? 0
-        let pal = ModulaMascotKind(rawValue: id)?.palette
-        let premium = ModulaMascotKind(rawValue: id)?.isPremium == true
-        return Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) { kindRaw = id } } label: {
+        let kind = ModulaMascotKind(rawValue: id)
+        let num = kind?.number ?? MolibooRegistry.descriptor(for: id)?.canonicalNumber ?? 0
+        let premium = kind?.isPremium == true
+        return Button { kindRaw = id } label: {
             VStack(spacing: 4) {
                 ZStack(alignment: .topTrailing) {
                     Group {
-                        if let img = MolibooPortrait.image(for: id) {
-                            Image(uiImage: img).resizable().interpolation(.high).scaledToFit()
-                        } else if let k = ModulaMascotKind(rawValue: id) {
-                            ModulaMascotFigure(kind: k, pose: .still(), size: 28).frame(height: 64)
+                        if let img = MolibooPortrait.thumb(for: id) ?? MolibooPortrait.image(for: id) {
+                            Image(uiImage: img).resizable().interpolation(.medium).scaledToFit()
+                        } else {
+                            Color(uiColor: .tertiarySystemFill)
                         }
                     }
-                    .frame(height: 64)
+                    .frame(width: 64, height: 64)
                     if premium {
                         Image(systemName: "crown.fill")
                             .font(.system(size: 9, weight: .bold))
@@ -618,7 +625,7 @@ struct MolibooWorldView: View {
                 }
                 Text(String(format: "#%03d", num))
                     .font(.caption2.monospaced()).foregroundStyle(.secondary)
-                Text(ModulaMascotKind(rawValue: id)?.name ?? id.capitalized)
+                Text(kind?.name ?? id.capitalized)
                     .font(.caption.weight(.semibold)).lineLimit(1)
             }
             .padding(.vertical, 14).padding(.horizontal, 10).frame(width: 104)
@@ -752,7 +759,7 @@ final class MolibooStageState {
     /// How long the stage keeps animating after the last interaction (test hook: `moliboo.world.awakeSeconds`).
     static var awakeSeconds: Double {
         let v = UserDefaults.standard.double(forKey: "moliboo.world.awakeSeconds")
-        return v > 0 ? v : 20
+        return v > 0 ? v : 10
     }
 
     func wake(allowed: Bool, for seconds: Double? = nil) {
