@@ -1996,7 +1996,7 @@ enum MolibooPart: Sendable {
     case glow(Color), feet(Color?), beak, berries(Color), feathers(Color?), frill(Color?), visor(Color), cheeksStars
     // Part-2 fidelity parts (sheet details). Head-top props hide when a hat is worn so wardrobe always fits.
     case skateboard(Color), cap(Color), tendrils(Color), puddle(Color), rockSeams(Color), arms(Color), crystals(Color), nose(Color), paws(Color)
-    case cloudSeat(Color), shield(Color), wreath(Color, Color?), legs(Color), moonMark(Color)
+    case cloudSeat(Color), shield(Color), wreath(Color, Color?), legs(Color), moonMark(Color), ramHorns(Color)
 }
 
 struct MolibooSpec: Sendable {
@@ -2305,6 +2305,19 @@ extension ModulaMascotFigure {
             .frame(width: bw * 1.55, height: s * 0.26)
             .scaleEffect(x: 1 + 0.03 * CGFloat(sin(t * 1.2)) * a, y: 1)
             .offset(y: cy + bh * 0.44)
+        case (.ramHorns(let c), .back):
+            // Curled sheep horns at the sides of the head (Hushby).
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                ZStack {
+                    Circle().fill(LinearGradient(colors: [Color(red: 1, green: 0.93, blue: 0.78), c], startPoint: .top, endPoint: .bottom))
+                    Circle().stroke(pal.outline.opacity(0.45), lineWidth: line)
+                    Circle().trim(from: 0.05, to: 0.8).stroke(pal.outline.opacity(0.4), style: StrokeStyle(lineWidth: line, lineCap: .round)).scaleEffect(0.6)
+                    Circle().trim(from: 0.1, to: 0.75).stroke(pal.outline.opacity(0.35), style: StrokeStyle(lineWidth: line, lineCap: .round)).scaleEffect(0.28)
+                }
+                .frame(width: s * 0.24)
+                .rotationEffect(.degrees(side * 30))
+                .offset(x: side * bw * 0.46, y: top + bh * 0.3)
+            }
         case (.legs(let c), .back):
             // Spider legs, four per side (Spindle).
             ForEach([-1.0, 1.0], id: \.self) { side in
@@ -2835,18 +2848,18 @@ extension MolibooFamilySpecs {
     static func addDreamers(_ t: inout [ModulaMascotKind: MolibooSpec]) {
         let w = c(0.98, 0.96, 1)
         t[.dozi] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.82), palette: .spec(c(0.92, 0.88, 1), accent: c(1, 0.74, 0.86), light: .white), parts: [.wings(.fairy, c(0.86, 0.8, 1)), .nightcap(dreamBlue), .sparkles(2)], floats: true, feet: false, hatScale: 0.95, hatMaxWidth: 0.52, headTopExtra: 0.05, form: "The sleepy sprite")
-        t[.lulli] = MolibooSpec(body: .cloud, size: CGSize(width: 1.08, height: 0.84), palette: .spec(w, accent: c(1, 0.8, 0.5), light: .white), parts: [.glow(dreamLilac), .notes, .sparkles(4)], floats: true, feet: false, hatScale: 0.95, hatMaxWidth: 0.54, headTopExtra: 0.04, form: "The lullaby cloud")
+        t[.lulli] = MolibooSpec(body: .cloud, size: CGSize(width: 1.08, height: 0.84), palette: .spec(w, accent: c(1, 0.8, 0.5), light: .white), parts: [.glow(dreamLilac), .notes, .starCrest, .sparkles(4)], floats: true, feet: false, hatScale: 0.95, hatMaxWidth: 0.54, headTopExtra: 0.04, form: "The lullaby cloud")
         t[.moona] = MolibooSpec(body: .round, size: CGSize(width: 0.84, height: 0.82), palette: .spec(c(0.94, 0.9, 1), accent: starGold, light: .white), parts: [.crescent(c(1, 0.9, 0.6)), .nightcap(c(0.56, 0.5, 0.86)), .ears(.round)], hatScale: 0.92, hatMaxWidth: 0.46, form: "The crescent dreamer")
-        t[.nuzzle] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(c(1, 0.86, 0.88), accent: c(0.96, 0.6, 0.7), light: c(1, 0.96, 0.96)), parts: [.tail(.fluffy, c(1, 0.92, 0.94)), .ears(.fox), .petals(3, c(1, 0.8, 0.86))], hatScale: 0.92, hatMaxWidth: 0.48, form: "The pillow fox")
+        t[.nuzzle] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(c(1, 0.86, 0.88), accent: c(0.96, 0.6, 0.7), light: c(1, 0.96, 0.96)), parts: [.tail(.fluffy, c(1, 0.92, 0.94)), .ears(.fox), .wreath(c(1, 0.78, 0.86), c(1, 0.95, 0.7))], hatScale: 0.92, hatMaxWidth: 0.48, form: "The pillow fox")
         t[.drifty] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(w, accent: dreamBlue, light: .white), parts: [.ears(.floppy), .blanket(c(0.5, 0.56, 0.9)), .sparkles(2)], hatScale: 0.92, hatMaxWidth: 0.46, form: "The blanket hopper")
-        t[.hushby] = MolibooSpec(body: .cloud, size: CGSize(width: 1.06, height: 0.86), palette: .spec(w, accent: starGold, light: .white), parts: [.shell(c(0.98, 0.96, 1)), .ears(.floppy), .sparkles(2)], hatScale: 0.92, hatMaxWidth: 0.46, headTopExtra: 0.04, form: "The cloud sheep")
+        t[.hushby] = MolibooSpec(body: .cloud, size: CGSize(width: 1.06, height: 0.86), palette: .spec(w, accent: starGold, light: .white), parts: [.shell(c(0.98, 0.96, 1)), .ramHorns(c(0.96, 0.82, 0.58)), .sparkles(2)], hatScale: 0.92, hatMaxWidth: 0.46, headTopExtra: 0.04, form: "The cloud sheep")
         t[.swayla] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.82), palette: .spec(c(0.82, 0.76, 0.96), accent: c(1, 0.78, 0.4), light: c(0.96, 0.94, 1)), parts: [.antennae(c(0.6, 0.5, 0.9)), .lantern(c(1, 0.8, 0.4)), .wings(.round, c(0.6, 0.5, 0.86))], hatScale: 0.95, hatMaxWidth: 0.52, form: "The night lantern")
-        t[.snoomi] = MolibooSpec(body: .round, size: CGSize(width: 0.96, height: 0.82), palette: .spec(w, accent: c(0.64, 0.7, 0.96), light: .white), parts: [.nightcap(c(0.64, 0.7, 0.96)), .feet(w)], hatScale: 0.95, hatMaxWidth: 0.54, form: "The marshmallow napper")
+        t[.snoomi] = MolibooSpec(body: .round, size: CGSize(width: 0.96, height: 0.82), palette: .spec(w, accent: c(0.64, 0.7, 0.96), light: .white), parts: [.nightcap(c(0.64, 0.7, 0.96)), .cloudSeat(c(0.8, 0.82, 1)), .sparkles(2)], hatScale: 0.95, hatMaxWidth: 0.54, form: "The marshmallow napper")
         t[.velvi] = MolibooSpec(body: .round, size: CGSize(width: 0.84, height: 0.82), palette: .spec(w, accent: c(0.74, 0.56, 0.96), light: .white), parts: [.wings(.moth, c(0.8, 0.62, 0.98)), .antennae(starGold), .mane(6)], floats: true, feet: false, hatScale: 0.95, hatMaxWidth: 0.52, headTopExtra: 0.05, form: "The dream moth")
         t[.minku] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.82), palette: .spec(c(0.5, 0.42, 0.62), accent: c(1, 0.84, 0.86), light: c(0.72, 0.64, 0.84)), parts: [.wings(.bat, c(0.4, 0.32, 0.54)), .ears(.bat), .sparkles(2)], floats: true, feet: false, hatScale: 0.92, hatMaxWidth: 0.46, headTopExtra: 0.05, form: "The sleepy bat")
         t[.tufti] = MolibooSpec(body: .round, size: CGSize(width: 0.92, height: 0.82), palette: .spec(c(1, 0.94, 0.88), accent: starGold, light: .white), parts: [.ears(.floppy), .starCrest], hatScale: 0.82, hatMaxWidth: 0.46, headTopExtra: 0.06, form: "The drowsy bunny")
         t[.winkle] = MolibooSpec(body: .wide, size: CGSize(width: 1.14, height: 0.78), palette: .spec(c(0.5, 0.5, 0.86), accent: starGold, light: c(0.84, 0.84, 1)), parts: [.tail(.whale, c(0.42, 0.42, 0.78)), .fins(c(0.44, 0.44, 0.8)), .sparkles(4)], floats: true, feet: false, hatScale: 0.95, hatMaxWidth: 0.58, form: "The dream whale")
-        t[.sonata] = MolibooSpec(body: .round, size: CGSize(width: 0.84, height: 0.82), palette: .spec(c(0.92, 0.86, 1), accent: starGold, light: .white), parts: [.petals(6, c(0.84, 0.74, 0.98)), .notes, .bowtie(starGold)], hatScale: 0.95, hatMaxWidth: 0.54, form: "The music box spirit")
+        t[.sonata] = MolibooSpec(body: .round, size: CGSize(width: 0.84, height: 0.82), palette: .spec(c(0.92, 0.86, 1), accent: starGold, light: .white), parts: [.wreath(c(0.8, 0.7, 0.98), starGold), .notes, .bowtie(starGold)], hatScale: 0.95, hatMaxWidth: 0.54, form: "The music box spirit")
         t[.comfi] = MolibooSpec(body: .round, size: CGSize(width: 0.96, height: 0.86), palette: .spec(c(0.82, 0.62, 0.42), accent: c(0.96, 0.88, 0.74), light: c(0.96, 0.84, 0.68)), parts: [.ears(.round), .nightcap(dreamBlue), .blanket(c(0.56, 0.5, 0.86))], hatScale: 0.92, hatMaxWidth: 0.46, form: "The cozy bear")
         t[.somna] = MolibooSpec(body: .round, size: CGSize(width: 0.88, height: 0.86), palette: .spec(w, accent: c(0.6, 0.76, 1), light: .white), parts: [.glow(c(0.7, 0.8, 1)), .antlers(c(0.94, 0.9, 0.78)), .mane(8), .sparkles(3)], hatScale: 0.95, hatMaxWidth: 0.54, form: "The keeper of dreams")
     }
