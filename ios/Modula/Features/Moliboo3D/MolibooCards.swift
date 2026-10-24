@@ -248,16 +248,12 @@ struct MolibooTradingCardView: View {
 
     private static let base = CGSize(width: 240, height: 336)
     private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 22, style: .continuous) }
-    private var foilStrength: Double {
-        switch card.rarity { case .common: 0.12; case .rare: 0.3; case .epic: 0.45; case .legendary: 0.6 }
-    }
 
     var body: some View {
         ZStack {
             if faceDown { back } else if animating {
                 // Live inspect/pack only — binder slots stay flat (no continuous foil/shimmer).
-                front.molibooHoloFoil(foilStrength * 0.55, tilt: tilt, animated: true)
-                    .modifier(MolibooLegendaryShimmer(on: card.rarity == .legendary, strength: 0.4, animated: true))
+                front.modifier(MolibooLegendaryShimmer(on: card.rarity == .legendary, strength: 0.25, animated: true))
             } else {
                 front
             }
@@ -271,92 +267,122 @@ struct MolibooTradingCardView: View {
         .accessibilityLabel(faceDown ? "Face-down card" : "\(card.name), \(card.rarity.title), level \(card.level), \(card.element.title)")
     }
 
+    @Environment(\.colorScheme) private var scheme
+
+    /// Clean, Wallet-like face: full-bleed art window, then calm system typography on the card surface.
+    /// Rarity reads from a small pill (and a thin rim for Epic / Legendary) rather than neon frames.
     private var front: some View {
         ZStack {
-            shape.fill(LinearGradient(colors: [card.element.colors[1], Color(white: 0.08)], startPoint: .top, endPoint: .bottom))
-            VStack(spacing: 8) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(card.name).font(.system(size: 22, weight: .heavy, design: .rounded)).foregroundStyle(.white)
-                    Spacer()
-                    Text("Lv \(card.level)").font(.system(size: 12, weight: .bold, design: .rounded)).foregroundStyle(.white.opacity(0.85))
-                    Image(systemName: card.element.icon).font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
-                        .frame(width: 24, height: 24).background(Circle().fill(LinearGradient(colors: card.element.colors, startPoint: .top, endPoint: .bottom)))
-                        .overlay(Circle().strokeBorder(.white.opacity(0.6), lineWidth: 1))
-                }
+            shape.fill(Color(uiColor: scheme == .dark ? .secondarySystemBackground : .systemBackground))
+            VStack(alignment: .leading, spacing: 0) {
                 art
-                Text(card.tagline).font(.system(size: 11, weight: .medium, design: .rounded)).italic()
-                    .foregroundStyle(.white.opacity(0.85)).lineLimit(1).minimumScaleFactor(0.7)
-                VStack(spacing: 4) {
-                    ForEach(card.moves, id: \.self) { m in
-                        HStack {
-                            Circle().fill(LinearGradient(colors: card.element.colors, startPoint: .top, endPoint: .bottom)).frame(width: 8, height: 8)
-                            Text(m.name).font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundStyle(.white)
-                            Spacer()
-                            Text("\(m.power)").font(.system(size: 13, weight: .heavy, design: .rounded)).monospacedDigit().frame(minWidth: 30, alignment: .trailing).foregroundStyle(card.rarity.glow)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(card.name)
+                            .font(.system(size: 21, weight: .bold, design: .rounded))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        Spacer(minLength: 4)
+                        rarityPill
+                    }
+                    HStack(spacing: 6) {
+                        Image(systemName: card.element.icon).font(.system(size: 10, weight: .semibold))
+                        Text("\(card.element.title) · Lv \(card.level)")
+                    }
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    VStack(spacing: 0) {
+                        ForEach(Array(card.moves.enumerated()), id: \.offset) { i, m in
+                            if i > 0 { Rectangle().fill(Color.primary.opacity(0.07)).frame(height: 0.5) }
+                            HStack {
+                                Text(m.name).font(.system(size: 12, weight: .medium)).foregroundStyle(.primary)
+                                Spacer()
+                                Text("\(m.power)").font(.system(size: 12, weight: .semibold).monospacedDigit()).foregroundStyle(.secondary)
+                            }
+                            .frame(height: 22)
                         }
                     }
-                }
-                .padding(.horizontal, 10).padding(.vertical, 7)
-                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.black.opacity(0.34)))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.white.opacity(0.14), lineWidth: 0.8))
-                HStack(spacing: 3) {
-                    ForEach(0..<5, id: \.self) { i in
-                        Image(systemName: i < card.hearts ? "heart.fill" : "heart").font(.system(size: 10)).foregroundStyle(i < card.hearts ? Color.pink : .white.opacity(0.35))
+                    HStack(spacing: 3) {
+                        ForEach(0..<5, id: \.self) { i in
+                            Image(systemName: "heart.fill").font(.system(size: 8))
+                                .foregroundStyle(i < card.hearts ? Color.pink.opacity(0.85) : Color.primary.opacity(0.12))
+                        }
+                        Spacer()
+                        Text(card.tagline)
+                            .font(.system(size: 9, weight: .regular))
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                     }
-                    Spacer()
-                    Image("MoliboosLogo").resizable().scaledToFit().frame(height: 11).opacity(0.9).layoutPriority(-1)
-                    Spacer()
-                    ForEach(0..<card.rarity.gems, id: \.self) { _ in
-                        Image(systemName: "diamond.fill").font(.system(size: 8)).foregroundStyle(card.rarity.glow)
-                    }
-                    Text(card.rarity.title.uppercased()).font(.system(size: 9, weight: .heavy, design: .rounded)).foregroundStyle(card.rarity.glow).fixedSize()
                 }
+                .padding(.horizontal, 14)
+                .padding(.top, 12)
+                .padding(.bottom, 12)
             }
-            .padding(12)
-            holo
-            shape.strokeBorder(AngularGradient(colors: card.rarity.frame, center: .center, angle: .degrees(Double(tilt.width) * 60)), lineWidth: animating ? 3.5 : 2)
+            if animating { holo }
+            shape.strokeBorder(Color.primary.opacity(scheme == .dark ? 0.14 : 0.08), lineWidth: 0.8)
+            if card.rarity >= .epic {
+                shape.strokeBorder(LinearGradient(colors: card.rarity.frame, startPoint: .topLeading, endPoint: .bottomTrailing).opacity(0.75), lineWidth: 1.5)
+            }
         }
         .clipShape(shape)
-        .shadow(color: .black.opacity(animating ? 0.25 : 0.12), radius: animating ? card.rarity.glowRadius : 4, y: 2)
+        .shadow(color: .black.opacity(animating ? 0.22 : 0.08), radius: animating ? 18 : 6, y: animating ? 10 : 3)
     }
 
+    private var rarityPill: some View {
+        HStack(spacing: 3) {
+            Circle().fill(card.rarity.glow).frame(width: 6, height: 6)
+            Text(card.rarity.title).font(.system(size: 10, weight: .semibold))
+        }
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 7).padding(.vertical, 3)
+        .background(Capsule().fill(Color.primary.opacity(0.06)))
+        .fixedSize()
+    }
+
+    /// Full-bleed art window with a soft element tint; the character keeps the same scale on every card.
     private var art: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(RadialGradient(colors: [card.element.colors[0], card.element.colors[1]], center: .center, startRadius: 4, endRadius: 130))
-            MolibooSparkleField(count: animating ? card.rarity.sparkleCount : max(2, card.rarity.sparkleCount / 3), color: card.rarity == .common ? .white : card.rarity.glow, animating: animating)
-            if let kind = card.kind { MolibooHubArt(kind: kind, size: 140).offset(x: tilt.width * -6, y: tilt.height * -4) }
+            LinearGradient(colors: [card.element.colors[0].opacity(scheme == .dark ? 0.45 : 0.40),
+                                    card.element.colors[0].opacity(scheme == .dark ? 0.18 : 0.12)],
+                           startPoint: .top, endPoint: .bottom)
+            if animating, card.rarity >= .rare {
+                MolibooSparkleField(count: card.rarity.sparkleCount / 2, color: .white.opacity(0.8), animating: true)
+            }
+            if let kind = card.kind {
+                MolibooHubArt(kind: kind, size: 142)
+                    .offset(x: tilt.width * -5, y: 6 + tilt.height * -3)
+            }
         }
-        .frame(height: 150)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.35), lineWidth: 1))
+        .frame(height: 170)
+        .frame(maxWidth: .infinity)
+        .clipped()
     }
 
-    /// Holographic shimmer: a rainbow band and specular highlight that slide with tilt.
+    /// Holographic sheen — only while inspecting (tilt), kept subtle.
     private var holo: some View {
         let shift = (tilt.width + tilt.height) * 0.5
         return ZStack {
             LinearGradient(colors: [.clear, .pink, .yellow, .green, .cyan, .purple, .clear],
                            startPoint: UnitPoint(x: -0.6 + shift, y: -0.2), endPoint: UnitPoint(x: 1.0 + shift, y: 1.2))
-                .blendMode(.overlay).opacity(card.rarity.holoStrength)
-            RadialGradient(colors: [.white.opacity(0.45), .clear], center: UnitPoint(x: 0.5 + tilt.width * 0.45, y: 0.3 + tilt.height * 0.45), startRadius: 0, endRadius: 170)
+                .blendMode(.overlay).opacity(card.rarity.holoStrength * 0.6)
+            RadialGradient(colors: [.white.opacity(0.35), .clear], center: UnitPoint(x: 0.5 + tilt.width * 0.45, y: 0.3 + tilt.height * 0.45), startRadius: 0, endRadius: 170)
                 .blendMode(.softLight)
         }
         .allowsHitTesting(false)
     }
 
+    /// Quiet back: one deep colour, the bubbly logo and the set name.
     private var back: some View {
         ZStack {
-            shape.fill(LinearGradient(colors: [Color(red: 0.13, green: 0.42, blue: 0.50), Color(red: 0.24, green: 0.16, blue: 0.48)], startPoint: .topLeading, endPoint: .bottomTrailing))
-            ForEach(0..<14, id: \.self) { i in
-                Image(systemName: "sparkle").font(.system(size: CGFloat(8 + (i * 7) % 10))).foregroundStyle(.white.opacity(0.35))
-                    .offset(x: CGFloat((i * 53) % 200 - 100), y: CGFloat((i * 89) % 300 - 150))
+            shape.fill(LinearGradient(colors: [Color(red: 0.16, green: 0.17, blue: 0.24), Color(red: 0.09, green: 0.10, blue: 0.15)], startPoint: .top, endPoint: .bottom))
+            VStack(spacing: 12) {
+                Image("MoliboosLogo").resizable().scaledToFit().frame(width: 132)
+                Text(MolibooCardCatalogue.collectionName)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.6))
             }
-            VStack(spacing: 10) {
-                Image("MoliboosLogo").resizable().scaledToFit().frame(width: 150)
-                Text(MolibooCardCatalogue.collectionName.uppercased()).font(.system(size: 10, weight: .heavy, design: .rounded)).tracking(2).foregroundStyle(.white.opacity(0.8))
-            }
-            shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.8), .white.opacity(0.2)], startPoint: .top, endPoint: .bottom), lineWidth: 4)
+            shape.strokeBorder(Color.white.opacity(0.12), lineWidth: 0.8)
         }
         .clipShape(shape)
     }
@@ -407,7 +433,7 @@ struct MolibooCardBinderView: View {
         ScrollView {
             VStack(spacing: 28) {
                 header
-                LazyVGrid(columns: columns, spacing: 20) {
+                LazyVGrid(columns: columns, spacing: 18) {
                     ForEach(MolibooCardCatalogue.cards) { c in slot(c) }
                 }
                 Text("Founding packs are free. Cards stay on this device.")
@@ -425,9 +451,8 @@ struct MolibooCardBinderView: View {
         .fullScreenCover(item: Binding(get: { pack.map(MolibooPackBox.init) }, set: { pack = $0?.cards })) { box in
             MolibooPackOpeningView(cards: box.cards) { pack = nil }
         }
-        .sheet(item: $inspecting) { c in
-            MolibooCardInspectView(card: c)
-                .presentationBackground(Color(uiColor: .systemBackground))
+        .fullScreenCover(item: $inspecting) { c in
+            MolibooCardInspectView(card: c, owned: store.count(c.id))
                 .navigationTransition(.zoom(sourceID: c.id, in: cardNS))
         }
     }
@@ -457,30 +482,38 @@ struct MolibooCardBinderView: View {
         .padding(.top, 8)
     }
 
+    /// Every slot has the same card aspect, sized by the grid column (no fixed widths, no clipping).
     @ViewBuilder private func slot(_ c: MolibooCard) -> some View {
         let n = store.count(c.id)
         if n > 0 {
             Button { inspecting = c } label: {
-                MolibooTradingCardView(card: c, width: 160)
+                Color.clear
+                    .aspectRatio(240.0 / 336.0, contentMode: .fit)
+                    .overlay { GeometryReader { g in MolibooTradingCardView(card: c, width: g.size.width) } }
                     .overlay(alignment: .topTrailing) {
-                        if n > 1 { Text("×\(n)").font(.caption2.weight(.heavy)).padding(.horizontal, 7).padding(.vertical, 3)
-                            .modulaGlass(in: Capsule(), interactive: false).offset(x: 4, y: -6) }
+                        if n > 1 {
+                            Text("×\(n)").font(.caption2.weight(.semibold)).monospacedDigit()
+                                .foregroundStyle(.primary)
+                                .padding(.horizontal, 7).padding(.vertical, 3)
+                                .background(.regularMaterial, in: Capsule())
+                                .padding(8)
+                        }
                     }
             }
             .buttonStyle(MolibooSpringPress(enabled: !reduceMotion))
             .matchedTransitionSource(id: c.id, in: cardNS) { $0.clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous)) }
             .accessibilityIdentifier("cards.slot.\(c.characterID)")
         } else {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(uiColor: .secondarySystemGroupedBackground))
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.primary.opacity(0.04))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.08), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
                 )
-                .frame(width: 160, height: 224)
+                .aspectRatio(240.0 / 336.0, contentMode: .fit)
                 .overlay {
                     VStack(spacing: 6) {
-                        Image(systemName: "questionmark").font(.title2.weight(.semibold)).foregroundStyle(.tertiary)
+                        Image(systemName: "lock.fill").font(.title3).foregroundStyle(.tertiary)
                         Text(c.rarity.title).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
                     }
                 }
@@ -492,29 +525,51 @@ struct MolibooCardBinderView: View {
 
 struct MolibooPackBox: Identifiable { let cards: [MolibooCard]; var id: String { cards.map(\.id).joined() } }
 
-/// Inspect one card: tilt with CoreMotion (drag fallback), live shimmer and sparkles.
+/// Full-screen card viewer (zoom transition from the binder). Tilt with CoreMotion (drag fallback);
+/// the sheen only runs while the scene is active and Reduce Motion is off.
 struct MolibooCardInspectView: View {
     let card: MolibooCard
+    var owned = 1
     @State private var tiltSource = MolibooTiltSource()
     @State private var drag: CGSize = .zero
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     private var live: Bool { !reduceMotion && scenePhase == .active }
     private var tilt: CGSize { drag == .zero ? tiltSource.tilt : drag }
 
     var body: some View {
-        VStack(spacing: 18) {
-            Spacer()
-            MolibooTradingCardView(card: card, width: 300, tilt: reduceMotion ? .zero : tilt, animating: live)
-                .gesture(DragGesture(minimumDistance: 0)
-                    .onChanged { v in drag = CGSize(width: max(-1, min(1, v.translation.width / 150)), height: max(-1, min(1, v.translation.height / 150))) }
-                    .onEnded { _ in withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) { drag = .zero } })
-                .accessibilityIdentifier("cards.inspect.card")
-            Text(tiltSource.usingMotion ? "Tilt your phone to catch the shine" : "Drag the card to catch the shine")
-                .font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
-            Spacer()
+        GeometryReader { geo in
+            let w = min(geo.size.width - 56, 340)
+            ZStack {
+                Color(uiColor: .systemBackground).ignoresSafeArea()
+                LinearGradient(colors: [card.element.colors[0].opacity(0.18), .clear], startPoint: .top, endPoint: .center)
+                    .ignoresSafeArea()
+                VStack(spacing: 22) {
+                    Spacer(minLength: 0)
+                    MolibooTradingCardView(card: card, width: w, tilt: reduceMotion ? .zero : tilt, animating: live)
+                        .gesture(DragGesture(minimumDistance: 8)
+                            .onChanged { v in drag = CGSize(width: max(-1, min(1, v.translation.width / 150)), height: max(-1, min(1, v.translation.height / 150))) }
+                            .onEnded { _ in withAnimation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.7)) { drag = .zero } })
+                        .accessibilityIdentifier("cards.inspect.card")
+                    VStack(spacing: 4) {
+                        Text("\(card.rarity.title) · \(card.element.title)")
+                            .font(.subheadline.weight(.semibold))
+                        Text(owned > 1 ? "You have \(owned)" : (reduceMotion ? "From the \(MolibooCardCatalogue.collectionName)" : (tiltSource.usingMotion ? "Tilt your phone to catch the shine" : "Drag the card to catch the shine")))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity)
+            }
         }
-        .frame(maxWidth: .infinity)
+        .overlay(alignment: .topTrailing) {
+            ModulaGlassIconButton(title: "Close", systemImage: "xmark", size: 44) { dismiss() }
+                .padding(.trailing, 20)
+                .padding(.top, 8)
+                .accessibilityIdentifier("cards.inspect.close")
+        }
         .onAppear { if live { tiltSource.start() } }
         .onDisappear { tiltSource.stop() }
         .onChange(of: live) { _, on in on ? tiltSource.start() : tiltSource.stop() }
@@ -545,7 +600,6 @@ struct MolibooPackOpeningView: View {
             Color(uiColor: .systemBackground).ignoresSafeArea()
             LinearGradient(colors: [Color.primary.opacity(0.04), Color.clear], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
-            MolibooSparkleField(count: 12, color: .primary.opacity(0.35), animating: motionOn).ignoresSafeArea().opacity(0.35)
             if phase == .sealed || phase == .tearing { packView.modifier(MolibooDissolve(progress: phase == .tearing ? 1 : 0)) }
             if phase == .fanned || phase == .legendary || phase == .done { fan }
             if phase == .legendary, let c = legendaryCard { MolibooLegendaryReveal(card: c, animating: motionOn) { continueAfterLegendary() } }
@@ -553,8 +607,8 @@ struct MolibooPackOpeningView: View {
             VStack {
                 HStack {
                     Spacer()
-                    Button { onDone() } label: { Image(systemName: "xmark").font(.headline).foregroundStyle(.white).frame(width: 44, height: 44) }
-                        .modulaGlass(in: Circle()).accessibilityIdentifier("pack.close").accessibilityLabel("Close")
+                    ModulaGlassIconButton(title: "Close", systemImage: "xmark", size: 44) { onDone() }
+                        .accessibilityIdentifier("pack.close")
                 }
                 Spacer()
                 if phase == .done {
@@ -603,7 +657,7 @@ struct MolibooPackOpeningView: View {
             .frame(width: 250, height: 370)
             .rotationEffect(.degrees(wobble && motionOn ? 2.5 : -2.5))
             .scaleEffect(wobble && motionOn ? 1.02 : 0.98)
-            .shadow(color: Color(red: 0.6, green: 0.5, blue: 1).opacity(0.7), radius: 30)
+            .shadow(color: .black.opacity(0.18), radius: 24, y: 12)
             .onAppear { if motionOn { withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { wobble = true } } }
             Button { tear() } label: {
                 Label("Tear open", systemImage: "hand.draw.fill").font(.headline).foregroundStyle(.white).padding(.horizontal, 28).frame(minHeight: 50)
