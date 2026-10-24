@@ -960,10 +960,12 @@ struct ModulaMascotFigure: View {
     private func face(s: CGFloat, pal: ModulaMascotKind.Palette, t: Double) -> some View {
         let eye = s * kind.eyeSize
         let widen: CGFloat = pose.mood == .surprised ? 1.22 : 1
-        let glowEyes = pose.conditions.dark
+        // Dark-bodied Moliboos (Nyx, Jinx, Fuse…) get luminous eyes so they read, like the sheets.
+        let darkBody = kind.hasDarkBody
+        let glowEyes = pose.conditions.dark || darkBody
         return ZStack {
             ForEach([-1.0, 1.0], id: \.self) { side in
-                MascotEye(look: pose.look, blink: pose.blink, style: pose.eyes, spin: t * 6 * side, size: eye * widen, iris: kind == .bolt ? pal.accent : pal.iris, outline: pal.outline, ringed: kind == .tuck ? pal.accent : nil, glow: glowEyes, sad: pose.mood == .sad || pose.conditions.tired)
+                MascotEye(look: pose.look, blink: pose.blink, style: pose.eyes, spin: t * 6 * side, size: eye * widen, iris: kind == .bolt ? pal.accent : (darkBody ? pal.accent : pal.iris), outline: darkBody ? pal.light : pal.outline, ringed: kind == .tuck ? pal.accent : nil, glow: glowEyes, sad: pose.mood == .sad || pose.conditions.tired, bead: kind != .moss && kind != .bolt)
                     .offset(x: side * s * kind.eyeSpread, y: s * kind.eyeY)
             }
             mouth(s: s, pal: pal, t: t)
@@ -1013,6 +1015,21 @@ struct ModulaMascotFigure: View {
     private func accessories(s: CGFloat, pal: ModulaMascotKind.Palette, t: Double, a: CGFloat) -> some View {
         let top = -s * (kind.bodySize.height / 2 - kind.bodyOffsetY) // top of body
         if let sp = kind.spec { specParts(sp, layer: .top, s: s, pal: pal, t: t, a: a) }
+        if kind == .tuck && outfit.item(for: .face) == nil {
+            let r = s * kind.eyeSize * 1.5
+            let frame = Color(red: 0.36, green: 0.22, blue: 0.12)
+            ZStack {
+                ForEach([-1.0, 1.0], id: \.self) { side in
+                    Circle().stroke(frame, lineWidth: max(s * 0.026, 1))
+                        .background(Circle().fill(Color.white.opacity(0.08)))
+                        .frame(width: r, height: r)
+                        .offset(x: side * s * kind.eyeSpread)
+                }
+                Capsule().fill(frame).frame(width: max(s * kind.eyeSpread * 2 - r, s * 0.04), height: max(s * 0.022, 0.9))
+            }
+            .offset(y: s * kind.eyeY)
+            .rotationEffect(.degrees(7 * sin(t * 0.8) * Double(a)), anchor: .bottom)
+        }
         if pose.conditions.night && outfit.item(for: .hat) == nil && outfit.item(for: .seasonal) == nil && outfit.item(for: .hair) == nil {
             // Nightcap with a pom-pom.
             ZStack(alignment: .topTrailing) {
@@ -1051,6 +1068,12 @@ struct ModulaMascotFigure: View {
 
 private extension ModulaMascotKind {
     var typingFriendly: Bool { self == .pebble }
+    /// True when the body colour is too dark for dark bead eyes to read.
+    var hasDarkBody: Bool {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, al: CGFloat = 0
+        guard UIColor(palette.mid).getRed(&r, green: &g, blue: &b, alpha: &al) else { return false }
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.26
+    }
 }
 
 struct MascotEye: View {
@@ -1064,6 +1087,8 @@ struct MascotEye: View {
     var ringed: Color? = nil
     var glow = false
     var sad = false
+    /// Mockup-style glossy eye: one deep, dark bead with two catch-lights (no white sclera).
+    var bead = false
 
     var body: some View {
         let travel = size * 0.2
@@ -1082,6 +1107,27 @@ struct MascotEye: View {
                     .frame(width: size * 0.9, height: size * 0.9)
                     .rotationEffect(.radians(spin))
                     .background(Circle().fill(.white))
+            case .normal where bead:
+                ZStack {
+                    Circle().fill(RadialGradient(colors: [Color(red: 0.24, green: 0.19, blue: 0.30), Color(red: 0.06, green: 0.05, blue: 0.09)],
+                                                 center: UnitPoint(x: 0.45, y: 0.35), startRadius: 0, endRadius: size * 0.6))
+                    // A hint of the character's iris colour glowing up from the bottom of the bead.
+                    Circle().fill(RadialGradient(colors: [iris.opacity(glow ? 0.95 : 0.55), .clear], center: UnitPoint(x: 0.5, y: 0.9), startRadius: 0, endRadius: size * (glow ? 0.62 : 0.45)))
+                    Circle().fill(.white).frame(width: size * (glow ? 0.42 : 0.38)).offset(x: -size * 0.15 + lx * travel * 0.3, y: -size * 0.16 + ly * travel * 0.3)
+                    Circle().fill(.white.opacity(0.9)).frame(width: size * 0.14).offset(x: size * 0.16, y: size * 0.15)
+                    Circle().stroke(outline.opacity(0.35), lineWidth: max(size * 0.05, 0.7))
+                }
+                .clipShape(Circle())
+                .frame(width: size * 1.04, height: size * 1.12)
+                .offset(x: lx * travel * 0.5, y: ly * travel * 0.5)
+                .shadow(color: glow ? iris.opacity(0.6) : .clear, radius: glow ? size * 0.25 : 0)
+                .overlay(alignment: .top) {
+                    if sad {
+                        Capsule().fill(outline.opacity(0.7)).frame(width: size * 0.7, height: max(size * 0.1, 1))
+                            .rotationEffect(.degrees(-12)).offset(y: -size * 0.2)
+                    }
+                }
+                .scaleEffect(x: 1, y: max(1 - blink * 0.9, 0.08))
             case .normal:
                 ZStack {
                     Circle().fill(RadialGradient(colors: [.white, Color(white: 0.88)], center: UnitPoint(x: 0.4, y: 0.35), startRadius: 0, endRadius: size * 0.6))
@@ -1491,16 +1537,18 @@ extension ModulaMascotFigure {
                 .offset(x: s * 0.42, y: -s * 0.48)
                 .opacity(0.85 + 0.15 * sin(t * 1.4))
         case .quill:
-            // Backward-swept spines fanning from the crown.
-            ForEach(0..<7, id: \.self) { i in
-                let ang = Double(i) * 26 - 78
-                MascotTriangle()
-                    .fill(LinearGradient(colors: [pal.accent, pal.accent.opacity(0.8)], startPoint: .top, endPoint: .bottom))
-                    .overlay(MascotTriangle().stroke(pal.outline.opacity(0.55), lineWidth: line))
-                    .frame(width: s * 0.2, height: s * 0.36)
-                    .offset(y: -s * 0.3)
-                    .rotationEffect(.degrees(ang + 18 + 3 * sin(t * 1.5 + Double(i)) * da), anchor: .bottom)
-                    .offset(x: s * 0.06, y: s * 0.12)
+            // Hedgehog mane: two rows of soft spines around the crown and back (sheet 017).
+            ForEach(0..<2, id: \.self) { row in
+                ForEach(0..<11, id: \.self) { i in
+                    let ang = Double(i) * 21 - 105 + Double(row) * 10
+                    MascotTriangle()
+                        .fill(LinearGradient(colors: row == 0 ? [pal.dark, pal.accent] : [pal.accent, pal.mid], startPoint: .top, endPoint: .bottom))
+                        .overlay(MascotTriangle().stroke(pal.outline.opacity(0.5), lineWidth: line))
+                        .frame(width: s * (row == 0 ? 0.2 : 0.17), height: s * (row == 0 ? 0.3 : 0.24))
+                        .offset(y: -s * (row == 0 ? 0.48 : 0.42))
+                        .rotationEffect(.degrees(ang + 2 * sin(t * 1.5 + Double(i)) * da))
+                        .offset(y: s * kind.bodyOffsetY)
+                }
             }
         case .orbit:
             // Multicolour Saturn ring (sheet 018).
@@ -1543,6 +1591,20 @@ extension ModulaMascotFigure {
                 }
                 .rotationEffect(.degrees(side * 24 + 6 * sin(t * 2.2 + side) * da), anchor: .bottom)
                 .offset(x: side * s * 0.14, y: -s * 0.46)
+            }
+            // Crab claws on short arms.
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                ZStack {
+                    Capsule().fill(pal.dark).frame(width: s * 0.2, height: s * 0.06).offset(x: -side * s * 0.1)
+                    MascotClawShape()
+                        .fill(RadialGradient(colors: [pal.light, pal.mid, pal.dark], center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: s * 0.2))
+                        .overlay(MascotClawShape().stroke(pal.outline.opacity(0.55), lineWidth: line))
+                        .frame(width: s * 0.26, height: s * 0.26)
+                        .scaleEffect(x: side, y: 1)
+                        .rotationEffect(.degrees(side * (-20 + 8 * sin(t * 2.6) * da)))
+                        .offset(x: side * s * 0.06, y: -s * 0.04)
+                }
+                .offset(x: side * s * 0.52, y: s * 0.06)
             }
             // Spring feet.
             ForEach([-1.0, 1.0], id: \.self) { side in
@@ -2635,4 +2697,16 @@ extension MolibooFamilySpecs {
         .comfi: .init(number: 99, title: "The Cozy Bear", traits: ["Warm", "Protective", "Kind"]),
         .somna: .init(number: 100, title: "The Keeper of Dreams", traits: ["Dream", "Guardian", "Serene"]),
     ]
+}
+
+/// Crab pincer: a round claw with a wedge cut out (opening up and outward).
+struct MascotClawShape: Shape {
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        let c = CGPoint(x: r.midX, y: r.midY)
+        p.move(to: c)
+        p.addArc(center: c, radius: min(r.width, r.height) / 2, startAngle: .degrees(-50), endAngle: .degrees(-100), clockwise: false)
+        p.closeSubpath()
+        return p
+    }
 }
