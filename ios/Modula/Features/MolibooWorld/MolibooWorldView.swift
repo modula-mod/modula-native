@@ -181,13 +181,8 @@ struct MolibooWorldView: View {
     private var header: some View {
         ModulaGlassGroup(spacing: 10) {
             ZStack {
-                Image("MoliboosLogo").resizable().scaledToFit().frame(maxWidth: 188).frame(height: 44)
-                    .shadow(color: .black.opacity(0.10), radius: 8, y: 3)
-                    .overlay(alignment: .topTrailing) {
-                        Image(systemName: "sparkle").font(.system(size: 14, weight: .bold)).foregroundStyle(.yellow.opacity(0.9))
-                            .offset(x: 8, y: -6)
-                    }
-                    .accessibilityLabel("Moliboos").accessibilityIdentifier("world.logo")
+                MoliboosWordmark(height: 36)
+                    .accessibilityIdentifier("world.logo")
                 HStack(spacing: 10) {
                     MolibooWorldBackButton()
                     Spacer()

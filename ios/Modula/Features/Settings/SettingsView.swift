@@ -662,6 +662,16 @@ struct AppearanceSettingsView: View {
                         AppearanceMenuRow(title: "Contrast & Transparency", symbol: "circle.righthalf.filled", selection: $store.contrastTransparency, options: AppearanceStore.ContrastTransparency.allCases, label: display)
                     }
                 }
+                SettingsGroup(title: "Logo", subtitle: "Shown at the top of Home. Both follow your theme and accent.") {
+                    HStack(spacing: 12) {
+                        ForEach(AppearanceStore.BrandWordmark.allCases) { mark in
+                            AppearanceLogoChoice(mark: mark, selected: store.brandWordmark == mark) {
+                                store.brandWordmark = mark
+                                HapticEngine.shared.play(.selection)
+                            }
+                        }
+                    }
+                }
                 SettingsGroup(title: "Typography", subtitle: "Every sample responds to Dynamic Type.") {
                     VStack(spacing: 0) {
                         AppearanceMenuRow(title: "Font Family", symbol: "textformat", selection: $store.fontFamily, options: AppearanceStore.FontFamily.allCases, label: display)
@@ -1169,5 +1179,43 @@ private struct GlassIntensityRow: View {
         }
         .frame(minHeight: 48)
         .accessibilityIdentifier("appearance.glass-intensity")
+    }
+}
+
+
+/// Appearance → Logo tile: a live preview of the wordmark in the current theme.
+private struct AppearanceLogoChoice: View {
+    let mark: AppearanceStore.BrandWordmark
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 10) {
+                Group {
+                    switch mark {
+                    case .modula: ModulaWordmark(height: 22)
+                    case .moliboos: MoliboosWordmark(height: 26)
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: 56)
+                .accessibilityHidden(true)
+                Text(mark.title).font(.footnote.weight(.semibold)).foregroundStyle(selected ? .primary : .secondary)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity)
+            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.primary.opacity(0.08)), lineWidth: selected ? 2 : 1))
+            .overlay(alignment: .topTrailing) {
+                if selected {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).padding(8)
+                }
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(mark.title) logo")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("appearance.logo.\(mark.rawValue)")
     }
 }

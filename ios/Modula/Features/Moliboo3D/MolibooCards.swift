@@ -377,7 +377,7 @@ struct MolibooTradingCardView: View {
         ZStack {
             shape.fill(LinearGradient(colors: [Color(red: 0.16, green: 0.17, blue: 0.24), Color(red: 0.09, green: 0.10, blue: 0.15)], startPoint: .top, endPoint: .bottom))
             VStack(spacing: 12) {
-                Image("MoliboosLogo").resizable().scaledToFit().frame(width: 132)
+                MoliboosWordmark(height: 24, onDark: true)
                 Text(MolibooCardCatalogue.collectionName)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.white.opacity(0.6))
@@ -637,7 +637,7 @@ struct MolibooPackOpeningView: View {
                     .offset(y: phase == .tearing ? 40 : 0)
                     .opacity(phase == .tearing ? 0 : 1)
                 VStack(spacing: 10) {
-                    Image("MoliboosLogo").resizable().scaledToFit().frame(width: 170)
+                    MoliboosWordmark(height: 30, onDark: true)
                     Text(MolibooCardCatalogue.collectionName.uppercased()).font(.system(size: 13, weight: .heavy, design: .rounded)).tracking(2).foregroundStyle(.white)
                     Text("\(cards.count) cards · Free").font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
                 }
