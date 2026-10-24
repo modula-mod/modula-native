@@ -442,7 +442,8 @@ actor GreenfieldClient {
               url.port == baseURL.port, url.user == nil, url.password == nil,
               url.path == "/v1/registry/artifacts/\(expectedSha256)",
               url.query == nil, url.fragment == nil else { throw APIError.invalidResponse }
-        let data = try await mediaData(from: url, maximumBytes: maximumBytes)
+        let data = try await mediaData(from: url, maximumBytes: maximumBytes,
+                                       allowsCellularAccess: UserDefaults.standard.bool(forKey: "settings.downloads.allowCellular"))
         let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
         guard digest == expectedSha256 else { throw APIError.invalidResponse }
         return data
@@ -541,8 +542,10 @@ actor GreenfieldClient {
     /// Loads media through the same authenticated session as JSON requests. Greenfield
     /// attachment URLs are deliberately protected; raw `AsyncImage`/`URLSession.shared`
     /// requests cannot satisfy that contract for private or owner-only content.
-    func mediaData(from url: URL, maximumBytes: Int = 32_000_000) async throws -> Data {
-        let request = try await mediaRequest(for: url)
+    func mediaData(from url: URL, maximumBytes: Int = 32_000_000,
+                   allowsCellularAccess: Bool? = nil) async throws -> Data {
+        var request = try await mediaRequest(for: url)
+        if let allowsCellularAccess { request.allowsCellularAccess = allowsCellularAccess }
         let (data, response) = try await transport.data(for: request)
         guard let http = response as? HTTPURLResponse,
               (200...299).contains(http.statusCode),

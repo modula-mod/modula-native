@@ -913,7 +913,7 @@ private struct ModulePermissionReviewSheet: View {
                 plan = try await app.catalogue.preparePackagePlan(moduleID, version: toVersion)
                 planLoaded = true
             } catch {
-                planError = "The package plan could not be verified. Try again."
+                planError = error.localizedDescription
             }
         }
         .presentationDetents([.medium, .large])

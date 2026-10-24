@@ -3,6 +3,18 @@ import Observation
 import CryptoKit
 import UIKit
 
+private enum PackagePlanningError: LocalizedError {
+    case insufficientStorage
+    case storageUnavailable
+
+    var errorDescription: String? {
+        switch self {
+        case .insufficientStorage: "There isn’t enough free space for this download and its installed files."
+        case .storageUnavailable: "Available device storage could not be measured. Try again."
+        }
+    }
+}
+
 @MainActor @Observable
 final class ProductHubStore {
     private let client: GreenfieldClient
@@ -227,10 +239,43 @@ final class ProductHubStore {
         let shared = SharedWebRuntimeStore(moduleCacheRoot: ModuleArtifactStore().root)
         let digests = shared.installedDigests().filter { (try? shared.verifiedEngine(sha256: $0)) != nil }
         do {
-            return try await client.packageInstallPlan(id, version: version, cachedPublicDigests: digests)
+            let plan = try await client.packageInstallPlan(id, version: version, cachedPublicDigests: digests)
+            try validateSupportedPackagePlan(plan, moduleID: id)
+            try requireDiskCapacity(for: plan)
+            return plan
         } catch APIError.rejected(404, "NOT_FOUND") {
             return nil
         }
+    }
+
+    /// This Native revision can activate one game-content package and its exact
+    /// shared web runtime. Other categories remain fail-closed until the generic
+    /// installer owns their verification and activation path.
+    private func validateSupportedPackagePlan(_ plan: PackageInstallPlan, moduleID: String) throws {
+        guard product(moduleID)?.productKind == "game",
+              let root = plan.package(moduleID), root.category == "game-content",
+              plan.packages.count == 2,
+              root.dependencies.count == 1,
+              let runtime = plan.package(root.dependencies[0]), runtime.category == "web-runtime",
+              runtime.sharing == "public-immutable", runtime.dependencies.isEmpty else {
+            throw ModuleActivationError.incompatible
+        }
+    }
+
+    private func requireDiskCapacity(for plan: PackageInstallPlan) throws {
+        let fresh = plan.packages.filter { !plan.reusedDigests.contains($0.sha256) }
+        let bytes = fresh.reduce(Int64(32 * 1_024 * 1_024)) { total, package in
+            total + package.compressedBytes + package.installedBytes
+        }
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        guard let support,
+              let values = try? support.deletingLastPathComponent().resourceValues(forKeys: [
+                .volumeAvailableCapacityForImportantUsageKey, .volumeAvailableCapacityKey]),
+              let available = values.volumeAvailableCapacityForImportantUsage
+                ?? values.volumeAvailableCapacity.map(Int64.init) else {
+            throw PackagePlanningError.storageUnavailable
+        }
+        guard available >= bytes else { throw PackagePlanningError.insufficientStorage }
     }
 
     func install(_ id: String, permissions: [String], approvedPlan: PackageInstallPlan? = nil) async -> Bool {
@@ -253,7 +298,19 @@ final class ProductHubStore {
                                                packageLockSha256: packagePlan?.lockSha256,
                                                cachedPublicDigests: packagePlan?.reusedDigests ?? [])
             let settled = try await settle(id) { $0?.isRunnable == true }
-            if settled { await activateVerifiedFrontend(id) }
+            if settled {
+                await activateVerifiedFrontend(id)
+                if let packagePlan {
+                    guard let accountID, let active = activation?.active(accountID: accountID, moduleId: id),
+                          let root = packagePlan.package(id), active.version == root.version,
+                          active.gameSha256 == root.sha256,
+                          let runtimeID = root.dependencies.first,
+                          active.runtimeSha256 == packagePlan.package(runtimeID)?.sha256 else {
+                        lifecycleErrors[id] = "The signed package could not be activated on this device. Its previous verified content remains available."
+                        return false
+                    }
+                }
+            }
             return settled
         } catch {
             lifecycleErrors[id] = Self.message(error, verb: "install")
@@ -290,6 +347,10 @@ final class ProductHubStore {
         lifecycleErrors[id] = nil
         defer { operations[id] = nil }
         do {
+            if try await preparePackagePlan(id, version: latest) != nil {
+                lifecycleErrors[id] = "This package update needs dependency review before it can be activated."
+                return false
+            }
             try await client.updateModule(id, version: latest, approvedPermissionIncrease: false, idempotencyKey: Self.key("update", id))
             let settled = try await settle(id) { $0?.isRunnable == true && $0?.version.map { !ModuleVersion.isOlder($0, than: latest) } ?? true }
             if settled { await activateVerifiedFrontend(id) }
@@ -335,6 +396,10 @@ final class ProductHubStore {
         defer { operations[id] = nil }
         let verb = preview.isDowngrade ? "downgrade" : "update"
         do {
+            if try await preparePackagePlan(id, version: preview.toVersion) != nil {
+                lifecycleErrors[id] = "This package version needs dependency review before it can be activated."
+                return false
+            }
             let issued = try await client.switchModuleVersion(
                 id, version: preview.toVersion, approvedPermissions: preview.requiresConsent,
                 acknowledgeDowngradeRisk: preview.dataSchemaOlder, idempotencyKey: Self.key("version", id))
@@ -370,8 +435,15 @@ final class ProductHubStore {
         lifecycleErrors[id] = nil
         defer { operations[id] = nil }
         do {
+            if let activation, let accountID,
+               WebGameSessionPins.shared.contains(activation.store.moduleRoot(accountID: accountID, moduleId: id)) {
+                throw ModuleActivationError.activeSession
+            }
             try await client.uninstallModule(id, idempotencyKey: Self.key("uninstall", id))
             let removed = try await settle(id) { $0 == nil || $0?.isPresent == false }
+            if removed, let activation, let accountID {
+                try activation.store.removeModule(accountID: accountID, moduleId: id)
+            }
             restoreLocalDevelopmentInstallations()
             return removed
         } catch {
@@ -499,6 +571,7 @@ final class ProductHubStore {
                     let cachedDigests = shared.installedDigests().filter { (try? shared.verifiedEngine(sha256: $0)) != nil }
                     do {
                         let plan = try await client.packageInstallPlan(id, version: version, cachedPublicDigests: cachedDigests)
+                        try validateSupportedPackagePlan(plan, moduleID: id)
                         guard let root = plan.package(id), root.sha256 == digest,
                               let runtime = plan.packages.first(where: { root.dependencies.contains($0.id) && $0.category == "web-runtime" }),
                               let cached = activation.active(accountID: account, moduleId: id),
