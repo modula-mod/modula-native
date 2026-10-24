@@ -1996,7 +1996,7 @@ enum MolibooPart: Sendable {
     case glow(Color), feet(Color?), beak, berries(Color), feathers(Color?), frill(Color?), visor(Color), cheeksStars
     // Part-2 fidelity parts (sheet details). Head-top props hide when a hat is worn so wardrobe always fits.
     case skateboard(Color), cap(Color), tendrils(Color), puddle(Color), rockSeams(Color), arms(Color), crystals(Color), nose(Color), paws(Color)
-    case cloudSeat(Color), shield(Color), wreath(Color, Color?), legs(Color)
+    case cloudSeat(Color), shield(Color), wreath(Color, Color?), legs(Color), moonMark(Color)
 }
 
 struct MolibooSpec: Sendable {
@@ -2359,6 +2359,13 @@ extension ModulaMascotFigure {
         case (.ring(let c), .front):
             MascotRingHalf(front: true).stroke(c ?? gold, lineWidth: s * 0.06)
                 .frame(width: bw * 1.5, height: s * 0.32).rotationEffect(.degrees(-14)).offset(y: cy + s * 0.08)
+        case (.moonMark(let c), .front):
+            // Small glowing crescent on the forehead (Eclipa, Vesper).
+            MascotCrescentShape().fill(LinearGradient(colors: [.white, c], startPoint: .top, endPoint: .bottom))
+                .shadow(color: c.opacity(0.9), radius: s * 0.035)
+                .frame(width: s * 0.17, height: s * 0.17)
+                .rotationEffect(.degrees(-20))
+                .offset(y: top + bh * 0.17)
         case (.cloudSeat(let c), .front):
             // Soft cloud cushion the character sits in (Hush).
             ZStack {
@@ -2786,20 +2793,20 @@ extension MolibooFamilySpecs {
     static func addStardust(_ t: inout [ModulaMascotKind: MolibooSpec]) {
         let w = c(0.97, 0.96, 1)
         t[.astra] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.82), palette: .spec(w, accent: starGold, light: .white), parts: [.glow(starGold), .rays(10, starGold), .wings(.fairy, c(0.9, 0.92, 1)), .starCrest, .sparkles(3)], floats: true, feet: false, hatScale: 0.82, hatMaxWidth: 0.52, headTopExtra: 0.06, form: "The star sprite")
-        t[.nebbi] = MolibooSpec(body: .cloud, size: CGSize(width: 1.06, height: 0.86), palette: .spec(c(0.88, 0.8, 0.98), accent: c(0.96, 0.6, 0.86), light: c(0.97, 0.94, 1)), parts: [.glow(c(0.8, 0.6, 1)), .petals(6, c(0.84, 0.66, 0.98)), .sparkles(4)], floats: true, feet: false, hatScale: 0.95, hatMaxWidth: 0.54, headTopExtra: 0.04, form: "The nebula dreamer")
+        t[.nebbi] = MolibooSpec(body: .cloud, size: CGSize(width: 1.06, height: 0.86), palette: .spec(c(0.88, 0.8, 0.98), accent: c(0.96, 0.6, 0.86), light: c(0.97, 0.94, 1)), parts: [.glow(c(0.8, 0.6, 1)), .wreath(c(0.8, 0.62, 0.98), c(0.98, 0.66, 0.88)), .sparkles(4)], floats: true, feet: false, hatScale: 0.95, hatMaxWidth: 0.54, headTopExtra: 0.04, form: "The nebula dreamer")
         t[.quori] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.84), palette: .spec(w, accent: starGold, light: .white), parts: [.ring(starGold), .ears(.cat), .sparkles(2)], hatScale: 0.92, hatMaxWidth: 0.48, form: "The ringed wanderer")
-        t[.vesper] = MolibooSpec(body: .round, size: CGSize(width: 0.88, height: 0.82), palette: .spec(nightViolet, accent: c(0.75, 0.7, 1), iris: c(0.85, 0.85, 1), light: c(0.44, 0.36, 0.64)), parts: [.tail(.comet, c(0.5, 0.4, 0.9)), .ears(.fox), .crescent(c(1, 0.9, 0.6)), .sparkles(3)], floats: true, feet: false, hatScale: 0.92, hatMaxWidth: 0.46, headTopExtra: 0.05, form: "The twilight comet")
+        t[.vesper] = MolibooSpec(body: .round, size: CGSize(width: 0.88, height: 0.82), palette: .spec(nightViolet, accent: c(0.75, 0.7, 1), iris: c(0.85, 0.85, 1), light: c(0.44, 0.36, 0.64)), parts: [.tail(.comet, c(0.5, 0.4, 0.9)), .ears(.fox), .glow(c(0.5, 0.4, 0.9)), .moonMark(c(1, 0.9, 0.6)), .sparkles(3)], floats: true, feet: false, hatScale: 0.92, hatMaxWidth: 0.46, headTopExtra: 0.05, form: "The twilight comet")
         t[.pulsa] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.84), palette: .spec(c(1, 0.92, 0.66), accent: c(1, 0.7, 0.24), light: .white), parts: [.glow(c(1, 0.78, 0.3)), .rays(14, c(1, 0.8, 0.3)), .lightning], floats: true, feet: false, hatScale: 0.95, hatMaxWidth: 0.54, headTopExtra: 0.05, form: "The pulse nova")
         t[.stellan] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(w, accent: starBlue, light: .white), parts: [.ears(.fox), .starAntlers, .mane(6), .sparkles(2)], hatScale: 0.92, hatMaxWidth: 0.46, form: "The cosmic fawn")
-        t[.cosmi] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(w, accent: c(0.6, 0.5, 1), light: .white), parts: [.ears(.bunny), .orbiters(3, starGold), .tail(.fluffy, w)], hatScale: 0.92, hatMaxWidth: 0.5, form: "The galaxy hopper")
-        t[.eclipa] = MolibooSpec(body: .round, size: CGSize(width: 0.88, height: 0.84), palette: .spec(c(0.16, 0.13, 0.22), accent: c(1, 0.86, 0.5), iris: c(1, 0.86, 0.5), light: c(0.3, 0.26, 0.4)), parts: [.tail(.curl, c(0.16, 0.13, 0.22)), .ears(.cat), .crescent(c(1, 0.88, 0.55)), .sparkles(3)], hatScale: 0.92, hatMaxWidth: 0.48, form: "The moon shadow")
+        t[.cosmi] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(w, accent: c(0.6, 0.5, 1), light: .white), parts: [.glow(c(0.6, 0.5, 1)), .ears(.bunny), .orbiters(3, starGold), .tail(.fluffy, w)], hatScale: 0.92, hatMaxWidth: 0.5, form: "The galaxy hopper")
+        t[.eclipa] = MolibooSpec(body: .round, size: CGSize(width: 0.88, height: 0.84), palette: .spec(c(0.16, 0.13, 0.22), accent: c(1, 0.86, 0.5), iris: c(1, 0.86, 0.5), light: c(0.3, 0.26, 0.4)), parts: [.tail(.curl, c(0.16, 0.13, 0.22)), .ears(.cat), .moonMark(c(1, 0.88, 0.55)), .sparkles(3)], hatScale: 0.92, hatMaxWidth: 0.48, form: "The moon shadow")
         t[.meteo] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(c(0.98, 0.6, 0.3), accent: c(1, 0.86, 0.3), light: c(1, 0.84, 0.6)), parts: [.glow(c(1, 0.5, 0.2)), .flame(c(1, 0.46, 0.18)), .ears(.tufts)], hatScale: 0.92, hatMaxWidth: 0.46, form: "The meteor scout")
-        t[.asteri] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.84), palette: .spec(w, accent: c(0.7, 0.8, 1), light: .white), parts: [.glow(c(0.7, 0.8, 1)), .wings(.dart, c(0.76, 0.84, 1)), .starCrest, .sparkles(3)], floats: true, feet: false, hatScale: 0.82, hatMaxWidth: 0.52, headTopExtra: 0.06, form: "The crystal constellation")
+        t[.asteri] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.84), palette: .spec(w, accent: c(0.7, 0.8, 1), light: .white), parts: [.glow(c(0.7, 0.8, 1)), .wings(.fairy, c(0.82, 0.9, 1)), .crystals(c(0.7, 0.84, 1)), .sparkles(3)], floats: true, feet: false, hatScale: 0.82, hatMaxWidth: 0.52, headTopExtra: 0.06, form: "The crystal constellation")
         t[.zenith] = MolibooSpec(body: .round, size: CGSize(width: 0.92, height: 0.86), palette: .spec(c(1, 0.9, 0.66), accent: c(0.9, 0.56, 0.24), light: c(1, 0.97, 0.86)), parts: [.glow(starGold), .mane(12), .wings(.feather, c(1, 0.86, 0.5)), .ears(.round)], hatScale: 0.92, hatMaxWidth: 0.46, form: "The solar guardian")
         t[.liora] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.84), palette: .spec(w, accent: c(0.5, 0.9, 0.8), light: .white), parts: [.glow(c(0.5, 0.95, 0.85)), .wings(.fairy, c(0.6, 0.94, 0.86)), .petals(5, c(0.94, 0.7, 0.96)), .tail(.ribbon, c(0.6, 0.9, 0.9))], floats: true, feet: false, hatScale: 0.95, hatMaxWidth: 0.52, headTopExtra: 0.05, form: "The aurora bloom")
-        t[.nocta] = MolibooSpec(body: .round, size: CGSize(width: 0.84, height: 0.82), palette: .spec(w, accent: nightViolet, light: .white), parts: [.wings(.moth, nightViolet), .antennae(c(0.7, 0.6, 1)), .sparkles(3)], floats: true, feet: false, hatScale: 0.95, hatMaxWidth: 0.52, headTopExtra: 0.05, form: "The midnight moth")
+        t[.nocta] = MolibooSpec(body: .round, size: CGSize(width: 0.84, height: 0.82), palette: .spec(c(0.3, 0.26, 0.44), accent: c(0.9, 0.8, 0.5), iris: c(0.9, 0.8, 0.5), light: c(0.46, 0.4, 0.62)), parts: [.wings(.moth, nightViolet), .antennae(c(0.7, 0.6, 1)), .sparkles(3)], floats: true, feet: false, hatScale: 0.95, hatMaxWidth: 0.52, headTopExtra: 0.05, form: "The midnight moth")
         t[.glint] = MolibooSpec(body: .drop, size: CGSize(width: 0.8, height: 0.92), palette: .spec(w, accent: c(0.4, 0.86, 1), light: .white), parts: [.glow(c(0.5, 0.9, 1)), .wings(.dart, c(0.6, 0.9, 1)), .antennae(starGold), .sparkles(4)], floats: true, feet: false, hatScale: 0.8, hatMaxWidth: 0.52, headTopExtra: 0.16, form: "The stardust pixie")
-        t[.polaris] = MolibooSpec(body: .bell, size: CGSize(width: 0.9, height: 0.92), palette: .spec(w, accent: c(0.36, 0.5, 0.94), light: .white), parts: [.glow(starBlue), .wings(.feather, c(0.86, 0.9, 1)), .compass, .starCrest], floats: true, feet: false, hatScale: 0.82, hatMaxWidth: 0.52, headTopExtra: 0.06, form: "The guiding star")
+        t[.polaris] = MolibooSpec(body: .bell, size: CGSize(width: 0.9, height: 0.92), palette: .spec(w, accent: c(0.36, 0.5, 0.94), light: .white), parts: [.glow(starBlue), .wings(.feather, c(0.86, 0.9, 1)), .starCrest, .sparkles(3)], floats: true, feet: false, hatScale: 0.82, hatMaxWidth: 0.52, headTopExtra: 0.06, form: "The guiding star")
     }
 
     static let stardustProfiles: [ModulaMascotKind: ModulaMascotKind.Profile] = [
