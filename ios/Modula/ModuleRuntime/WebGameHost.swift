@@ -97,6 +97,7 @@ struct WebGameHost: View {
         }
         .onDisappear {
             webView?.stopLoading()
+            webView?.setAllMediaPlaybackSuspended(true, completionHandler: nil)
             (webView?.navigationDelegate as? WebGameSurface.Coordinator)?.handler?.closeSession()
             webView?.loadHTMLString("", baseURL: nil)
             webView = nil
@@ -108,6 +109,7 @@ struct WebGameHost: View {
         let event = value ? "modula:pause" : "modula:resume"
         // One-way lifecycle notification. No native capability or account data
         // is made callable from the page.
+        webView?.setAllMediaPlaybackSuspended(value, completionHandler: nil)
         webView?.evaluateJavaScript("window.dispatchEvent(new Event('\(event)'))")
     }
 }
@@ -326,6 +328,9 @@ private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
         }
         var headers = ["Content-Type": mime, "X-Content-Type-Options": "nosniff",
                        "Referrer-Policy": "no-referrer", "Cache-Control": "no-store"]
+        if mime == "text/html" {
+            headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), accelerometer=(), gyroscope=(), magnetometer=()"
+        }
         if mime == "text/html" { headers["Content-Security-Policy"] = Self.contentSecurityPolicy }
         guard let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: headers) else {
             task.didFailWithError(WebGamePackageError.invalid("resource response"))

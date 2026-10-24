@@ -189,6 +189,9 @@ final class WebGameInstalledIsolationTests: XCTestCase {
             let csp = (acceptedTask.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Security-Policy")
             XCTAssertTrue(csp?.contains("connect-src 'none'") == true)
             XCTAssertTrue(csp?.contains("frame-src 'none'") == true)
+            let permissionsPolicy = (acceptedTask.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Permissions-Policy")
+            XCTAssertTrue(permissionsPolicy?.contains("geolocation=()") == true)
+            XCTAssertTrue(permissionsPolicy?.contains("camera=()") == true)
             XCTAssertEqual(acceptedTask.body, try XCTUnwrap(WebGamePackage(archive: archive, expectedSha256: digest(archive)).files["index.html"]))
             let navigationFinished = expectation(description: "\(engine) game document loaded")
             var navigationFailure: Error?
@@ -253,6 +256,37 @@ final class WebGameInstalledIsolationTests: XCTestCase {
                 try await Task.sleep(for: .milliseconds(100))
             }
             XCTAssertEqual(tokenRead, "blocked", "\(engine) game accessed a synthetic auth token outside its origin")
+            _ = try await browser.evaluateJavaScript("""
+                (() => {
+                  window.__mediaResult = 'pending';
+                  window.__motionResult = 'pending';
+                  window.__locationResult = 'pending';
+                  window.__popupResult = window.open('https://example.invalid/popup', '_blank') ? 'allowed' : 'blocked';
+                  if (navigator.mediaDevices?.getUserMedia) {
+                    navigator.mediaDevices.getUserMedia({audio: true, video: true})
+                      .then(() => window.__mediaResult = 'allowed', () => window.__mediaResult = 'blocked');
+                  } else window.__mediaResult = 'blocked';
+                  if (typeof DeviceMotionEvent !== 'undefined' && DeviceMotionEvent.requestPermission) {
+                    DeviceMotionEvent.requestPermission()
+                      .then(result => window.__motionResult = result === 'granted' ? 'allowed' : 'blocked',
+                            () => window.__motionResult = 'blocked');
+                  } else window.__motionResult = 'blocked';
+                  if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                      () => window.__locationResult = 'allowed',
+                      () => window.__locationResult = 'blocked',
+                      {timeout: 1000});
+                  } else window.__locationResult = 'blocked';
+                  return true;
+                })()
+                """)
+            var deviceResults = "pending"
+            for _ in 0..<35 {
+                deviceResults = try await browser.evaluateJavaScript("[window.__mediaResult, window.__motionResult, window.__locationResult, window.__popupResult].join(',')") as? String ?? "pending"
+                if !deviceResults.contains("pending") { break }
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            XCTAssertEqual(deviceResults, "blocked,blocked,blocked,blocked", "\(engine) gained a device or popup capability")
             let otherAccount = "qa-isolated-account"
             try controller.stageVerified(accountID: otherAccount, moduleId: id, version: "0.1.0", releaseId: "\(engine)-other-account",
                                          frontend: initial, frontendSha256: digest(initial), mediaType: ProductUIDocument.mediaType,
