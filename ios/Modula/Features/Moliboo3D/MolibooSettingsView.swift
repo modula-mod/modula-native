@@ -116,8 +116,7 @@ struct MolibooSettingsView: View {
 
     private var hubTopBar: some View {
         ZStack {
-            Image("MoliboosLogo").resizable().scaledToFit().frame(height: 26)
-                .accessibilityLabel("Moliboos")
+            MoliboosWordmark(height: 24)
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityIdentifier("moliboo.hub.logo")
             HStack {
@@ -605,7 +604,7 @@ struct MolibooWelcomeSheet: View {
                 .overlay(MolibooAmbientBackground(ambience: .dreamy, animated: motionOn, fps: 12, showsSky: false, density: 0.5).opacity(0.7))
                 .ignoresSafeArea()
             VStack(spacing: 18) {
-                Image("MoliboosLogo").resizable().scaledToFit().frame(height: 52)
+                MoliboosWordmark(height: 44, onDark: true)
                     .shadow(color: .white.opacity(0.7), radius: 8).shadow(color: Color(red: 0.6, green: 0.5, blue: 1).opacity(0.8), radius: 22)
                     .scaleEffect(appear ? 1 : 0.8).opacity(appear ? 1 : 0)
                     .accessibilityLabel("Moliboos")

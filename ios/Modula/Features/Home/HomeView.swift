@@ -144,8 +144,15 @@ struct HomeView: View {
                 }
             } else {
                 ToolbarItem(placement: .principal) {
-                    ModulaWordmark(height: ModulaLayout.homeWordmarkHeight)
-                        .accessibilityAddTraits(.isHeader)
+                    Group {
+                        switch app.appearance.brandWordmark {
+                        case .modula:
+                            ModulaWordmark(height: ModulaLayout.homeWordmarkHeight)
+                        case .moliboos:
+                            MoliboosWordmark(height: ModulaLayout.homeWordmarkHeight)
+                        }
+                    }
+                    .accessibilityAddTraits(.isHeader)
                 }
             }
             // Create + Messages share one glass capsule instead of two mismatched pills.

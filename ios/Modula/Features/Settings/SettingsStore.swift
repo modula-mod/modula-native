@@ -22,6 +22,12 @@ final class AppearanceStore {
     enum IconStyle: String, CaseIterable, Codable, Identifiable { case outline, balanced, filled; var id: Self { self } }
     enum InterfaceShape: String, CaseIterable, Codable, Identifiable { case soft, balanced, precise; var id: Self { self } }
     enum ModuleBranding: String, CaseIterable, Codable, Identifiable { case moduleIdentity, blend, preferUserAccent; var id: Self { self } }
+    /// Home / chrome wordmark. Modula (default) or the Moliboos bubbly mark.
+    enum BrandWordmark: String, CaseIterable, Codable, Identifiable {
+        case modula, moliboos
+        var id: Self { self }
+        var title: String { switch self { case .modula: "Modula"; case .moliboos: "Moliboos" } }
+    }
 
     private let defaults: UserDefaults
     private let key = "modula.native.appearance.v2"
@@ -38,6 +44,7 @@ final class AppearanceStore {
     var iconStyle: IconStyle { didSet { save() } }
     var interfaceShape: InterfaceShape { didSet { save() } }
     var moduleBranding: ModuleBranding { didSet { save() } }
+    var brandWordmark: BrandWordmark { didSet { save() } }
     /// Edge Picker personalization. Nested under Appearance; reset separately via `resetEdgePicker()`.
     var edgePicker: EdgePickerPreferences { didSet { save() } }
 
@@ -72,6 +79,7 @@ final class AppearanceStore {
         iconStyle = saved?.iconStyle ?? .balanced
         interfaceShape = saved?.interfaceShape ?? .balanced
         moduleBranding = saved?.moduleBranding ?? .blend
+        brandWordmark = saved?.brandWordmark ?? .modula
         edgePicker = saved?.edgePicker ?? .default
         if saved == nil, let legacy = LegacyAppearance(rawValue: defaults.string(forKey: "modula.native.appearance.v1") ?? "") { appearance = legacy }
     }
@@ -81,6 +89,7 @@ final class AppearanceStore {
         theme = .system; darkStyle = .standard; accent = .modulaTeal; fontFamily = .system; textSize = .standard
         appIcon = .default; density = .standard; motion = .standard; haptics = .standard
         contrastTransparency = .standard; iconStyle = .balanced; interfaceShape = .balanced; moduleBranding = .blend
+        brandWordmark = .modula
         edgePicker = .default
     }
 
@@ -95,7 +104,7 @@ final class AppearanceStore {
             appIcon: appIcon, density: density, motion: motion, haptics: haptics,
             contrastTransparency: contrastTransparency, iconStyle: iconStyle,
             interfaceShape: interfaceShape, moduleBranding: moduleBranding,
-            edgePicker: edgePicker
+            brandWordmark: brandWordmark, edgePicker: edgePicker
         )
         defaults.set(try? JSONEncoder().encode(value), forKey: key)
     }
@@ -105,6 +114,7 @@ final class AppearanceStore {
         var appIcon: AppIcon; var density: Density; var motion: MotionPersonality; var haptics: HapticIntensity
         var contrastTransparency: ContrastTransparency; var iconStyle: IconStyle; var interfaceShape: InterfaceShape
         var moduleBranding: ModuleBranding
+        var brandWordmark: BrandWordmark?
         /// Optional so existing v2 blobs without this field decode to defaults.
         var edgePicker: EdgePickerPreferences?
 
@@ -112,13 +122,13 @@ final class AppearanceStore {
             theme: Theme, darkStyle: DarkStyle, accent: Accent, fontFamily: FontFamily, textSize: TextSize,
             appIcon: AppIcon, density: Density, motion: MotionPersonality, haptics: HapticIntensity,
             contrastTransparency: ContrastTransparency, iconStyle: IconStyle, interfaceShape: InterfaceShape,
-            moduleBranding: ModuleBranding, edgePicker: EdgePickerPreferences
+            moduleBranding: ModuleBranding, brandWordmark: BrandWordmark, edgePicker: EdgePickerPreferences
         ) {
             self.theme = theme; self.darkStyle = darkStyle; self.accent = accent
             self.fontFamily = fontFamily; self.textSize = textSize; self.appIcon = appIcon
             self.density = density; self.motion = motion; self.haptics = haptics
             self.contrastTransparency = contrastTransparency; self.iconStyle = iconStyle
-            self.interfaceShape = interfaceShape; self.moduleBranding = moduleBranding
+            self.interfaceShape = interfaceShape; self.moduleBranding = moduleBranding; self.brandWordmark = brandWordmark
             self.edgePicker = edgePicker
         }
     }
