@@ -163,6 +163,30 @@ private struct WebGameSurface: UIViewRepresentable {
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
         configuration.allowsInlineMediaPlayback = true
+        // WebKit can leave denied device requests unresolved on custom schemes.
+        // Resolve them as denied in every game frame; the native delegates below
+        // remain the authority even if game JavaScript changes these functions.
+        let denyDeviceAPIs = #"""
+        (() => {
+          const denied = () => Promise.reject(new DOMException('Permission denied', 'NotAllowedError'));
+          const block = (target, name, value) => {
+            if (!target) return;
+            try { Object.defineProperty(target, name, {value, writable: false, configurable: false}); } catch (_) {}
+          };
+          block(navigator.mediaDevices, 'getUserMedia', denied);
+          block(navigator.mediaDevices, 'getDisplayMedia', denied);
+          block(navigator.mediaDevices, 'enumerateDevices', () => Promise.resolve([]));
+          const denyLocation = (_, error) => {
+            if (typeof error === 'function') queueMicrotask(() => error({code: 1, PERMISSION_DENIED: 1, message: 'Permission denied'}));
+          };
+          block(navigator.geolocation, 'getCurrentPosition', denyLocation);
+          block(navigator.geolocation, 'watchPosition', (...args) => { denyLocation(...args); return 0; });
+          block(globalThis.DeviceMotionEvent, 'requestPermission', denied);
+          block(globalThis.DeviceOrientationEvent, 'requestPermission', denied);
+        })();
+        """#
+        configuration.userContentController.addUserScript(
+            WKUserScript(source: denyDeviceAPIs, injectionTime: .atDocumentStart, forMainFrameOnly: false))
         configuration.setURLSchemeHandler(handler, forURLScheme: VerifiedGameSchemeHandler.scheme)
         return configuration
     }
