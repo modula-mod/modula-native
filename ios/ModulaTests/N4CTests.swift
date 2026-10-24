@@ -261,11 +261,18 @@ final class WebGameInstalledIsolationTests: XCTestCase {
                   window.__mediaResult = 'pending';
                   window.__motionResult = 'pending';
                   window.__locationResult = 'pending';
+                  window.__prototypeMediaResult = 'pending';
+                  window.__prototypeLocationResult = 'pending';
                   window.__popupResult = window.open('https://example.invalid/popup', '_blank') ? 'allowed' : 'blocked';
                   if (navigator.mediaDevices?.getUserMedia) {
                     navigator.mediaDevices.getUserMedia({audio: true, video: true})
                       .then(() => window.__mediaResult = 'allowed', () => window.__mediaResult = 'blocked');
                   } else window.__mediaResult = 'blocked';
+                  const mediaPrototype = navigator.mediaDevices && Object.getPrototypeOf(navigator.mediaDevices);
+                  if (typeof mediaPrototype?.getUserMedia === 'function') {
+                    mediaPrototype.getUserMedia.call(navigator.mediaDevices, {audio: true})
+                      .then(() => window.__prototypeMediaResult = 'allowed', () => window.__prototypeMediaResult = 'blocked');
+                  } else window.__prototypeMediaResult = 'blocked';
                   if (typeof DeviceMotionEvent !== 'undefined' && DeviceMotionEvent.requestPermission) {
                     DeviceMotionEvent.requestPermission()
                       .then(result => window.__motionResult = result === 'granted' ? 'allowed' : 'blocked',
@@ -277,16 +284,23 @@ final class WebGameInstalledIsolationTests: XCTestCase {
                       () => window.__locationResult = 'blocked',
                       {timeout: 1000});
                   } else window.__locationResult = 'blocked';
+                  const locationPrototype = navigator.geolocation && Object.getPrototypeOf(navigator.geolocation);
+                  if (typeof locationPrototype?.getCurrentPosition === 'function') {
+                    locationPrototype.getCurrentPosition.call(navigator.geolocation,
+                      () => window.__prototypeLocationResult = 'allowed',
+                      () => window.__prototypeLocationResult = 'blocked',
+                      {timeout: 1000});
+                  } else window.__prototypeLocationResult = 'blocked';
                   return true;
                 })()
                 """)
             var deviceResults = "pending"
             for _ in 0..<35 {
-                deviceResults = try await browser.evaluateJavaScript("[window.__mediaResult, window.__motionResult, window.__locationResult, window.__popupResult].join(',')") as? String ?? "pending"
+                deviceResults = try await browser.evaluateJavaScript("[window.__mediaResult, window.__motionResult, window.__locationResult, window.__popupResult, window.__prototypeMediaResult, window.__prototypeLocationResult].join(',')") as? String ?? "pending"
                 if !deviceResults.contains("pending") { break }
                 try await Task.sleep(for: .milliseconds(100))
             }
-            XCTAssertEqual(deviceResults, "blocked,blocked,blocked,blocked", "\(engine) gained a device or popup capability")
+            XCTAssertEqual(deviceResults, "blocked,blocked,blocked,blocked,blocked,blocked", "\(engine) gained a device or popup capability")
             let otherAccount = "qa-isolated-account"
             try controller.stageVerified(accountID: otherAccount, moduleId: id, version: "0.1.0", releaseId: "\(engine)-other-account",
                                          frontend: initial, frontendSha256: digest(initial), mediaType: ProductUIDocument.mediaType,

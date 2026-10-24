@@ -173,14 +173,22 @@ private struct WebGameSurface: UIViewRepresentable {
             if (!target) return;
             try { Object.defineProperty(target, name, {value, writable: false, configurable: false}); } catch (_) {}
           };
-          block(navigator.mediaDevices, 'getUserMedia', denied);
-          block(navigator.mediaDevices, 'getDisplayMedia', denied);
-          block(navigator.mediaDevices, 'enumerateDevices', () => Promise.resolve([]));
+          const media = navigator.mediaDevices;
+          block(media && Object.getPrototypeOf(media), 'getUserMedia', denied);
+          block(media && Object.getPrototypeOf(media), 'getDisplayMedia', denied);
+          block(media && Object.getPrototypeOf(media), 'enumerateDevices', () => Promise.resolve([]));
+          block(media, 'getUserMedia', denied);
+          block(media, 'getDisplayMedia', denied);
+          block(media, 'enumerateDevices', () => Promise.resolve([]));
           const denyLocation = (_, error) => {
             if (typeof error === 'function') queueMicrotask(() => error({code: 1, PERMISSION_DENIED: 1, message: 'Permission denied'}));
           };
-          block(navigator.geolocation, 'getCurrentPosition', denyLocation);
-          block(navigator.geolocation, 'watchPosition', (...args) => { denyLocation(...args); return 0; });
+          const location = navigator.geolocation;
+          const denyWatch = (...args) => { denyLocation(...args); return 0; };
+          block(location && Object.getPrototypeOf(location), 'getCurrentPosition', denyLocation);
+          block(location && Object.getPrototypeOf(location), 'watchPosition', denyWatch);
+          block(location, 'getCurrentPosition', denyLocation);
+          block(location, 'watchPosition', denyWatch);
           block(globalThis.DeviceMotionEvent, 'requestPermission', denied);
           block(globalThis.DeviceOrientationEvent, 'requestPermission', denied);
         })();
