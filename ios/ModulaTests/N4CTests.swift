@@ -367,6 +367,25 @@ final class WebGameInstalledIsolationTests: XCTestCase {
                 try await Task.sleep(for: .milliseconds(100))
             }
             XCTAssertEqual(accountRead, "blocked", "\(engine) game read another account's installed bytes")
+            let otherModule = "digital.modula.qa-other-\(engine)"
+            let otherModuleFrontend = frontend(otherModule, "0.1.0")
+            try controller.stageVerified(accountID: account, moduleId: otherModule, version: "0.1.0",
+                                         releaseId: "\(engine)-other-module", frontend: otherModuleFrontend,
+                                         frontendSha256: digest(otherModuleFrontend), mediaType: ProductUIDocument.mediaType,
+                                         hostManifest: manifest(otherModule, "0.1.0"), descriptor: nil,
+                                         gameArchive: archive, gameSha256: digest(archive))
+            let otherModuleRelease = try controller.activate(accountID: account, moduleId: otherModule)
+            let otherModuleEntry = try controller.store.verifiedGameEntry(for: otherModuleRelease)
+            let otherModuleURL = try WebGameResourceProbe.entryURL(entry: otherModuleEntry)
+            XCTAssertNotEqual(otherModuleURL.host, acceptedURL.host)
+            _ = try await browser.evaluateJavaScript("window.__moduleRead = 'pending'; fetch('\(otherModuleURL.absoluteString)').then(() => window.__moduleRead = 'allowed', () => window.__moduleRead = 'blocked'); true")
+            var moduleRead = "pending"
+            for _ in 0..<30 {
+                moduleRead = try await browser.evaluateJavaScript("window.__moduleRead") as? String ?? "pending"
+                if moduleRead != "pending" { break }
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            XCTAssertEqual(moduleRead, "blocked", "\(engine) game read a different module's installed bytes")
             browser.stopLoading()
             for hostile in [
                 "modula-game://\(origin)/../index.html",
