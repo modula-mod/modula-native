@@ -3,7 +3,8 @@ import XCTest
 
 @MainActor
 final class MOL03CollectionTests: XCTestCase {
-    func testEvery3DCharacterHasAPortraitAndOthersDoNot() {
+    func testEvery3DCharacterHasAPortraitAndOthersDoNot() throws {
+        throw XCTSkip("CORE-SIZE-01: retired Moliboo 3D USDZ/portrait/premium assets are no longer bundled; 2D is the only renderer")
         XCTAssertFalse(MolibooRegistry.available3D.isEmpty)
         for d in MolibooRegistry.available3D {
             let img = MolibooPortrait.image(for: d.id)

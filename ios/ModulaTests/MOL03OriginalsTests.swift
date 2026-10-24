@@ -16,6 +16,7 @@ final class MOL03OriginalsTests: XCTestCase {
     private let capID = MolibooCosmetics.signatureCapID
 
     func testManifestEntriesAssetsHashesAndPortraits() throws {
+        throw XCTSkip("CORE-SIZE-01: retired Moliboo 3D USDZ/portrait/premium assets are no longer bundled; 2D is the only renderer")
         let m = try MolibooManifest.bundled(.main)
         XCTAssertEqual(MolibooRegistry.available3D.count, 10)
         for c in five {
@@ -56,6 +57,7 @@ final class MOL03OriginalsTests: XCTestCase {
     // MARK: Generated wardrobe (trial)
 
     func testBundledFitTableCoversAllTenAndFreeAssetsShip() throws {
+        throw XCTSkip("CORE-SIZE-01: retired Moliboo 3D USDZ/portrait/premium assets are no longer bundled; 2D is the only renderer")
         let t = MolibooWardrobeFitTable.bundled()
         XCTAssertGreaterThanOrEqual(t.items.count, 190)
         let ten = MolibooRegistry.available3D.map(\.id)
