@@ -233,20 +233,20 @@ private struct WebGameSurface: UIViewRepresentable {
         // Downloaded games receive no device-data capability from the host.
         // WebKit otherwise prompts for these APIs when the delegate is absent.
         func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin,
-                     initiatedBy frame: WKFrameInfo, type: WKMediaCaptureType,
+                     initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType,
                      decisionHandler: @escaping (WKPermissionDecision) -> Void) {
             decisionHandler(.deny)
         }
 
         func webView(_ webView: WKWebView, requestDeviceOrientationAndMotionPermissionFor origin: WKSecurityOrigin,
-                     initiatedBy frame: WKFrameInfo,
+                     initiatedByFrame frame: WKFrameInfo,
                      decisionHandler: @escaping (WKPermissionDecision) -> Void) {
             decisionHandler(.deny)
         }
 
         @available(iOS 27.0, *)
         func webView(_ webView: WKWebView, requestGeolocationPermissionFor origin: WKSecurityOrigin,
-                     initiatedBy frame: WKFrameInfo,
+                     initiatedByFrame frame: WKFrameInfo,
                      decisionHandler: @escaping (WKPermissionDecision) -> Void) {
             decisionHandler(.deny)
         }
