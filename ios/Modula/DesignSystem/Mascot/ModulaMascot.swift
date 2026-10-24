@@ -1996,7 +1996,7 @@ enum MolibooPart: Sendable {
     case glow(Color), feet(Color?), beak, berries(Color), feathers(Color?), frill(Color?), visor(Color), cheeksStars
     // Part-2 fidelity parts (sheet details). Head-top props hide when a hat is worn so wardrobe always fits.
     case skateboard(Color), cap(Color), tendrils(Color), puddle(Color), rockSeams(Color), arms(Color), crystals(Color), nose(Color), paws(Color)
-    case cloudSeat(Color), shield(Color)
+    case cloudSeat(Color), shield(Color), wreath(Color, Color?), legs(Color)
 }
 
 struct MolibooSpec: Sendable {
@@ -2305,6 +2305,19 @@ extension ModulaMascotFigure {
             .frame(width: bw * 1.55, height: s * 0.26)
             .scaleEffect(x: 1 + 0.03 * CGFloat(sin(t * 1.2)) * a, y: 1)
             .offset(y: cy + bh * 0.44)
+        case (.legs(let c), .back):
+            // Spider legs, four per side (Spindle).
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                ForEach(0..<4, id: \.self) { k in
+                    Capsule().fill(LinearGradient(colors: [pal.light, c], startPoint: .leading, endPoint: .trailing))
+                        .overlay(Capsule().stroke(pal.outline.opacity(0.4), lineWidth: line * 0.8))
+                        .frame(width: s * 0.36, height: s * 0.05)
+                        .offset(x: s * 0.18)
+                        .rotationEffect(.degrees(Double([-38, -12, 14, 40][k]) + 4 * sin(t * 3 + Double(k)) * da))
+                        .scaleEffect(x: side, y: 1)
+                        .offset(x: side * bw * 0.34, y: cy + bh * 0.12)
+                }
+            }
         case (.arms(let c), .back):
             // Chunky stone forearms with fists.
             ForEach([-1.0, 1.0], id: \.self) { side in
@@ -2576,6 +2589,30 @@ extension ModulaMascotFigure {
             }
             .rotationEffect(.degrees(-5))
             .offset(y: top + s * 0.02)
+        case (.wreath(let c, let flower), .top) where outfit.item(for: .hat) == nil && outfit.item(for: .seasonal) == nil:
+            // Leaf crown across the top of the head, with optional blossoms or berries.
+            ZStack {
+                ForEach(0..<9, id: \.self) { k in
+                    let ang = (Double(k) / 8 - 0.5) * 150
+                    MascotLeaf().fill(LinearGradient(colors: [c, c.opacity(0.82)], startPoint: .leading, endPoint: .trailing))
+                        .overlay(MascotLeaf().stroke(Color(red: 0.12, green: 0.24, blue: 0.1).opacity(0.55), lineWidth: line * 0.9))
+                        .frame(width: s * 0.28, height: s * 0.17)
+                        .rotationEffect(.degrees(-90))
+                        .offset(y: -bh * 0.46 - s * 0.02)
+                        .rotationEffect(.degrees(ang))
+                }
+                if let flower {
+                    ForEach(0..<3, id: \.self) { k in
+                        let ang = Double(k - 1) * 45
+                        Circle().fill(RadialGradient(colors: [.white, flower], center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: s * 0.05))
+                            .overlay(Circle().stroke(pal.outline.opacity(0.3), lineWidth: line * 0.7))
+                            .frame(width: s * 0.09)
+                            .offset(y: -bh * 0.5)
+                            .rotationEffect(.degrees(ang))
+                    }
+                }
+            }
+            .offset(y: cy)
         case (.crystals(let c), .top) where outfit.item(for: .hat) == nil && outfit.item(for: .seasonal) == nil:
             ForEach(0..<3, id: \.self) { k in
                 MascotCrystalShape()
@@ -2706,19 +2743,19 @@ extension MolibooFamilySpecs {
     static let leaf = c(0.42, 0.7, 0.36), bark = c(0.5, 0.36, 0.26), moss = c(0.5, 0.66, 0.36)
     static func addEnchanted(_ t: inout [ModulaMascotKind: MolibooSpec]) {
         let cream = c(0.97, 0.94, 0.88)
-        t[.bramble] = MolibooSpec(body: .round, size: CGSize(width: 0.94, height: 0.86), palette: .spec(c(0.62, 0.46, 0.36), accent: c(0.8, 0.18, 0.3), light: c(0.86, 0.74, 0.62)), parts: [.thorns(leaf), .leaves(3, leaf), .berries(c(0.82, 0.16, 0.3))], hatScale: 0.95, hatMaxWidth: 0.54, form: "Thorny guardian")
-        t[.ferni] = MolibooSpec(body: .pear, size: CGSize(width: 0.86, height: 0.9), palette: .spec(c(0.66, 0.84, 0.5), accent: c(1, 0.86, 0.5), light: c(0.88, 0.96, 0.78)), parts: [.leaves(6, leaf), .petals(3, c(1, 0.8, 0.9))], hatScale: 0.88, hatMaxWidth: 0.54, form: "Leafy sprout")
+        t[.bramble] = MolibooSpec(body: .round, size: CGSize(width: 0.94, height: 0.86), palette: .spec(c(0.62, 0.46, 0.36), accent: c(0.8, 0.18, 0.3), light: c(0.86, 0.74, 0.62)), parts: [.thorns(leaf), .wreath(leaf, c(0.82, 0.16, 0.3))], hatScale: 0.95, hatMaxWidth: 0.54, form: "Thorny guardian")
+        t[.ferni] = MolibooSpec(body: .pear, size: CGSize(width: 0.86, height: 0.9), palette: .spec(c(0.66, 0.84, 0.5), accent: c(1, 0.86, 0.5), light: c(0.88, 0.96, 0.78)), parts: [.wreath(leaf, c(1, 0.8, 0.9))], hatScale: 0.88, hatMaxWidth: 0.54, form: "Leafy sprout")
         t[.truffle] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.8), palette: .spec(cream, accent: c(0.86, 0.3, 0.26), light: .white), parts: [.mushroomCap(c(0.86, 0.32, 0.26), spots: true)], hatScale: 0.8, hatMaxWidth: 0.54, headTopExtra: 0.14, form: "Mushroom forager")
         t[.rootle] = MolibooSpec(body: .round, size: CGSize(width: 0.94, height: 0.86), palette: .spec(bark, accent: c(0.95, 0.68, 0.3), light: c(0.76, 0.62, 0.48)), parts: [.roots, .ears(.tufts), .leaves(2, leaf)], hatScale: 0.92, hatMaxWidth: 0.46, form: "Root burrower")
-        t[.willow] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.86), palette: .spec(c(0.78, 0.84, 0.7), accent: c(0.96, 0.84, 0.9), light: c(0.92, 0.96, 0.88)), parts: [.leaves(9, c(0.56, 0.74, 0.46)), .antlers(bark), .petals(4, c(1, 0.86, 0.92))], hatScale: 0.95, hatMaxWidth: 0.54, form: "Elegant keeper")
-        t[.pollen] = MolibooSpec(body: .round, size: CGSize(width: 0.82, height: 0.8), palette: .spec(c(1, 0.94, 0.78), accent: c(1, 0.78, 0.3), light: .white), parts: [.glow(c(1, 0.84, 0.4)), .wings(.fairy, c(1, 0.86, 0.5)), .petals(5, c(1, 0.86, 0.4)), .sparkles(3)], floats: true, feet: false, hatScale: 0.95, hatMaxWidth: 0.52, headTopExtra: 0.05, form: "Golden pixie")
-        t[.mallow] = MolibooSpec(body: .cloud, size: CGSize(width: 1.04, height: 0.86), palette: .spec(c(1, 0.84, 0.9), accent: c(0.94, 0.4, 0.6), light: c(1, 0.95, 0.97)), parts: [.petals(8, c(1, 0.74, 0.84)), .ears(.floppy)], hatScale: 0.92, hatMaxWidth: 0.46, headTopExtra: 0.04, form: "Dreamy blossom")
+        t[.willow] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.86), palette: .spec(c(0.78, 0.84, 0.7), accent: c(0.96, 0.84, 0.9), light: c(0.92, 0.96, 0.88)), parts: [.wreath(c(0.56, 0.74, 0.46), c(1, 0.86, 0.92)), .antlers(bark)], hatScale: 0.95, hatMaxWidth: 0.54, form: "Elegant keeper")
+        t[.pollen] = MolibooSpec(body: .round, size: CGSize(width: 0.82, height: 0.8), palette: .spec(c(1, 0.94, 0.78), accent: c(1, 0.78, 0.3), light: .white), parts: [.glow(c(1, 0.84, 0.4)), .wings(.fairy, c(0.9, 0.96, 1)), .petals(5, c(1, 0.86, 0.4)), .sparkles(3)], floats: true, feet: false, hatScale: 0.95, hatMaxWidth: 0.52, headTopExtra: 0.05, form: "Golden pixie")
+        t[.mallow] = MolibooSpec(body: .cloud, size: CGSize(width: 1.04, height: 0.86), palette: .spec(c(1, 0.84, 0.9), accent: c(0.94, 0.4, 0.6), light: c(1, 0.95, 0.97)), parts: [.wreath(c(1, 0.72, 0.84), c(1, 0.92, 0.96)), .sparkles(2)], hatScale: 0.92, hatMaxWidth: 0.46, headTopExtra: 0.04, form: "Dreamy blossom")
         t[.acora] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.86), palette: .spec(c(0.72, 0.54, 0.36), accent: leaf, light: c(0.9, 0.78, 0.6)), parts: [.tail(.fluffy, c(0.6, 0.42, 0.28)), .mushroomCap(c(0.5, 0.34, 0.22), spots: false), .leaves(1, leaf)], hatScale: 0.82, hatMaxWidth: 0.54, headTopExtra: 0.1, form: "Acorn guardian")
-        t[.spindle] = MolibooSpec(body: .cloud, size: CGSize(width: 0.98, height: 0.84), palette: .spec(c(0.94, 0.92, 0.98), accent: c(0.7, 0.6, 0.94), light: .white), parts: [.glow(c(0.8, 0.7, 1)), .antennae(c(0.8, 0.7, 1)), .feet(c(0.78, 0.74, 0.9)), .sparkles(2)], hatScale: 0.95, hatMaxWidth: 0.54, headTopExtra: 0.04, form: "Silk weaver")
-        t[.glade] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(cream, accent: c(0.6, 0.86, 0.7), light: .white), parts: [.ears(.fox), .petals(6, c(1, 0.84, 0.9)), .leaves(3, c(0.6, 0.82, 0.5))], hatScale: 0.92, hatMaxWidth: 0.48, form: "Meadow spirit")
+        t[.spindle] = MolibooSpec(body: .cloud, size: CGSize(width: 0.98, height: 0.84), palette: .spec(c(0.94, 0.92, 0.98), accent: c(0.7, 0.6, 0.94), light: .white), parts: [.glow(c(0.8, 0.7, 1)), .legs(c(0.8, 0.74, 0.92)), .antennae(c(0.8, 0.7, 1)), .sparkles(2)], hatScale: 0.95, hatMaxWidth: 0.54, headTopExtra: 0.04, form: "Silk weaver")
+        t[.glade] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(cream, accent: c(0.6, 0.86, 0.7), light: .white), parts: [.ears(.fox), .wreath(c(0.6, 0.82, 0.5), c(1, 0.84, 0.9))], hatScale: 0.92, hatMaxWidth: 0.48, form: "Meadow spirit")
         t[.lichen] = MolibooSpec(body: .dome, size: CGSize(width: 1.08, height: 0.82), palette: .spec(c(0.8, 0.84, 0.74), accent: c(0.36, 0.8, 0.78), light: c(0.94, 0.96, 0.9)), parts: [.shell(moss), .leaves(4, moss), .petals(3, c(0.7, 0.6, 0.95))], hatScale: 0.95, hatMaxWidth: 0.54, headTopExtra: 0.04, form: "Moss companion")
         t[.thimble] = MolibooSpec(body: .round, size: CGSize(width: 0.88, height: 0.84), palette: .spec(cream, accent: c(0.82, 0.28, 0.24), light: .white), parts: [.mushroomCap(c(0.82, 0.3, 0.24), spots: true), .scarf(moss), .lantern(c(1, 0.8, 0.4))], hatScale: 0.8, hatMaxWidth: 0.54, headTopExtra: 0.14, form: "The herbalist")
-        t[.wyrmi] = MolibooSpec(body: .pear, size: CGSize(width: 0.9, height: 0.88), palette: .spec(c(0.52, 0.76, 0.5), accent: c(0.95, 0.7, 0.3), light: c(0.8, 0.92, 0.74)), parts: [.tail(.lizard, c(0.4, 0.62, 0.38)), .wings(.leaf, c(0.4, 0.66, 0.4)), .frill(c(0.95, 0.72, 0.32)), .leaves(2, leaf)], hatScale: 0.88, hatMaxWidth: 0.52, form: "Forest wyrm")
+        t[.wyrmi] = MolibooSpec(body: .pear, size: CGSize(width: 0.9, height: 0.88), palette: .spec(c(0.52, 0.76, 0.5), accent: c(0.95, 0.7, 0.3), light: c(0.8, 0.92, 0.74)), parts: [.tail(.lizard, c(0.4, 0.62, 0.38)), .wings(.bat, c(0.46, 0.72, 0.44)), .wreath(leaf, nil)], hatScale: 0.88, hatMaxWidth: 0.52, form: "Forest wyrm")
         t[.kiko] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(c(0.92, 0.6, 0.34), accent: cream, light: c(1, 0.86, 0.7)), parts: [.tail(.fluffy, c(0.9, 0.56, 0.3)), .ears(.fox), .leaves(2, leaf)], hatScale: 0.92, hatMaxWidth: 0.48, form: "Curious critter")
         t[.eldra] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.88), palette: .spec(c(0.95, 0.96, 0.98), accent: c(0.5, 0.8, 0.9), light: .white), parts: [.glow(c(0.6, 0.86, 1)), .mane(8), .antlers(c(0.86, 0.82, 0.72)), .leaves(3, c(0.56, 0.78, 0.6)), .sparkles(3)], hatScale: 0.95, hatMaxWidth: 0.54, form: "Ancient spirit")
     }
