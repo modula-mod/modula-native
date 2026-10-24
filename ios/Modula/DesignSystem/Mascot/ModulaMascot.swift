@@ -1996,6 +1996,7 @@ enum MolibooPart: Sendable {
     case glow(Color), feet(Color?), beak, berries(Color), feathers(Color?), frill(Color?), visor(Color), cheeksStars
     // Part-2 fidelity parts (sheet details). Head-top props hide when a hat is worn so wardrobe always fits.
     case skateboard(Color), cap(Color), tendrils(Color), puddle(Color), rockSeams(Color), arms(Color), crystals(Color), nose(Color), paws(Color)
+    case cloudSeat(Color), shield(Color)
 }
 
 struct MolibooSpec: Sendable {
@@ -2345,6 +2346,28 @@ extension ModulaMascotFigure {
         case (.ring(let c), .front):
             MascotRingHalf(front: true).stroke(c ?? gold, lineWidth: s * 0.06)
                 .frame(width: bw * 1.5, height: s * 0.32).rotationEffect(.degrees(-14)).offset(y: cy + s * 0.08)
+        case (.cloudSeat(let c), .front):
+            // Soft cloud cushion the character sits in (Hush).
+            ZStack {
+                ForEach(0..<5, id: \.self) { k in
+                    Circle().fill(LinearGradient(colors: [.white, c], startPoint: .top, endPoint: .bottom))
+                        .overlay(Circle().stroke(pal.outline.opacity(0.18), lineWidth: line * 0.8))
+                        .frame(width: s * [0.3, 0.38, 0.44, 0.38, 0.3][k])
+                        .offset(x: bw * [-0.52, -0.28, 0, 0.28, 0.52][k], y: s * [0.04, -0.02, 0.02, -0.02, 0.04][k])
+                }
+            }
+            .offset(y: cy + bh * 0.42 + CGFloat(sin(t * 1.3)) * s * 0.01 * a)
+        case (.shield(let c), .front):
+            // Small golden guardian crest on the chest, clear of the mouth (Sera).
+            let shieldShape = UnevenRoundedRectangle(cornerRadii: .init(topLeading: s * 0.03, bottomLeading: s * 0.11, bottomTrailing: s * 0.11, topTrailing: s * 0.03), style: .continuous)
+            ZStack {
+                shieldShape.fill(LinearGradient(colors: [Color(red: 1, green: 0.95, blue: 0.7), c], startPoint: .top, endPoint: .bottom))
+                shieldShape.stroke(Color(red: 0.7, green: 0.5, blue: 0.1).opacity(0.7), lineWidth: line)
+                MascotStarShape().fill(.white.opacity(0.9)).frame(width: s * 0.09, height: s * 0.09)
+            }
+            .frame(width: s * 0.19, height: s * 0.21)
+            .shadow(color: c.opacity(0.6), radius: s * 0.03)
+            .offset(y: cy + bh * 0.3)
         case (.skateboard(let c), .front):
             ZStack {
                 ForEach([-1.0, 1.0], id: \.self) { side in
@@ -2592,21 +2615,21 @@ enum MolibooFamilySpecs {
     static let table: [ModulaMascotKind: MolibooSpec] = {
         var t: [ModulaMascotKind: MolibooSpec] = [:]
         // Family 002 — Angels (Celestia)
-        t[.aura] = MolibooSpec(body: .pear, size: CGSize(width: 0.9, height: 0.9), palette: .spec(pearl, accent: gold, light: .white), parts: [.glow(gold), .rays(6, gold), .wings(.feather, nil), .starCrest, .sparkles(3)], floats: true, feet: false, hatScale: 0.82, hatMaxWidth: 0.52, headTopExtra: 0.06, form: "Celestial light guardian")
+        t[.aura] = MolibooSpec(body: .pear, size: CGSize(width: 0.9, height: 0.9), palette: .spec(pearl, accent: gold, light: .white), parts: [.glow(gold), .wings(.feather, nil), .starCrest, .halo, .sparkles(4)], floats: true, feet: false, hatScale: 0.82, hatMaxWidth: 0.52, headTopExtra: 0.06, form: "Celestial light guardian")
         t[.soli] = MolibooSpec(body: .round, size: CGSize(width: 0.94, height: 0.9), palette: .spec(c(1, 0.8, 0.32), accent: c(1, 0.62, 0.3), light: c(1, 0.95, 0.7)), parts: [.glow(c(1, 0.78, 0.3)), .rays(8, c(1, 0.72, 0.28)), .cheeksStars], floats: true, feet: false, hatScale: 0.95, hatMaxWidth: 0.54, headTopExtra: 0.05, form: "Miniature living sun")
-        t[.luma] = MolibooSpec(body: .round, size: CGSize(width: 0.78, height: 0.76), palette: .spec(c(0.88, 0.9, 0.99), accent: c(0.7, 0.72, 0.98)), parts: [.crescent(c(0.96, 0.95, 0.88)), .starCrest, .sparkles(3)], floats: true, feet: false, hatScale: 0.82, hatMaxWidth: 0.54, headTopExtra: 0.06, form: "Living moon pearl")
-        t[.vela] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.82), palette: .spec(c(0.98, 0.95, 0.97), accent: c(1, 0.74, 0.84), light: .white), parts: [.tail(.fox, c(0.86, 0.8, 0.98)), .ears(.fox), .starCrest], hatScale: 0.82, hatMaxWidth: 0.46, headTopExtra: 0.06, form: "Tiny magical sky fox")
-        t[.cheri] = MolibooSpec(body: .heart, size: CGSize(width: 0.98, height: 0.9), palette: .spec(c(1, 0.78, 0.84), accent: c(0.96, 0.44, 0.6)), parts: [.wings(.feather, nil), .heartAntenna, .halo], floats: true, feet: false, hatScale: 0.82, hatMaxWidth: 0.52, headTopExtra: 0.06, form: "Heart-shaped cherub")
-        t[.hush] = MolibooSpec(body: .cloud, size: CGSize(width: 1.12, height: 0.82), palette: .spec(c(0.96, 0.96, 1), accent: c(0.8, 0.84, 1), light: .white), parts: [.wings(.feather, nil), .starCrest], floats: true, feet: false, hatScale: 0.82, hatMaxWidth: 0.52, headTopExtra: 0.06, form: "Feather-cloud being")
-        t[.haloa] = MolibooSpec(body: .round, size: CGSize(width: 0.92, height: 0.84), palette: .spec(c(0.98, 0.96, 0.92), accent: gold, light: .white), parts: [.glow(gold), .halo, .sparkles(4)], floats: true, feet: false, hatScale: 0.82, hatMaxWidth: 0.54, headTopExtra: 0.06, form: "Celestial ring spirit")
+        t[.luma] = MolibooSpec(body: .round, size: CGSize(width: 0.78, height: 0.76), palette: .spec(c(0.88, 0.9, 0.99), accent: c(0.7, 0.72, 0.98)), parts: [.glow(c(0.8, 0.82, 1)), .crescent(c(0.96, 0.95, 0.88)), .starCrest, .sparkles(3)], floats: true, feet: false, hatScale: 0.82, hatMaxWidth: 0.54, headTopExtra: 0.06, form: "Living moon pearl")
+        t[.vela] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.82), palette: .spec(c(0.98, 0.95, 0.97), accent: c(1, 0.74, 0.84), light: .white), parts: [.tail(.fox, c(0.86, 0.8, 0.98)), .ears(.fox), .halo, .sparkles(2)], hatScale: 0.82, hatMaxWidth: 0.46, headTopExtra: 0.06, form: "Tiny magical sky fox")
+        t[.cheri] = MolibooSpec(body: .round, size: CGSize(width: 0.98, height: 0.9), palette: .spec(c(1, 0.78, 0.84), accent: c(0.96, 0.44, 0.6)), parts: [.wings(.feather, nil), .heartAntenna], floats: true, feet: false, hatScale: 0.82, hatMaxWidth: 0.52, headTopExtra: 0.06, form: "Heart-shaped cherub")
+        t[.hush] = MolibooSpec(body: .round, size: CGSize(width: 0.92, height: 0.84), palette: .spec(c(0.96, 0.96, 1), accent: c(0.8, 0.84, 1), light: .white), parts: [.wings(.feather, nil), .cloudSeat(c(0.86, 0.88, 1)), .starCrest], floats: true, feet: false, hatScale: 0.82, hatMaxWidth: 0.52, headTopExtra: 0.06, form: "Feather-cloud being")
+        t[.haloa] = MolibooSpec(body: .round, size: CGSize(width: 0.92, height: 0.84), palette: .spec(c(0.98, 0.96, 0.92), accent: gold, light: .white), parts: [.glow(gold), .halo, .starCrest, .sparkles(4)], floats: true, feet: false, hatScale: 0.82, hatMaxWidth: 0.54, headTopExtra: 0.06, form: "Celestial ring spirit")
         t[.lyra] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(c(0.97, 0.95, 0.99), accent: c(0.72, 0.6, 0.96), light: .white), parts: [.harp, .wings(.feather, c(0.9, 0.86, 1)), .starCrest, .notes], hatScale: 0.82, hatMaxWidth: 0.52, headTopExtra: 0.06, form: "Living miniature harp")
-        t[.celio] = MolibooSpec(body: .wide, size: CGSize(width: 1.12, height: 0.78), palette: .spec(c(0.62, 0.8, 0.98), accent: gold, light: c(0.9, 0.96, 1)), parts: [.tail(.whale, c(0.5, 0.7, 0.96)), .fins(c(0.52, 0.72, 0.96)), .starCrest], floats: true, feet: false, hatScale: 0.82, hatMaxWidth: 0.58, headTopExtra: 0.06, form: "Floating celestial whale")
-        t[.dovee] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.86), palette: .spec(c(0.98, 0.98, 1), accent: c(0.7, 0.86, 0.6), light: .white), parts: [.wings(.feather, nil), .leaves(2, c(0.56, 0.74, 0.42)), .beak], hatScale: 0.95, hatMaxWidth: 0.52, form: "Pearl-white dove")
-        t[.twila] = MolibooSpec(body: .round, size: CGSize(width: 0.84, height: 0.84), palette: .spec(c(0.36, 0.3, 0.52), accent: c(0.9, 0.78, 0.5), iris: c(0.9, 0.8, 0.5)), parts: [.wings(.moth, c(0.5, 0.4, 0.74)), .antennae(gold), .sparkles(2)], floats: true, feet: false, hatScale: 0.95, hatMaxWidth: 0.52, headTopExtra: 0.05, form: "Celestial moth")
+        t[.celio] = MolibooSpec(body: .wide, size: CGSize(width: 1.12, height: 0.78), palette: .spec(c(0.62, 0.8, 0.98), accent: gold, light: c(0.9, 0.96, 1)), parts: [.tail(.whale, c(0.5, 0.7, 0.96)), .fins(c(0.52, 0.72, 0.96)), .starCrest, .sparkles(2)], floats: true, feet: false, hatScale: 0.82, hatMaxWidth: 0.58, headTopExtra: 0.06, form: "Floating celestial whale")
+        t[.dovee] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.86), palette: .spec(c(0.98, 0.98, 1), accent: c(0.7, 0.86, 0.6), light: .white), parts: [.wings(.feather, nil), .leaves(2, c(0.56, 0.74, 0.42)), .beak, .halo], hatScale: 0.95, hatMaxWidth: 0.52, form: "Pearl-white dove")
+        t[.twila] = MolibooSpec(body: .round, size: CGSize(width: 0.84, height: 0.84), palette: .spec(c(0.36, 0.3, 0.52), accent: c(0.9, 0.78, 0.5), iris: c(0.9, 0.8, 0.5)), parts: [.glow(c(0.6, 0.45, 0.9)), .wings(.moth, c(0.62, 0.48, 0.92)), .antennae(gold), .sparkles(2)], floats: true, feet: false, hatScale: 0.95, hatMaxWidth: 0.52, headTopExtra: 0.05, form: "Celestial moth")
         t[.gleam] = MolibooSpec(body: .drop, size: CGSize(width: 0.84, height: 0.98), palette: .spec(c(0.9, 0.94, 1), accent: c(0.72, 0.84, 1), light: .white), parts: [.glow(c(0.8, 0.9, 1)), .wings(.feather, nil), .halo], floats: true, feet: false, hatScale: 0.8, hatMaxWidth: 0.52, headTopExtra: 0.17, form: "Living droplet of light")
-        t[.novael] = MolibooSpec(body: .star, size: CGSize(width: 1.04, height: 1.0), palette: .spec(c(0.92, 0.94, 1), accent: c(0.6, 0.72, 1), light: .white), parts: [.glow(c(0.7, 0.8, 1)), .orbiters(3, gold), .sparkles(2)], floats: true, feet: false, hatScale: 0.62, hatMaxWidth: 0.48, headTopExtra: 0.12, form: "Living celestial star")
-        t[.sera] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.88), palette: .spec(c(0.98, 0.97, 0.95), accent: gold, light: .white), parts: [.wings(.feather, nil), .starCrest, .bowtie(gold)], hatScale: 0.82, hatMaxWidth: 0.52, headTopExtra: 0.06, form: "Winged celestial shield")
-        t[.auri] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.82), palette: .spec(c(0.88, 0.84, 0.98), accent: c(0.56, 0.9, 0.86), light: c(0.98, 0.96, 1)), parts: [.wings(.fairy, c(0.7, 0.9, 1)), .antennae(c(1, 0.7, 0.9)), .sparkles(3)], floats: true, feet: false, hatScale: 0.95, hatMaxWidth: 0.52, headTopExtra: 0.05, form: "Iridescent celestial sprite")
+        t[.novael] = MolibooSpec(body: .star, size: CGSize(width: 1.04, height: 1.0), palette: .spec(c(0.92, 0.94, 1), accent: c(0.6, 0.72, 1), light: .white), parts: [.glow(c(0.7, 0.8, 1)), .wings(.feather, nil), .halo, .orbiters(3, gold), .sparkles(2)], floats: true, feet: false, hatScale: 0.62, hatMaxWidth: 0.48, headTopExtra: 0.12, form: "Living celestial star")
+        t[.sera] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.88), palette: .spec(c(0.98, 0.97, 0.95), accent: gold, light: .white), parts: [.wings(.feather, nil), .starCrest, .shield(gold), .halo], hatScale: 0.82, hatMaxWidth: 0.52, headTopExtra: 0.06, form: "Winged celestial shield")
+        t[.auri] = MolibooSpec(body: .round, size: CGSize(width: 0.86, height: 0.82), palette: .spec(c(0.88, 0.84, 0.98), accent: c(0.56, 0.9, 0.86), light: c(0.98, 0.96, 1)), parts: [.glow(c(0.8, 0.7, 1)), .wings(.fairy, c(0.95, 0.7, 1)), .wings(.fairy, c(0.62, 0.92, 1)), .antennae(c(1, 0.7, 0.9)), .crown, .sparkles(3)], floats: true, feet: false, hatScale: 0.95, hatMaxWidth: 0.52, headTopExtra: 0.05, form: "Iridescent celestial sprite")
         addUnderground(&t)
         addEnchanted(&t)
         addStardust(&t)
