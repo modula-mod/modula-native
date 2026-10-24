@@ -1994,6 +1994,8 @@ enum MolibooPart: Sendable {
     case wheels, fins(Color?), orbiters(Int, Color?), compass, flame(Color?), mask(Color), hood(Color), roots
     case paintDrips([Color]), goggles(Color), whiskers, bowtie(Color), scarf(Color), blanket(Color), lantern(Color)
     case glow(Color), feet(Color?), beak, berries(Color), feathers(Color?), frill(Color?), visor(Color), cheeksStars
+    // Part-2 fidelity parts (sheet details). Head-top props hide when a hat is worn so wardrobe always fits.
+    case skateboard(Color), cap(Color), tendrils(Color), puddle(Color), rockSeams(Color), arms(Color), crystals(Color), nose(Color), paws(Color)
 }
 
 struct MolibooSpec: Sendable {
@@ -2282,6 +2284,42 @@ extension ModulaMascotFigure {
                 Capsule().fill(pal.dark).frame(width: s * 0.05, height: s * 0.2)
                     .rotationEffect(.degrees(Double(k - 2) * 18 + 9)).offset(x: s * (CGFloat(k) - 1.5) * 0.12, y: cy + bh * 0.5 + s * 0.04)
             }
+        case (.tendrils(let c), .back):
+            // Ink-like tendrils curling out from the sides of a shadow pool.
+            ForEach(0..<4, id: \.self) { k in
+                let side: Double = k < 2 ? -1 : 1
+                let ang = side * (k % 2 == 0 ? 62 : 96)
+                MascotTentacle(phase: t * 1.4 + Double(k) * 1.3, amp: max(a, 0.35))
+                    .stroke(LinearGradient(colors: [c, c.opacity(0.15)], startPoint: .top, endPoint: .bottom), style: StrokeStyle(lineWidth: s * 0.075, lineCap: .round))
+                    .frame(width: s * 0.12, height: s * 0.36)
+                    .rotationEffect(.degrees(-ang + 6 * sin(t * 1.1 + Double(k)) * da), anchor: .top)
+                    .offset(x: CGFloat(side) * bw * 0.36, y: cy + bh * 0.14)
+            }
+        case (.puddle(let c), .back):
+            ZStack {
+                Ellipse().fill(RadialGradient(colors: [c, c.opacity(0.75), c.opacity(0)], center: .center, startRadius: 0, endRadius: bw * 0.8))
+                Ellipse().stroke(pal.accent.opacity(0.35), lineWidth: line)
+                    .padding(s * 0.04)
+            }
+            .frame(width: bw * 1.55, height: s * 0.26)
+            .scaleEffect(x: 1 + 0.03 * CGFloat(sin(t * 1.2)) * a, y: 1)
+            .offset(y: cy + bh * 0.44)
+        case (.arms(let c), .back):
+            // Chunky stone forearms with fists.
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                ZStack(alignment: .bottom) {
+                    RoundedRectangle(cornerRadius: s * 0.08, style: .continuous)
+                        .fill(LinearGradient(colors: [pal.light, c], startPoint: .top, endPoint: .bottom))
+                        .overlay(RoundedRectangle(cornerRadius: s * 0.08, style: .continuous).stroke(pal.outline.opacity(0.55), lineWidth: line))
+                        .frame(width: s * 0.2, height: s * 0.32)
+                    Ellipse().fill(LinearGradient(colors: [pal.mid, c], startPoint: .top, endPoint: .bottom))
+                        .overlay(Ellipse().stroke(pal.outline.opacity(0.55), lineWidth: line))
+                        .frame(width: s * 0.27, height: s * 0.2)
+                        .offset(y: s * 0.06)
+                }
+                .rotationEffect(.degrees(side * (-12 + 4 * sin(t * 1.3) * da)), anchor: .top)
+                .offset(x: side * (bw * 0.5 + s * 0.02), y: cy + s * 0.06)
+            }
         case (.wheels, .back):
             ForEach([-1.0, 1.0], id: \.self) { side in
                 Circle().fill(Color(white: 0.2)).overlay(Circle().stroke(pal.accent, lineWidth: s * 0.03)).frame(width: s * 0.2)
@@ -2307,6 +2345,49 @@ extension ModulaMascotFigure {
         case (.ring(let c), .front):
             MascotRingHalf(front: true).stroke(c ?? gold, lineWidth: s * 0.06)
                 .frame(width: bw * 1.5, height: s * 0.32).rotationEffect(.degrees(-14)).offset(y: cy + s * 0.08)
+        case (.skateboard(let c), .front):
+            ZStack {
+                ForEach([-1.0, 1.0], id: \.self) { side in
+                    Circle().fill(Color(white: 0.22))
+                        .overlay(Circle().stroke(Color(red: 1, green: 0.6, blue: 0.25), lineWidth: s * 0.022))
+                        .frame(width: s * 0.11)
+                        .offset(x: side * bw * 0.44, y: s * 0.07)
+                }
+                Capsule().fill(LinearGradient(colors: [c, c.opacity(0.78)], startPoint: .top, endPoint: .bottom))
+                    .overlay(Capsule().stroke(pal.outline.opacity(0.55), lineWidth: line))
+                    .overlay(Capsule().fill(Color(red: 1, green: 0.6, blue: 0.25)).frame(width: bw * 0.5, height: s * 0.018))
+                    .frame(width: bw * 1.3, height: s * 0.085)
+            }
+            .rotationEffect(.degrees(3 * sin(t * 2) * da))
+            .offset(y: cy + bh * 0.5 + s * 0.05)
+        case (.rockSeams(let c), .front):
+            // Glowing crystalline seams between the stone plates (kept clear of the face).
+            ForEach(0..<4, id: \.self) { k in
+                Capsule().fill(c)
+                    .shadow(color: c.opacity(0.9), radius: s * 0.03)
+                    .frame(width: s * [0.22, 0.16, 0.2, 0.14][k], height: max(s * 0.022, 1))
+                    .rotationEffect(.degrees([28, -40, -18, 52][k]))
+                    .offset(x: bw * [-0.3, -0.18, 0.28, 0.36][k], y: cy + bh * [0.24, -0.26, 0.28, -0.12][k])
+                    .opacity(0.75 + 0.25 * sin(t * 2 + Double(k)))
+            }
+        case (.nose(let c), .front):
+            Circle().fill(RadialGradient(colors: [.white, c], center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: s * 0.06))
+                .shadow(color: c.opacity(0.9), radius: s * 0.04)
+                .frame(width: s * 0.1)
+                .offset(y: s * (kind.mouthY - 0.07))
+        case (.paws(let c), .front):
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                ZStack(alignment: .bottom) {
+                    Ellipse().fill(c).overlay(Ellipse().stroke(pal.outline.opacity(0.45), lineWidth: line))
+                    HStack(spacing: s * 0.02) {
+                        ForEach(0..<3, id: \.self) { _ in Capsule().fill(Color.white.opacity(0.9)).frame(width: s * 0.025, height: s * 0.05) }
+                    }
+                    .offset(y: s * 0.03)
+                }
+                .frame(width: s * 0.18, height: s * 0.12)
+                .rotationEffect(.degrees(side * -18))
+                .offset(x: side * bw * 0.36, y: cy + bh * 0.24)
+            }
         case (.speakers, .front):
             ForEach([-1.0, 1.0], id: \.self) { side in
                 ZStack {
@@ -2459,6 +2540,29 @@ extension ModulaMascotFigure {
                     .offset(x: s * [0.56, -0.58, 0.48, -0.44, 0.0][k % 5], y: cy + s * [-0.42, -0.3, 0.3, 0.38, -0.62][k % 5])
                     .opacity(0.4 + 0.6 * abs(sin(t * 1.4 + Double(k))))
             }
+        case (.cap(let c), .top) where outfit.item(for: .hat) == nil && outfit.item(for: .seasonal) == nil:
+            // Backwards street cap.
+            ZStack {
+                Capsule().fill(c.opacity(0.9)).overlay(Capsule().stroke(pal.outline.opacity(0.5), lineWidth: line))
+                    .frame(width: s * 0.3, height: s * 0.07)
+                    .offset(x: bw * 0.3, y: s * 0.09)
+                MascotCapDome().fill(LinearGradient(colors: [c.opacity(0.85), c], startPoint: .top, endPoint: .bottom))
+                    .overlay(MascotCapDome().stroke(pal.outline.opacity(0.5), lineWidth: line))
+                    .frame(width: bw * 0.66, height: s * 0.24)
+                Circle().fill(Color.white.opacity(0.9)).frame(width: s * 0.045).offset(y: -s * 0.11)
+            }
+            .rotationEffect(.degrees(-5))
+            .offset(y: top + s * 0.02)
+        case (.crystals(let c), .top) where outfit.item(for: .hat) == nil && outfit.item(for: .seasonal) == nil:
+            ForEach(0..<3, id: \.self) { k in
+                MascotCrystalShape()
+                    .fill(LinearGradient(colors: [.white.opacity(0.9), c], startPoint: .top, endPoint: .bottom))
+                    .overlay(MascotCrystalShape().stroke(pal.outline.opacity(0.5), lineWidth: line * 0.8))
+                    .shadow(color: c.opacity(0.7), radius: s * 0.03)
+                    .frame(width: s * [0.12, 0.16, 0.1][k], height: s * [0.2, 0.28, 0.16][k])
+                    .rotationEffect(.degrees([-18, 4, 22][k]), anchor: .bottom)
+                    .offset(x: s * [-0.14, 0.02, 0.17][k], y: top - s * [0.04, 0.08, 0.02][k])
+            }
         case (.notes, .top):
             Text("♪").font(.system(size: s * 0.2, weight: .bold)).foregroundStyle(pal.accent)
                 .offset(x: s * 0.56, y: top - CGFloat((t * 0.6).truncatingRemainder(dividingBy: 1)) * s * 0.16 * a)
@@ -2539,18 +2643,18 @@ extension MolibooFamilySpecs {
         let snow = c(0.97, 0.97, 1)
         t[.riff] = MolibooSpec(body: .round, size: CGSize(width: 0.94, height: 0.86), palette: .spec(snow, accent: cyan, light: .white), parts: [.glow(cyan), .speakers, .headphones(magenta), .notes], hatScale: 0.95, hatMaxWidth: 0.54, form: "Living pocket speaker")
         t[.graff] = MolibooSpec(body: .round, size: CGSize(width: 0.92, height: 0.86), palette: .spec(snow, accent: magenta, light: .white), parts: [.paintDrips([magenta, cyan, c(1, 0.62, 0.2), c(0.6, 0.4, 1)]), .bowtie(magenta)], hatScale: 0.95, hatMaxWidth: 0.54, form: "Living paint splash")
-        t[.nyx] = MolibooSpec(body: .ink, size: CGSize(width: 1.06, height: 0.8), palette: .spec(c(0.14, 0.12, 0.24), accent: c(0.62, 0.36, 1), iris: c(0.85, 0.7, 1), light: c(0.3, 0.26, 0.46)), parts: [.glow(c(0.5, 0.3, 0.9)), .roots], feet: false, hatScale: 0.95, hatMaxWidth: 0.54, form: "Living little shadow")
+        t[.nyx] = MolibooSpec(body: .wide, size: CGSize(width: 1.12, height: 0.7), palette: .spec(c(0.14, 0.12, 0.24), accent: c(0.62, 0.36, 1), iris: c(0.85, 0.7, 1), light: c(0.3, 0.26, 0.46)), parts: [.glow(c(0.5, 0.3, 0.9)), .puddle(c(0.1, 0.08, 0.2)), .tendrils(c(0.46, 0.32, 0.8)), .sparkles(2)], feet: false, hatScale: 0.95, hatMaxWidth: 0.54, form: "Living little shadow")
         t[.zip] = MolibooSpec(body: .round, size: CGSize(width: 0.88, height: 0.82), palette: .spec(c(0.22, 0.22, 0.3), accent: cyan, iris: cyan), parts: [.ears(.bunny), .wheels, .visor(cyan)], feet: false, hatScale: 0.92, hatMaxWidth: 0.5, form: "Roller-wheel sprite")
         t[.vex] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(snow, accent: magenta, light: .white), parts: [.tail(.fox, magenta), .ears(.fox), .crown, .lightning], hatScale: 0.82, hatMaxWidth: 0.46, headTopExtra: 0.06, form: "Streetwise miniature fox")
-        t[.koda] = MolibooSpec(body: .round, size: CGSize(width: 0.96, height: 0.86), palette: .spec(c(0.58, 0.44, 0.34), accent: c(1, 0.56, 0.22), light: c(0.95, 0.9, 0.82)), parts: [.tail(.fluffy, c(0.34, 0.26, 0.22)), .ears(.round), .mask(c(0.24, 0.18, 0.16)), .scarf(c(0.2, 0.7, 0.72))], hatScale: 0.92, hatMaxWidth: 0.46, form: "Little raccoon")
+        t[.koda] = MolibooSpec(body: .round, size: CGSize(width: 0.96, height: 0.86), palette: .spec(c(0.58, 0.44, 0.34), accent: c(1, 0.56, 0.22), light: c(0.95, 0.9, 0.82)), parts: [.tail(.fluffy, c(0.34, 0.26, 0.22)), .ears(.round), .mask(c(0.24, 0.18, 0.16)), .scarf(c(0.2, 0.7, 0.72)), .cap(c(0.2, 0.62, 0.66)), .feet(c(0.34, 0.26, 0.22))], hatScale: 0.92, hatMaxWidth: 0.46, form: "Little raccoon")
         t[.glitch] = MolibooSpec(body: .square, size: CGSize(width: 0.9, height: 0.84), palette: .spec(snow, accent: c(0.4, 0.5, 1), light: .white), parts: [.glow(c(0.6, 0.5, 1)), .pixels(c(0.5, 0.55, 1)), .pixels(magenta)], hatScale: 0.95, hatMaxWidth: 0.54, form: "Living pixel-cluster creature")
         t[.jinx] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(c(0.16, 0.13, 0.22), accent: magenta, iris: magenta, light: c(0.32, 0.26, 0.4)), parts: [.tail(.curl, c(0.16, 0.13, 0.22)), .ears(.cat), .crescent(c(1, 0.5, 0.85)), .whiskers], hatScale: 0.92, hatMaxWidth: 0.48, form: "Nocturnal alley cat")
         t[.`static`] = MolibooSpec(body: .cloud, size: CGSize(width: 1.0, height: 0.86), palette: .spec(c(0.9, 0.95, 1), accent: neonYellow, light: .white), parts: [.glow(c(0.6, 0.85, 1)), .lightning, .mane(9), .antennae(neonYellow)], form: "Electric fluff creature")
         t[.holo] = MolibooSpec(body: .drop, size: CGSize(width: 0.86, height: 0.96), palette: .spec(c(0.66, 0.86, 1), accent: c(0.78, 0.6, 1), light: c(0.92, 0.98, 1)), parts: [.glow(cyan), .fins(c(0.6, 0.8, 1)), .orbiters(2, c(0.8, 0.7, 1))], floats: true, feet: false, hatScale: 0.82, hatMaxWidth: 0.54, headTopExtra: 0.16, form: "Translucent light projection")
         t[.fuse] = MolibooSpec(body: .square, size: CGSize(width: 0.86, height: 0.9), palette: .spec(c(0.24, 0.24, 0.3), accent: c(1, 0.78, 0.2), iris: c(1, 0.85, 0.3), light: c(0.42, 0.42, 0.5)), parts: [.lightning, .visor(c(1, 0.8, 0.25)), .feet(c(1, 0.7, 0.2))], hatScale: 0.95, hatMaxWidth: 0.54, form: "Living portable battery")
-        t[.skid] = MolibooSpec(body: .pear, size: CGSize(width: 0.86, height: 0.9), palette: .spec(c(0.56, 0.86, 0.32), accent: c(1, 0.56, 0.22), light: c(0.84, 0.96, 0.66)), parts: [.tail(.lizard, c(0.4, 0.7, 0.3)), .frill(c(0.6, 0.45, 0.95)), .wheels], feet: false, hatScale: 0.88, hatMaxWidth: 0.54, form: "Skate-loving lizard")
-        t[.mica] = MolibooSpec(body: .pear, size: CGSize(width: 0.96, height: 0.86), palette: .spec(c(0.5, 0.38, 0.3), accent: cyan, light: c(0.84, 0.72, 0.6)), parts: [.goggles(cyan), .whiskers], hatScale: 0.88, hatMaxWidth: 0.54, form: "Little tunnelling mole")
-        t[.rumble] = MolibooSpec(body: .pebble, size: CGSize(width: 1.14, height: 0.82), palette: .spec(c(0.4, 0.4, 0.46), accent: c(0.3, 0.6, 1), light: c(0.62, 0.62, 0.68)), parts: [.glow(c(0.3, 0.55, 1)), .shell(c(0.3, 0.32, 0.38))], hatScale: 0.95, hatMaxWidth: 0.54, form: "Living rock creature")
+        t[.skid] = MolibooSpec(body: .pear, size: CGSize(width: 0.86, height: 0.9), palette: .spec(c(0.56, 0.86, 0.32), accent: c(1, 0.56, 0.22), light: c(0.84, 0.96, 0.66)), parts: [.tail(.lizard, c(0.4, 0.7, 0.3)), .feet(c(0.36, 0.64, 0.28)), .skateboard(c(0.62, 0.48, 0.95))], feet: true, hatScale: 0.88, hatMaxWidth: 0.54, form: "Skate-loving lizard")
+        t[.mica] = MolibooSpec(body: .pear, size: CGSize(width: 0.96, height: 0.86), palette: .spec(c(0.5, 0.38, 0.3), accent: cyan, light: c(0.84, 0.72, 0.6)), parts: [.goggles(cyan), .whiskers, .nose(cyan), .paws(c(0.96, 0.74, 0.7))], hatScale: 0.88, hatMaxWidth: 0.54, form: "Little tunnelling mole")
+        t[.rumble] = MolibooSpec(body: .pebble, size: CGSize(width: 1.08, height: 0.84), palette: .spec(c(0.4, 0.4, 0.46), accent: c(0.3, 0.6, 1), light: c(0.62, 0.62, 0.68)), parts: [.glow(c(0.3, 0.55, 1)), .arms(c(0.3, 0.3, 0.36)), .rockSeams(c(0.4, 0.75, 1)), .crystals(c(0.35, 0.65, 1)), .feet(c(0.3, 0.3, 0.36))], hatScale: 0.95, hatMaxWidth: 0.54, form: "Living rock creature")
         t[.flick] = MolibooSpec(body: .round, size: CGSize(width: 0.84, height: 0.82), palette: .spec(snow, accent: magenta, light: .white), parts: [.glow(magenta), .wings(.moth, c(0.9, 0.4, 0.9)), .antennae(c(0.7, 0.4, 1))], floats: true, feet: false, hatScale: 0.95, hatMaxWidth: 0.52, headTopExtra: 0.05, form: "Little luminous moth")
     }
 
@@ -2706,6 +2810,17 @@ struct MascotClawShape: Shape {
         let c = CGPoint(x: r.midX, y: r.midY)
         p.move(to: c)
         p.addArc(center: c, radius: min(r.width, r.height) / 2, startAngle: .degrees(-50), endAngle: .degrees(-100), clockwise: false)
+        p.closeSubpath()
+        return p
+    }
+}
+
+/// Rounded cap crown (flat bottom), used by the backwards street cap.
+struct MascotCapDome: Shape {
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: r.minX, y: r.maxY))
+        p.addCurve(to: CGPoint(x: r.maxX, y: r.maxY), control1: CGPoint(x: r.minX, y: r.minY - r.height * 0.3), control2: CGPoint(x: r.maxX, y: r.minY - r.height * 0.3))
         p.closeSubpath()
         return p
     }
