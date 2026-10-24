@@ -8,8 +8,11 @@ DESTINATION="${TARGET_BUILD_DIR:?TARGET_BUILD_DIR is required}/${UNLOCALIZED_RES
 REQUIRED="${MODULA_REQUIRE_EXPERIMENTAL_NODUS:-0}"
 INCLUDE="${MODULA_INCLUDE_EXPERIMENTAL_NODUS:-}"
 
+# CORE-SIZE-01: the ~930 MiB R7 weights are never bundled by default, in any configuration.
+# Model weights belong in a downloadable package; developers opt in explicitly with
+# MODULA_INCLUDE_EXPERIMENTAL_NODUS=1 (or MODULA_REQUIRE_EXPERIMENTAL_NODUS=1 for acceptance runs).
 if [ -z "$INCLUDE" ]; then
-  if [ "${CONFIGURATION:-}" = "Debug" ]; then INCLUDE=1; else INCLUDE=0; fi
+  if [ "$REQUIRED" = "1" ]; then INCLUDE=1; else INCLUDE=0; fi
 fi
 
 if [ "$INCLUDE" != "1" ]; then

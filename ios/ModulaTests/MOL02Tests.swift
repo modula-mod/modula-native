@@ -23,6 +23,7 @@ final class MOL02Tests: XCTestCase {
     }
 
     func testRegistryIsGenericAndRequiresBundledAsset() throws {
+        throw XCTSkip("CORE-SIZE-01: retired Moliboo 3D USDZ/portrait/premium assets are no longer bundled; 2D is the only renderer")
         XCTAssertTrue(MolibooRegistry.has3D("pip"))
         XCTAssertTrue(MolibooRegistry.has3D("pebble"))
         XCTAssertTrue(MolibooRegistry.has3D("moss"))
@@ -209,6 +210,7 @@ final class MOL02Tests: XCTestCase {
     }
 
     func testTemplateCacheIsBounded() async throws {
+        throw XCTSkip("CORE-SIZE-01: retired Moliboo 3D USDZ/portrait/premium assets are no longer bundled; 2D is the only renderer")
         MolibooAssetLoader.purge()
         for id in ["pebble", "pip", "moss", "tofu", "bolt"] {
             guard let d = MolibooRegistry.descriptor(for: id), let a = d.asset else { continue }

@@ -120,7 +120,8 @@ final class MOL03WorldTests: XCTestCase {
         XCTAssertEqual(MolibooStagePose.load(for: "pip", defaults: d), MolibooStagePose())
     }
 
-    func testCollectionShowsOnlyRegisteredCharacters() {
+    func testCollectionShowsOnlyRegisteredCharacters() throws {
+        throw XCTSkip("CORE-SIZE-01: retired Moliboo 3D USDZ/portrait/premium assets are no longer bundled; 2D is the only renderer")
         let ids = MolibooRegistry.available3D.map(\.id)
         XCTAssertFalse(ids.contains("bubbles"), "there is no Bubbles character")
         XCTAssertTrue(ids.contains("pebble"))

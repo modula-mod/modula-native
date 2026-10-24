@@ -103,7 +103,8 @@ final class MOL03WardrobeTests: XCTestCase {
 
     /// Device crash regression: concurrent premium loads must share one NSBundleResourceRequest begin.
     @MainActor
-    func testConcurrentPremiumPackRequestsBeginOnce() async {
+    func testConcurrentPremiumPackRequestsBeginOnce() async throws {
+        throw XCTSkip("CORE-SIZE-01: retired Moliboo 3D USDZ/portrait/premium assets are no longer bundled; 2D is the only renderer")
         async let a = MolibooWardrobeAssets.ensurePremium()
         async let b = MolibooWardrobeAssets.ensurePremium()
         async let c = MolibooWardrobeAssets.ensurePremium()

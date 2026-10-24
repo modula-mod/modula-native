@@ -16,6 +16,7 @@ final class MOL03WardrobeFitValidationTests: XCTestCase {
     private let capID = "cap.moliboo.signature"
 
     func testRepresentativeWardrobeFitsAndBackgroundOrientationAcrossOriginals() async throws {
+        throw XCTSkip("CORE-SIZE-01: retired Moliboo 3D USDZ/portrait/premium assets are no longer bundled; 2D is the only renderer")
         _ = await MolibooWardrobeAssets.ensurePremium()
         let table = MolibooWardrobeFitTable.bundled()
         let manifest = try MolibooManifest.bundled()
