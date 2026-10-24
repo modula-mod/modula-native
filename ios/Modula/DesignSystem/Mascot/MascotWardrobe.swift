@@ -537,21 +537,50 @@ final class MascotWardrobeStore {
     }
     func canEquip(_ item: MascotWardrobeItem) -> Bool { owns(item) && item.isAvailable() }
 
+    // Legends (non-wearable characters)
+    /// False while a Legend is the selected Moliboo. Nothing worn is applied, changed or cleared then: the saved outfit
+    /// is durable user data and comes back as soon as a wardrobe-capable Moliboo is picked again.
+    var selectionSupportsWardrobe: Bool {
+        let raw = UserDefaults.standard.string(forKey: ModulaMascotSettings.kindKey) ?? ModulaMascotKind.pip.rawValue
+        return MascotSelection.resolve(raw: raw).supportsWardrobe
+    }
+    /// Only a Scene (the stage behind the character) may change while a Legend is selected.
+    static func editable(_ slot: MascotWardrobeSlot, supportsWardrobe: Bool) -> Bool { supportsWardrobe || slot == .background }
+    /// `next` as it may be applied: for a Legend, every worn slot keeps the current (hidden, preserved) value.
+    static func merged(_ next: MascotOutfit, onto current: MascotOutfit, supportsWardrobe: Bool) -> MascotOutfit {
+        guard !supportsWardrobe else { return next }
+        var out = current
+        let bg = MascotWardrobeSlot.background.rawValue
+        out.items[bg] = next.items[bg]
+        out.dyes[bg] = next.dyes[bg]
+        return out
+    }
+    private func editable(_ slot: MascotWardrobeSlot) -> Bool { Self.editable(slot, supportsWardrobe: selectionSupportsWardrobe) }
+
     // Editing
     func equip(_ item: MascotWardrobeItem, dye: Int? = nil) {
-        guard canEquip(item) else { return }
+        guard canEquip(item), editable(item.slot) else { return }
         commit { $0.equip(item, dye: dye) }
     }
     func toggle(_ item: MascotWardrobeItem) {
         if outfit.contains(item) { unequip(item.slot) } else { equip(item) }
     }
     func setDye(_ index: Int, for slot: MascotWardrobeSlot) {
-        guard outfit.item(for: slot) != nil else { return }
+        guard outfit.item(for: slot) != nil, editable(slot) else { return }
         commit { $0.dyes[slot.rawValue] = index }
     }
-    func unequip(_ slot: MascotWardrobeSlot) { commit { $0.unequip(slot) } }
-    func clearOutfit() { commit { $0.clear() } }
-    func apply(_ next: MascotOutfit) { commit { $0 = next } }
+    func unequip(_ slot: MascotWardrobeSlot) {
+        guard editable(slot) else { return }
+        commit { $0.unequip(slot) }
+    }
+    func clearOutfit() {
+        guard selectionSupportsWardrobe else { return }
+        commit { $0.clear() }
+    }
+    func apply(_ next: MascotOutfit) {
+        let merged = Self.merged(next, onto: outfit, supportsWardrobe: selectionSupportsWardrobe)
+        commit { $0 = merged }
+    }
 
     func undo() {
         guard let last = undoStack.popLast() else { return }
@@ -561,6 +590,7 @@ final class MascotWardrobeStore {
 
     /// Random owned items that fit the rig.
     func randomize(for rig: MascotRig) {
+        guard selectionSupportsWardrobe, !rig.wearsOwnLook else { return }
         let chances: [MascotWardrobeSlot: Double] = [
             .hat: 0.65, .hair: 0.35, .face: 0.4, .top: 0.6, .outerwear: 0.25, .bottom: 0.3, .shoes: 0.45,
             .accessory: 0.4, .held: 0.35, .back: 0.3, .aura: 0.3, .pet: 0.25, .background: 0.7,
@@ -575,12 +605,14 @@ final class MascotWardrobeStore {
 
     // Presets
     func savePreset(named name: String) {
+        guard selectionSupportsWardrobe else { return }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         presets.insert(MascotOutfitPreset(id: UUID().uuidString, name: trimmed.isEmpty ? "Outfit \(presets.count + 1)" : trimmed, outfit: outfit, createdAt: Date()), at: 0)
         persistPresets()
         MascotProgressStore.shared.record(.savedOutfit)
     }
     func applyPreset(_ preset: MascotOutfitPreset) {
+        guard selectionSupportsWardrobe else { return }
         var next = preset.outfit
         for (slot, id) in next.items {
             if let item = MascotWardrobeCatalog.item(id: id), canEquip(item) { continue }
@@ -603,6 +635,8 @@ final class MascotWardrobeStore {
     func applyOutfitOfTheDayIfNeeded() -> Bool {
         // When native 3D is active, preserve the user's clean character or explicit outfit rather than auto-equipping random items.
         if MolibooFeatureFlags.native3DEnabled { return false }
+        // Legends never get an automatic outfit (and the day isn't used up, so a wardrobe Moliboo can still get one).
+        guard selectionSupportsWardrobe else { return false }
         let key = "composer.mascot.ootd.\(MascotProgressStore.dayKey())"
         guard !UserDefaults.standard.bool(forKey: key) else { return false }
         UserDefaults.standard.set(true, forKey: key)
@@ -624,6 +658,7 @@ final class MascotWardrobeStore {
         let now = Calendar.current.dateComponents([.month, .day, .year], from: Date())
         guard now.month == month, now.day == day else { return false }
         MascotProgressStore.shared.record(.birthday)
+        guard selectionSupportsWardrobe else { return false }
         let stamp = "\(month)-\(day)-\(now.year ?? 0)"
         guard UserDefaults.standard.string(forKey: birthdayOutfitAppliedKey) != stamp else { return false }
         UserDefaults.standard.set(stamp, forKey: birthdayOutfitAppliedKey)
