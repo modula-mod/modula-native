@@ -302,13 +302,31 @@ actor GreenfieldClient {
 
     /// Lifecycle mutations. All are idempotent on the server via `idempotencyKey`, so the
     /// single 401-refresh retry in `authenticated` cannot double-apply them.
-    func installModule(_ moduleID: String, version: String?, approvedPermissions: [String], idempotencyKey: String) async throws -> String? {
+    func installModule(_ moduleID: String, version: String?, approvedPermissions: [String], idempotencyKey: String,
+                       packageLockSha256: String? = nil, cachedPublicDigests: [String] = []) async throws -> String? {
         guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
         var body: [String: JSONValue] = ["platform": .string("ios"), "hostVersion": .string(ModulaHost.version), "idempotencyKey": .string(idempotencyKey)]
         if let version { body["version"] = .string(version) }
+        if let packageLockSha256 {
+            guard InstallDescriptorVerifier.isHex64(packageLockSha256) else { throw APIError.invalidResponse }
+            body["packageLockSha256"] = .string(packageLockSha256)
+            body["cachedPublicDigests"] = .array(cachedPublicDigests.map(JSONValue.string))
+        }
         if !approvedPermissions.isEmpty { body["approvedPermissions"] = .array(approvedPermissions.map(JSONValue.string)) }
         let value: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/install", body: .object(body))
         return value["status"]?.string
+    }
+
+    func packageInstallPlan(_ moduleID: String, version: String?, cachedPublicDigests: [String]) async throws -> PackageInstallPlan {
+        guard let path = Self.modulePath(moduleID), cachedPublicDigests.allSatisfy(InstallDescriptorVerifier.isHex64) else {
+            throw APIError.invalidResponse
+        }
+        var body: [String: JSONValue] = ["platform": .string("ios"), "hostVersion": .string(ModulaHost.version),
+                                         "cachedPublicDigests": .array(cachedPublicDigests.map(JSONValue.string))]
+        if let version { body["version"] = .string(version) }
+        let value: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/package-install-plan", body: .object(body))
+        guard let plan = PackageInstallPlan(json: value, requested: moduleID) else { throw APIError.invalidResponse }
+        return plan
     }
 
     func enableModule(_ moduleID: String, idempotencyKey: String) async throws {
@@ -411,6 +429,7 @@ actor GreenfieldClient {
 
     /// Downloads an immutable registry artifact and requires the expected SHA-256.
     func downloadVerifiedArtifact(ref: String, expectedSha256: String, maximumBytes: Int = 1_048_576) async throws -> Data {
+        guard InstallDescriptorVerifier.isHex64(expectedSha256) else { throw APIError.invalidResponse }
         let url: URL
         if ref.hasPrefix("/"), let baseURL, let resolved = URL(string: ref, relativeTo: baseURL)?.absoluteURL {
             url = resolved
@@ -419,6 +438,10 @@ actor GreenfieldClient {
         } else {
             throw APIError.invalidResponse
         }
+        guard let baseURL, url.scheme == "https", url.host == baseURL.host,
+              url.port == baseURL.port, url.user == nil, url.password == nil,
+              url.path == "/v1/registry/artifacts/\(expectedSha256)",
+              url.query == nil, url.fragment == nil else { throw APIError.invalidResponse }
         let data = try await mediaData(from: url, maximumBytes: maximumBytes)
         let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
         guard digest == expectedSha256 else { throw APIError.invalidResponse }

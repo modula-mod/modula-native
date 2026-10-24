@@ -82,15 +82,17 @@ struct ModuleDetailV2View: View {
         }
         .sheet(isPresented: $confirmInstall) {
             ModulePermissionReviewSheet(
+                moduleID: moduleID,
+                localDevelopment: product?.betaClassification == "local-development",
                 moduleName: product?.name ?? "Module",
                 operation: isInstalled ? .update : .install,
                 fromVersion: installedVersion,
                 toVersion: app.catalogue.product(moduleID)?.latestVersion ?? installedVersion,
                 permissions: reviewedPermissions,
                 previouslyGranted: Set(app.catalogue.reviewedGrants[moduleID] ?? []),
-                onConfirm: {
+                onConfirm: { plan in
                     confirmInstall = false
-                    Task { await runInstall() }
+                    Task { await runInstall(approvedPlan: plan) }
                 },
                 onCancel: { confirmInstall = false }
             )
@@ -758,11 +760,11 @@ struct ModuleDetailV2View: View {
         app.navigation.open(.module(moduleID, localPath: nil))
     }
 
-    private func runInstall() async {
+    private func runInstall(approvedPlan: PackageInstallPlan?) async {
         let granted = reviewedPermissions.map(\.permission)
         let updating = isInstalled
         let name = product?.name ?? "Module"
-        if await app.catalogue.install(moduleID, permissions: granted) {
+        if await app.catalogue.install(moduleID, permissions: granted, approvedPlan: approvedPlan) {
             HapticEngine.shared.play(.success)
             installFeedback = updating ? "\(name) updated" : "\(name) installed"
         } else {
@@ -784,14 +786,20 @@ struct ModuleDetailV2View: View {
 private struct ModulePermissionReviewSheet: View {
     enum Operation { case install, update }
 
+    let moduleID: String
+    let localDevelopment: Bool
     let moduleName: String
     let operation: Operation
     let fromVersion: String?
     let toVersion: String?
     let permissions: [ModuleListing.Permission]
     let previouslyGranted: Set<String>
-    let onConfirm: () -> Void
+    let onConfirm: (PackageInstallPlan?) -> Void
     let onCancel: () -> Void
+    @Environment(AppEnvironment.self) private var app
+    @State private var plan: PackageInstallPlan?
+    @State private var planLoaded = false
+    @State private var planError: String?
 
     private var title: String { operation == .install ? "Install" : "Update" }
     private var requested: Set<String> { Set(permissions.map(\.permission)) }
@@ -829,6 +837,33 @@ private struct ModulePermissionReviewSheet: View {
                     Text(explanation)
                         .font(.subheadline)
                         .fixedSize(horizontal: false, vertical: true)
+                    if !localDevelopment {
+                        if let plan {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Download plan").font(.headline)
+                                ForEach(plan.packages, id: \.id) { package in
+                                    HStack {
+                                        Text(package.id == moduleID ? "Content" : package.category == "web-runtime" ? "Shared runtime" : package.category.capitalized)
+                                        Spacer()
+                                        Text(ByteCountFormatter.string(fromByteCount: package.compressedBytes, countStyle: .file))
+                                    }
+                                    .font(.subheadline)
+                                    if plan.reusedDigests.contains(package.sha256) {
+                                        Text("Already downloaded and verified").font(.caption).foregroundStyle(.secondary)
+                                    }
+                                }
+                                Divider()
+                                LabeledContent("New download", value: ByteCountFormatter.string(fromByteCount: plan.newDownloadBytes, countStyle: .file))
+                                LabeledContent("Installed estimate", value: ByteCountFormatter.string(fromByteCount: plan.aggregateInstalledBytes, countStyle: .file))
+                            }
+                            .padding(14)
+                            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
+                        } else if let planError {
+                            Text(planError).foregroundStyle(.red).font(.subheadline)
+                        } else if !planLoaded {
+                            ProgressView("Checking package dependencies…")
+                        }
+                    }
                     if permissions.isEmpty {
                         Text("No permissions are requested. Nothing will be granted.")
                             .font(.subheadline)
@@ -860,7 +895,7 @@ private struct ModulePermissionReviewSheet: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                Button(title, action: onConfirm)
+                Button(title) { onConfirm(plan) }
                     .font(.headline)
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .buttonStyle(.borderedProminent)
@@ -869,6 +904,16 @@ private struct ModulePermissionReviewSheet: View {
                     .padding(.vertical, 8)
                     .background(.bar)
                     .accessibilityIdentifier("module.install.confirm")
+                    .disabled(!planLoaded || planError != nil)
+            }
+        }
+        .task {
+            if localDevelopment { planLoaded = true; return }
+            do {
+                plan = try await app.catalogue.preparePackagePlan(moduleID, version: toVersion)
+                planLoaded = true
+            } catch {
+                planError = "The package plan could not be verified. Try again."
             }
         }
         .presentationDetents([.medium, .large])
