@@ -1687,6 +1687,18 @@ extension ModulaMascotFigure {
                     .frame(width: s * (0.1 - CGFloat(i) * 0.015), height: s * (0.1 - CGFloat(i) * 0.015))
                     .offset(x: s * (0.42 + CGFloat(i) * 0.08), y: -s * (0.28 + CGFloat(i) * 0.08) - CGFloat(sin(t + Double(i))) * s * 0.02 * a)
             }
+            // Ink splashes and quick pen strokes around the sketch (sheet 021).
+            ForEach(0..<5, id: \.self) { i in
+                Circle().fill(pal.outline.opacity(0.85))
+                    .frame(width: s * [0.07, 0.045, 0.06, 0.035, 0.05][i])
+                    .offset(x: s * [-0.56, -0.62, 0.58, -0.5, 0.5][i], y: s * [-0.1, 0.12, 0.26, 0.4, 0.42][i])
+            }
+            ForEach(0..<3, id: \.self) { i in
+                Capsule().fill(pal.outline.opacity(0.8))
+                    .frame(width: s * 0.12, height: max(s * 0.022, 0.8))
+                    .rotationEffect(.degrees([-50, -20, 30][i]))
+                    .offset(x: s * [-0.5, -0.36, 0.56][i], y: -s * [0.34, 0.46, 0.04][i])
+            }
         case .chime:
             // Clapper + floating notes and sparkles (sheet 022).
             Circle().fill(pal.accent).overlay(Circle().stroke(pal.outline.opacity(0.5), lineWidth: 0.8))
