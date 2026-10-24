@@ -79,6 +79,67 @@ final class N4CRouteTests: XCTestCase {
 
 final class WebGameInstalledIsolationTests: XCTestCase {
     @MainActor
+    func testSharedRuntimeHasOneVerifiedCopyAndSurvivesUntilLastGameIsRemoved() throws {
+        let gameEncoded = "H4sIAAAAAAAC/+3VwW6DMAwGYB4F5dLLQAQIsG7dZS8waU8QEmdQQeggTKuqvvuydqrUnrf2sP+72HIs5RBbaa2mz7hxfRf8mcQr8vwQvcuYpEl6yo/1sszyIEyCK5gnJ0d/ZfA/PfbkZNg4t4nofW4/Vux5sI6si15JzWPrttHL0LVqy0J1PFgxTUbOnYumUYULO1haPISTGtvNT2mizviS77ekztuGen1eYk8B3NCb7Ck2bUdTvJ4Ge5P95+XF/vOkECn2/xp2bFIN9ZItWT/ouZPx90REx4ng7I4dMrbcsfb0U/heRfeq0iZLJBniRghDWV2LLBNFqmvNOelEC1GYjJeiqnmdllqbvKJKluTfm+332D0AAAAAAAAAAAAAAAAAAACA3/AFxMM1iwAoAAA="
+        let runtimeEncoded = "H4sIAAAAAAAC/+3VyUrFMBQG4K59ipK1lsSkQ+rTZDi5gx0uTQtC6bsbqii6FbvQ/4NwDiGQzfkTGk6XgYr+GrNfw5NKqb0m3yvnsv7s9/26fiyznGcHWOJspnRl9j/Ry22c5txTMEs352s8m4l8m8/TQtvTXQZ/2824Z3OiIlw6isU1jsPx+Rd1+TX/Qsj0JCD/B1hZdGfqDWtZP/qlM8X7RDy8TYRg92zvWLsy+vgs0nErtVBEwYdANnBZUSO5MyS1Ii+oUrJxkishRKUbl5YVWnJjdalqbblh24b4AQAAAAAAAAAAAAAAAAAAAPzYK/FtDLwAKAAA"
+        let game = try XCTUnwrap(Data(base64Encoded: gameEncoded))
+        let runtime = try XCTUnwrap(Data(base64Encoded: runtimeEncoded))
+        let gameDigest = WebGamePackage.digest(game)
+        let runtimeDigest = WebGamePackage.digest(runtime)
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("shared-runtime-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let controller = ModuleActivationController(store: ModuleArtifactStore(root: root))
+        let shared = SharedWebRuntimeStore(moduleCacheRoot: root)
+        let account = "account-runtime-reuse"
+        let ids = ["digital.modula.orbit-arena", "digital.modula.orbit-dash"]
+        var runningBrowser: WebGameBrowserProbe?
+        for (index, id) in ids.enumerated() {
+            let frontend = Data("""
+                {"schema":"modula.frontend.1.0","frontendSchemaVersion":"1.0.0","mpsVersion":"1.0","productId":"\(id)","releaseVersion":"0.1.0","mode":"declarative","entry":"home","hostRuntime":{"versionRange":">=1.0.0"},"routes":[{"path":"/","viewId":"home"}],"views":[{"id":"home","kind":"dashboard","root":{"type":"section","children":[{"type":"text","text":"Ready"}]}}],"accessibility":{"declaration":"host-baseline-with-product-semantics","screenReader":true,"scalableText":true,"keyboardNavigation":true,"reduceMotion":true}}
+                """.utf8)
+            let manifest = ModuleManifest(id: id, name: id, version: "0.1.0", runtime: "web-game", entry: "index.html",
+                                          permissions: [], minHostVersion: ">=1.1.0", minBridgeVersion: "0.1.0", collections: [])
+            try controller.stageVerified(accountID: account, moduleId: id, version: "0.1.0", releaseId: "\(id)@0.1.0",
+                                         frontend: frontend, frontendSha256: WebGamePackage.digest(frontend),
+                                         mediaType: ProductUIDocument.mediaType, hostManifest: manifest, descriptor: nil,
+                                         gameArchive: game, gameSha256: gameDigest,
+                                         runtimeArchive: index == 0 ? runtime : nil, runtimeSha256: runtimeDigest)
+            let active = try controller.activate(accountID: account, moduleId: id)
+            let entry = try controller.store.verifiedGameEntry(for: active)
+            let url = try WebGameResourceProbe.entryURL(entry: entry)
+            let runtimeURL = try XCTUnwrap(URL(string: "/__runtime/engine.mjs", relativeTo: url)?.absoluteURL)
+            let task = RecordingGameSchemeTask(runtimeURL)
+            try WebGameResourceProbe.serve(entry: entry, task: task)
+            XCTAssertTrue(task.finished)
+            XCTAssertEqual(task.body, try WebRuntimePackage(archive: runtime, expectedSha256: runtimeDigest).engine)
+            if index == 0 { runningBrowser = try WebGameResourceProbe.browser(entry: entry) { _ in } }
+        }
+        XCTAssertEqual(shared.installedDigests(), [runtimeDigest])
+        let engineFile = root.appendingPathComponent("SharedWebRuntimes/\(runtimeDigest)/engine.mjs")
+        try Data("corrupted".utf8).write(to: engineFile, options: .atomic)
+        XCTAssertThrowsError(try shared.verifiedEngine(sha256: runtimeDigest))
+        try shared.installVerified(WebRuntimePackage(archive: runtime, expectedSha256: runtimeDigest))
+        XCTAssertNoThrow(try shared.verifiedEngine(sha256: runtimeDigest))
+        XCTAssertEqual(shared.installedDigests(), [runtimeDigest], "Repair must not leave a second runtime copy")
+        try controller.store.removeModule(accountID: account, moduleId: ids[1])
+        XCTAssertEqual(try shared.reclaimUnused(), [])
+        XCTAssertNoThrow(try controller.store.verifiedGameEntry(for: XCTUnwrap(controller.active(accountID: account, moduleId: ids[0]))))
+        XCTAssertThrowsError(try controller.store.removeModule(accountID: account, moduleId: ids[0])) {
+            XCTAssertEqual($0 as? ModuleActivationError, .activeSession)
+        }
+        runningBrowser?.close()
+        runningBrowser = nil
+        try controller.store.removeModule(accountID: account, moduleId: ids[0])
+        let uncertainSlot = controller.store.slotURL(accountID: account, moduleId: "digital.modula.incomplete", slot: .staged)
+        try FileManager.default.createDirectory(at: uncertainSlot, withIntermediateDirectories: true)
+        try Data("{broken".utf8).write(to: uncertainSlot.appendingPathComponent("release.json"))
+        XCTAssertEqual(try shared.reclaimUnused(), [], "Corrupt staged metadata must block reclamation")
+        try controller.store.removeModule(accountID: account, moduleId: "digital.modula.incomplete")
+        XCTAssertEqual(try shared.reclaimUnused(), [runtimeDigest])
+        XCTAssertEqual(shared.installedDigests(), [])
+    }
+
+    @MainActor
     func testBothWebGameSlotsPreserveActiveAcrossRejectedUpdatesAndHealthRollback() async throws {
         let encoded = "H4sIAAAAAAAC/+3VwW6DMAwGYB4F5dLLQAQIsG7dZS8waU8QEmdQQeggTKuqvvuydqrUnrf2sP+72HIs5RBbaa2mz7hxfRf8mcQr8vwQvcuYpEl6yo/1sszyIEyCK5gnJ0d/ZfA/PfbkZNg4t4nofW4/Vux5sI6si15JzWPrttHL0LVqy0J1PFgxTUbOnYumUYULO1haPISTGtvNT2mizviS77ekztuGen1eYk8B3NCb7Ck2bUdTvJ4Ge5P95+XF/vOkECn2/xp2bFIN9ZItWT/ouZPx90REx4ng7I4dMrbcsfb0U/heRfeq0iZLJBniRghDWV2LLBNFqmvNOelEC1GYjJeiqnmdllqbvKJKluTfm+332D0AAAAAAAAAAAAAAAAAAACA3/AFxMM1iwAoAAA="
         let archive = try XCTUnwrap(Data(base64Encoded: encoded))
@@ -99,6 +160,7 @@ final class WebGameInstalledIsolationTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let controller = ModuleActivationController(store: ModuleArtifactStore(root: root))
         let account = "account-game-rollback"
+        var seenOrigins = Set<String>()
         for engine in ["phaser", "playcanvas"] {
             let id = "digital.modula.orbit-\(engine)"
             let initial = frontend(id, "0.1.0")
@@ -116,8 +178,9 @@ final class WebGameInstalledIsolationTests: XCTestCase {
                                          descriptor: nil, gameArchive: archive, gameSha256: digest(archive))
             _ = try controller.activate(accountID: account, moduleId: id)
             let entry = try controller.store.verifiedGameEntry(for: XCTUnwrap(controller.active(accountID: account, moduleId: id)))
-            let gameDigest = try XCTUnwrap(controller.active(accountID: account, moduleId: id)?.gameSha256)
-            let acceptedURL = try XCTUnwrap(URL(string: "modula-game://\(gameDigest)/index.html"))
+            let acceptedURL = try WebGameResourceProbe.entryURL(entry: entry)
+            let origin = try XCTUnwrap(acceptedURL.host)
+            XCTAssertTrue(seenOrigins.insert(origin).inserted, "Games must have distinct origins even with identical archive bytes")
             XCTAssertTrue(try WebGameResourceProbe.allows(entry: entry, request: acceptedURL))
             let acceptedTask = RecordingGameSchemeTask(acceptedURL)
             try WebGameResourceProbe.serve(entry: entry, task: acceptedTask)
@@ -125,14 +188,18 @@ final class WebGameInstalledIsolationTests: XCTestCase {
             XCTAssertNil(acceptedTask.failure)
             let csp = (acceptedTask.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Security-Policy")
             XCTAssertTrue(csp?.contains("connect-src 'none'") == true)
+            XCTAssertTrue(csp?.contains("frame-src 'none'") == true)
             XCTAssertEqual(acceptedTask.body, try XCTUnwrap(WebGamePackage(archive: archive, expectedSha256: digest(archive)).files["index.html"]))
             let navigationFinished = expectation(description: "\(engine) game document loaded")
-            let navigation = RecordingGameNavigation(finished: navigationFinished)
-            let browser = try WebGameResourceProbe.browser(entry: entry)
-            browser.navigationDelegate = navigation
+            var navigationFailure: Error?
+            let browserProbe = try WebGameResourceProbe.browser(entry: entry) { error in
+                navigationFailure = error
+                navigationFinished.fulfill()
+            }
+            let browser = browserProbe.browser
             browser.load(URLRequest(url: acceptedURL))
             await fulfillment(of: [navigationFinished], timeout: 10)
-            XCTAssertNil(navigation.failure)
+            XCTAssertNil(navigationFailure)
             let nativeHandlers = try await browser.evaluateJavaScript("Object.keys(window.webkit?.messageHandlers || {}).length")
             XCTAssertEqual(nativeHandlers as? Int, 0)
             let cookie = try await browser.evaluateJavaScript("(() => { try { return document.cookie } catch (_) { return '' } })()")
@@ -146,6 +213,10 @@ final class WebGameInstalledIsolationTests: XCTestCase {
                 const script = document.createElement('script');
                 script.src = 'https://127.0.0.1:9/blocked.js';
                 document.head.appendChild(script);
+                const frame = document.createElement('iframe');
+                frame.src = 'https://127.0.0.1:9/blocked-frame';
+                document.body.appendChild(frame);
+                try { new WebSocket('wss://127.0.0.1:9/blocked-socket'); } catch (_) {}
                 return true;
                 })()
                 """)
@@ -160,12 +231,51 @@ final class WebGameInstalledIsolationTests: XCTestCase {
             }
             XCTAssertTrue(blockedNetwork, "\(engine) browser did not enforce connect-src CSP")
             XCTAssertTrue(blockedScript, "\(engine) browser did not block an external script")
+            let popupsEnabled = browser.configuration.preferences.javaScriptCanOpenWindowsAutomatically
+            XCTAssertFalse(popupsEnabled, "\(engine) popups must be disabled in the production configuration")
+            let dataStore = browser.configuration.websiteDataStore
+            XCTAssertFalse(dataStore.isPersistent, "\(engine) games must use an ephemeral WebKit data store")
+            _ = try await browser.evaluateJavaScript("window.__crossOriginRead = 'pending'; fetch('modula-game://\(String(repeating: "0", count: 64))/index.html').then(() => window.__crossOriginRead = 'allowed', () => window.__crossOriginRead = 'blocked'); true")
+            var crossOriginRead = "pending"
+            for _ in 0..<30 {
+                crossOriginRead = try await browser.evaluateJavaScript("window.__crossOriginRead") as? String ?? "pending"
+                if crossOriginRead != "pending" { break }
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            XCTAssertEqual(crossOriginRead, "blocked")
+            let syntheticToken = root.appendingPathComponent("qa-synthetic-auth-token.txt")
+            try Data("qa-token-must-stay-private".utf8).write(to: syntheticToken, options: .atomic)
+            _ = try await browser.evaluateJavaScript("window.__tokenRead = 'pending'; fetch('\(syntheticToken.absoluteString)').then(() => window.__tokenRead = 'allowed', () => window.__tokenRead = 'blocked'); true")
+            var tokenRead = "pending"
+            for _ in 0..<30 {
+                tokenRead = try await browser.evaluateJavaScript("window.__tokenRead") as? String ?? "pending"
+                if tokenRead != "pending" { break }
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            XCTAssertEqual(tokenRead, "blocked", "\(engine) game accessed a synthetic auth token outside its origin")
+            let otherAccount = "qa-isolated-account"
+            try controller.stageVerified(accountID: otherAccount, moduleId: id, version: "0.1.0", releaseId: "\(engine)-other-account",
+                                         frontend: initial, frontendSha256: digest(initial), mediaType: ProductUIDocument.mediaType,
+                                         hostManifest: manifest(id, "0.1.0"), descriptor: nil,
+                                         gameArchive: archive, gameSha256: digest(archive))
+            let otherRelease = try controller.activate(accountID: otherAccount, moduleId: id)
+            let otherEntry = try controller.store.verifiedGameEntry(for: otherRelease)
+            let otherURL = try WebGameResourceProbe.entryURL(entry: otherEntry)
+            XCTAssertNotEqual(otherURL.host, acceptedURL.host)
+            _ = try await browser.evaluateJavaScript("window.__accountRead = 'pending'; fetch('\(otherURL.absoluteString)').then(() => window.__accountRead = 'allowed', () => window.__accountRead = 'blocked'); true")
+            var accountRead = "pending"
+            for _ in 0..<30 {
+                accountRead = try await browser.evaluateJavaScript("window.__accountRead") as? String ?? "pending"
+                if accountRead != "pending" { break }
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            XCTAssertEqual(accountRead, "blocked", "\(engine) game read another account's installed bytes")
             browser.stopLoading()
             for hostile in [
-                "modula-game://\(gameDigest)/../index.html",
-                "modula-game://\(gameDigest)/%2e%2e/index.html",
-                "modula-game://\(gameDigest)/%69ndex.html",
-                "modula-game://\(gameDigest)/index.html?other=1",
+                "modula-game://\(origin)/../index.html",
+                "modula-game://\(origin)/%2e%2e/index.html",
+                "modula-game://\(origin)/%69ndex.html",
+                "modula-game://\(origin)/index.html?other=1",
                 "modula-game://\(String(repeating: "0", count: 64))/index.html",
                 "file:///private/var/mobile/Containers/Data/index.html",
                 "https://example.invalid/index.html",

@@ -15,6 +15,7 @@ struct ModuleCachedRelease: Sendable {
     var frontendSha256: String
     var frontendMediaType: String
     var gameSha256: String?
+    var runtimeSha256: String?
     var hostManifest: ModuleManifest
     var descriptor: ModuleInstallDescriptor?
     var slot: ModuleCacheSlot
@@ -92,7 +93,7 @@ final class ModuleArtifactStore: @unchecked Sendable {
         return ModuleCachedRelease(
             moduleId: moduleId, version: version, releaseId: releaseId, accountID: accountID,
             frontendSha256: frontendSha256, frontendMediaType: mediaType,
-            gameSha256: json["gameSha256"]?.string, hostManifest: manifest,
+            gameSha256: json["gameSha256"]?.string, runtimeSha256: json["runtimeSha256"]?.string, hostManifest: manifest,
             descriptor: descriptor, slot: slot, directory: directory
         )
     }
@@ -111,7 +112,7 @@ final class ModuleArtifactStore: @unchecked Sendable {
     func stage(accountID: String, moduleId: String, version: String, releaseId: String,
                frontend: Data, frontendSha256: String, mediaType: String,
                hostManifest: ModuleManifest, descriptor: ModuleInstallDescriptor?,
-               game: WebGamePackage? = nil) throws {
+               game: WebGamePackage? = nil, runtimeSha256: String? = nil) throws {
         let expected = SHA256.hash(data: frontend).map { String(format: "%02x", $0) }.joined()
         guard expected == frontendSha256 else { throw ModuleActivationError.digestMismatch("frontend") }
         if let traversal = Self.unsafePath(in: frontend) { throw ModuleActivationError.pathTraversal(traversal) }
@@ -137,6 +138,7 @@ final class ModuleArtifactStore: @unchecked Sendable {
         ]
         if let descriptor { meta["descriptor"] = descriptor.raw }
         if let game { meta["gameSha256"] = .string(game.sha256) }
+        if let runtimeSha256 { meta["runtimeSha256"] = .string(runtimeSha256) }
         try atomicWrite(JSONEncoder().encode(JSONValue.object(meta)), to: staging.appendingPathComponent("release.json"))
         try fileManager.moveItem(at: staging, to: staged)
         var current = index(accountID: accountID, moduleId: moduleId)
@@ -146,6 +148,9 @@ final class ModuleArtifactStore: @unchecked Sendable {
 
     func verifiedGameEntry(for release: ModuleCachedRelease) throws -> URL {
         guard let digest = release.gameSha256 else { throw WebGamePackageError.invalid("game metadata") }
+        if let runtimeSha256 = release.runtimeSha256 {
+            _ = try SharedWebRuntimeStore(moduleCacheRoot: root).verifiedEngine(sha256: runtimeSha256)
+        }
         let archive = try Data(contentsOf: release.directory.appendingPathComponent("game.tgz"))
         let trusted = try WebGamePackage(archive: archive, expectedSha256: digest)
         return try WebGamePackage.verifyInstalled(
@@ -225,6 +230,7 @@ final class ModuleArtifactStore: @unchecked Sendable {
     func removeModule(accountID: String, moduleId: String) throws {
         let directory = moduleRoot(accountID: accountID, moduleId: moduleId)
         guard fileManager.fileExists(atPath: directory.path) else { return }
+        if WebGameSessionPins.shared.contains(directory) { throw ModuleActivationError.activeSession }
         try fileManager.removeItem(at: directory)
     }
 
@@ -251,6 +257,186 @@ final class ModuleArtifactStore: @unchecked Sendable {
     }
 }
 
+/// Shared immutable runtime bytes live inside the existing module cache. Ownership
+/// is derived from durable STAGED/ACTIVE/PREVIOUS_GOOD release pointers, so a
+/// force quit between an update and a cleanup cannot erase rollback bytes.
+final class SharedWebRuntimeStore {
+    let moduleCacheRoot: URL
+    private let manager: FileManager
+    private var runtimesRoot: URL { moduleCacheRoot.appendingPathComponent("SharedWebRuntimes", isDirectory: true) }
+
+    init(moduleCacheRoot: URL, fileManager: FileManager = .default) {
+        self.moduleCacheRoot = moduleCacheRoot
+        manager = fileManager
+    }
+
+    func installVerified(_ package: WebRuntimePackage) throws {
+        let destination = runtimesRoot.appendingPathComponent(package.sha256, isDirectory: true)
+        if manager.fileExists(atPath: destination.path) {
+            if (try? verifiedEngine(sha256: package.sha256)) != nil { return }
+        }
+        try manager.createDirectory(at: runtimesRoot, withIntermediateDirectories: true)
+        let partial = runtimesRoot.appendingPathComponent("\(package.sha256).partial-\(UUID().uuidString)", isDirectory: true)
+        try manager.createDirectory(at: partial, withIntermediateDirectories: true)
+        do {
+            try package.archive.write(to: partial.appendingPathComponent("artifact.tgz"), options: .atomic)
+            try package.engine.write(to: partial.appendingPathComponent("engine.mjs"), options: .atomic)
+            if manager.fileExists(atPath: destination.path) {
+                let quarantined = runtimesRoot.appendingPathComponent("\(package.sha256).corrupt-\(UUID().uuidString)")
+                try manager.moveItem(at: destination, to: quarantined)
+                do {
+                    try manager.moveItem(at: partial, to: destination)
+                    try? manager.removeItem(at: quarantined)
+                } catch {
+                    if !manager.fileExists(atPath: destination.path) { try? manager.moveItem(at: quarantined, to: destination) }
+                    throw error
+                }
+            } else {
+                try manager.moveItem(at: partial, to: destination)
+            }
+        } catch {
+            try? manager.removeItem(at: partial)
+            if manager.fileExists(atPath: destination.path) {
+                _ = try verifiedEngine(sha256: package.sha256)
+                return
+            }
+            throw error
+        }
+    }
+
+    func verifiedEngine(sha256: String) throws -> Data {
+        guard InstallDescriptorVerifier.isHex64(sha256) else { throw WebGamePackageError.invalid("runtime digest") }
+        let directory = runtimesRoot.appendingPathComponent(sha256, isDirectory: true)
+        let directoryValues = try directory.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        guard directoryValues.isDirectory == true, directoryValues.isSymbolicLink != true else {
+            throw WebGamePackageError.invalid("runtime directory")
+        }
+        let members = try manager.contentsOfDirectory(atPath: directory.path)
+        guard Set(members) == Set(["artifact.tgz", "engine.mjs"]) else { throw WebGamePackageError.invalid("runtime members") }
+        for name in members {
+            let values = try directory.appendingPathComponent(name).resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+            guard values.isRegularFile == true, values.isSymbolicLink != true else {
+                throw WebGamePackageError.invalid("runtime member type")
+            }
+        }
+        let archive = try Data(contentsOf: directory.appendingPathComponent("artifact.tgz"))
+        let package = try WebRuntimePackage(archive: archive, expectedSha256: sha256)
+        guard try Data(contentsOf: directory.appendingPathComponent("engine.mjs")) == package.engine else {
+            throw WebGamePackageError.invalid("installed runtime digest")
+        }
+        return package.engine
+    }
+
+    func installedDigests() -> [String] {
+        (try? manager.contentsOfDirectory(atPath: runtimesRoot.path))?.filter(InstallDescriptorVerifier.isHex64).sorted() ?? []
+    }
+
+    /// Durable ownership is recovered from release slots rather than a mutable
+    /// reference count. Callers add running-session and in-progress pins.
+    func protectedDigests(additionalPins: Set<String> = []) -> Set<String> {
+        var protected = additionalPins.union(WebRuntimeSessionPins.shared.digests)
+        guard let accounts = try? manager.contentsOfDirectory(at: moduleCacheRoot, includingPropertiesForKeys: [.isDirectoryKey]) else { return protected }
+        for account in accounts where account.lastPathComponent != "SharedWebRuntimes" {
+            guard let modules = try? manager.contentsOfDirectory(at: account, includingPropertiesForKeys: [.isDirectoryKey]) else { continue }
+            for module in modules {
+                for slot in [ModuleCacheSlot.active, .staged, .previousGood] {
+                    let slotRoot = module.appendingPathComponent(slot.rawValue)
+                    guard manager.fileExists(atPath: slotRoot.path) else { continue }
+                    let meta = slotRoot.appendingPathComponent("release.json")
+                    guard let data = try? Data(contentsOf: meta),
+                          let json = try? JSONDecoder().decode(JSONValue.self, from: data) else {
+                        // An interrupted or corrupt active/rollback slot must
+                        // never make a dependency appear unowned.
+                        return protected.union(installedDigests())
+                    }
+                    if let digest = json["runtimeSha256"]?.string {
+                        guard InstallDescriptorVerifier.isHex64(digest) else {
+                            return protected.union(installedDigests())
+                        }
+                        protected.insert(digest)
+                    }
+                }
+            }
+        }
+        return protected
+    }
+
+    @discardableResult
+    func reclaimUnused(additionalPins: Set<String> = []) throws -> [String] {
+        let protected = protectedDigests(additionalPins: additionalPins)
+        var removed: [String] = []
+        for digest in installedDigests() where !protected.contains(digest) {
+            try manager.removeItem(at: runtimesRoot.appendingPathComponent(digest, isDirectory: true))
+            removed.append(digest)
+        }
+        return removed
+    }
+}
+
+/// The scheme handler retains a lease for each live WKWebView. Reclamation
+/// consults these process-local leases in addition to the durable release slots.
+final class WebRuntimeSessionPin {
+    let digest: String
+    init(_ digest: String) {
+        self.digest = digest
+        WebRuntimeSessionPins.shared.acquire(digest)
+    }
+    deinit { WebRuntimeSessionPins.shared.release(digest) }
+}
+
+final class WebRuntimeSessionPins: @unchecked Sendable {
+    static let shared = WebRuntimeSessionPins()
+    private let lock = NSLock()
+    private var counts: [String: Int] = [:]
+
+    var digests: Set<String> {
+        lock.lock(); defer { lock.unlock() }
+        return Set(counts.keys)
+    }
+
+    func acquire(_ digest: String) {
+        lock.lock(); defer { lock.unlock() }
+        counts[digest, default: 0] += 1
+    }
+
+    func release(_ digest: String) {
+        lock.lock(); defer { lock.unlock() }
+        let remaining = (counts[digest] ?? 1) - 1
+        if remaining <= 0 { counts.removeValue(forKey: digest) }
+        else { counts[digest] = remaining }
+    }
+}
+
+final class WebGameSessionPin {
+    let moduleRoot: URL
+    init(_ moduleRoot: URL) {
+        self.moduleRoot = moduleRoot
+        WebGameSessionPins.shared.acquire(moduleRoot)
+    }
+    deinit { WebGameSessionPins.shared.release(moduleRoot) }
+}
+
+final class WebGameSessionPins: @unchecked Sendable {
+    static let shared = WebGameSessionPins()
+    private let lock = NSLock()
+    private var counts: [String: Int] = [:]
+    func acquire(_ root: URL) {
+        lock.lock(); defer { lock.unlock() }
+        counts[root.standardizedFileURL.path, default: 0] += 1
+    }
+    func release(_ root: URL) {
+        lock.lock(); defer { lock.unlock() }
+        let key = root.standardizedFileURL.path
+        let count = (counts[key] ?? 1) - 1
+        if count <= 0 { counts.removeValue(forKey: key) }
+        else { counts[key] = count }
+    }
+    func contains(_ root: URL) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return counts[root.standardizedFileURL.path] != nil
+    }
+}
+
 enum ModuleActivationError: Error, Equatable, LocalizedError {
     case digestMismatch(String)
     case missingStaged
@@ -261,6 +447,7 @@ enum ModuleActivationError: Error, Equatable, LocalizedError {
     case incompatible
     case permissionReviewRequired
     case wrongAccount
+    case activeSession
 
     var errorDescription: String? {
         switch self {
@@ -273,6 +460,7 @@ enum ModuleActivationError: Error, Equatable, LocalizedError {
         case .incompatible: "This module is not compatible with this version of Modula."
         case .permissionReviewRequired: "This release needs a permission review before it can open."
         case .wrongAccount: "This cached module belongs to another account."
+        case .activeSession: "Close the running game before removing its download."
         }
     }
 }

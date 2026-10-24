@@ -64,7 +64,9 @@ final class ModuleActivationController {
         hostManifest: ModuleManifest,
         descriptor: ModuleInstallDescriptor?,
         gameArchive: Data? = nil,
-        gameSha256: String? = nil
+        gameSha256: String? = nil,
+        runtimeArchive: Data? = nil,
+        runtimeSha256: String? = nil
     ) throws {
         if let descriptor {
             if descriptor.revoked || descriptor.quarantined { throw ModuleActivationError.revoked }
@@ -84,11 +86,27 @@ final class ModuleActivationController {
         } else {
             throw WebGamePackageError.invalid("missing archive or digest")
         }
-        try store.stage(
-            accountID: accountID, moduleId: moduleId, version: version, releaseId: releaseId,
-            frontend: frontend, frontendSha256: frontendSha256, mediaType: mediaType,
-            hostManifest: hostManifest, descriptor: descriptor, game: game
-        )
+        // Keep the runtime pinned from verification until the durable STAGED
+        // release metadata becomes visible to the reclaimer.
+        let runtimePin = runtimeSha256.map(WebRuntimeSessionPin.init)
+        if let runtimeSha256, game != nil {
+            let shared = SharedWebRuntimeStore(moduleCacheRoot: store.root)
+            if let runtimeArchive {
+                let runtime = try WebRuntimePackage(archive: runtimeArchive, expectedSha256: runtimeSha256)
+                try shared.installVerified(runtime)
+            } else {
+                _ = try shared.verifiedEngine(sha256: runtimeSha256)
+            }
+        } else if runtimeArchive != nil || runtimeSha256 != nil {
+            throw WebGamePackageError.invalid("missing runtime digest or game")
+        }
+        try withExtendedLifetime(runtimePin) {
+            try store.stage(
+                accountID: accountID, moduleId: moduleId, version: version, releaseId: releaseId,
+                frontend: frontend, frontendSha256: frontendSha256, mediaType: mediaType,
+                hostManifest: hostManifest, descriptor: descriptor, game: game, runtimeSha256: runtimeSha256
+            )
+        }
     }
 
     func activate(accountID: String, moduleId: String) throws -> ModuleCachedRelease {

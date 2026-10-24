@@ -23,6 +23,32 @@ struct WebGamePackage {
     let files: [String: Data]
 
     init(archive: Data, expectedSha256: String) throws {
+        var files = try Self.members(archive: archive, expectedSha256: expectedSha256)
+        guard let inventoryData = files.removeValue(forKey: "game.files.json"),
+              let inventory = try? JSONDecoder().decode(Inventory.self, from: inventoryData),
+              inventory.schema == "modula.game-files.1",
+              Set(inventory.files.keys) == Set(files.keys),
+              files["index.html"] != nil else {
+            throw WebGamePackageError.invalid("inventory or entry document")
+        }
+        for (path, bytes) in files where inventory.files[path] != Self.digest(bytes) {
+            throw WebGamePackageError.invalid("member digest: \(path)")
+        }
+        guard !files.keys.contains(where: { $0 == "__runtime" || $0.hasPrefix("__runtime/") }) else {
+            throw WebGamePackageError.invalid("reserved shared runtime path")
+        }
+        guard let html = files["index.html"].flatMap({ String(data: $0, encoding: .utf8) }),
+              html.localizedCaseInsensitiveContains("Content-Security-Policy"),
+              html.contains("default-src 'none'"), html.contains("script-src 'self'"),
+              html.contains("connect-src 'none'"), html.contains("object-src 'none'") else {
+            throw WebGamePackageError.invalid("restrictive Content Security Policy")
+        }
+        self.sha256 = expectedSha256
+        self.archive = archive
+        self.files = files
+    }
+
+    static func members(archive: Data, expectedSha256: String) throws -> [String: Data] {
         guard archive.count <= Self.maximumCompressedBytes,
               Self.digest(archive) == expectedSha256 else {
             throw WebGamePackageError.invalid("archive size or SHA-256")
@@ -63,25 +89,7 @@ struct WebGamePackage {
         guard foundEnd, tar[offset...].allSatisfy({ $0 == 0 }) else {
             throw WebGamePackageError.invalid("archive trailer")
         }
-        guard let inventoryData = files.removeValue(forKey: "game.files.json"),
-              let inventory = try? JSONDecoder().decode(Inventory.self, from: inventoryData),
-              inventory.schema == "modula.game-files.1",
-              Set(inventory.files.keys) == Set(files.keys),
-              files["index.html"] != nil else {
-            throw WebGamePackageError.invalid("inventory or entry document")
-        }
-        for (path, bytes) in files where inventory.files[path] != Self.digest(bytes) {
-            throw WebGamePackageError.invalid("member digest: \(path)")
-        }
-        guard let html = files["index.html"].flatMap({ String(data: $0, encoding: .utf8) }),
-              html.localizedCaseInsensitiveContains("Content-Security-Policy"),
-              html.contains("default-src 'none'"), html.contains("script-src 'self'"),
-              html.contains("connect-src 'none'"), html.contains("object-src 'none'") else {
-            throw WebGamePackageError.invalid("restrictive Content Security Policy")
-        }
-        self.sha256 = expectedSha256
-        self.archive = archive
-        self.files = files
+        return files
     }
 
     /// Recheck every byte on launch, including after a force quit. The custom
@@ -150,8 +158,8 @@ struct WebGamePackage {
         return directory.appendingPathComponent("index.html")
     }
 
-    private struct Inventory: Codable { let schema: String; let files: [String: String] }
-    private static func digest(_ data: Data) -> String {
+    struct Inventory: Codable { let schema: String; let files: [String: String] }
+    static func digest(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
     private static func safe(_ path: String) -> Bool {
@@ -211,5 +219,29 @@ struct WebGamePackage {
         }
         guard status == Z_STREAM_END else { throw WebGamePackageError.invalid("gzip data or expansion limit") }
         return output
+    }
+}
+
+/// A signed web-runtime archive has one engine module and no HTML entry point.
+/// It is parsed with the same strict ustar and native-payload checks as game content.
+struct WebRuntimePackage {
+    let sha256: String
+    let archive: Data
+    let engine: Data
+
+    init(archive: Data, expectedSha256: String) throws {
+        var files = try WebGamePackage.members(archive: archive, expectedSha256: expectedSha256)
+        guard let inventoryData = files.removeValue(forKey: "package.files.json"),
+              let inventory = try? JSONDecoder().decode(WebGamePackage.Inventory.self, from: inventoryData),
+              inventory.schema == "modula.package-files.1",
+              Set(files.keys) == Set(["engine.mjs"]),
+              inventory.files == ["engine.mjs": WebGamePackage.digest(files["engine.mjs"]!)],
+              let engine = files["engine.mjs"],
+              String(data: engine, encoding: .utf8) != nil else {
+            throw WebGamePackageError.invalid("web runtime inventory")
+        }
+        self.sha256 = expectedSha256
+        self.archive = archive
+        self.engine = engine
     }
 }

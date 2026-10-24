@@ -1,3 +1,4 @@
+import CryptoKit
 import SwiftUI
 import WebKit
 
@@ -96,6 +97,7 @@ struct WebGameHost: View {
         }
         .onDisappear {
             webView?.stopLoading()
+            (webView?.navigationDelegate as? WebGameSurface.Coordinator)?.handler?.closeSession()
             webView?.loadHTMLString("", baseURL: nil)
             webView = nil
         }
@@ -121,19 +123,16 @@ private struct WebGameSurface: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeUIView(context: Context) -> WKWebView {
-        let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .nonPersistent()
-        configuration.defaultWebpagePreferences.allowsContentJavaScript = true
-        configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
-        configuration.allowsInlineMediaPlayback = true
         let gameURL: URL?
+        let configuration: WKWebViewConfiguration
         do {
             let handler = try VerifiedGameSchemeHandler(entry: entry)
-            configuration.setURLSchemeHandler(handler, forURLScheme: VerifiedGameSchemeHandler.scheme)
+            configuration = Self.configuration(handler: handler)
             context.coordinator.handler = handler
             gameURL = handler.entryURL
             DispatchQueue.main.async { packageVerified = true }
         } catch {
+            configuration = WKWebViewConfiguration()
             gameURL = nil
             DispatchQueue.main.async { processFailed = true }
         }
@@ -156,9 +155,20 @@ private struct WebGameSurface: UIViewRepresentable {
 
     func updateUIView(_ view: WKWebView, context: Context) {}
 
+    static func configuration(handler: VerifiedGameSchemeHandler) -> WKWebViewConfiguration {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .nonPersistent()
+        configuration.defaultWebpagePreferences.allowsContentJavaScript = true
+        configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
+        configuration.allowsInlineMediaPlayback = true
+        configuration.setURLSchemeHandler(handler, forURLScheme: VerifiedGameSchemeHandler.scheme)
+        return configuration
+    }
+
     static func dismantleUIView(_ view: WKWebView, coordinator: Coordinator) {
         coordinator.progressObservation = nil
         view.stopLoading()
+        coordinator.handler?.closeSession()
         view.navigationDelegate = nil
         view.uiDelegate = nil
         view.loadHTMLString("", baseURL: nil)
@@ -169,6 +179,7 @@ private struct WebGameSurface: UIViewRepresentable {
         let parent: WebGameSurface
         var handler: VerifiedGameSchemeHandler?
         var progressObservation: NSKeyValueObservation?
+        var onNavigationComplete: ((Error?) -> Void)?
         init(_ parent: WebGameSurface) { self.parent = parent }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
@@ -176,6 +187,7 @@ private struct WebGameSurface: UIViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            onNavigationComplete?(nil)
             DispatchQueue.main.async {
                 withAnimation(.easeOut(duration: 0.2)) { self.parent.documentReady = true }
             }
@@ -184,7 +196,7 @@ private struct WebGameSurface: UIViewRepresentable {
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction) async -> WKNavigationActionPolicy {
             guard let url = action.request.url, let handler,
                   url.scheme == VerifiedGameSchemeHandler.scheme,
-                  url.host == handler.digest,
+                  url.host == handler.origin,
                   handler.contains(url) else { return .cancel }
             return .allow
         }
@@ -218,6 +230,7 @@ private struct WebGameSurface: UIViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            onNavigationComplete?(error)
             DispatchQueue.main.async { self.parent.processFailed = true }
         }
     }
@@ -232,8 +245,13 @@ private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
     // declared by a downloadable package.
     private static let contentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self' data:; connect-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'"
     let digest: String
+    let origin: String
     let entryURL: URL
     private let files: [String: Data]
+    private var runtimePin: WebRuntimeSessionPin?
+    private var gamePin: WebGameSessionPin?
+    private let sessionLock = NSLock()
+    private var closed = false
 
     init(entry: URL) throws {
         let directory = entry.deletingLastPathComponent()
@@ -242,15 +260,39 @@ private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
             throw WebGamePackageError.invalid("entry origin")
         }
         let slot = directory.deletingLastPathComponent().deletingLastPathComponent()
+        let module = slot.deletingLastPathComponent()
+        let account = module.deletingLastPathComponent()
+        // An identical immutable archive may be owned by two different games.
+        // Keep their browser origins distinct even when storage deduplicates it.
+        let originIdentity = "\(account.lastPathComponent)/\(module.lastPathComponent)/\(digest)"
+        origin = SHA256.hash(data: Data(originIdentity.utf8)).map { String(format: "%02x", $0) }.joined()
         let archive = try Data(contentsOf: slot.appendingPathComponent("game.tgz"))
         let package = try WebGamePackage(archive: archive, expectedSha256: digest)
         _ = try WebGamePackage.verifyInstalled(at: directory, expectedSha256: digest, trustedFiles: package.files)
-        files = package.files
-        entryURL = URL(string: "\(Self.scheme)://\(digest)/index.html")!
+        gamePin = WebGameSessionPin(module)
+        var verifiedFiles = package.files
+        var pin: WebRuntimeSessionPin?
+        let metadata = try Data(contentsOf: slot.appendingPathComponent("release.json"))
+        let json = try JSONDecoder().decode(JSONValue.self, from: metadata)
+        if let runtimeDigest = json["runtimeSha256"]?.string {
+            guard InstallDescriptorVerifier.isHex64(runtimeDigest) else {
+                throw WebGamePackageError.invalid("runtime metadata")
+            }
+            pin = WebRuntimeSessionPin(runtimeDigest)
+            let cacheRoot = account.deletingLastPathComponent()
+            verifiedFiles["__runtime/engine.mjs"] = try SharedWebRuntimeStore(moduleCacheRoot: cacheRoot)
+                .verifiedEngine(sha256: runtimeDigest)
+        }
+        files = verifiedFiles
+        runtimePin = pin
+        entryURL = URL(string: "\(Self.scheme)://\(origin)/index.html")!
     }
 
     func contains(_ url: URL) -> Bool {
-        guard url.scheme == Self.scheme, url.host == digest else { return false }
+        sessionLock.lock()
+        let active = !closed
+        sessionLock.unlock()
+        guard active, url.scheme == Self.scheme, url.host == origin else { return false }
         let path = String(url.path.dropFirst())
         return URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedPath == "/" + path
             && files[path] != nil
@@ -295,11 +337,36 @@ private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
     }
 
     func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {}
+
+    /// The view has stopped loading and left the screen. Release session pins
+    /// immediately, and refuse any late WebKit resource request.
+    func closeSession() {
+        sessionLock.lock()
+        closed = true
+        runtimePin = nil
+        gamePin = nil
+        sessionLock.unlock()
+    }
 }
 
 #if DEBUG
+struct WebGameBrowserProbe {
+    let browser: WKWebView
+    // WKWebView's delegates are weak. Keep the exact production delegate alive.
+    fileprivate let delegate: NSObject
+    fileprivate let handler: VerifiedGameSchemeHandler
+
+    @MainActor func close() {
+        browser.stopLoading()
+        handler.closeSession()
+    }
+}
+
 @MainActor
 enum WebGameResourceProbe {
+    static func entryURL(entry: URL) throws -> URL {
+        try VerifiedGameSchemeHandler(entry: entry).entryURL
+    }
     static func allows(entry: URL, request: URL) throws -> Bool {
         try VerifiedGameSchemeHandler(entry: entry).contains(request)
     }
@@ -308,12 +375,18 @@ enum WebGameResourceProbe {
         try VerifiedGameSchemeHandler(entry: entry).serve(task)
     }
 
-    static func browser(entry: URL) throws -> WKWebView {
-        let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .nonPersistent()
-        configuration.setURLSchemeHandler(try VerifiedGameSchemeHandler(entry: entry),
-                                          forURLScheme: VerifiedGameSchemeHandler.scheme)
-        return WKWebView(frame: .zero, configuration: configuration)
+    static func browser(entry: URL, onNavigationComplete: @escaping (Error?) -> Void) throws -> WebGameBrowserProbe {
+        let handler = try VerifiedGameSchemeHandler(entry: entry)
+        let surface = WebGameSurface(entry: entry, processFailed: .constant(false),
+                                     webView: .constant(nil), packageVerified: .constant(false),
+                                     documentReady: .constant(false), loadingProgress: .constant(0))
+        let delegate = WebGameSurface.Coordinator(surface)
+        delegate.handler = handler
+        delegate.onNavigationComplete = onNavigationComplete
+        let browser = WKWebView(frame: .zero, configuration: WebGameSurface.configuration(handler: handler))
+        browser.navigationDelegate = delegate
+        browser.uiDelegate = delegate
+        return WebGameBrowserProbe(browser: browser, delegate: delegate, handler: handler)
     }
 }
 #endif
