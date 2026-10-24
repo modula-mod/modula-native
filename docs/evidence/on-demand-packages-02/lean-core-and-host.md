@@ -31,12 +31,12 @@ The iPhone 17 Pro Max iOS 26.3 simulator ran all four
 `WebGameInstalledIsolationTests` successfully after the final GameHost
 permission change. The live WKWebView test checked media, motion, location,
 popup and prototype-call denial, off-origin script/network controls,
-iframe blocking, cross-account origin isolation, synthetic-token access
-denial and rollback. Its WebSocket probe uses a reachable local TCP listener
-with a native positive control, then checks that game JavaScript makes no
-connection.
-The same suite also checked malformed archives, tampering and one-copy
-runtime ownership with synthetic installations. This does not substitute for
+iframe blocking, cross-account and same-account cross-module origin isolation,
+synthetic-token access denial and rollback. Its WebSocket probe uses a
+reachable local TCP listener with a native positive control, then checks
+that game JavaScript makes no connection. The same suite also checked
+malformed archives, tampering and one-copy runtime ownership with synthetic
+installations. This does not substitute for
 signed QA installations of two independent Phaser games.
 
 The optional Debug Nodus developer cache on this Mac did not match its
