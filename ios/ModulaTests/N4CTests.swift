@@ -1,5 +1,6 @@
 import CryptoKit
 import ImageIO
+import Network
 import UIKit
 import WebKit
 import XCTest
@@ -29,6 +30,13 @@ private final class RecordingGameNavigation: NSObject, WKNavigationDelegate {
         failure = error
         finished.fulfill()
     }
+}
+
+private final class LockedConnectionCount: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    var value: Int { lock.lock(); defer { lock.unlock() }; return count }
+    func increment() { lock.lock(); defer { lock.unlock() }; count += 1 }
 }
 
 final class N4CRouteTests: XCTestCase {
@@ -161,6 +169,30 @@ final class WebGameInstalledIsolationTests: XCTestCase {
         let controller = ModuleActivationController(store: ModuleArtifactStore(root: root))
         let account = "account-game-rollback"
         var seenOrigins = Set<String>()
+        let connections = LockedConnectionCount()
+        let listener = try NWListener(using: .tcp, on: .any)
+        defer { listener.cancel() }
+        let listenerReady = expectation(description: "loopback WebSocket target ready")
+        listener.stateUpdateHandler = { state in
+            if case .ready = state { listenerReady.fulfill() }
+        }
+        listener.newConnectionHandler = { connection in
+            connections.increment()
+            connection.cancel()
+        }
+        listener.start(queue: DispatchQueue(label: "game-websocket-probe"))
+        await fulfillment(of: [listenerReady], timeout: 5)
+        let listenerPort = try XCTUnwrap(listener.port)
+        let control = NWConnection(host: "127.0.0.1", port: listenerPort, using: .tcp)
+        let controlReady = expectation(description: "native loopback control connected")
+        control.stateUpdateHandler = { state in
+            if case .ready = state { controlReady.fulfill() }
+        }
+        control.start(queue: DispatchQueue(label: "game-websocket-control"))
+        await fulfillment(of: [controlReady], timeout: 5)
+        control.cancel()
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertGreaterThan(connections.value, 0, "native control must reach the WebSocket target")
         for engine in ["phaser", "playcanvas"] {
             let id = "digital.modula.orbit-\(engine)"
             let initial = frontend(id, "0.1.0")
@@ -207,33 +239,50 @@ final class WebGameInstalledIsolationTests: XCTestCase {
             XCTAssertEqual(nativeHandlers as? Int, 0)
             let cookie = try await browser.evaluateJavaScript("(() => { try { return document.cookie } catch (_) { return '' } })()")
             XCTAssertEqual(cookie as? String, "")
+            let priorConnections = connections.value
             _ = try await browser.evaluateJavaScript("""
                 (() => {
                 window.__gameCSPViolations = [];
-                document.addEventListener('securitypolicyviolation', event =>
-                    window.__gameCSPViolations.push(event.violatedDirective));
+                window.__gameCSPBlocked = [];
+                document.addEventListener('securitypolicyviolation', event => {
+                    window.__gameCSPViolations.push(event.violatedDirective);
+                    window.__gameCSPBlocked.push([event.violatedDirective, event.blockedURI]);
+                });
                 fetch('https://127.0.0.1:9/blocked').catch(() => {});
                 const script = document.createElement('script');
                 script.src = 'https://127.0.0.1:9/blocked.js';
                 document.head.appendChild(script);
                 const frame = document.createElement('iframe');
-                frame.src = 'https://127.0.0.1:9/blocked-frame';
+                frame.src = location.href;
                 document.body.appendChild(frame);
-                try { new WebSocket('wss://127.0.0.1:9/blocked-socket'); } catch (_) {}
+                window.__socketStatus = 'pending';
+                try {
+                    const socket = new WebSocket('ws://127.0.0.1:\(listenerPort.rawValue)/blocked-socket');
+                    socket.onopen = () => window.__socketStatus = 'allowed';
+                    socket.onerror = () => window.__socketStatus = 'blocked';
+                } catch (error) { window.__socketStatus = 'blocked:' + error.name; }
                 return true;
                 })()
                 """)
             var blockedNetwork = false
             var blockedScript = false
+            var blockedFrame = false
             for _ in 0..<30 {
                 let violations = try await browser.evaluateJavaScript("window.__gameCSPViolations") as? [String] ?? []
                 blockedNetwork = violations.contains(where: { $0.contains("connect-src") })
                 blockedScript = violations.contains(where: { $0.contains("script-src") })
-                if blockedNetwork && blockedScript { break }
+                blockedFrame = violations.contains(where: { $0.contains("frame-src") })
+                if blockedNetwork && blockedScript && blockedFrame { break }
                 try await Task.sleep(for: .milliseconds(100))
             }
             XCTAssertTrue(blockedNetwork, "\(engine) browser did not enforce connect-src CSP")
             XCTAssertTrue(blockedScript, "\(engine) browser did not block an external script")
+            let observedBlocks = try await browser.evaluateJavaScript("window.__gameCSPBlocked") as? [[String]] ?? []
+            XCTAssertTrue(blockedFrame, "\(engine) browser did not block an external iframe: \(observedBlocks)")
+            let socketStatus = try await browser.evaluateJavaScript("window.__socketStatus") as? String ?? "unknown"
+            try await Task.sleep(for: .milliseconds(500))
+            XCTAssertEqual(connections.value, priorConnections,
+                           "\(engine) browser reached a WebSocket listener despite its denied connect policy: \(socketStatus), \(observedBlocks)")
             let popupsEnabled = browser.configuration.preferences.javaScriptCanOpenWindowsAutomatically
             XCTAssertFalse(popupsEnabled, "\(engine) popups must be disabled in the production configuration")
             let dataStore = browser.configuration.websiteDataStore
