@@ -60,6 +60,8 @@ struct MolibooWorldView: View {
     @Namespace private var heroNS
     @Namespace private var zoomNS
     @Namespace private var glassNS
+    @State private var speech: String?
+    @State private var speechToken = UUID()
     /// Segment shown as selected in the Home · Studio · Stickers switcher. Studio / Stickers open their own
     /// screens, so the capsule glides there first and glides back to Home when they close.
     @State private var navSelection: Section = .home
@@ -116,9 +118,7 @@ struct MolibooWorldView: View {
                         stageArea.padding(.top, 12)
                     }
                     if shows("identity") || shows("stage") { heroDashboardCard }
-                    if shows("quick") { quickActions.padding(.horizontal, -24) }
-                    if shows("composer") { composer }
-                    if shows("activities") { activities.padding(.top, 12).padding(.horizontal, -24) }
+                    if shows("activities") { careSections }
                     if shows("collection") { collection.padding(.top, 12).padding(.horizontal, -24) }
                 }
                 .padding(.horizontal, 24).padding(.bottom, 48)
@@ -130,6 +130,15 @@ struct MolibooWorldView: View {
             // Nothing scrolls under the clock: content fades out beneath a scene-coloured status-bar scrim.
             .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, y in if route == nil, abs(y - scrollY) >= 8 { scrollY = y } }
             .modifier(MolibooSoftTopEdge())
+            // Sticky chat bar: pinned above the safe area / keyboard (safeAreaInset follows the keyboard), over a
+            // progressive bottom blur; the inset also pads the scroll content so nothing hides beneath it.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if shows("composer") {
+                    composer
+                        .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 8)
+                        .background(alignment: .bottom) { MolibooProgressiveHeaderBlur(edge: .bottom) }
+                }
+            }
             // Header (back · moliboos title · sparkle · more) is pinned below the safe area (never under
             // the Dynamic Island) and stays put while content scrolls, over a progressive blur strip.
             .safeAreaInset(edge: .top, spacing: 8) {
@@ -158,7 +167,10 @@ struct MolibooWorldView: View {
         .sheet(isPresented: $showSwitcher) { switcher.presentationDetents([.medium]) }
         .sheet(item: $sheet) { s in sectionSheet(s).presentationDetents([.medium, .large]) }
         .sheet(isPresented: $showCareSheet) {
-            MolibooCareSheet(characterID: characterID, name: displayName, care: care) { a in doActivity(a) }
+            MolibooCareSheet(characterID: characterID, name: displayName, care: care) { a in
+                if a == .photo { showCareSheet = false }
+                performAction(a)
+            }
                 .presentationDetents([.medium, .large])
         }
         .task {
@@ -277,7 +289,7 @@ struct MolibooWorldView: View {
                         .transition(.opacity)
                         .contentShape(Rectangle())
                         .onTapGesture(count: 2) { composerFocused = true; stage.react(.curious, allowed: motionAllowed) }
-                        .onTapGesture { rippleTick += 1; joyPulseTick += 1; stage.bounce(allowed: motionAllowed); care.interact(characterID, mood: 1, bond: 1) }
+                        .onTapGesture { rippleTick += 1; joyPulseTick += 1; stage.bounce(allowed: motionAllowed); care.interact(characterID, mood: 1, bond: 1); say(emotion.speech) }
                         .onLongPressGesture(minimumDuration: 0.5) { showSwitcher = true }
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel("\(displayName), \(emotion.label)")
@@ -285,6 +297,17 @@ struct MolibooWorldView: View {
                         .accessibilityAddTraits(.isButton)
                         .accessibilityIdentifier("world.stage")
                         .matchedTransitionSource(id: "world.hero", in: zoomNS)
+                    if let speech {
+                        Text(speech)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal, 14).padding(.vertical, 9)
+                            .modulaGlass(in: Capsule(), interactive: false)
+                            .offset(y: -150)
+                            .transition(reduceMotion ? .opacity : .scale(scale: 0.8, anchor: .bottom).combined(with: .opacity))
+                            .allowsHitTesting(false)
+                            .accessibilityIdentifier("world.speech")
+                    }
                 }
             }
             .padding(.vertical, 16)
@@ -398,23 +421,10 @@ struct MolibooWorldView: View {
                     .accessibilityIdentifier("world.identity.traits")
                 }
             }
-            if shows("stage") { statsRow.padding(.top, 4) }
         }
         .foregroundStyle(.primary)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
-    }
-
-    /// Mood / energy / bond as three high-contrast glass meters inside the hero dashboard.
-    private var statsRow: some View {
-        HStack(spacing: 12) {
-            stat("heart.fill", .pink, "\(Int(careState.mood))%", "Mood", id: "mood")
-            stat("bolt.fill", .yellow, "\(Int(careState.energy))%", "Energy", id: "energy")
-            stat("star.fill", .orange, "Lv. \(careState.bondLevel)", "Bond", id: "bond")
-        }
-        .contentTransition(.numericText())
-        // careState changes are discrete — no implicit animation (was contributing to scroll jank)
-        // .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: careState)
     }
 
     private var compactHeader: some View {
@@ -435,19 +445,6 @@ struct MolibooWorldView: View {
         .accessibilityIdentifier("world.compactHeader")
     }
 
-    private func stat(_ symbol: String, _ tint: Color, _ value: String, _ label: String, id: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: symbol).font(.system(size: 10, weight: .semibold)).foregroundStyle(tint.opacity(0.8))
-            Text("\(label) \(value)")
-                .font(.caption2.weight(.medium)).monospacedDigit()
-                .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, 11).padding(.vertical, 6)
-        .background(Color.primary.opacity(0.04), in: Capsule())
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("world.stat.\(id)")
-    }
-
     // MARK: Identity
 
     private var traits: [(String, String, Color)] {
@@ -460,6 +457,7 @@ struct MolibooWorldView: View {
     @ViewBuilder private var composer: some View {
         if let chat {
             VStack(alignment: .leading, spacing: 8) {
+                if chat.phase != .composing { chatStatus(chat) }
                 ModulaGlassGroup(spacing: 8) {
                     HStack(spacing: 10) {
                         Image(systemName: "sparkles")
@@ -505,7 +503,6 @@ struct MolibooWorldView: View {
                     .foregroundStyle(.primary)
                     .modulaGlass(in: Capsule(), interactive: false, tint: glassTint, specular: false)
                 }
-                chatStatus(chat)
             }
         }
     }
@@ -536,109 +533,62 @@ struct MolibooWorldView: View {
         composerFocused = false
     }
 
-    // MARK: Quick actions
+    // MARK: Care (status · activities · moments)
 
-    private var quickActions: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                quick("Say hi", "Take a moment to say hi", "bubble.left.fill", .blue, id: "sayhi") {
-                    joyPulseTick += 1
-                    care.interact(characterID, mood: 3, bond: 3); stage.react(.happy, allowed: motionAllowed); flash("\(displayName) waves back!")
+    private var careSections: some View {
+        let life = care.life(for: characterID)
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("How \(displayName) is doing").font(.headline).accessibilityAddTraits(.isHeader)
+                Spacer()
+                // The single entry point to the Care sheet (details + full moments log).
+                Button { showCareSheet = true } label: {
+                    Label("Care", systemImage: "chevron.right").labelStyle(.titleOnly).font(.footnote.weight(.semibold))
                 }
-                quick("Play", "Play together", "gamecontroller.fill", .purple, id: "play") { doActivity(.play) }
-                quick("Treat", "Give a treat", "carrot.fill", .orange, id: "treat") { doActivity(.feed) }
-                quick("Photo", "Take photo", "camera.fill", .cyan, id: "photo") { openStudio(.photo(characterID)) }
+                .accessibilityIdentifier("world.care.open").accessibilityHint("Opens Care details")
             }
-            .padding(.vertical, 4)
-        }
-        .contentMargins(.horizontal, 24, for: .scrollContent)
-        .modulaHorizontalEdgeFade()
-    }
-
-    private func quick(_ title: String, _ a11y: String, _ symbol: String, _ tint: Color, id: String, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: symbol).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                Text(title).lineLimit(1).fixedSize(horizontal: true, vertical: false)
-            }
-            .font(.subheadline.weight(.medium))
-            .foregroundStyle(.primary)
-            .padding(.horizontal, 16).padding(.vertical, 11)
-            .modulaGlass(in: Capsule(), interactive: true, tint: glassTint, specular: false)
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("world.quick.\(id)")
-        .accessibilityLabel(a11y)
-    }
-
-    // MARK: Activities (Care)
-
-    private var activities: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            sectionTitle("Activities") { showCareSheet = true }
-            ScrollView(.horizontal) {
-                HStack(spacing: 14) {
-                    ForEach(MolibooActivity.allCases) { a in activityCard(a) }
-                }
-                .padding(.vertical, 4)
-            }
-            .scrollIndicators(.hidden)
-            .contentMargins(.horizontal, 24, for: .scrollContent)
-            .modulaHorizontalEdgeFade()
+            MolibooStatusPanel(state: careState, life: life) { checkIn() }
+            Text("Activities").font(.headline).padding(.top, 8).accessibilityAddTraits(.isHeader)
+            MolibooActionGrid(life: life, asleep: careState.asleep, columns: 4) { performAction($0) }
+            Text("Recent moments").font(.headline).padding(.top, 8).accessibilityAddTraits(.isHeader)
+            MolibooMomentsList(moments: life.moments)
         }
     }
 
-    private func activityCard(_ a: MolibooActivity) -> some View {
-        Button { doActivity(a) } label: {
-            VStack(alignment: .leading, spacing: 0) {
-                MolibooActivityScene(activity: a, characterID: characterID)
-                    .frame(height: 96)
-                    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16))
-                HStack(alignment: .bottom) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(a == .sleep && careState.asleep ? "Wake up" : a.title).font(.subheadline.weight(.bold))
-                        Text(a.subtitle)
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.9)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer(minLength: 2)
-                    Image(systemName: "chevron.right").font(.caption2.weight(.bold)).opacity(0.6)
-                }
-                .padding(10)
-            }
-            .frame(width: 152)
-            .foregroundStyle(.primary)
-            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("world.activity.\(a.rawValue)")
-    }
-
-    private func doActivity(_ a: MolibooActivity) {
-        let ok = care.perform(a, for: characterID)
-        if ok {
+    /// Runs a care action through the shared store and shows the pet's reaction (pose, pulse, speech, haptic).
+    private func performAction(_ a: MolibooCareAction) {
+        switch care.perform(a, for: characterID, name: displayName) {
+        case .done(let line):
+            UIImpactFeedbackGenerator(style: a == .dance || a == .play ? .medium : .soft).impactOccurred()
             joyPulseTick += 1
-            switch a {
-            case .sleep: stage.react(careState.asleep ? .sleepy : .happy, allowed: motionAllowed)
-            case .play: stage.bounce(allowed: motionAllowed); stage.react(.excited, allowed: motionAllowed)
-            case .clean, .feed: stage.react(.happy, allowed: motionAllowed)
-            }
-            flash(message(after: a))
-        } else {
-            flash(careState.asleep ? "\(displayName) is asleep. Wake them first." : "\(displayName) is too tired. Try Sleep.")
+            if a == .play || a == .dance || a == .feed { stage.bounce(allowed: motionAllowed) }
+            stage.react(a == .nap ? (careState.asleep ? .sleepy : .happy) : a.reaction, allowed: motionAllowed)
+            say(line)
+            if a == .photo { openStudio(.photo(characterID)) }
+        case .blocked(let why):
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            flash(why)
         }
     }
 
-    private func message(after a: MolibooActivity) -> String {
-        let s = careState
-        switch a {
-        case .sleep: return s.asleep ? "\(displayName) is napping. Energy will refill." : "\(displayName) woke up!"
-        case .play: return "Fun! Mood \(Int(s.mood))%, energy \(Int(s.energy))%."
-        case .clean: return "Squeaky clean!"
-        case .feed: return "Yum! Energy \(Int(s.energy))%."
+    private func checkIn() {
+        if care.checkIn(characterID, name: displayName) {
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            joyPulseTick += 1
+            stage.react(.happy, allowed: motionAllowed)
+            say("You came back! Day \(care.life(for: characterID).streak)")
+        }
+    }
+
+    /// Mood-reactive speech bubble over the pet for a couple of seconds.
+    private func say(_ line: String) {
+        let token = UUID()
+        speechToken = token
+        withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8)) { speech = line }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2.6))
+            guard speechToken == token else { return }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { speech = nil }
         }
     }
 
