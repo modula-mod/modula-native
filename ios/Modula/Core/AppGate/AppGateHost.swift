@@ -53,6 +53,9 @@ struct AppGateHost: View {
                     try? await Task.sleep(for: .milliseconds(700))
                     DebugSettingsHarness.equipStudioSceneIfRequested()
                 }
+        } else if ProcessInfo.processInfo.arguments.contains("--debug-moliboo-world") {
+            // Straight to the Moliboo home (World), for simulator screenshots of the hero / number label.
+            NavigationStack { MolibooWorldView() }
         } else if let route = DebugSettingsHarness.route ?? DebugSettingsHarness.anyRoute {
             DebugSettingsHarnessView(route: route)
         } else {
