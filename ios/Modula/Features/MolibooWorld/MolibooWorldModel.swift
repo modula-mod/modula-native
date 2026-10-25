@@ -130,9 +130,14 @@ struct MolibooCareState: Codable, Equatable, Sendable {
         // Capped and floored: time away shows, but a pet never reads as neglected (0% / red).
         let h = min(12, max(0, now.timeIntervalSince(lastUpdate) / 3600))
         guard h > 0 else { return }
+        // Floors apply to real time away (15 min+) only. Applying them on every sub-second tick meant energy could
+        // never stay below 35, so "too tired to play" could never happen (MOL03WorldTests.testTooTiredToPlay).
+        let away = h >= 0.25
         defer {
-            energy = max(energy, 35); mood = max(mood, 45)
-            cleanliness = max(cleanliness, 35); hunger = min(hunger, 70)
+            if away {
+                energy = max(energy, 35); mood = max(mood, 45)
+                cleanliness = max(cleanliness, 35); hunger = min(hunger, 70)
+            }
         }
         if asleep {
             energy = Self.clamp(energy + 25 * h)
@@ -186,6 +191,8 @@ final class MolibooCareStore {
     private let defaults: UserDefaults
     private let now: () -> Date
     private(set) var states: [String: MolibooCareState] = [:]
+    /// Cooldowns / streak / moments per character (see `MolibooLifeState`).
+    var lives: [String: MolibooLifeState] = [:]
 
     init(defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init) {
         self.defaults = defaults; self.now = now
@@ -215,11 +222,205 @@ final class MolibooCareStore {
         var s = state(for: id); s.interact(mood: mood, bond: bond, at: now()); save(s, for: id)
     }
 
+    /// Applies a state change and saves it only if it happened.
+    func adjustState(_ id: String, _ change: (inout MolibooCareState) -> Bool) -> Bool {
+        var s = state(for: id)
+        guard change(&s) else { return false }
+        save(s, for: id)
+        return true
+    }
+
     func refresh(_ id: String) { var s = state(for: id); s.advance(to: now()); save(s, for: id) }
 
     private func save(_ s: MolibooCareState, for id: String) {
         states[id] = s
         if let d = try? JSONEncoder().encode(s) { defaults.set(d, forKey: Self.key(id)) }
+    }
+}
+
+// MARK: - Care actions (single source of truth for Home tiles and the Care sheet)
+
+/// The expanded, local-only care actions. Stat effects go through `MolibooCareState` (the same persisted state
+/// the stage reads); cooldowns, streak and recent moments live in `MolibooLifeState` under a separate key, so
+/// existing care data is never rewritten or reset.
+enum MolibooCareAction: String, CaseIterable, Identifiable, Codable, Sendable {
+    case feed, play, cuddle, nap, bath, dance, photo
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .feed: "Feed"; case .play: "Play"; case .cuddle: "Cuddle"; case .nap: "Nap"
+        case .bath: "Bath"; case .dance: "Dance"; case .photo: "Photo"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .feed: "carrot.fill"; case .play: "gamecontroller.fill"; case .cuddle: "heart.fill"; case .nap: "moon.zzz.fill"
+        case .bath: "bubbles.and.sparkles.fill"; case .dance: "music.note"; case .photo: "camera.fill"
+        }
+    }
+    /// Short effect line shown on tiles.
+    var effect: String {
+        switch self {
+        case .feed: "Full · +Energy"; case .play: "+Mood · −Energy"; case .cuddle: "+Mood · +Bond"; case .nap: "Restores energy"
+        case .bath: "Fresh & clean"; case .dance: "+Mood · +Bond"; case .photo: "Open camera"
+        }
+    }
+    var tint: Color {
+        switch self {
+        case .feed: Color(red: 0.95, green: 0.55, blue: 0.30); case .play: Color(red: 0.30, green: 0.68, blue: 0.42)
+        case .cuddle: Color(red: 0.92, green: 0.36, blue: 0.52); case .nap: Color(red: 0.42, green: 0.42, blue: 0.86)
+        case .bath: Color(red: 0.24, green: 0.62, blue: 0.90); case .dance: Color(red: 0.62, green: 0.40, blue: 0.90)
+        case .photo: Color(red: 0.20, green: 0.66, blue: 0.70)
+        }
+    }
+    /// Seconds before it can be repeated (keeps it calm, not a tapping game).
+    var cooldown: TimeInterval {
+        switch self {
+        case .feed: 10 * 60; case .play: 2 * 60; case .cuddle: 15; case .nap: 0
+        case .bath: 15 * 60; case .dance: 90; case .photo: 0
+        }
+    }
+    var reaction: MolibooEmotion {
+        switch self {
+        case .feed, .bath: .happy; case .play, .dance: .excited; case .cuddle: .calm; case .nap: .sleepy; case .photo: .curious
+        }
+    }
+    var line: String {
+        switch self {
+        case .feed: "Yum, thank you!"; case .play: "That was so fun!"; case .cuddle: "Warm and cosy…"; case .nap: "Night night…"
+        case .bath: "Squeaky clean!"; case .dance: "Look at my moves!"; case .photo: "Say cheese!"
+        }
+    }
+}
+
+extension MolibooEmotion {
+    /// Mood-reactive speech bubble line.
+    var speech: String {
+        switch self {
+        case .calm: "I'm right here."; case .happy: "Best day ever!"; case .excited: "Again! Again!"; case .curious: "Ooh, what's that?"
+        case .thinking: "Hmm…"; case .sleepy: "Zzz…"; case .tired: "So sleepy…"; case .sad: "Stay with me?"
+        }
+    }
+}
+
+struct MolibooMoment: Codable, Identifiable, Equatable, Sendable {
+    var id = UUID()
+    var symbol: String
+    var text: String
+    var date: Date
+}
+
+/// Cooldowns, daily check-in streak and a short moments log. Decoded leniently (every field optional on disk).
+struct MolibooLifeState: Codable, Equatable, Sendable {
+    var lastUsed: [String: Date] = [:]
+    var streak = 0
+    var lastCheckIn: Date?
+    var moments: [MolibooMoment] = []
+    static let maxMoments = 12
+
+    init() {}
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        lastUsed = (try? c.decodeIfPresent([String: Date].self, forKey: .lastUsed)) ?? [:]
+        streak = (try? c.decodeIfPresent(Int.self, forKey: .streak)) ?? 0
+        lastCheckIn = try? c.decodeIfPresent(Date.self, forKey: .lastCheckIn)
+        moments = (try? c.decodeIfPresent([MolibooMoment].self, forKey: .moments)) ?? []
+    }
+
+    func remaining(_ a: MolibooCareAction, at now: Date) -> TimeInterval {
+        guard a.cooldown > 0, let last = lastUsed[a.rawValue] else { return 0 }
+        return max(0, a.cooldown - now.timeIntervalSince(last))
+    }
+    func checkedIn(on now: Date, calendar: Calendar = .current) -> Bool {
+        lastCheckIn.map { calendar.isDate($0, inSameDayAs: now) } ?? false
+    }
+    /// Streak shown today: a missed day breaks it.
+    func currentStreak(at now: Date, calendar: Calendar = .current) -> Int {
+        guard let last = lastCheckIn else { return 0 }
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: last), to: calendar.startOfDay(for: now)).day ?? 99
+        return days <= 1 ? streak : 0
+    }
+    mutating func log(_ symbol: String, _ text: String, at now: Date) {
+        moments.insert(MolibooMoment(symbol: symbol, text: text, date: now), at: 0)
+        if moments.count > Self.maxMoments { moments.removeLast(moments.count - Self.maxMoments) }
+    }
+}
+
+enum MolibooActionOutcome: Equatable, Sendable {
+    case done(String)
+    case blocked(String)
+}
+
+extension MolibooCareState {
+    /// Generic small stat change for actions without a dedicated activity (cuddle, dance).
+    @discardableResult
+    mutating func adjust(mood dm: Double, energy de: Double, bond db: Double, minEnergy: Double = 0, at now: Date) -> Bool {
+        advance(to: now)
+        guard !asleep, energy >= minEnergy else { return false }
+        mood = min(100, max(0, mood + dm)); energy = min(100, max(0, energy + de)); bondXP += db
+        return true
+    }
+    /// XP progress inside the current bond level (0…1) and XP still needed for the next level.
+    var bondProgress: Double { bondXP.truncatingRemainder(dividingBy: 100) / 100 }
+    var xpToNextLevel: Int { max(1, 100 - Int(bondXP.truncatingRemainder(dividingBy: 100))) }
+}
+
+extension MolibooCareStore {
+    static func lifeKey(_ id: String) -> String { "moliboo.life.v1.\(id)" }
+
+    func life(for id: String) -> MolibooLifeState {
+        if let l = lives[id] { return l }
+        let l = defaults.data(forKey: Self.lifeKey(id)).flatMap { try? JSONDecoder().decode(MolibooLifeState.self, from: $0) } ?? MolibooLifeState()
+        lives[id] = l
+        return l
+    }
+
+    private func saveLife(_ l: MolibooLifeState, for id: String) {
+        lives[id] = l
+        if let d = try? JSONEncoder().encode(l) { defaults.set(d, forKey: Self.lifeKey(id)) }
+    }
+
+    /// The one place every care action runs, from Home tiles or the Care sheet.
+    func perform(_ a: MolibooCareAction, for id: String, name: String, now: Date = Date()) -> MolibooActionOutcome {
+        var life = life(for: id)
+        let left = life.remaining(a, at: now)
+        if left > 0 { return .blocked("\(a.title) again in \(Self.short(left))") }
+        let asleep = state(for: id).asleep
+        if asleep && a != .nap && a != .photo { return .blocked("\(name) is asleep. Wake them first.") }
+        let ok: Bool
+        var text = "\(a.title) with \(name)"
+        switch a {
+        case .feed: ok = perform(.feed, for: id); text = "Fed \(name) a treat"
+        case .play: ok = perform(.play, for: id); text = "Played with \(name)"
+        case .bath: ok = perform(.clean, for: id); text = "Gave \(name) a bath"
+        case .nap: ok = perform(.sleep, for: id); text = state(for: id).asleep ? "\(name) took a nap" : "\(name) woke up"
+        case .cuddle: ok = adjustState(id) { $0.adjust(mood: 6, energy: 0, bond: 5, at: now) }; text = "Cuddled \(name)"
+        case .dance: ok = adjustState(id) { $0.adjust(mood: 10, energy: -6, bond: 6, minEnergy: 10, at: now) }; text = "Danced with \(name)"
+        case .photo: ok = true; text = "Took a photo of \(name)"
+        }
+        guard ok else { return .blocked("\(name) is too tired. Try a nap.") }
+        life.lastUsed[a.rawValue] = now
+        life.log(a.symbol, text, at: now)
+        saveLife(life, for: id)
+        return .done(a == .nap && !state(for: id).asleep ? "I'm awake!" : a.line)
+    }
+
+    /// Daily check-in: once per day, extends the streak (a missed day restarts it) and adds a little bond.
+    @discardableResult
+    func checkIn(_ id: String, name: String, now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        var life = life(for: id)
+        guard !life.checkedIn(on: now, calendar: calendar) else { return false }
+        life.streak = life.currentStreak(at: now, calendar: calendar) + 1
+        life.lastCheckIn = now
+        life.log("flame.fill", "Day \(life.streak) check-in with \(name)", at: now)
+        saveLife(life, for: id)
+        _ = adjustState(id) { $0.adjust(mood: 4, energy: 0, bond: 10, at: now) || true }
+        return true
+    }
+
+    static func short(_ t: TimeInterval) -> String {
+        let s = Int(t.rounded(.up))
+        return s >= 60 ? "\((s + 59) / 60)m" : "\(s)s"
     }
 }
 
