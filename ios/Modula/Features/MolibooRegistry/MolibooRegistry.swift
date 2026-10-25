@@ -30,6 +30,27 @@ enum MolibooSemanticExpression: String, CaseIterable, Codable, Sendable {
     }
 
     var title: String { rawValue.prefix(1).uppercased() + rawValue.dropFirst() }
+
+    /// A complete still pose for this state. `MascotPose.still(mood)` alone leaves the brain-driven face fields
+    /// (gaze, eye shape, lids, mouth) at rest, so several states would look like Neutral; this fills them in.
+    var stillPose: MascotPose {
+        var p = MascotPose.still(mood)
+        MolibooSemanticExpression.applyFace(for: mood, to: &p)
+        return p
+    }
+
+    /// Face details for the seven contract states, shared by still renders and the animated figure.
+    static func applyFace(for mood: MascotMood, to p: inout MascotPose) {
+        switch mood {
+        case .happy: p.eyes = .happy; p.mouthOpen = max(p.mouthOpen, 0.25)
+        case .excited: p.eyes = .happy; p.mouthOpen = max(p.mouthOpen, 0.7); p.look.height = -0.2
+        case .curious: p.look = CGSize(width: 0.55, height: -0.15); p.mouthOpen = max(p.mouthOpen, 0.15)
+        case .sleepy: p.blink = max(p.blink, 0.62)
+        case .surprised: p.mouthOpen = max(p.mouthOpen, 0.85); p.look.height = -0.25
+        case .sad: p.blink = max(p.blink, 0.3); p.look = CGSize(width: -0.2, height: 0.7)
+        default: break
+        }
+    }
 }
 
 /// Reusable animation building blocks (MOL-03 §7). Motion profiles configure these; there is one engine.

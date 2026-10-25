@@ -158,7 +158,7 @@ struct MolibooCharacterDetailView: View {
                             HStack(spacing: 10) {
                                 ForEach(c.expressions, id: \.self) { e in
                                     VStack(spacing: 2) {
-                                        ModulaMascotFigure(kind: kind, pose: .still(e.mood), size: 26).frame(width: 56, height: 52)
+                                        ModulaMascotFigure(kind: kind, pose: e.stillPose, size: 26).frame(width: 56, height: 52)
                                         Text(e.title).font(.caption2)
                                     }
                                     .accessibilityElement(children: .ignore)

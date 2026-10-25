@@ -162,7 +162,7 @@ enum MolibooPackageValidator {
         guard !path.isEmpty, path.count <= 128, !path.hasPrefix("/"), !path.contains("\\"), !path.contains("\0") else { return false }
         let comps = path.split(separator: "/", omittingEmptySubsequences: false)
         guard comps.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." && !$0.hasPrefix(".") }) else { return false }
-        guard path.unicodeScalars.allSatisfy({ CharacterSet.alphanumerics.contains($0) || "-_./".unicodeScalars.contains($0) }) else { return false }
+        guard path.unicodeScalars.allSatisfy({ $0.isASCII && CharacterSet.alphanumerics.contains($0) || "-_./".unicodeScalars.contains($0) }) else { return false }
         return MolibooPackageLimits.allowedExtensions.contains((path as NSString).pathExtension.lowercased())
     }
 

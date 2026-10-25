@@ -81,11 +81,11 @@ final class MOL03VisualAcceptanceTests: XCTestCase {
     func testSevenExpressionsRenderDistinctlyForEveryMoliboo() throws {
         var flat: [String] = []
         for kind in ModulaMascotKind.allCases {
-            let neutral = MolibooRaster(ModulaMascotFigure(kind: kind, pose: .still(MolibooSemanticExpression.neutral.mood), size: 64))
+            let neutral = MolibooRaster(ModulaMascotFigure(kind: kind, pose: MolibooSemanticExpression.neutral.stillPose, size: 64))
             XCTAssertGreaterThan(neutral.opaqueCount, 400, "\(kind.rawValue) neutral renders")
             var distinct = 0
             for e in MolibooSemanticExpression.allCases where e != .neutral {
-                let r = MolibooRaster(ModulaMascotFigure(kind: kind, pose: .still(e.mood), size: 64))
+                let r = MolibooRaster(ModulaMascotFigure(kind: kind, pose: e.stillPose, size: 64))
                 if neutral.diff(r).count >= 12 { distinct += 1 }
             }
             if distinct < 6 { flat.append("\(kind.rawValue): only \(distinct)/6 expressions differ from neutral") }
@@ -168,7 +168,7 @@ final class MOL03VisualAcceptanceTests: XCTestCase {
                     MOL03Cell(kind: k, caption: "\(k.catalogueNumber) \(k.name)") {
                         HStack(spacing: 0) {
                             ForEach(MolibooSemanticExpression.allCases, id: \.self) { e in
-                                ModulaMascotFigure(kind: k, pose: .still(e.mood), size: 26).frame(width: 54, height: 52)
+                                ModulaMascotFigure(kind: k, pose: e.stillPose, size: 26).frame(width: 54, height: 52)
                             }
                         }
                     }

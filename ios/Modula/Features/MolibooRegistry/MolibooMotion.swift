@@ -131,6 +131,12 @@ struct MolibooAnimatedFigure: View {
     @State private var playback: MolibooReactionPlayback?
     @State private var budget = MolibooActiveRendererBudget.shared
 
+    static func pose(t: Double, frame f: MolibooMotionFrame, amp: CGFloat) -> MascotPose {
+        var p = MascotPose(t: t, blink: f.blink, mood: f.mood, amp: amp)
+        MolibooSemanticExpression.applyFace(for: f.mood, to: &p)
+        return p
+    }
+
     private var entry: MolibooRegistryCharacter? { kind.registryEntry }
     private var profile: MolibooMotionProfile? { entry.flatMap { MolibooRegistryStore.bundled?.motionProfiles[$0.motionProfile] } }
     private var animating: Bool { visible && scenePhase == .active && budget.isActive(id) && profile != nil }
@@ -139,7 +145,7 @@ struct MolibooAnimatedFigure: View {
         TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !animating)) { ctx in
             let t = ctx.date.timeIntervalSinceReferenceDate
             let f = profile.map { MolibooMotionEngine.frame(profile: $0, t: t, seed: Double(kind.number) * 0.37, reaction: playback, reduceMotion: reduceMotion) } ?? .rest
-            ModulaMascotFigure(kind: kind, pose: MascotPose(t: animating ? t : 0, blink: f.blink, mood: f.mood, amp: animating && !reduceMotion ? 1 : 0), size: size, outfit: outfit)
+            ModulaMascotFigure(kind: kind, pose: Self.pose(t: animating ? t : 0, frame: f, amp: animating && !reduceMotion ? 1 : 0), size: size, outfit: outfit)
                 .scaleEffect(x: f.scale * f.squash, y: f.scale / max(0.5, f.squash), anchor: .bottom)
                 .rotationEffect(.degrees(f.rotation), anchor: .bottom)
                 .offset(x: f.offset.width * size, y: f.offset.height * size)
