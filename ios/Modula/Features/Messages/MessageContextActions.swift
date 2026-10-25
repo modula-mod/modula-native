@@ -189,7 +189,7 @@ enum MessagingDebugFixture {
         }
         return [
             c("fx-sophia", .direct, [sophia], "Are you still working on the module SDK? I have a few ideas for the bridge.", from: sophia.id, minutes: 2, unread: 2),
-            c("fx-crew", .group, [marcus, noor, kai], "Shipping the glass header tonight 🚀", from: marcus.id, minutes: 24, unread: 5, title: "Design crew"),
+            c("fx-crew", .group, [marcus, noor, kai], "Shipping the glass header tonight!", from: marcus.id, minutes: 24, unread: 5, title: "Design crew"),
             c("fx-marcus", .direct, [marcus], "Sounds good, see you tomorrow.", from: viewerID, minutes: 70, unread: 0),
             c("fx-noor", .direct, [noor], "Sent you the Vault Notes build notes.", from: noor.id, minutes: 60 * 26, unread: 0),
             c("fx-kai", .direct, [kai], "Haha that Moliboo is adorable", from: kai.id, minutes: 60 * 24 * 4, unread: 0),

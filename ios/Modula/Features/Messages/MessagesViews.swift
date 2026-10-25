@@ -58,15 +58,6 @@ struct ConversationListView: View {
             .modulaSoftScrollEdge()
             .navigationTitle("Messages")
             .navigationBarTitleDisplayMode(.large)
-            .messagesTopBar {
-                VStack(spacing: 8) {
-                    MessagesScopePicker(selection: .inbox)
-                    MessagesGlassSearchField(text: Bindable(app.messaging).conversationQuery, prompt: "Search chats")
-                        .padding(.horizontal, ModulaLayout.contentInset)
-                    filterRow
-                }
-                .padding(.bottom, 6)
-            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -91,6 +82,18 @@ struct ConversationListView: View {
             .overlay(alignment: .bottom) { errorBanner }
             .accessibilityIdentifier("messages.inbox")
             .accessibilityValue(RouteSerializer.serialize(.messages(.inbox)))
+    }
+
+    /// Scope, search and filters scroll with the list (like Messages), so the large title
+    /// collapses normally instead of starting half-faded under a tall pinned bar.
+    private var header: some View {
+        VStack(spacing: 8) {
+            MessagesScopePicker(selection: .inbox)
+            MessagesGlassSearchField(text: Bindable(app.messaging).conversationQuery, prompt: "Search chats")
+                .padding(.horizontal, ModulaLayout.contentInset)
+            filterRow
+        }
+        .padding(.bottom, 6)
     }
 
     private var filterRow: some View {
@@ -133,26 +136,19 @@ struct ConversationListView: View {
     private var content: some View {
         let items = app.messaging.visibleConversations.filter(filter.matches)
         let searching = !app.messaging.conversationQuery.trimmingCharacters(in: .whitespaces).isEmpty
-        switch app.messaging.conversationState {
-        case .loading where items.isEmpty:
-            MessagesSkeletonList(label: "Loading conversations")
-        case .failed(let message) where items.isEmpty:
-            MessagesFriendlyEmpty(scope: .inbox, retryMessage: message) {
-                await app.messaging.refreshInbox()
-            }
-        case _ where items.isEmpty && (searching || filter != .all):
-            ContentUnavailableView {
-                Label(searching ? "No matching chats" : (filter == .unread ? "You're all caught up" : "No group chats"),
-                      systemImage: searching ? "magnifyingglass" : (filter == .unread ? "checkmark.bubble" : "person.3"))
-            } description: {
-                Text(searching ? "Search looks through the chats loaded on this device." : "Nothing here right now.")
+        if items.isEmpty {
+            VStack(spacing: 0) {
+                header
+                emptyState(searching: searching)
+                    .frame(maxHeight: .infinity)
             }
             .frame(maxHeight: .infinity, alignment: .top)
-            .padding(.top, 40)
-        case _ where items.isEmpty:
-            MessagesFriendlyEmpty(scope: .inbox)
-        default:
+        } else {
             List {
+                header
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                 ForEach(items) { conversation in
                     Button {
                         open(conversation)
@@ -191,6 +187,29 @@ struct ConversationListView: View {
             .scrollContentBackground(.hidden)
             .modulaSoftScrollEdge()
             .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: filter)
+        }
+    }
+
+    @ViewBuilder
+    private func emptyState(searching: Bool) -> some View {
+        switch app.messaging.conversationState {
+        case .loading:
+            MessagesSkeletonList(label: "Loading conversations")
+        case .failed(let message):
+            MessagesFriendlyEmpty(scope: .inbox, retryMessage: message) {
+                await app.messaging.refreshInbox()
+            }
+        case _ where searching || filter != .all:
+            ContentUnavailableView {
+                Label(searching ? "No matching chats" : (filter == .unread ? "You're all caught up" : "No group chats"),
+                      systemImage: searching ? "magnifyingglass" : (filter == .unread ? "checkmark.bubble" : "person.3"))
+            } description: {
+                Text(searching ? "Search looks through the chats loaded on this device." : "Nothing here right now.")
+            }
+            .frame(maxHeight: .infinity, alignment: .top)
+            .padding(.top, 40)
+        default:
+            MessagesFriendlyEmpty(scope: .inbox)
         }
     }
 
