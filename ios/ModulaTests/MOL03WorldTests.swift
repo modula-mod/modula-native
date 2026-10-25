@@ -128,3 +128,59 @@ final class MOL03WorldTests: XCTestCase {
         for id in ids { XCTAssertNotNil(MolibooPortrait.image(for: id), id) }
     }
 }
+
+/// Expanded care actions: one store for Home and the Care sheet, cooldowns, streaks, moments, no data loss.
+@MainActor
+final class MolibooCareActionTests: XCTestCase {
+    private func defaults() -> UserDefaults {
+        let name = "molcare.\(UUID().uuidString)"
+        return UserDefaults(suiteName: name)!
+    }
+
+    func testActionsChangeStatsRespectCooldownsAndLogMoments() {
+        let d = defaults()
+        let store = MolibooCareStore(defaults: d)
+        let t0 = Date()
+        let before = store.state(for: "pip")
+        XCTAssertEqual(store.perform(.cuddle, for: "pip", name: "Pip", now: t0), .done(MolibooCareAction.cuddle.line))
+        XCTAssertGreaterThan(store.state(for: "pip").bondXP, before.bondXP)
+        if case .blocked = store.perform(.cuddle, for: "pip", name: "Pip", now: t0.addingTimeInterval(2)) {} else { XCTFail("cooldown") }
+        XCTAssertEqual(store.perform(.cuddle, for: "pip", name: "Pip", now: t0.addingTimeInterval(20)), .done(MolibooCareAction.cuddle.line))
+        XCTAssertEqual(store.life(for: "pip").moments.count, 2)
+        // Persisted under its own key; the care state key is untouched in shape.
+        let again = MolibooCareStore(defaults: d)
+        XCTAssertEqual(again.life(for: "pip").moments.count, 2)
+        XCTAssertEqual(again.state(for: "pip").bondXP, store.state(for: "pip").bondXP)
+    }
+
+    func testNapBlocksOtherActionsUntilWake() {
+        let store = MolibooCareStore(defaults: defaults())
+        _ = store.perform(.nap, for: "moss", name: "Moss")
+        XCTAssertTrue(store.state(for: "moss").asleep)
+        if case .blocked = store.perform(.dance, for: "moss", name: "Moss") {} else { XCTFail("asleep") }
+        _ = store.perform(.nap, for: "moss", name: "Moss")
+        XCTAssertFalse(store.state(for: "moss").asleep)
+    }
+
+    func testDailyCheckInStreak() {
+        let store = MolibooCareStore(defaults: defaults())
+        let cal = Calendar(identifier: .gregorian)
+        let day1 = cal.date(from: DateComponents(year: 2026, month: 10, day: 20, hour: 10))!
+        XCTAssertTrue(store.checkIn("pip", name: "Pip", now: day1, calendar: cal))
+        XCTAssertFalse(store.checkIn("pip", name: "Pip", now: day1.addingTimeInterval(3600), calendar: cal))
+        XCTAssertTrue(store.checkIn("pip", name: "Pip", now: day1.addingTimeInterval(86400), calendar: cal))
+        XCTAssertEqual(store.life(for: "pip").streak, 2)
+        XCTAssertTrue(store.checkIn("pip", name: "Pip", now: day1.addingTimeInterval(86400 * 4), calendar: cal))
+        XCTAssertEqual(store.life(for: "pip").streak, 1, "a missed day restarts the streak")
+    }
+
+    func testLegacyCareStateStillDecodes() throws {
+        let d = defaults()
+        let legacy = #"{"mood":61,"energy":70,"bondXP":240,"cleanliness":50,"hunger":20,"asleep":false,"lastUpdate":0,"activityCount":{}}"#
+        d.set(Data(legacy.utf8), forKey: MolibooCareStore.key("pip"))
+        let s = MolibooCareStore(defaults: d).state(for: "pip")
+        XCTAssertEqual(s.bondXP, 240)
+        XCTAssertEqual(s.bondLevel, 3)
+        XCTAssertEqual(s.xpToNextLevel, 60)
+    }
+}

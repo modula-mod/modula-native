@@ -29,8 +29,16 @@ final class MolibooArtSnapshotTests: XCTestCase {
 final class MolibooOutfitSyncTests: XCTestCase {
     func testHomeAndStudioResolveSameOutfit() throws {
         let store = MascotWardrobeStore.shared
+        // Wardrobe edits are (correctly) ignored while a Legend is the selected Moliboo, so pin a wardrobe-capable
+        // selection for the test and restore the simulator's own selection and outfit afterwards.
+        let d = UserDefaults.standard
+        let previousKind = d.string(forKey: ModulaMascotSettings.kindKey)
+        d.set(ModulaMascotKind.pip.rawValue, forKey: ModulaMascotSettings.kindKey)
         let previous = store.outfit
-        defer { store.apply(previous) }   // simulator test store only; restores whatever was there
+        defer {
+            store.apply(previous)   // simulator test store only; restores whatever was there
+            if let previousKind { d.set(previousKind, forKey: ModulaMascotSettings.kindKey) } else { d.removeObject(forKey: ModulaMascotSettings.kindKey) }
+        }
         let hat = try XCTUnwrap(MascotWardrobeCatalog.all.first { $0.slot == .hat && $0.unlock == .free && store.canEquip($0) })
         store.apply(.empty)
         let bare = try XCTUnwrap(MolibooPortrait.image(for: "pip")?.pngData())

@@ -14,11 +14,19 @@ enum MOL03DebugHarness {
 }
 
 struct MOL03StudioCover: ViewModifier {
+    var environment: AppEnvironment? = nil
     @State private var shown = MOL03DebugHarness.character != nil
+    /// `-MOLWorld 1` presents the Moliboo home directly (with `-MOLWorldKind`, `-MOLWorldScrollY`,
+    /// `-MOLWorldFamily`, `-MOLWorldAutoTap` for screenshot evidence).
+    @State private var worldShown = MOL03DebugHarness.arg("-MOLWorld") != nil
     func body(content: Content) -> some View {
-        content.fullScreenCover(isPresented: $shown) {
-            NavigationStack { MolibooLivingStudioView(characterID: MOL03DebugHarness.character ?? "pip") }
-        }
+        content
+            .fullScreenCover(isPresented: $shown) {
+                NavigationStack { MolibooLivingStudioView(characterID: MOL03DebugHarness.character ?? "pip") }
+            }
+            .fullScreenCover(isPresented: $worldShown) {
+                if let environment { NavigationStack { MolibooWorldView() }.environment(environment) }
+            }
     }
 }
 #endif
