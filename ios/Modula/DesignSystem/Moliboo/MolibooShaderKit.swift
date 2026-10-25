@@ -131,10 +131,11 @@ private struct MolibooJoyPulseEffect: ViewModifier {
     let tint: Color
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var start: Date = .distantPast
+    @State private var running = false
     private static let duration = 1.4
     func body(content: Content) -> some View {
         content.overlay {
-            if !reduceMotion && Date().timeIntervalSince(start) < Self.duration {
+            if running && !reduceMotion {
                 GeometryReader { g in
                     TimelineView(.animation(minimumInterval: 1 / 60)) { ctx in
                         let p = min(1, max(0, ctx.date.timeIntervalSince(start) / Self.duration))
@@ -153,7 +154,15 @@ private struct MolibooJoyPulseEffect: ViewModifier {
                 .accessibilityHidden(true)
             }
         }
-        .onChange(of: trigger) { _, _ in start = Date() }
+        .onChange(of: trigger) { _, _ in
+            let begun = Date()
+            start = begun; running = true
+            // Stop the 60 fps timeline once the ring has faded.
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(Self.duration + 0.05))
+                if start == begun { running = false }
+            }
+        }
     }
 }
 
