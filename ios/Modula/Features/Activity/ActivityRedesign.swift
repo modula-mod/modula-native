@@ -904,13 +904,15 @@ enum ModulaFixtureFilter {
             || looksGenerated(handle)
     }
 
-    /// Machine-made handles such as "b14bmsb2xub7n73r" or "macbf7e269": letters and digits only, 8+ long,
-    /// 3+ digits and 3+ letter/digit switches. Real handles ("andrei.modula", "sam2024") don't qualify.
+    /// Machine-made handles such as "b14bmsb2xub7n73r", "p6smrq8pwcc" or "macb17863988517690": letters and
+    /// digits only, 8+ long, and either 2+ digits with 3+ letter/digit switches or 40%+ digits (6+). Real handles ("andrei.modula", "sam2024") don't qualify.
     static func looksGenerated(_ handle: String) -> Bool {
         let h = handle.lowercased()
         guard h.count >= 8, h.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber) }) else { return false }
         let digits = h.filter(\.isNumber).count
-        guard digits >= 3 else { return false }
+        // Long digit runs ("macb17863988517690"): mostly numbers.
+        if digits >= 6 && digits * 5 >= h.count * 2 { return true }
+        guard digits >= 2 else { return false }
         var switches = 0
         var last: Bool?
         for c in h {
