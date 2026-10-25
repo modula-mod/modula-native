@@ -64,6 +64,10 @@ struct MascotStudioView: View {
     @State private var baseZoom: CGFloat = 1
     @State private var chestReward: MascotChestReward?
     @State private var didAppear = false
+    /// True once the scene hero has scrolled up under the nav bar (turns the system top edge blur back on).
+    @State private var heroScrolledAway = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     private var wardrobe = MascotWardrobeStore.shared
     private var progress = MascotProgressStore.shared
     private var customs = CustomMascotStore.shared
@@ -105,6 +109,7 @@ struct MascotStudioView: View {
         VStack(spacing: 14) {
             HStack { Spacer(); coinPill }
             actionBar
+            MolibooCollectionEntry()
             // Stacked sections, no inner tabs: the Studio sheet's segmented control is the only tab level.
             embeddedSection("Rewards", "gift.fill") { rewardsPanel }
             if tabs.contains(.custom) { embeddedSection("Custom Moliboos", "wand.and.stars") { customPanel } }
@@ -130,27 +135,46 @@ struct MascotStudioView: View {
 
     private var standaloneBody: some View {
         ScrollView {
-            VStack(spacing: 16) {
-                previewCard
-                actionBar
-                Picker("Studio", selection: $tab) {
-                    ForEach(StudioTab.allCases) { t in Text(t.title).tag(t) }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 2)
+            VStack(spacing: 0) {
+                // Full-bleed scene: edge to edge and up under the status bar / nav bar (the system
+                // back button, title and coin chip float over it in glass). Not full screen.
+                sceneHero
+                VStack(spacing: 16) {
+                    heroControls
+                    actionBar
+                    MolibooCollectionEntry()
+                    Picker("Studio", selection: $tab) {
+                        ForEach(StudioTab.allCases) { t in Text(t.title).tag(t) }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, 2)
 
-                switch tab {
-                case .wardrobe: wardrobePanel
-                case .rewards: rewardsPanel
-                case .custom: customPanel
-                case .assistant: MascotAssistantSettingsSection()
+                    switch tab {
+                    case .wardrobe: wardrobePanel
+                    case .rewards: rewardsPanel
+                    case .custom: customPanel
+                    case .assistant: MascotAssistantSettingsSection()
+                    }
                 }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
+                // Emote row rides up onto the scene's faded bottom edge.
+                .padding(.top, -Self.heroControlsOverlap)
             }
-            .padding(16)
         }
-        .background(Color(.systemGroupedBackground))
+        .onScrollGeometryChange(for: Bool.self) { geo in
+            geo.contentOffset.y + geo.contentInsets.top > heroHeight - Self.navBarBand - 12
+        } action: { _, away in
+            if away != heroScrolledAway { heroScrolledAway = away }
+        }
+        // While the scene sits under the bar, no system edge blur over it; once scrolled away the
+        // usual soft edge comes back so the wardrobe doesn't run sharp under the buttons.
+        .modifier(StudioTopEdgeEffect(hidden: !heroScrolledAway))
+        .ignoresSafeArea(edges: .top)
+        .background(pageBackground.ignoresSafeArea())
         .navigationTitle("Moliboo Studio")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .primaryAction) { coinPill }
         }
@@ -238,66 +262,163 @@ struct MascotStudioView: View {
         .accessibilityLabel("\(progress.coins) coins")
     }
 
-    private var previewCard: some View {
-        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
-        return VStack(spacing: 10) {
-            ZStack {
-                if let bg = wardrobe.outfit.background {
-                    MascotSceneView(item: bg, dye: wardrobe.outfit.color(for: .background), animated: true)
-                        .clipShape(shape)
-                } else {
-                    shape.fill(LinearGradient(colors: [selection.accent.opacity(0.4), Color.primary.opacity(0.04)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                }
-                livePreview
-                    .scaleEffect(zoom)
-                    .rotation3DEffect(.degrees(rotation), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
-                    .offset(y: 10)
-                SparkleBurst(trigger: sparkleTick)
-                    .allowsHitTesting(false)
-            }
-            .frame(height: 230)
-            .clipShape(shape)
-            .contentShape(shape)
-            .gesture(
-                DragGesture(minimumDistance: 6)
-                    .onChanged { v in rotation = max(-40, min(40, Double(v.translation.width) / 3)) }
-                    .onEnded { _ in withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) { rotation = 0 } }
-                    .simultaneously(with:
-                        MagnifyGesture()
-                            .onChanged { v in zoom = max(0.8, min(1.8, baseZoom * v.magnification)) }
-                            .onEnded { _ in baseZoom = zoom }
-                    )
-            )
-            .onTapGesture(count: 2) { withAnimation(.spring) { zoom = 1; baseZoom = 1 } }
-            .onTapGesture { brain.hop(burst: .sparkle); MascotSound.shared.play(.hop) }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(selection.displayName) wearing \(outfitDescription)")
-            .accessibilityHint("Pinch to zoom, tap to hop.")
+    /// Status bar + nav bar band the scene extends under.
+    private static let navBarBand: CGFloat = 44
+    /// Scene height below the nav bar band (roughly the old card's height, a touch roomier).
+    private static let sceneVisibleHeight: CGFloat = 276
+    /// How far the emote row overlaps the scene's faded bottom.
+    private static let heroControlsOverlap: CGFloat = 8
+    private static let bottomFade: CGFloat = 112
+    /// Crisp scene fades in over this much, just above the header band's bottom edge.
+    private static let sceneTopFade: CGFloat = 26
 
-            HStack(spacing: 8) {
-                ForEach(Emote.allCases) { e in
-                    Button {
-                        play(e)
-                    } label: {
-                        Label(e.title, systemImage: e.symbol)
-                            .labelStyle(.iconOnly)
-                            .font(.subheadline.weight(.semibold))
-                            .frame(width: 38, height: 34)
-                    }
-                    .buttonStyle(.plain)
-                    .modulaGlass(in: Capsule(), interactive: true)
-                    .accessibilityLabel(e.title)
+    private var heroHeight: CGFloat {
+        ProfileFullBleedMetrics.windowSafeAreaTop + Self.navBarBand + Self.sceneVisibleHeight
+    }
+
+    /// Theme-synced page colour; the scene fades into it.
+    private var pageBackground: Color { Color(.systemGroupedBackground) }
+
+    private var sceneHero: some View {
+        let topBand = ProfileFullBleedMetrics.windowSafeAreaTop + Self.navBarBand
+        return ZStack(alignment: .bottom) {
+            sceneBackdrop
+            livePreview
+                .scaleEffect(zoom, anchor: .bottom)
+                .rotation3DEffect(.degrees(rotation), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
+                // Feet on the scene's ground, clear of the bottom fade and of the nav bar above.
+                .padding(.bottom, 64)
+                .padding(.top, topBand)
+            SparkleBurst(trigger: sparkleTick)
+                .padding(.top, topBand)
+                .allowsHitTesting(false)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: heroHeight)
+        .clipped()
+        .contentShape(Rectangle())
+        // Simultaneous so a vertical swipe that starts on the scene still scrolls the page.
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 6)
+                .onChanged { v in
+                    // Horizontal drags spin; vertical ones are left alone (page scroll).
+                    guard abs(v.translation.width) > abs(v.translation.height) else { return }
+                    rotation = max(-40, min(40, Double(v.translation.width) / 3))
                 }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text(selection.displayName).font(.headline)
-                    Text("\(wardrobe.outfit.items.count) item\(wardrobe.outfit.items.count == 1 ? "" : "s") on")
-                        .font(.caption2).foregroundStyle(.secondary)
-                }
+                .onEnded { _ in withAnimation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.6)) { rotation = 0 } }
+                .simultaneously(with:
+                    MagnifyGesture()
+                        .onChanged { v in zoom = max(0.8, min(1.8, baseZoom * v.magnification)) }
+                        .onEnded { _ in baseZoom = zoom }
+                )
+        )
+        .onTapGesture(count: 2) { withAnimation(reduceMotion ? nil : .spring) { zoom = 1; baseZoom = 1 } }
+        .onTapGesture { brain.hop(burst: .sparkle); MascotSound.shared.play(.hop) }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(selection.displayName) wearing \(outfitDescription)")
+        .accessibilityHint("Pinch to zoom, tap to hop.")
+        .accessibilityIdentifier("studio.scene")
+    }
+
+    /// Wardrobe scene (or a theme-synced wash), blended into the page at the bottom. No frame, no cutout.
+    private var sceneBackdrop: some View {
+        ZStack {
+            pageBackground
+            if let bg = wardrobe.outfit.background {
+                let dye = wardrobe.outfit.color(for: .background)
+                let topBand = ProfileFullBleedMetrics.windowSafeAreaTop + Self.navBarBand
+                // Under the status bar / nav bar: the same scene, static and heavily blurred, so the
+                // floating back button, title and coin chip sit on soft colour rather than on decor.
+                MascotSceneView(item: bg, dye: dye, animated: false)
+                    .blur(radius: 28, opaque: true)
+                    .accessibilityHidden(true)
+                // The crisp, animated scene starts below the header band (its moon, sun and clouds
+                // stay clear of the header controls) and dissolves upward into the blurred sky.
+                MascotSceneView(item: bg, dye: dye, animated: !reduceMotion)
+                    .frame(height: heroHeight - topBand + Self.sceneTopFade)
+                    .mask(
+                        LinearGradient(
+                            stops: [
+                                .init(color: .black.opacity(0), location: 0),
+                                .init(color: .black, location: Self.sceneTopFade / (heroHeight - topBand + Self.sceneTopFade))
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+            } else {
+                LinearGradient(
+                    colors: [
+                        selection.accent.opacity(colorScheme == .dark ? 0.42 : 0.34),
+                        selection.accent.opacity(colorScheme == .dark ? 0.16 : 0.12),
+                        pageBackground.opacity(0)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                RadialGradient(
+                    colors: [Color.white.opacity(colorScheme == .dark ? 0.08 : 0.5), .clear],
+                    center: UnitPoint(x: 0.5, y: 0.72),
+                    startRadius: 4,
+                    endRadius: 180
+                )
             }
         }
-        .padding(12)
-        .modulaGlass(in: shape, interactive: false)
+        // Soft blend into the page: the scene dissolves rather than ending on a hard edge.
+        .mask(
+            LinearGradient(
+                stops: [
+                    .init(color: .black, location: 0),
+                    .init(color: .black, location: 1 - (Self.bottomFade / heroHeight)),
+                    .init(color: .black.opacity(0.82), location: 1 - (Self.bottomFade * 0.7 / heroHeight)),
+                    .init(color: .black.opacity(0.4), location: 1 - (Self.bottomFade * 0.38 / heroHeight)),
+                    .init(color: .black.opacity(0.1), location: 1 - (Self.bottomFade * 0.12 / heroHeight)),
+                    .init(color: .black.opacity(0), location: 1)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+        // Keep the nav title and glass buttons legible over bright or busy scenes.
+        .overlay(alignment: .top) {
+            LinearGradient(
+                colors: [Color.black.opacity(colorScheme == .dark ? 0.28 : 0.1), .clear],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: ProfileFullBleedMetrics.windowSafeAreaTop + Self.navBarBand + 20)
+        }
+        .background(pageBackground)
+    }
+
+    /// Emotes + name under the scene (the parts of the old card that weren't the picture).
+    private var heroControls: some View {
+        HStack(spacing: 8) {
+            ModulaGlassGroup(spacing: 8) {
+                HStack(spacing: 8) {
+                    ForEach(Emote.allCases) { e in
+                        Button {
+                            play(e)
+                        } label: {
+                            Label(e.title, systemImage: e.symbol)
+                                .labelStyle(.iconOnly)
+                                .font(.subheadline.weight(.semibold))
+                                .frame(width: 40, height: 36)
+                        }
+                        .buttonStyle(.plain)
+                        .modulaGlass(in: Capsule(), interactive: true)
+                        .accessibilityLabel(e.title)
+                    }
+                }
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 1) {
+                Text(selection.displayName).font(.headline)
+                Text("\(wardrobe.outfit.items.count) item\(wardrobe.outfit.items.count == 1 ? "" : "s") on")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+        }
     }
 
     private var outfitDescription: String {
@@ -309,7 +430,7 @@ struct MascotStudioView: View {
         if case .off = selection {
             ContentUnavailableView("Moliboo off", systemImage: "eye.slash", description: Text("Pick a Moliboo in Settings → Moliboo."))
         } else {
-            MascotDressedLive(selection: selection, size: 84, brain: brain, outfit: wardrobe.outfit)
+            MascotDressedLive(selection: selection, size: 100, brain: brain, outfit: wardrobe.outfit)
         }
     }
 
@@ -340,14 +461,16 @@ struct MascotStudioView: View {
 
     private var actionBar: some View {
         HStack(spacing: 8) {
-            actionButton("Undo", "arrow.uturn.backward", disabled: !wardrobe.canUndo) { wardrobe.undo(); brain.react(.pleased) }
-            actionButton("Shuffle", "dice.fill") {
+            // Legends wear their own look: no shuffle, save, clear or undo of worn items while one is selected.
+            let wears = selection.supportsWardrobe
+            actionButton("Undo", "arrow.uturn.backward", disabled: !wears || !wardrobe.canUndo) { wardrobe.undo(); brain.react(.pleased) }
+            actionButton("Shuffle", "dice.fill", disabled: !wears) {
                 wardrobe.randomize(for: rig)
                 celebrateEquip()
             }
-            actionButton("Save", "square.and.arrow.down.on.square", disabled: wardrobe.outfit.isEmpty) { presetName = ""; naming = true }
+            actionButton("Save", "square.and.arrow.down.on.square", disabled: !wears || wardrobe.outfit.isEmpty) { presetName = ""; naming = true }
             actionButton("Share", "square.and.arrow.up") { share() }
-            actionButton("Clear", "xmark.circle", disabled: wardrobe.outfit.isEmpty) { showClearConfirm = true }
+            actionButton("Clear", "xmark.circle", disabled: !wears || wardrobe.outfit.isEmpty) { showClearConfirm = true }
         }
     }
 
@@ -389,7 +512,15 @@ struct MascotStudioView: View {
 
     // MARK: Wardrobe panel
 
-    private var wardrobePanel: some View {
+    @ViewBuilder private var wardrobePanel: some View {
+        if let legend = selection.stockKind, !legend.supportsWardrobe {
+            MolibooLegendLookCard(kind: legend)
+        } else {
+            wearableWardrobePanel
+        }
+    }
+
+    private var wearableWardrobePanel: some View {
         VStack(alignment: .leading, spacing: 12) {
             slotChips
             HStack(spacing: 8) {
@@ -1470,6 +1601,19 @@ struct MascotProfileSettingsSection: View {
             Text("Profile Moliboo")
         } footer: {
             Text("Your dressed Moliboo (and its scene) appears on your Profile. Long-press it there to open the wardrobe.")
+        }
+    }
+}
+
+
+/// Hides the system top scroll-edge blur while the Studio scene is under the bar.
+private struct StudioTopEdgeEffect: ViewModifier {
+    var hidden: Bool
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.scrollEdgeEffectHidden(hidden, for: .top)
+        } else {
+            content
         }
     }
 }

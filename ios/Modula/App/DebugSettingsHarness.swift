@@ -33,6 +33,18 @@ enum DebugSettingsHarness {
         return args[index + 1]
     }
 
+    /// `--debug-studio-scene <n>` (with `--debug-moliboo-studio`): equip the n-th owned, available
+    /// background scene, or clear it with `none`. Ownership-checked by the store; simulator only.
+    @MainActor
+    static func equipStudioSceneIfRequested() {
+        guard let raw = value(after: "--debug-studio-scene") else { return }
+        let store = MascotWardrobeStore.shared
+        if raw == "none" { store.unequip(.background); return }
+        let scenes = MascotWardrobeCatalog.items(in: .background).filter { store.canEquip($0) }
+        guard let n = Int(raw), scenes.indices.contains(n) else { return }
+        store.equip(scenes[n])
+    }
+
     /// `--debug-route /profile/andrei.modula` renders any route (signed-out real data only).
     static var anyRoute: AppRoute? {
         let args = ProcessInfo.processInfo.arguments

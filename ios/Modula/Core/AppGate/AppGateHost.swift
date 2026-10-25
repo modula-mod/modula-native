@@ -44,6 +44,18 @@ struct AppGateHost: View {
         } else if ProcessInfo.processInfo.arguments.contains("--debug-moliboo-hub") {
             // Straight to the Moliboo settings hub (World → ⋯ → Moliboo settings), e.g. for device screenshots.
             NavigationStack { MolibooSettingsView() }
+        } else if ProcessInfo.processInfo.arguments.contains("--debug-moliboo-studio") {
+            // Straight to the 2D Moliboo Studio, for simulator screenshots.
+            // `--debug-studio-scene <n>` equips the n-th owned background scene first (local only).
+            NavigationStack { MascotStudioView() }
+                .task {
+                    // After the Studio's own outfit-of-the-day pass on appear.
+                    try? await Task.sleep(for: .milliseconds(700))
+                    DebugSettingsHarness.equipStudioSceneIfRequested()
+                }
+        } else if ProcessInfo.processInfo.arguments.contains("--debug-moliboo-world") {
+            // Straight to the Moliboo home (World), for simulator screenshots of the hero / number label.
+            NavigationStack { MolibooWorldView() }
         } else if let route = DebugSettingsHarness.route ?? DebugSettingsHarness.anyRoute {
             DebugSettingsHarnessView(route: route)
         } else {

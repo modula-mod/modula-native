@@ -76,6 +76,7 @@ struct ActivityKindBadge: View {
         case .teamInvite: ("person.3.fill", .indigo)
         case .moduleEvent: ("shippingbox.fill", .mint)
         case .moduleUpdate: ("arrow.down.circle.fill", .mint)
+        case .moliboo: ("pawprint.fill", .orange)
         case .system, .unknown: ("bell.fill", .gray)
         }
     }

@@ -171,19 +171,6 @@ struct MolibooStageCharacter: View {
             .scaleEffect(emotion == .excited ? 1.15 : 1)
     }
 
-    /// Stage figure size: the nominal portrait square is drawn at `nominalSide` points, so every Moliboo keeps the
-    /// same scale; portraits widened for wings / tails / props grow the box, shrinking only past the stage limits.
-    static let nominalSide: CGFloat = 230
-    static let maxFigureSize = CGSize(width: 330, height: 290)
-    static func figureBox(for img: UIImage) -> CGSize {
-        let k = nominalSide / (MolibooPortrait.nominalFrame * 180)
-        let w = img.size.width * k, h = img.size.height * k
-        // Square images (nominal 2D portraits, bundled 3D portrait PNGs) keep the original 230 pt box.
-        guard w > 0, h > 0, abs(img.size.width - img.size.height) > 0.5 else { return CGSize(width: nominalSide, height: nominalSide) }
-        let fit = min(1, maxFigureSize.width / w, maxFigureSize.height / h)
-        return CGSize(width: w * fit, height: h * fit)
-    }
-
     /// Soft contact shadow only — no moss rock / platform glow.
     private var softContactShadow: some View {
         Ellipse()
@@ -196,8 +183,7 @@ struct MolibooStageCharacter: View {
     @ViewBuilder private var figure: some View {
         let live = animating && stage.awake
         if let img = MolibooPortrait.image(for: characterID) {
-            let box = Self.figureBox(for: img)
-            Image(uiImage: img).resizable().interpolation(.high).antialiased(true).scaledToFit().frame(width: box.width, height: box.height)
+            Image(uiImage: img).resizable().interpolation(.high).antialiased(true).scaledToFit().frame(width: 230, height: 230)
                 .shadow(color: .black.opacity(0.10), radius: 4, y: 2)
         } else if let kind = ModulaMascotKind(rawValue: characterID) {
             ModulaMascotFigure(kind: kind, pose: .still(), size: 110, outfit: MolibooOutfit.equipped(for: kind))
@@ -329,67 +315,5 @@ struct MolibooTapBurst: View {
             }
         }
         .allowsHitTesting(false).accessibilityHidden(true)
-    }
-}
-
-
-// MARK: - Family naming & picker chrome
-
-extension MolibooFamily {
-    /// Consistent family title ("The Originals", "The Angels", "The Underground", …) derived from the case, so
-    /// families added later (e.g. Legends) are named the same way without another switch.
-    var displayTitle: String { "The " + rawValue.prefix(1).uppercased() + rawValue.dropFirst() }
-}
-
-/// Family title in the Moliboos display style. No Moliboos font ships (the wordmark is vector artwork), so this
-/// mirrors `MoliboosWordmark`'s treatment: a heavy rounded face, accent fill and a soft top highlight in light
-/// mode, pastel-bright in dark. Used only for family titles; app fonts are unchanged elsewhere.
-struct MolibooFamilyTitle: View {
-    let text: String
-    @Environment(\.colorScheme) private var scheme
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    var body: some View {
-        let label = Text(text).font(.system(.title2, design: .rounded, weight: .black)).lineLimit(1).minimumScaleFactor(0.8)
-        label
-            .foregroundStyle(scheme == .dark ? AnyShapeStyle(Color(red: 1.0, green: 0.72, blue: 0.80)) : AnyShapeStyle(.tint))
-            .overlay {
-                if !reduceTransparency && scheme != .dark {
-                    LinearGradient(colors: [.white.opacity(0.38), .white.opacity(0)], startPoint: .top, endPoint: .center)
-                        .mask(label)
-                        .allowsHitTesting(false)
-                }
-            }
-            .accessibilityAddTraits(.isHeader)
-    }
-}
-
-/// Progressive top blur for the pinned Moliboo header: a real material blur whose strength fades out below the
-/// header (masked gradient), plus a light background wash so text under the wordmark never reads through.
-/// Extends into the status bar and a little below the header so content fades rather than cutting off.
-/// Reduce Transparency: an opaque background fade instead of blur.
-struct MolibooProgressiveHeaderBlur: View {
-    @Environment(\.colorScheme) private var scheme
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    var body: some View {
-        ZStack {
-            if reduceTransparency {
-                Rectangle().fill(Color(uiColor: .systemBackground))
-                    .mask(fade([(0, 1), (0.7, 1), (1, 0)]))
-            } else {
-                Rectangle().fill(.regularMaterial)
-                    .mask(fade([(0, 1), (0.55, 1), (0.8, 0.55), (1, 0)]))
-                Rectangle().fill(.ultraThinMaterial)
-                    .mask(fade([(0, 1), (0.75, 1), (1, 0)]))
-                Rectangle().fill(Color(uiColor: .systemBackground).opacity(scheme == .dark ? 0.72 : 0.66))
-                    .mask(fade([(0, 1), (0.5, 0.9), (0.85, 0.25), (1, 0)]))
-            }
-        }
-        .padding(.bottom, -36)
-        .ignoresSafeArea(edges: .top)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
-    private func fade(_ stops: [(CGFloat, Double)]) -> LinearGradient {
-        LinearGradient(stops: stops.map { .init(color: .black.opacity($0.1), location: $0.0) }, startPoint: .top, endPoint: .bottom)
     }
 }

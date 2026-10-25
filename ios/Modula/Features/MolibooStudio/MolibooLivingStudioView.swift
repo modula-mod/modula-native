@@ -193,8 +193,9 @@ struct MolibooLivingStudioView: View {
         descriptor?.displayName ?? ModulaMascotKind(rawValue: characterID)?.name ?? "Moliboo"
     }
     private var headerCaption: String {
-        if let d = descriptor { return String(format: "#%03d · Studio", d.canonicalNumber) }
+        // The 2D catalogue number is canonical (sheets win); the 3D descriptor only as a fallback.
         if let k = ModulaMascotKind(rawValue: characterID) { return String(format: "#%03d · Studio", k.number) }
+        if let d = descriptor { return String(format: "#%03d · Studio", d.canonicalNumber) }
         return "Studio"
     }
 

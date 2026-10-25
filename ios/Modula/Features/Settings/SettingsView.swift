@@ -127,6 +127,9 @@ struct SettingsView: View {
     @Namespace private var identityNamespace
     @State private var query = ""
     @State private var searchPresented = false
+    #if DEBUG
+    @State private var debugScroll = ScrollPosition(edge: .top)
+    #endif
     @State private var headerProgress: CGFloat = 0
     @State private var scrollY: CGFloat = 0
     @State private var avatarFrame: CGRect = .zero
@@ -296,9 +299,25 @@ struct SettingsView: View {
             SettingsQRModal { showsQR = false }
                 .transition(.scale)
         }
-        // Bottom/toolbar search (iOS 26 default) — the nav-bar drawer collided with Back and the title.
-        .searchable(text: $query, isPresented: $searchPresented, prompt: "Search Settings")
+        // Liquid Glass search capsule pinned under the nav bar (replaces the system `.searchable`
+        // field, which rendered as a flat grey rounded rect). Same query → same results.
+        .modifier(SettingsSearchBarPlacement(query: $query, presented: $searchPresented))
         .task { await refreshIntelligenceStatus() }
+        #if DEBUG
+        // Screenshot hooks: `--debug-settings-query <text>` prefills search,
+        // `--debug-settings-scroll <y>` parks the page at an offset.
+        .scrollPosition($debugScroll)
+        .task {
+            let args = ProcessInfo.processInfo.arguments
+            func value(_ flag: String) -> String? {
+                guard let i = args.firstIndex(of: flag), i + 1 < args.count else { return nil }
+                return args[i + 1]
+            }
+            try? await Task.sleep(for: .seconds(1))
+            if let q = value("--debug-settings-query") { query = q }
+            if let y = value("--debug-settings-scroll").flatMap(Double.init) { debugScroll.scrollTo(y: y) }
+        }
+        #endif
         .accessibilityIdentifier("settings.root")
     }
 
@@ -1217,5 +1236,109 @@ private struct AppearanceLogoChoice: View {
         .accessibilityLabel("\(mark.title) logo")
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier("appearance.logo.\(mark.rawValue)")
+    }
+}
+
+
+// MARK: - Glass search bar
+
+/// Pins the search capsule at the top. On iOS 26 `safeAreaBar` lets the scroll view's soft top
+/// edge blur extend under it, so rows scrolling up dissolve behind the glass instead of
+/// running sharp under it.
+private struct SettingsSearchBarPlacement: ViewModifier {
+    @Binding var query: String
+    @Binding var presented: Bool
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.safeAreaBar(edge: .top, spacing: 0) { bar }
+        } else {
+            content.safeAreaInset(edge: .top, spacing: 0) { bar }
+        }
+    }
+
+    private var bar: some View {
+        SettingsGlassSearchBar(text: $query, presented: $presented)
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .padding(.bottom, 8)
+    }
+}
+
+/// Capsule Liquid Glass field matching the 44pt header glass buttons, interactive while focused,
+/// with an inline clear button and a Cancel capsule that clears and dismisses.
+private struct SettingsGlassSearchBar: View {
+    @Binding var text: String
+    @Binding var presented: Bool
+    @FocusState private var focused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var active: Bool { focused || !text.isEmpty }
+
+    var body: some View {
+        ModulaGlassGroup(spacing: 10) {
+            HStack(spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                    TextField("Search Settings", text: $text)
+                        .textFieldStyle(.plain)
+                        .focused($focused)
+                        .submitLabel(.search)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .accessibilityIdentifier("settings.search")
+                    if !text.isEmpty {
+                        Button {
+                            text = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                                .frame(width: 28, height: 28)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Clear search")
+                        .transition(.opacity)
+                    }
+                }
+                .padding(.leading, 14)
+                .padding(.trailing, text.isEmpty ? 14 : 8)
+                .frame(height: 44)
+                .contentShape(Capsule())
+                .onTapGesture { focused = true }
+                .modulaGlass(in: Capsule(), interactive: focused, specular: true)
+
+                if active {
+                    Button {
+                        text = ""
+                        focused = false
+                        presented = false
+                    } label: {
+                        Text("Cancel")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal, 16)
+                            .frame(height: 44)
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .modulaGlass(in: Capsule(), interactive: true)
+                    .accessibilityIdentifier("settings.search.cancel")
+                    .transition(.opacity.combined(with: .scale(scale: 0.85, anchor: .leading)))
+                }
+            }
+        }
+        .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: active)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: text.isEmpty)
+        // The collapsed-header magnifying glass still "presents" search: focus the field.
+        .onChange(of: presented) { _, isPresented in
+            if isPresented != focused { focused = isPresented }
+        }
+        .onChange(of: focused) { _, isFocused in
+            if isFocused != presented { presented = isFocused }
+        }
     }
 }

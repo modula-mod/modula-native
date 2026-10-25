@@ -167,7 +167,7 @@ struct ProfileView: View {
                 ModulaProfileCodeView(profile: profile) {
                     showsModulaCode = false
                 }
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .presentationCornerRadius(32)
             }

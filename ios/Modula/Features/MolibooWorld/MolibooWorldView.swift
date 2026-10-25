@@ -48,25 +48,21 @@ struct MolibooWorldView: View {
     @State private var showCareSheet = false
     @State private var sheet: Section?
     @State private var scrollY: CGFloat = 0
-    @State private var scrollPosition = ScrollPosition(edge: .top)
     @State private var toast: String?
     @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
     @FocusState private var composerFocused: Bool
     @State private var didApplyDebugKind = false
     @State private var rippleTick = 0
     @State private var joyPulseTick = 0
-    /// Segment shown as selected in the Home · Studio · Stickers switcher. Studio / Stickers open their own
-    /// screens, so the capsule glides there first and glides back to Home when they close.
-    @State private var navSelection: Section = .home
-    @Namespace private var navNS
-    /// Family page shown in "Choose your Moliboo" (tab strip and pager share it).
-    @State private var pickerFamily: MolibooFamily?
-    @Namespace private var familyTabNS
     @AppStorage(MolibooSettings.onboardedKey) private var onboarded = false
     @State private var showWelcome = false
     @Namespace private var heroNS
     @Namespace private var zoomNS
     @Namespace private var glassNS
+    /// Segment shown as selected in the Home · Studio · Stickers switcher. Studio / Stickers open their own
+    /// screens, so the capsule glides there first and glides back to Home when they close.
+    @State private var navSelection: Section = .home
+    @Namespace private var navNS
     #if DEBUG
     @AppStorage("moliboo.world.debugHour") private var debugHour = -1
     #endif
@@ -124,7 +120,6 @@ struct MolibooWorldView: View {
                 .padding(.horizontal, 24).padding(.bottom, 48)
             }
             .scrollIndicators(.hidden)
-            .scrollPosition($scrollPosition)
             // Clear the floating tab bar so Activities / Choose your Moliboo never clip under it.
             .contentMargins(.bottom, 36, for: .scrollContent)
             // Nothing scrolls under the clock: content fades out beneath a scene-coloured status-bar scrim.
@@ -138,7 +133,7 @@ struct MolibooWorldView: View {
                         .padding(.horizontal, 20)
                         .padding(.bottom, 8)
                         .background(alignment: .top) {
-                            MolibooProgressiveHeaderBlur()
+                            MolibooProgressiveStrip()
                                 .opacity(min(1, max(0, (scrollY - 8) / 28)))
                         }
                 }
@@ -164,13 +159,6 @@ struct MolibooWorldView: View {
         .task {
             #if DEBUG
             if let k = MOL03DebugHarness.arg("-MOLWorldKind"), !didApplyDebugKind { didApplyDebugKind = true; kindRaw = k }
-            if let f = MOL03DebugHarness.arg("-MOLWorldFamily").flatMap(MolibooFamily.init(rawValue:)) { pickerFamily = f }
-            if let y = MOL03DebugHarness.arg("-MOLWorldScrollY").flatMap(Double.init) {
-                Task { try? await Task.sleep(for: .seconds(1.5)); scrollPosition.scrollTo(y: y) }
-            }
-            if let d = MOL03DebugHarness.arg("-MOLWorldAutoTap").flatMap(Double.init) {
-                Task { try? await Task.sleep(for: .seconds(d)); rippleTick += 1; joyPulseTick += 1; stage.bounce(allowed: motionAllowed) }
-            }
             if MOL03DebugHarness.arg("-MOLWorldPush") == "studio", route == nil { try? await Task.sleep(for: .seconds(2)); route = .studio(characterID) }
             #endif
             if chat == nil { chat = MolibooChatModel(backend: MolibooIntelligenceChatBackend(service: app.intelligence)) }
@@ -251,12 +239,8 @@ struct MolibooWorldView: View {
 
     // MARK: Stage
 
-    /// Square effect canvas for the tap ripple and joy pulse. Shader effects rasterise inside their view's
-    /// bounds, so the canvas is much larger than the pet: the pulse ring fades out (≈0.86 × half-side) before
-    /// reaching its edge and is never squared off. It draws only; hit-testing stays on the pet itself.
-    private static let effectCanvas: CGFloat = 400
-    /// Layout box for the pet: room for the widest portraits (wings, tails, props) at full scale.
-    private static let petBox = CGSize(width: 330, height: 290)
+    /// Extra drawing room around the stage pet for the tap wave effects.
+    private static let waveRoom: CGFloat = 72
 
     private var stageArea: some View {
         // Large unclipped pet + soft contact shadow. No platform glow, arches, or clip masks.
@@ -271,10 +255,18 @@ struct MolibooWorldView: View {
                         .allowsHitTesting(false)
                     MolibooStageCharacter(characterID: characterID, emotion: emotion, stage: stage, animating: motionAllowed && scrollY < 90,
                                           gaze: chat?.isTyping == true ? 1 : 0)
-                        .frame(width: Self.petBox.width, height: Self.petBox.height)
+                        .frame(width: 248, height: 248)
+                        // Room for the tap ripple / joy wave: the effects only draw inside the view's
+                        // bounds, so they ran into the 248pt square's edges. Pad, apply, un-pad.
+                        .padding(Self.waveRoom)
+                        .molibooRipple(trigger: rippleTick, origin: CGPoint(x: 124 + Self.waveRoom, y: 130 + Self.waveRoom))
+                        .molibooJoyPulse(trigger: joyPulseTick, tint: kind?.palette.accent ?? teal)
+                        .padding(-Self.waveRoom)
                         .opacity(showWelcome ? 0 : 1)
                         .modifier(MolibooHeroMorph(ns: showWelcome ? nil : heroNS))
-                        .contentShape(Ellipse())
+                        .id(characterID)
+                        .transition(.opacity)
+                        .contentShape(Rectangle())
                         .onTapGesture(count: 2) { composerFocused = true; stage.react(.curious, allowed: motionAllowed) }
                         .onTapGesture { rippleTick += 1; joyPulseTick += 1; stage.bounce(allowed: motionAllowed); care.interact(characterID, mood: 1, bond: 1) }
                         .onLongPressGesture(minimumDuration: 0.5) { showSwitcher = true }
@@ -284,12 +276,6 @@ struct MolibooWorldView: View {
                         .accessibilityAddTraits(.isButton)
                         .accessibilityIdentifier("world.stage")
                         .matchedTransitionSource(id: "world.hero", in: zoomNS)
-                        // Effects wrap a canvas larger than the pet so the wave expands fully (both are no-ops under Reduce Motion).
-                        .frame(width: Self.effectCanvas, height: Self.effectCanvas)
-                        .molibooRipple(trigger: rippleTick, origin: CGPoint(x: Self.effectCanvas / 2, y: Self.effectCanvas / 2 + 6))
-                        .molibooJoyPulse(trigger: joyPulseTick, tint: kind?.palette.accent ?? teal)
-                        .id(characterID)
-                        .transition(.opacity)
                 }
             }
             .padding(.vertical, 16)
@@ -366,14 +352,16 @@ struct MolibooWorldView: View {
 
     /// Open typography on the clean surface — no glass card under the pet.
     private var heroDashboardCard: some View {
-        // The kind's profile is the canonical number for all 2D Moliboos (1–100+); the 3D manifest only covers a
-        // few Originals, so falling back to an index into `originals` printed #001 for every other family.
-        let canonNum = kind?.number ?? MolibooRegistry.descriptor(for: characterID)?.canonicalNumber ?? 0
-        let familyName = (kind?.family.displayTitle ?? "The Originals").uppercased()
+        // The selected character's own catalogue number. 2D-only characters have no 3D descriptor,
+        // and the old fallback (index in the Originals list, else 0 → "#001") pinned them all to #001.
+        let canonNum: Int? = kind?.number
+            ?? MolibooRegistry.descriptor(for: characterID)?.canonicalNumber
+            ?? MolibooCosmetics.originals.firstIndex(of: characterID).map { $0 + 1 }
+        let familyName = (kind?.family.name ?? "The Originals").uppercased()
         return VStack(alignment: .center, spacing: 16) {
             if shows("identity") {
                 VStack(alignment: .center, spacing: 10) {
-                    Text(String(format: "#%03d  ·  %@", canonNum, familyName))
+                    Text(canonNum.map { String(format: "#%03d  ·  %@", $0, familyName) } ?? familyName)
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.tertiary)
                         .textCase(.uppercase)
@@ -647,120 +635,32 @@ struct MolibooWorldView: View {
 
     // MARK: Collection
 
-    /// Families with members, read from data (new families such as Legends appear automatically).
-    private var pickerFamilies: [MolibooFamily] { MolibooFamily.allCases.filter { !$0.kinds.isEmpty } }
-    private var currentPickerFamily: MolibooFamily { pickerFamily ?? kind?.family ?? pickerFamilies.first ?? .originals }
-
-    private static let pickerColumns = 4
-    private static let pickerTileHeight: CGFloat = 112
-    private static let pickerSpacing: CGFloat = 10
-    private static let pickerPageHeader: CGFloat = 64
-
-    private func pickerPageHeight(_ f: MolibooFamily) -> CGFloat {
-        let rows = CGFloat((f.kinds.count + Self.pickerColumns - 1) / Self.pickerColumns)
-        return Self.pickerPageHeader + rows * Self.pickerTileHeight + max(0, rows - 1) * Self.pickerSpacing + 8
-    }
-
     private var collection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            // "See all" was a duplicate of More → Collection, so the picker title stands alone.
-            Text("Choose your Moliboo").font(.headline)
-                .foregroundStyle(.primary)
-                .accessibilityAddTraits(.isHeader)
-                .padding(.horizontal, 24)
-            familyTabs
-            familyPages
-        }
-        .onAppear { if pickerFamily == nil { pickerFamily = kind?.family ?? pickerFamilies.first } }
-    }
-
-    /// Liquid Glass family tab strip, kept in sync with the pager below.
-    private var familyTabs: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal) {
-                ModulaGlassGroup(spacing: 0) {
-                    HStack(spacing: 2) {
-                        ForEach(pickerFamilies) { f in
-                            let selected = f == currentPickerFamily
-                            Button {
-                                withAnimation(navAnimation) { pickerFamily = f }
-                            } label: {
-                                Text(f.displayTitle)
-                                    .font(.footnote.weight(.semibold))
-                                    .lineLimit(1).fixedSize()
-                                    .foregroundStyle(selected ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                                    .padding(.horizontal, 14)
-                                    .frame(height: 34)
-                                    .background {
-                                        if selected {
-                                            Capsule()
-                                                .fill(Color.primary.opacity(0.09))
-                                                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.5))
-                                                .matchedGeometryEffect(id: "world.family.selection", in: familyTabNS)
-                                        }
-                                    }
-                                    .contentShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .id(f)
-                            .accessibilityIdentifier("world.family.tab.\(f.rawValue)")
-                            .accessibilityLabel(f.displayTitle)
-                            .accessibilityAddTraits(selected ? .isSelected : [])
+        VStack(alignment: .leading, spacing: 18) {
+            sectionTitle("Choose your Moliboo") { route = .collection }
+            // Lazy rows: only on-screen family strips mount cells. Tiles are static UIImage thumbs —
+            // never live ModulaMascotFigure / TimelineView (that was the main World scroll jank).
+            ForEach(MolibooFamily.allCases) { fam in
+                let ids = fam.kinds.map(\.rawValue)
+                if !ids.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text(fam.name).font(.subheadline.weight(.bold))
+                            Text(fam.world).font(.caption).foregroundStyle(.secondary)
                         }
+                        .padding(.horizontal, 16)
+                        .accessibilityAddTraits(.isHeader)
+                        ScrollView(.horizontal) {
+                            LazyHStack(spacing: 10) {
+                                ForEach(ids, id: \.self) { id in collectionTile(id) }
+                            }
+                        }
+                        .scrollIndicators(.hidden)
+                        .contentMargins(.horizontal, 24, for: .scrollContent)
                     }
-                    .padding(4)
-                    .modulaGlass(in: Capsule(), interactive: false, tint: glassTint, specular: true)
-                }
-                .padding(.vertical, 2)
-            }
-            .scrollIndicators(.hidden)
-            .contentMargins(.horizontal, 24, for: .scrollContent)
-            .modulaHorizontalEdgeFade()
-            .onChange(of: currentPickerFamily) { _, f in
-                withAnimation(navAnimation) { proxy.scrollTo(f, anchor: .center) }
-            }
-            .onAppear { proxy.scrollTo(currentPickerFamily, anchor: .center) }
-        }
-    }
-
-    /// One page per family, paged horizontally. Height follows the visible page so short families leave no gap.
-    private var familyPages: some View {
-        ScrollView(.horizontal) {
-            LazyHStack(alignment: .top, spacing: 0) {
-                ForEach(pickerFamilies) { f in
-                    familyPage(f)
-                        .padding(.horizontal, 24)
-                        .containerRelativeFrame(.horizontal)
-                        .id(f)
                 }
             }
-            .scrollTargetLayout()
         }
-        .scrollTargetBehavior(.paging)
-        .scrollIndicators(.hidden)
-        .scrollPosition(id: Binding(get: { Optional(currentPickerFamily) }, set: { if let f = $0 { withAnimation(navAnimation) { pickerFamily = f } } }))
-        .frame(height: pickerPageHeight(currentPickerFamily), alignment: .top)
-        .animation(navAnimation, value: currentPickerFamily)
-        .accessibilityIdentifier("world.family.pages")
-    }
-
-    private func familyPage(_ f: MolibooFamily) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                MolibooFamilyTitle(text: f.displayTitle)
-                Text(f.world).font(.subheadline).foregroundStyle(.secondary)
-            }
-            .frame(height: Self.pickerPageHeader - 12, alignment: .bottomLeading)
-            .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(.isHeader)
-            // Tiles are static UIImage thumbs, never live figures (scroll performance).
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Self.pickerSpacing), count: Self.pickerColumns),
-                      spacing: Self.pickerSpacing) {
-                ForEach(f.kinds.map(\.rawValue), id: \.self) { id in collectionTile(id) }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .accessibilityIdentifier("world.family.page.\(f.rawValue)")
     }
 
     private func collectionTile(_ id: String) -> some View {
@@ -772,13 +672,13 @@ struct MolibooWorldView: View {
             VStack(spacing: 4) {
                 ZStack(alignment: .topTrailing) {
                     Group {
-                        if let img = MolibooPortrait.thumb(for: id, dressed: selected) ?? MolibooPortrait.image(for: id) {
+                        if let img = MolibooPortrait.thumb(for: id, dressed: id == characterID) ?? MolibooPortrait.image(for: id) {
                             Image(uiImage: img).resizable().interpolation(.medium).scaledToFit()
                         } else {
                             Color(uiColor: .tertiarySystemFill)
                         }
                     }
-                    .frame(width: 60, height: 60)
+                    .frame(width: 64, height: 64)
                     if premium {
                         Image(systemName: "crown.fill")
                             .font(.system(size: 9, weight: .bold))
@@ -791,8 +691,7 @@ struct MolibooWorldView: View {
                 Text(kind?.name ?? id.capitalized)
                     .font(.caption.weight(.semibold)).lineLimit(1)
             }
-            .padding(.vertical, 10).padding(.horizontal, 6)
-            .frame(maxWidth: .infinity).frame(height: Self.pickerTileHeight)
+            .padding(.vertical, 14).padding(.horizontal, 10).frame(width: 104)
             .foregroundStyle(.primary)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -821,8 +720,6 @@ struct MolibooWorldView: View {
                 .accessibilityIdentifier("world.seeall.\(t.lowercased().replacingOccurrences(of: " ", with: "-"))")
         }
         .foregroundStyle(.primary)
-        // Sections bleed edge to edge (padding -24), so the title restores the page margin.
-        .padding(.horizontal, 24)
     }
 
     // MARK: Navigation

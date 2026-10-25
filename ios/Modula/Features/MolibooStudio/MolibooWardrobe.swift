@@ -102,6 +102,7 @@ enum MolibooWardrobeThumbs {
 struct MolibooWardrobeSheet: View {
     let controller: MolibooSceneController
     @Bindable var session: MolibooWardrobeSession
+    @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
     @State private var query = MolibooWardrobeQuery()
     @State private var saving = false
     @State private var outfitName = ""
@@ -114,6 +115,14 @@ struct MolibooWardrobeSheet: View {
     private func supports3D(_ id: String) -> Bool { controller.isSupported(wardrobeItemID: id) || session.rig?.supports(id) == true }
 
     var body: some View {
+        if let legend = ModulaMascotKind(rawValue: kindRaw), !legend.supportsWardrobe {
+            MolibooLegendLookCard(kind: legend).padding(.horizontal, 24).padding(.top, 8)
+        } else {
+            wardrobeBody
+        }
+    }
+
+    private var wardrobeBody: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("Wardrobe").font(.headline)
@@ -340,6 +349,7 @@ struct MolibooPhotoPreview: View {
 /// 2D-only wardrobe sheet: same catalog try-on via `MolibooWardrobeSession`, no RealityKit controller.
 struct MolibooWardrobeSheet2D: View {
     @Bindable var session: MolibooWardrobeSession
+    @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
     @State private var query = MolibooWardrobeQuery()
     @State private var saving = false
     @State private var outfitName = ""
@@ -350,6 +360,14 @@ struct MolibooWardrobeSheet2D: View {
     }
 
     var body: some View {
+        if let legend = ModulaMascotKind(rawValue: kindRaw), !legend.supportsWardrobe {
+            MolibooLegendLookCard(kind: legend).padding(.horizontal, 24).padding(.top, 4)
+        } else {
+            wardrobeBody
+        }
+    }
+
+    private var wardrobeBody: some View {
         VStack(alignment: .leading, spacing: 16) {
             TextField("Search hats, tops…", text: $query.text)
                 .textFieldStyle(.plain).padding(.horizontal, 14).frame(minHeight: 44)
