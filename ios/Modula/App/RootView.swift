@@ -316,7 +316,7 @@ struct RouteView: View {
     }
 }
 
-private struct PresentationView: View {
+struct PresentationView: View {
     let presentation: AppPresentation
     @Environment(AppEnvironment.self) private var app
 
@@ -409,6 +409,8 @@ extension AppPresentation {
     var sheetDetents: [ModulaSheetDetent] {
         switch self {
         case .universalShare, .share: [.medium, .large]
+        // Short option sheets open at half height instead of a mostly empty full-height page.
+        case .homeFeeds, .homeFeedTools, .homeSummary, .discoverFilter: [.medium, .large]
         default: [.large]
         }
     }

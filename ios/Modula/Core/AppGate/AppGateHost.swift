@@ -63,6 +63,9 @@ struct AppGateHost: View {
             // `--debug-share profile|post|link`: the share sheet over a plain canvas, for screenshots.
             Color(uiColor: .systemBackground).ignoresSafeArea()
                 .sheet(isPresented: .constant(true)) { ModulaShareSheet(payload: payload) }
+        } else if let (sheet, context) = DebugSettingsHarness.sheetPresentation {
+            // `--debug-sheet …`: a shell option sheet over a plain canvas, for screenshots.
+            DebugSheetHarnessView(presentation: sheet, context: context)
         } else if let route = DebugSettingsHarness.route ?? DebugSettingsHarness.anyRoute {
             DebugSettingsHarnessView(route: route)
         } else {

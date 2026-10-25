@@ -95,7 +95,7 @@ final class N2PolishAccessibilityUITests: XCTestCase {
             XCTAssertTrue(element.exists, "Missing native tab \(title)")
             XCTAssertTrue(element.isHittable, "Unreachable native tab \(title)")
         }
-        for identifier in ["accessory.feeds", "accessory.summary", "accessory.tools"] {
+        for identifier in ["accessory.feeds", "accessory.summary", "accessory.refresh"] {
             let element = app.descendants(matching: .any)[identifier]
             XCTAssertTrue(element.exists, "Missing shell control \(identifier)")
             XCTAssertTrue(element.isHittable, "Unreachable shell control \(identifier)")
@@ -1712,7 +1712,7 @@ final class N3CHomeUITests: XCTestCase {
 
         XCTAssertTrue(app.descendants(matching: .any)["accessory.feeds"].firstMatch.exists)
         XCTAssertTrue(app.descendants(matching: .any)["accessory.summary"].firstMatch.exists)
-        XCTAssertTrue(app.descendants(matching: .any)["accessory.tools"].firstMatch.exists)
+        XCTAssertTrue(app.descendants(matching: .any)["accessory.refresh"].firstMatch.exists)
 
         scrubEdgePicker(app, to: "/home/for-you")
         XCTAssertEqual(app.descendants(matching: .any)["native.home"].firstMatch.value as? String, "/home/for-you")
@@ -1722,14 +1722,14 @@ final class N3CHomeUITests: XCTestCase {
         summary.tap()
         let sheet = app.descendants(matching: .any)["modula.sheet"].firstMatch
         XCTAssertTrue(sheet.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Overview"].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.descendants(matching: .any)["home.summary"].firstMatch.waitForExistence(timeout: 4))
         dismissModulaSheet(sheet)
 
-        let tools = app.buttons["accessory.tools"].firstMatch
-        XCTAssertTrue(tools.waitForExistence(timeout: 4))
-        tools.tap()
+        let feeds = app.buttons["accessory.feeds"].firstMatch
+        XCTAssertTrue(feeds.waitForExistence(timeout: 4))
+        feeds.tap()
         XCTAssertTrue(sheet.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["home.tools.refresh"].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.buttons["home.feeds.following"].waitForExistence(timeout: 4))
         dismissModulaSheet(sheet)
 
         attachScreenshot(app, name: "n3c-home-tools")
