@@ -108,7 +108,8 @@ static inline half3 mbHue(float h) {
     if (age <= 0.0 || age >= 1.4) return color;
     float2 uv = (position / max(size, float2(1.0))) - float2(0.5);
     float d = length(uv) * 2.0;
-    float radius = age * 0.95;
+    // Ring ends at 0.86 of the canvas half-side so it fades out before any edge (never squared off by the bounds).
+    float radius = (age / 1.4) * 0.86;
     float fade = clamp(1.0 - age / 1.4, 0.0, 1.0);
     float ring = exp(-pow((d - radius) * 14.0, 2.0)) * fade;
     half3 pulse = mix(tint.rgb, mbHue(fract(d * 1.5 - age * 0.8)), 0.35h) * half(ring * 0.75);

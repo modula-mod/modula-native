@@ -1,6 +1,19 @@
 import SwiftUI
 import UIKit
 
+/// Single source of truth for what a Moliboo wears. Studio's wardrobe edits and persists the equipped outfit in
+/// `MascotWardrobeStore` (key `composer.mascot.outfit`, ownership-sanitised on load); Home, the stage, cards,
+/// thumbnails and the chat avatar all resolve through here so they can never disagree with Studio.
+/// Reading `store.outfit` inside a view body registers Observation, so views refresh live when Studio changes it.
+@MainActor
+enum MolibooOutfit {
+    static func equipped(for kind: ModulaMascotKind, store: MascotWardrobeStore = .shared) -> MascotOutfit {
+        wearsOutfits(kind) ? store.outfit : .empty
+    }
+    /// Families that are undressed by design (e.g. Legends) opt out here; every current family wears outfits.
+    static func wearsOutfits(_ kind: ModulaMascotKind) -> Bool { true }
+}
+
 /// MOL-03 C: pre-rendered portraits (Tools/moliboo/engine/render_portraits.py, transparent 512², rendered from the
 /// shipped USDZs). Used wherever loading RealityKit would be too heavy: collection picker, Settings, composer, Home.
 @MainActor
@@ -17,8 +30,9 @@ enum MolibooPortrait {
     }
 
     /// Small static thumb for scrolling roster tiles. Never live SwiftUI figures.
-    static func thumb(for id: String) -> UIImage? {
-        render2D(id, pointSize: 64, scale: 2, cachePrefix: "thumb|")
+    /// `dressed`: roster tiles show the bare catalogue figure; the selected Moliboo's tile shows its outfit.
+    static func thumb(for id: String, dressed: Bool = false) -> UIImage? {
+        render2D(id, pointSize: 64, scale: 2, cachePrefix: "thumb|", dressed: dressed)
     }
 
     /// 2D-only Moliboos: ImageRenderer snapshot of the figure, cached. Cap is large enough for all 100
@@ -31,16 +45,14 @@ enum MolibooPortrait {
             + "|" + outfit.dyes.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ",")
     }
 
-    private static func render2D(_ id: String, pointSize: CGFloat, scale: CGFloat, cachePrefix: String = "") -> UIImage? {
+    private static func render2D(_ id: String, pointSize: CGFloat, scale: CGFloat, cachePrefix: String = "", dressed: Bool = true) -> UIImage? {
         guard let kind = ModulaMascotKind(rawValue: id) else { return nil }
-        let outfit = MascotWardrobeStore.shared.outfit
+        // Root cause of "dressed in Studio, undressed on Home": this keyed the cache on the outfit but always
+        // rendered `outfit: .empty`. Portraits now render the same equipped outfit Studio shows.
+        let outfit = dressed ? MolibooOutfit.equipped(for: kind) : .empty
         let key = cachePrefix + id + "|" + outfitKey(outfit) + "|\(Int(pointSize))x\(Int(scale))"
         if let i = cache2D[key] { return i }
-        let s = pointSize
-        let r = ImageRenderer(content: ModulaMascotFigure(kind: kind, pose: .still(), size: s, outfit: .empty)
-            .frame(width: s * 1.45, height: s * 1.45))
-        r.scale = scale
-        guard let i = r.uiImage else { return nil }
+        guard let i = renderFitted(kind, pointSize: pointSize, scale: scale, outfit: outfit) else { return nil }
         if cache2D.count >= cache2DCap {
             // Drop oldest half (dict order is insertion order) instead of wiping — keeps warm thumbs.
             let drop = cache2D.keys.prefix(cache2DCap / 2)
@@ -48,6 +60,58 @@ enum MolibooPortrait {
         }
         cache2D[key] = i
         return i
+    }
+
+    /// Nominal portrait frame as a multiple of the figure size. Most Moliboos fit inside it, so their portraits
+    /// are unchanged; wide or tall ones (Flick's wings, tails, props) grow the image instead of being clipped.
+    static let nominalFrame: CGFloat = 1.45
+    private static let edgePadding: CGFloat = 0.04
+
+    /// Renders the full figure canvas, measures the true drawn (alpha) bounds and crops a rect centred on the
+    /// canvas that is at least `nominalFrame × s` square and always contains every drawn pixel. Keeping the crop
+    /// centred keeps the figure's anchor where callers expect it; only the outer margin changes.
+    static func renderFitted(_ kind: ModulaMascotKind, pointSize s: CGFloat, scale: CGFloat, outfit: MascotOutfit = .empty) -> UIImage? {
+        let c = ModulaMascotFigure.canvas(s)
+        let r = ImageRenderer(content: ModulaMascotFigure(kind: kind, pose: .still(), size: s, outfit: outfit)
+            .frame(width: c.width * ModulaMascotFigure.drawOverscan, height: c.height))
+        r.scale = scale
+        guard let full = r.cgImage else { return nil }
+        let pxW = CGFloat(full.width), pxH = CGFloat(full.height)
+        let nominal = s * nominalFrame * scale
+        var halfW = nominal / 2, halfH = nominal / 2
+        if let b = alphaBounds(full) {
+            let pad = s * edgePadding * scale
+            halfW = max(halfW, max(pxW / 2 - b.minX, b.maxX - pxW / 2) + pad)
+            halfH = max(halfH, max(pxH / 2 - b.minY, b.maxY - pxH / 2) + pad)
+        }
+        halfW = min(halfW, pxW / 2); halfH = min(halfH, pxH / 2)
+        let rect = CGRect(x: (pxW / 2 - halfW).rounded(.down), y: (pxH / 2 - halfH).rounded(.down),
+                          width: (halfW * 2).rounded(.up), height: (halfH * 2).rounded(.up)).intersection(CGRect(x: 0, y: 0, width: pxW, height: pxH))
+        guard let cropped = full.cropping(to: rect) else { return nil }
+        return UIImage(cgImage: cropped, scale: scale, orientation: .up)
+    }
+
+    /// Pixel bounds of everything with visible alpha, or nil for an empty image.
+    static func alphaBounds(_ image: CGImage, threshold: UInt8 = 8) -> CGRect? {
+        let w = image.width, h = image.height
+        guard w > 0, h > 0 else { return nil }
+        var data = [UInt8](repeating: 0, count: w * h)
+        guard let ctx = CGContext(data: &data, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w,
+                                  space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.alphaOnly.rawValue) else { return nil }
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+        var minX = w, minY = h, maxX = -1, maxY = -1
+        for y in 0..<h {
+            let row = y * w
+            for x in 0..<w where data[row + x] > threshold {
+                if x < minX { minX = x }
+                if x > maxX { maxX = x }
+                if y < minY { minY = y }
+                if y > maxY { maxY = y }
+            }
+        }
+        guard maxX >= 0 else { return nil }
+        // Bitmap rows are top-down in memory for this context, matching CGImage cropping coordinates.
+        return CGRect(x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1)
     }
 
     /// Warm tile thumbs off the critical path so Choose-your-Moliboo scroll never ImageRenderer-stalls.
