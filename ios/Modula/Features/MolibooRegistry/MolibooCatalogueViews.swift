@@ -216,6 +216,7 @@ struct MolibooCharacterDetailView: View {
 /// character detail screen per Moliboo. Debug builds can open it directly with `-MOL03Collection` and push a detail
 /// with `-MOL03Detail <key>` (simulator acceptance).
 struct MolibooCollectionEntry: View {
+    static let fitLabRoute = "__mol03.fitlab"
     @State private var shown = false
     @State private var path: [String] = []
 
@@ -245,10 +246,18 @@ struct MolibooCollectionEntry: View {
             NavigationStack(path: $path) {
                 MolibooCollectionBrowser { kind in path.append(kind.rawValue) }
                     .navigationDestination(for: String.self) { key in
+                        #if DEBUG
+                        if key == Self.fitLabRoute { MolibooFitLabView() }
+                        #endif
                         if let kind = ModulaMascotKind(rawValue: key) { MolibooCharacterDetailView(kind: kind) }
                     }
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) { Button("Done") { shown = false } }
+                        #if DEBUG
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("Fit lab") { path.append(Self.fitLabRoute) }.accessibilityIdentifier("moliboo.fitlab")
+                        }
+                        #endif
                     }
             }
         }
@@ -256,6 +265,7 @@ struct MolibooCollectionEntry: View {
             #if DEBUG
             let args = ProcessInfo.processInfo.arguments
             if args.contains("-MOL03Collection") { shown = true }
+            if args.contains("-MOL03FitLab") { shown = true; path = [Self.fitLabRoute] }
             if let i = args.firstIndex(of: "-MOL03Detail"), i + 1 < args.count { shown = true; path = [args[i + 1]] }
             #endif
         }

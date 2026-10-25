@@ -28,6 +28,17 @@ Branch: `mol03/registry` (from origin/main 587b5e8, includes #185 Legends). Push
 ## In progress
 - `mol03/package-hooks` (f41bff9): 2-line renderer hooks in ModulaMascot.swift (spec + palette), no overlap with #186 / outfit-sync hunks. Simulator Debug build running for the hot-update demo (QA server http://127.0.0.1:8787 → serve-v1/v2/v3).
 
+## Hot update demo — Simulator Test G/H (04:00–04:02 Europe/London) — PASS
+Somna #100 in the Studio on simulator 8ED397E0, Debug build, local signed QA source http://127.0.0.1:8787 (loopback http allowed by ATS):
+built-in → 1.0.1 installed → **2.0.0 recolour applied live, no relaunch, no rebuild** → tampered 2.0.1 rejected (digest mismatch), stays 2.0.0 → server stopped + relaunch offline: still 2.0.0. Index {"active":"2.0.0","previous":"1.0.1"}. Found + fixed: URLSession heuristic cache hid new catalogues.
+Sequence image: /workspace/mol03/sim/mol03-hot-update-sequence.png. QA package removed from the simulator afterwards.
+
+## Merged
+- **#192** renderer hooks + catalogue revalidation → main **5b09771** (CI pass; 45/45 MOL-03 unit tests with hooks).
+
+## In progress
+- `mol03/acceptance` (55fc1cb): Studio entry "All Moliboos" → collection browser (family filter, search, download status) → character detail. Combined unit + Nodus + legacy Moliboo regression run (smoke2) queued.
+
 ## Pending
 - Renderer hooks in ModulaMascot.swift + Studio/collection integration wait for #186 (open).
 - Simulator Tests A–J and hot update demo after hooks land.
