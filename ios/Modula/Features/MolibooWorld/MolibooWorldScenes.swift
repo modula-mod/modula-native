@@ -245,7 +245,7 @@ struct MolibooActivityScene: View {
 
     private var portrait: some View {
         Group {
-            if let img = MolibooPortrait.thumb(for: characterID) ?? MolibooPortrait.image(for: characterID) {
+            if let img = MolibooPortrait.thumb(for: characterID, dressed: true) ?? MolibooPortrait.image(for: characterID) {
                 Image(uiImage: img).resizable().scaledToFit().frame(width: 92, height: 92)
                     .rotationEffect(.degrees(activity == .sleep ? -8 : 0))
                     .opacity(activity == .sleep ? 0.92 : 1)

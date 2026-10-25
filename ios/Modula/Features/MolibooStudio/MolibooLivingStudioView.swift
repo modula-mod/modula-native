@@ -251,7 +251,7 @@ struct MolibooLivingStudioView: View {
                         .frame(width: s * 1.15 * (1 - hop / 160), height: s * 0.22)
                         .offset(y: s * 0.62)
                     ModulaMascotFigure(kind: kind, pose: .still(Self.mood(controller?.expression ?? .idle)), size: s,
-                                       outfit: session?.preview ?? wardrobe.outfit)
+                                       outfit: session?.preview ?? MolibooOutfit.equipped(for: kind, store: wardrobe))
                         .scaleEffect(x: 1 - breathe * 0.01, y: 1 + breathe * 0.015, anchor: .bottom)
                         .offset(y: -hop)
                 }
@@ -280,7 +280,7 @@ struct MolibooLivingStudioView: View {
 
     @ViewBuilder private var fallback2D: some View {
         if let kind = ModulaMascotKind(rawValue: characterID) {
-            ModulaMascotFigure(kind: kind, pose: .still(), size: 120, outfit: wardrobe.outfit)
+            ModulaMascotFigure(kind: kind, pose: .still(), size: 120, outfit: MolibooOutfit.equipped(for: kind, store: wardrobe))
         } else {
             Image(systemName: "pawprint").font(.system(size: 60))
         }
