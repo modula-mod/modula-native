@@ -48,6 +48,11 @@ struct MolibooWorldView: View {
     @State private var showCareSheet = false
     @State private var sheet: Section?
     @State private var scrollY: CGFloat = 0
+    /// Global bottom of the pinned header and top of the inline family tabs: once the tabs reach the
+    /// header they stick under it (like a pinned section header) instead of fading out beneath it.
+    @State private var headerBottom: CGFloat = 0
+    @State private var inlineTabsTop: CGFloat = .greatestFiniteMagnitude
+    private var tabsPinned: Bool { shows("collection") && inlineTabsTop < headerBottom + 4 }
     @State private var scrollPosition = ScrollPosition(edge: .top)
     @State private var toast: String?
     @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
@@ -146,9 +151,20 @@ struct MolibooWorldView: View {
                     header
                         .padding(.horizontal, 20)
                         .padding(.bottom, 8)
+                        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: { headerBottom = $0 }
                         .background(alignment: .top) {
                             MolibooProgressiveHeaderBlur()
                                 .opacity(min(1, max(0, (scrollY - 8) / 28)))
+                        }
+                        .overlay(alignment: .bottom) {
+                            if tabsPinned {
+                                // Sticky family tabs: top edge on the header's bottom edge. Overlay = layout-neutral,
+                                // so the scroll content never jumps when they pin / unpin.
+                                familyTabs
+                                    .alignmentGuide(.bottom) { d in d[.top] }
+                                    .transition(.opacity)
+                                    .accessibilityIdentifier("world.family.tabs.pinned")
+                            }
                         }
                 }
             }
@@ -616,6 +632,9 @@ struct MolibooWorldView: View {
                 .accessibilityAddTraits(.isHeader)
                 .padding(.horizontal, 24)
             familyTabs
+                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { inlineTabsTop = $0 }
+                .opacity(tabsPinned ? 0 : 1)
+                .accessibilityHidden(tabsPinned)
             familyPages
         }
         .onAppear { if pickerFamily == nil { pickerFamily = kind?.family ?? pickerFamilies.first } }
@@ -625,40 +644,34 @@ struct MolibooWorldView: View {
     private var familyTabs: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal) {
-                ModulaGlassGroup(spacing: 0) {
-                    HStack(spacing: 2) {
+                // Each family is its own glass chip (the old single capsule read as clipped at the screen edge).
+                ModulaGlassGroup(spacing: 8) {
+                    HStack(spacing: 8) {
                         ForEach(pickerFamilies) { f in
                             let selected = f == currentPickerFamily
                             Button {
                                 withAnimation(navAnimation) { pickerFamily = f }
+                                UISelectionFeedbackGenerator().selectionChanged()
                             } label: {
                                 Text(f.displayTitle)
-                                    .font(.footnote.weight(.semibold))
+                                    .font(.system(.subheadline, design: .rounded, weight: .heavy))
                                     .lineLimit(1).fixedSize()
-                                    .foregroundStyle(selected ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                                    .padding(.horizontal, 14)
-                                    .frame(height: 34)
-                                    .background {
-                                        if selected {
-                                            Capsule()
-                                                .fill(Color.primary.opacity(0.09))
-                                                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.5))
-                                                .matchedGeometryEffect(id: "world.family.selection", in: familyTabNS)
-                                        }
-                                    }
+                                    .foregroundStyle(selected ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
+                                    .padding(.horizontal, 16)
+                                    .frame(height: 38)
                                     .contentShape(Capsule())
                             }
                             .buttonStyle(.plain)
+                            .modulaGlass(in: Capsule(), interactive: true,
+                                         tint: selected ? f.chipTint : glassTint, prominent: selected, specular: true)
                             .id(f)
                             .accessibilityIdentifier("world.family.tab.\(f.rawValue)")
                             .accessibilityLabel(f.displayTitle)
                             .accessibilityAddTraits(selected ? .isSelected : [])
                         }
                     }
-                    .padding(4)
-                    .modulaGlass(in: Capsule(), interactive: false, tint: glassTint, specular: true)
                 }
-                .padding(.vertical, 2)
+                .padding(.vertical, 4)
             }
             .scrollIndicators(.hidden)
             .contentMargins(.horizontal, 24, for: .scrollContent)
@@ -971,4 +984,9 @@ struct MolibooSoftTopEdge: ViewModifier {
             content
         }
     }
+}
+
+extension MolibooFamily {
+    /// Chip colour for the selected family tab: the family's first Moliboo's deep tone.
+    var chipTint: Color { (kinds.first?.palette.dark ?? .accentColor).opacity(0.9) }
 }
