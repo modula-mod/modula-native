@@ -423,6 +423,38 @@ enum MascotWardrobeCatalog {
             it("sea.firework", .seasonal, "Fireworks", "Bursts above your head.", .rare, "fireworks", .premium, need: .aura, months: [7, 11, 12]).with(dyes: [c(1.0, 0.75, 0.25)]),
             it("sea.leaves", .seasonal, "Autumn leaves", "Crunchy leaves drifting.", .common, "leaves", need: .aura, months: [9, 10, 11]).with(dyes: [c(0.95, 0.55, 0.20)]),
         ]
+        // Cosy & Outdoors drop: new items reuse the existing, fit-tested art styles with their own IDs, colours and
+        // patterns, plus new painted Scenes. Worn items follow the usual rules (never drawn on Legends; Scenes may be).
+        x += [
+            it("hat.cocoabeanie", .hat, "Cocoa beanie", "Warm knit with a scatter of stars.", .common, "beanie", pattern: .stars, dyes: [c(0.55, 0.36, 0.25), c(0.96, 0.86, 0.72), c(0.32, 0.36, 0.62)]),
+            it("hat.raincap", .hat, "Puddle hat", "Glossy rain hat with a wide brim.", .common, "bucket", dyes: [c(1.0, 0.84, 0.22), c(0.30, 0.70, 0.95), c(0.95, 0.38, 0.40)]),
+            it("hat.strawhat", .hat, "Straw hat", "Woven brim for long sunny walks.", .uncommon, "sunhat", .coins(80), dyes: [c(0.95, 0.84, 0.55), c(0.98, 0.92, 0.72)]),
+            it("hat.flowercrown", .hat, "Flower crown", "Woven from meadow blooms.", .uncommon, "laurel", .coins(90), dyes: [c(0.98, 0.62, 0.78), c(0.62, 0.78, 0.40), c(0.80, 0.70, 1.0)]),
+            it("hat.moonhat", .hat, "Moon hat", "A sleepy, star-stitched pointy hat.", .rare, "wizard", .coins(180), pattern: .stars, dyes: [c(0.16, 0.20, 0.45), c(0.40, 0.30, 0.72)]),
+            it("face.sunnyshades", .face, "Sunny shades", "Bright frames, brighter mood.", .common, "squareglasses", dyes: [c(1.0, 0.75, 0.25), c(0.30, 0.78, 0.65), c(0.98, 0.50, 0.70)]),
+            it("top.zigzagknit", .top, "Zigzag knit", "Chunky jumper with a zigzag band.", .common, "sweater", pattern: .zigzag, dyes: [c(0.95, 0.55, 0.40), c(0.40, 0.62, 0.90), c(0.62, 0.78, 0.45)]),
+            it("top.picnic", .top, "Picnic shirt", "Gingham, made for sandwiches.", .common, "polo", pattern: .check, dyes: [c(0.95, 0.40, 0.42), c(0.40, 0.66, 0.95), c(0.45, 0.75, 0.50)]),
+            it("top.starhoodie", .top, "Star hoodie", "Soft hoodie printed with tiny stars.", .uncommon, "hoodie", .coins(120), pattern: .stars, dyes: [c(0.20, 0.24, 0.45), c(0.98, 0.74, 0.80), c(0.62, 0.40, 0.92)]),
+            it("out.cloudcoat", .outerwear, "Cloud raincoat", "Pastel slicker for drizzly days.", .uncommon, "raincoat", .coins(110), dyes: [c(0.80, 0.88, 1.0), c(0.98, 0.80, 0.86), c(0.80, 0.95, 0.85)]),
+            it("out.stargazer", .outerwear, "Stargazer cardigan", "Night-sky knit with button stars.", .rare, "cardigan", .coins(160), pattern: .stars, dyes: [c(0.18, 0.20, 0.40), c(0.40, 0.25, 0.55)]),
+            it("bot.gingham", .bottom, "Gingham skirt", "Twirly picnic check.", .common, "skirt", pattern: .check, dyes: [c(0.95, 0.45, 0.50), c(0.45, 0.65, 0.95), c(0.98, 0.80, 0.30)], need: .frill),
+            it("shoe.pastelkicks", .shoes, "Pastel kicks", "Candy-coloured sneakers.", .common, "sneakers", dyes: pastels),
+            it("acc.rainbowscarf", .accessory, "Rainbow scarf", "Every stripe a different mood.", .uncommon, "scarf", .coins(70), pattern: .stripes, dyes: brights),
+            it("held.cocoa", .held, "Hot cocoa", "Marshmallows included.", .common, "coffee", dyes: [c(0.98, 0.90, 0.80), c(0.85, 0.40, 0.45)]),
+            it("held.journal", .held, "Dream journal", "For sleepy ideas worth keeping.", .uncommon, "book", .coins(60), dyes: [c(0.40, 0.35, 0.80), c(0.95, 0.60, 0.70)]),
+            it("back.leafcape", .back, "Leaf cape", "Stitched from forest leaves.", .uncommon, "herocape", .coins(140), dyes: [c(0.40, 0.68, 0.36), c(0.90, 0.58, 0.25)]),
+            it("back.adventurepack", .back, "Adventure pack", "Room for snacks and treasures.", .common, "backpack", pattern: .check, dyes: [c(0.55, 0.40, 0.28), c(0.30, 0.55, 0.40)]),
+            it("aura.fireflies", .aura, "Fireflies", "Little lights drifting around you.", .uncommon, "sparkles", .coins(100), dyes: [c(0.85, 1.0, 0.45), c(1.0, 0.85, 0.40)]),
+        ]
+        x += [
+            it("bg.aurora", .background, "Aurora", "Ribbons of light over snowy hills.", .rare, "aurora", .coins(220), dyes: [c(0.30, 0.95, 0.70)]),
+            it("bg.rainy", .background, "Rainy day", "Soft rain and a cosy puddle.", .common, "rainy", dyes: [c(0.62, 0.70, 0.82)]),
+            it("bg.snowfield", .background, "Snowfield", "Fresh powder and pine trees.", .uncommon, "snowfield", .coins(120), dyes: [c(0.80, 0.90, 1.0)]),
+            it("bg.dunes", .background, "Desert dunes", "Warm sand under a big sun.", .uncommon, "dunes", .coins(120), dyes: [c(0.98, 0.70, 0.40)]),
+            it("bg.forest", .background, "Forest glade", "Tall trees and toadstools.", .common, "forest", dyes: [c(0.40, 0.65, 0.40)]),
+            it("bg.cloudtop", .background, "Cloud kingdom", "High above, where the clouds live.", .rare, "cloudtop", .coins(200), dyes: [c(0.70, 0.80, 1.0)]),
+            it("bg.lavender", .background, "Lavender field", "Purple rows to the horizon.", .uncommon, "lavender", .coins(140), dyes: [c(0.70, 0.58, 0.92)]),
+        ]
         return x
     }
 }
