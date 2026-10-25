@@ -107,7 +107,7 @@ final class MessagingStore {
             threadHasMore[id] = page.hasMore
             threadState[id] = .loaded
             if capabilities.markRead {
-                try? await repository.markRead(conversation: id)
+                if (try? await repository.markRead(conversation: id)) != nil { clearUnreadLocally(id) }
             }
         } catch let api as APIError {
             if hasContent {
@@ -234,6 +234,32 @@ final class MessagingStore {
             actionError = "Couldn't update this request."
             HapticEngine.shared.play(.failure)
         }
+    }
+
+    /// Swipe / context menu "Mark as Read" (`POST /v1/conversations/:id/read`).
+    func markConversationRead(_ id: ConversationID) async {
+        guard capabilities.markRead, let before = conversation(id: id), before.isUnread else { return }
+        clearUnreadLocally(id)
+        HapticEngine.shared.play(.confirmation)
+        #if DEBUG
+        if MessagingDebugFixture.isEnabled { return }
+        #endif
+        do {
+            try await repository.markRead(conversation: id)
+        } catch {
+            if let index = conversations.firstIndex(where: { $0.id == id }) { conversations[index] = before }
+            actionError = "Couldn't mark as read."
+        }
+    }
+
+    private func clearUnreadLocally(_ id: ConversationID) {
+        guard let index = conversations.firstIndex(where: { $0.id == id }) else { return }
+        let c = conversations[index]
+        guard c.unreadCount != 0 else { return }
+        conversations[index] = Conversation(
+            id: c.id, kind: c.kind, participants: c.participants, lastMessage: c.lastMessage,
+            unreadCount: 0, updatedAt: c.updatedAt, titleOverride: c.titleOverride
+        )
     }
 
     func conversation(id: ConversationID) -> Conversation? {

@@ -31,74 +31,151 @@ struct MessagesRootView: View {
 
 struct ConversationListView: View {
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var filter: InboxFilter = .all
 
-    var body: some View {
-        VStack(spacing: 0) {
-            MessagesScopePicker(selection: .inbox)
-            searchField
-            content
-        }
-        .modulaSoftScrollEdge()
-        .navigationTitle("Messages")
-        .navigationBarTitleDisplayMode(.large)
-        .task { await app.messaging.loadInboxIfNeeded() }
-        .refreshable { await app.messaging.refreshInbox() }
-        .overlay(alignment: .bottom) { errorBanner }
-        .accessibilityIdentifier("messages.inbox")
-        .accessibilityValue(RouteSerializer.serialize(.messages(.inbox)))
-    }
-
-    private var searchField: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ModulaSearchField(text: Bindable(app.messaging).conversationQuery, prompt: "Search conversations")
-            if !app.messaging.conversationQuery.isEmpty {
-                Text("Searches loaded conversations only.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+    enum InboxFilter: String, CaseIterable, Identifiable {
+        case all, unread, groups
+        var id: Self { self }
+        var title: String {
+            switch self {
+            case .all: "All"
+            case .unread: "Unread"
+            case .groups: "Groups"
             }
         }
-        .padding(.horizontal, ModulaLayout.contentInset)
-        .padding(.top, 2)
-        .padding(.bottom, 4)
+        func matches(_ c: Conversation) -> Bool {
+            switch self {
+            case .all: true
+            case .unread: c.isUnread
+            case .groups: c.kind == .group || c.participants.count > 1
+            }
+        }
+    }
+
+    var body: some View {
+        content
+            .modulaSoftScrollEdge()
+            .navigationTitle("Messages")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        app.navigation.push(.messages(.new))
+                        HapticEngine.shared.play(.navigation)
+                    } label: {
+                        Label("New message", systemImage: "square.and.pencil")
+                    }
+                    .accessibilityIdentifier("messages.compose")
+                }
+            }
+            .task {
+                #if DEBUG
+                if MessagingDebugFixture.isEnabled {
+                    if app.messaging.conversations.isEmpty { app.messaging.installDebugInbox(MessagingDebugFixture.inbox()) }
+                    return
+                }
+                #endif
+                await app.messaging.loadInboxIfNeeded()
+            }
+            .refreshable { await app.messaging.refreshInbox() }
+            .overlay(alignment: .bottom) { errorBanner }
+            .accessibilityIdentifier("messages.inbox")
+            .accessibilityValue(RouteSerializer.serialize(.messages(.inbox)))
+    }
+
+    /// Scope, search and filters scroll with the list (like Messages), so the large title
+    /// collapses normally instead of starting half-faded under a tall pinned bar.
+    private var header: some View {
+        VStack(spacing: 8) {
+            MessagesScopePicker(selection: .inbox)
+            MessagesGlassSearchField(text: Bindable(app.messaging).conversationQuery, prompt: "Search chats")
+                .padding(.horizontal, ModulaLayout.contentInset)
+            filterRow
+        }
+        .padding(.bottom, 6)
+    }
+
+    private var filterRow: some View {
+        let all = app.messaging.visibleConversations
+        let unread = all.filter(\.isUnread).count
+        return ScrollView(.horizontal, showsIndicators: false) {
+            ModulaGlassGroup(spacing: 6) {
+                HStack(spacing: 6) {
+                    ForEach(InboxFilter.allCases) { item in
+                        let on = item == filter
+                        Button {
+                            guard item != filter else { return }
+                            withAnimation(reduceMotion ? nil : .snappy(duration: 0.3)) { filter = item }
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            HStack(spacing: 5) {
+                                Text(item.title).font(.subheadline.weight(.semibold))
+                                if item == .unread, unread > 0 {
+                                    Text("\(unread)").font(.caption2.weight(.bold)).monospacedDigit()
+                                        .foregroundStyle(on ? Color.white.opacity(0.9) : app.appearance.accent.color)
+                                }
+                            }
+                            .foregroundStyle(on ? Color.white : Color.primary)
+                            .padding(.horizontal, 14).frame(height: 34)
+                            .background { if on { Capsule().fill(app.appearance.accent.color) } }
+                            .modulaGlass(in: Capsule(), interactive: true, tint: on ? app.appearance.accent.color.opacity(0.35) : nil)
+                        }
+                        .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+                        .accessibilityAddTraits(on ? .isSelected : [])
+                        .accessibilityIdentifier("messages.filter.\(item.rawValue)")
+                    }
+                }
+                .padding(.horizontal, ModulaLayout.contentInset)
+            }
+        }
+        .scrollClipDisabled()
     }
 
     @ViewBuilder
     private var content: some View {
-        let items = app.messaging.visibleConversations
-        switch app.messaging.conversationState {
-        case .loading where items.isEmpty:
-            MessagesSkeletonList(label: "Loading conversations")
-        case .failed(let message) where items.isEmpty:
-            MessagesFriendlyEmpty(scope: .inbox, retryMessage: message) {
-                await app.messaging.refreshInbox()
+        let items = app.messaging.visibleConversations.filter(filter.matches)
+        let searching = !app.messaging.conversationQuery.trimmingCharacters(in: .whitespaces).isEmpty
+        if items.isEmpty {
+            VStack(spacing: 0) {
+                header
+                emptyState(searching: searching)
+                    .frame(maxHeight: .infinity)
             }
-        case _ where items.isEmpty:
-            MessagesFriendlyEmpty(scope: .inbox)
-        default:
+            .frame(maxHeight: .infinity, alignment: .top)
+        } else {
             List {
+                header
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                 ForEach(items) { conversation in
                     Button {
-                        app.navigation.push(.messages(.conversation(conversation.id)))
-                        HapticEngine.shared.play(.navigation)
+                        open(conversation)
                     } label: {
-                        ConversationRow(conversation: conversation)
+                        ConversationRow(conversation: conversation, viewerID: app.auth.account?.accountId)
                     }
                     .buttonStyle(.plain)
-                    .listRowInsets(EdgeInsets(top: 8, leading: ModulaLayout.contentInset, bottom: 8, trailing: ModulaLayout.contentInset))
+                    .listRowInsets(EdgeInsets(top: 6, leading: ModulaLayout.contentInset, bottom: 6, trailing: ModulaLayout.contentInset))
                     .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                        if conversation.isUnread, app.messaging.capabilities.markRead {
+                            Button {
+                                Task { await app.messaging.markConversationRead(conversation.id) }
+                            } label: { Label("Read", systemImage: "checkmark.message.fill") }
+                            .tint(app.appearance.accent.color)
+                        }
+                    }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button {
-                            app.navigation.push(.messages(.conversation(conversation.id)))
-                        } label: { Label("Open", systemImage: "arrow.up.right.bubble") }
-                        .tint(.accentColor)
+                        if let person = conversation.participants.first {
+                            Button {
+                                app.navigation.push(.profile(person.id, .overview))
+                            } label: { Label("Profile", systemImage: "person.crop.circle") }
+                            .tint(.gray)
+                        }
                     }
-                    .swipeActions(edge: .leading) {
-                        Button {
-                            UIPasteboard.general.string = conversation.title
-                            HapticEngine.shared.play(.confirmation)
-                        } label: { Label("Copy name", systemImage: "doc.on.doc") }
-                        .tint(.gray)
-                    }
+                    .contextMenu { contextMenu(conversation) }
                     .onAppear {
                         if conversation.id == items.last?.id {
                             Task { await app.messaging.loadMoreConversations() }
@@ -109,25 +186,53 @@ struct ConversationListView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .modulaSoftScrollEdge()
+            .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: filter)
         }
     }
 
-    private var conversationSkeleton: some View {
-        VStack(spacing: 14) {
-            ForEach(0..<4, id: \.self) { _ in
-                HStack(spacing: 12) {
-                    Circle().fill(Color.primary.opacity(0.08)).frame(width: 48, height: 48)
-                    VStack(alignment: .leading, spacing: 8) {
-                        RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.08)).frame(width: 140, height: 12)
-                        RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.06)).frame(height: 10)
-                    }
-                }
-                .padding(.horizontal, ModulaLayout.contentInset)
+    @ViewBuilder
+    private func emptyState(searching: Bool) -> some View {
+        switch app.messaging.conversationState {
+        case .loading:
+            MessagesSkeletonList(label: "Loading conversations")
+        case .failed(let message):
+            MessagesFriendlyEmpty(scope: .inbox, retryMessage: message) {
+                await app.messaging.refreshInbox()
             }
-            Spacer()
+        case _ where searching || filter != .all:
+            ContentUnavailableView {
+                Label(searching ? "No matching chats" : (filter == .unread ? "You're all caught up" : "No group chats"),
+                      systemImage: searching ? "magnifyingglass" : (filter == .unread ? "checkmark.bubble" : "person.3"))
+            } description: {
+                Text(searching ? "Search looks through the chats loaded on this device." : "Nothing here right now.")
+            }
+            .frame(maxHeight: .infinity, alignment: .top)
+            .padding(.top, 40)
+        default:
+            MessagesFriendlyEmpty(scope: .inbox)
         }
-        .padding(.top, 16)
-        .accessibilityLabel("Loading conversations")
+    }
+
+    @ViewBuilder
+    private func contextMenu(_ conversation: Conversation) -> some View {
+        Button("Open Chat", systemImage: "bubble.left.and.bubble.right") { open(conversation) }
+        if conversation.isUnread, app.messaging.capabilities.markRead {
+            Button("Mark as Read", systemImage: "checkmark.message") {
+                Task { await app.messaging.markConversationRead(conversation.id) }
+            }
+        }
+        if let person = conversation.participants.first {
+            Button("View Profile", systemImage: "person.crop.circle") { app.navigation.push(.profile(person.id, .overview)) }
+        }
+        Button("Copy Name", systemImage: "doc.on.doc") {
+            UIPasteboard.general.string = conversation.title
+            HapticEngine.shared.play(.confirmation)
+        }
+    }
+
+    private func open(_ conversation: Conversation) {
+        app.navigation.push(.messages(.conversation(conversation.id)))
+        HapticEngine.shared.play(.navigation)
     }
 
     @ViewBuilder
@@ -139,6 +244,53 @@ struct ConversationListView: View {
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.bottom, 12)
+        }
+    }
+}
+
+/// Liquid Glass search capsule (local filter over loaded chats).
+struct MessagesGlassSearchField: View {
+    @Binding var text: String
+    var prompt = "Search"
+    @FocusState private var focused: Bool
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+            TextField(prompt, text: $text)
+                .textFieldStyle(.plain)
+                .focused($focused)
+                .submitLabel(.search)
+                .autocorrectionDisabled()
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 40)
+        .modulaGlass(in: Capsule(), interactive: true)
+        .contentShape(Capsule())
+        .onTapGesture { focused = true }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("messages.search")
+    }
+}
+
+extension View {
+    /// Pins chrome under the nav bar; on iOS 26 `safeAreaBar` extends the soft scroll edge
+    /// beneath it so rows blur progressively instead of sliding under it.
+    @ViewBuilder
+    func messagesTopBar<Bar: View>(@ViewBuilder _ bar: () -> Bar) -> some View {
+        let content = bar()
+        if #available(iOS 26.0, *) {
+            self.safeAreaBar(edge: .top, spacing: 0) { content }
+        } else {
+            self.safeAreaInset(edge: .top, spacing: 0) { content.background(.bar) }
         }
     }
 }
@@ -185,44 +337,77 @@ struct MessagesScopePicker: View {
 
 struct ConversationRow: View {
     let conversation: Conversation
+    var viewerID: String? = nil
     @Environment(AppEnvironment.self) private var app
     @Environment(\.routeTransitionNamespace) private var routeTransitions
 
+    private var isGroup: Bool { conversation.kind == .group || conversation.participants.count > 1 }
+    private var lastIsOwn: Bool {
+        guard let sender = conversation.lastMessage?.senderID, let viewerID else { return false }
+        return sender == viewerID
+    }
+
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            ConversationAvatar(participant: conversation.participants.first, unread: conversation.isUnread)
+        let unread = conversation.isUnread
+        let accent = app.appearance.accent.color
+        HStack(alignment: .center, spacing: 12) {
+            ConversationAvatar(participants: conversation.participants, unread: unread, size: 54)
                 .modulaZoomSource(id: "conversation.\(conversation.id)", namespace: routeTransitions)
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(conversation.title)
-                        .font(.body.weight(conversation.isUnread ? .semibold : .regular))
+                        .font(.body.weight(unread ? .semibold : .medium))
                         .lineLimit(1)
-                    Spacer()
+                    if isGroup {
+                        Image(systemName: "person.2.fill").font(.caption2).foregroundStyle(.tertiary)
+                            .accessibilityHidden(true)
+                    }
+                    Spacer(minLength: 6)
                     Text(Self.relative(conversation.updatedAt))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.caption.weight(unread ? .semibold : .regular))
+                        .foregroundStyle(unread ? accent : Color.secondary)
+                        .monospacedDigit()
                 }
-                HStack(alignment: .firstTextBaseline) {
-                    Text(conversation.lastMessage?.body ?? "")
+                HStack(alignment: .center, spacing: 8) {
+                    previewText
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(unread ? Color.primary.opacity(0.85) : Color.secondary)
                         .lineLimit(2)
-                    Spacer(minLength: 8)
-                    if conversation.isUnread {
-                        UnreadBadge(count: conversation.unreadCount)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if unread {
+                        Text(conversation.unreadCount > 99 ? "99+" : "\(conversation.unreadCount)")
+                            .font(.caption2.weight(.bold)).monospacedDigit()
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 7).frame(minWidth: 22, minHeight: 22)
+                            .background(Capsule().fill(accent))
+                            .accessibilityHidden(true)
                     }
                 }
             }
         }
         .padding(.vertical, 4)
+        .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
+        .accessibilityAddTraits(.isButton)
         .accessibilityIdentifier("messages.row.\(conversation.id)")
+    }
+
+    private var previewText: Text {
+        let body = conversation.lastMessage?.body ?? ""
+        if body.isEmpty { return Text("No messages yet").italic() }
+        if lastIsOwn { return Text("You: ").fontWeight(.medium) + Text(body) }
+        if isGroup, let senderID = conversation.lastMessage?.senderID,
+           let sender = conversation.participants.first(where: { $0.id == senderID }) {
+            let first = sender.displayName.split(separator: " ").first.map(String.init) ?? sender.displayName
+            return Text("\(first): ").fontWeight(.medium) + Text(body)
+        }
+        return Text(body)
     }
 
     private var accessibilityLabel: String {
         var parts = [conversation.title]
-        if let preview = conversation.lastMessage?.body { parts.append(preview) }
+        if let preview = conversation.lastMessage?.body { parts.append(lastIsOwn ? "You: \(preview)" : preview) }
         parts.append(Self.relative(conversation.updatedAt))
         if conversation.isUnread {
             parts.append(String(localized: "\(conversation.unreadCount) unread"))
@@ -240,25 +425,55 @@ struct ConversationRow: View {
 
     @MainActor static func relative(_ date: Date) -> String {
         guard ModulaPreferences.relativeTimestamps else { return ModulaTimeFormat.absolute(date) }
-        return relativeFormatter.localizedString(for: date, relativeTo: Date())
+        if abs(Date().timeIntervalSince(date)) < 45 { return String(localized: "now") }
+        return relativeFormatter.localizedString(for: min(date, Date()), relativeTo: Date())
     }
 }
 
 struct ConversationAvatar: View {
-    let participant: ConversationParticipant?
+    var participants: [ConversationParticipant]
     var unread = false
+    var size: CGFloat = 48
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var colorScheme
 
+    init(participant: ConversationParticipant?, unread: Bool = false, size: CGFloat = 48) {
+        self.participants = participant.map { [$0] } ?? []
+        self.unread = unread
+        self.size = size
+    }
+
+    init(participants: [ConversationParticipant], unread: Bool = false, size: CGFloat = 48) {
+        self.participants = participants
+        self.unread = unread
+        self.size = size
+    }
+
     var body: some View {
-        ModulaAvatar(initials: participant?.initials ?? "?", url: participant?.avatarURL, size: 48, name: participant?.displayName)
-            .overlay(alignment: .bottomTrailing) {
-                if unread {
-                    ModulaNotificationDot(tone: .accent, size: 10)
-                        .overlay(Circle().stroke(ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas, lineWidth: 2))
-                        .accessibilityHidden(true)
-                }
+        let canvas = ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas
+        ZStack {
+            if participants.count >= 2 {
+                let small = size * 0.7
+                ModulaAvatar(initials: participants[1].initials, url: participants[1].avatarURL, size: small, name: participants[1].displayName)
+                    .offset(x: -(size - small) / 2, y: -(size - small) / 2)
+                ModulaAvatar(initials: participants[0].initials, url: participants[0].avatarURL, size: small, name: participants[0].displayName)
+                    .overlay(Circle().stroke(canvas, lineWidth: 2))
+                    .offset(x: (size - small) / 2, y: (size - small) / 2)
+            } else {
+                let p = participants.first
+                ModulaAvatar(initials: p?.initials ?? "?", url: p?.avatarURL, size: size, name: p?.displayName)
             }
+        }
+        .frame(width: size, height: size)
+        .overlay(alignment: .topTrailing) {
+            if unread {
+                Circle().fill(app.appearance.accent.color)
+                    .frame(width: 12, height: 12)
+                    .overlay(Circle().stroke(canvas, lineWidth: 2))
+                    .offset(x: 1, y: -1)
+                    .accessibilityHidden(true)
+            }
+        }
     }
 }
 
