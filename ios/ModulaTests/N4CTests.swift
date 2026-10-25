@@ -154,6 +154,16 @@ final class MessagingDomainTests: XCTestCase {
         #endif
     }
 
+    func testGeneratedHandlesAreFilteredFromPeoplePickers() {
+        XCTAssertTrue(ModulaFixtureFilter.looksGenerated("b14bmsb2xub7n73r"))
+        XCTAssertTrue(ModulaFixtureFilter.looksGenerated("macbf7e269"))
+        XCTAssertTrue(ModulaFixtureFilter.isFixture(name: "x", handle: "vps-checked-mrpmdo4y"))
+        XCTAssertFalse(ModulaFixtureFilter.looksGenerated("andrei.modula"))
+        XCTAssertFalse(ModulaFixtureFilter.looksGenerated("sam2024"))
+        XCTAssertFalse(ModulaFixtureFilter.looksGenerated("builders"))
+        XCTAssertFalse(ModulaFixtureFilter.isFixture(name: "Digital Garden", handle: "garden.modula"))
+    }
+
     func testLocalSearchDoesNotClaimServerHistory() {
         let store = MessagingStore(
             client: GreenfieldClient(baseURL: URL(string: "https://api.modula.digital"))
