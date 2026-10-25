@@ -86,7 +86,7 @@ struct ActivityChipBar: View {
                         .font(.caption.weight(.bold))
                         .transition(.scale(scale: 0.4).combined(with: .opacity))
                 }
-                Text(chip.title).font(.subheadline.weight(.semibold))
+                Text(chip.title).font(.subheadline.weight(.semibold)).lineLimit(1).fixedSize()
                 if count > 0, chip != .all {
                     Text(count > 99 ? "99+" : "\(count)")
                         .font(.caption2.weight(.bold)).monospacedDigit()
@@ -761,7 +761,6 @@ struct ActivityClusterFeed: View {
             .disabled(busy).opacity(busy ? 0.6 : 1)
             .accessibilityHint(cluster.expandsInline ? (isOpen ? "Collapses the list" : "Shows all \(cluster.actors.count) people") : "")
         }
-        .modulaScrollReveal()
         .contextMenu { contextMenu(cluster) }
         .transition(calm ? .opacity : .asymmetric(insertion: .opacity, removal: .move(edge: .leading).combined(with: .opacity)))
     }
