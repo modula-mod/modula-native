@@ -193,46 +193,211 @@ struct MolibooStageCharacter: View {
     }
 }
 
-/// Care sheet: stats with bars and the four activities (same actions as the home cards).
+// MARK: - Care UI (shared by Home and the Care sheet)
+
+/// One need as a small glass ring: icon in the middle, label and a state word underneath.
+struct MolibooNeedRing: View {
+    let label: String
+    let value: Double
+    let symbol: String
+    let tint: Color
+    var body: some View {
+        let v = min(1, max(0, value / 100))
+        VStack(spacing: 6) {
+            ZStack {
+                Circle().stroke(Color.primary.opacity(0.08), lineWidth: 5)
+                Circle().trim(from: 0, to: v)
+                    .stroke(tint, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                Image(systemName: symbol).font(.footnote.weight(.semibold)).foregroundStyle(tint)
+            }
+            .frame(width: 46, height: 46)
+            VStack(spacing: 1) {
+                Text(label).font(.caption.weight(.semibold)).foregroundStyle(.primary)
+                Text(Self.word(v)).font(.caption2).foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label), \(Int(value)) percent, \(Self.word(v))")
+    }
+    static func word(_ v: Double) -> String { v >= 0.8 ? "Great" : v >= 0.6 ? "Good" : v >= 0.4 ? "Okay" : "Low" }
+}
+
+/// Mood · Energy · Clean · Full rings, the bond level badge with XP progress, and the daily streak / check-in.
+struct MolibooStatusPanel: View {
+    let state: MolibooCareState
+    let life: MolibooLifeState
+    let checkIn: () -> Void
+    var body: some View {
+        let now = Date()
+        let streak = life.currentStreak(at: now)
+        let done = life.checkedIn(on: now)
+        VStack(spacing: 16) {
+            HStack(spacing: 4) {
+                MolibooNeedRing(label: "Mood", value: state.mood, symbol: "heart.fill", tint: .pink)
+                MolibooNeedRing(label: "Energy", value: state.energy, symbol: "bolt.fill", tint: Color(red: 0.95, green: 0.70, blue: 0.10))
+                MolibooNeedRing(label: "Clean", value: state.cleanliness, symbol: "drop.fill", tint: Color(red: 0.24, green: 0.62, blue: 0.90))
+                MolibooNeedRing(label: "Full", value: 100 - state.hunger, symbol: "fork.knife", tint: Color(red: 0.95, green: 0.55, blue: 0.30))
+            }
+            HStack(spacing: 12) {
+                Text("Lv \(state.bondLevel)")
+                    .font(.caption.weight(.bold)).monospacedDigit()
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(Capsule().fill(Color.orange.gradient))
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack {
+                        Text("Bond").font(.caption.weight(.semibold))
+                        Spacer()
+                        Text("\(state.xpToNextLevel) XP to Lv \(state.bondLevel + 1)").font(.caption2).foregroundStyle(.secondary).monospacedDigit()
+                    }
+                    GeometryReader { g in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.primary.opacity(0.08))
+                            Capsule().fill(Color.orange.gradient).frame(width: max(6, g.size.width * state.bondProgress))
+                        }
+                    }
+                    .frame(height: 6)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Bond level \(state.bondLevel), \(state.xpToNextLevel) XP to the next level")
+            HStack(spacing: 10) {
+                Image(systemName: "flame.fill").foregroundStyle(streak > 0 ? .orange : .secondary)
+                Text(streak > 0 ? "\(streak)-day streak" : "Start a streak").font(.subheadline.weight(.semibold))
+                Spacer()
+                Button(action: checkIn) {
+                    Text(done ? "Checked in" : "Check in").font(.footnote.weight(.semibold))
+                        .padding(.horizontal, 14).frame(height: 32)
+                        .modulaGlass(in: Capsule(), interactive: !done, tint: done ? nil : Color.orange.opacity(0.25))
+                }
+                .buttonStyle(.plain)
+                .disabled(done)
+                .accessibilityIdentifier("care.checkin")
+                .accessibilityHint(done ? "Already checked in today" : "Daily check-in, adds bond")
+            }
+        }
+        .padding(16)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: false)
+        .accessibilityIdentifier("care.status")
+    }
+}
+
+/// A large glass action tile: icon, title, effect line, or the cooldown while it recharges.
+struct MolibooActionTile: View {
+    let action: MolibooCareAction
+    let remaining: TimeInterval
+    let asleep: Bool
+    let perform: () -> Void
+    var body: some View {
+        let cooling = remaining > 0
+        let title = action == .nap && asleep ? "Wake" : action.title
+        Button(action: perform) {
+            VStack(spacing: 6) {
+                Image(systemName: action == .nap && asleep ? "sun.max.fill" : action.symbol)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(action.tint.gradient))
+                    .opacity(cooling ? 0.45 : 1)
+                Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).lineLimit(1)
+                Text(cooling ? "Ready in \(MolibooCareStore.short(remaining))" : (action == .nap && asleep ? "Wake up" : action.effect))
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
+                    .monospacedDigit()
+            }
+            .frame(maxWidth: .infinity).frame(height: 116)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true)
+            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityValue(cooling ? "Ready in \(MolibooCareStore.short(remaining))" : action.effect)
+        .accessibilityIdentifier("care.action.\(action.rawValue)")
+    }
+}
+
+/// The action grid. Re-renders once a second only while something is cooling down.
+struct MolibooActionGrid: View {
+    let life: MolibooLifeState
+    let asleep: Bool
+    var columns = 3
+    let perform: (MolibooCareAction) -> Void
+    var body: some View {
+        let cooling = MolibooCareAction.allCases.contains { life.remaining($0, at: Date()) > 0 }
+        TimelineView(.periodic(from: .now, by: cooling ? 1 : 3600)) { ctx in
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: columns), spacing: 12) {
+                ForEach(MolibooCareAction.allCases) { a in
+                    MolibooActionTile(action: a, remaining: life.remaining(a, at: ctx.date), asleep: asleep) { perform(a) }
+                }
+            }
+        }
+    }
+}
+
+/// Recent moments: the last few things you did together.
+struct MolibooMomentsList: View {
+    let moments: [MolibooMoment]
+    var limit = 4
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if moments.isEmpty {
+                Text("Your moments together will show up here.").font(.footnote).foregroundStyle(.secondary).padding(16)
+            }
+            ForEach(Array(moments.prefix(limit).enumerated()), id: \.element.id) { i, m in
+                if i > 0 { Divider().padding(.leading, 52) }
+                HStack(spacing: 12) {
+                    Image(systemName: m.symbol).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28).background(Circle().fill(Color.primary.opacity(0.06)))
+                    Text(m.text).font(.subheadline).foregroundStyle(.primary).lineLimit(1)
+                    Spacer(minLength: 8)
+                    Text(m.date, style: .relative).font(.caption2).foregroundStyle(.secondary).monospacedDigit().lineLimit(1)
+                }
+                .padding(.horizontal, 12).padding(.vertical, 10)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
+        .accessibilityIdentifier("care.moments")
+    }
+}
+
+/// Care sheet: the same status, actions and moments as Home (one source of truth: `MolibooCareStore`),
+/// with the pet small in the header. Uses the system Liquid Glass sheet background.
 struct MolibooCareSheet: View {
     let characterID: String
     let name: String
     let care: MolibooCareStore
-    let perform: (MolibooActivity) -> Void
+    let perform: (MolibooCareAction) -> Void
 
     var body: some View {
         let s = care.state(for: characterID)
+        let life = care.life(for: characterID)
         NavigationStack {
-            List {
-                Section("How \(name) is doing") {
-                    bar("Mood", s.mood, .pink, id: "mood")
-                    bar("Energy", s.energy, .yellow, id: "energy")
-                    bar("Clean", s.cleanliness, .cyan, id: "clean")
-                    bar("Full", 100 - s.hunger, .orange, id: "full")
-                    LabeledContent("Bond", value: "Level \(s.bondLevel) · \(Int(s.bondXP)) XP")
-                    LabeledContent("Feeling", value: s.emotion.label).accessibilityIdentifier("care.feeling")
-                }
-                Section("Activities") {
-                    ForEach(MolibooActivity.allCases) { a in
-                        Button { perform(a) } label: {
-                            Label { VStack(alignment: .leading) { Text(a == .sleep && s.asleep ? "Wake up" : a.title); Text(a.subtitle).font(.caption).foregroundStyle(.secondary) } }
-                                icon: { Image(systemName: a.symbol).foregroundStyle(a.tint) }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    HStack(spacing: 14) {
+                        if let img = MolibooPortrait.image(for: characterID) {
+                            Image(uiImage: img).resizable().interpolation(.high).scaledToFit().frame(width: 72, height: 72)
                         }
-                        .accessibilityIdentifier("care.activity.\(a.rawValue)")
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(name).font(.title2.weight(.bold))
+                            Label(s.emotion.label, systemImage: s.emotion.symbol)
+                                .font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
+                                .accessibilityIdentifier("care.feeling")
+                        }
+                        Spacer()
                     }
+                    MolibooStatusPanel(state: s, life: life) { _ = care.checkIn(characterID, name: name) }
+                    Text("Activities").font(.headline)
+                    MolibooActionGrid(life: life, asleep: s.asleep, columns: 3, perform: perform)
+                    Text("Recent moments").font(.headline)
+                    MolibooMomentsList(moments: life.moments, limit: 6)
                 }
+                .padding(20)
             }
             .navigationTitle("Care").navigationBarTitleDisplayMode(.inline)
         }
-    }
-
-    private func bar(_ label: String, _ v: Double, _ tint: Color, id: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack { Text(label); Spacer(); Text("\(Int(v))%").monospacedDigit().foregroundStyle(.secondary) }
-            ProgressView(value: v, total: 100).tint(tint)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("care.bar.\(id)")
     }
 }
 
@@ -315,5 +480,69 @@ struct MolibooTapBurst: View {
             }
         }
         .allowsHitTesting(false).accessibilityHidden(true)
+    }
+}
+
+// MARK: - Family naming & picker chrome
+
+extension MolibooFamily {
+    /// Consistent family title ("The Originals", "The Angels", "The Underground", …) derived from the case, so
+    /// families added later (e.g. Legends) are named the same way without another switch.
+    var displayTitle: String { "The " + rawValue.prefix(1).uppercased() + rawValue.dropFirst() }
+}
+
+/// Family title in the Moliboos display style. No Moliboos font ships (the wordmark is vector artwork), so this
+/// mirrors `MoliboosWordmark`'s treatment: a heavy rounded face, accent fill and a soft top highlight in light
+/// mode, pastel-bright in dark. Used only for family titles; app fonts are unchanged elsewhere.
+struct MolibooFamilyTitle: View {
+    let text: String
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    var body: some View {
+        let label = Text(text).font(.system(.title2, design: .rounded, weight: .black)).lineLimit(1).minimumScaleFactor(0.8)
+        label
+            .foregroundStyle(scheme == .dark ? AnyShapeStyle(Color(red: 1.0, green: 0.72, blue: 0.80)) : AnyShapeStyle(.tint))
+            .overlay {
+                if !reduceTransparency && scheme != .dark {
+                    LinearGradient(colors: [.white.opacity(0.38), .white.opacity(0)], startPoint: .top, endPoint: .center)
+                        .mask(label)
+                        .allowsHitTesting(false)
+                }
+            }
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// Progressive top blur for the pinned Moliboo header: a real material blur whose strength fades out below the
+/// header (masked gradient), plus a light background wash so text under the wordmark never reads through.
+/// Extends into the status bar and a little below the header so content fades rather than cutting off.
+/// Reduce Transparency: an opaque background fade instead of blur.
+struct MolibooProgressiveHeaderBlur: View {
+    /// `.top` for the pinned header, `.bottom` for the sticky composer (gradients flip).
+    var edge: VerticalEdge = .top
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    var body: some View {
+        ZStack {
+            if reduceTransparency {
+                Rectangle().fill(Color(uiColor: .systemBackground))
+                    .mask(fade([(0, 1), (0.7, 1), (1, 0)]))
+            } else {
+                Rectangle().fill(.regularMaterial)
+                    .mask(fade([(0, 1), (0.55, 1), (0.8, 0.55), (1, 0)]))
+                Rectangle().fill(.ultraThinMaterial)
+                    .mask(fade([(0, 1), (0.75, 1), (1, 0)]))
+                Rectangle().fill(Color(uiColor: .systemBackground).opacity(scheme == .dark ? 0.72 : 0.66))
+                    .mask(fade([(0, 1), (0.5, 0.9), (0.85, 0.25), (1, 0)]))
+            }
+        }
+        .padding(edge == .top ? .bottom : .top, -36)
+        .ignoresSafeArea(edges: edge == .top ? .top : .bottom)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+    private func fade(_ stops: [(CGFloat, Double)]) -> LinearGradient {
+        LinearGradient(stops: stops.map { .init(color: .black.opacity($0.1), location: $0.0) },
+                       startPoint: edge == .top ? .top : .bottom, endPoint: edge == .top ? .bottom : .top)
     }
 }
