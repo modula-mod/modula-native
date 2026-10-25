@@ -17,6 +17,20 @@ struct MolibooWorldView: View {
             case .stickers: "face.smiling"
             }
         }
+        var selectedSymbol: String {
+            switch self {
+            case .home: "house.fill"
+            case .studio: "paintbrush.pointed.fill"
+            case .stickers: "face.smiling.inverse"
+            }
+        }
+        var accessibilityHint: String {
+            switch self {
+            case .home: "Your Moliboo's home"
+            case .studio: "Opens the Studio and wardrobe"
+            case .stickers: "Opens stickers"
+            }
+        }
     }
     enum Route: Hashable { case studio(String), photo(String), collection, cards, settings, classicStudio(MascotStudioView.StudioTab) }
 
@@ -45,6 +59,10 @@ struct MolibooWorldView: View {
     @Namespace private var heroNS
     @Namespace private var zoomNS
     @Namespace private var glassNS
+    /// Segment shown as selected in the Home · Studio · Stickers switcher. Studio / Stickers open their own
+    /// screens, so the capsule glides there first and glides back to Home when they close.
+    @State private var navSelection: Section = .home
+    @Namespace private var navNS
     #if DEBUG
     @AppStorage("moliboo.world.debugHour") private var debugHour = -1
     #endif
@@ -181,7 +199,8 @@ struct MolibooWorldView: View {
     private var header: some View {
         ModulaGlassGroup(spacing: 10) {
             ZStack {
-                MoliboosWordmark(height: 36)
+                // 28 pt keeps the centred logo clear of the 44 pt back / sparkle / more buttons on every iPhone width.
+                MoliboosWordmark(height: 28)
                     .accessibilityIdentifier("world.logo")
                 HStack(spacing: 10) {
                     MolibooWorldBackButton()
@@ -263,34 +282,72 @@ struct MolibooWorldView: View {
     }
 
     /// Home · Studio · Stickers — Wardrobe is inside Studio; Care is Activities on Home.
+    /// Native Liquid Glass segmented switcher: icon + short label, one glass capsule track the same 44 pt height as
+    /// the header buttons, and a selection capsule that glides between segments (no motion under Reduce Motion).
     private var navBar: some View {
         ModulaGlassGroup(spacing: 0) {
-            HStack(spacing: 0) {
+            HStack(spacing: 2) {
                 ForEach(Section.allCases) { s in
-                    Button { open(s) } label: {
-                        Image(systemName: s == .home ? "house.fill" : s.symbol)
-                            .font(.caption.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 32)
-                            .background {
-                                if s == .home {
-                                    Capsule().fill(Color.primary.opacity(0.08))
-                                        .modulaGlassID("world.nav.selected", in: glassNS)
-                                }
+                    let selected = navSelection == s
+                    Button { select(s) } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: selected ? s.selectedSymbol : s.symbol)
+                                .font(.footnote.weight(.semibold))
+                                .frame(width: 18)
+                            Text(s.title)
+                                .font(.footnote.weight(.semibold))
+                                .lineLimit(1)
+                                .fixedSize()
+                        }
+                        .foregroundStyle(selected ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 36)
+                        .background {
+                            if selected {
+                                Capsule()
+                                    .fill(Color.primary.opacity(0.09))
+                                    .overlay(Capsule().strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.5))
+                                    .matchedGeometryEffect(id: "world.nav.selection", in: navNS)
                             }
-                            .contentShape(Capsule())
+                        }
+                        .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityIdentifier("world.nav.\(s.rawValue)").accessibilityLabel(s.title)
+                    .accessibilityIdentifier("world.nav.\(s.rawValue)")
+                    .accessibilityLabel(s.title)
+                    .accessibilityHint(s.accessibilityHint)
+                    .accessibilityAddTraits(selected ? .isSelected : [])
                 }
             }
-            .padding(3)
-            .modulaGlass(in: Capsule(), interactive: false, tint: glassTint, specular: false)
+            .padding(4)
+            .frame(height: 44)
+            .modulaGlass(in: Capsule(), interactive: false, tint: glassTint, specular: true)
             .modulaGlassID("world.nav", in: glassNS)
         }
-        .frame(maxWidth: 220)
+        .frame(maxWidth: 320)
         .frame(maxWidth: .infinity)
-        .foregroundStyle(.primary)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Moliboo sections")
+        .onChange(of: route) { _, r in if r == nil { settleNav() } }
+        .onChange(of: sheet) { _, s in if s == nil { settleNav() } }
+    }
+
+    private var navAnimation: Animation? { reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.82) }
+
+    /// Glide the capsule to the tapped segment, then open it (immediately under Reduce Motion).
+    private func select(_ s: Section) {
+        guard s != .home else { withAnimation(navAnimation) { navSelection = .home }; return }
+        withAnimation(navAnimation) { navSelection = s }
+        let delay: Duration = reduceMotion ? .zero : .milliseconds(180)
+        Task { @MainActor in
+            try? await Task.sleep(for: delay)
+            open(s)
+        }
+    }
+
+    private func settleNav() {
+        guard navSelection != .home else { return }
+        withAnimation(navAnimation) { navSelection = .home }
     }
 
     /// Open typography on the clean surface — no glass card under the pet.
