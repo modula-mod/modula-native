@@ -137,4 +137,16 @@ final class MOL03RegistryTests: XCTestCase {
         XCTAssertEqual(MolibooCatalogueQuery.filter(r.characters, family: nil, search: "Moliboo Legends", families: r.families).count, 15)
         XCTAssertTrue(MolibooCatalogueQuery.filter(r.characters, family: "angels", search: "somna", families: r.families).isEmpty)
     }
+
+    // MOL-03B developer fitting lab: live overrides are Debug-only and fully reversible.
+    func testDebugFitLabOverrideIsReversible() throws {
+        let k = ModulaMascotKind.somna
+        let base = try XCTUnwrap(k.builtInSpec).hatScale
+        MolibooPackageRuntime.shared.setDebugFit(.init(hatScale: 1.3, hatMaxWidth: 0.5, headTopExtra: 0.05), for: k)
+        XCTAssertEqual(k.spec?.hatScale, 1.3)
+        XCTAssertEqual(k.spec?.hatMaxWidth, 0.5)
+        MolibooPackageRuntime.shared.setDebugFit(nil, for: k)
+        XCTAssertEqual(k.spec?.hatScale, base)
+        XCTAssertNil(MolibooPackageRuntime.shared.debugFit(for: k))
+    }
 }

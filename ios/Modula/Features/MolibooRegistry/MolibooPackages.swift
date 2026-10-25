@@ -489,8 +489,25 @@ final class MolibooPackageRuntime: @unchecked Sendable {
     }
 
     // Renderer hooks: cheap when nothing is installed.
+    #if DEBUG
+    /// Developer fitting lab only (never Release): live fit overrides keyed by character key.
+    private let debugFits = OSAllocatedUnfairLock<[String: MolibooCharacterPatch.Fit]>(initialState: [:])
+    func setDebugFit(_ fit: MolibooCharacterPatch.Fit?, for kind: ModulaMascotKind) {
+        debugFits.withLock { $0[kind.rawValue] = fit }
+    }
+    func debugFit(for kind: ModulaMascotKind) -> MolibooCharacterPatch.Fit? { debugFits.withLock { $0[kind.rawValue] } }
+    #endif
+
     func patchedSpec(_ kind: ModulaMascotKind, _ base: MolibooSpec?) -> MolibooSpec? {
         MolibooPackageRevision.shared.observe()
+        #if DEBUG
+        if var spec = base, let f = debugFits.withLock({ $0[kind.rawValue] }) {
+            if let v = f.hatScale { spec.hatScale = CGFloat(v) }
+            if let v = f.hatMaxWidth { spec.hatMaxWidth = CGFloat(v) }
+            if let v = f.headTopExtra { spec.headTopExtra = CGFloat(v) }
+            return spec
+        }
+        #endif
         guard var spec = base, let p = active(for: kind)?.patch else { return base }
         if let pal = p.palette, let palette = ModulaMascotKind.Palette(patch: pal) { spec.palette = palette }
         if let s = p.size { spec.size = CGSize(width: s.width, height: s.height) }
