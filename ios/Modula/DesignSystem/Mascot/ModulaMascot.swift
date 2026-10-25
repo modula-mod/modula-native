@@ -2038,7 +2038,7 @@ enum MolibooPart: Sendable {
     // Legends (family 007): signature looks drawn as part of the character, never wardrobe items.
     case santaHat(Color), beard(Color), belt(Color), shag(Color), facePatch(Color), bigFeet(Color), humps(Color), waves(Color)
     case tentacles(Color), flameCrest(Color), horn(Color), rainbowMane, hookBeak(Color), snowflakes(Int), kitsuneTails(Color, Color)
-    case kitsuneMarks(Color), fangs, spines(Color), glowEyes(Color), wand(Color), toothShine, thunderMark(Color), featherCrest(Color, Color), frostSpikes(Color)
+    case kitsuneMarks(Color), fangs, spines(Color), glowEyes(Color), wand(Color), toothShine, thunderMark(Color), featherCrest(Color, Color), frostSpikes(Color), jackalopeAntlers(Color)
 }
 
 struct MolibooSpec: Sendable {

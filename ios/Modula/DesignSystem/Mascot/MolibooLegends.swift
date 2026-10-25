@@ -23,7 +23,7 @@ extension MolibooFamilySpecs {
         t[.kitsu] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(c(0.99, 0.96, 0.92), accent: c(0.94, 0.32, 0.28), light: .white, dark: c(0.94, 0.84, 0.76), outline: c(0.6, 0.36, 0.26)), parts: [.kitsuneTails(c(1, 0.62, 0.3), .white), .ears(.fox), .kitsuneMarks(c(0.9, 0.2, 0.24)), .orbiters(2, c(0.5, 0.82, 1))], form: "Kitsune")
         t[.chupi] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(c(0.56, 0.64, 0.52), accent: c(1, 0.4, 0.36), iris: c(0.9, 0.16, 0.16), light: c(0.78, 0.84, 0.72)), parts: [.spines(c(0.32, 0.44, 0.32)), .tail(.lizard, c(0.46, 0.56, 0.42)), .ears(.bat), .fangs, .feet(c(0.4, 0.5, 0.38))], form: "Chupacabra")
         t[.motho] = MolibooSpec(body: .drop, size: CGSize(width: 0.84, height: 0.96), palette: .spec(c(0.26, 0.24, 0.3), accent: c(1, 0.22, 0.2), iris: c(1, 0.2, 0.18), light: c(0.42, 0.4, 0.48)), parts: [.wings(.giantMoth, c(0.34, 0.3, 0.38)), .antennae(c(0.56, 0.5, 0.6)), .glowEyes(c(1, 0.16, 0.12))], floats: true, feet: false, form: "Mothman")
-        t[.jacko] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(c(0.74, 0.56, 0.4), accent: c(1, 0.7, 0.72), light: c(0.92, 0.8, 0.66)), parts: [.tail(.fluffy, .white), .antlers(c(0.92, 0.84, 0.68)), .ears(.bunny), .feet(c(0.6, 0.44, 0.3))], form: "Jackalope")
+        t[.jacko] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.84), palette: .spec(c(0.74, 0.56, 0.4), accent: c(1, 0.7, 0.72), light: c(0.92, 0.8, 0.66)), parts: [.tail(.fluffy, .white), .ears(.bunny), .feet(c(0.6, 0.44, 0.3)), .jackalopeAntlers(c(0.98, 0.94, 0.84))], form: "Jackalope")
         t[.thundra] = MolibooSpec(body: .round, size: CGSize(width: 0.9, height: 0.86), palette: .spec(c(0.22, 0.4, 0.78), accent: gold, light: c(0.5, 0.66, 0.96)), parts: [.wings(.eagle, c(0.16, 0.28, 0.6)), .thunderMark(gold), .hookBeak(gold), .featherCrest(c(0.9, 0.22, 0.2), .white), .lightning], floats: true, feet: false, form: "Thunderbird")
     }
 
@@ -63,9 +63,9 @@ extension ModulaMascotFigure {
             // Shaggy fur tips poking out all round the silhouette.
             ForEach(0..<20, id: \.self) { k in
                 let ang = Double(k) / 20 * 2 * .pi
-                MascotTriangle().fill(LinearGradient(colors: [pal.mid, c], startPoint: .top, endPoint: .bottom))
-                    .overlay(MascotTriangle().stroke(pal.outline.opacity(0.4), lineWidth: line * 0.8))
-                    .frame(width: s * 0.13, height: s * 0.15)
+                MascotDropShape().fill(LinearGradient(colors: [c, pal.mid], startPoint: .top, endPoint: .bottom))
+                    .overlay(MascotDropShape().stroke(pal.outline.opacity(0.35), lineWidth: line * 0.8))
+                    .frame(width: s * 0.15, height: s * 0.16)
                     .rotationEffect(.radians(ang + .pi / 2))
                     .offset(x: CGFloat(cos(ang)) * (bw / 2 + s * 0.02), y: cy + CGFloat(sin(ang)) * (bh / 2 + s * 0.02))
             }
@@ -81,20 +81,20 @@ extension ModulaMascotFigure {
                 MascotTriangle().fill(c).overlay(MascotTriangle().stroke(pal.outline.opacity(0.55), lineWidth: line))
                     .frame(width: s * 0.12, height: s * 0.2).rotationEffect(.degrees(28)).offset(x: -s * 0.66, y: -s * 0.02)
             }
-            .offset(y: cy + bh * 0.34 + CGFloat(sin(t * 1.2)) * s * 0.01 * a)
+            .offset(y: cy + bh * 0.12 + CGFloat(sin(t * 1.2)) * s * 0.01 * a)
         case (.tentacles(let c), .back):
             ForEach(0..<6, id: \.self) { k in
                 let u = Double(k) / 5 - 0.5
                 let ph = t * 1.3 + Double(k) * 1.7 + 0.6
                 ZStack {
                     MascotTentacle(phase: ph, amp: max(a, 0.55))
-                        .stroke(pal.outline.opacity(0.45), style: StrokeStyle(lineWidth: s * 0.1 + line * 1.6, lineCap: .round))
+                        .stroke(pal.outline.opacity(0.45), style: StrokeStyle(lineWidth: s * 0.14 + line * 1.6, lineCap: .round))
                     MascotTentacle(phase: ph, amp: max(a, 0.55))
-                        .stroke(LinearGradient(colors: [c, pal.mid, pal.accent], startPoint: .top, endPoint: .bottom), style: StrokeStyle(lineWidth: s * 0.1, lineCap: .round))
+                        .stroke(LinearGradient(colors: [c, c, pal.light], startPoint: .top, endPoint: .bottom), style: StrokeStyle(lineWidth: s * 0.14, lineCap: .round))
                 }
-                    .frame(width: s * 0.2, height: s * 0.42)
-                    .rotationEffect(.degrees(u * 70), anchor: .top)
-                    .offset(x: CGFloat(u) * bw * 0.72, y: cy + bh * 0.28 + s * 0.21)
+                    .frame(width: s * 0.22, height: s * 0.5)
+                    .rotationEffect(.degrees(u * 110), anchor: .top)
+                    .offset(x: CGFloat(u) * bw * 0.8, y: cy + bh * 0.22 + s * 0.25)
             }
         case (.rainbowMane, .back):
             let rainbow = [Color(red: 1, green: 0.45, blue: 0.5), Color(red: 1, green: 0.7, blue: 0.35), Color(red: 1, green: 0.9, blue: 0.4),
@@ -196,8 +196,8 @@ extension ModulaMascotFigure {
         case (.hookBeak(let c), .front):
             MascotHookBeak().fill(LinearGradient(colors: [Color(red: 1, green: 0.95, blue: 0.7), c], startPoint: .top, endPoint: .bottom))
                 .overlay(MascotHookBeak().stroke(pal.outline.opacity(0.5), lineWidth: line))
-                .frame(width: s * 0.14, height: s * 0.12)
-                .offset(y: s * (kind.eyeY + kind.mouthY) / 2 + s * 0.02)
+                .frame(width: s * 0.17, height: s * 0.15)
+                .offset(y: s * (kind.eyeY + kind.mouthY) / 2 + s * 0.03)
         case (.kitsuneMarks(let c), .front):
             ZStack {
                 MascotDropShape().fill(c).frame(width: s * 0.07, height: s * 0.12).offset(y: top + bh * 0.16 - cy)
@@ -282,12 +282,11 @@ extension ModulaMascotFigure {
             .offset(y: top - s * 0.13)
         case (.featherCrest(let c, let tip), .top):
             ForEach(0..<3, id: \.self) { k in
-                MascotLeaf().fill(LinearGradient(colors: [tip, c], startPoint: .leading, endPoint: .trailing))
-                    .overlay(MascotLeaf().stroke(pal.outline.opacity(0.45), lineWidth: line * 0.8))
-                    .frame(width: s * [0.22, 0.28, 0.22][k], height: s * 0.09)
-                    .offset(x: -s * [0.11, 0.14, 0.11][k])
-                    .rotationEffect(.degrees(90 + Double(k - 1) * 30 + 4 * sin(t * 1.6 + Double(k)) * da), anchor: .center)
-                    .offset(y: top - s * 0.1)
+                MascotDropShape().fill(LinearGradient(colors: [tip, c], startPoint: .top, endPoint: .bottom))
+                    .overlay(MascotDropShape().stroke(pal.outline.opacity(0.45), lineWidth: line * 0.8))
+                    .frame(width: s * [0.12, 0.15, 0.12][k], height: s * [0.24, 0.32, 0.24][k])
+                    .rotationEffect(.degrees(Double(k - 1) * 28 + 4 * sin(t * 1.6 + Double(k)) * da), anchor: .bottom)
+                    .offset(x: s * CGFloat(k - 1) * 0.07, y: top - s * 0.1)
             }
         case (.snowflakes(let n), .top):
             ForEach(0..<n, id: \.self) { k in
@@ -320,6 +319,21 @@ extension ModulaMascotFigure {
             }
             .rotationEffect(.degrees(18 + 8 * sin(t * 1.8) * da), anchor: .bottom)
             .offset(x: bw * 0.56, y: cy - s * 0.12)
+        case (.jackalopeAntlers(let c), .top):
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                ZStack(alignment: .bottom) {
+                    Capsule().fill(c).overlay(Capsule().stroke(pal.outline.opacity(0.45), lineWidth: line * 0.8))
+                        .frame(width: s * 0.065, height: s * 0.4)
+                    ForEach(0..<2, id: \.self) { k in
+                        Capsule().fill(c).overlay(Capsule().stroke(pal.outline.opacity(0.45), lineWidth: line * 0.8))
+                            .frame(width: s * 0.055, height: s * 0.18)
+                            .rotationEffect(.degrees(side * 55), anchor: .bottom)
+                            .offset(x: side * s * 0.015, y: -s * (0.14 + CGFloat(k) * 0.12))
+                    }
+                }
+                .rotationEffect(.degrees(side * 22), anchor: .bottom)
+                .offset(x: side * bw * 0.12, y: top - s * 0.16)
+            }
         default:
             EmptyView()
         }
