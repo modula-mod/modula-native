@@ -472,42 +472,86 @@ struct ConversationView: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var replyTo: Message?
+    @State private var awayFromBottom = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            Divider().opacity(0.4)
-            thread
-            composer
-        }
-        .navigationBarTitleDisplayMode(.inline)
-        .modulaSoftScrollEdge()
-        .navigationTitle("")
-        .task { await app.messaging.loadThreadIfNeeded(conversationID) }
-        .refreshable { await app.messaging.refreshThread(conversationID) }
-        .accessibilityIdentifier("messages.conversation.\(conversationID)")
-        .accessibilityValue(RouteSerializer.serialize(.messages(.conversation(conversationID))))
+        thread
+            .safeAreaInset(edge: .bottom, spacing: 0) { composer }
+            .overlay(alignment: .bottomTrailing) { jumpToLatest }
+            .navigationBarTitleDisplayMode(.inline)
+            .modulaSoftScrollEdge()
+            .navigationTitle(conversation?.title ?? "Chat")
+            .toolbar {
+                ToolbarItem(placement: .principal) { header }
+                if let person = conversation?.participants.first {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Menu {
+                            Button("View Profile", systemImage: "person.crop.circle") { app.navigation.push(.profile(person.id, .overview)) }
+                            Button("Copy Name", systemImage: "doc.on.doc") {
+                                UIPasteboard.general.string = conversation?.title
+                                HapticEngine.shared.play(.confirmation)
+                            }
+                            Divider()
+                            Button("Chat Settings", systemImage: "gearshape") { app.navigation.open(.settings(.chats(.root))) }
+                        } label: {
+                            Label("Chat options", systemImage: "ellipsis")
+                        }
+                        .accessibilityIdentifier("messages.conversation.options")
+                    }
+                }
+            }
+            .task {
+                #if DEBUG
+                if MessagingDebugFixture.isEnabled {
+                    if app.messaging.conversations.isEmpty { app.messaging.installDebugInbox(MessagingDebugFixture.inbox()) }
+                    if app.messaging.messages(for: conversationID).isEmpty {
+                        app.messaging.installDebugThread(conversationID, messages: MessagingDebugFixture.thread(conversationID))
+                    }
+                    return
+                }
+                #endif
+                await app.messaging.loadThreadIfNeeded(conversationID)
+            }
+            .refreshable { await app.messaging.refreshThread(conversationID) }
+            .accessibilityIdentifier("messages.conversation.\(conversationID)")
+            .accessibilityValue(RouteSerializer.serialize(.messages(.conversation(conversationID))))
     }
 
     private var conversation: Conversation? { app.messaging.conversation(id: conversationID) }
+    private var isGroup: Bool { (conversation?.participants.count ?? 0) > 1 || conversation?.kind == .group }
 
+    /// Glass identity capsule in the nav bar; taps through to the profile.
     private var header: some View {
-        HStack(spacing: 10) {
-            ConversationAvatar(participant: conversation?.participants.first)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(conversation?.title ?? "Conversation")
-                    .font(.headline)
-                if let handle = conversation?.handleLabel {
-                    Text(handle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        Button {
+            if let person = conversation?.participants.first, !isGroup {
+                app.navigation.push(.profile(person.id, .overview))
+                HapticEngine.shared.play(.navigation)
+            }
+        } label: {
+            HStack(spacing: 8) {
+                ConversationAvatar(participants: conversation?.participants ?? [], size: 30)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(conversation?.title ?? "Chat")
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                    if let subtitle {
+                        Text(subtitle).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    }
                 }
             }
-            Spacer()
+            .padding(.leading, 4).padding(.trailing, 12).padding(.vertical, 4)
+            .modulaGlass(in: Capsule(), interactive: true)
         }
-        .padding(.horizontal, ModulaLayout.contentInset)
-        .padding(.vertical, 8)
-        .accessibilityElement(children: .combine)
+        .buttonStyle(.plain)
+        .accessibilityLabel([conversation?.title, subtitle].compactMap { $0 }.joined(separator: ", "))
+        .accessibilityHint(isGroup ? "" : "Opens profile")
+        .accessibilityIdentifier("messages.conversation.header")
+    }
+
+    private var subtitle: String? {
+        if isGroup, let n = conversation?.participants.count { return "\(n + 1) members" }
+        return conversation?.handleLabel
     }
 
     @ViewBuilder
@@ -515,56 +559,120 @@ struct ConversationView: View {
         let items = app.messaging.messages(for: conversationID)
         switch app.messaging.threadState[conversationID] ?? .idle {
         case .loading where items.isEmpty:
-            ModulaLoadingState(title: "Loading messages")
+            ProgressView("Loading messages")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .failed(let message) where items.isEmpty:
-            ModulaErrorState(message: message) {
-                Task { await app.messaging.refreshThread(conversationID) }
+            VStack(spacing: 12) {
+                MessagesRetryBanner(message: message, autoRetry: true) {
+                    await app.messaging.refreshThread(conversationID)
+                }
+                .padding(.horizontal, ModulaLayout.contentInset)
+                Spacer()
             }
+            .padding(.top, 12)
         case _ where items.isEmpty:
-            ModulaEmptyState(
-                title: "No messages yet",
-                message: app.messaging.capabilities.send ? "Write the first message." : "This conversation isn’t available yet.",
-                symbol: "text.bubble"
-            )
+            emptyThread
         default:
+            let lastOwnID = items.last(where: \.isOwn)?.id
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(Array(items.enumerated()), id: \.element.id) { index, message in
                             let position = MessageGroupPosition.resolve(index: index, in: items)
-                            MessageBubble(message: message, position: position) { action in
+                            if let stamp = MessageTimeline.stamp(index: index, in: items) {
+                                MessageTimeStamp(text: stamp)
+                                    .padding(.top, index == 0 ? 4 : 16)
+                                    .padding(.bottom, 6)
+                            }
+                            MessageBubble(
+                                message: message, position: position,
+                                showsSender: isGroup && position.startsGroup,
+                                showsStatus: message.id == lastOwnID || message.delivery == .failed
+                            ) { action in
                                 handle(action, message: message)
                             }
-                            // Tight spacing inside a run of messages, roomier between senders.
                             .padding(.top, index == 0 ? 0 : (position.startsGroup ? 10 : 2))
                             .id(message.id)
-                            // New bubbles rise in from the composer; plain fade under Reduce Motion.
                             .transition(reduceMotion
                                 ? .opacity
                                 : .move(edge: .bottom).combined(with: .opacity))
                         }
+                        Color.clear.frame(height: 1).id("messages.bottom")
                     }
                     .padding(.horizontal, ModulaLayout.contentInset)
                     .padding(.vertical, 12)
                 }
-                // Chats open on the newest message and stay pinned there.
                 .defaultScrollAnchor(.bottom)
                 .scrollDismissesKeyboard(.interactively)
                 .modulaSoftScrollEdge()
-                .onChange(of: items.count) { _, _ in
-                    scrollToLatest(items, proxy: proxy)
+                .onScrollGeometryChange(for: Bool.self) { geo in
+                    geo.contentSize.height - (geo.contentOffset.y + geo.containerSize.height) > 320
+                } action: { _, away in
+                    withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { awayFromBottom = away }
                 }
-                .onChange(of: items.last?.id) { _, _ in
-                    scrollToLatest(items, proxy: proxy)
-                }
+                .onChange(of: items.count) { _, _ in scrollToLatest(proxy) }
+                .onChange(of: items.last?.id) { _, _ in scrollToLatest(proxy) }
+                .onChange(of: jumpRequests) { _, _ in scrollToLatest(proxy) }
             }
         }
     }
 
-    private func scrollToLatest(_ items: [Message], proxy: ScrollViewProxy) {
-        guard let last = items.last?.id else { return }
+    @State private var jumpRequests = 0
+
+    @ViewBuilder
+    private var jumpToLatest: some View {
+        if awayFromBottom {
+            Button {
+                jumpRequests += 1
+                HapticEngine.shared.play(.selection)
+            } label: {
+                Image(systemName: "chevron.down")
+                    .font(.body.weight(.semibold))
+                    .frame(width: 44, height: 44)
+                    .modulaGlass(in: Circle(), interactive: true)
+            }
+            .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+            .padding(.trailing, ModulaLayout.contentInset)
+            .padding(.bottom, 84)
+            .transition(.scale.combined(with: .opacity))
+            .accessibilityLabel("Jump to latest message")
+            .accessibilityIdentifier("messages.jump-latest")
+        }
+    }
+
+    private var emptyThread: some View {
+        let person = conversation?.participants.first
+        return VStack(spacing: 12) {
+            Spacer(minLength: 40)
+            ConversationAvatar(participants: conversation?.participants ?? [], size: 84)
+            Text(conversation?.title ?? "New chat").font(.title3.weight(.semibold))
+            if let handle = conversation?.handleLabel {
+                Text(handle).font(.subheadline).foregroundStyle(.secondary)
+            }
+            if app.messaging.capabilities.send {
+                Button {
+                    let first = person?.displayName.split(separator: " ").first.map(String.init) ?? ""
+                    app.messaging.drafts[conversationID] = first.isEmpty ? "Hi 👋" : "Hi \(first) 👋"
+                    HapticEngine.shared.play(.selection)
+                } label: {
+                    Text("👋  Say hi").font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 18).frame(height: 40)
+                        .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color.opacity(0.2))
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.94))
+                .padding(.top, 6)
+            } else {
+                Text("This conversation isn’t available yet.").font(.subheadline).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 40)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityIdentifier("messages.thread.empty")
+    }
+
+    private func scrollToLatest(_ proxy: ScrollViewProxy) {
         withAnimation(ModulaMotion.animation(.contentTransition, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
-            proxy.scrollTo(last, anchor: .bottom)
+            proxy.scrollTo("messages.bottom", anchor: .bottom)
         }
     }
 
@@ -576,15 +684,27 @@ struct ConversationView: View {
             ),
             canSend: app.messaging.capabilities.send,
             showsAttachments: app.messaging.capabilities.attachments,
-            largeText: dynamicTypeSize.isAccessibilitySize
+            largeText: dynamicTypeSize.isAccessibilitySize,
+            reply: replyTo.map { ModulaComposerReply(title: "Replying to \($0.isOwn ? "yourself" : $0.sender.displayName)", excerpt: $0.body.text) },
+            onCancelReply: { withAnimation(reduceMotion ? nil : .snappy) { replyTo = nil } }
         ) {
+            // The API has no reply-to field yet, so a reply is sent as a quoted line.
+            if let replyTo {
+                let quote = replyTo.body.text.split(separator: "\n").first.map { "> " + $0.prefix(120) } ?? ""
+                let draft = app.messaging.drafts[conversationID] ?? ""
+                app.messaging.drafts[conversationID] = quote + "\n" + draft
+                self.replyTo = nil
+            }
             IslandSendEffect.shared.fire("Message sent", accent: app.appearance.accent.color)
             Task {
-                await app.messaging.send(
-                    conversation: conversationID,
-                    viewer: viewer
-                )
+                await app.messaging.send(conversation: conversationID, viewer: viewer)
             }
+        }
+        .background(alignment: .bottom) {
+            // Soft canvas wash so bubbles fade under the glass composer instead of colliding.
+            LinearGradient(colors: [.clear, Color(uiColor: .systemBackground).opacity(0.6)], startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea(edges: .bottom)
+                .allowsHitTesting(false)
         }
     }
 
@@ -602,21 +722,51 @@ struct ConversationView: View {
         case "copy":
             UIPasteboard.general.string = message.body.text
             HapticEngine.shared.play(.confirmation)
+            app.navigation.flash("Copied", symbol: "doc.on.doc")
         case "retry":
             Task { await app.messaging.retry(message: message, viewer: viewer) }
         case "reply":
-            // Swipe-to-reply (Settings → Gestures): quote the message into the composer.
-            let quoted = message.body.text
-                .split(separator: "\n", omittingEmptySubsequences: false)
-                .prefix(3)
-                .map { "> " + $0 }
-                .joined(separator: "\n")
-            let existing = app.messaging.drafts[conversationID] ?? ""
-            app.messaging.drafts[conversationID] = quoted + "\n" + existing
+            withAnimation(reduceMotion ? nil : .snappy) { replyTo = message }
             HapticEngine.shared.play(.selection)
         default:
             break
         }
+    }
+}
+
+/// Day and time separators: a day label when the calendar day changes, and a
+/// time label after an hour-long gap inside the same day.
+enum MessageTimeline {
+    @MainActor private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter(); f.timeStyle = .short; f.dateStyle = .none; return f
+    }()
+    @MainActor private static let dayFormatter: DateFormatter = {
+        let f = DateFormatter(); f.setLocalizedDateFormatFromTemplate("EEE d MMM"); return f
+    }()
+
+    @MainActor static func stamp(index: Int, in items: [Message], calendar: Calendar = .current) -> String? {
+        let current = items[index].sentAt
+        let time = ModulaPreferences.relativeTimestamps ? timeFormatter.string(from: current) : ModulaTimeFormat.absolute(current)
+        if index == 0 || !calendar.isDate(items[index - 1].sentAt, inSameDayAs: current) {
+            let day: String
+            if calendar.isDateInToday(current) { day = String(localized: "Today") }
+            else if calendar.isDateInYesterday(current) { day = String(localized: "Yesterday") }
+            else { day = dayFormatter.string(from: current) }
+            return "\(day) \(time)"
+        }
+        if current.timeIntervalSince(items[index - 1].sentAt) > 3600 { return time }
+        return nil
+    }
+}
+
+struct MessageTimeStamp: View {
+    let text: String
+    var body: some View {
+        Text(text)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity)
+            .accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -650,6 +800,8 @@ enum MessageGroupPosition: Sendable {
 struct MessageBubble: View {
     let message: Message
     var position: MessageGroupPosition = .single
+    var showsSender = false
+    var showsStatus = false
     var onAction: (ModulaContextAction) -> Void
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
@@ -673,29 +825,34 @@ struct MessageBubble: View {
                 .frame(width: Self.avatarSize, height: Self.avatarSize)
                 .accessibilityHidden(true)
             }
-            VStack(alignment: message.isOwn ? .trailing : .leading, spacing: 6) {
+            VStack(alignment: message.isOwn ? .trailing : .leading, spacing: 4) {
+                if showsSender, !message.isOwn {
+                    Text(message.sender.displayName)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 12)
+                }
                 Text(message.body.text)
                     .font(.body)
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 9)
                     .background(bubbleFill, in: bubbleShape)
                     .foregroundStyle(message.isOwn ? Color.white : Color.primary)
+                    .opacity(message.delivery == .sending ? 0.7 : 1)
+                    .overlay(alignment: .trailing) {
+                        if message.delivery == .failed {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .font(.body)
+                                .foregroundStyle(.red)
+                                .offset(x: 26)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .padding(.trailing, message.delivery == .failed ? 26 : 0)
                 if let attachment = MessageInlineContent.detect(in: message.body.text) {
                     MessageInlineContentView(content: attachment)
                 }
-                HStack(spacing: 8) {
-                    if message.delivery == .failed {
-                        Button("Retry") { onAction(.init(id: "retry", title: "Retry")) }
-                            .font(.caption.weight(.semibold))
-                            .frame(minHeight: ModulaLayout.minimumTouch)
-                            .contentShape(Rectangle())
-                    } else if app.messaging.capabilities.readReceipts, ModulaPreferences.chatShowReadReceipts,
-                              message.isOwn, message.delivery == .read {
-                        Text("Read")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                if showsStatus { statusLine }
             }
             if !message.isOwn { Spacer(minLength: 48) }
         }
@@ -722,6 +879,40 @@ struct MessageBubble: View {
             Button("Reply") { onAction(.init(id: "reply", title: "Reply")) }
         }
         .accessibilityIdentifier("messages.bubble.\(message.id)")
+    }
+
+    @ViewBuilder
+    private var statusLine: some View {
+        if message.delivery == .failed {
+            Button {
+                onAction(.init(id: "retry", title: "Retry"))
+            } label: {
+                Label("Not delivered · Tap to retry", systemImage: "arrow.clockwise")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.red)
+                    .frame(minHeight: ModulaLayout.minimumTouch)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("messages.retry")
+        } else if message.isOwn {
+            let showRead = app.messaging.capabilities.readReceipts && ModulaPreferences.chatShowReadReceipts
+            let label: (String, String)? = switch message.delivery {
+            case .sending: ("Sending…", "clock")
+            case .read where showRead: ("Read \(ConversationRow.relative(message.sentAt))", "checkmark.circle.fill")
+            case .read, .delivered: ("Delivered", "checkmark.circle")
+            case .sent, .unknown: ("Sent", "checkmark")
+            case .failed: nil
+            }
+            if let label {
+                Label(label.0, systemImage: label.1)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(message.delivery == .read && showRead ? app.appearance.accent.color : Color.secondary)
+                    .contentTransition(.opacity)
+                    .padding(.trailing, 4)
+                    .accessibilityIdentifier("messages.status")
+            }
+        }
     }
 
     @State private var replyOffset: CGFloat = 0
@@ -771,12 +962,13 @@ struct MessageBubble: View {
         )
     }
 
-    private var bubbleFill: Color {
+    private var bubbleFill: AnyShapeStyle {
         if message.isOwn {
-            return app.appearance.accent.color
+            let accent = app.appearance.accent.color
+            return AnyShapeStyle(LinearGradient(colors: [accent.opacity(0.92), accent], startPoint: .top, endPoint: .bottom))
         }
         let oled = scheme == .dark && app.appearance.darkStyle == .oled
-        return oled ? Color.white.opacity(0.08) : Color.primary.opacity(0.08)
+        return AnyShapeStyle(oled ? Color.white.opacity(0.1) : Color.primary.opacity(0.07))
     }
 
     private var actions: [ModulaContextAction] {
@@ -801,6 +993,8 @@ struct MessageComposer: View {
     var canSend: Bool
     var showsAttachments: Bool
     var largeText: Bool
+    var reply: ModulaComposerReply? = nil
+    var onCancelReply: (() -> Void)? = nil
     var onSend: () -> Void
     @AppStorage("settings.chats.enterToSend") private var enterToSend = false
     @AppStorage("settings.chats.spellCheck") private var spellCheck = true
@@ -808,11 +1002,13 @@ struct MessageComposer: View {
     var body: some View {
         ModulaComposer(
             text: $text,
-            prompt: "Add a message...",
+            prompt: "Message",
             enabled: canSend,
             showsAttachmentButton: showsAttachments,
             returnSends: enterToSend,
             spellCheck: spellCheck,
+            reply: reply,
+            onCancelReply: onCancelReply,
             onSend: onSend
         )
         .padding(.horizontal, ModulaLayout.contentInset)
