@@ -130,9 +130,14 @@ struct MolibooCareState: Codable, Equatable, Sendable {
         // Capped and floored: time away shows, but a pet never reads as neglected (0% / red).
         let h = min(12, max(0, now.timeIntervalSince(lastUpdate) / 3600))
         guard h > 0 else { return }
+        // Floors apply to real time away (15 min+) only. Applying them on every sub-second tick meant energy could
+        // never stay below 35, so "too tired to play" could never happen (MOL03WorldTests.testTooTiredToPlay).
+        let away = h >= 0.25
         defer {
-            energy = max(energy, 35); mood = max(mood, 45)
-            cleanliness = max(cleanliness, 35); hunger = min(hunger, 70)
+            if away {
+                energy = max(energy, 35); mood = max(mood, 45)
+                cleanliness = max(cleanliness, 35); hunger = min(hunger, 70)
+            }
         }
         if asleep {
             energy = Self.clamp(energy + 25 * h)
