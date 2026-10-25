@@ -395,3 +395,19 @@ final class ModulaCodeTests: XCTestCase {
         XCTAssertEqual(subject.subtitle, "Post by Ana")
     }
 }
+
+@MainActor
+final class ShareSheetTests: XCTestCase {
+    func testShareSheetsOpenAtHalfHeightAndPullUp() {
+        let link = AppPresentation.universalShare(.link(url: URL(string: "https://modula.digital/docs")!, title: "Docs"))
+        XCTAssertEqual(link.sheetDetents, [.medium, .large])
+        XCTAssertEqual(AppPresentation.share(.me(.overview)).sheetDetents, [.medium, .large])
+        XCTAssertEqual(AppPresentation.commandCenter.sheetDetents, [.large])
+    }
+
+    func testProfileShareUsesPublicHandleNotMe() {
+        let payload = SharePayload.profile(identity: "andrei.modula", displayName: "Andrei", handle: "andrei.modula", avatarURL: nil)
+        XCTAssertEqual(payload.canonicalURL.absoluteString, "https://modula.digital/profile/andrei.modula")
+        XCTAssertEqual(ModulaCodeSubject(payload: payload).subtitle, "@andrei.modula")
+    }
+}

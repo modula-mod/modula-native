@@ -6,7 +6,7 @@ import SwiftUI
 import UIKit
 import VisionKit
 
-/// Pre-system share sheet with profile preview, copy, share, and Modula Code.
+/// Profile share: the universal Modula share sheet with the profile's own code card.
 struct ProfileShareSheet: View {
     let profile: ModulaProfile
     var onCopy: () -> Void
@@ -14,75 +14,12 @@ struct ProfileShareSheet: View {
     var onShowCode: () -> Void
     var onDismiss: () -> Void
 
-    @Environment(AppEnvironment.self) private var app
-
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 20) {
-                HStack(spacing: 14) {
-                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 56)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(profile.displayName)
-                            .font(.headline.weight(.semibold))
-                        Text("@\(profile.handle)")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        Text(profile.shareURL.absoluteString)
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
-                    }
-                    Spacer(minLength: 0)
-                }
-                .padding(14)
-                .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-
-                VStack(spacing: 10) {
-                    shareButton(title: "Copy Link", symbol: "doc.on.doc", action: {
-                        onCopy()
-                        HapticEngine.shared.play(.lightImpact)
-                    })
-                    shareButton(title: "Share", symbol: "square.and.arrow.up", action: {
-                        onShare()
-                        HapticEngine.shared.play(.lightImpact)
-                    })
-                    shareButton(title: "Modula Code", symbol: "qrcode", action: {
-                        onShowCode()
-                        HapticEngine.shared.play(.selection)
-                    })
-                }
-
-                Spacer()
-            }
-            .padding(20)
-            .modulaSoftScrollEdge()
-            .navigationTitle("Share Profile")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done", action: onDismiss)
-                }
-            }
-        }
-        .presentationDetents([.medium])
+        ModulaShareSheet(
+            payload: .profile(identity: profile.routeID, displayName: profile.displayName, handle: profile.handle, avatarURL: profile.avatarURL),
+            codeSubject: ModulaCodeSubject(profile: profile)
+        )
         .accessibilityIdentifier("profile.share.sheet")
-    }
-
-    private func shareButton(title: String, symbol: String, action: @escaping () -> Void) -> some View {
-        // The code button is the primary action: solid accent, white text.
-        let primary = title == "Modula Code"
-        return Button(action: action) {
-            Label(title, systemImage: symbol)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(primary ? Color.white : Color.primary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(minHeight: 48)
-                .padding(.horizontal, 14)
-                .background(primary ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color.primary.opacity(0.08)),
-                            in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title)
     }
 }
 
