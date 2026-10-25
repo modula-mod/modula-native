@@ -182,6 +182,15 @@ struct SettingsView: View {
                         TelegramRow(title: "Modules", symbol: "shippingbox.fill", tint: .green, value: "\(app.catalogue.installedIDs.count)") { app.navigation.open(.settings(.modules(.root))) }
                     }
 
+                    if PremiumFeatureFlags.premiumEnabled() {
+                        TelegramSettingsCard {
+                            TelegramRow(title: "Modula Premium", symbol: "sun.horizon.fill", tint: PremiumPlan.horizon.tint, value: PremiumEntitlementStore.shared.plan.shortTitle) {
+                                app.navigation.open(.settings(.premium(.root)))
+                            }
+                            .accessibilityIdentifier("settings.premium")
+                        }
+                    }
+
                     TelegramSettingsCard {
                         TelegramRow(title: "Notifications and Sounds", symbol: "bell.badge.fill", tint: .red) { app.navigation.open(.settings(.notifications(.root))) }
                         TelegramDivider()

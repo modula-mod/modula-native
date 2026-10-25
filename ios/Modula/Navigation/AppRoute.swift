@@ -86,6 +86,8 @@ enum PersonalisationSettingsRoute: String, CaseIterable, Codable, Hashable {
 enum ConnectorsSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
 enum IntegrationsSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
 enum MonetisationSettingsRoute: String, CaseIterable, Codable, Hashable { case root, plans, payouts, invoices }
+/// Modula Premium (phase 1, UI only; gated by `PremiumFeatureFlags`).
+enum PremiumSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
 enum ChatsSettingsRoute: String, CaseIterable, Codable, Hashable {
     case root, composer, previews, privacy
 }
@@ -130,6 +132,7 @@ enum SettingsRoute: Hashable {
     case intelligence(IntelligenceSettingsRoute)
     case chats(ChatsSettingsRoute)
     case moliboo
+    case premium(PremiumSettingsRoute)
     case audio(AudioSettingsRoute)
     case language(LanguageSettingsRoute)
     case media(MediaSettingsRoute)
@@ -413,6 +416,7 @@ enum RouteParser {
         case "integrations": return IntegrationsSettingsRoute(rawValue: tail).map { .settings(.integrations($0)) }
         case "monetisation": return MonetisationSettingsRoute(rawValue: tail).map { .settings(.monetisation($0)) }
         case "moliboo": return .settings(.moliboo)
+        case "premium": return PremiumSettingsRoute(rawValue: tail).map { .settings(.premium($0)) }
         case "chats": return ChatsSettingsRoute(rawValue: tail).map { .settings(.chats($0)) }
         case "audio": return AudioSettingsRoute(rawValue: tail).map { .settings(.audio($0)) }
         case "language": return LanguageSettingsRoute(rawValue: tail).map { .settings(.language($0)) }
@@ -591,6 +595,7 @@ enum RouteSerializer {
         case .integrations(let r): setting("integrations", r.rawValue)
         case .monetisation(let r): setting("monetisation", r.rawValue)
         case .moliboo: setting("moliboo", "root")
+        case .premium(let r): setting("premium", r.rawValue)
         case .chats(let r): setting("chats", r.rawValue)
         case .audio(let r): setting("audio", r.rawValue)
         case .language(let r): setting("language", r.rawValue)
