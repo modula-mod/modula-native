@@ -34,6 +34,7 @@
 		84BBACB941ED587B4B71B874 /* MOL03AmbienceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 545EE2428098F54A19A0941E /* MOL03AmbienceTests.swift */; };
 		62D3D0D71B5DC53EE0B5D964 /* MOL03WorldTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7C648C50ADD49BC9E0FB56 /* MOL03WorldTests.swift */; };
 		BD4D8C4363EA47CC9FB84BEC /* MOL04CardsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C87EC46345945E89B099370 /* MOL04CardsTests.swift */; };
+		BD4D8C4363EA47CC9FB84C05 /* MOL05LegendsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C87EC46345945E89B099405 /* MOL05LegendsTests.swift */; };
 		76DA8B4DAD6919F138D97A79 /* ModulaWordmarkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF51FB12DD2DA68F1C34C228 /* ModulaWordmarkTests.swift */; };
 		58CC373DCE8EFE4E753203E2 /* MOL03OriginalsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */; };
 		F75AE210476332DC70F54B1E /* MOL03WardrobeRigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */; };
@@ -91,6 +92,7 @@
 		C147C44B90908E004470E7C63A /* MascotScenes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C047C44B90908E004470E7C63A /* MascotScenes.swift */; };
 		C16C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift */; };
 		C18E871C00879B8E66C5673FB3 /* MascotRig.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08E871C00879B8E66C5673FB3 /* MascotRig.swift */; };
+		C18E871C00879B8E66C5673FC4 /* MolibooLegends.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08E871C00879B8E66C5673FC4 /* MolibooLegends.swift */; };
 		C14B413EE2CA03DFFC2B64FF /* CommentRichContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */; };
 		C1E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */; };
 		C13029B25B9DB3676F028E7B /* ModulaGlassShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */; };
@@ -483,6 +485,7 @@
 		545EE2428098F54A19A0941E /* MOL03AmbienceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03AmbienceTests.swift; sourceTree = "<group>"; };
 		3A7C648C50ADD49BC9E0FB56 /* MOL03WorldTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WorldTests.swift; sourceTree = "<group>"; };
 		3C87EC46345945E89B099370 /* MOL04CardsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL04CardsTests.swift; sourceTree = "<group>"; };
+		3C87EC46345945E89B099405 /* MOL05LegendsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL05LegendsTests.swift; sourceTree = "<group>"; };
 		AF51FB12DD2DA68F1C34C228 /* ModulaWordmarkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModulaWordmarkTests.swift; sourceTree = "<group>"; };
 		30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03OriginalsTests.swift; sourceTree = "<group>"; };
 		C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WardrobeRigTests.swift; sourceTree = "<group>"; };
@@ -540,6 +543,7 @@
 		C047C44B90908E004470E7C63A /* MascotScenes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotScenes.swift; path = DesignSystem/Mascot/MascotScenes.swift; sourceTree = "<group>"; };
 		C06C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotProgress.swift; path = DesignSystem/Mascot/MascotProgress.swift; sourceTree = "<group>"; };
 		C08E871C00879B8E66C5673FB3 /* MascotRig.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotRig.swift; path = DesignSystem/Mascot/MascotRig.swift; sourceTree = "<group>"; };
+		C08E871C00879B8E66C5673FC4 /* MolibooLegends.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MolibooLegends.swift; path = DesignSystem/Mascot/MolibooLegends.swift; sourceTree = "<group>"; };
 		C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommentRichContent.swift; path = Features/Social/CommentRichContent.swift; sourceTree = "<group>"; };
 		C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaComposerExtras.swift; path = DesignSystem/AdvancedInteraction/ModulaComposerExtras.swift; sourceTree = "<group>"; };
 		C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = ModulaGlassShaders.metal; path = DesignSystem/Glass/ModulaGlassShaders.metal; sourceTree = "<group>"; };
@@ -951,6 +955,7 @@
 				545EE2428098F54A19A0941E /* MOL03AmbienceTests.swift */,
 				3A7C648C50ADD49BC9E0FB56 /* MOL03WorldTests.swift */,
 				3C87EC46345945E89B099370 /* MOL04CardsTests.swift */,
+				3C87EC46345945E89B099405 /* MOL05LegendsTests.swift */,
 				AF51FB12DD2DA68F1C34C228 /* ModulaWordmarkTests.swift */,
 				30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */,
 				C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */,
@@ -1225,6 +1230,7 @@
 				C047C44B90908E004470E7C63A /* MascotScenes.swift */,
 				C06C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift */,
 				C08E871C00879B8E66C5673FB3 /* MascotRig.swift */,
+				C08E871C00879B8E66C5673FC4 /* MolibooLegends.swift */,
 				C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */,
 				C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */,
 				C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */,
@@ -1720,6 +1726,7 @@
 				84BBACB941ED587B4B71B874 /* MOL03AmbienceTests.swift in Sources */,
 				62D3D0D71B5DC53EE0B5D964 /* MOL03WorldTests.swift in Sources */,
 				BD4D8C4363EA47CC9FB84BEC /* MOL04CardsTests.swift in Sources */,
+				BD4D8C4363EA47CC9FB84C05 /* MOL05LegendsTests.swift in Sources */,
 				76DA8B4DAD6919F138D97A79 /* ModulaWordmarkTests.swift in Sources */,
 				58CC373DCE8EFE4E753203E2 /* MOL03OriginalsTests.swift in Sources */,
 				F75AE210476332DC70F54B1E /* MOL03WardrobeRigTests.swift in Sources */,
@@ -1910,6 +1917,7 @@
 				C147C44B90908E004470E7C63A /* MascotScenes.swift in Sources */,
 				C16C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift in Sources */,
 				C18E871C00879B8E66C5673FB3 /* MascotRig.swift in Sources */,
+				C18E871C00879B8E66C5673FC4 /* MolibooLegends.swift in Sources */,
 				C14B413EE2CA03DFFC2B64FF /* CommentRichContent.swift in Sources */,
 				C1E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift in Sources */,
 				C13029B25B9DB3676F028E7B /* ModulaGlassShaders.metal in Sources */,

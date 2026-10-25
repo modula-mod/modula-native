@@ -21,6 +21,8 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
     case astra, nebbi, quori, vesper, pulsa, stellan, cosmi, eclipa, meteo, asteri, zenith, liora, nocta, glint, polaris
     // Family 006 — Dreamers
     case dozi, lulli, moona, nuzzle, drifty, hushby, swayla, snoomi, velvi, minku, tufti, winkle, sonata, comfi, somna
+    // Family 007 — Legends (myths and legends; wear their own look, never wardrobe items)
+    case kringle, sasqui, lochie, yetti, krakie, pyra, unika, gryff, frostie, pearli, kitsu, chupi, motho, jacko, thundra
     var id: String { rawValue }
 
     var isPremium: Bool {
@@ -32,6 +34,7 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
         case .ferni, .truffle, .mallow, .acora, .thimble: false
         case .astra, .nebbi, .quori, .cosmi, .glint: false
         case .dozi, .lulli, .nuzzle, .tufti, .comfi: false
+        case .kringle, .sasqui, .lochie, .unika, .jacko: false
         default: true
         }
     }
@@ -650,6 +653,9 @@ struct ModulaMascotFigure: View {
     var size: CGFloat = 48
     var outfit: MascotOutfit = .empty
 
+    /// What is actually drawn: Legends wear their own look, so any equipped items are ignored (never cleared).
+    var worn: MascotOutfit { kind.supportsWardrobe ? outfit : .empty }
+
     /// The figure canvas, generous enough for ears, gills, hats and tentacles.
     static func canvas(_ s: CGFloat) -> CGSize { CGSize(width: s * 2.0, height: s * 1.9) }
 
@@ -660,19 +666,20 @@ struct ModulaMascotFigure: View {
         let a = pose.amp
         let c = Self.canvas(s)
         let rig = MascotRig.stock(kind)
-        let dressed = !outfit.isEmpty
+        let worn = worn
+        let dressed = !worn.isEmpty
         ZStack {
             // Wardrobe is painted in three passes so it wraps the body: back items behind,
             // garments on the body under the face, and head/hand/face props on top.
-            if dressed { MascotWardrobeOverlay(outfit: outfit, rig: rig, pose: pose, size: s, layer: .back, animate: a > 0) }
+            if dressed { MascotWardrobeOverlay(outfit: worn, rig: rig, pose: pose, size: s, layer: .back, animate: a > 0) }
             behind(s: s, pal: pal, t: t, a: a)
             bodyLayer(s: s, pal: pal, t: t, a: a)
             front(s: s, pal: pal, t: t, a: a)
-            if dressed { MascotWardrobeOverlay(outfit: outfit, rig: rig, pose: pose, size: s, layer: .body, animate: a > 0) }
+            if dressed { MascotWardrobeOverlay(outfit: worn, rig: rig, pose: pose, size: s, layer: .body, animate: a > 0) }
             face(s: s, pal: pal, t: t)
                 .rotationEffect(.degrees(kind == .tuck ? 7 * sin(t * 0.8) * Double(a) : 0), anchor: .bottom)
             accessories(s: s, pal: pal, t: t, a: a)
-            if dressed { MascotWardrobeOverlay(outfit: outfit, rig: rig, pose: pose, size: s, layer: .front, animate: a > 0) }
+            if dressed { MascotWardrobeOverlay(outfit: worn, rig: rig, pose: pose, size: s, layer: .front, animate: a > 0) }
         }
         .frame(width: c.width, height: c.height)
         .drawingGroup(opaque: false, colorMode: .extendedLinear)
@@ -1015,7 +1022,7 @@ struct ModulaMascotFigure: View {
     private func accessories(s: CGFloat, pal: ModulaMascotKind.Palette, t: Double, a: CGFloat) -> some View {
         let top = -s * (kind.bodySize.height / 2 - kind.bodyOffsetY) // top of body
         if let sp = kind.spec { specParts(sp, layer: .top, s: s, pal: pal, t: t, a: a) }
-        if kind == .tuck && outfit.item(for: .face) == nil {
+        if kind == .tuck && worn.item(for: .face) == nil {
             let r = s * kind.eyeSize * 1.5
             let frame = Color(red: 0.36, green: 0.22, blue: 0.12)
             ZStack {
@@ -1030,7 +1037,7 @@ struct ModulaMascotFigure: View {
             .offset(y: s * kind.eyeY)
             .rotationEffect(.degrees(7 * sin(t * 0.8) * Double(a)), anchor: .bottom)
         }
-        if pose.conditions.night && outfit.item(for: .hat) == nil && outfit.item(for: .seasonal) == nil && outfit.item(for: .hair) == nil {
+        if pose.conditions.night && kind.supportsWardrobe && worn.item(for: .hat) == nil && worn.item(for: .seasonal) == nil && worn.item(for: .hair) == nil {
             // Nightcap with a pom-pom.
             ZStack(alignment: .topTrailing) {
                 MascotCapShape()
@@ -1049,7 +1056,7 @@ struct ModulaMascotFigure: View {
                 .scaleEffect(0.8 + 0.25 * CGFloat(abs(sin(t * 1.6))) * a + (1 - a) * 0.2)
                 .offset(x: s * 0.42, y: top - s * 0.02)
         }
-        if pose.conditions.offline && outfit.item(for: .accessory) == nil && outfit.item(for: .top) == nil && outfit.item(for: .outerwear) == nil {
+        if pose.conditions.offline && kind.supportsWardrobe && worn.item(for: .accessory) == nil && worn.item(for: .top) == nil && worn.item(for: .outerwear) == nil {
             // Little scarf.
             Capsule().fill(LinearGradient(colors: [Color(red: 0.95, green: 0.35, blue: 0.35), Color(red: 0.78, green: 0.22, blue: 0.25)], startPoint: .top, endPoint: .bottom))
                 .overlay(Capsule().stroke(Color(red: 0.45, green: 0.1, blue: 0.12).opacity(0.6), lineWidth: 0.8))
@@ -1897,7 +1904,7 @@ extension Path {
 // MARK: - Roster: families, worlds and catalogue profiles (Master Bible v1.0 + family bibles)
 
 enum MolibooFamily: String, CaseIterable, Identifiable, Sendable {
-    case originals, angels, underground, enchanted, stardust, dreamers
+    case originals, angels, underground, enchanted, stardust, dreamers, legends
     var id: String { rawValue }
     var name: String {
         switch self {
@@ -1907,6 +1914,7 @@ enum MolibooFamily: String, CaseIterable, Identifiable, Sendable {
         case .enchanted: "Moliboo Enchanted"
         case .stardust: "Moliboo Stardust"
         case .dreamers: "Moliboo Dreamers"
+        case .legends: "Moliboo Legends"
         }
     }
     /// Working world names from the family bibles (Originals live in the home world).
@@ -1918,6 +1926,7 @@ enum MolibooFamily: String, CaseIterable, Identifiable, Sendable {
         case .enchanted: "The Luminous Wilds"
         case .stardust: "The Stardust Reach"
         case .dreamers: "The Dreaming Vale"
+        case .legends: "The Mythic Wilds"
         }
     }
     var range: ClosedRange<Int> {
@@ -1928,8 +1937,23 @@ enum MolibooFamily: String, CaseIterable, Identifiable, Sendable {
         case .enchanted: 56...70
         case .stardust: 71...85
         case .dreamers: 86...100
+        case .legends: 101...115
         }
     }
+    /// Short family label for chips, cards and the roster.
+    var label: String {
+        switch self {
+        case .originals: "Originals"
+        case .angels: "Angels"
+        case .underground: "Underground"
+        case .enchanted: "Enchanted"
+        case .stardust: "Stardust"
+        case .dreamers: "Dreamers"
+        case .legends: "Legends"
+        }
+    }
+    /// Legends are complete characters (Santa's hat, Bigfoot's fur…): they never wear wardrobe items.
+    var supportsWardrobe: Bool { self != .legends }
     /// Precomputed once — filtering allCases on every World body eval was O(families × kinds).
     var kinds: [ModulaMascotKind] { Self.kindsByFamily[self] ?? [] }
     private static let kindsByFamily: [MolibooFamily: [ModulaMascotKind]] = {
@@ -1981,6 +2005,8 @@ extension ModulaMascotKind {
     var traits: [String] { profile.traits }
     var catalogueNumber: String { String(format: "%03d", number) }
     var family: MolibooFamily { MolibooFamily.allCases.first { $0.range.contains(number) } ?? .originals }
+    /// False for Legends: no hats, hair, face items, tops, outerwear or any other worn wardrobe item.
+    var supportsWardrobe: Bool { family.supportsWardrobe }
 }
 
 // MARK: - Family parts kit (Families 002–006)
@@ -1990,11 +2016,11 @@ extension ModulaMascotKind {
 // rig (head anchor + hat scale) and ground shadow work for every family member.
 
 enum MolibooSpecBody: Sendable {
-    case round, wide, tall, pear, drop, heart, star, cloud, crystal, ink, bell, wisp, origami, square, dome, pebble
+    case round, wide, tall, pear, drop, heart, star, cloud, crystal, ink, bell, wisp, origami, square, dome, pebble, tooth
 }
 
 enum MolibooEar: Sendable { case cat, fox, bat, bunny, round, mouse, tufts, floppy, ring }
-enum MolibooWing: Sendable { case feather, bat, moth, insect, fairy, leaf, dart, round }
+enum MolibooWing: Sendable { case feather, bat, moth, insect, fairy, leaf, dart, round, eagle, giantMoth }
 enum MolibooTail: Sendable { case fluffy, ribbon, curl, lizard, whale, fox, comet, disk, plume, spring }
 
 enum MolibooPart: Sendable {
@@ -2009,6 +2035,10 @@ enum MolibooPart: Sendable {
     // Part-2 fidelity parts (sheet details). Head-top props hide when a hat is worn so wardrobe always fits.
     case skateboard(Color), cap(Color), tendrils(Color), puddle(Color), rockSeams(Color), arms(Color), crystals(Color), nose(Color), paws(Color)
     case cloudSeat(Color), shield(Color), wreath(Color, Color?), legs(Color), moonMark(Color), ramHorns(Color)
+    // Legends (family 007): signature looks drawn as part of the character, never wardrobe items.
+    case santaHat(Color), beard(Color), belt(Color), shag(Color), facePatch(Color), bigFeet(Color), humps(Color), waves(Color)
+    case tentacles(Color), flameCrest(Color), horn(Color), rainbowMane, hookBeak(Color), snowflakes(Int), kitsuneTails(Color, Color)
+    case kitsuneMarks(Color), fangs, spines(Color), glowEyes(Color), wand(Color), toothShine, thunderMark(Color), featherCrest(Color, Color), frostSpikes(Color), jackalopeAntlers(Color)
 }
 
 struct MolibooSpec: Sendable {
@@ -2091,6 +2121,7 @@ extension ModulaMascotFigure {
         case .square: AnyShape(RoundedRectangle(cornerRadius: size * 0.24, style: .continuous))
         case .dome: AnyShape(MascotDomeShape())
         case .pebble: AnyShape(MascotPebbleShape())
+        case .tooth: AnyShape(MascotToothShape())
         }
     }
 
@@ -2164,6 +2195,29 @@ extension ModulaMascotFigure {
                         MascotLeaf().fill(LinearGradient(colors: [col, pal.dark], startPoint: .leading, endPoint: .trailing))
                             .overlay(MascotLeaf().stroke(pal.outline.opacity(0.5), lineWidth: line))
                             .frame(width: s * 0.46, height: s * 0.24)
+                    case .eagle:
+                        // Big raptor wing with darker flight-feather tips (Pyra, Thundra).
+                        ZStack {
+                            MascotFeatherWing().fill(LinearGradient(colors: [col.opacity(0.85), col, pal.dark], startPoint: .top, endPoint: .bottom))
+                            MascotFeatherWing().stroke(pal.outline.opacity(0.45), lineWidth: line)
+                            ForEach(0..<3, id: \.self) { k in
+                                Capsule().fill(pal.dark.opacity(0.55)).frame(width: s * 0.03, height: s * 0.14)
+                                    .rotationEffect(.degrees(-30)).offset(x: s * (0.02 + CGFloat(k) * 0.07), y: s * (0.08 - CGFloat(k) * 0.05))
+                            }
+                        }
+                        .frame(width: s * 0.6, height: s * 0.52)
+                    case .giantMoth:
+                        // Huge dark moth wing with a glowing eye-spot (Motho).
+                        ZStack {
+                            Ellipse().fill(LinearGradient(colors: [col, pal.dark], startPoint: .top, endPoint: .bottom))
+                                .overlay(Ellipse().stroke(pal.outline.opacity(0.6), lineWidth: line))
+                                .frame(width: s * 0.5, height: s * 0.56).offset(y: -s * 0.08)
+                            Ellipse().fill(pal.dark).overlay(Ellipse().stroke(pal.outline.opacity(0.6), lineWidth: line))
+                                .frame(width: s * 0.3, height: s * 0.32).offset(x: -s * 0.06, y: s * 0.22)
+                            Circle().fill(RadialGradient(colors: [pal.accent, pal.accent.opacity(0.2)], center: .center, startRadius: 0, endRadius: s * 0.07))
+                                .frame(width: s * 0.13).offset(x: s * 0.06, y: -s * 0.1)
+                        }
+                        .frame(width: s * 0.5, height: s * 0.7)
                     case .dart:
                         VStack(spacing: s * 0.01) {
                             ForEach(0..<3, id: \.self) { _ in MascotTriangle().rotation(.degrees(90)).fill(col.opacity(0.75)).frame(width: s * 0.22, height: s * 0.09) }
@@ -2171,8 +2225,8 @@ extension ModulaMascotFigure {
                     }
                 }
                 .scaleEffect(x: side, y: 1)
-                .rotationEffect(.degrees(side * (style == .insect || style == .fairy || style == .moth ? 30 : 6) + side * flap), anchor: side > 0 ? .leading : .trailing)
-                .offset(x: side * (bw * 0.5 + s * 0.14), y: cy - s * 0.04)
+                .rotationEffect(.degrees(side * (style == .insect || style == .fairy || style == .moth || style == .giantMoth ? 30 : 6) + side * flap), anchor: side > 0 ? .leading : .trailing)
+                .offset(x: side * (bw * 0.5 + s * (style == .eagle || style == .giantMoth ? 0.2 : 0.14)), y: cy - s * 0.04)
             }
         case (.ears(let style), .back):
             ForEach([-1.0, 1.0], id: \.self) { side in
@@ -2608,7 +2662,7 @@ extension ModulaMascotFigure {
                     .offset(x: s * [0.56, -0.58, 0.48, -0.44, 0.0][k % 5], y: cy + s * [-0.42, -0.3, 0.3, 0.38, -0.62][k % 5])
                     .opacity(0.4 + 0.6 * abs(sin(t * 1.4 + Double(k))))
             }
-        case (.cap(let c), .top) where outfit.item(for: .hat) == nil && outfit.item(for: .seasonal) == nil:
+        case (.cap(let c), .top) where worn.item(for: .hat) == nil && worn.item(for: .seasonal) == nil:
             // Backwards street cap.
             ZStack {
                 Capsule().fill(c.opacity(0.9)).overlay(Capsule().stroke(pal.outline.opacity(0.5), lineWidth: line))
@@ -2621,7 +2675,7 @@ extension ModulaMascotFigure {
             }
             .rotationEffect(.degrees(-5))
             .offset(y: top + s * 0.02)
-        case (.wreath(let c, let flower), .top) where outfit.item(for: .hat) == nil && outfit.item(for: .seasonal) == nil:
+        case (.wreath(let c, let flower), .top) where worn.item(for: .hat) == nil && worn.item(for: .seasonal) == nil:
             // Leaf crown across the top of the head, with optional blossoms or berries.
             ZStack {
                 ForEach(0..<9, id: \.self) { k in
@@ -2645,7 +2699,7 @@ extension ModulaMascotFigure {
                 }
             }
             .offset(y: cy)
-        case (.crystals(let c), .top) where outfit.item(for: .hat) == nil && outfit.item(for: .seasonal) == nil:
+        case (.crystals(let c), .top) where worn.item(for: .hat) == nil && worn.item(for: .seasonal) == nil:
             ForEach(0..<3, id: \.self) { k in
                 MascotCrystalShape()
                     .fill(LinearGradient(colors: [.white.opacity(0.9), c], startPoint: .top, endPoint: .bottom))
@@ -2659,7 +2713,7 @@ extension ModulaMascotFigure {
             Text("♪").font(.system(size: s * 0.2, weight: .bold)).foregroundStyle(pal.accent)
                 .offset(x: s * 0.56, y: top - CGFloat((t * 0.6).truncatingRemainder(dividingBy: 1)) * s * 0.16 * a)
         default:
-            EmptyView()
+            legendPart(part, spec: spec, layer: layer, s: s, pal: pal, t: t, a: a, seed: seed)
         }
     }
 
@@ -2703,10 +2757,11 @@ enum MolibooFamilySpecs {
         addEnchanted(&t)
         addStardust(&t)
         addDreamers(&t)
+        addLegends(&t)
         return t
     }()
 
-    static let profiles: [ModulaMascotKind: ModulaMascotKind.Profile] = angelProfiles.merging(undergroundProfiles) { a, _ in a }.merging(enchantedProfiles) { a, _ in a }.merging(stardustProfiles) { a, _ in a }.merging(dreamerProfiles) { a, _ in a }
+    static let profiles: [ModulaMascotKind: ModulaMascotKind.Profile] = angelProfiles.merging(undergroundProfiles) { a, _ in a }.merging(enchantedProfiles) { a, _ in a }.merging(stardustProfiles) { a, _ in a }.merging(dreamerProfiles) { a, _ in a }.merging(legendProfiles) { a, _ in a }
 
     static let angelProfiles: [ModulaMascotKind: ModulaMascotKind.Profile] = [
         .aura: .init(number: 26, title: "The Guiding Light", traits: ["Light", "Leader", "Calm"]),

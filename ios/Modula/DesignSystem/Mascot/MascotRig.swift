@@ -48,6 +48,8 @@ struct MascotRig: Equatable, Sendable {
     var hatScale: CGFloat = 1
     var hatMaxWidth: CGFloat? = nil
     var bodyTint: Color = .pink
+    /// Legends wear their own look: nothing from the wardrobe fits (only a Scene behind them).
+    var wearsOwnLook = false
 
     // Derived anchors
     var bodyTop: CGFloat { bodyY - bodyH / 2 }
@@ -216,6 +218,7 @@ extension MascotRig {
                 if sp.body == .star || sp.body == .wisp { r.allowsTop = false }
             }
         }
+        r.wearsOwnLook = !k.supportsWardrobe
         return r
     }
 
@@ -270,7 +273,10 @@ enum MascotFit: Equatable, Sendable {
 }
 
 extension MascotRig {
+    static let ownLookNote = "Legends wear their own look"
+
     func fit(_ need: MascotNeed) -> MascotFit {
+        if wearsOwnLook && need != .scene { return .none(Self.ownLookNote) }
         switch need {
         case .head, .face, .hand, .back, .aura, .ground, .scene, .frill:
             return .fits

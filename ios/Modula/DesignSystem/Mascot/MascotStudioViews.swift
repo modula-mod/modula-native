@@ -459,14 +459,16 @@ struct MascotStudioView: View {
 
     private var actionBar: some View {
         HStack(spacing: 8) {
-            actionButton("Undo", "arrow.uturn.backward", disabled: !wardrobe.canUndo) { wardrobe.undo(); brain.react(.pleased) }
-            actionButton("Shuffle", "dice.fill") {
+            // Legends wear their own look: no shuffle, save, clear or undo of worn items while one is selected.
+            let wears = selection.supportsWardrobe
+            actionButton("Undo", "arrow.uturn.backward", disabled: !wears || !wardrobe.canUndo) { wardrobe.undo(); brain.react(.pleased) }
+            actionButton("Shuffle", "dice.fill", disabled: !wears) {
                 wardrobe.randomize(for: rig)
                 celebrateEquip()
             }
-            actionButton("Save", "square.and.arrow.down.on.square", disabled: wardrobe.outfit.isEmpty) { presetName = ""; naming = true }
+            actionButton("Save", "square.and.arrow.down.on.square", disabled: !wears || wardrobe.outfit.isEmpty) { presetName = ""; naming = true }
             actionButton("Share", "square.and.arrow.up") { share() }
-            actionButton("Clear", "xmark.circle", disabled: wardrobe.outfit.isEmpty) { showClearConfirm = true }
+            actionButton("Clear", "xmark.circle", disabled: !wears || wardrobe.outfit.isEmpty) { showClearConfirm = true }
         }
     }
 
@@ -508,7 +510,15 @@ struct MascotStudioView: View {
 
     // MARK: Wardrobe panel
 
-    private var wardrobePanel: some View {
+    @ViewBuilder private var wardrobePanel: some View {
+        if let legend = selection.stockKind, !legend.supportsWardrobe {
+            MolibooLegendLookCard(kind: legend)
+        } else {
+            wearableWardrobePanel
+        }
+    }
+
+    private var wearableWardrobePanel: some View {
         VStack(alignment: .leading, spacing: 12) {
             slotChips
             HStack(spacing: 8) {
