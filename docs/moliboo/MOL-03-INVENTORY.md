@@ -45,3 +45,24 @@ Counts below are reported per group: **100 canonical** and **15 Legends** (115 t
   beyond 115).
 
 Personality metadata is behavioural styling only; it does not imply real emotions or awareness.
+
+## MOL-03 results (2026-10-25, Europe/London)
+
+| PR | Content | Main SHA |
+|---|---|---|
+| #190 | Registry (115), fit profiles (100), expression contract + motion engine, signed character packages, catalogue views, 5 new test suites | bdd4033 |
+| #192 | Renderer hooks (spec + palette), catalogue revalidation — live artwork updates without a rebuild | 5b09771 |
+| #195 | Studio "All Moliboos" entry → collection browser → character detail | 59331ed |
+| #197 | Debug-only developer fitting lab | 4dba186 |
+
+* Signature Cap: 100/100 wearable Moliboos fitted and pixel-validated across the still pose plus 4 animated phases.
+  Legends 101–115 are exempt by design (they draw no cap, and their worn items are ignored, never cleared).
+* Expressions: 7/7 states render distinctly for all 115 (`MolibooSemanticExpression.stillPose`).
+* Packages: Ed25519 / SHA-256 via `ModuleReleaseTrust`, JSON asset-pack containers (no archives, no code),
+  stage → atomic activate → health check → rollback, offline cache.
+* Simulator hot update (Somna #100): 1.0.1 → 2.0.0 applied live with no rebuild or relaunch. A 2.0.1 tampered after
+  signing was rejected. Offline relaunch kept 2.0.0.
+* GreenField: the `modula.package.1` descriptor contract is honoured. The publishing endpoint lives on modula-latest #137
+  (a draft owned by the on-demand-packages stream), so QA used a local signed static source. No production or
+  GreenField changes.
+* Baseline Release (ce3cc53): 154,675,792 B app payload.
