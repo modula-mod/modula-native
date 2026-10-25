@@ -92,8 +92,10 @@ struct ActivityChipBar: View {
                         .font(.caption2.weight(.bold)).monospacedDigit()
                         .foregroundStyle(selected ? Color.white.opacity(0.9) : accent)
                         .contentTransition(.numericText(value: Double(count)))
+                        .fixedSize()
                 }
             }
+            .fixedSize()
             .foregroundStyle(selected ? Color.white : Color.primary)
             .padding(.horizontal, 14)
             .frame(height: 36)
