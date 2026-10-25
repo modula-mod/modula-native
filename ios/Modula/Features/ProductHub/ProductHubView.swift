@@ -248,6 +248,50 @@ final class ProductHubStore {
         }
     }
 
+    /// Restores content removed from this device while preserving the account's
+    /// existing installation and grants. The exact closure is reviewed again
+    /// before any bytes are downloaded.
+    func redownloadInstalledGame(_ id: String, approvedPlan: PackageInstallPlan?) async -> Bool {
+        guard operations[id] == nil,
+              product(id)?.productKind == "game",
+              let installation = installations[id], installation.isRunnable,
+              let version = installation.version,
+              let approvedPlan,
+              let approvedRoot = approvedPlan.package(id), approvedRoot.version == version else {
+            return false
+        }
+        operations[id] = .installing
+        lifecycleErrors[id] = nil
+        defer { operations[id] = nil }
+        do {
+            let fresh = try await preparePackagePlan(id, version: version)
+            guard fresh?.lockSha256 == approvedPlan.lockSha256 else {
+                lifecycleErrors[id] = "The package download plan changed. Review its size and dependencies again."
+                return false
+            }
+            packagePlans[id] = approvedPlan
+            await activateVerifiedFrontend(id)
+            guard let accountID,
+                  let active = activation?.active(accountID: accountID, moduleId: id),
+                  active.version == version,
+                  active.gameSha256 == approvedRoot.sha256,
+                  let runtimeID = approvedRoot.dependencies.first,
+                  let runtime = approvedPlan.package(runtimeID),
+                  active.runtimeSha256 == runtime.sha256,
+                  (try? SharedWebRuntimeStore(moduleCacheRoot: ModuleArtifactStore().root)
+                    .verifiedEngine(sha256: runtime.sha256)) != nil else {
+                packagePlans[id] = nil
+                lifecycleErrors[id] = lifecycleErrors[id] ?? "The reviewed game packages could not be activated."
+                return false
+            }
+            return true
+        } catch {
+            packagePlans[id] = nil
+            lifecycleErrors[id] = error.localizedDescription
+            return false
+        }
+    }
+
     /// This Native revision can activate one game-content package and its exact
     /// shared web runtime. Other categories remain fail-closed until the generic
     /// installer owns their verification and activation path.
@@ -389,20 +433,23 @@ final class ProductHubStore {
     /// Switches the installation to the previewed version (upgrade or downgrade), consenting
     /// to exactly the new permissions the user saw, then waits for the server to settle.
     @discardableResult
-    func switchVersion(_ id: String, preview: ModuleVersionPreview) async -> Bool {
+    func switchVersion(_ id: String, preview: ModuleVersionPreview, approvedPlan: PackageInstallPlan? = nil) async -> Bool {
         guard operations[id] == nil else { return false }
         operations[id] = .updating
         lifecycleErrors[id] = nil
         defer { operations[id] = nil }
         let verb = preview.isDowngrade ? "downgrade" : "update"
         do {
-            if try await preparePackagePlan(id, version: preview.toVersion) != nil {
-                lifecycleErrors[id] = "This package version needs dependency review before it can be activated."
+            let discovered = try await preparePackagePlan(id, version: preview.toVersion)
+            guard discovered?.lockSha256 == approvedPlan?.lockSha256 else {
+                lifecycleErrors[id] = "The package download plan changed. Review its size and dependencies again."
                 return false
             }
             let issued = try await client.switchModuleVersion(
                 id, version: preview.toVersion, approvedPermissions: preview.requiresConsent,
-                acknowledgeDowngradeRisk: preview.dataSchemaOlder, idempotencyKey: Self.key("version", id))
+                acknowledgeDowngradeRisk: preview.dataSchemaOlder, idempotencyKey: Self.key("version", id),
+                packageLockSha256: approvedPlan?.lockSha256,
+                cachedPublicDigests: approvedPlan?.reusedDigests ?? [])
             // The registry must issue the descriptor the user confirmed, byte for byte.
             guard let issued, issued.computedSha256 == issued.descriptorSha256,
                   issued.descriptorSha256 == preview.descriptor.descriptorSha256 else {
@@ -411,7 +458,20 @@ final class ProductHubStore {
             verifiedDescriptors[id] = issued
             let target = preview.toVersion
             let settled = try await settle(id) { $0?.isRunnable == true && $0?.version == target }
-            if settled { await activateVerifiedFrontend(id) }
+            if settled {
+                if let approvedPlan { packagePlans[id] = approvedPlan }
+                await activateVerifiedFrontend(id)
+                if let approvedPlan {
+                    guard let accountID, let active = activation?.active(accountID: accountID, moduleId: id),
+                          let root = approvedPlan.package(id), active.version == root.version,
+                          active.gameSha256 == root.sha256,
+                          let runtimeID = root.dependencies.first,
+                          active.runtimeSha256 == approvedPlan.package(runtimeID)?.sha256 else {
+                        lifecycleErrors[id] = "The signed update could not be activated on this device. Its previous verified content remains available."
+                        return false
+                    }
+                }
+            }
             await loadVersions(id)
             return settled
         } catch let error as InstallDescriptorVerificationError {

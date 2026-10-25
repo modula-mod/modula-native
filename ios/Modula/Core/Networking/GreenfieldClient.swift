@@ -181,6 +181,7 @@ struct PasswordResetRequestResult: Codable, Sendable {
 actor GreenfieldClient {
     private let baseURL: URL?
     private let transport: URLSession
+    private let artifactTransport: URLSession
     private let keychain: KeychainStore
     private let offlineAccountKeychain: KeychainStore
     private var tokens: SessionTokens?
@@ -202,6 +203,15 @@ actor GreenfieldClient {
         self.offlineAccountKeychain = KeychainStore(namespace: (baseURL?.absoluteString ?? "unconfigured") + "|offline-account")
         self.baseURL = baseURL
         self.transport = transport
+        if transport === URLSession.shared {
+            let configuration = URLSessionConfiguration.ephemeral
+            configuration.urlCache = nil
+            configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+            self.artifactTransport = URLSession(configuration: configuration)
+        } else {
+            // Preserve injected transports, including the isolated-network test session.
+            self.artifactTransport = transport
+        }
     }
 
     func restore() async throws -> GreenfieldAccount? {
@@ -388,16 +398,24 @@ actor GreenfieldClient {
 
     /// Switches an installation to an exact registry version (upgrade or downgrade). Returns
     /// the target release's install descriptor issued with the transition.
-    func switchModuleVersion(_ moduleID: String, version: String, approvedPermissions: [String], acknowledgeDowngradeRisk: Bool, idempotencyKey: String) async throws -> ModuleInstallDescriptor? {
+    func switchModuleVersion(_ moduleID: String, version: String, approvedPermissions: [String], acknowledgeDowngradeRisk: Bool, idempotencyKey: String,
+                             packageLockSha256: String? = nil, cachedPublicDigests: [String] = []) async throws -> ModuleInstallDescriptor? {
         guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
-        let value: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/update", body: .object([
+        var body: [String: JSONValue] = [
             "version": .string(version),
             "platform": .string("ios"),
             "hostVersion": .string(ModulaHost.version),
             "approvedPermissions": .array(approvedPermissions.map(JSONValue.string)),
             "acknowledgeDowngradeRisk": .bool(acknowledgeDowngradeRisk),
             "idempotencyKey": .string(idempotencyKey),
-        ]))
+        ]
+        if let packageLockSha256 {
+            guard InstallDescriptorVerifier.isHex64(packageLockSha256),
+                  cachedPublicDigests.allSatisfy(InstallDescriptorVerifier.isHex64) else { throw APIError.invalidResponse }
+            body["packageLockSha256"] = .string(packageLockSha256)
+            body["cachedPublicDigests"] = .array(cachedPublicDigests.map(JSONValue.string))
+        }
+        let value: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/update", body: .object(body))
         return value["descriptor"].flatMap(ModuleInstallDescriptor.init(json:))
     }
 
@@ -442,8 +460,13 @@ actor GreenfieldClient {
               url.port == baseURL.port, url.user == nil, url.password == nil,
               url.path == "/v1/registry/artifacts/\(expectedSha256)",
               url.query == nil, url.fragment == nil else { throw APIError.invalidResponse }
-        let data = try await mediaData(from: url, maximumBytes: maximumBytes,
-                                       allowsCellularAccess: UserDefaults.standard.bool(forKey: "settings.downloads.allowCellular"))
+        var request = try await mediaRequest(for: url)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.allowsCellularAccess = UserDefaults.standard.bool(forKey: "settings.downloads.allowCellular")
+        let (data, response) = try await artifactTransport.data(for: request)
+        guard let http = response as? HTTPURLResponse,
+              (200...299).contains(http.statusCode),
+              data.count <= maximumBytes else { throw APIError.invalidResponse }
         let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
         guard digest == expectedSha256 else { throw APIError.invalidResponse }
         return data
