@@ -186,7 +186,7 @@ struct MolibooStageCharacter: View {
             Image(uiImage: img).resizable().interpolation(.high).antialiased(true).scaledToFit().frame(width: 230, height: 230)
                 .shadow(color: .black.opacity(0.10), radius: 4, y: 2)
         } else if let kind = ModulaMascotKind(rawValue: characterID) {
-            ModulaMascotFigure(kind: kind, pose: .still(), size: 110, outfit: MascotWardrobeStore.shared.outfit)
+            ModulaMascotFigure(kind: kind, pose: .still(), size: 110, outfit: MolibooOutfit.equipped(for: kind))
         } else {
             Image(systemName: "pawprint.fill").font(.system(size: 80))
         }

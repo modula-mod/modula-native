@@ -719,7 +719,7 @@ struct MolibooWorldView: View {
             VStack(spacing: 4) {
                 ZStack(alignment: .topTrailing) {
                     Group {
-                        if let img = MolibooPortrait.thumb(for: id) ?? MolibooPortrait.image(for: id) {
+                        if let img = MolibooPortrait.thumb(for: id, dressed: id == characterID) ?? MolibooPortrait.image(for: id) {
                             Image(uiImage: img).resizable().interpolation(.medium).scaledToFit()
                         } else {
                             Color(uiColor: .tertiarySystemFill)
