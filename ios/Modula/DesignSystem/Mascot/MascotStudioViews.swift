@@ -267,6 +267,8 @@ struct MascotStudioView: View {
     /// How far the emote row overlaps the scene's faded bottom.
     private static let heroControlsOverlap: CGFloat = 8
     private static let bottomFade: CGFloat = 112
+    /// Crisp scene fades in over this much, just above the header band's bottom edge.
+    private static let sceneTopFade: CGFloat = 26
 
     private var heroHeight: CGFloat {
         ProfileFullBleedMetrics.windowSafeAreaTop + Self.navBarBand + Self.sceneVisibleHeight
@@ -321,7 +323,28 @@ struct MascotStudioView: View {
         ZStack {
             pageBackground
             if let bg = wardrobe.outfit.background {
-                MascotSceneView(item: bg, dye: wardrobe.outfit.color(for: .background), animated: !reduceMotion)
+                let dye = wardrobe.outfit.color(for: .background)
+                let topBand = ProfileFullBleedMetrics.windowSafeAreaTop + Self.navBarBand
+                // Under the status bar / nav bar: the same scene, static and heavily blurred, so the
+                // floating back button, title and coin chip sit on soft colour rather than on decor.
+                MascotSceneView(item: bg, dye: dye, animated: false)
+                    .blur(radius: 28, opaque: true)
+                    .accessibilityHidden(true)
+                // The crisp, animated scene starts below the header band (its moon, sun and clouds
+                // stay clear of the header controls) and dissolves upward into the blurred sky.
+                MascotSceneView(item: bg, dye: dye, animated: !reduceMotion)
+                    .frame(height: heroHeight - topBand + Self.sceneTopFade)
+                    .mask(
+                        LinearGradient(
+                            stops: [
+                                .init(color: .black.opacity(0), location: 0),
+                                .init(color: .black, location: Self.sceneTopFade / (heroHeight - topBand + Self.sceneTopFade))
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(maxHeight: .infinity, alignment: .bottom)
             } else {
                 LinearGradient(
                     colors: [
