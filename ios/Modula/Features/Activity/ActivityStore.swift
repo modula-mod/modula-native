@@ -246,6 +246,14 @@ final class ActivityStore {
 /// Never compiled into Release; never writes to an account or the server.
 enum ActivityDebugFixture {
     static var isEnabled: Bool { ProcessInfo.processInfo.arguments.contains("--debug-activity-fixture") }
+    /// `--debug-activity-chip moliboos` opens a filter for screenshots.
+    static var initialChip: ActivityChip? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "--debug-activity-chip"), args.indices.contains(i + 1) else { return nil }
+        return ActivityChip(rawValue: args[i + 1])
+    }
+    /// `--debug-activity-scrolled` scrolls the feed so the top blur is visible in screenshots.
+    static var startsScrolled: Bool { ProcessInfo.processInfo.arguments.contains("--debug-activity-scrolled") }
 
     private static func actor(_ id: String, _ name: String, _ handle: String) -> ActivityActor {
         ActivityActor(id: "fixture-\(id)", handle: handle, displayName: name, avatarURL: nil)
@@ -279,7 +287,7 @@ enum ActivityDebugFixture {
             ev("md1", .moduleUpdate, [], minutes: 300, read: true, text: "Vault Notes 2.0.2 is ready", desc: "Vault Notes was updated"),
             ev("f2", .follow, [ana], minutes: 60 * 26, read: true, desc: "started following you"),
             ev("f3", .follow, [sam], minutes: 60 * 27, read: true, desc: "started following you"),
-            ev("re1", .reaction, [noor], minutes: 60 * 50, read: true, thumb: thumb("forest"), post: "fx-p5", desc: "reacted 🔥 to your post"),
+            ev("re1", .reaction, [noor], minutes: 60 * 50, read: true, thumb: thumb("forest"), post: "fx-p5", desc: "reacted to your post"),
             ev("c2", .comment, [kai], minutes: 60 * 24 * 9, read: true, text: "Loved this write-up.", post: "fx-p6", desc: "replied to your post"),
             ev("l5", .like, [leo, mia], minutes: 60 * 24 * 12, read: true, thumb: thumb("ocean"), post: "fx-p7", desc: "liked your post"),
         ]

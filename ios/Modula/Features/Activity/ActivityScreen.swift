@@ -8,6 +8,7 @@ struct ActivityScreen: View {
     @State private var chip: ActivityChip = .all
     /// Unread IDs captured at load, so read rows stay in "New" until the next refresh.
     @State private var newIDs: Set<ActivityEventID> = []
+    @State private var scrollPosition = ScrollPosition(edge: .top)
 
     var body: some View {
         Group {
@@ -27,6 +28,13 @@ struct ActivityScreen: View {
             await app.activity.loadIfNeeded(mode, signedIn: app.auth.isSignedIn)
             if mode == .all { await app.activity.loadIfNeeded(.requests, signedIn: app.auth.isSignedIn) }
             captureNew()
+            #if DEBUG
+            if let c = ActivityDebugFixture.initialChip { chip = c }
+            if ActivityDebugFixture.startsScrolled {
+                try? await Task.sleep(for: .seconds(1.5))
+                scrollPosition.scrollTo(y: 300)
+            }
+            #endif
         }
         .onChange(of: app.activity.state(for: mode).lastRefresh) { _, _ in captureNew() }
         .onChange(of: app.auth.account?.accountId) { _, _ in
@@ -129,6 +137,7 @@ struct ActivityScreen: View {
             .padding(.bottom, 110)
             .modulaPullContentEffects()
         }
+        .scrollPosition($scrollPosition)
         .environment(\.modulaHeroScope, "activity.\(mode.rawValue)")
         .modulaSoftScrollEdge()
         .activityTopBar(enabled: mode == .all) {

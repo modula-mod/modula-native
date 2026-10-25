@@ -62,6 +62,7 @@ struct ActivityChipBar: View {
                 }
             }
             .scrollClipDisabled()
+            .onAppear { if selection != .all { proxy.scrollTo(selection, anchor: .center) } }
             .onChange(of: selection) { _, new in
                 withAnimation(calm ? nil : .snappy(duration: 0.3)) { proxy.scrollTo(new, anchor: .center) }
             }
