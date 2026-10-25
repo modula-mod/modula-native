@@ -831,7 +831,15 @@ struct MessageRequestsView: View {
         }
         .modulaSoftScrollEdge()
         .navigationTitle("Requests")
-        .task { await app.messaging.loadRequestsIfNeeded() }
+        .task {
+            #if DEBUG
+            if MessagingDebugFixture.isEnabled {
+                if app.messaging.requests.isEmpty { app.messaging.installDebugRequests(MessagingDebugFixture.requests()) }
+                return
+            }
+            #endif
+            await app.messaging.loadRequestsIfNeeded()
+        }
         .refreshable { await app.messaging.refreshRequests() }
         .accessibilityIdentifier("messages.requests")
     }
@@ -896,77 +904,233 @@ struct MessageRequestRow: View {
     var canAct: Bool
     var onAccept: () -> Void
     var onDecline: () -> Void
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                ConversationAvatar(participant: request.sender)
-                VStack(alignment: .leading, spacing: 4) {
+        let accent = app.appearance.accent.color
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                ConversationAvatar(participant: request.sender, size: 48)
+                VStack(alignment: .leading, spacing: 3) {
                     Text(request.sender.displayName)
                         .font(.body.weight(.semibold))
-                    Text(request.preview)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    Text("@\(request.sender.handle)")
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    if !request.preview.isEmpty {
+                        Text(request.preview)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.primary.opacity(0.88))
+                            .lineLimit(3)
+                            .padding(.horizontal, 12).padding(.vertical, 9)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.primary.opacity(0.05)))
+                            .padding(.top, 4)
+                    }
                 }
             }
             if canAct {
-                HStack {
-                    Button("Accept", action: onAccept)
-                        .buttonStyle(.borderedProminent)
-                        .disabled(busy)
-                    Button("Decline", role: .destructive, action: onDecline)
-                        .disabled(busy)
+                HStack(spacing: 10) {
+                    Button(action: onAccept) {
+                        HStack(spacing: 6) {
+                            if busy { ProgressView().controlSize(.mini).tint(.white) }
+                            Text("Accept").font(.subheadline.weight(.semibold))
+                        }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity).frame(height: 38)
+                        .background(Capsule().fill(accent))
+                        .modulaGlass(in: Capsule(), interactive: true, tint: accent.opacity(0.4))
+                    }
+                    .accessibilityIdentifier("messages.request.accept")
+                    Button(action: onDecline) {
+                        Text("Decline").font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.red)
+                            .frame(maxWidth: .infinity).frame(height: 38)
+                            .modulaGlass(in: Capsule(), interactive: true)
+                    }
+                    .accessibilityIdentifier("messages.request.decline")
                 }
+                .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: .lightImpact))
+                .disabled(busy)
+                .padding(.leading, 60)
             }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(request.sender.displayName). \(request.preview)")
     }
 }
 
-/// Pick someone to talk to: real suggested people (fixtures filtered), each opening their
-/// profile where Message / In-Mail lives. In-Mail compose is offered when it can send.
+/// New chat: one glass "To:" field that filters people you already chat with (opens the
+/// live conversation), plus suggested people (opens their profile). The API has no
+/// "start a conversation with X" endpoint yet, so a brand-new chat goes through the
+/// person's profile or In-Mail, and the screen says so instead of faking a thread.
 struct NewConversationView: View {
     @Environment(AppEnvironment.self) private var app
+    @State private var query = ""
+    @FocusState private var focused: Bool
+
+    private var trimmed: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    private var matches: [Conversation] {
+        let all = app.messaging.conversations
+        guard !trimmed.isEmpty else { return Array(all.prefix(8)) }
+        let q = trimmed.lowercased().replacingOccurrences(of: "@", with: "")
+        return all.filter { c in
+            c.title.lowercased().contains(q) || c.participants.contains {
+                $0.displayName.lowercased().contains(q) || $0.handle.lowercased().contains(q)
+            }
+        }
+    }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Button {
-                    app.navigation.push(.search(.section(.people, nil)))
-                    HapticEngine.shared.play(.navigation)
-                } label: {
-                    Label("Search people", systemImage: "magnifyingglass")
-                        .font(.body.weight(.semibold))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 16).frame(height: 48)
-                        .modulaGlass(in: Capsule(), interactive: true)
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("messages.new.search")
-                if app.inMail.capabilities.send {
-                    Button {
-                        app.navigation.push(.messages(.inMail(.compose)))
-                        HapticEngine.shared.play(.navigation)
-                    } label: {
-                        Label("Write an In-Mail", systemImage: "envelope.badge.fill")
-                            .font(.body.weight(.semibold))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 16).frame(height: 48)
-                            .modulaGlass(in: Capsule(), interactive: true)
+            LazyVStack(alignment: .leading, spacing: 0) {
+                if !trimmed.isEmpty {
+                    actionRow(title: "Search everyone for \u{201C}\(trimmed)\u{201D}", symbol: "magnifyingglass", id: "messages.new.search-all") {
+                        app.navigation.push(.search(.section(.people, trimmed)))
                     }
-                    .buttonStyle(.plain)
+                    .padding(.top, 6)
+                } else {
+                    VStack(spacing: 10) {
+                        actionRow(title: "Find people", symbol: "person.crop.circle.badge.plus", id: "messages.new.search") {
+                            app.navigation.push(.search(.section(.people, nil)))
+                        }
+                        if app.inMail.capabilities.send {
+                            actionRow(title: "Write an In-Mail", symbol: "envelope.badge.fill", id: "messages.new.inmail") {
+                                app.navigation.push(.messages(.inMail(.compose)))
+                            }
+                        }
+                    }
+                    .padding(.top, 6)
                 }
-                ActivitySuggestedPeople()
+
+                if !matches.isEmpty {
+                    sectionTitle(trimmed.isEmpty ? "Recent chats" : "Chats")
+                    ForEach(matches) { conversation in
+                        Button {
+                            HapticEngine.shared.play(.navigation)
+                            app.navigation.push(.messages(.conversation(conversation.id)))
+                        } label: { recentRow(conversation) }
+                        .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: nil))
+                        .accessibilityIdentifier("messages.new.recent.\(conversation.id)")
+                    }
+                } else if !trimmed.isEmpty {
+                    VStack(spacing: 6) {
+                        Image(systemName: "person.crop.circle.badge.questionmark")
+                            .font(.system(size: 34, weight: .regular)).foregroundStyle(.secondary)
+                            .padding(.bottom, 4)
+                        Text("No chats with \u{201C}\(trimmed)\u{201D}").font(.headline)
+                        Text("Search everyone to find them, then message from their profile.")
+                            .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 36)
+                }
+
+                if trimmed.isEmpty {
+                    ActivitySuggestedPeople()
+                    Text("Starting a chat with someone new happens from their profile.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                        .padding(.top, 18)
+                }
             }
             .padding(.horizontal, ModulaLayout.contentInset)
-            .padding(.vertical, 12)
+            .padding(.bottom, 24)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .messagesTopBar {
+            HStack(spacing: 8) {
+                Text("To:").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                TextField("Name or @handle", text: $query)
+                    .textFieldStyle(.plain)
+                    .focused($focused)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .submitLabel(.search)
+                    .onSubmit {
+                        if !trimmed.isEmpty, matches.isEmpty { app.navigation.push(.search(.section(.people, trimmed))) }
+                    }
+                    .accessibilityIdentifier("messages.new.to")
+                if !query.isEmpty {
+                    Button { query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                        .buttonStyle(.plain).accessibilityLabel("Clear")
+                }
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 44)
+            .modulaGlass(in: Capsule(), interactive: true)
+            .contentShape(Capsule())
+            .onTapGesture { focused = true }
+            .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.vertical, 8)
         }
         .modulaSoftScrollEdge()
         .navigationTitle("New Message")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            #if DEBUG
+            if MessagingDebugFixture.isEnabled {
+                if app.messaging.conversations.isEmpty { app.messaging.installDebugInbox(MessagingDebugFixture.inbox()) }
+                return
+            }
+            #endif
+            await app.messaging.loadInboxIfNeeded()
+        }
         .accessibilityIdentifier("messages.new")
+    }
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title).font(.headline).padding(.top, 22).padding(.bottom, 6)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    private func actionRow(title: String, symbol: String, id: String, action: @escaping () -> Void) -> some View {
+        Button {
+            HapticEngine.shared.play(.navigation)
+            action()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: symbol)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(app.appearance.accent.color)
+                    .frame(width: 34, height: 34)
+                    .modulaGlass(in: Circle(), interactive: false, tint: app.appearance.accent.color.opacity(0.18))
+                Text(title).font(.body.weight(.semibold)).lineLimit(1)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right").font(.footnote.weight(.bold)).foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 56)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true)
+            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: nil))
+        .accessibilityIdentifier(id)
+    }
+
+    private func recentRow(_ conversation: Conversation) -> some View {
+        let isGroup = conversation.kind == .group || conversation.participants.count > 1
+        let subtitle: String = isGroup
+            ? "\(conversation.participants.count) people"
+            : (conversation.participants.first.map { "@\($0.handle)" } ?? "")
+        return HStack(spacing: 12) {
+            ConversationAvatar(participants: conversation.participants, unread: false, size: 44)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(conversation.title).font(.subheadline.weight(.semibold)).lineLimit(1)
+                if !subtitle.isEmpty {
+                    Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+            }
+            Spacer(minLength: 8)
+            Image(systemName: "bubble.left.and.bubble.right.fill")
+                .font(.footnote).foregroundStyle(app.appearance.accent.color)
+                .accessibilityHidden(true)
+        }
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Opens your chat")
     }
 }
 

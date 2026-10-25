@@ -179,6 +179,19 @@ enum MessagingDebugFixture {
     static let kai = ConversationParticipant(id: "fx-kai", handle: "kaij", displayName: "Kai Jensen", avatarURL: nil)
     static let me = ConversationParticipant(id: viewerID, handle: "modules", displayName: "You", avatarURL: nil)
 
+    static func requests(now: Date = Date()) -> [MessageRequest] {
+        let zoe = ConversationParticipant(id: "fx-zoe", handle: "zoe.adler", displayName: "Zoe Adler", avatarURL: nil)
+        let ravi = ConversationParticipant(id: "fx-ravi", handle: "ravi", displayName: "Ravi Patel", avatarURL: nil)
+        return [
+            MessageRequest(id: "fx-req-zoe", conversationID: nil, sender: zoe,
+                           preview: "Hi! Loved your Vault Notes module. Could I ask a couple of questions about the sync?",
+                           createdAt: now.addingTimeInterval(-15 * 60)),
+            MessageRequest(id: "fx-req-ravi", conversationID: nil, sender: ravi,
+                           preview: "Hey, are you open to collaborating on a Moliboo outfit pack?",
+                           createdAt: now.addingTimeInterval(-3 * 3600)),
+        ]
+    }
+
     static func inbox(now: Date = Date()) -> [Conversation] {
         func c(_ id: String, _ kind: ConversationKind, _ people: [ConversationParticipant], _ body: String, from: String?,
                minutes: Double, unread: Int, title: String? = nil) -> Conversation {
