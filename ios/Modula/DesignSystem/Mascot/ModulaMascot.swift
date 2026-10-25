@@ -658,6 +658,9 @@ struct ModulaMascotFigure: View {
 
     /// The figure canvas, generous enough for ears, gills, hats and tentacles.
     static func canvas(_ s: CGFloat) -> CGSize { CGSize(width: s * 2.0, height: s * 1.9) }
+    /// Horizontal drawing room beyond the layout canvas, so wide silhouettes (Pip's wrapper twists) are never cut
+    /// by the rasterising `drawingGroup`. Layout size stays `canvas(_:)`; 1.3 × 2.0 matches the 2.6s snapshot canvas.
+    static let drawOverscan: CGFloat = 1.3
 
     var body: some View {
         let s = size
@@ -681,8 +684,9 @@ struct ModulaMascotFigure: View {
             accessories(s: s, pal: pal, t: t, a: a)
             if dressed { MascotWardrobeOverlay(outfit: worn, rig: rig, pose: pose, size: s, layer: .front, animate: a > 0) }
         }
-        .frame(width: c.width, height: c.height)
+        .frame(width: c.width * Self.drawOverscan, height: c.height)
         .drawingGroup(opaque: false, colorMode: .extendedLinear)
+        .frame(width: c.width, height: c.height)
         .scaleEffect(x: 1 / sqrt(pose.squash), y: pose.squash, anchor: UnitPoint(x: 0.5, y: 0.5 + kind.footFraction * s / c.height))
         .rotationEffect(.degrees(pose.sway), anchor: UnitPoint(x: 0.5, y: 0.5 + kind.footFraction * s / c.height))
         .offset(x: pose.shiverX, y: -pose.hop)
