@@ -43,17 +43,19 @@ struct ShellAccessoryConfiguration: Equatable {
                 actions: [
                     ShellAccessoryAction(id: "feeds", title: "Feeds", symbol: "number", enabled: true, accessibilityIdentifier: "accessory.feeds"),
                     ShellAccessoryAction(id: "summary", title: "Summary", symbol: "sparkles", enabled: true, accessibilityIdentifier: "accessory.summary"),
-                    ShellAccessoryAction(id: "tools", title: "Tools", symbol: "slider.horizontal.3", enabled: true, accessibilityIdentifier: "accessory.tools")
+                    // One-tap refresh; feed options + Manage following live once, in Feeds (was a duplicate "Tools" sheet).
+                    ShellAccessoryAction(id: "refresh", title: "Refresh", symbol: "arrow.clockwise", enabled: true, accessibilityIdentifier: "accessory.refresh")
                 ],
                 showsSearch: false,
                 showsMore: false
             )
-        case .discover:
+        case .discover(let scope):
             return Self(
                 title: "Tools",
                 symbol: "safari",
                 actions: [
-                    ShellAccessoryAction(id: "customise", title: "Customise", symbol: "slider.horizontal.3", enabled: true, accessibilityIdentifier: "accessory.customise"),
+                    // Trending and Topics have no filters: never offer an empty Customise sheet.
+                    ShellAccessoryAction(id: "customise", title: "Customise", symbol: "slider.horizontal.3", enabled: scope.hasFilters, accessibilityIdentifier: "accessory.customise"),
                     ShellAccessoryAction(id: "refresh", title: "Refresh", symbol: "arrow.clockwise", enabled: true, accessibilityIdentifier: "accessory.refresh")
                 ],
                 showsSearch: false,
