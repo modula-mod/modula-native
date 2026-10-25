@@ -18,6 +18,8 @@ struct MessagesRootView: View {
                 InMailRouteView(route: mail)
             case .new:
                 NewConversationView()
+            case .direct(let person):
+                DirectMessageView(person: person)
             case .conversation(let id):
                 ConversationView(conversationID: id)
                     .modulaZoomDestination(id: "conversation.\(id)", namespace: routeTransitions, reduceMotion: reduceMotion)
@@ -1367,5 +1369,117 @@ struct MessageStarterView: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, ModulaLayout.contentInset)
         .accessibilityIdentifier("messages.starter")
+    }
+}
+
+// MARK: - Direct (profile → chat)
+
+/// Opens the 1:1 chat with `person`. Looks the thread up in the inbox (loading it if needed) and swaps
+/// itself for the live conversation. With no thread yet, the server has no "start a conversation"
+/// endpoint, so this shows a starter addressed to them (In-Mail when it can send) instead of the inbox.
+struct DirectMessageView: View {
+    let person: String
+    @Environment(AppEnvironment.self) private var app
+    @State private var resolving = true
+
+    private var handle: String { person.trimmingCharacters(in: CharacterSet(charactersIn: "@")) }
+    private var profile: ModulaProfile? {
+        let key = handle.lowercased()
+        return app.profile.sessions.values.lazy.compactMap(\.profile)
+            .first { $0.handle.lowercased() == key || $0.id.lowercased() == key }
+    }
+    private var name: String { profile?.displayName ?? "@\(handle)" }
+    private var initials: String {
+        let parts = name.trimmingCharacters(in: CharacterSet(charactersIn: "@")).split(separator: " ")
+        if parts.count >= 2 { return String(parts[0].prefix(1) + parts[1].prefix(1)).uppercased() }
+        return String(name.trimmingCharacters(in: CharacterSet(charactersIn: "@")).prefix(2)).uppercased()
+    }
+
+    var body: some View {
+        Group {
+            if resolving {
+                VStack(spacing: 12) {
+                    ProgressView()
+                    Text("Opening your chat with \(name)…").font(.subheadline).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityIdentifier("messages.direct.resolving")
+            } else {
+                starter
+            }
+        }
+        .navigationTitle(name)
+        .navigationBarTitleDisplayMode(.inline)
+        .task(id: person) { await resolve() }
+        .accessibilityIdentifier("messages.direct")
+        .accessibilityValue(RouteSerializer.serialize(.messages(.direct(person))))
+    }
+
+    private func resolve() async {
+        if let found = app.messaging.directConversation(with: person) { open(found); return }
+        await app.messaging.loadInboxIfNeeded()
+        if let found = app.messaging.directConversation(with: person) { open(found); return }
+        // Older threads may sit beyond the first page; one refresh before giving up.
+        await app.messaging.refreshInbox()
+        if let found = app.messaging.directConversation(with: person) { open(found); return }
+        withAnimation(.smooth(duration: 0.2)) { resolving = false }
+    }
+
+    private func open(_ conversation: Conversation) {
+        app.navigation.replaceTop(with: .messages(.conversation(conversation.id)))
+    }
+
+    private var starter: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                ModulaAvatar(initials: initials, url: profile?.avatarURL, size: 88, name: name)
+                    .padding(.top, 36)
+                VStack(spacing: 4) {
+                    Text(name).font(.title3.weight(.bold))
+                    if profile != nil { Text("@\(handle)").font(.subheadline).foregroundStyle(.secondary) }
+                }
+                Text("No chat with \(profile?.displayName ?? "them") yet. When either of you starts one, it opens right here.")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+                ModulaGlassGroup(spacing: 10) {
+                    VStack(spacing: 10) {
+                        if app.inMail.capabilities.send {
+                            Button {
+                                app.inMail.draft.toHandle = handle
+                                app.navigation.replaceTop(with: .messages(.inMail(.compose)))
+                                HapticEngine.shared.play(.navigation)
+                            } label: {
+                                Label("Write an In-Mail to \(profile?.displayName ?? "@\(handle)")", systemImage: "envelope.badge.fill")
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(.white)
+                                    .frame(maxWidth: .infinity).frame(height: 50)
+                                    .contentShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color, prominent: true)
+                            .accessibilityIdentifier("messages.direct.inmail")
+                        }
+                        Button {
+                            app.navigation.replaceTop(with: .profile(handle, .overview))
+                            HapticEngine.shared.play(.navigation)
+                        } label: {
+                            Label("View profile", systemImage: "person.crop.circle")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .frame(maxWidth: .infinity).frame(height: 50)
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .modulaGlass(in: Capsule(), interactive: true)
+                        .accessibilityIdentifier("messages.direct.profile")
+                    }
+                }
+                .padding(.horizontal, ModulaLayout.contentInset)
+                .padding(.top, 8)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .accessibilityIdentifier("messages.direct.starter")
     }
 }
