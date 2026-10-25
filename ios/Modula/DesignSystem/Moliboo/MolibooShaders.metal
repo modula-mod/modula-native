@@ -108,15 +108,11 @@ static inline half3 mbHue(float h) {
     if (age <= 0.0 || age >= 1.4) return color;
     float2 uv = (position / max(size, float2(1.0))) - float2(0.5);
     float d = length(uv) * 2.0;
-    // Ring ends at 0.86 of the canvas half-side so it fades out before any edge (never squared off by the bounds).
-    float radius = (age / 1.4) * 0.86;
+    float radius = age * 0.95;
     float fade = clamp(1.0 - age / 1.4, 0.0, 1.0);
     float ring = exp(-pow((d - radius) * 14.0, 2.0)) * fade;
-    // Premultiplied "over" composite: additive colour on near-transparent layers (shadows, bubble) showed as
-    // bright rectangles; compositing keeps the ring a clean soft circle everywhere.
-    half a = half(ring * 0.6);
-    half3 pulse = mix(tint.rgb, mbHue(fract(d * 1.5 - age * 0.8)), 0.35h) * a;
-    return half4(pulse + color.rgb * (1.0h - a), a + color.a * (1.0h - a));
+    half3 pulse = mix(tint.rgb, mbHue(fract(d * 1.5 - age * 0.8)), 0.35h) * half(ring * 0.75);
+    return half4(color.rgb + pulse, max(color.a, half(ring * 0.65)));
 }
 
 /// Specular liquid-glass rim sheen for pills, cards, and active controls.
