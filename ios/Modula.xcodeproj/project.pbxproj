@@ -42,6 +42,7 @@
 		BD4D8C4363EA47CC9FB84C05 /* MOL05LegendsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C87EC46345945E89B099405 /* MOL05LegendsTests.swift */; };
 		7A1C0E5D2B9F4A6E8D3C1B07 /* MolibooWardrobeDropTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C0E5D2B9F4A6E8D3C1B08 /* MolibooWardrobeDropTests.swift */; };
 		76DA8B4DAD6919F138D97A79 /* ModulaWordmarkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF51FB12DD2DA68F1C34C228 /* ModulaWordmarkTests.swift */; };
+		B7A11C0DE5A1E0000000A003 /* ModulaUnitShapeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7A11C0DE5A1E0000000A004 /* ModulaUnitShapeTests.swift */; };
 		58CC373DCE8EFE4E753203E2 /* MOL03OriginalsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */; };
 		F75AE210476332DC70F54B1E /* MOL03WardrobeRigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */; };
 		E1D8999E32165077E380F65F /* MOL03WardrobeFitValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6F36F8A3D92BA8957963D0C /* MOL03WardrobeFitValidationTests.swift */; };
@@ -68,6 +69,7 @@
 		D8FD802C3C171BADADA083A4 /* MolibooWorldModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C4E9DB4815AD01B90DF74F /* MolibooWorldModel.swift */; };
 		164866914AF0CCC86877F8F8 /* ModulaWordmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC8AD5259BA1CC69A35AAEE4 /* ModulaWordmark.swift */; };
 		A1B2C3D4E5F60718293A4B5C /* MoliboosWordmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* MoliboosWordmark.swift */; };
+		B7A11C0DE5A1E0000000A001 /* ModulaUnit.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7A11C0DE5A1E0000000A002 /* ModulaUnit.swift */; };
 		35949C05BE1A250059BC6A55 /* MolibooWardrobeRig.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD1C353C8D3FB917EE061C6D /* MolibooWardrobeRig.swift */; };
 		EA6BB58C599561872BE6C207 /* MolibooWardrobe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 705C3E2D9930469B26F5FD65 /* MolibooWardrobe.swift */; };
 		1B4920D7D792FF504F5D09D2 /* MolibooCollection.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3CD08F382212E1E9B48925E /* MolibooCollection.swift */; };
@@ -507,6 +509,7 @@
 		3C87EC46345945E89B099405 /* MOL05LegendsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL05LegendsTests.swift; sourceTree = "<group>"; };
 		7A1C0E5D2B9F4A6E8D3C1B08 /* MolibooWardrobeDropTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MolibooWardrobeDropTests.swift; sourceTree = "<group>"; };
 		AF51FB12DD2DA68F1C34C228 /* ModulaWordmarkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModulaWordmarkTests.swift; sourceTree = "<group>"; };
+		B7A11C0DE5A1E0000000A004 /* ModulaUnitShapeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModulaUnitShapeTests.swift; sourceTree = "<group>"; };
 		30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03OriginalsTests.swift; sourceTree = "<group>"; };
 		C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WardrobeRigTests.swift; sourceTree = "<group>"; };
 		F6F36F8A3D92BA8957963D0C /* MOL03WardrobeFitValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WardrobeFitValidationTests.swift; sourceTree = "<group>"; };
@@ -533,6 +536,7 @@
 		C3C4E9DB4815AD01B90DF74F /* MolibooWorldModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooWorldModel.swift; path = Features/MolibooWorld/MolibooWorldModel.swift; sourceTree = "<group>"; };
 		EC8AD5259BA1CC69A35AAEE4 /* ModulaWordmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ModulaWordmark.swift; path = DesignSystem/ModulaWordmark.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4B5D /* MoliboosWordmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MoliboosWordmark.swift; path = DesignSystem/MoliboosWordmark.swift; sourceTree = "<group>"; };
+		B7A11C0DE5A1E0000000A002 /* ModulaUnit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ModulaUnit.swift; path = DesignSystem/ModulaUnit.swift; sourceTree = "<group>"; };
 		DD1C353C8D3FB917EE061C6D /* MolibooWardrobeRig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooWardrobeRig.swift; path = Features/MolibooStudio/MolibooWardrobeRig.swift; sourceTree = "<group>"; };
 		705C3E2D9930469B26F5FD65 /* MolibooWardrobe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooWardrobe.swift; path = Features/MolibooStudio/MolibooWardrobe.swift; sourceTree = "<group>"; };
 		F3CD08F382212E1E9B48925E /* MolibooCollection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooCollection.swift; path = Features/MolibooStudio/MolibooCollection.swift; sourceTree = "<group>"; };
@@ -991,6 +995,7 @@
 				3C87EC46345945E89B099405 /* MOL05LegendsTests.swift */,
 				7A1C0E5D2B9F4A6E8D3C1B08 /* MolibooWardrobeDropTests.swift */,
 				AF51FB12DD2DA68F1C34C228 /* ModulaWordmarkTests.swift */,
+				B7A11C0DE5A1E0000000A004 /* ModulaUnitShapeTests.swift */,
 				30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */,
 				C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */,
 				F6F36F8A3D92BA8957963D0C /* MOL03WardrobeFitValidationTests.swift */,
@@ -1241,6 +1246,7 @@
 				C3C4E9DB4815AD01B90DF74F /* MolibooWorldModel.swift */,
 				EC8AD5259BA1CC69A35AAEE4 /* ModulaWordmark.swift */,
 				A1B2C3D4E5F60718293A4B5D /* MoliboosWordmark.swift */,
+				B7A11C0DE5A1E0000000A002 /* ModulaUnit.swift */,
 				DD1C353C8D3FB917EE061C6D /* MolibooWardrobeRig.swift */,
 				705C3E2D9930469B26F5FD65 /* MolibooWardrobe.swift */,
 				F3CD08F382212E1E9B48925E /* MolibooCollection.swift */,
@@ -1778,6 +1784,7 @@
 				BD4D8C4363EA47CC9FB84C05 /* MOL05LegendsTests.swift in Sources */,
 				7A1C0E5D2B9F4A6E8D3C1B07 /* MolibooWardrobeDropTests.swift in Sources */,
 				76DA8B4DAD6919F138D97A79 /* ModulaWordmarkTests.swift in Sources */,
+				B7A11C0DE5A1E0000000A003 /* ModulaUnitShapeTests.swift in Sources */,
 				58CC373DCE8EFE4E753203E2 /* MOL03OriginalsTests.swift in Sources */,
 				F75AE210476332DC70F54B1E /* MOL03WardrobeRigTests.swift in Sources */,
 				E1D8999E32165077E380F65F /* MOL03WardrobeFitValidationTests.swift in Sources */,
@@ -1944,6 +1951,7 @@
 				D8FD802C3C171BADADA083A4 /* MolibooWorldModel.swift in Sources */,
 				164866914AF0CCC86877F8F8 /* ModulaWordmark.swift in Sources */,
 				A1B2C3D4E5F60718293A4B5C /* MoliboosWordmark.swift in Sources */,
+				B7A11C0DE5A1E0000000A001 /* ModulaUnit.swift in Sources */,
 				35949C05BE1A250059BC6A55 /* MolibooWardrobeRig.swift in Sources */,
 				EA6BB58C599561872BE6C207 /* MolibooWardrobe.swift in Sources */,
 				1B4920D7D792FF504F5D09D2 /* MolibooCollection.swift in Sources */,

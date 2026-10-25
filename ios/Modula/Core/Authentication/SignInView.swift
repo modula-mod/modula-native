@@ -354,9 +354,7 @@ private struct SignInBrandMark: View {
 
     var body: some View {
         let side = min(size * (compact ? 0.82 : 1), compact ? 84 : 112)
-        Image("ModulaAppIcon")
-            .resizable()
-            .scaledToFit()
+        ModulaUnitTile(variant: .teal)
             .frame(width: side, height: side)
             .clipShape(RoundedRectangle(cornerRadius: side * 0.225, style: .continuous))
             .overlay {
