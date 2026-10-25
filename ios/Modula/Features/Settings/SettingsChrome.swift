@@ -1219,96 +1219,17 @@ struct TelegramRow: View {
     }
 }
 
-/// Full-screen QR modal (scales in) with Close and an on-device Scan QR.
+/// Full-screen Modula Code: My Code and Scan in one screen (scanner only when signed out).
 struct SettingsQRModal: View {
+    var initialMode: ModulaCodeMode = .myCode
     var onClose: () -> Void
     @Environment(AppEnvironment.self) private var app
-    @State private var scanning = false
 
     var body: some View {
-        ZStack {
-            Color(uiColor: .systemBackground).ignoresSafeArea()
-            if let profile = app.profile.ownProfile {
-                ModulaProfileCodeView(profile: profile, onDismiss: onClose)
-            } else {
-                ContentUnavailableView("No profile yet", systemImage: "qrcode", description: Text("Sign in to get your Modula code."))
-            }
-            VStack {
-                // The profile card has its own "Done"; a second X crammed beside the top-bar
-                // pills only when there's no card.
-                if app.profile.ownProfile == nil {
-                HStack {
-                    Button(action: onClose) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .semibold))
-                            .frame(width: 44, height: 44)
-                            .modulaGlass(in: Circle(), interactive: true)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Close")
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                }
-                Spacer()
-                if DataScannerViewController.isSupported {
-                    Button {
-                        scanning = true
-                    } label: {
-                        Label("Scan QR", systemImage: "qrcode.viewfinder")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity, minHeight: 50)
-                    }
-                    .buttonStyle(.plain)
-                    .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color, prominent: true)
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 12)
-                }
-            }
-        }
-        .fullScreenCover(isPresented: $scanning) {
-            SettingsQRScanner { url in
-                scanning = false
-                onClose()
-                _ = ModulaLinkRouter.handle(url, source: nil)
-            } onCancel: { scanning = false }
-            .ignoresSafeArea()
-        }
-    }
-}
-
-private struct SettingsQRScanner: UIViewControllerRepresentable {
-    var onURL: (URL) -> Void
-    var onCancel: () -> Void
-
-    func makeUIViewController(context: Context) -> UINavigationController {
-        let scanner = DataScannerViewController(recognizedDataTypes: [.barcode(symbologies: [.qr])], qualityLevel: .balanced, isHighlightingEnabled: true)
-        scanner.delegate = context.coordinator
-        scanner.navigationItem.leftBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { _ in onCancel() })
-        try? scanner.startScanning()
-        return UINavigationController(rootViewController: scanner)
-    }
-
-    func updateUIViewController(_ controller: UINavigationController, context: Context) {}
-
-    func makeCoordinator() -> Coordinator { Coordinator(onURL: onURL) }
-
-    final class Coordinator: NSObject, DataScannerViewControllerDelegate {
-        let onURL: (URL) -> Void
-        private var done = false
-        init(onURL: @escaping (URL) -> Void) { self.onURL = onURL }
-        func dataScanner(_ dataScanner: DataScannerViewController, didAdd addedItems: [RecognizedItem], allItems: [RecognizedItem]) {
-            guard !done else { return }
-            for item in addedItems {
-                if case .barcode(let code) = item, let text = code.payloadStringValue, let url = URL(string: text), url.scheme != nil {
-                    done = true
-                    dataScanner.stopScanning()
-                    HapticEngine.shared.play(.success)
-                    onURL(url)
-                    return
-                }
-            }
-        }
+        ModulaCodeView(
+            subject: app.profile.ownProfile.map(ModulaCodeSubject.init(profile:)),
+            initialMode: initialMode,
+            onDismiss: onClose
+        )
     }
 }
