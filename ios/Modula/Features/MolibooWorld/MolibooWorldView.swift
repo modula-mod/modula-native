@@ -51,6 +51,7 @@ struct MolibooWorldView: View {
     /// Global bottom of the pinned header and top of the inline family tabs: once the tabs reach the
     /// header they stick under it (like a pinned section header) instead of fading out beneath it.
     @State private var headerBottom: CGFloat = 0
+    @State private var headerHeight: CGFloat = 0
     @State private var inlineTabsTop: CGFloat = .greatestFiniteMagnitude
     private var tabsPinned: Bool { shows("collection") && inlineTabsTop < headerBottom + 4 }
     @State private var scrollPosition = ScrollPosition(edge: .top)
@@ -151,17 +152,18 @@ struct MolibooWorldView: View {
                     header
                         .padding(.horizontal, 20)
                         .padding(.bottom, 8)
-                        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: { headerBottom = $0 }
+                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { headerBottom = $0.maxY; headerHeight = $0.height }
                         .background(alignment: .top) {
                             MolibooProgressiveHeaderBlur()
                                 .opacity(min(1, max(0, (scrollY - 8) / 28)))
                         }
-                        .overlay(alignment: .bottom) {
+                        .overlay(alignment: .top) {
                             if tabsPinned {
-                                // Sticky family tabs: top edge on the header's bottom edge. Overlay = layout-neutral,
-                                // so the scroll content never jumps when they pin / unpin.
+                                // Sticky family tabs just below the header. Overlay = layout-neutral, so the scroll
+                                // content never jumps when they pin / unpin.
                                 familyTabs
-                                    .alignmentGuide(.bottom) { d in d[.top] }
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .offset(y: headerHeight)
                                     .transition(.opacity)
                                     .accessibilityIdentifier("world.family.tabs.pinned")
                             }
