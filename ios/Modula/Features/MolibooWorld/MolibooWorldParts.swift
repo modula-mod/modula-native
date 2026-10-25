@@ -317,3 +317,64 @@ struct MolibooTapBurst: View {
         .allowsHitTesting(false).accessibilityHidden(true)
     }
 }
+
+// MARK: - Family naming & picker chrome
+
+extension MolibooFamily {
+    /// Consistent family title ("The Originals", "The Angels", "The Underground", …) derived from the case, so
+    /// families added later (e.g. Legends) are named the same way without another switch.
+    var displayTitle: String { "The " + rawValue.prefix(1).uppercased() + rawValue.dropFirst() }
+}
+
+/// Family title in the Moliboos display style. No Moliboos font ships (the wordmark is vector artwork), so this
+/// mirrors `MoliboosWordmark`'s treatment: a heavy rounded face, accent fill and a soft top highlight in light
+/// mode, pastel-bright in dark. Used only for family titles; app fonts are unchanged elsewhere.
+struct MolibooFamilyTitle: View {
+    let text: String
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    var body: some View {
+        let label = Text(text).font(.system(.title2, design: .rounded, weight: .black)).lineLimit(1).minimumScaleFactor(0.8)
+        label
+            .foregroundStyle(scheme == .dark ? AnyShapeStyle(Color(red: 1.0, green: 0.72, blue: 0.80)) : AnyShapeStyle(.tint))
+            .overlay {
+                if !reduceTransparency && scheme != .dark {
+                    LinearGradient(colors: [.white.opacity(0.38), .white.opacity(0)], startPoint: .top, endPoint: .center)
+                        .mask(label)
+                        .allowsHitTesting(false)
+                }
+            }
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// Progressive top blur for the pinned Moliboo header: a real material blur whose strength fades out below the
+/// header (masked gradient), plus a light background wash so text under the wordmark never reads through.
+/// Extends into the status bar and a little below the header so content fades rather than cutting off.
+/// Reduce Transparency: an opaque background fade instead of blur.
+struct MolibooProgressiveHeaderBlur: View {
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    var body: some View {
+        ZStack {
+            if reduceTransparency {
+                Rectangle().fill(Color(uiColor: .systemBackground))
+                    .mask(fade([(0, 1), (0.7, 1), (1, 0)]))
+            } else {
+                Rectangle().fill(.regularMaterial)
+                    .mask(fade([(0, 1), (0.55, 1), (0.8, 0.55), (1, 0)]))
+                Rectangle().fill(.ultraThinMaterial)
+                    .mask(fade([(0, 1), (0.75, 1), (1, 0)]))
+                Rectangle().fill(Color(uiColor: .systemBackground).opacity(scheme == .dark ? 0.72 : 0.66))
+                    .mask(fade([(0, 1), (0.5, 0.9), (0.85, 0.25), (1, 0)]))
+            }
+        }
+        .padding(.bottom, -36)
+        .ignoresSafeArea(edges: .top)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+    private func fade(_ stops: [(CGFloat, Double)]) -> LinearGradient {
+        LinearGradient(stops: stops.map { .init(color: .black.opacity($0.1), location: $0.0) }, startPoint: .top, endPoint: .bottom)
+    }
+}
