@@ -59,7 +59,7 @@ struct MolibooCollectionBrowser: View {
     var body: some View {
         let families = registry?.families ?? []
         let shown = MolibooCatalogueQuery.filter(registry?.characters ?? [], family: family, search: search, families: families)
-        let _ = MolibooPackageRevision.shared.observedValue
+        let _ = MolibooPackageRevision.shared.value
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -129,7 +129,7 @@ struct MolibooCharacterDetailView: View {
     @State private var manager = MolibooPackageManager.shared
 
     var body: some View {
-        let _ = MolibooPackageRevision.shared.observedValue
+        let _ = MolibooPackageRevision.shared.value
         if let c = kind.registryEntry {
             ScrollView {
                 VStack(spacing: 18) {

@@ -400,20 +400,22 @@ struct MolibooActivePackage: Equatable, Sendable {
 }
 
 /// Bumped whenever the active package set changes, so mounted figures redraw with new artwork.
-@MainActor
+/// Only touched on the main thread (bumped by `MolibooPackageRuntime.reload()`, read while SwiftUI evaluates a body).
 @Observable
-final class MolibooPackageRevision {
+final class MolibooPackageRevision: @unchecked Sendable {
     static let shared = MolibooPackageRevision()
     private(set) var value = 0
-    func bump() { value += 1 }
+    @MainActor func bump() { value += 1 }
 
-    /// Read by mounted figures so they redraw when packages change. In Debug it also starts the QA auto-updater
-    /// when the app was launched with `-MolibooPackageAutoUpdate` (no-op otherwise).
-    var observedValue: Int {
+    /// Called from the renderer hooks: on the main thread it registers an Observation dependency so any figure body
+    /// that resolves a spec or palette redraws when packages change. In Debug it also starts the QA auto-updater when
+    /// the app was launched with `-MolibooPackageAutoUpdate` (no-op otherwise). Off the main thread it does nothing.
+    func observe() {
+        guard Thread.isMainThread else { return }
+        _ = value
         #if DEBUG
-        MolibooPackageQAAutoUpdater.startIfRequested()
+        MainActor.assumeIsolated { MolibooPackageQAAutoUpdater.startIfRequested() }
         #endif
-        return value
     }
 }
 
@@ -488,6 +490,7 @@ final class MolibooPackageRuntime: @unchecked Sendable {
 
     // Renderer hooks: cheap when nothing is installed.
     func patchedSpec(_ kind: ModulaMascotKind, _ base: MolibooSpec?) -> MolibooSpec? {
+        MolibooPackageRevision.shared.observe()
         guard var spec = base, let p = active(for: kind)?.patch else { return base }
         if let pal = p.palette, let palette = ModulaMascotKind.Palette(patch: pal) { spec.palette = palette }
         if let s = p.size { spec.size = CGSize(width: s.width, height: s.height) }
