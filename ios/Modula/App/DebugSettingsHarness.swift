@@ -45,6 +45,34 @@ enum DebugSettingsHarness {
         store.equip(scenes[n])
     }
 
+    /// `--debug-modula-code mycode|scan` opens the Modula Code screen (sample public link only).
+    static var modulaCodeMode: ModulaCodeMode? {
+        switch value(after: "--debug-modula-code") {
+        case "mycode": .myCode
+        case "scan": .scan
+        default: nil
+        }
+    }
+
+    static var sampleCodeSubject: ModulaCodeSubject {
+        ModulaCodeSubject(
+            title: "Andrei",
+            subtitle: "@andrei.modula",
+            url: ModulaShareLink.profile("andrei.modula"),
+            initials: "AN"
+        )
+    }
+
+    /// `--debug-share profile|post|link` opens the universal share sheet for screenshots.
+    static var sharePayload: SharePayload? {
+        switch value(after: "--debug-share") {
+        case "profile": .profile(identity: "andrei.modula", displayName: "Andrei", handle: "andrei.modula", avatarURL: nil)
+        case "post": .post(id: "debug-post", authorName: "Andrei", excerpt: "Sample post for the share sheet", hasMedia: true)
+        case "link": .link(url: URL(string: "https://modula.digital/docs") ?? ModulaShareLink.base, title: "Modula Docs")
+        default: nil
+        }
+    }
+
     /// `--debug-route /profile/andrei.modula` renders any route (signed-out real data only).
     static var anyRoute: AppRoute? {
         let args = ProcessInfo.processInfo.arguments
