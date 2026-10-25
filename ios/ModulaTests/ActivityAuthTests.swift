@@ -16,11 +16,13 @@ final class AuthErrorMappingTests: XCTestCase {
 
 @MainActor
 final class ShellChromePolicyN3ATests: XCTestCase {
-    func testActivityKeepsTabRailAndAccessory() {
+    /// Activity redesign (#100): Activity owns its filter chips and Mark all read, so it keeps
+    /// the tab bar but drops the edge rail and the Tools accessory.
+    func testActivityKeepsTabBarWithoutRailOrAccessory() {
         let policy = ShellChromePolicy.policy(for: .activity(.all))
         XCTAssertTrue(policy.bottomBarVisible)
-        XCTAssertTrue(policy.contextRailVisible)
-        XCTAssertTrue(policy.shellAccessoryVisible)
+        XCTAssertFalse(policy.contextRailVisible)
+        XCTAssertFalse(policy.shellAccessoryVisible)
     }
 
     func testAuthHidesRootChrome() {
