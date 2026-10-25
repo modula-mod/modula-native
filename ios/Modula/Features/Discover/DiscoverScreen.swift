@@ -63,10 +63,10 @@ struct DiscoverScreen: View {
                 app.navigation.open(.search(.root(nil)))
                 HapticEngine.shared.play(.navigation)
             },
-            onCustomise: {
+            onCustomise: section.hasFilters ? {
                 PresentationCoordinator.present(.discoverFilter, in: app.navigation)
                 HapticEngine.shared.play(.contextOpen)
-            },
+            } : nil,
             onRefresh: {
                 Task {
                     await app.discover.refresh(section)
