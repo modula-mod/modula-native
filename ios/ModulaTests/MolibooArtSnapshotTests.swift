@@ -23,6 +23,49 @@ final class MolibooArtSnapshotTests: XCTestCase {
     }
 }
 
+/// Home and Studio resolve the same equipped outfit; Home's portrait draws it; Legends stay undressed;
+/// no Moliboo is clipped by the figure's own draw canvas.
+@MainActor
+final class MolibooOutfitSyncTests: XCTestCase {
+    func testHomeAndStudioResolveSameOutfit() throws {
+        let store = MascotWardrobeStore.shared
+        let previous = store.outfit
+        defer { store.apply(previous) }   // simulator test store only; restores whatever was there
+        let hat = try XCTUnwrap(MascotWardrobeCatalog.all.first { $0.slot == .hat && $0.unlock == .free && store.canEquip($0) })
+        store.apply(.empty)
+        let bare = try XCTUnwrap(MolibooPortrait.image(for: "pip")?.pngData())
+        store.equip(hat)
+        XCTAssertFalse(store.outfit.isEmpty)
+        for kind: ModulaMascotKind in [.pebble, .pip, .flick] {
+            XCTAssertEqual(MolibooOutfit.equipped(for: kind), store.outfit, "Home and Studio share one outfit for \(kind)")
+        }
+        let dressed = try XCTUnwrap(MolibooPortrait.image(for: "pip")?.pngData())
+        XCTAssertNotEqual(dressed, bare, "Home portrait must render the equipped outfit")
+        if let legend = ModulaMascotKind.allCases.first(where: { !$0.family.supportsWardrobe }) {
+            XCTAssertEqual(MolibooOutfit.equipped(for: legend), .empty, "Legends stay undressed")
+        }
+    }
+
+    func testFiguresFitInsideTheirDrawCanvas() throws {
+        var clipped: [String] = []
+        for k in ModulaMascotKind.allCases {
+            let s: CGFloat = 100, c = ModulaMascotFigure.canvas(s)
+            let r = ImageRenderer(content: ModulaMascotFigure(kind: k, pose: .still(), size: s)
+                .frame(width: c.width * ModulaMascotFigure.drawOverscan, height: c.height))
+            r.scale = 1
+            let img = try XCTUnwrap(r.cgImage, k.rawValue)
+            let w = img.width, h = img.height
+            var a = [UInt8](repeating: 0, count: w * h)
+            let ctx = try XCTUnwrap(CGContext(data: &a, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w,
+                                              space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.alphaOnly.rawValue))
+            ctx.draw(img, in: CGRect(x: 0, y: 0, width: w, height: h))
+            let edge = (0..<h).contains { y in a[y * w] > 8 || a[y * w + w - 1] > 8 }
+            if edge { clipped.append(k.rawValue) }
+        }
+        XCTAssertEqual(clipped, [], "Figures drawn past the canvas edge (clipped): \(clipped)")
+    }
+}
+
 private struct MolibooContactSheet: View {
     let kinds: [ModulaMascotKind]
     let hat: MascotWardrobeItem?
