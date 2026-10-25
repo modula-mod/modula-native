@@ -745,7 +745,10 @@ struct MolibooWorldView: View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 MolibooFamilyTitle(text: f.displayTitle)
-                Text(f.world).font(.subheadline).foregroundStyle(.secondary)
+                // Region under the title; skip it when it just repeats the title (The Underground).
+                let numbers = String(format: "#%03d–%03d", f.range.lowerBound, f.range.upperBound)
+                Text(f.world == f.displayTitle ? numbers : "\(f.world) · \(numbers)")
+                    .font(.subheadline).foregroundStyle(.secondary)
             }
             .frame(height: Self.pickerPageHeader - 12, alignment: .bottomLeading)
             .accessibilityElement(children: .combine)
