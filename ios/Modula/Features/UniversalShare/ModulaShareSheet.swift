@@ -8,6 +8,7 @@ struct ModulaShareSheet: View {
     @State private var showPeoplePicker = false
     @State private var peopleMode: PeoplePickerMode = .message
     @State private var copied = false
+    @State private var showCode = false
 
     private var destinations: [ShareDestination] {
         ShareDestinationRegistry.destinations(
@@ -51,6 +52,11 @@ struct ModulaShareSheet: View {
                         .accessibilityLabel("Link copied")
                 }
             }
+        }
+        .sheet(isPresented: $showCode) {
+            ModulaCodeView(subject: ModulaCodeSubject(payload: payload)) { showCode = false }
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showCollectionPicker) {
             if case .post(let id, _, _, _) = payload {
@@ -115,8 +121,8 @@ struct ModulaShareSheet: View {
         case .saveToCollection:
             showCollectionPicker = true
         case .qr:
-            app.navigation.flash("QR coming in a later polish pass", symbol: "qrcode")
             HapticEngine.shared.play(.selection)
+            showCode = true
         }
     }
 }
