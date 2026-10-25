@@ -262,6 +262,17 @@ final class MessagingStore {
         )
     }
 
+    /// The 1:1 conversation with a person, matched on handle (case-insensitive, optional "@") or id.
+    func directConversation(with person: String) -> Conversation? {
+        let key = person.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "@"))
+        guard !key.isEmpty else { return nil }
+        return conversations.first { c in
+            c.kind != .group && c.participants.count <= 2 && c.participants.contains {
+                $0.handle.lowercased() == key || $0.id.lowercased() == key
+            }
+        }
+    }
+
     func conversation(id: ConversationID) -> Conversation? {
         conversations.first { $0.id == id }
     }

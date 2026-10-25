@@ -12,6 +12,7 @@ final class N4CRouteTests: XCTestCase {
             "/messages/requests",
             "/messages/in-mail",
             "/messages/new",
+            "/messages/to/andrei.modula",
             "/messages/conversation-1",
             "/messages/in-mail/new",
             "/messages/in-mail/thread-1",
@@ -134,6 +135,22 @@ final class MessagingDomainTests: XCTestCase {
         XCTAssertNil(result)
         #if DEBUG
         XCTAssertEqual(store.requests.count, 1)
+        #endif
+    }
+
+    func testDirectConversationMatchesHandleOrIDNeverInbox() {
+        XCTAssertEqual(RouteParser.parse("/messages/to/andrei.modula"), .messages(.direct("andrei.modula")))
+        XCTAssertNil(RouteParser.parse("/messages/to"))
+        let store = MessagingStore(
+            client: GreenfieldClient(baseURL: URL(string: "https://api.modula.digital"))
+        )
+        #if DEBUG
+        store.installDebugInbox([MessagingFixtures.unreadConversation, MessagingFixtures.readConversation])
+        XCTAssertEqual(store.directConversation(with: "sophia.chen")?.id, "convo-sophia")
+        XCTAssertEqual(store.directConversation(with: "@Sophia.Chen")?.id, "convo-sophia")
+        XCTAssertEqual(store.directConversation(with: MessagingFixtures.unreadConversation.participants[0].id)?.id, "convo-sophia")
+        XCTAssertNil(store.directConversation(with: "nobody.here"))
+        XCTAssertNil(store.directConversation(with: ""))
         #endif
     }
 

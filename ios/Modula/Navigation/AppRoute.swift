@@ -175,6 +175,9 @@ enum MessagesRoute: Hashable {
     case inMail(InMailRoute)
     case new
     case conversation(String)
+    /// 1:1 chat with a person (handle or profile id): opens the existing conversation, else a starter
+    /// addressed to them. Never the inbox.
+    case direct(String)
 }
 enum InMailRoute: Hashable { case inbox, compose, thread(String) }
 enum StoriesRoute: Hashable { case root, create, story(String) }
@@ -345,6 +348,9 @@ enum RouteParser {
         case "new":
             guard p.count == 2 else { return nil }
             return .messages(.new)
+        case "to":
+            guard p.count == 3, validID(p[2]) else { return nil }
+            return .messages(.direct(p[2]))
         case "in-mail":
             if p.count == 2 { return .messages(.inMail(.inbox)) }
             guard p.count == 3 else { return nil }
@@ -500,6 +506,7 @@ enum RouteSerializer {
             case .requests: "/messages/requests"
             case .new: "/messages/new"
             case .conversation(let id): "/messages/\(id)"
+            case .direct(let person): "/messages/to/\(person)"
             case .inMail(let mail):
                 switch mail {
                 case .inbox: "/messages/in-mail"
