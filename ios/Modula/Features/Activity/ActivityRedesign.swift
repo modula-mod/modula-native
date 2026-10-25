@@ -414,10 +414,8 @@ struct ActivityClusterCard: View {
         .overlay(alignment: .topLeading) {
             if !cluster.isRead {
                 ActivityUnreadIndicator().offset(x: -12, y: 29)
-                    .transition(.scale.combined(with: .opacity))
             }
         }
-        .animation(.easeOut(duration: 0.25), value: cluster.isRead)
         .contentShape(Rectangle())
         .opacity(dimmed ? 0.5 : 1)
         .accessibilityElement(children: .contain)
@@ -762,7 +760,6 @@ struct ActivityClusterFeed: View {
             .accessibilityHint(cluster.expandsInline ? (isOpen ? "Collapses the list" : "Shows all \(cluster.actors.count) people") : "")
         }
         .contextMenu { contextMenu(cluster) }
-        .transition(calm ? .opacity : .asymmetric(insertion: .opacity, removal: .move(edge: .leading).combined(with: .opacity)))
     }
 
     @ViewBuilder private func contextMenu(_ cluster: ActivityCluster) -> some View {
