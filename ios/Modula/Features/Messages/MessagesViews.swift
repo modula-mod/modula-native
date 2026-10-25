@@ -493,15 +493,16 @@ struct ConversationView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            Divider().opacity(0.4)
-            thread
-            composer
-        }
-        .navigationBarTitleDisplayMode(.inline)
-        .modulaSoftScrollEdge()
-        .navigationTitle("")
+        thread
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Composer floats over the thread so messages scroll under its glass.
+            .safeAreaInset(edge: .bottom, spacing: 0) { composer }
+            .navigationBarTitleDisplayMode(.inline)
+            .modulaSoftScrollEdge()
+            .navigationTitle(conversation?.title ?? "Conversation")
+            .toolbar {
+                ToolbarItem(placement: .principal) { header }
+            }
         .task { await app.messaging.loadThreadIfNeeded(conversationID) }
         .refreshable { await app.messaging.refreshThread(conversationID) }
         .accessibilityIdentifier("messages.conversation.\(conversationID)")
@@ -510,23 +511,34 @@ struct ConversationView: View {
 
     private var conversation: Conversation? { app.messaging.conversation(id: conversationID) }
 
+    /// Name and avatar in the navigation bar; a direct chat's header opens that profile.
     private var header: some View {
-        HStack(spacing: 10) {
-            ConversationAvatar(participant: conversation?.participants.first)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(conversation?.title ?? "Conversation")
-                    .font(.headline)
-                if let handle = conversation?.handleLabel {
-                    Text(handle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        Button {
+            guard let conversation, conversation.kind == .direct, let person = conversation.participants.first else { return }
+            HapticEngine.shared.play(.navigation)
+            app.navigation.push(.profile(person.handle.isEmpty ? person.id : person.handle, .overview))
+        } label: {
+            HStack(spacing: 8) {
+                ModulaAvatar(initials: conversation?.participants.first?.initials ?? "?",
+                             url: conversation?.participants.first?.avatarURL, size: 30)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(conversation?.title ?? "Conversation")
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                    if let handle = conversation?.handleLabel {
+                        Text(handle)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
             }
-            Spacer()
+            .contentShape(Rectangle())
         }
-        .padding(.horizontal, ModulaLayout.contentInset)
-        .padding(.vertical, 8)
+        .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
+        .accessibilityHint(conversation?.kind == .direct ? "Opens their profile" : "")
+        .accessibilityIdentifier("messages.conversation.header")
     }
 
     @ViewBuilder
@@ -540,18 +552,31 @@ struct ConversationView: View {
                 Task { await app.messaging.refreshThread(conversationID) }
             }
         case _ where items.isEmpty:
-            ModulaEmptyState(
-                title: "No messages yet",
-                message: app.messaging.capabilities.send ? "Write the first message." : "This conversation isn’t available yet.",
-                symbol: "text.bubble"
-            )
+            if app.messaging.capabilities.send {
+                MessageStarterView(conversation: conversation) { text in
+                    app.messaging.drafts[conversationID] = text
+                    HapticEngine.shared.play(.selection)
+                }
+            } else {
+                ModulaEmptyState(
+                    title: "No messages yet",
+                    message: "This conversation isn’t available yet.",
+                    symbol: "text.bubble"
+                )
+            }
         default:
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
+                        let lastOwnID = items.last(where: \.isOwn)?.id
                         ForEach(Array(items.enumerated()), id: \.element.id) { index, message in
                             let position = MessageGroupPosition.resolve(index: index, in: items)
-                            MessageBubble(message: message, position: position) { action in
+                            if let label = MessageTimeline.separator(at: index, in: items) {
+                                MessageTimeSeparator(label: label)
+                                    .padding(.top, index == 0 ? 0 : 14)
+                                    .padding(.bottom, 6)
+                            }
+                            MessageBubble(message: message, position: position, showsStatus: message.id == lastOwnID) { action in
                                 handle(action, message: message)
                             }
                             // Tight spacing inside a run of messages, roomier between senders.
@@ -669,6 +694,8 @@ enum MessageGroupPosition: Sendable {
 struct MessageBubble: View {
     let message: Message
     var position: MessageGroupPosition = .single
+    /// Sending / Sent / Delivered under the newest own message only.
+    var showsStatus = false
     var onAction: (ModulaContextAction) -> Void
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
@@ -713,6 +740,12 @@ struct MessageBubble: View {
                         Text("Read")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
+                    } else if showsStatus, message.isOwn, let status = MessageTimeline.status(for: message.delivery) {
+                        Text(status)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .contentTransition(.opacity)
+                            .accessibilityIdentifier("messages.bubble.status")
                     }
                 }
             }
@@ -1224,5 +1257,115 @@ extension View {
         } else {
             self.background(.ultraThinMaterial, in: shape)
         }
+    }
+}
+
+
+// MARK: - Thread timeline
+
+enum MessageTimeline {
+    /// A centred time label before a message that starts a new day or follows an hour-long gap.
+    static func separator(at index: Int, in items: [Message], calendar: Calendar = .current, now: Date = Date()) -> String? {
+        guard items.indices.contains(index) else { return nil }
+        let current = items[index].sentAt
+        if index > 0 {
+            let previous = items[index - 1].sentAt
+            if calendar.isDate(previous, inSameDayAs: current), current.timeIntervalSince(previous) < 60 * 60 { return nil }
+        }
+        return label(for: current, calendar: calendar, now: now)
+    }
+
+    static func label(for date: Date, calendar: Calendar = .current, now: Date = Date()) -> String {
+        var timeStyle = Date.FormatStyle(date: .omitted, time: .shortened)
+        timeStyle.timeZone = calendar.timeZone
+        let time = date.formatted(timeStyle)
+        if calendar.isDate(date, inSameDayAs: now) { return "Today \(time)" }
+        if let yesterday = calendar.date(byAdding: .day, value: -1, to: now), calendar.isDate(date, inSameDayAs: yesterday) {
+            return "Yesterday \(time)"
+        }
+        if let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: now)).day,
+           (0..<7).contains(days) {
+            var weekday = Date.FormatStyle().weekday(.wide)
+            weekday.timeZone = calendar.timeZone
+            return "\(date.formatted(weekday)) \(time)"
+        }
+        var day = Date.FormatStyle().day().month(.abbreviated)
+        if calendar.component(.year, from: date) != calendar.component(.year, from: now) { day = day.year() }
+        day.timeZone = calendar.timeZone
+        return "\(date.formatted(day)), \(time)"
+    }
+
+    /// Honest delivery wording from the server state; nothing for unknown.
+    static func status(for delivery: MessageDeliveryState) -> String? {
+        switch delivery {
+        case .sending: "Sending…"
+        case .sent: "Sent"
+        case .delivered: "Delivered"
+        case .read, .failed, .unknown: nil
+        }
+    }
+}
+
+struct MessageTimeSeparator: View {
+    let label: String
+
+    var body: some View {
+        Text(label)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .modulaGlass(in: Capsule(), interactive: false)
+            .frame(maxWidth: .infinity)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// Empty chat: who you're talking to and a few one-tap openers (they only fill the composer).
+struct MessageStarterView: View {
+    let conversation: Conversation?
+    var onPick: (String) -> Void
+    @Environment(AppEnvironment.self) private var app
+
+    private let openers = ["👋", "Hey!", "How’s it going?"]
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Spacer(minLength: 24)
+            let person = conversation?.participants.first
+            ModulaAvatar(initials: person?.initials ?? "?", url: person?.avatarURL, size: 84, name: person?.displayName)
+            VStack(spacing: 4) {
+                Text(conversation?.title ?? "New conversation")
+                    .font(.title3.weight(.bold))
+                if let handle = conversation?.handleLabel {
+                    Text(handle).font(.subheadline).foregroundStyle(.secondary)
+                }
+            }
+            Text("Say hi — your first message starts the chat.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            ModulaGlassGroup(spacing: 8) {
+                HStack(spacing: 8) {
+                    ForEach(openers, id: \.self) { opener in
+                        Button { onPick(opener) } label: {
+                            Text(opener)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                                .padding(.horizontal, 12)
+                                .frame(height: 36)
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .modulaGlass(in: Capsule(), interactive: true)
+                    }
+                }
+            }
+            .padding(.top, 4)
+            Spacer(minLength: 24)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, ModulaLayout.contentInset)
+        .accessibilityIdentifier("messages.starter")
     }
 }

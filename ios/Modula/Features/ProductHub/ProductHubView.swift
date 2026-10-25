@@ -944,6 +944,8 @@ struct ProductCategoryChips: View {
     }
     var body: some View {
         let accent = app.appearance.accent.color
+        // No kinds → no orphan "Categories" header.
+        if !kinds.isEmpty {
         VStack(alignment: .leading, spacing: 10) {
             ModulaSectionHeader(title: "Categories")
             ScrollView(.horizontal, showsIndicators: false) {
@@ -961,6 +963,7 @@ struct ProductCategoryChips: View {
                     }
                 }
             }.scrollClipDisabled()
+        }
         }
     }
 }
@@ -1164,6 +1167,30 @@ struct ProductHubView: View {
             ModulaLoadingState(title: "Loading Product Hub…")
         } else if let error = app.catalogue.error, app.catalogue.products.isEmpty {
             ModulaErrorState(message: error) { Task { await app.catalogue.load() } }
+        } else if app.catalogue.products.isEmpty {
+            // Loaded but nothing in the catalogue: one designed state, not three empty section headers.
+            VStack(spacing: 14) {
+                ModulaEmptyState(
+                    title: "No modules yet",
+                    message: "Nothing is in the Product Hub right now. Check back soon.",
+                    symbol: "shippingbox"
+                )
+                Button {
+                    HapticEngine.shared.play(.selection)
+                    Task { await app.catalogue.load() }
+                } label: {
+                    Label("Try again", systemImage: "arrow.clockwise")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 18).frame(height: 44)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .modulaGlass(in: Capsule(), interactive: true)
+                .accessibilityIdentifier("product-hub.empty.retry")
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 24)
+            .accessibilityIdentifier("product-hub.empty")
         } else if query.isEmpty {
             // Feature something you don't have yet; fall back to Vault Notes (shown as "Open").
             let featured = app.catalogue.products.first(where: { $0.installable && !app.catalogue.installedIDs.contains($0.id) })
@@ -1206,14 +1233,25 @@ struct ProductHubView: View {
                 installedIDs: app.catalogue.installedIDs,
                 action: open
             )
-            ProductShelf(
-                title: "From Modula",
-                subtitle: "More from the registry",
-                // Installed modules already have their own shelf above.
-                products: visible.filter { !app.catalogue.installedIDs.contains($0.id) },
-                installedIDs: app.catalogue.installedIDs,
-                action: open
+            let more = visible.filter { !app.catalogue.installedIDs.contains($0.id) }
+            if !more.isEmpty {
+                ProductShelf(
+                    title: "From Modula",
+                    subtitle: "More from the registry",
+                    // Installed modules already have their own shelf above.
+                    products: more,
+                    installedIDs: app.catalogue.installedIDs,
+                    action: open
+                )
+            }
+        } else if visible.isEmpty {
+            ModulaEmptyState(
+                title: "No results",
+                message: "No modules match “\(query)”. Try a different name.",
+                symbol: "magnifyingglass"
             )
+            .padding(.top, 24)
+            .accessibilityIdentifier("product-hub.search.empty")
         } else {
             ProductShelf(title: "Results", products: visible, installedIDs: app.catalogue.installedIDs, action: open)
         }
