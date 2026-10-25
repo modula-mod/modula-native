@@ -316,7 +316,7 @@ struct RouteView: View {
     }
 }
 
-private struct PresentationView: View {
+struct PresentationView: View {
     let presentation: AppPresentation
     @Environment(AppEnvironment.self) private var app
 
