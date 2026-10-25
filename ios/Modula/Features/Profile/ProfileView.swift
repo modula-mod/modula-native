@@ -36,6 +36,7 @@ struct ProfileView: View {
     @State private var showsFrames = false
     @Namespace private var shelfNamespace
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @AppStorage("profile.postLayout") private var postLayoutRaw = ProfilePostLayout.grid.rawValue
     #if DEBUG
     /// DEBUG-only: `--debug-autoscroll` scrolls the page for screen recordings.
@@ -271,6 +272,13 @@ struct ProfileView: View {
             #if DEBUG
             .scrollPosition($debugScrollPosition)
             .task(id: profile != nil) {
+                // `--debug-scroll-y <y>`: park the page at a fixed offset (simulator screenshots).
+                let args = ProcessInfo.processInfo.arguments
+                if profile != nil, let i = args.firstIndex(of: "--debug-scroll-y"), i + 1 < args.count, let y = Double(args[i + 1]) {
+                    try? await Task.sleep(for: .seconds(1.2))
+                    debugScrollPosition.scrollTo(y: y)
+                    return
+                }
                 guard profile != nil, ProcessInfo.processInfo.arguments.contains("--debug-autoscroll") else { return }
                 try? await Task.sleep(for: .seconds(1.5))
                 for (y, duration) in [(260.0, 1.4), (620.0, 1.8), (1_000.0, 1.8), (0.0, 2.2)] {
@@ -280,39 +288,22 @@ struct ProfileView: View {
             }
             #endif
 
-            ModulaProgressiveHeader(
-                largeTitle: largeTitle,
-                compactTitle: "",
-                progress: headerProgress,
-                topChromeInset: ProfileFullBleedMetrics.windowSafeAreaTop
-            ) {
-                EmptyView()
-            }
-            // Its fade backdrop is ~150pt tall and sat over the pinned tabs, blurring them.
-            // Clip it to the top bar; the tabs' own strip handles everything below.
-            .frame(height: ProfileFullBleedMetrics.windowSafeAreaTop + 44, alignment: .top)
-            .clipped()
-            .allowsHitTesting(false)
-
-
-            ProfileCollapsedNavBackground(
-                progress: navBarProgress,
-                height: ProfileFullBleedMetrics.windowSafeAreaTop + 44,
-                reduceTransparency: navReduceTransparency
+            // One progressive top blur for the whole page: strongest at the very top, fading to
+            // clear, identical at rest and while scrolling. When the tabs pin it simply grows to
+            // sit under them; the tabs are drawn above it, crisp on their own glass.
+            ProfileTopProgressiveBlur(
+                height: ProfileFullBleedMetrics.windowSafeAreaTop + 44
+                    + (shelfPinned ? ProfileTopProgressiveBlur.pinnedShelfExtent : ProfileTopProgressiveBlur.restingFade),
+                tint: ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas,
+                reduceTransparency: navReduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
             )
+            .animation(ModulaEffectGate.reduceMotion(systemReduceMotion) ? nil : .easeOut(duration: 0.2), value: shelfPinned)
 
-            // Pinned header strip: a real progressive blur from the top of the screen down past
-            // the tabs, above the feed; the tabs are drawn on top of it (crisp, interactive) and
-            // the system toolbar sits above both.
             if shelfPinned, let profile {
                 shelfBar(profile, floating: true)
                     .padding(.top, ProfileFullBleedMetrics.windowSafeAreaTop + 44)
                     .frame(maxWidth: .infinity, alignment: .top)
-                    .background(alignment: .top) {
-                        ProfileShelfBacking()
-                            .padding(.bottom, -18)
-                            .allowsHitTesting(false)
-                    }
+                    .zIndex(2)
                     .transition(.opacity)
             }
         }
@@ -1865,60 +1856,44 @@ private enum ProfileShelfTab: String, Hashable, Identifiable {
 }
 
 
-/// Glass bar that fades in behind the compact title, with a hairline.
-private struct ProfileCollapsedNavBackground: View {
-    let progress: CGFloat
+/// Profile's top progressive blur (replaces the old clipped header fade, the progress-driven nav
+/// background and the separate pinned-tabs backing, which stacked into a hard, uneven edge).
+/// Stacked materials, each masked to end lower down, so blur is strongest at the very top and
+/// ramps smoothly to fully clear; no slab edge at any height.
+private struct ProfileTopProgressiveBlur: View {
+    /// Fade below the 44pt bar while the tabs are not pinned.
+    static let restingFade: CGFloat = 34
+    /// Pinned tabs (8 + 38 + 8) plus a fade below them.
+    static let pinnedShelfExtent: CGFloat = 54 + 30
+
     let height: CGFloat
+    let tint: Color
     let reduceTransparency: Bool
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        Group {
             if reduceTransparency {
-                Rectangle().fill(Color(uiColor: .systemBackground))
-                Rectangle()
-                    .fill(Color.primary.opacity(0.14))
-                    .frame(height: 1 / UIScreen.main.scale)
+                tint.mask(ramp(solidUntil: 0.6, end: 1))
             } else {
-                // Progressive blur: strongest at the top, fading to fully clear — no solid fill.
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                    .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.45), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
+                ZStack {
+                    Rectangle().fill(.ultraThinMaterial).mask(ramp(solidUntil: 0.5, end: 1.0))
+                    Rectangle().fill(.thinMaterial).mask(ramp(solidUntil: 0.3, end: 0.72))
+                    Rectangle().fill(.regularMaterial).mask(ramp(solidUntil: 0.12, end: 0.45))
+                    tint.opacity(0.42).mask(ramp(solidUntil: 0.25, end: 0.85))
+                }
             }
         }
         .frame(height: height)
         .frame(maxWidth: .infinity)
-        .opacity(progress)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
-}
 
-
-/// Progressive blur behind the pinned profile tab bar.
-private struct ProfileShelfBacking: View {
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    /// True progressive blur: stacked materials, each masked to end lower down, so the blur is
-    /// strongest at the top edge and ramps to zero at the bottom. Only a light tint, no opaque
-    /// fill, so content is visibly blurred under the bar and gradually sharp below.
-    var body: some View {
-        if reduceTransparency {
-            Rectangle().fill(Color(uiColor: .systemBackground))
-                .mask(ramp(end: 1))
-        } else {
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial).mask(ramp(end: 1.0))
-                Rectangle().fill(.thinMaterial).mask(ramp(end: 0.75))
-                Rectangle().fill(.regularMaterial).mask(ramp(end: 0.5))
-                Color(uiColor: .systemBackground).opacity(0.3).mask(ramp(end: 0.9))
-            }
-        }
-    }
-
-    private func ramp(end: CGFloat) -> LinearGradient {
+    private func ramp(solidUntil: CGFloat, end: CGFloat) -> LinearGradient {
         LinearGradient(stops: [
             .init(color: .black, location: 0),
-            .init(color: .black, location: end * 0.7),
+            .init(color: .black, location: solidUntil),
+            .init(color: .black.opacity(0.5), location: solidUntil + (end - solidUntil) * 0.45),
             .init(color: .black.opacity(0), location: end)
         ], startPoint: .top, endPoint: .bottom)
     }
