@@ -56,6 +56,13 @@ struct AppGateHost: View {
         } else if ProcessInfo.processInfo.arguments.contains("--debug-moliboo-world") {
             // Straight to the Moliboo home (World), for simulator screenshots of the hero / number label.
             NavigationStack { MolibooWorldView() }
+        } else if let mode = DebugSettingsHarness.modulaCodeMode {
+            // `--debug-modula-code mycode|scan`: the Modula Code screen with a sample public profile link.
+            ModulaCodeView(subject: DebugSettingsHarness.sampleCodeSubject, initialMode: mode) {}
+        } else if let payload = DebugSettingsHarness.sharePayload {
+            // `--debug-share profile|post|link`: the share sheet over a plain canvas, for screenshots.
+            Color(uiColor: .systemBackground).ignoresSafeArea()
+                .sheet(isPresented: .constant(true)) { ModulaShareSheet(payload: payload) }
         } else if let route = DebugSettingsHarness.route ?? DebugSettingsHarness.anyRoute {
             DebugSettingsHarnessView(route: route)
         } else {
