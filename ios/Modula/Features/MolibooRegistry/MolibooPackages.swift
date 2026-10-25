@@ -586,7 +586,10 @@ final class MolibooPackageManager {
         guard let baseURL else { status = .failed("No package source"); lastError = "No package source is configured."; return }
         status = .checking
         do {
-            let (data, resp) = try await session.data(from: baseURL.appendingPathComponent("catalog.json"))
+            // Always revalidate: a heuristically cached catalogue would hide new releases until the cache expires.
+            var req = URLRequest(url: baseURL.appendingPathComponent("catalog.json"), cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
+            req.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
+            let (data, resp) = try await session.data(for: req)
             guard (resp as? HTTPURLResponse)?.statusCode == 200, data.count <= 1_000_000 else { throw MolibooPackageError.network("catalogue") }
             let cat = try JSONDecoder().decode(MolibooPackageCatalog.self, from: data)
             guard cat.schemaVersion == MolibooPackageCatalog.schemaVersion else { throw MolibooPackageError.unsupportedSchema(cat.schemaVersion) }

@@ -143,7 +143,10 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
 
     struct Palette { let light: Color; let mid: Color; let dark: Color; let accent: Color; let iris: Color; let outline: Color }
 
-    var palette: Palette {
+    /// Built-in palette, overridden by an installed signed Moliboo package when present (MOL-03E).
+    var palette: Palette { MolibooPackageRuntime.shared.patchedPalette(self) ?? builtInPalette }
+
+    var builtInPalette: Palette {
         func c(_ r: Double, _ g: Double, _ b: Double) -> Color { Color(red: r, green: g, blue: b) }
         switch self {
         case .pip: return Palette(light: c(1, 0.88, 0.94), mid: c(1, 0.62, 0.78), dark: c(0.86, 0.36, 0.58), accent: c(1, 0.42, 0.7), iris: c(0.28, 0.14, 0.28), outline: c(0.58, 0.22, 0.4))
@@ -2732,7 +2735,9 @@ extension ModulaMascotFigure {
 // MARK: - Family specs and profiles
 
 extension ModulaMascotKind {
-    var spec: MolibooSpec? { MolibooFamilySpecs.table[self] }
+    var spec: MolibooSpec? { MolibooPackageRuntime.shared.patchedSpec(self, MolibooFamilySpecs.table[self]) }
+    /// The compiled-in spec, ignoring installed packages.
+    var builtInSpec: MolibooSpec? { MolibooFamilySpecs.table[self] }
 }
 
 enum MolibooFamilySpecs {

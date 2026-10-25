@@ -19,6 +19,15 @@ Branch: `mol03/registry` (from origin/main 587b5e8, includes #185 Legends). Push
 - Published Somna (moliboo.100) packages: serve-v1 (1.0.1), serve-v2 (1.0.1 + 2.0.0 recolour), serve-v3 (+2.0.1 tampered after signing).
 - Debug-only `-MolibooPackageAutoUpdate` QA auto-updater polls the source and installs newer signed releases into a running app.
 
+## Unit run 4 (03:48 Europe/London) — 45/45 passed, 0 failed (with renderer hooks applied)
+- Metrics: Studio 129.5→131.6 MB over 20 cycles (no sustained growth); 115 thumbnails 242 ms; Nodus coexistence +1.5 MB; simulator Studio 15.5 fps (busy shared Mac; collapse floor only).
+
+## Merged
+- **#190** MOL-03 foundation (registry 115, fits 100, expressions/motion, packages, catalogue views, tests) → merged into main as **bdd4033** (CI boundary-and-runtime pass).
+
+## In progress
+- `mol03/package-hooks` (f41bff9): 2-line renderer hooks in ModulaMascot.swift (spec + palette), no overlap with #186 / outfit-sync hunks. Simulator Debug build running for the hot-update demo (QA server http://127.0.0.1:8787 → serve-v1/v2/v3).
+
 ## Pending
 - Renderer hooks in ModulaMascot.swift + Studio/collection integration wait for #186 (open).
 - Simulator Tests A–J and hot update demo after hooks land.
