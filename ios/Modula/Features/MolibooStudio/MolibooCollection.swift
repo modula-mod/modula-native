@@ -1,6 +1,19 @@
 import SwiftUI
 import UIKit
 
+/// Single source of truth for what a Moliboo wears. Studio's wardrobe edits and persists the equipped outfit in
+/// `MascotWardrobeStore` (key `composer.mascot.outfit`, ownership-sanitised on load); Home, the stage, cards,
+/// thumbnails and Studio all resolve through here so they can never disagree. Reading `store.outfit` inside a
+/// view body registers Observation, so Home refreshes live when you come back from Studio.
+@MainActor
+enum MolibooOutfit {
+    static func equipped(for kind: ModulaMascotKind, store: MascotWardrobeStore = .shared) -> MascotOutfit {
+        wearsOutfits(kind) ? store.outfit : .empty
+    }
+    /// Legends wear their own look by design.
+    static func wearsOutfits(_ kind: ModulaMascotKind) -> Bool { kind.family.supportsWardrobe }
+}
+
 /// MOL-03 C: pre-rendered portraits (Tools/moliboo/engine/render_portraits.py, transparent 512², rendered from the
 /// shipped USDZs). Used wherever loading RealityKit would be too heavy: collection picker, Settings, composer, Home.
 @MainActor
@@ -17,8 +30,9 @@ enum MolibooPortrait {
     }
 
     /// Small static thumb for scrolling roster tiles. Never live SwiftUI figures.
-    static func thumb(for id: String) -> UIImage? {
-        render2D(id, pointSize: 64, scale: 2, cachePrefix: "thumb|")
+    /// `dressed`: roster tiles show the bare catalogue figure; the selected Moliboo's own tile shows its outfit.
+    static func thumb(for id: String, dressed: Bool = false) -> UIImage? {
+        render2D(id, pointSize: 64, scale: 2, cachePrefix: "thumb|", dressed: dressed)
     }
 
     /// 2D-only Moliboos: ImageRenderer snapshot of the figure, cached. Cap is large enough for all 100
@@ -31,16 +45,18 @@ enum MolibooPortrait {
             + "|" + outfit.dyes.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ",")
     }
 
-    private static func render2D(_ id: String, pointSize: CGFloat, scale: CGFloat, cachePrefix: String = "") -> UIImage? {
+    private static func render2D(_ id: String, pointSize: CGFloat, scale: CGFloat, cachePrefix: String = "", dressed: Bool = true) -> UIImage? {
         guard let kind = ModulaMascotKind(rawValue: id) else { return nil }
-        let outfit = MascotWardrobeStore.shared.outfit
+        // Root cause of "dressed in Studio, undressed on Home": this keyed the cache on the outfit but always
+        // rendered `outfit: .empty`. Portraits now render the same equipped outfit Studio shows.
+        let outfit = dressed ? MolibooOutfit.equipped(for: kind) : .empty
         let key = cachePrefix + id + "|" + outfitKey(outfit) + "|\(Int(pointSize))x\(Int(scale))"
         if let i = cache2D[key] { return i }
         let s = pointSize
         // Render on a canvas wider than any character (wings, tails, boards, props), then crop to
         // the real drawn bounds. The old fixed 1.45s frame cut wide Moliboos (Rumble, Skid, Asteri…)
         // off at the sides everywhere the snapshot is shown.
-        let r = ImageRenderer(content: ModulaMascotFigure(kind: kind, pose: .still(), size: s, outfit: .empty)
+        let r = ImageRenderer(content: ModulaMascotFigure(kind: kind, pose: .still(), size: s, outfit: outfit)
             .frame(width: s * renderCanvas, height: s * renderCanvas))
         r.scale = scale
         guard let raw = r.cgImage, let i = fittedToDrawnBounds(raw, pointSize: s, scale: scale) else { return nil }
