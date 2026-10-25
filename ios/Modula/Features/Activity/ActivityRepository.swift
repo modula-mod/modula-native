@@ -337,6 +337,7 @@ enum ActivityPayloadDecoder {
         case .followAccepted: "accepted your follow request"
         case .teamInvite: "invited you to a team"
         case .moduleEvent, .moduleUpdate: "updated a module"
+        case .moliboo: "sent a Moliboo moment"
         case .system: "sent a system notice"
         case .unknown: "sent activity"
         }
