@@ -411,3 +411,38 @@ final class ShareSheetTests: XCTestCase {
         XCTAssertEqual(ModulaCodeSubject(payload: payload).subtitle, "@andrei.modula")
     }
 }
+
+final class MessageTimelineTests: XCTestCase {
+    private func message(_ id: String, _ date: Date, own: Bool = false) -> Message {
+        Message(
+            id: id, conversationID: "c1",
+            sender: ConversationParticipant(id: own ? "me" : "ana", handle: own ? "me" : "ana", displayName: own ? "Me" : "Ana", avatarURL: nil),
+            body: .text("hi"), sentAt: date, delivery: .sent, isOwn: own, localDraft: nil
+        )
+    }
+
+    func testSeparatorsOnNewDayAndHourGapsOnly() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/London")!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 10, day: 25, hour: 9))!
+        let yesterday = calendar.date(byAdding: .hour, value: -20, to: now)!
+        let items = [
+            message("1", yesterday),
+            message("2", yesterday.addingTimeInterval(120)),
+            message("3", now.addingTimeInterval(-30 * 60)),
+            message("4", now)
+        ]
+        XCTAssertEqual(MessageTimeline.separator(at: 0, in: items, calendar: calendar, now: now)?.hasPrefix("Yesterday"), true)
+        XCTAssertNil(MessageTimeline.separator(at: 1, in: items, calendar: calendar, now: now))
+        XCTAssertEqual(MessageTimeline.separator(at: 2, in: items, calendar: calendar, now: now)?.hasPrefix("Today"), true)
+        XCTAssertNil(MessageTimeline.separator(at: 3, in: items, calendar: calendar, now: now))
+        XCTAssertNil(MessageTimeline.separator(at: 9, in: items, calendar: calendar, now: now))
+    }
+
+    func testStatusWordingIsHonest() {
+        XCTAssertEqual(MessageTimeline.status(for: .sending), "Sending…")
+        XCTAssertEqual(MessageTimeline.status(for: .delivered), "Delivered")
+        XCTAssertNil(MessageTimeline.status(for: .unknown))
+        XCTAssertNil(MessageTimeline.status(for: .failed))
+    }
+}
