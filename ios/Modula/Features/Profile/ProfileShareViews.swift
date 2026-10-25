@@ -616,7 +616,7 @@ struct ModulaCodeView: View {
                             item: Image(uiImage: exportImage),
                             subject: Text(subject.title),
                             message: Text(subject.url.absoluteString),
-                            preview: SharePreview("Modula Code · \(subject.title)", image: Image(uiImage: exportImage))
+                            preview: SwiftUI.SharePreview("Modula Code · \(subject.title)", image: Image(uiImage: exportImage))
                         ) {
                             actionLabel("Share Code", symbol: "square.and.arrow.up", prominent: true)
                         }
