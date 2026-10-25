@@ -46,7 +46,8 @@ struct ModulaShareSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     ShareHeroPreview(payload: payload, post: post)
-                    if app.messaging.capabilities.send { sendToRow }
+                    // Only when there are chats to show; Message still opens the people picker.
+                    if !recentChats.isEmpty { sendToRow }
                     quickActions
                     linkRow
                 }
@@ -179,9 +180,10 @@ struct ModulaShareSheet: View {
     // MARK: Quick actions
 
     private var quickActions: some View {
-        let columns = Array(repeating: GridItem(.flexible(), spacing: 8, alignment: .top), count: 4)
-        return ModulaGlassGroup(spacing: 12) {
-            LazyVGrid(columns: columns, spacing: 16) {
+        // One swipeable row so every action is visible at the half-height detent.
+        return ScrollView(.horizontal, showsIndicators: false) {
+        ModulaGlassGroup(spacing: 12) {
+            HStack(alignment: .top, spacing: 6) {
                 ShareActionTile(title: copied ? "Copied" : "Copy Link", symbol: copied ? "checkmark" : "link", accent: accent, highlighted: copied) {
                     copyLink()
                 }
@@ -231,7 +233,10 @@ struct ModulaShareSheet: View {
                 .accessibilityLabel("More sharing options")
                 .accessibilityIdentifier("share.destination.systemShare")
             }
+            .padding(.vertical, 2)
         }
+        }
+        .scrollClipDisabled()
     }
 
     private var linkRow: some View {
@@ -334,7 +339,7 @@ private struct ShareActionTileLabel: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
-        .frame(maxWidth: .infinity)
+        .frame(width: 74)
         .contentShape(Rectangle())
     }
 }
