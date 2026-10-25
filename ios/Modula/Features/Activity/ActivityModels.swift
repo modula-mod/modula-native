@@ -15,6 +15,8 @@ enum ActivityEventKind: String, Codable, Hashable, Sendable, CaseIterable {
     case teamInvite
     case moduleEvent
     case moduleUpdate
+    /// Moliboo moments (level ups, gifts, visits). No server producer yet; parsed for forward compatibility.
+    case moliboo
     case system
     case unknown
 
@@ -36,6 +38,7 @@ enum ActivityEventKind: String, Codable, Hashable, Sendable, CaseIterable {
         case "teaminvite", "team_invite": self = .teamInvite
         case "moduleevent", "module_event": self = .moduleEvent
         case "moduleupdate", "module_update": self = .moduleUpdate
+        case "moliboo", "molibooevent", "mascot": self = .moliboo
         case "system": self = .system
         default: self = .unknown
         }
@@ -247,11 +250,13 @@ struct ActivitySummary: Hashable, Sendable {
 }
 
 enum ActivityTimelineSection: String, CaseIterable, Identifiable, Sendable {
-    /// `yesterday` is kept as the case name for callers; it now covers the last 7 days ("This week").
-    case today, yesterday, earlier
+    /// `new` holds what was unread when the feed loaded. `yesterday` is kept as the case
+    /// name for callers; it covers the last 7 days ("This week").
+    case new, today, yesterday, earlier
     var id: Self { self }
     var title: String {
         switch self {
+        case .new: "New"
         case .today: "Today"
         case .yesterday: "This week"
         case .earlier: "Earlier"
