@@ -211,3 +211,53 @@ struct MolibooCharacterDetailView: View {
         .accessibilityValue("\(Int((value * 100).rounded())) percent")
     }
 }
+
+/// Entry row for the Studio: opens the full 115-character collection in its own navigation stack, with a
+/// character detail screen per Moliboo. Debug builds can open it directly with `-MOL03Collection` and push a detail
+/// with `-MOL03Detail <key>` (simulator acceptance).
+struct MolibooCollectionEntry: View {
+    @State private var shown = false
+    @State private var path: [String] = []
+
+    var body: some View {
+        Button { shown = true } label: {
+            HStack(spacing: 12) {
+                HStack(spacing: -10) {
+                    ForEach([ModulaMascotKind.pip, .somna, .eclipa], id: \.self) { k in
+                        ModulaMascotFigure(kind: k, pose: .still(), size: 16).frame(width: 34, height: 32)
+                    }
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("All Moliboos").font(.subheadline.weight(.semibold))
+                    Text("\(MolibooRegistryStore.bundled?.characters.count ?? 0) characters · personalities, moves and artwork")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+            }
+            .padding(12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
+        .accessibilityIdentifier("moliboo.collection.entry")
+        .sheet(isPresented: $shown) {
+            NavigationStack(path: $path) {
+                MolibooCollectionBrowser { kind in path.append(kind.rawValue) }
+                    .navigationDestination(for: String.self) { key in
+                        if let kind = ModulaMascotKind(rawValue: key) { MolibooCharacterDetailView(kind: kind) }
+                    }
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) { Button("Done") { shown = false } }
+                    }
+            }
+        }
+        .onAppear {
+            #if DEBUG
+            let args = ProcessInfo.processInfo.arguments
+            if args.contains("-MOL03Collection") { shown = true }
+            if let i = args.firstIndex(of: "-MOL03Detail"), i + 1 < args.count { shown = true; path = [args[i + 1]] }
+            #endif
+        }
+    }
+}
