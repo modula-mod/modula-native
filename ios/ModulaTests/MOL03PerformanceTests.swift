@@ -51,6 +51,36 @@ final class MOL03PerformanceTests: XCTestCase {
         XCTAssertLessThan(late - early, 25, "sustained growth across Studio open/close cycles suggests a leak")
     }
 
+    /// Test E: rapid character switching in the detail screen (one animated renderer) never leaves more than one live
+    /// renderer and does not retain memory across all 115.
+    func testRapidCharacterSwitchingAcrossAll115() {
+        final class Model: ObservableObject { @Published var kind: ModulaMascotKind = .pip }
+        struct Host: View {
+            @ObservedObject var model: Model
+            var body: some View { NavigationStack { MolibooCharacterDetailView(kind: model.kind).id(model.kind) } }
+        }
+        let model = Model()
+        let (w, _) = host(Host(model: model))
+        pump(0.5)
+        let start = Self.footprintMB()
+        var maxActive = 0
+        for round in 0..<2 {
+            for k in ModulaMascotKind.allCases {
+                model.kind = k
+                pump(0.03)
+                maxActive = max(maxActive, MolibooActiveRendererBudget.shared.active.count)
+            }
+            if round == 0 { pump(0.3) }
+        }
+        pump(0.5)
+        let end = Self.footprintMB()
+        w.isHidden = true
+        report("detail.rapidSwitch230.footprintDeltaMB", String(format: "%.1f", end - start))
+        report("detail.rapidSwitch230.maxActiveRenderers", "\(maxActive)")
+        XCTAssertLessThanOrEqual(maxActive, 1, "only one animated renderer may be live")
+        XCTAssertLessThan(end - start, 40, "rapid switching retained memory")
+    }
+
     func testActivePreviewFrameDelivery() {
         final class Counter: NSObject { var frames = 0; var worst: CFTimeInterval = 0; var last: CFTimeInterval = 0
             @objc func tick(_ l: CADisplayLink) { if last > 0 { worst = max(worst, l.timestamp - last) }; last = l.timestamp; frames += 1 } }
