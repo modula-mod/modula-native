@@ -1,3 +1,4 @@
+import SwiftUI
 import XCTest
 @testable import Modula
 
@@ -343,5 +344,54 @@ final class ProfileTests: XCTestCase {
         XCTAssertEqual(config.title, "Tools")
         XCTAssertEqual(Set(config.actions.map(\.id)), Set(["edit", "share", "more-profile"]))
         XCTAssertFalse(config.showsMore)
+    }
+}
+
+// MARK: - Modula Code (branded QR)
+
+@MainActor
+final class ModulaCodeTests: XCTestCase {
+    func testMatrixKeepsFinderPatternsAndOddCentre() throws {
+        let matrix = try XCTUnwrap(ModulaQRMatrix.make("https://modula.digital/profile/andrei"))
+        let n = matrix.size
+        XCTAssertEqual((n - 21) % 4, 0, "QR side must be 21 + 4k modules")
+        XCTAssertTrue(matrix[0, 0]); XCTAssertTrue(matrix[0, 6]); XCTAssertFalse(matrix[1, 1]); XCTAssertTrue(matrix[3, 3])
+        XCTAssertTrue(matrix[0, n - 1]); XCTAssertTrue(matrix[n - 1, 0]); XCTAssertFalse(matrix[1, n - 2])
+        XCTAssertTrue(matrix.isFinder(2, 2)); XCTAssertFalse(matrix.isFinder(n - 1, n - 1))
+        XCTAssertEqual(matrix.centerHole.count % 2, 1)
+        XCTAssertLessThan(matrix.centerFraction, 0.3)
+    }
+
+    func testBrandedCodeStillScansInEveryStyle() throws {
+        let url = "https://modula.digital/profile/andrei.modula"
+        let matrix = try XCTUnwrap(ModulaQRMatrix.make(url))
+        for style in ModulaCodeStyle.allCases {
+            let view = ModulaBrandedQRCode(matrix: matrix, style: style, accent: Color(red: 0.21, green: 0.61, blue: 0.67)) {
+                RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.black.opacity(0.6))
+            }
+            .frame(width: 320, height: 320)
+            .padding(28)
+            .background(Color.white)
+            let renderer = ImageRenderer(content: view)
+            renderer.scale = 2
+            let image = try XCTUnwrap(renderer.uiImage)
+            XCTAssertEqual(ModulaCodeDecoder.decode(image), url, "style \(style.rawValue) must stay scannable")
+        }
+    }
+
+    func testScannedCodesOpenModulaInAppAndAskForEverythingElse() {
+        let own = URL(string: "https://modula.digital/profile/ana")!
+        XCTAssertEqual(ModulaScannedCode.classify(own.absoluteString), .modula(own))
+        XCTAssertEqual(ModulaScannedCode.classify(" https://example.com/x "), .web(URL(string: "https://example.com/x")!))
+        if case .modula = ModulaScannedCode.classify("https://modula.digital.evil.example/profile/a") { XCTFail("look-alike host") }
+        XCTAssertEqual(ModulaScannedCode.classify("javascript:alert(1)"), .text("javascript:alert(1)"))
+        XCTAssertEqual(ModulaScannedCode.classify("hello"), .text("hello"))
+    }
+
+    func testSubjectFromSharePayloadEncodesOnlyCanonicalURL() {
+        let subject = ModulaCodeSubject(payload: .post(id: "p1", authorName: "Ana", excerpt: "Hi there", hasMedia: false))
+        XCTAssertEqual(subject.kind, "Post")
+        XCTAssertEqual(subject.url.absoluteString, "https://modula.digital/post/p1")
+        XCTAssertEqual(subject.subtitle, "Post by Ana")
     }
 }

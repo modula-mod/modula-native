@@ -216,38 +216,68 @@ struct TranslateSettingsHost: View {
 struct QRCodeSettingsHost: View {
     let route: QRCodeSettingsRoute
     @Environment(AppEnvironment.self) private var app
+    @State private var presentedMode: ModulaCodeMode?
 
     var body: some View {
         switch route {
         case .root:
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Modula Code", subtitle: "Your profile QR and scanner.", symbol: "qrcode")
-                SettingsSceneGraphic(style: .grid)
-                ZStack {
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [6, 6]))
-                        .foregroundStyle(app.appearance.accent.color.opacity(0.45))
-                        .frame(width: 180, height: 180)
-                    Image(systemName: "qrcode")
-                        .font(.system(size: 72, weight: .regular))
-                        .foregroundStyle(app.appearance.accent.color.opacity(0.85))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
+                preview
                 SettingsGroup(title: "Actions") {
                     VStack(spacing: 0) {
-                        SettingsNavigationRow(title: "Open My Modula Code", subtitle: "Profile share QR", symbol: "person.crop.rectangle") {
-                            app.navigation.open(.me(.overview))
+                        SettingsNavigationRow(title: "Show My Modula Code", subtitle: "Share, save or copy your profile code", symbol: "qrcode") {
+                            presentedMode = .myCode
                         }
                         SettingsDivider()
-                        SettingsPreviewRow(title: "Scan", subtitle: "Camera scanner", symbol: "qrcode.viewfinder", enabled: false)
+                        SettingsNavigationRow(title: "Scan a Code", subtitle: "Camera, torch or a photo", symbol: "qrcode.viewfinder") {
+                            presentedMode = .scan
+                        }
                     }
                 }
-                SettingsAPIFootnote(text: "Share your code from your profile.")
+                SettingsAPIFootnote(text: "Your code only contains your public profile link.")
             }
             .navigationTitle("Modula Code")
             .navigationBarTitleDisplayMode(.inline)
+            .fullScreenCover(item: $presentedMode) { mode in
+                SettingsQRModal(initialMode: mode) { presentedMode = nil }
+            }
         }
+    }
+
+    @ViewBuilder
+    private var preview: some View {
+        let accent = app.appearance.accent.color
+        Button {
+            HapticEngine.shared.play(.selection)
+            presentedMode = app.profile.ownProfile == nil ? .scan : .myCode
+        } label: {
+            Group {
+                if let profile = app.profile.ownProfile, let matrix = ModulaQRMatrix.make(profile.shareURL.absoluteString) {
+                    ModulaBrandedQRCode(matrix: matrix, accent: accent) {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white)
+                            .overlay(Image("ModulaAppIcon").resizable().scaledToFill()
+                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous)).padding(3))
+                    }
+                    .padding(14)
+                    .background(Color.white, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                } else {
+                    Image(systemName: "qrcode")
+                        .font(.system(size: 72, weight: .regular))
+                        .foregroundStyle(accent.opacity(0.85))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [6, 6]))
+                            .foregroundStyle(accent.opacity(0.45)))
+                }
+            }
+            .frame(width: 180, height: 180)
+            .shadow(color: accent.opacity(0.18), radius: 14, y: 6)
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .accessibilityLabel("Open my Modula Code")
     }
 }
 
