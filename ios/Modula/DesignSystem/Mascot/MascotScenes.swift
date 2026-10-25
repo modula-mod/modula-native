@@ -216,6 +216,94 @@ struct MascotScenePainter {
                 var l = Path(); l.move(to: CGPoint(x: w / 2 + CGFloat(k) * w * 0.03, y: horizon)); l.addLine(to: CGPoint(x: w / 2 + CGFloat(k) * w * 0.25, y: h))
                 ctx.stroke(l, with: .color(Color(red: 0.2, green: 0.9, blue: 1).opacity(0.6)), lineWidth: 1)
             }
+        case "aurora":
+            vgrad([Color(red: 0.03, green: 0.06, blue: 0.18), Color(red: 0.08, green: 0.16, blue: 0.32)])
+            stars(36, maxY: h * 0.6, seed: 19)
+            for k in 0..<3 {
+                var band = Path()
+                let base = h * (0.22 + CGFloat(k) * 0.08)
+                let sway = CGFloat(t > 0 ? 10 * sin(t * 0.5 + Double(k)) : 0)
+                band.move(to: CGPoint(x: 0, y: base))
+                band.addCurve(to: CGPoint(x: w, y: base - h * 0.06), control1: CGPoint(x: w * 0.3, y: base - h * 0.16 + sway), control2: CGPoint(x: w * 0.65, y: base + h * 0.1 - sway))
+                let col = [tint, Color(red: 0.45, green: 0.75, blue: 1), Color(red: 0.75, green: 0.5, blue: 1)][k]
+                ctx.stroke(band, with: .color(col.opacity(0.45)), style: StrokeStyle(lineWidth: h * 0.07, lineCap: .round))
+                ctx.stroke(band, with: .color(col.opacity(0.8)), style: StrokeStyle(lineWidth: h * 0.015, lineCap: .round))
+            }
+            hills(h * 0.8, h * 0.07, Color(red: 0.86, green: 0.92, blue: 1))
+        case "rainy":
+            vgrad([tint.darker(0.1), tint.lighter(0.35)])
+            cloud(CGPoint(x: w * 0.3, y: h * 0.14), h * 0.08, Color(white: 0.92))
+            cloud(CGPoint(x: w * 0.75, y: h * 0.1), h * 0.07, Color(white: 0.88))
+            var rng = SeededRandom(seed: 23)
+            for i in 0..<36 {
+                let fall = t > 0 ? CGFloat((t * 0.7 + Double(i) / 36).truncatingRemainder(dividingBy: 1)) : rng.next()
+                let x = rng.next() * w, y = h * 0.2 + fall * h * 0.62
+                var d = Path(); d.move(to: CGPoint(x: x, y: y)); d.addLine(to: CGPoint(x: x - 2, y: y + 8))
+                ctx.stroke(d, with: .color(.white.opacity(0.7)), style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+            }
+            hills(h * 0.84, h * 0.04, Color(red: 0.45, green: 0.62, blue: 0.48))
+            ctx.fill(Path(ellipseIn: CGRect(x: w * 0.3, y: h * 0.9, width: w * 0.4, height: h * 0.05)), with: .color(Color(red: 0.75, green: 0.85, blue: 0.95).opacity(0.8)))
+        case "snowfield":
+            vgrad([tint, Color(red: 0.96, green: 0.98, blue: 1)])
+            for k in 0..<5 {
+                let x = w * (0.08 + CGFloat(k) * 0.21), base = h * (0.72 + CGFloat(k % 2) * 0.04), th = h * (0.22 + CGFloat(k % 3) * 0.04)
+                for tier in 0..<3 {
+                    var tri = Path()
+                    let y0 = base - CGFloat(tier) * th * 0.28, half = w * (0.07 - CGFloat(tier) * 0.015)
+                    tri.move(to: CGPoint(x: x - half, y: y0)); tri.addLine(to: CGPoint(x: x, y: y0 - th * 0.45)); tri.addLine(to: CGPoint(x: x + half, y: y0)); tri.closeSubpath()
+                    ctx.fill(tri, with: .color(Color(red: 0.22, green: 0.45, blue: 0.38)))
+                }
+            }
+            hills(h * 0.78, h * 0.06, .white)
+            var rng = SeededRandom(seed: 29)
+            for i in 0..<30 {
+                let fall = t > 0 ? CGFloat((t * 0.1 + Double(i) / 30).truncatingRemainder(dividingBy: 1)) : rng.next()
+                let x = rng.next() * w + CGFloat(sin(Double(fall) * 5 + Double(i))) * 6
+                ctx.fill(Path(ellipseIn: CGRect(x: x, y: fall * h, width: 3, height: 3)), with: .color(.white.opacity(0.9)))
+            }
+        case "dunes":
+            vgrad([Color(red: 0.98, green: 0.84, blue: 0.6), Color(red: 1, green: 0.94, blue: 0.82)])
+            ctx.fill(Path(ellipseIn: CGRect(x: w * 0.62, y: h * 0.12, width: h * 0.26, height: h * 0.26)), with: .color(Color(red: 1, green: 0.88, blue: 0.5)))
+            hills(h * 0.66, h * 0.1, tint.lighter(0.2))
+            hills(h * 0.8, h * 0.08, tint, phase: h * 0.02)
+            var cactus = Path()
+            cactus.addRoundedRect(in: CGRect(x: w * 0.16, y: h * 0.56, width: w * 0.04, height: h * 0.2), cornerSize: CGSize(width: 6, height: 6))
+            cactus.addRoundedRect(in: CGRect(x: w * 0.12, y: h * 0.6, width: w * 0.03, height: h * 0.08), cornerSize: CGSize(width: 5, height: 5))
+            cactus.addRoundedRect(in: CGRect(x: w * 0.21, y: h * 0.62, width: w * 0.03, height: h * 0.07), cornerSize: CGSize(width: 5, height: 5))
+            ctx.fill(cactus, with: .color(Color(red: 0.35, green: 0.62, blue: 0.4)))
+        case "forest":
+            vgrad([Color(red: 0.78, green: 0.92, blue: 0.82), Color(red: 0.92, green: 0.97, blue: 0.9)])
+            for k in 0..<6 {
+                let x = w * (CGFloat(k) / 5), r = h * (0.13 + CGFloat(k % 2) * 0.04)
+                ctx.fill(Path(CGRect(x: x - 4, y: h * 0.45, width: 8, height: h * 0.4)), with: .color(Color(red: 0.45, green: 0.32, blue: 0.22)))
+                ctx.fill(Path(ellipseIn: CGRect(x: x - r, y: h * 0.38 - r, width: r * 2, height: r * 2.1)), with: .color(tint.darker(CGFloat(k % 3) * 0.08)))
+            }
+            hills(h * 0.82, h * 0.04, tint.lighter(0.25))
+            for (x, s) in [(0.2, 1.0), (0.78, 0.8)] as [(CGFloat, CGFloat)] {
+                let c = CGPoint(x: w * x, y: h * 0.88)
+                ctx.fill(Path(CGRect(x: c.x - 3 * s, y: c.y - 10 * s, width: 6 * s, height: 10 * s)), with: .color(Color(red: 0.97, green: 0.93, blue: 0.85)))
+                ctx.fill(Path(ellipseIn: CGRect(x: c.x - 11 * s, y: c.y - 18 * s, width: 22 * s, height: 12 * s)), with: .color(Color(red: 0.9, green: 0.25, blue: 0.25)))
+                ctx.fill(Path(ellipseIn: CGRect(x: c.x - 4 * s, y: c.y - 16 * s, width: 3.5 * s, height: 3.5 * s)), with: .color(.white))
+            }
+        case "cloudtop":
+            vgrad([tint, Color(red: 0.98, green: 0.9, blue: 0.96)])
+            stars(10, maxY: h * 0.3, seed: 31)
+            let drift = CGFloat(t > 0 ? (t * 4).truncatingRemainder(dividingBy: Double(w)) : 0)
+            cloud(CGPoint(x: (w * 0.25 + drift).truncatingRemainder(dividingBy: w), y: h * 0.3), h * 0.06)
+            for k in 0..<5 { cloud(CGPoint(x: w * CGFloat(k) / 4, y: h * 0.86), h * 0.12) }
+            for k in 0..<4 { cloud(CGPoint(x: w * (0.12 + CGFloat(k) * 0.26), y: h * 0.74), h * 0.08, Color(red: 0.98, green: 0.97, blue: 1)) }
+        case "lavender":
+            vgrad([Color(red: 0.98, green: 0.82, blue: 0.72), Color(red: 0.94, green: 0.88, blue: 1)])
+            ctx.fill(Path(ellipseIn: CGRect(x: w * 0.42, y: h * 0.32, width: h * 0.2, height: h * 0.2)), with: .color(Color(red: 1, green: 0.9, blue: 0.62)))
+            hills(h * 0.6, h * 0.05, Color(red: 0.6, green: 0.72, blue: 0.5))
+            ctx.fill(Path(CGRect(x: 0, y: h * 0.62, width: w, height: h * 0.38)), with: .color(Color(red: 0.55, green: 0.7, blue: 0.48)))
+            for row in 0..<6 {
+                let y = h * (0.66 + CGFloat(row) * 0.06), thick = 3 + CGFloat(row) * 1.6
+                var line = Path(); line.move(to: CGPoint(x: w / 2 - CGFloat(row + 1) * w * 0.02, y: h * 0.62)); line.addLine(to: CGPoint(x: CGFloat(row) / 5 * w * 1.2 - w * 0.1, y: y + h * 0.1))
+                ctx.stroke(line, with: .color(tint.darker(CGFloat(row % 2) * 0.12)), style: StrokeStyle(lineWidth: thick, lineCap: .round))
+                var mirror = Path(); mirror.move(to: CGPoint(x: w / 2 + CGFloat(row + 1) * w * 0.02, y: h * 0.62)); mirror.addLine(to: CGPoint(x: w - (CGFloat(row) / 5 * w * 1.2 - w * 0.1), y: y + h * 0.1))
+                ctx.stroke(mirror, with: .color(tint.darker(CGFloat((row + 1) % 2) * 0.12)), style: StrokeStyle(lineWidth: thick, lineCap: .round))
+            }
         default:
             break
         }
