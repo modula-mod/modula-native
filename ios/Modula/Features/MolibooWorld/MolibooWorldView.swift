@@ -211,7 +211,8 @@ struct MolibooWorldView: View {
     private var header: some View {
         ModulaGlassGroup(spacing: 10) {
             ZStack {
-                MoliboosWordmark(height: 36)
+                // 28 pt keeps the centred logo clear of the 44 pt back / sparkle / more buttons on every iPhone width.
+                MoliboosWordmark(height: 28)
                     .accessibilityIdentifier("world.logo")
                 HStack(spacing: 10) {
                     MolibooWorldBackButton()
