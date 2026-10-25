@@ -220,6 +220,9 @@ struct MolibooWorldView: View {
 
     // MARK: Stage
 
+    /// Extra drawing room around the stage pet for the tap wave effects.
+    private static let waveRoom: CGFloat = 72
+
     private var stageArea: some View {
         // Large unclipped pet + soft contact shadow. No platform glow, arches, or clip masks.
         Color.clear.frame(maxWidth: .infinity).frame(height: 292)
@@ -234,8 +237,12 @@ struct MolibooWorldView: View {
                     MolibooStageCharacter(characterID: characterID, emotion: emotion, stage: stage, animating: motionAllowed && scrollY < 90,
                                           gaze: chat?.isTyping == true ? 1 : 0)
                         .frame(width: 248, height: 248)
-                        .molibooRipple(trigger: rippleTick, origin: CGPoint(x: 124, y: 130))
+                        // Room for the tap ripple / joy wave: the effects only draw inside the view's
+                        // bounds, so they ran into the 248pt square's edges. Pad, apply, un-pad.
+                        .padding(Self.waveRoom)
+                        .molibooRipple(trigger: rippleTick, origin: CGPoint(x: 124 + Self.waveRoom, y: 130 + Self.waveRoom))
                         .molibooJoyPulse(trigger: joyPulseTick, tint: kind?.palette.accent ?? teal)
+                        .padding(-Self.waveRoom)
                         .opacity(showWelcome ? 0 : 1)
                         .modifier(MolibooHeroMorph(ns: showWelcome ? nil : heroNS))
                         .id(characterID)
@@ -288,13 +295,16 @@ struct MolibooWorldView: View {
 
     /// Open typography on the clean surface — no glass card under the pet.
     private var heroDashboardCard: some View {
-        let canonNum = MolibooRegistry.descriptor(for: characterID)?.canonicalNumber
-            ?? ((MolibooCosmetics.originals.firstIndex(of: characterID) ?? 0) + 1)
+        // The selected character's own catalogue number. 2D-only characters have no 3D descriptor,
+        // and the old fallback (index in the Originals list, else 0 → "#001") pinned them all to #001.
+        let canonNum: Int? = kind?.number
+            ?? MolibooRegistry.descriptor(for: characterID)?.canonicalNumber
+            ?? MolibooCosmetics.originals.firstIndex(of: characterID).map { $0 + 1 }
         let familyName = (kind?.family.name ?? "The Originals").uppercased()
         return VStack(alignment: .center, spacing: 16) {
             if shows("identity") {
                 VStack(alignment: .center, spacing: 10) {
-                    Text(String(format: "#%03d  ·  %@", canonNum, familyName))
+                    Text(canonNum.map { String(format: "#%03d  ·  %@", $0, familyName) } ?? familyName)
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.tertiary)
                         .textCase(.uppercase)

@@ -37,10 +37,13 @@ enum MolibooPortrait {
         let key = cachePrefix + id + "|" + outfitKey(outfit) + "|\(Int(pointSize))x\(Int(scale))"
         if let i = cache2D[key] { return i }
         let s = pointSize
+        // Render on a canvas wider than any character (wings, tails, boards, props), then crop to
+        // the real drawn bounds. The old fixed 1.45s frame cut wide Moliboos (Rumble, Skid, Asteri…)
+        // off at the sides everywhere the snapshot is shown.
         let r = ImageRenderer(content: ModulaMascotFigure(kind: kind, pose: .still(), size: s, outfit: .empty)
-            .frame(width: s * 1.45, height: s * 1.45))
+            .frame(width: s * renderCanvas, height: s * renderCanvas))
         r.scale = scale
-        guard let i = r.uiImage else { return nil }
+        guard let raw = r.cgImage, let i = fittedToDrawnBounds(raw, pointSize: s, scale: scale) else { return nil }
         if cache2D.count >= cache2DCap {
             // Drop oldest half (dict order is insertion order) instead of wiping — keeps warm thumbs.
             let drop = cache2D.keys.prefix(cache2DCap / 2)
@@ -48,6 +51,50 @@ enum MolibooPortrait {
         }
         cache2D[key] = i
         return i
+    }
+
+    /// Side of the square render canvas, in figure sizes (figure canvas is 2.0 × 1.9).
+    private static let renderCanvas: CGFloat = 2.6
+    /// Minimum crop (the old fixed frame), so regular-width characters keep their usual scale.
+    private static let minimumCrop: CGFloat = 1.45
+
+    /// Crops a centred render to the smallest centred rect that contains every drawn pixel (plus a
+    /// little air), never smaller than `minimumCrop`. Symmetric about the centre so every character
+    /// keeps the same anchor; only wide/tall ones grow, and `scaledToFit` callers then fit them whole.
+    private static func fittedToDrawnBounds(_ image: CGImage, pointSize s: CGFloat, scale: CGFloat) -> UIImage? {
+        let w = image.width, h = image.height
+        guard w > 0, h > 0 else { return nil }
+        var alpha = [UInt8](repeating: 0, count: w * h)
+        let drawn: CGRect? = alpha.withUnsafeMutableBytes { buf -> CGRect? in
+            guard let ctx = CGContext(data: buf.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w,
+                                      space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.alphaOnly.rawValue) else { return nil }
+            ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+            var minX = w, maxX = -1, minY = h, maxY = -1
+            let px = buf.bindMemory(to: UInt8.self)
+            for y in 0..<h {
+                let row = y * w
+                for x in 0..<w where px[row + x] > 8 {
+                    if x < minX { minX = x }
+                    if x > maxX { maxX = x }
+                    if y < minY { minY = y }
+                    if y > maxY { maxY = y }
+                }
+            }
+            guard maxX >= minX, maxY >= minY else { return nil }
+            return CGRect(x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1)
+        }
+        let cx = CGFloat(w) / 2, cy = CGFloat(h) / 2
+        let air = s * scale * 0.06
+        let minHalf = s * scale * minimumCrop / 2
+        var halfW = minHalf, halfH = minHalf
+        if let d = drawn {
+            halfW = max(minHalf, max(cx - d.minX, d.maxX - cx) + air)
+            halfH = max(minHalf, max(cy - d.minY, d.maxY - cy) + air)
+        }
+        let crop = CGRect(x: cx - halfW, y: cy - halfH, width: halfW * 2, height: halfH * 2)
+            .integral.intersection(CGRect(x: 0, y: 0, width: w, height: h))
+        guard let cropped = image.cropping(to: crop) else { return nil }
+        return UIImage(cgImage: cropped, scale: scale, orientation: .up)
     }
 
     /// Warm tile thumbs off the critical path so Choose-your-Moliboo scroll never ImageRenderer-stalls.
@@ -121,10 +168,10 @@ struct MolibooCollectionView: View {
             if !q.isEmpty {
                 let name = (MolibooRegistry.manifest?.character(id: id)?.displayName ?? id).lowercased()
                 let bio = (kind?.personality ?? "").lowercased()
-                let num = String(format: "%03d", idx + 1)
+                let num = String(format: "%03d", kind?.number ?? idx + 1)
                 guard name.contains(q) || bio.contains(q) || num.contains(q) else { return nil }
             }
-            return (idx + 1, id)
+            return (kind?.number ?? idx + 1, id)
         }
     }
 
