@@ -9,7 +9,7 @@ final class WebGameRegistryUITests: XCTestCase {
     @MainActor
     func testInstallTwoSharedPhaserGames() throws {
         continueAfterFailure = false
-        let app = try signedInApp()
+        let app = try signedInApp(forceSignedOut: true)
         for (moduleID, title, shouldReuseRuntime) in [
             ("digital.modula.orbit-phaser", "Orbit Arena 2D", false),
             ("digital.modula.orbit-dash", "Orbit Dash", true),
@@ -66,7 +66,35 @@ final class WebGameRegistryUITests: XCTestCase {
     func testUpdateOrbitDashWithoutNativeRebuild() throws {
         let app = try signedInApp()
         let dash = try openProduct(app, moduleID: "digital.modula.orbit-dash")
+        if dash.label == "Open" {
+            // The fresh registry installs the latest release. Exercise the signed 0.1.0
+            // track first, then upgrade through the same Product Hub review flow.
+            let earlier = app.buttons["module.version.0.1.0.action"].firstMatch
+            let detail = app.descendants(matching: .any)["module-detail.digital.modula.orbit-dash"]
+            XCTAssertTrue(detail.exists)
+            let detailScroll = app.scrollViews.containing(.any, identifier: "module.versions").firstMatch
+            XCTAssertTrue(detailScroll.waitForExistence(timeout: 10))
+            for _ in 0..<10 where !earlier.isHittable || earlier.frame.maxY > app.frame.height * 0.60 {
+                detailScroll.swipeUp()
+            }
+            XCTAssertTrue(earlier.waitForExistence(timeout: 15) && earlier.isHittable)
+            XCTAssertLessThan(earlier.frame.maxY, app.frame.height * 0.60,
+                              "The version control is still under the floating navigation")
+            capture(app, name: "qa-02r-orbit-dash-before-downgrade")
+            earlier.tap()
+            let downgrade = app.buttons["module.version-switch.confirm"].firstMatch
+            XCTAssertTrue(downgrade.waitForExistence(timeout: 15))
+            XCTAssertTrue(app.staticTexts["Download plan"].waitForExistence(timeout: 20))
+            downgrade.tap()
+            let updateReady = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "label == %@", "Update"), object: dash)
+            XCTAssertEqual(XCTWaiter().wait(for: [updateReady], timeout: 45), .completed,
+                           "Orbit Dash 0.1.0 did not activate")
+            capture(app, name: "qa-02r-orbit-dash-0.1.0-active")
+        }
         XCTAssertEqual(dash.label, "Update")
+        XCTAssertTrue(dash.isHittable)
+        capture(app, name: "qa-02r-orbit-dash-before-update")
         dash.tap()
         let confirm = app.buttons["module.version-switch.confirm"].firstMatch
         XCTAssertTrue(confirm.waitForExistence(timeout: 15))
@@ -184,6 +212,57 @@ final class WebGameRegistryUITests: XCTestCase {
         app.buttons["Remove unused dependencies"].firstMatch.tap()
         XCTAssertTrue(app.staticTexts["No shared web runtimes are downloaded."].waitForExistence(timeout: 15))
         capture(app, name: "qa-02r-reinstall-second-reclaim")
+    }
+
+    @MainActor
+    func testReclaimRuntimeAfterProductHubUninstalls() throws {
+        continueAfterFailure = false
+        let app = try signedInApp()
+        app.buttons["shell.sidebar.trigger"].tap()
+        app.buttons["shell.sidebar.settings"].tap()
+        let storage = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Storage & Downloads")).firstMatch
+        for _ in 0..<8 where !storage.exists { app.swipeUp() }
+        XCTAssertTrue(storage.waitForExistence(timeout: 10))
+        storage.tap()
+        XCTAssertTrue(app.staticTexts["Total Optional Storage"].waitForExistence(timeout: 20))
+        capture(app, name: "qa-02r-after-producthub-uninstall-runtime-retained")
+        let reclaim = app.buttons["Remove unused dependencies"].firstMatch
+        for _ in 0..<6 where !reclaim.exists { app.swipeUp() }
+        XCTAssertTrue(reclaim.waitForExistence(timeout: 10))
+        reclaim.tap()
+        let confirm = app.buttons["Remove unused dependencies"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 10))
+        confirm.tap()
+        XCTAssertTrue(app.staticTexts["No shared web runtimes are downloaded."].waitForExistence(timeout: 15))
+        capture(app, name: "qa-02r-after-producthub-uninstall-runtime-reclaimed")
+    }
+
+    @MainActor
+    func testUninstallBothGamesThroughProductHub() throws {
+        continueAfterFailure = false
+        let app = try signedInApp()
+        for moduleID in ["digital.modula.orbit-dash", "digital.modula.orbit-phaser"] {
+            let primary = try openProduct(app, moduleID: moduleID)
+            XCTAssertEqual(primary.label, "Open")
+            let scroll = app.scrollViews["module-detail.\(moduleID)"].firstMatch
+            XCTAssertTrue(scroll.waitForExistence(timeout: 10))
+            let uninstall = app.buttons["module.uninstall"].firstMatch
+            for _ in 0..<12 {
+                if uninstall.isHittable { break }
+                scroll.swipeUp()
+            }
+            XCTAssertTrue(uninstall.isHittable)
+            uninstall.tap()
+            let confirm = app.buttons["module.uninstall.confirm"].firstMatch
+            XCTAssertTrue(confirm.waitForExistence(timeout: 10))
+            confirm.tap()
+            let removed = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "label == %@", "Install"), object: primary)
+            XCTAssertEqual(XCTWaiter().wait(for: [removed], timeout: 45), .completed,
+                           "Product Hub did not uninstall \(moduleID)")
+            capture(app, name: "qa-02r-\(moduleID)-account-uninstalled")
+            leaveDetail(app)
+        }
     }
 
     @MainActor
@@ -341,7 +420,7 @@ final class WebGameRegistryUITests: XCTestCase {
     }
 
     @MainActor
-    private func signedInApp() throws -> XCUIApplication {
+    private func signedInApp(forceSignedOut: Bool = false) throws -> XCUIApplication {
         guard let folder = Bundle(for: Self.self).url(forResource: "GameFixtures", withExtension: nil),
               let data = try? Data(contentsOf: folder.appendingPathComponent("qa-account.json")),
               let credentials = try? JSONDecoder().decode(QAAccount.self, from: data) else {
@@ -349,6 +428,7 @@ final class WebGameRegistryUITests: XCTestCase {
         }
         let app = XCUIApplication()
         app.launchArguments = ["--uitest-skip-first-run", "--reset-appearance", "--modula-disable-hang-watchdog"]
+        if forceSignedOut { app.launchArguments.append("--uitest-signed-out") }
         app.launch()
         let login = app.descendants(matching: .any)["auth.login"]
         let home = app.descendants(matching: .any)["native.home"]
@@ -368,7 +448,9 @@ final class WebGameRegistryUITests: XCTestCase {
             password.tap(); password.typeText(credentials.password)
             app.buttons["auth.sign-in"].tap()
         }
-        XCTAssertTrue(app.buttons["Modules"].waitForExistence(timeout: 45), "QA sign-in did not reach Modula tabs")
+        XCTAssertTrue(home.waitForExistence(timeout: 45), "QA sign-in did not reach the authenticated shell")
+        let dismissWhatsNew = app.buttons["Not now"].firstMatch
+        if dismissWhatsNew.waitForExistence(timeout: 8) { dismissWhatsNew.tap() }
         return app
     }
 
@@ -376,15 +458,19 @@ final class WebGameRegistryUITests: XCTestCase {
     private func openProduct(_ app: XCUIApplication, moduleID: String) throws -> XCUIElement {
         let hub = app.descendants(matching: .any)["product-hub"]
         if !hub.exists {
-            // The floating tab bar's SF Symbol can be exposed as a separate
-            // zero-sized accessibility element on the simulator. Tap the
-            // visible Modules slot to exercise the same navigation action.
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.50, dy: 0.93)).tap()
+            let dismissWhatsNew = app.buttons["Not now"].firstMatch
+            if dismissWhatsNew.exists { dismissWhatsNew.tap() }
+            let modules = app.buttons["Modules"].firstMatch
+            XCTAssertTrue(modules.waitForExistence(timeout: 10))
+            modules.tap()
         }
         XCTAssertTrue(hub.waitForExistence(timeout: 20))
+        let dismissWhatsNew = app.buttons["Not now"].firstMatch
+        if dismissWhatsNew.waitForExistence(timeout: 3) { dismissWhatsNew.tap() }
         let card = app.buttons["product.\(moduleID)"].firstMatch
-        for _ in 0..<10 where !card.exists { app.swipeUp() }
-        XCTAssertTrue(card.waitForExistence(timeout: 12), "QA registry product missing: \(moduleID)")
+        for _ in 0..<10 where !card.isHittable { app.swipeUp() }
+        XCTAssertTrue(card.waitForExistence(timeout: 12) && card.isHittable,
+                      "QA registry product is not available on screen: \(moduleID)")
         card.tap()
         let primary = app.buttons["module.primary"].firstMatch
         XCTAssertTrue(primary.waitForExistence(timeout: 10))

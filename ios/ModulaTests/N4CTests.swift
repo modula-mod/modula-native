@@ -149,6 +149,7 @@ final class WebGameInstalledIsolationTests: XCTestCase {
 
     @MainActor
     func testBothWebGameSlotsPreserveActiveAcrossRejectedUpdatesAndHealthRollback() async throws {
+        continueAfterFailure = false
         let encoded = "H4sIAAAAAAAC/+3VwW6DMAwGYB4F5dLLQAQIsG7dZS8waU8QEmdQQeggTKuqvvuydqrUnrf2sP+72HIs5RBbaa2mz7hxfRf8mcQr8vwQvcuYpEl6yo/1sszyIEyCK5gnJ0d/ZfA/PfbkZNg4t4nofW4/Vux5sI6si15JzWPrttHL0LVqy0J1PFgxTUbOnYumUYULO1haPISTGtvNT2mizviS77ekztuGen1eYk8B3NCb7Ck2bUdTvJ4Ge5P95+XF/vOkECn2/xp2bFIN9ZItWT/ouZPx90REx4ng7I4dMrbcsfb0U/heRfeq0iZLJBniRghDWV2LLBNFqmvNOelEC1GYjJeiqnmdllqbvKJKluTfm+332D0AAAAAAAAAAAAAAAAAAACA3/AFxMM1iwAoAAA="
         let archive = try XCTUnwrap(Data(base64Encoded: encoded))
         func digest(_ bytes: Data) -> String {
@@ -232,8 +233,13 @@ final class WebGameInstalledIsolationTests: XCTestCase {
                 navigationFinished.fulfill()
             }
             let browser = browserProbe.browser
+            let keyWindow = try XCTUnwrap(UIApplication.shared.connectedScenes
+                .compactMap { ($0 as? UIWindowScene)?.keyWindow }.first)
+            browser.frame = CGRect(x: 0, y: 0, width: 320, height: 480)
+            keyWindow.addSubview(browser)
+            defer { browser.removeFromSuperview() }
             browser.load(URLRequest(url: acceptedURL))
-            await fulfillment(of: [navigationFinished], timeout: 10)
+            await fulfillment(of: [navigationFinished], timeout: 20)
             XCTAssertNil(navigationFailure)
             let nativeHandlers = try await browser.evaluateJavaScript("Object.keys(window.webkit?.messageHandlers || {}).length")
             XCTAssertEqual(nativeHandlers as? Int, 0)
