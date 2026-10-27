@@ -8,6 +8,7 @@ struct ModuleHost: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ScaledMetric private var textScale: Double = 1
     @State private var session: ModuleSession?
+    @State private var launchTask: Task<Void, Never>?
     #if DEBUG
     @State private var showLifecycleLab = false
     #endif
@@ -134,13 +135,16 @@ struct ModuleHost: View {
                 // Back from a tab switch or a pushed route: same surface, same React state.
                 app.runtime.resume(session)
             } else if session == nil || session?.isValid == false && session?.state != .expired {
-                session = app.runtime.prepare(moduleID: moduleID, environment: appearance, initialLocalPath: initialLocalPath)
+                openSession()
             }
         }
         .onChange(of: appearance) { _, value in if let session { app.runtime.update(value, session: session) } }
         // Hidden ≠ closed: suspend so tab switches and pushed routes keep the module alive.
         // Real teardown happens when the surface is dismantled (ReactNativeViewController.stop).
-        .onDisappear { if let session { app.runtime.suspend(session) } }
+        .onDisappear {
+            launchTask?.cancel()
+            if let session { app.runtime.suspend(session) }
+        }
     }
     /// Native gate states decided before any module JavaScript runs.
     private func gateContent(for session: ModuleSession) -> AnyView? {
@@ -198,7 +202,21 @@ struct ModuleHost: View {
 
     private func reloadSession() {
         if let session { app.runtime.unmount(session) }
-        session = app.runtime.prepare(moduleID: moduleID, environment: appearance, initialLocalPath: initialLocalPath)
+        session = nil
+        openSession()
+    }
+
+    private func openSession() {
+        launchTask?.cancel()
+        guard app.catalogue.isWebGameCached(moduleID) else {
+            session = app.runtime.prepare(moduleID: moduleID, environment: appearance, initialLocalPath: initialLocalPath)
+            return
+        }
+        launchTask = Task { @MainActor in
+            await app.catalogue.refreshRollbackEligibility(for: moduleID)
+            guard !Task.isCancelled else { return }
+            session = app.runtime.prepare(moduleID: moduleID, environment: appearance, initialLocalPath: initialLocalPath)
+        }
     }
 }
 

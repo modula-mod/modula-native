@@ -171,6 +171,9 @@ final class AppEnvironment {
             }
             return .notInstalled
         }
+        runtime.rollbackEligibility = { [weak catalogueStore] id, releaseID in
+            catalogueStore?.isRollbackEligible(moduleID: id, releaseID: releaseID) == true
+        }
         ModulaBridge.shared.navigation = navigation
         let appearanceStore = appearance
         HapticEngine.shared.intensityProvider = { [weak appearanceStore] in appearanceStore?.haptics ?? .standard }

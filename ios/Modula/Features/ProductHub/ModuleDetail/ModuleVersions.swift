@@ -432,6 +432,47 @@ struct PackageInstallPlan: Sendable {
     func package(_ id: String) -> Package? { packages.first { $0.id == id } }
 }
 
+/// Verifies that a cached rollback target still resolves to the same trusted,
+/// unrevoked game and runtime artifacts. GreenField supplies the exact closure;
+/// the host never selects a replacement runtime during recovery.
+enum RollbackPackageClosure {
+    static func isEligible(_ response: JSONValue, for release: ModuleCachedRelease) -> Bool {
+        guard let gameDigest = release.gameSha256, let runtimeDigest = release.runtimeSha256,
+              let lock = response["lock"], lock["schemaVersion"]?.string == "modula.package-lock.1",
+              let lockDigest = response["lockSha256"]?.string,
+              InstallDescriptorVerifier.isHex64(lockDigest), CanonicalJSON.sha256Hex(lock) == lockDigest,
+              lock["requested"]?.array?.compactMap(\.string).contains(release.moduleId) == true,
+              let rows = lock["packages"]?.array, !rows.isEmpty, rows.count <= 128 else { return false }
+        var packages: [String: JSONValue] = [:]
+        for row in rows {
+            guard let id = row["packageId"]?.string, packages[id] == nil,
+                  let digest = row["artifact"]?["sha256"]?.string,
+                  InstallDescriptorVerifier.isHex64(digest),
+                  row["trust"]?["verified"]?.bool == true,
+                  row["trust"]?["publisherVerified"]?.bool == true,
+                  row["trust"]?["revoked"]?.bool == false,
+                  row["signature"]?["algorithm"]?.string == "Ed25519",
+                  row["dependencies"]?.array?.allSatisfy({ $0["packageId"]?.string != nil }) == true else { return false }
+            packages[id] = row
+        }
+        let ids = Set(packages.keys)
+        guard packages.count == 2, packages.values.allSatisfy({ row in
+            Set(row["dependencies"]?.array?.compactMap({ $0["packageId"]?.string }) ?? []).isSubset(of: ids)
+        }), let game = packages[release.moduleId],
+              game["category"]?.string == "game-content",
+              game["version"]?.string == release.version,
+              game["releaseId"]?.string == release.releaseId,
+              game["artifact"]?["sha256"]?.string == gameDigest,
+              game["dependencies"]?.array?.count == 1,
+              let runtimeID = game["dependencies"]?.array?.first(where: {
+                  packages[$0["packageId"]?.string ?? ""]?["category"]?.string == "web-runtime"
+              })?["packageId"]?.string,
+              let runtime = packages[runtimeID], runtime["category"]?.string == "web-runtime",
+              runtime["artifact"]?["sha256"]?.string == runtimeDigest else { return false }
+        return true
+    }
+}
+
 /// Canonical JSON identical to Greenfield's `canonicalJsonStringify`: object keys sorted by
 /// UTF-16 code units, no whitespace, `JSON.stringify` string escaping and number formatting.
 enum CanonicalJSON {

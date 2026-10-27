@@ -86,6 +86,51 @@ final class N4CRouteTests: XCTestCase {
 }
 
 final class WebGameInstalledIsolationTests: XCTestCase {
+    func testRollbackClosureRejectsRevokedGameOrRuntimeAndWrongBytes() {
+        let gameID = "digital.modula.rollback-qa"
+        let runtimeID = "digital.modula.runtime.phaser"
+        let gameDigest = String(repeating: "a", count: 64)
+        let runtimeDigest = String(repeating: "b", count: 64)
+        let release = ModuleCachedRelease(
+            moduleId: gameID, version: "0.1.0", releaseId: "module-release:\(gameID):0.1.0",
+            accountID: "qa-account", frontendSha256: String(repeating: "c", count: 64),
+            frontendMediaType: ProductUIDocument.mediaType, gameSha256: gameDigest,
+            runtimeSha256: runtimeDigest,
+            hostManifest: ModuleManifest(id: gameID, name: "Rollback QA", version: "0.1.0",
+                                         runtime: "web-game", entry: "index.html", permissions: [],
+                                         minHostVersion: ">=1.0.0", minBridgeVersion: "0.1.0", collections: []),
+            descriptor: nil, slot: .previousGood, directory: FileManager.default.temporaryDirectory)
+        func package(_ id: String, category: String, digest: String, revoked: Bool,
+                     dependencies: [String]) -> JSONValue {
+            .object([
+                "packageId": .string(id), "version": .string(id == gameID ? "0.1.0" : "4.2.1"),
+                "releaseId": .string("module-release:\(id):\(id == gameID ? "0.1.0" : "4.2.1")"),
+                "category": .string(category), "artifact": .object(["sha256": .string(digest)]),
+                "trust": .object(["verified": .bool(true), "publisherVerified": .bool(true),
+                                  "revoked": .bool(revoked)]),
+                "signature": .object(["algorithm": .string("Ed25519")]),
+                "dependencies": .array(dependencies.map { .object(["packageId": .string($0)]) }),
+            ])
+        }
+        func plan(gameRevoked: Bool = false, runtimeRevoked: Bool = false,
+                  runtimeBytes: String = runtimeDigest) -> JSONValue {
+            let lock: JSONValue = .object([
+                "schemaVersion": .string("modula.package-lock.1"),
+                "requested": .array([.string(gameID)]),
+                "packages": .array([
+                    package(gameID, category: "game-content", digest: gameDigest,
+                            revoked: gameRevoked, dependencies: [runtimeID]),
+                    package(runtimeID, category: "web-runtime", digest: runtimeBytes,
+                            revoked: runtimeRevoked, dependencies: []),
+                ]),
+            ])
+            return .object(["lock": lock, "lockSha256": .string(CanonicalJSON.sha256Hex(lock))])
+        }
+        XCTAssertTrue(RollbackPackageClosure.isEligible(plan(), for: release))
+        XCTAssertFalse(RollbackPackageClosure.isEligible(plan(gameRevoked: true), for: release))
+        XCTAssertFalse(RollbackPackageClosure.isEligible(plan(runtimeRevoked: true), for: release))
+        XCTAssertFalse(RollbackPackageClosure.isEligible(plan(runtimeBytes: String(repeating: "d", count: 64)), for: release))
+    }
     func testPinnedRegistryArtifactUsesConfiguredOriginAcrossQANetworks() throws {
         let digest = String(repeating: "a", count: 64)
         let base = try XCTUnwrap(URL(string: "https://192.168.4.38:8443"))
@@ -491,7 +536,13 @@ final class WebGameInstalledIsolationTests: XCTestCase {
         runtime.setAccount(account)
         runtime.activation = activation
         runtime.installationGate = { _ in .runnable(descriptor: nil) }
+        runtime.rollbackEligibility = { _, _ in false }
         let environment = ModuleEnvironment(colorScheme: "light", oled: false, reduceMotion: false, textScale: 1)
+        let denied = try XCTUnwrap(runtime.prepare(moduleID: id, environment: environment))
+        XCTAssertEqual(denied.state, .integrityFailed)
+        XCTAssertEqual(activation.active(accountID: account, moduleId: id)?.releaseId, latest.releaseId,
+                       "An ineligible PREVIOUS_GOOD must never be made ACTIVE")
+        runtime.rollbackEligibility = { _, _ in true }
         let recovered = try XCTUnwrap(runtime.prepare(moduleID: id, environment: environment))
         XCTAssertEqual(recovered.state, .ready)
         XCTAssertEqual(recovered.cachedRelease?.version, "0.1.0")

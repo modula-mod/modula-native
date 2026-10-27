@@ -39,6 +39,9 @@ final class ProductHubStore {
     /// Online launch eligibility is exact-release and account-scoped. Offline
     /// launches use the previously verified cache only when catalogue load fails.
     private var eligibleGameReleases: [String: String] = [:]
+    /// A PREVIOUS_GOOD game may run only while its exact signed package closure
+    /// remains trusted by GreenField for this account.
+    private var eligibleRollbackReleases: [String: String] = [:]
     private(set) var loading = false
     private(set) var loaded = false
     var error: String?
@@ -156,9 +159,38 @@ final class ProductHubStore {
         packagePlans = [:]
         installations = [:]
         eligibleGameReleases = [:]
+        eligibleRollbackReleases = [:]
     }
 
     func product(_ id: String) -> CatalogueProduct? { products.first { $0.moduleId == id } }
+
+    func isWebGameCached(_ id: String) -> Bool {
+        activation?.active(accountID: accountID, moduleId: id)?.hostManifest.runtime == "web-game"
+    }
+
+    func isRollbackEligible(moduleID: String, releaseID: String) -> Bool {
+        eligibleRollbackReleases[moduleID] == releaseID
+    }
+
+    /// A prior result cannot authorize a later rollback. Recheck the exact
+    /// signed closure at launch; an unavailable registry leaves rollback closed.
+    func refreshRollbackEligibility(for id: String) async {
+        eligibleRollbackReleases[id] = nil
+        guard loaded, let accountID, let activation,
+              installations[id]?.isRunnable == true,
+              eligibleGameReleases[id] != nil,
+              let active = activation.active(accountID: accountID, moduleId: id) else { return }
+        let candidate = active.version == installations[id]?.version
+            ? activation.store.release(in: .previousGood, accountID: accountID, moduleId: id)
+            : active
+        guard let candidate, candidate.accountID == accountID,
+              candidate.releaseId != eligibleGameReleases[id],
+              candidate.hostManifest.runtime == "web-game",
+              (try? activation.store.verifiedGameEntry(for: candidate)) != nil,
+              await trustedPackageClosure(for: candidate),
+              self.accountID == accountID else { return }
+        eligibleRollbackReleases[id] = candidate.releaseId
+    }
 
     /// Whether `/module/<id>` may open for this account. Before the catalogue has loaded
     /// (offline launch) the host can't decide and defers to the backend, which still
@@ -166,10 +198,17 @@ final class ProductHubStore {
     func installGate(for id: String) -> ModuleInstallGate {
         if let cached = activation?.active(accountID: accountID, moduleId: id) {
             if loaded, product(id)?.betaClassification != "local-development" {
-                guard let installation = installations[id], installation.isRunnable,
-                      installation.version == cached.version else { return .notInstalled }
-                if product(id)?.productKind == "game",
-                   eligibleGameReleases[id] != cached.releaseId { return .notInstalled }
+                guard let installation = installations[id], installation.isRunnable else { return .notInstalled }
+                if product(id)?.productKind == "game" {
+                    let eligible = installation.version == cached.version
+                        ? eligibleGameReleases[id] : eligibleRollbackReleases[id]
+                    guard eligible == cached.releaseId else { return .notInstalled }
+                    if installation.version != cached.version {
+                        return .runnable(descriptor: cached.descriptor)
+                    }
+                } else if installation.version != cached.version {
+                    return .notInstalled
+                }
             }
             return .runnable(descriptor: verifiedDescriptors[id] ?? cached.descriptor)
         }
@@ -197,6 +236,7 @@ final class ProductHubStore {
 
     private func refreshGameEligibility() async {
         eligibleGameReleases = [:]
+        eligibleRollbackReleases = [:]
         for product in products where product.productKind == "game" && product.betaClassification != "local-development" {
             guard installations[product.moduleId]?.isRunnable == true,
                   let descriptor = try? await client.installedDistributionDescriptor(product.moduleId),
@@ -207,8 +247,31 @@ final class ProductHubStore {
                   let releaseID = descriptor["currentRelease"]?["releaseId"]?.string,
                   descriptor["permissionReview"]?["releaseId"]?.string == releaseID,
                   descriptor["permissionReview"]?["status"]?.string == "approved" else { continue }
+            let active = activation?.active(accountID: accountID, moduleId: product.moduleId)
+            if let active, active.releaseId == releaseID,
+               !(await trustedPackageClosure(for: active)) { continue }
             eligibleGameReleases[product.moduleId] = releaseID
+            guard let accountID, let activation else { continue }
+            let candidate = active?.version == installations[product.moduleId]?.version
+                ? activation.store.release(in: .previousGood, accountID: accountID, moduleId: product.moduleId)
+                : active
+            guard let candidate, candidate.accountID == accountID,
+                  candidate.releaseId != releaseID,
+                  candidate.hostManifest.runtime == "web-game",
+                  (try? activation.store.verifiedGameEntry(for: candidate)) != nil else { continue }
+            guard await trustedPackageClosure(for: candidate) else { continue }
+            eligibleRollbackReleases[product.moduleId] = candidate.releaseId
         }
+    }
+
+    private func trustedPackageClosure(for release: ModuleCachedRelease) async -> Bool {
+        let body: JSONValue = .object([
+            "platform": .string("ios"), "hostVersion": .string(ModulaHost.version),
+            "version": .string(release.version), "cachedPublicDigests": .array([]),
+        ])
+        guard let plan = try? await client.authenticatedJSON(
+            "POST", path: "/v1/modules/\(release.moduleId)/package-install-plan", body: body) else { return false }
+        return RollbackPackageClosure.isEligible(plan, for: release)
     }
 
     /// Installed modules belong to the signed-in account. Signed out (or the session was

@@ -49,6 +49,9 @@ final class ModuleRuntimeController {
     private(set) var lastRejectedAction: String?
     /// Injected by AppEnvironment from Product Hub. nil (unit tests, previews) skips the gate.
     var installationGate: ((String) -> ModuleInstallGate)?
+    /// The account's exact rollback closure must be freshly approved before
+    /// PREVIOUS_GOOD is made ACTIVE. Missing approval fails closed.
+    var rollbackEligibility: ((String, String) -> Bool)?
     var activation: ModuleActivationController?
     var productUIRecordSource: ((String, String) -> [ProductUIRecord])?
     var now: () -> Date = Date.init
@@ -121,6 +124,7 @@ final class ModuleRuntimeController {
                 if recoverCorruptGame, let accountID, let activation,
                    let previous = activation.store.release(in: .previousGood, accountID: accountID, moduleId: moduleID),
                    previous.hostManifest.runtime == "web-game",
+                   rollbackEligibility?(moduleID, previous.releaseId) == true,
                    trustedPreviousGame(previous, moduleID: moduleID),
                    ModuleCompatibility.evaluate(previous.hostManifest,
                                                 hostVersions: ModuleCompatibility.advertisedHostVersions,
