@@ -133,6 +133,53 @@ final class WebGameRegistryUITests: XCTestCase {
     }
 
     @MainActor
+    func testPrepareDashRollbackForRevocationQA() throws {
+        guard let folder = Bundle(for: Self.self).url(forResource: "GameFixtures", withExtension: nil),
+              FileManager.default.fileExists(atPath: folder.appendingPathComponent("revocation-qa.enabled").path)
+        else { throw XCTSkip("Run only against the isolated revocation QA clone") }
+        let app = try signedInApp()
+        let dash = try openProduct(app, moduleID: "digital.modula.orbit-dash")
+        XCTAssertEqual(dash.label, "Update")
+        dash.tap()
+        let confirm = app.buttons["module.version-switch.confirm"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 20))
+        XCTAssertTrue(app.staticTexts["Download plan"].waitForExistence(timeout: 20))
+        confirm.tap()
+        waitForOpen(dash, title: "Orbit Dash 0.1.1")
+        let earlier = app.buttons["module.version.0.1.0.action"].firstMatch
+        let detailScroll = app.scrollViews.containing(.any, identifier: "module.versions").firstMatch
+        XCTAssertTrue(detailScroll.waitForExistence(timeout: 10))
+        for _ in 0..<10 where !earlier.isHittable || earlier.frame.maxY > app.frame.height * 0.60 {
+            detailScroll.swipeUp()
+        }
+        XCTAssertTrue(earlier.waitForExistence(timeout: 15) && earlier.isHittable)
+        earlier.tap()
+        XCTAssertTrue(confirm.waitForExistence(timeout: 20))
+        XCTAssertTrue(app.staticTexts["Download plan"].waitForExistence(timeout: 20))
+        confirm.tap()
+        let updateReady = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", "Update"), object: dash)
+        XCTAssertEqual(XCTWaiter().wait(for: [updateReady], timeout: 90), .completed,
+                       "Orbit Dash 0.1.0 did not activate")
+    }
+
+    @MainActor
+    func testRevokedPreviousDashFailsClosed() throws {
+        guard let folder = Bundle(for: Self.self).url(forResource: "GameFixtures", withExtension: nil),
+              FileManager.default.fileExists(atPath: folder.appendingPathComponent("revocation-qa.enabled").path)
+        else { throw XCTSkip("Run only against the isolated revocation QA clone") }
+        let app = try signedInApp()
+        let dash = try openProduct(app, moduleID: "digital.modula.orbit-dash")
+        let launch = dash.label == "Open" ? dash : app.buttons["module.open"].firstMatch
+        XCTAssertTrue(launch.waitForExistence(timeout: 10))
+        launch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["module.host.integrityFailed"].waitForExistence(timeout: 25),
+                      "A revoked PREVIOUS_GOOD release must never start after ACTIVE corruption")
+        XCTAssertFalse(app.buttons["game.host.exit"].exists)
+        capture(app, name: "qa-02r-revoked-previous-failed-closed")
+    }
+
+    @MainActor
     func testCaptureLivePackageStorage() throws {
         continueAfterFailure = false
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
