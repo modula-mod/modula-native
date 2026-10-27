@@ -202,7 +202,7 @@ final class ProductHubStore {
                 if product(id)?.productKind == "game" {
                     let eligible = installation.version == cached.version
                         ? eligibleGameReleases[id] : eligibleRollbackReleases[id]
-                    guard eligible == cached.releaseId else { return .notInstalled }
+                    guard eligible == cached.releaseId else { return .untrustedRelease }
                     if installation.version != cached.version {
                         return .runnable(descriptor: cached.descriptor)
                     }
