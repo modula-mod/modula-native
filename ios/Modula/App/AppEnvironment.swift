@@ -311,6 +311,12 @@ final class AppEnvironment {
             appLockEnabled: appLock.enabled,
             appLockRequiresUnlock: appLock.requiresUnlock
         )
+        if gate.state == .ready, navigation.path(for: .home).contains(where: { route in
+            if case .auth = route { return true }
+            return false
+        }) {
+            navigation.home()
+        }
         if gate.state == .ready, let pending = gate.takePendingDestination() {
             navigation.open(pending == .boot ? .home(.following) : pending)
         }

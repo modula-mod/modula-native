@@ -181,6 +181,7 @@ struct PasswordResetRequestResult: Codable, Sendable {
 actor GreenfieldClient {
     private let baseURL: URL?
     private let transport: URLSession
+    private let artifactTransport: URLSession
     private let keychain: KeychainStore
     private let offlineAccountKeychain: KeychainStore
     private var tokens: SessionTokens?
@@ -202,6 +203,15 @@ actor GreenfieldClient {
         self.offlineAccountKeychain = KeychainStore(namespace: (baseURL?.absoluteString ?? "unconfigured") + "|offline-account")
         self.baseURL = baseURL
         self.transport = transport
+        if transport === URLSession.shared {
+            let configuration = URLSessionConfiguration.ephemeral
+            configuration.urlCache = nil
+            configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+            self.artifactTransport = URLSession(configuration: configuration)
+        } else {
+            // Preserve injected transports, including the isolated-network test session.
+            self.artifactTransport = transport
+        }
     }
 
     func restore() async throws -> GreenfieldAccount? {
@@ -302,13 +312,31 @@ actor GreenfieldClient {
 
     /// Lifecycle mutations. All are idempotent on the server via `idempotencyKey`, so the
     /// single 401-refresh retry in `authenticated` cannot double-apply them.
-    func installModule(_ moduleID: String, version: String?, approvedPermissions: [String], idempotencyKey: String) async throws -> String? {
+    func installModule(_ moduleID: String, version: String?, approvedPermissions: [String], idempotencyKey: String,
+                       packageLockSha256: String? = nil, cachedPublicDigests: [String] = []) async throws -> String? {
         guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
         var body: [String: JSONValue] = ["platform": .string("ios"), "hostVersion": .string(ModulaHost.version), "idempotencyKey": .string(idempotencyKey)]
         if let version { body["version"] = .string(version) }
+        if let packageLockSha256 {
+            guard InstallDescriptorVerifier.isHex64(packageLockSha256) else { throw APIError.invalidResponse }
+            body["packageLockSha256"] = .string(packageLockSha256)
+            body["cachedPublicDigests"] = .array(cachedPublicDigests.map(JSONValue.string))
+        }
         if !approvedPermissions.isEmpty { body["approvedPermissions"] = .array(approvedPermissions.map(JSONValue.string)) }
         let value: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/install", body: .object(body))
         return value["status"]?.string
+    }
+
+    func packageInstallPlan(_ moduleID: String, version: String?, cachedPublicDigests: [String]) async throws -> PackageInstallPlan {
+        guard let path = Self.modulePath(moduleID), cachedPublicDigests.allSatisfy(InstallDescriptorVerifier.isHex64) else {
+            throw APIError.invalidResponse
+        }
+        var body: [String: JSONValue] = ["platform": .string("ios"), "hostVersion": .string(ModulaHost.version),
+                                         "cachedPublicDigests": .array(cachedPublicDigests.map(JSONValue.string))]
+        if let version { body["version"] = .string(version) }
+        let value: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/package-install-plan", body: .object(body))
+        guard let plan = PackageInstallPlan(json: value, requested: moduleID) else { throw APIError.invalidResponse }
+        return plan
     }
 
     func enableModule(_ moduleID: String, idempotencyKey: String) async throws {
@@ -370,16 +398,24 @@ actor GreenfieldClient {
 
     /// Switches an installation to an exact registry version (upgrade or downgrade). Returns
     /// the target release's install descriptor issued with the transition.
-    func switchModuleVersion(_ moduleID: String, version: String, approvedPermissions: [String], acknowledgeDowngradeRisk: Bool, idempotencyKey: String) async throws -> ModuleInstallDescriptor? {
+    func switchModuleVersion(_ moduleID: String, version: String, approvedPermissions: [String], acknowledgeDowngradeRisk: Bool, idempotencyKey: String,
+                             packageLockSha256: String? = nil, cachedPublicDigests: [String] = []) async throws -> ModuleInstallDescriptor? {
         guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
-        let value: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/update", body: .object([
+        var body: [String: JSONValue] = [
             "version": .string(version),
             "platform": .string("ios"),
             "hostVersion": .string(ModulaHost.version),
             "approvedPermissions": .array(approvedPermissions.map(JSONValue.string)),
             "acknowledgeDowngradeRisk": .bool(acknowledgeDowngradeRisk),
             "idempotencyKey": .string(idempotencyKey),
-        ]))
+        ]
+        if let packageLockSha256 {
+            guard InstallDescriptorVerifier.isHex64(packageLockSha256),
+                  cachedPublicDigests.allSatisfy(InstallDescriptorVerifier.isHex64) else { throw APIError.invalidResponse }
+            body["packageLockSha256"] = .string(packageLockSha256)
+            body["cachedPublicDigests"] = .array(cachedPublicDigests.map(JSONValue.string))
+        }
+        let value: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/update", body: .object(body))
         return value["descriptor"].flatMap(ModuleInstallDescriptor.init(json:))
     }
 
@@ -411,18 +447,33 @@ actor GreenfieldClient {
 
     /// Downloads an immutable registry artifact and requires the expected SHA-256.
     func downloadVerifiedArtifact(ref: String, expectedSha256: String, maximumBytes: Int = 1_048_576) async throws -> Data {
-        let url: URL
-        if ref.hasPrefix("/"), let baseURL, let resolved = URL(string: ref, relativeTo: baseURL)?.absoluteURL {
-            url = resolved
-        } else if let parsed = URL(string: ref) {
-            url = parsed
-        } else {
-            throw APIError.invalidResponse
-        }
-        let data = try await mediaData(from: url, maximumBytes: maximumBytes)
+        guard InstallDescriptorVerifier.isHex64(expectedSha256) else { throw APIError.invalidResponse }
+        guard let baseURL else { throw APIError.invalidResponse }
+        let url = try Self.registryArtifactURL(ref: ref, expectedSha256: expectedSha256, baseURL: baseURL)
+        var request = try await mediaRequest(for: url)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.allowsCellularAccess = UserDefaults.standard.bool(forKey: "settings.downloads.allowCellular")
+        let (data, response) = try await artifactTransport.data(for: request)
+        guard let http = response as? HTTPURLResponse,
+              (200...299).contains(http.statusCode),
+              data.count <= maximumBytes else { throw APIError.invalidResponse }
         let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
         guard digest == expectedSha256 else { throw APIError.invalidResponse }
         return data
+    }
+
+    /// Package locks may contain the registry's internal public URL. Fetch the
+    /// pinned artifact from this app's configured GreenField origin instead.
+    nonisolated static func registryArtifactURL(ref: String, expectedSha256: String, baseURL: URL) throws -> URL {
+        let path = "/v1/registry/artifacts/\(expectedSha256)"
+        guard InstallDescriptorVerifier.isHex64(expectedSha256), baseURL.scheme == "https",
+              baseURL.user == nil, baseURL.password == nil,
+              let declared = URL(string: ref, relativeTo: baseURL)?.absoluteURL,
+              declared.scheme == "https", declared.user == nil, declared.password == nil,
+              declared.path == path, declared.query == nil, declared.fragment == nil,
+              let local = URL(string: path, relativeTo: baseURL)?.absoluteURL,
+              local.host == baseURL.host, local.port == baseURL.port else { throw APIError.invalidResponse }
+        return local
     }
 
     /// Uninstall keeps the account's module data so a reinstall restores it.
@@ -518,8 +569,10 @@ actor GreenfieldClient {
     /// Loads media through the same authenticated session as JSON requests. Greenfield
     /// attachment URLs are deliberately protected; raw `AsyncImage`/`URLSession.shared`
     /// requests cannot satisfy that contract for private or owner-only content.
-    func mediaData(from url: URL, maximumBytes: Int = 32_000_000) async throws -> Data {
-        let request = try await mediaRequest(for: url)
+    func mediaData(from url: URL, maximumBytes: Int = 32_000_000,
+                   allowsCellularAccess: Bool? = nil) async throws -> Data {
+        var request = try await mediaRequest(for: url)
+        if let allowsCellularAccess { request.allowsCellularAccess = allowsCellularAccess }
         let (data, response) = try await transport.data(for: request)
         guard let http = response as? HTTPURLResponse,
               (200...299).contains(http.statusCode),

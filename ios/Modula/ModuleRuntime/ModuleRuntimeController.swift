@@ -12,6 +12,7 @@ enum ModuleInstallGate: Equatable, Sendable {
     /// store holds one (Product Hub version switching), used for the integrity check.
     case runnable(descriptor: ModuleInstallDescriptor?)
     case notInstalled
+    case untrustedRelease
 }
 
 @MainActor @Observable
@@ -106,6 +107,9 @@ final class ModuleRuntimeController {
         }
         if gate == .notInstalled {
             return blocked(session, .notInstalled, "\(manifest.name) isn’t installed on your account. Install it from Product Hub to open it.")
+        }
+        if gate == .untrustedRelease {
+            return blocked(session, .integrityFailed, "\(manifest.name) has no trusted installation plan for this release, so it wasn’t opened.")
         }
         if let descriptor, ModuleReleaseVerifier.verify(moduleID: moduleID, bundledManifest: manifestJSON[moduleID], descriptor: descriptor) != nil {
             return blocked(session, .integrityFailed, "\(manifest.name) didn’t pass its integrity check, so it wasn’t opened.")

@@ -189,6 +189,8 @@ struct SettingsView: View {
                         TelegramDivider()
                         TelegramRow(title: "Data and Storage", symbol: "internaldrive.fill", tint: .green) { app.navigation.open(.settings(.dataStorage(.root))) }
                         TelegramDivider()
+                        TelegramRow(title: "Storage & Downloads", symbol: "square.stack.3d.up.fill", tint: .green) { app.navigation.open(.settings(.dataStorage(.packages))) }
+                        TelegramDivider()
                         TelegramRow(title: "Appearance", symbol: "paintbrush.fill", tint: .cyan, value: themeValue) { app.navigation.open(.settings(.appearance(.root))) }
                         TelegramDivider()
                         TelegramRow(title: "Power Saving", symbol: "battery.100.bolt", tint: .orange, value: dataSaver ? "On" : "Off") { app.navigation.open(.settings(.battery(.root))) }
