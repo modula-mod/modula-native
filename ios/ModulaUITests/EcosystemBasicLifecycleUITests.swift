@@ -45,6 +45,11 @@ final class WebGameRegistryUITests: XCTestCase {
             let primary = try openProduct(app, moduleID: moduleID)
             XCTAssertEqual(primary.label, "Open", "Cached game is not installed: \(moduleID)")
             primary.tap()
+            let download = app.buttons["module.download.confirm"].firstMatch
+            if download.waitForExistence(timeout: 5) {
+                XCTAssertTrue(app.staticTexts["Download plan"].exists)
+                download.tap()
+            }
             XCTAssertTrue(app.buttons["game.host.exit"].waitForExistence(timeout: 25))
             let web = app.webViews.firstMatch
             XCTAssertTrue(web.waitForExistence(timeout: 15))
@@ -434,10 +439,13 @@ final class WebGameRegistryUITests: XCTestCase {
         app.launchArguments = ["--uitest-skip-first-run", "--reset-appearance", "--modula-disable-hang-watchdog"]
         if forceSignedOut { app.launchArguments.append("--uitest-signed-out") }
         app.launch()
+        let cancelProfileEdit = app.buttons["profile.edit.cancel"].firstMatch
+        if cancelProfileEdit.waitForExistence(timeout: 3) { cancelProfileEdit.tap() }
         let login = app.descendants(matching: .any)["auth.login"]
         let home = app.descendants(matching: .any)["native.home"]
+        let modulesTab = app.buttons["Modules"].firstMatch
         let deadline = Date().addingTimeInterval(50)
-        while Date() < deadline && !login.exists && !home.exists {
+        while Date() < deadline && !login.exists && !home.exists && !modulesTab.exists {
             let landing = app.descendants(matching: .any)["onboarding.landing.continue"]
             if landing.exists { landing.tap() }
             let skip = app.buttons["onboarding.skip"].firstMatch
@@ -452,7 +460,8 @@ final class WebGameRegistryUITests: XCTestCase {
             password.tap(); password.typeText(credentials.password)
             app.buttons["auth.sign-in"].tap()
         }
-        XCTAssertTrue(home.waitForExistence(timeout: 45), "QA sign-in did not reach the authenticated shell")
+        XCTAssertTrue(home.waitForExistence(timeout: 8) || modulesTab.waitForExistence(timeout: 8),
+                      "QA sign-in did not reach the authenticated shell")
         let dismissWhatsNew = app.buttons["Not now"].firstMatch
         if dismissWhatsNew.waitForExistence(timeout: 8) { dismissWhatsNew.tap() }
         return app

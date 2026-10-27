@@ -448,18 +448,8 @@ actor GreenfieldClient {
     /// Downloads an immutable registry artifact and requires the expected SHA-256.
     func downloadVerifiedArtifact(ref: String, expectedSha256: String, maximumBytes: Int = 1_048_576) async throws -> Data {
         guard InstallDescriptorVerifier.isHex64(expectedSha256) else { throw APIError.invalidResponse }
-        let url: URL
-        if ref.hasPrefix("/"), let baseURL, let resolved = URL(string: ref, relativeTo: baseURL)?.absoluteURL {
-            url = resolved
-        } else if let parsed = URL(string: ref) {
-            url = parsed
-        } else {
-            throw APIError.invalidResponse
-        }
-        guard let baseURL, url.scheme == "https", url.host == baseURL.host,
-              url.port == baseURL.port, url.user == nil, url.password == nil,
-              url.path == "/v1/registry/artifacts/\(expectedSha256)",
-              url.query == nil, url.fragment == nil else { throw APIError.invalidResponse }
+        guard let baseURL else { throw APIError.invalidResponse }
+        let url = try Self.registryArtifactURL(ref: ref, expectedSha256: expectedSha256, baseURL: baseURL)
         var request = try await mediaRequest(for: url)
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.allowsCellularAccess = UserDefaults.standard.bool(forKey: "settings.downloads.allowCellular")
@@ -470,6 +460,20 @@ actor GreenfieldClient {
         let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
         guard digest == expectedSha256 else { throw APIError.invalidResponse }
         return data
+    }
+
+    /// Package locks may contain the registry's internal public URL. Fetch the
+    /// pinned artifact from this app's configured GreenField origin instead.
+    nonisolated static func registryArtifactURL(ref: String, expectedSha256: String, baseURL: URL) throws -> URL {
+        let path = "/v1/registry/artifacts/\(expectedSha256)"
+        guard InstallDescriptorVerifier.isHex64(expectedSha256), baseURL.scheme == "https",
+              baseURL.user == nil, baseURL.password == nil,
+              let declared = URL(string: ref, relativeTo: baseURL)?.absoluteURL,
+              declared.scheme == "https", declared.user == nil, declared.password == nil,
+              declared.path == path, declared.query == nil, declared.fragment == nil,
+              let local = URL(string: path, relativeTo: baseURL)?.absoluteURL,
+              local.host == baseURL.host, local.port == baseURL.port else { throw APIError.invalidResponse }
+        return local
     }
 
     /// Uninstall keeps the account's module data so a reinstall restores it.

@@ -695,6 +695,7 @@ final class ProductHubStore {
                         maximumBytes: WebGamePackage.maximumCompressedBytes)
                 }
             } catch {
+                ModulaLog.network.error("Shared runtime artifact download failed: \(String(reflecting: error), privacy: .public)")
                 lifecycleErrors[id] = "The verified shared runtime could not be downloaded."
                 return
             }

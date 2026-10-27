@@ -86,6 +86,18 @@ final class N4CRouteTests: XCTestCase {
 }
 
 final class WebGameInstalledIsolationTests: XCTestCase {
+    func testPinnedRegistryArtifactUsesConfiguredOriginAcrossQANetworks() throws {
+        let digest = String(repeating: "a", count: 64)
+        let base = try XCTUnwrap(URL(string: "https://192.168.4.38:8443"))
+        let internalRef = "https://127.0.0.1:8443/v1/registry/artifacts/\(digest)"
+        let url = try GreenfieldClient.registryArtifactURL(ref: internalRef, expectedSha256: digest, baseURL: base)
+        XCTAssertEqual(url.absoluteString, "https://192.168.4.38:8443/v1/registry/artifacts/\(digest)")
+        XCTAssertThrowsError(try GreenfieldClient.registryArtifactURL(
+            ref: "https://127.0.0.1:8443/v1/registry/artifacts/\(String(repeating: "b", count: 64))",
+            expectedSha256: digest, baseURL: base))
+        XCTAssertThrowsError(try GreenfieldClient.registryArtifactURL(
+            ref: internalRef + "?token=leak", expectedSha256: digest, baseURL: base))
+    }
     @MainActor
     func testSharedRuntimeHasOneVerifiedCopyAndSurvivesUntilLastGameIsRemoved() throws {
         let gameEncoded = "H4sIAAAAAAAC/+3VwW6DMAwGYB4F5dLLQAQIsG7dZS8waU8QEmdQQeggTKuqvvuydqrUnrf2sP+72HIs5RBbaa2mz7hxfRf8mcQr8vwQvcuYpEl6yo/1sszyIEyCK5gnJ0d/ZfA/PfbkZNg4t4nofW4/Vux5sI6si15JzWPrttHL0LVqy0J1PFgxTUbOnYumUYULO1haPISTGtvNT2mizviS77ekztuGen1eYk8B3NCb7Ck2bUdTvJ4Ge5P95+XF/vOkECn2/xp2bFIN9ZItWT/ouZPx90REx4ng7I4dMrbcsfb0U/heRfeq0iZLJBniRghDWV2LLBNFqmvNOelEC1GYjJeiqnmdllqbvKJKluTfm+332D0AAAAAAAAAAAAAAAAAAACA3/AFxMM1iwAoAAA="
