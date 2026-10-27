@@ -90,6 +90,10 @@ final class WebGameRegistryUITests: XCTestCase {
                 predicate: NSPredicate(format: "label == %@", "Update"), object: dash)
             XCTAssertEqual(XCTWaiter().wait(for: [updateReady], timeout: 45), .completed,
                            "Orbit Dash 0.1.0 did not activate")
+            let reviewDismissed = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "exists == false"), object: downgrade)
+            XCTAssertEqual(XCTWaiter().wait(for: [reviewDismissed], timeout: 15), .completed,
+                           "The previous version review is still covering Product Hub")
             capture(app, name: "qa-02r-orbit-dash-0.1.0-active")
         }
         XCTAssertEqual(dash.label, "Update")
