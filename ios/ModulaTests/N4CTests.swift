@@ -434,6 +434,53 @@ final class WebGameInstalledIsolationTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testCorruptActiveRegistryGameRestoresVerifiedPreviousRelease() throws {
+        let id = "digital.modula.qa-rollback-game"
+        let account = "qa-rollback-account"
+        let archive = try XCTUnwrap(Data(base64Encoded:
+            "H4sIAAAAAAAC/+3VwW6DMAwGYB4F5dLLQAQIsG7dZS8waU8QEmdQQeggTKuqvvuydqrUnrf2sP+72HIs5RBbaa2mz7hxfRf8mcQr8vwQvcuYpEl6yo/1sszyIEyCK5gnJ0d/ZfA/PfbkZNg4t4nofW4/Vux5sI6si15JzWPrttHL0LVqy0J1PFgxTUbOnYumUYULO1haPISTGtvNT2mizviS77ekztuGen1eYk8B3NCb7Ck2bUdTvJ4Ge5P95+XF/vOkECn2/xp2bFIN9ZItWT/ouZPx90REx4ng7I4dMrbcsfb0U/heRfeq0iZLJBniRghDWV2LLBNFqmvNOelEC1GYjJeiqnmdllqbvKJKluTfm+332D0AAAAAAAAAAAAAAAAAAACA3/AFxMM1iwAoAAA="
+        ))
+        let runtimeArchive = try XCTUnwrap(Data(base64Encoded:
+            "H4sIAAAAAAAC/+3VyUrFMBQG4K59ipK1lsSkQ+rTZDi5gx0uTQtC6bsbqii6FbvQ/4NwDiGQzfkTGk6XgYr+GrNfw5NKqb0m3yvnsv7s9/26fiyznGcHWOJspnRl9j/Ry22c5txTMEs352s8m4l8m8/TQtvTXQZ/2824Z3OiIlw6isU1jsPx+Rd1+TX/Qsj0JCD/B1hZdGfqDWtZP/qlM8X7RDy8TYRg92zvWLsy+vgs0nErtVBEwYdANnBZUSO5MyS1Ii+oUrJxkishRKUbl5YVWnJjdalqbblh24b4AQAAAAAAAAAAAAAAAAAAAPzYK/FtDLwAKAAA"
+        ))
+        func digest(_ bytes: Data) -> String {
+            SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+        }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("qa-game-recovery-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let activation = ModuleActivationController(store: ModuleArtifactStore(root: root))
+        for (index, version) in ["0.1.0", "0.1.1"].enumerated() {
+            let frontend = Data("""
+                {"schema":"modula.frontend.1.0","frontendSchemaVersion":"1.0.0","mpsVersion":"1.0","productId":"\(id)","releaseVersion":"\(version)","mode":"declarative","entry":"home","hostRuntime":{"versionRange":">=1.0.0"},"routes":[{"path":"/","viewId":"home"}],"views":[{"id":"home","kind":"dashboard","root":{"type":"section","children":[{"type":"text","text":"Ready"}]}}],"accessibility":{"declaration":"host-baseline-with-product-semantics","screenReader":true,"scalableText":true,"keyboardNavigation":true,"reduceMotion":true}}
+                """.utf8)
+            let manifest = ModuleManifest(id: id, name: "QA rollback game", version: version,
+                                          runtime: "web-game", entry: "index.html", permissions: [],
+                                          minHostVersion: ">=1.0.0", minBridgeVersion: "0.1.0", collections: [])
+            try activation.stageVerified(accountID: account, moduleId: id, version: version,
+                                         releaseId: "module-release:\(id):\(version)", frontend: frontend,
+                                         frontendSha256: digest(frontend), mediaType: ProductUIDocument.mediaType,
+                                         hostManifest: manifest, descriptor: nil,
+                                         gameArchive: archive, gameSha256: digest(archive),
+                                         runtimeArchive: index == 0 ? runtimeArchive : nil,
+                                         runtimeSha256: digest(runtimeArchive))
+            _ = try activation.activate(accountID: account, moduleId: id)
+        }
+        let latest = try XCTUnwrap(activation.active(accountID: account, moduleId: id))
+        try Data("corrupt downloaded game".utf8).write(
+            to: latest.directory.appendingPathComponent("game.tgz"), options: .atomic)
+        let runtime = ModuleRuntimeController(manifests: [])
+        runtime.setAccount(account)
+        runtime.activation = activation
+        runtime.installationGate = { _ in .runnable(descriptor: nil) }
+        let environment = ModuleEnvironment(colorScheme: "light", oled: false, reduceMotion: false, textScale: 1)
+        let recovered = try XCTUnwrap(runtime.prepare(moduleID: id, environment: environment))
+        XCTAssertEqual(recovered.state, .ready)
+        XCTAssertEqual(recovered.cachedRelease?.version, "0.1.0")
+        XCTAssertEqual(activation.lastRollbackReason, "active-game-integrity")
+        XCTAssertNoThrow(try activation.store.verifiedGameEntry(for: XCTUnwrap(activation.active(accountID: account, moduleId: id))))
+    }
+
     func testArchiveRejectsTraversalLinksNativePayloadAndIncompleteBytes() throws {
         // Tiny deterministic ustar/gzip fixtures exercise the real archive parser.
         let archives = [
