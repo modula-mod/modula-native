@@ -101,7 +101,7 @@ final class ModuleRuntimeController {
         case .moduleOutdated:
             return blocked(session, .updateRequired, "This version of \(manifest.name) is too old for this app. Update it in Product Hub.")
         }
-        if gate == .notInstalled && cached == nil {
+        if gate == .notInstalled {
             return blocked(session, .notInstalled, "\(manifest.name) isn’t installed on your account. Install it from Product Hub to open it.")
         }
         if let descriptor, ModuleReleaseVerifier.verify(moduleID: moduleID, bundledManifest: manifestJSON[moduleID], descriptor: descriptor) != nil {
