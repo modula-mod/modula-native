@@ -1,6 +1,236 @@
 import CryptoKit
 import XCTest
 
+/// Opt-in live QA acceptance. qa-account.json is copied into the UI-test bundle
+/// during a local run and is ignored by Git; neither credentials nor tokens ship.
+final class WebGameRegistryUITests: XCTestCase {
+    private struct QAAccount: Decodable { let email: String; let password: String }
+
+    @MainActor
+    func testInstallBothSignedRegistryGames() throws {
+        let app = try signedInApp()
+        for (moduleID, title) in [
+            ("digital.modula.orbit-phaser", "Orbit Arena 2D"),
+            ("digital.modula.orbit-playcanvas", "Orbit Arena 3D Web"),
+        ] {
+            let primary = try openProduct(app, moduleID: moduleID)
+            XCTAssertTrue(primary.label.localizedCaseInsensitiveContains("install"), "\(title): \(primary.label)")
+            primary.tap()
+            let confirm = app.buttons["module.install.confirm"].firstMatch
+            XCTAssertTrue(confirm.waitForExistence(timeout: 12), "Permission review missing for \(title)")
+            XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "records:module.\(moduleID)")).firstMatch.exists,
+                          "Scoped collection grants were not displayed for \(title)")
+            confirm.tap()
+            waitForOpen(primary, title: title)
+            primary.tap()
+            XCTAssertTrue(app.buttons["game.host.exit"].waitForExistence(timeout: 25), "\(title) did not launch")
+            XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15))
+            capture(app, name: "qa-\(moduleID)-0.1.0")
+            app.buttons["game.host.exit"].tap()
+            leaveDetail(app)
+        }
+    }
+
+    @MainActor
+    func testUpdateBothRegistryGamesInSameBinary() throws {
+        let app = try signedInApp()
+        for (moduleID, title) in [
+            ("digital.modula.orbit-phaser", "Orbit Arena 2D"),
+            ("digital.modula.orbit-playcanvas", "Orbit Arena 3D Web"),
+        ] {
+            let primary = try openProduct(app, moduleID: moduleID)
+            XCTAssertTrue(primary.label.localizedCaseInsensitiveContains("update"), "Update missing for \(title): \(primary.label)")
+            primary.tap()
+            let confirm = app.buttons["module.version-switch.confirm"].firstMatch
+            XCTAssertTrue(confirm.waitForExistence(timeout: 25), "Version review missing for \(title)")
+            XCTAssertTrue(app.staticTexts["No permission changes"].exists)
+            confirm.tap()
+            waitForOpen(primary, title: title)
+            primary.tap()
+            XCTAssertTrue(app.buttons["game.host.exit"].waitForExistence(timeout: 25), "\(title) update did not launch")
+            let web = app.webViews.firstMatch
+            XCTAssertTrue(web.waitForExistence(timeout: 15))
+            if moduleID.hasSuffix("playcanvas") {
+                XCTAssertTrue(web.buttons["High"].waitForExistence(timeout: 12))
+                web.buttons["High"].tap()
+                XCTAssertTrue(web.buttons["Low"].waitForExistence(timeout: 5))
+            }
+            capture(app, name: "qa-\(moduleID)-0.1.1")
+            app.buttons["game.host.exit"].tap()
+            leaveDetail(app)
+        }
+    }
+
+    @MainActor
+    func testPlayBothInstalledRegistryGamesThroughRoundCompletion() throws {
+        continueAfterFailure = false
+        let app = try signedInApp()
+        for (moduleID, title) in [
+            ("digital.modula.orbit-phaser", "Orbit Arena 2D"),
+            ("digital.modula.orbit-playcanvas", "Orbit Arena 3D Web"),
+        ] {
+            let primary = try openProduct(app, moduleID: moduleID)
+            XCTAssertEqual(primary.label, "Open", "Expected an installed QA game: \(title)")
+            primary.tap()
+            let exit = app.buttons["game.host.exit"].firstMatch
+            XCTAssertTrue(exit.waitForExistence(timeout: 25), "\(title) did not launch")
+            let web = app.webViews.firstMatch
+            XCTAssertTrue(web.waitForExistence(timeout: 15))
+            app.buttons["game.host.pause"].tap()
+            let pauseOverlay = app.descendants(matching: .any)["game.host.paused"]
+            XCTAssertTrue(pauseOverlay.waitForExistence(timeout: 5))
+            app.buttons["game.host.resume"].tap()
+            XCTAssertFalse(app.descendants(matching: .any)["game.host.paused"].exists)
+            let start = web.coordinate(withNormalizedOffset: CGVector(dx: 0.50, dy: 0.49))
+            let target = web.coordinate(withNormalizedOffset: CGVector(dx: 0.62, dy: 0.36))
+            start.press(forDuration: 0.1, thenDragTo: target)
+            RunLoop.current.run(until: Date().addingTimeInterval(4))
+            capture(app, name: "qa-\(moduleID)-touch-movement")
+            if moduleID.hasSuffix("playcanvas") {
+                XCTAssertTrue(web.buttons["Pause"].waitForExistence(timeout: 5))
+                web.buttons["Pause"].tap()
+                XCTAssertTrue(web.buttons["Resume"].waitForExistence(timeout: 5))
+                web.buttons["Resume"].tap()
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(65))
+            capture(app, name: "qa-\(moduleID)-round-complete")
+            if moduleID.hasSuffix("playcanvas") {
+                let restart = web.buttons["Restart"]
+                XCTAssertTrue(restart.waitForExistence(timeout: 8), "3D round did not complete")
+                restart.tap()
+                XCTAssertFalse(restart.exists)
+            } else {
+                // Phaser renders its controls in the canvas; the restart target
+                // is at canvas center plus 98 game pixels in its 600x900 scene.
+                web.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.57)).tap()
+            }
+            capture(app, name: "qa-\(moduleID)-restarted")
+            exit.tap()
+            leaveDetail(app)
+        }
+    }
+
+    @MainActor
+    func testInstalledRegistryGamesLaunchWithAppTransportIsolated() throws {
+        let app = try signedInApp()
+        app.terminate()
+        app.launchArguments.append("--modula-isolate-app-network")
+        app.launch()
+        XCTAssertTrue(app.buttons["Modules"].waitForExistence(timeout: 30), "Cached shell did not relaunch")
+        for moduleID in ["digital.modula.orbit-phaser", "digital.modula.orbit-playcanvas"] {
+            let primary = try openProduct(app, moduleID: moduleID)
+            XCTAssertEqual(primary.label, "Open", "Cached installation was unavailable")
+            primary.tap()
+            XCTAssertTrue(app.buttons["game.host.exit"].waitForExistence(timeout: 20))
+            let web = app.webViews.firstMatch
+            XCTAssertTrue(web.waitForExistence(timeout: 10))
+            web.coordinate(withNormalizedOffset: CGVector(dx: 0.50, dy: 0.49))
+                .press(forDuration: 0.1, thenDragTo: web.coordinate(withNormalizedOffset: CGVector(dx: 0.62, dy: 0.36)))
+            capture(app, name: "qa-\(moduleID)-isolated-transport")
+            RunLoop.current.run(until: Date().addingTimeInterval(65))
+            capture(app, name: "qa-\(moduleID)-isolated-round-complete")
+            if moduleID.hasSuffix("playcanvas") {
+                XCTAssertTrue(web.buttons["Restart"].waitForExistence(timeout: 8), "Offline 3D round did not complete")
+            }
+            app.buttons["game.host.exit"].tap()
+            leaveDetail(app)
+        }
+    }
+
+    @MainActor
+    func testTenLaunchExitCyclesPerSignedGame() throws {
+        let app = try signedInApp()
+        for (moduleID, title) in [
+            ("digital.modula.orbit-phaser", "Orbit Arena 2D"),
+            ("digital.modula.orbit-playcanvas", "Orbit Arena 3D Web"),
+        ] {
+            for cycle in 1...10 {
+                let primary = try openProduct(app, moduleID: moduleID)
+                XCTAssertEqual(primary.label, "Open", "\(title) unavailable on cycle \(cycle)")
+                let started = Date()
+                primary.tap()
+                XCTAssertTrue(app.buttons["game.host.exit"].waitForExistence(timeout: 20), "\(title) host missing on cycle \(cycle)")
+                XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15), "\(title) WebKit missing on cycle \(cycle)")
+                XCTAssertFalse(app.staticTexts["Game interrupted"].exists, "\(title) WebKit process failed on cycle \(cycle)")
+                print("WEB_GAME_HOST_OPEN \(moduleID) cycle=\(cycle) seconds=\(Date().timeIntervalSince(started))")
+                if cycle == 1 || cycle == 10 { capture(app, name: "qa-\(moduleID)-cycle-\(cycle)") }
+                app.buttons["game.host.exit"].tap()
+                leaveDetail(app)
+            }
+        }
+    }
+
+    @MainActor
+    private func signedInApp() throws -> XCUIApplication {
+        guard let folder = Bundle(for: Self.self).url(forResource: "GameFixtures", withExtension: nil),
+              let data = try? Data(contentsOf: folder.appendingPathComponent("qa-account.json")),
+              let credentials = try? JSONDecoder().decode(QAAccount.self, from: data) else {
+            throw XCTSkip("Restricted QA credentials were not supplied to the UI-test bundle")
+        }
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitest-skip-first-run", "--reset-appearance"]
+        app.launch()
+        let login = app.descendants(matching: .any)["auth.login"]
+        let home = app.descendants(matching: .any)["native.home"]
+        let deadline = Date().addingTimeInterval(50)
+        while Date() < deadline && !login.exists && !home.exists {
+            let landing = app.descendants(matching: .any)["onboarding.landing.continue"]
+            if landing.exists { landing.tap() }
+            let skip = app.buttons["onboarding.skip"].firstMatch
+            if skip.exists { skip.tap() }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        if login.exists {
+            let email = app.textFields["auth.email"].firstMatch
+            let password = app.secureTextFields["auth.password"].firstMatch
+            XCTAssertTrue(email.waitForExistence(timeout: 8) && password.exists)
+            email.tap(); email.typeText(credentials.email)
+            password.tap(); password.typeText(credentials.password)
+            app.buttons["auth.sign-in"].tap()
+        }
+        XCTAssertTrue(app.buttons["Modules"].waitForExistence(timeout: 45), "QA sign-in did not reach Modula tabs")
+        return app
+    }
+
+    @MainActor
+    private func openProduct(_ app: XCUIApplication, moduleID: String) throws -> XCUIElement {
+        let hub = app.descendants(matching: .any)["product-hub"]
+        if !hub.exists {
+            let modules = app.buttons["tab.modules"].firstMatch
+            if modules.waitForExistence(timeout: 5) { modules.tap() }
+            else { app.buttons["Modules"].firstMatch.tap() }
+        }
+        XCTAssertTrue(hub.waitForExistence(timeout: 20))
+        let card = app.buttons["product.\(moduleID)"].firstMatch
+        for _ in 0..<10 where !card.exists { app.swipeUp() }
+        XCTAssertTrue(card.waitForExistence(timeout: 12), "QA registry product missing: \(moduleID)")
+        card.tap()
+        let primary = app.buttons["module.primary"].firstMatch
+        XCTAssertTrue(primary.waitForExistence(timeout: 10))
+        return primary
+    }
+
+    @MainActor
+    private func waitForOpen(_ primary: XCUIElement, title: String) {
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "Open"), object: primary)
+        XCTAssertEqual(XCTWaiter().wait(for: [expectation], timeout: 45), .completed, "\(title) installation did not settle")
+    }
+
+    @MainActor
+    private func leaveDetail(_ app: XCUIApplication) {
+        let back = app.navigationBars.buttons.element(boundBy: 0)
+        if back.exists { back.tap() }
+    }
+
+    @MainActor
+    private func capture(_ app: XCUIApplication, name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}
+
 /// Fixture-backed Basic Echo acceptance. Live account credentials stay outside the repo
 /// and are used only when MODULA_QA_CREDENTIALS_FILE is set.
 final class EcosystemBasicLifecycleUITests: XCTestCase {
@@ -268,6 +498,205 @@ final class EcosystemBasicLifecycleUITests: XCTestCase {
         {"algorithm":"ed25519","digest":"\(digest)","digestAlgorithm":"sha256","keyId":"\(keyId)","signature":"\(signature)"}
         """
         try facts.write(to: dir.appendingPathComponent("signed-facts.json"), atomically: true, encoding: .utf8)
+    }
+}
+
+/// Simulator evidence for the same Native WebGameHost with two independently
+/// built engine archives. These signed local fixtures exercise rendering; the
+/// registry installation path has its own distribution acceptance gate.
+final class WebGameHostUITests: XCTestCase {
+    private let signer = Curve25519.Signing.PrivateKey()
+    private var root: URL!
+    private var trustKey: URL!
+
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+        guard let fixtures = Bundle(for: Self.self).url(forResource: "GameFixtures", withExtension: nil) else {
+            throw XCTSkip("The existing Game Lab package fixtures were not included in the UI test bundle.")
+        }
+        root = FileManager.default.temporaryDirectory.appendingPathComponent("modula-games-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        trustKey = root.appendingPathComponent("game-trust.pub.pem")
+        let prefix = Data([0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00])
+        let spki = prefix + signer.publicKey.rawRepresentation
+        try "-----BEGIN PUBLIC KEY-----\n\(spki.base64EncodedString(options: [.lineLength64Characters]))\n-----END PUBLIC KEY-----\n"
+            .write(to: trustKey, atomically: true, encoding: .utf8)
+        for engine in ["phaser", "playcanvas"] {
+            try copySignedGame(engine: engine, from: fixtures)
+        }
+    }
+
+    override func tearDownWithError() throws {
+        if let root { try? FileManager.default.removeItem(at: root) }
+    }
+
+    @MainActor
+    func testPhaserRendersInsideModula() throws { try exercise("Orbit Arena 2D", expectedWebButton: nil) }
+
+    @MainActor
+    func testPlayCanvasRendersInsideSameHost() throws { try exercise("Orbit Arena 3D Web", expectedWebButton: "High") }
+
+    @MainActor
+    func testBothEnginePackagesUpdateWithoutNativeRebuild() throws {
+        let app = XCUIApplication()
+        let arguments = [
+            "--uitest-skip-first-run", "--uitest-local-module-session",
+            "--uitest-local-account", "game-update-\(UUID().uuidString.prefix(8))",
+            "--modula-dev-modules-root", root.path,
+            "--modula-dev-trust-public-key", trustKey.path,
+        ]
+        app.launchArguments = arguments
+        app.launch()
+        XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 30))
+        for title in ["Orbit Arena 2D", "Orbit Arena 3D Web"] {
+            let primary = openProduct(app, title: title)
+            primary.tap()
+            if app.buttons["module.install.confirm"].waitForExistence(timeout: 4) {
+                app.buttons["module.install.confirm"].tap()
+            }
+            waitForOpen(primary)
+            primary.tap()
+            XCTAssertTrue(app.buttons["game.host.exit"].waitForExistence(timeout: 20))
+            app.buttons["game.host.exit"].tap()
+            leaveDetail(app)
+        }
+        try copySignedGame(engine: "phaser", version: "0.1.1", from: Bundle(for: Self.self).url(forResource: "GameFixtures", withExtension: nil)!)
+        try copySignedGame(engine: "playcanvas", version: "0.1.1", from: Bundle(for: Self.self).url(forResource: "GameFixtures", withExtension: nil)!)
+        app.terminate()
+        app.launchArguments = arguments
+        app.launch()
+        XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 30))
+        for (title, marker) in [("Orbit Arena 2D", "NOVA"), ("Orbit Arena 3D Web", "Low")] {
+            let primary = openProduct(app, title: title)
+            XCTAssertTrue(primary.waitForExistence(timeout: 8))
+            primary.tap()
+            if app.buttons["module.install.confirm"].waitForExistence(timeout: 4) {
+                app.buttons["module.install.confirm"].tap()
+            }
+            waitForOpen(primary)
+            primary.tap()
+            XCTAssertTrue(app.buttons["game.host.exit"].waitForExistence(timeout: 20))
+            if marker == "NOVA" {
+                XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15))
+            } else {
+                app.webViews.buttons["High"].tap()
+                XCTAssertTrue(app.webViews.buttons[marker].waitForExistence(timeout: 5))
+            }
+            let attachment = XCTAttachment(screenshot: app.screenshot())
+            attachment.name = title.replacingOccurrences(of: " ", with: "-") + "-0.1.1"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+            app.buttons["game.host.exit"].tap()
+            leaveDetail(app)
+        }
+    }
+
+    @MainActor
+    private func openProduct(_ app: XCUIApplication, title: String) -> XCUIElement {
+        let modules = app.buttons["tab.modules"].firstMatch
+        if modules.waitForExistence(timeout: 5) { modules.tap() }
+        else { app.buttons["Modules"].firstMatch.tap() }
+        XCTAssertTrue(app.descendants(matching: .any)["product-hub"].waitForExistence(timeout: 15))
+        let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", title)).firstMatch
+        let card = app.staticTexts[title].firstMatch
+        for _ in 0..<8 where !row.exists && !card.exists { app.swipeUp() }
+        XCTAssertTrue(row.waitForExistence(timeout: 8) || card.waitForExistence(timeout: 2))
+        if row.exists { row.tap() } else { card.tap() }
+        let primary = app.buttons["module.primary"].firstMatch
+        XCTAssertTrue(primary.waitForExistence(timeout: 8))
+        return primary
+    }
+
+    @MainActor
+    private func waitForOpen(_ primary: XCUIElement) {
+        let open = NSPredicate(format: "label == %@", "Open")
+        XCTAssertEqual(XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: open, object: primary)], timeout: 25), .completed)
+    }
+
+    @MainActor
+    private func leaveDetail(_ app: XCUIApplication) {
+        let back = app.navigationBars.buttons.element(boundBy: 0)
+        if back.exists { back.tap() }
+    }
+
+    @MainActor
+    private func exercise(_ title: String, expectedWebButton: String?) throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--uitest-skip-first-run", "--uitest-local-module-session",
+            "--uitest-local-account", "game-\(UUID().uuidString.prefix(8))",
+            "--modula-dev-modules-root", root.path,
+            "--modula-dev-trust-public-key", trustKey.path,
+        ]
+        app.launch()
+        XCTAssertTrue(app.descendants(matching: .any)["native.home"].waitForExistence(timeout: 30))
+        let modules = app.buttons["tab.modules"].firstMatch
+        if modules.waitForExistence(timeout: 5) { modules.tap() }
+        else { app.buttons["Modules"].firstMatch.tap() }
+        XCTAssertTrue(app.descendants(matching: .any)["product-hub"].waitForExistence(timeout: 15))
+        let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", title)).firstMatch
+        let card = app.staticTexts[title].firstMatch
+        for _ in 0..<8 where !row.exists && !card.exists { app.swipeUp() }
+        XCTAssertTrue(row.waitForExistence(timeout: 8) || card.waitForExistence(timeout: 2))
+        if row.exists { row.tap() } else { card.tap() }
+        let primary = app.buttons["module.primary"].firstMatch
+        XCTAssertTrue(primary.waitForExistence(timeout: 8))
+        primary.tap()
+        if app.buttons["module.install.confirm"].waitForExistence(timeout: 4) {
+            app.buttons["module.install.confirm"].tap()
+        }
+        let open = NSPredicate(format: "label == %@", "Open")
+        XCTAssertEqual(XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: open, object: primary)], timeout: 25), .completed)
+        primary.tap()
+        XCTAssertTrue(app.buttons["game.host.exit"].waitForExistence(timeout: 20))
+        let web = app.webViews.firstMatch
+        XCTAssertTrue(web.waitForExistence(timeout: 15))
+        if let expectedWebButton {
+            let quality = web.buttons[expectedWebButton]
+            XCTAssertTrue(quality.waitForExistence(timeout: 15))
+            quality.tap()
+            XCTAssertTrue(web.buttons["Low"].waitForExistence(timeout: 5))
+            web.buttons["Pause"].tap()
+            XCTAssertTrue(web.buttons["Resume"].waitForExistence(timeout: 5))
+            web.buttons["Resume"].tap()
+        }
+        let start = web.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
+        let target = web.coordinate(withNormalizedOffset: CGVector(dx: 0.68, dy: 0.45))
+        start.press(forDuration: 0.1, thenDragTo: target)
+        let capture = XCTAttachment(screenshot: app.screenshot())
+        capture.name = title.replacingOccurrences(of: " ", with: "-") + "-in-Modula"
+        capture.lifetime = .keepAlways
+        add(capture)
+        app.buttons["game.host.pause"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["game.host.paused"].waitForExistence(timeout: 4))
+        app.buttons["game.host.exit"].tap()
+    }
+
+    private func copySignedGame(engine: String, version: String = "0.1.0", from fixtures: URL) throws {
+        let product = fixtures.appendingPathComponent(version == "0.1.0" ? engine : "\(engine)-\(version)", isDirectory: true)
+        let moduleId = "digital.modula.orbit-\(engine)"
+        let destination = root.appendingPathComponent("\(moduleId)/\(version)", isDirectory: true)
+        try FileManager.default.createDirectory(at: destination.appendingPathComponent("game"), withIntermediateDirectories: true)
+        let manager = FileManager.default
+        for (source, target) in [
+            ("frontend.manifest.json", "frontend.manifest.json"),
+            ("modula.module.json", "modula.module.json"),
+            ("modula.product.json", "modula.product.json"),
+            ("game.tgz", "game/game.tgz"),
+            ("package.sha256", "package.sha256"),
+        ] {
+            try manager.copyItem(at: product.appendingPathComponent(source), to: destination.appendingPathComponent(target))
+        }
+        let digest = try String(contentsOf: destination.appendingPathComponent("package.sha256"), encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let signature = try signer.signature(for: Data(digest.utf8)).base64EncodedString()
+        let prefix = Data([0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00])
+        let keyId = SHA256.hash(data: prefix + signer.publicKey.rawRepresentation)
+            .map { String(format: "%02x", $0) }.joined()
+        let facts = """
+        {"algorithm":"ed25519","digest":"\(digest)","digestAlgorithm":"sha256","keyId":"\(keyId)","signature":"\(signature)"}
+        """
+        try facts.write(to: destination.appendingPathComponent("signed-facts.json"), atomically: true, encoding: .utf8)
     }
 }
 

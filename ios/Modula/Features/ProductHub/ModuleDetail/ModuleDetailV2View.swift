@@ -132,7 +132,7 @@ struct ModuleDetailV2View: View {
             bundled: bundled,
             bundledVersion: manifest?.version,
             signedIn: app.auth.account != nil,
-            declarativeHost: product.betaClassification == "local-development"
+            declarativeHost: product.betaClassification == "local-development" || product.productKind == "game"
         )
     }
 

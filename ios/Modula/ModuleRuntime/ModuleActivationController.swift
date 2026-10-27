@@ -62,7 +62,11 @@ final class ModuleActivationController {
         frontendSha256: String,
         mediaType: String,
         hostManifest: ModuleManifest,
-        descriptor: ModuleInstallDescriptor?
+        descriptor: ModuleInstallDescriptor?,
+        gameArchive: Data? = nil,
+        gameSha256: String? = nil,
+        runtimeArchive: Data? = nil,
+        runtimeSha256: String? = nil
     ) throws {
         if let descriptor {
             if descriptor.revoked || descriptor.quarantined { throw ModuleActivationError.revoked }
@@ -74,11 +78,35 @@ final class ModuleActivationController {
         let digest = SHA256.hash(data: frontend).map { String(format: "%02x", $0) }.joined()
         guard digest == frontendSha256 else { throw ModuleActivationError.digestMismatch("frontend") }
         _ = try ProductUIDocument.parse(data: frontend, productId: moduleId, version: version)
-        try store.stage(
-            accountID: accountID, moduleId: moduleId, version: version, releaseId: releaseId,
-            frontend: frontend, frontendSha256: frontendSha256, mediaType: mediaType,
-            hostManifest: hostManifest, descriptor: descriptor
-        )
+        let game: WebGamePackage?
+        if let gameArchive, let gameSha256 {
+            game = try WebGamePackage(archive: gameArchive, expectedSha256: gameSha256)
+        } else if gameArchive == nil && gameSha256 == nil {
+            game = nil
+        } else {
+            throw WebGamePackageError.invalid("missing archive or digest")
+        }
+        // Keep the runtime pinned from verification until the durable STAGED
+        // release metadata becomes visible to the reclaimer.
+        let runtimePin = runtimeSha256.map(WebRuntimeSessionPin.init)
+        if let runtimeSha256, game != nil {
+            let shared = SharedWebRuntimeStore(moduleCacheRoot: store.root)
+            if let runtimeArchive {
+                let runtime = try WebRuntimePackage(archive: runtimeArchive, expectedSha256: runtimeSha256)
+                try shared.installVerified(runtime)
+            } else {
+                _ = try shared.verifiedEngine(sha256: runtimeSha256)
+            }
+        } else if runtimeArchive != nil || runtimeSha256 != nil {
+            throw WebGamePackageError.invalid("missing runtime digest or game")
+        }
+        try withExtendedLifetime(runtimePin) {
+            try store.stage(
+                accountID: accountID, moduleId: moduleId, version: version, releaseId: releaseId,
+                frontend: frontend, frontendSha256: frontendSha256, mediaType: mediaType,
+                hostManifest: hostManifest, descriptor: descriptor, game: game, runtimeSha256: runtimeSha256
+            )
+        }
     }
 
     func activate(accountID: String, moduleId: String) throws -> ModuleCachedRelease {
@@ -86,6 +114,7 @@ final class ModuleActivationController {
             do {
                 let data = try store.frontendData(for: staged)
                 _ = try ProductUIDocument.parse(data: data, productId: staged.moduleId, version: staged.version)
+                if staged.gameSha256 != nil { _ = try store.verifiedGameEntry(for: staged) }
             } catch {
                 recordAudit(accountID: accountID, moduleId: moduleId, reason: "digest-rejected")
                 throw error

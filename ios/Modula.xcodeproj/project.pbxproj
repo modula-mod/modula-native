@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		BA0200000000000000000011 /* GameFixtures in Resources */ = {isa = PBXBuildFile; fileRef = BA0200000000000000000012 /* GameFixtures */; };
 		87FB5D4511AF4A7D9FCA8B8E /* PDFReaderV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 259E9F3382BC4EA5811690EC /* PDFReaderV2Tests.swift */; };
 		5446F9A7CFA04E0D940811DD /* PDFImmersiveReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA5B12DBD0541F38FC76EC2 /* PDFImmersiveReader.swift */; };
 		7ED9D8977FD243F1A81DFEED /* PDFReading.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BB21356FB1D4171B5159E7E /* PDFReading.swift */; };
@@ -182,6 +183,8 @@
 		9314852BE26D5B1EB2360CE8 /* ModuleRuntimeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */; };
 		M90100000000000000000001 /* ProductUIDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000001 /* ProductUIDocument.swift */; };
 		M90100000000000000000002 /* ModuleArtifactStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000002 /* ModuleArtifactStore.swift */; };
+		BA0200000000000000000001 /* WebGamePackage.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0100000000000000000001 /* WebGamePackage.swift */; };
+		BA0200000000000000000002 /* WebGameHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0100000000000000000002 /* WebGameHost.swift */; };
 		M90100000000000000000003 /* ModuleActivationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000003 /* ModuleActivationController.swift */; };
 		M90100000000000000000004 /* ProductUIRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000004 /* ProductUIRenderer.swift */; };
 		M90100000000000000000005 /* ProductUIRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000005 /* ProductUIRuntime.swift */; };
@@ -472,6 +475,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		BA0200000000000000000012 /* GameFixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; path = GameFixtures; sourceTree = "<group>"; };
 		259E9F3382BC4EA5811690EC /* PDFReaderV2Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PDFReaderV2Tests.swift; sourceTree = "<group>"; };
 		DAA5B12DBD0541F38FC76EC2 /* PDFImmersiveReader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PDFImmersiveReader.swift; path = Features/Social/PDFImmersiveReader.swift; sourceTree = "<group>"; };
 		7BB21356FB1D4171B5159E7E /* PDFReading.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PDFReading.swift; path = Features/Social/PDFReading.swift; sourceTree = "<group>"; };
@@ -698,6 +702,8 @@
 		AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleRuntimeController.swift; path = ModuleRuntime/ModuleRuntimeController.swift; sourceTree = "<group>"; };
 		M80100000000000000000001 /* ProductUIDocument.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductUIDocument.swift; path = ModuleRuntime/ProductUIDocument.swift; sourceTree = "<group>"; };
 		M80100000000000000000002 /* ModuleArtifactStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleArtifactStore.swift; path = ModuleRuntime/ModuleArtifactStore.swift; sourceTree = "<group>"; };
+		BA0100000000000000000001 /* WebGamePackage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WebGamePackage.swift; path = ModuleRuntime/WebGamePackage.swift; sourceTree = "<group>"; };
+		BA0100000000000000000002 /* WebGameHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WebGameHost.swift; path = ModuleRuntime/WebGameHost.swift; sourceTree = "<group>"; };
 		M80100000000000000000003 /* ModuleActivationController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleActivationController.swift; path = ModuleRuntime/ModuleActivationController.swift; sourceTree = "<group>"; };
 		M80100000000000000000004 /* ProductUIRenderer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductUIRenderer.swift; path = ModuleRuntime/ProductUIRenderer.swift; sourceTree = "<group>"; };
 		M80100000000000000000005 /* ProductUIRuntime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductUIRuntime.swift; path = ModuleRuntime/ProductUIRuntime.swift; sourceTree = "<group>"; };
@@ -1032,6 +1038,7 @@
 		2E8838EEE4D837D181A4729A /* ModulaUITests */ = {
 			isa = PBXGroup;
 			children = (
+				BA0200000000000000000012 /* GameFixtures */,
 				9AA9CD0861813EF42C424B9A /* NativeLaunchTests.swift */,
 				R3A100000000000000000006 /* EcosystemBasicLifecycleUITests.swift */,
 				A0MOL01ACC0000000000000F /* MOL01AcceptanceUITests.swift */,
@@ -1334,6 +1341,8 @@
 				AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */,
 				M80100000000000000000001 /* ProductUIDocument.swift */,
 				M80100000000000000000002 /* ModuleArtifactStore.swift */,
+				BA0100000000000000000001 /* WebGamePackage.swift */,
+				BA0100000000000000000002 /* WebGameHost.swift */,
 				M80100000000000000000003 /* ModuleActivationController.swift */,
 				M80100000000000000000004 /* ProductUIRenderer.swift */,
 				M80100000000000000000005 /* ProductUIRuntime.swift */,
@@ -1595,6 +1604,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BA0200000000000000000011 /* GameFixtures in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2043,6 +2053,8 @@
 				9314852BE26D5B1EB2360CE8 /* ModuleRuntimeController.swift in Sources */,
 				M90100000000000000000001 /* ProductUIDocument.swift in Sources */,
 				M90100000000000000000002 /* ModuleArtifactStore.swift in Sources */,
+				BA0200000000000000000001 /* WebGamePackage.swift in Sources */,
+				BA0200000000000000000002 /* WebGameHost.swift in Sources */,
 				M90100000000000000000003 /* ModuleActivationController.swift in Sources */,
 				M90100000000000000000004 /* ProductUIRenderer.swift in Sources */,
 				M90100000000000000000005 /* ProductUIRuntime.swift in Sources */,
