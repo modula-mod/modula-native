@@ -102,6 +102,8 @@ final class WebGameRegistryUITests: XCTestCase {
             capture(app, name: "qa-02r-orbit-dash-0.1.0-active")
         }
         XCTAssertEqual(dash.label, "Update")
+        let updateScroll = app.scrollViews.containing(.any, identifier: "module.versions").firstMatch
+        for _ in 0..<10 where !dash.isHittable { updateScroll.swipeDown() }
         XCTAssertTrue(dash.isHittable)
         capture(app, name: "qa-02r-orbit-dash-before-update")
         dash.tap()
