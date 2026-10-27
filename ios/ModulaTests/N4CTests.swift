@@ -479,6 +479,9 @@ final class WebGameInstalledIsolationTests: XCTestCase {
         XCTAssertEqual(recovered.cachedRelease?.version, "0.1.0")
         XCTAssertEqual(activation.lastRollbackReason, "active-game-integrity")
         XCTAssertNoThrow(try activation.store.verifiedGameEntry(for: XCTUnwrap(activation.active(accountID: account, moduleId: id))))
+        runtime.installationGate = { _ in .notInstalled }
+        let revoked = try XCTUnwrap(runtime.prepare(moduleID: id, environment: environment))
+        XCTAssertEqual(revoked.state, .notInstalled)
     }
 
     func testArchiveRejectsTraversalLinksNativePayloadAndIncompleteBytes() throws {

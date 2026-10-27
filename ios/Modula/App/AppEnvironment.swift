@@ -165,10 +165,11 @@ final class AppEnvironment {
             // The diagnostic surface is a bundled developer tool, never a catalogue product.
             if id == "modula.runtime-diagnostic" { return .runnable(descriptor: nil) }
             #endif
+            if let catalogueStore { return catalogueStore.installGate(for: id) }
             if let self, let cached = self.moduleActivation.active(accountID: self.runtime.accountID ?? self.auth.account?.accountId, moduleId: id) {
-                return .runnable(descriptor: catalogueStore?.verifiedDescriptors[id] ?? cached.descriptor)
+                return .runnable(descriptor: cached.descriptor)
             }
-            return catalogueStore?.installGate(for: id) ?? .notInstalled
+            return .notInstalled
         }
         ModulaBridge.shared.navigation = navigation
         let appearanceStore = appearance
