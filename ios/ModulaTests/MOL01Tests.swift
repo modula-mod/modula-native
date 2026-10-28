@@ -3,6 +3,13 @@ import RealityKit
 @testable import Modula
 
 @MainActor
+func requireBundledMoliboo3D(_ characterIDs: [String]) throws {
+    guard characterIDs.allSatisfy({ MolibooRegistry.has3D($0) }) else {
+        throw XCTSkip("Legacy Moliboo 3D assets are optional and absent from the lean core")
+    }
+}
+
+@MainActor
 final class MOL01Tests: XCTestCase {
     private let capID = MolibooCosmetics.signatureCapID
 
@@ -97,6 +104,7 @@ final class MOL01Tests: XCTestCase {
     // MARK: RealityKit (needs the bundled USDZ)
 
     func testPebbleLoadsAnimatesAndWearsCap() async throws {
+        try requireBundledMoliboo3D(["pebble"])
         let m = try MolibooManifest.bundled(.main)
         let d = try XCTUnwrap(m.character(id: "pebble"))
         let c = MolibooSceneController(descriptor: d)

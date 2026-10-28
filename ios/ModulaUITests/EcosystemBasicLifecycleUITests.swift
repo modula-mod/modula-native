@@ -7,6 +7,15 @@ final class WebGameRegistryUITests: XCTestCase {
     private struct QAAccount: Decodable { let email: String; let password: String }
 
     @MainActor
+    func testIntegratedMainPackageLifecycle() throws {
+        try testInstallTwoSharedPhaserGames()
+        try testReopenTwoCachedPhaserGamesAndFinishArenaRound()
+        try testUpdateOrbitDashWithoutNativeRebuild()
+        try testUninstallBothGamesThroughProductHub()
+        try testReclaimRuntimeAfterProductHubUninstalls()
+    }
+
+    @MainActor
     func testInstallTwoSharedPhaserGames() throws {
         continueAfterFailure = false
         let app = try signedInApp(forceSignedOut: true)
