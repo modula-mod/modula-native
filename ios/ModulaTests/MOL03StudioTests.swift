@@ -61,6 +61,7 @@ final class MOL03StudioTests: XCTestCase {
     }
 
     func testDirectorSchedulesIdleRespectsReduceMotionAndNap() async throws {
+        try requireBundledMoliboo3D(["pip"])
         let m = try MolibooManifest.bundled(.main)
         let d = try XCTUnwrap(MolibooRegistry.descriptor(for: "pip", manifest: m))
         let c = MolibooSceneController(descriptor: d)

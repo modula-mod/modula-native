@@ -38,6 +38,7 @@ final class MOL03OriginalsTests: XCTestCase {
     }
 
     func testEachLoadsWithAnchorsAndPlaysEveryClip() async throws {
+        try requireBundledMoliboo3D(["pip", "moss", "tofu", "bolt", "pebble"])
         let m = try MolibooManifest.bundled(.main)
         for c in five {
             let d = try XCTUnwrap(MolibooRegistry.descriptor(for: c.id, manifest: m))
@@ -79,6 +80,7 @@ final class MOL03OriginalsTests: XCTestCase {
     }
 
     func testTrialEquipOnPipAndSprout() async throws {
+        try requireBundledMoliboo3D(["pip", "sprout"])
         let m = try MolibooManifest.bundled(.main)
         let t = MolibooWardrobeFitTable.bundled()
         for id in ["pip", "sprout"] {
@@ -107,6 +109,7 @@ final class MOL03OriginalsTests: XCTestCase {
 
     /// Flame pivots must be present in the Ember hierarchy (world-space probe covers flicker motion in UI);
     func testEmberExposesFlamePivots() async throws {
+        try requireBundledMoliboo3D(["ember"])
         let d = try XCTUnwrap(MolibooRegistry.descriptor(for: "ember"))
         let ctl = MolibooSceneController(descriptor: d)
         await ctl.load()

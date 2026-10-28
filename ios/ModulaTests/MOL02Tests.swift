@@ -50,6 +50,7 @@ final class MOL02Tests: XCTestCase {
     }
 
     func testPipLoadsAnimatesExpressesAndWearsCap() async throws {
+        try requireBundledMoliboo3D(["pip"])
         let m = try MolibooManifest.bundled(.main)
         let d = try XCTUnwrap(MolibooRegistry.descriptor(for: "pip", manifest: m))
         let c = MolibooSceneController(descriptor: d)
@@ -95,6 +96,7 @@ final class MOL02Tests: XCTestCase {
     }
 
     func testMossLoadsAnimatesExpressesAndWearsCap() async throws {
+        try requireBundledMoliboo3D(["moss"])
         let m = try MolibooManifest.bundled(.main)
         let d = try XCTUnwrap(MolibooRegistry.descriptor(for: "moss", manifest: m))
         let c = MolibooSceneController(descriptor: d)
@@ -134,6 +136,7 @@ final class MOL02Tests: XCTestCase {
     }
 
     func testTofuIsACubeLoadsSquashesAndWearsCap() async throws {
+        try requireBundledMoliboo3D(["tofu"])
         let m = try MolibooManifest.bundled(.main)
         let d = try XCTUnwrap(MolibooRegistry.descriptor(for: "tofu", manifest: m))
         let c = MolibooSceneController(descriptor: d)
@@ -176,6 +179,7 @@ final class MOL02Tests: XCTestCase {
     }
 
     func testBoltRobotPartsLoadAnimateAndWearCap() async throws {
+        try requireBundledMoliboo3D(["bolt"])
         let m = try MolibooManifest.bundled(.main)
         let d = try XCTUnwrap(MolibooRegistry.descriptor(for: "bolt", manifest: m))
         let c = MolibooSceneController(descriptor: d)
@@ -200,6 +204,7 @@ final class MOL02Tests: XCTestCase {
     // MARK: MOL-03 Workstream B: renderer benchmark + lifecycle
 
     func testRendererBenchmarkSevenPoints() async throws {
+        try requireBundledMoliboo3D(["pip", "moss", "tofu", "bolt"])
         let s = await MolibooRendererBenchmark.run(primary: "pebble", secondary: "pip")
         let json = String(data: try JSONEncoder().encode(s), encoding: .utf8) ?? ""
         print("MOLBENCH " + json)
@@ -222,6 +227,7 @@ final class MOL02Tests: XCTestCase {
     }
 
     func testCharacterSwitchTearsDownPrevious() async throws {
+        try requireBundledMoliboo3D(["pip", "moss"])
         let m = try XCTUnwrap(MolibooRegistry.manifest)
         let a = MolibooSceneController(descriptor: try XCTUnwrap(MolibooRegistry.descriptor(for: "pebble", manifest: m)))
         a.cosmetics = m.cosmetics
@@ -241,6 +247,7 @@ final class MOL02Tests: XCTestCase {
     }
 
     func testLoadAfterStopDoesNotAttach() async throws {
+        try requireBundledMoliboo3D(["pip"])
         MolibooAssetLoader.purge()
         let m = try XCTUnwrap(MolibooRegistry.manifest)
         let c = MolibooSceneController(descriptor: try XCTUnwrap(MolibooRegistry.descriptor(for: "moss", manifest: m)))
@@ -253,6 +260,7 @@ final class MOL02Tests: XCTestCase {
     }
 
     func testNoPlaybackOrEquipAfterStop() async throws {
+        try requireBundledMoliboo3D(["pip"])
         let m = try XCTUnwrap(MolibooRegistry.manifest)
         let c = MolibooSceneController(descriptor: try XCTUnwrap(MolibooRegistry.descriptor(for: "pebble", manifest: m)))
         c.cosmetics = m.cosmetics
