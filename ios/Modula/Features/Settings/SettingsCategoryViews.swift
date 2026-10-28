@@ -785,6 +785,7 @@ private struct PackageStorageDownloadsView: View {
     @State private var confirmingCacheClear = false
     @State private var confirmingReclaim = false
     @State private var errorMessage: String?
+    @State private var refreshGeneration = 0
 
     private func bytes(_ value: Int64) -> String { ByteCountFormatter.string(fromByteCount: value, countStyle: .file) }
 
@@ -801,6 +802,8 @@ private struct PackageStorageDownloadsView: View {
                         LabeledContent("Games", value: bytes(usage.gameBytes))
                         SettingsDivider()
                         LabeledContent("Shared Runtimes", value: bytes(usage.runtimeBytes))
+                            .accessibilityIdentifier("storage.sharedRuntimeBytes")
+                            .accessibilityValue(bytes(usage.runtimeBytes))
                         SettingsDivider()
                         LabeledContent("AI Models", value: bytes(usage.modelBytes))
                         SettingsDivider()
@@ -842,6 +845,10 @@ private struct PackageStorageDownloadsView: View {
                             app.navigation.open(.productHub(.featured))
                         }
                         SettingsDivider()
+                        SettingsNavigationRow(title: "Refresh storage", subtitle: "Measure downloads on this device", symbol: "arrow.clockwise") {
+                            Task { await refresh() }
+                        }
+                        SettingsDivider()
                         Button("Remove unused dependencies", role: .destructive) { confirmingReclaim = true }
                             .padding(16)
                         SettingsDivider()
@@ -876,7 +883,11 @@ private struct PackageStorageDownloadsView: View {
     }
 
     private func refresh() async {
-        usage = await Task.detached(priority: .utility) { PackageStorageSnapshot.measure(accountID: accountID) }.value
+        refreshGeneration += 1
+        let generation = refreshGeneration
+        let measured = await Task.detached(priority: .utility) { PackageStorageSnapshot.measure(accountID: accountID) }.value
+        guard generation == refreshGeneration else { return }
+        usage = measured
     }
 
     private func remove(_ package: DownloadedPackageRow) {

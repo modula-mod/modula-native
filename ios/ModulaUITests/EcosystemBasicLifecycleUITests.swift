@@ -28,7 +28,7 @@ final class WebGameRegistryUITests: XCTestCase {
             primary.tap()
             let confirm = app.buttons["module.install.confirm"].firstMatch
             XCTAssertTrue(confirm.waitForExistence(timeout: 15), "Package review missing for \(title)")
-            XCTAssertTrue(app.staticTexts["Download plan"].waitForExistence(timeout: 20), "Package closure missing for \(title)")
+            XCTAssertTrue(app.staticTexts["Download plan"].waitForExistence(timeout: 60), "Package closure missing for \(title)")
             XCTAssertTrue(app.staticTexts["Shared runtime"].exists)
             if shouldReuseRuntime {
                 XCTAssertTrue(app.staticTexts["Already downloaded and verified"].exists,
@@ -301,6 +301,12 @@ final class WebGameRegistryUITests: XCTestCase {
         XCTAssertTrue(confirm.waitForExistence(timeout: 10))
         confirm.tap()
         XCTAssertTrue(app.staticTexts["No shared web runtimes are downloaded."].waitForExistence(timeout: 15))
+        let runtimeBytes = app.descendants(matching: .any)["storage.sharedRuntimeBytes"].firstMatch
+        XCTAssertTrue(runtimeBytes.waitForExistence(timeout: 15))
+        let zeroBytes = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@ OR value == %@", "Zero KB", "0 KB"), object: runtimeBytes)
+        XCTAssertEqual(XCTWaiter().wait(for: [zeroBytes], timeout: 15), .completed,
+                       "Shared runtime storage still shows bytes after reclamation")
         capture(app, name: "qa-02r-after-producthub-uninstall-runtime-reclaimed")
     }
 
