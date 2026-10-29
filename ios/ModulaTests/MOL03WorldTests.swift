@@ -120,13 +120,6 @@ final class MOL03WorldTests: XCTestCase {
         XCTAssertEqual(MolibooStagePose.load(for: "pip", defaults: d), MolibooStagePose())
     }
 
-    func testCollectionShowsOnlyRegisteredCharacters() throws {
-        throw XCTSkip("CORE-SIZE-01: retired Moliboo 3D USDZ/portrait/premium assets are no longer bundled; 2D is the only renderer")
-        let ids = MolibooRegistry.available3D.map(\.id)
-        XCTAssertFalse(ids.contains("bubbles"), "there is no Bubbles character")
-        XCTAssertTrue(ids.contains("pebble"))
-        for id in ids { XCTAssertNotNil(MolibooPortrait.image(for: id), id) }
-    }
 }
 
 /// Expanded care actions: one store for Home and the Care sheet, cooldowns, streaks, moments, no data loss.
