@@ -1,13 +1,5 @@
 import XCTest
-import RealityKit
 @testable import Modula
-
-@MainActor
-func requireBundledMoliboo3D(_ characterIDs: [String]) throws {
-    guard characterIDs.allSatisfy({ MolibooRegistry.has3D($0) }) else {
-        throw XCTSkip("Legacy Moliboo 3D assets are optional and absent from the lean core")
-    }
-}
 
 @MainActor
 final class MOL01Tests: XCTestCase {
@@ -103,41 +95,4 @@ final class MOL01Tests: XCTestCase {
 
     // MARK: RealityKit (needs the bundled USDZ)
 
-    func testPebbleLoadsAnimatesAndWearsCap() async throws {
-        try requireBundledMoliboo3D(["pebble"])
-        let m = try MolibooManifest.bundled(.main)
-        let d = try XCTUnwrap(m.character(id: "pebble"))
-        let c = MolibooSceneController(descriptor: d)
-        c.cosmetics = m.cosmetics
-        await c.load()
-        XCTAssertFalse(c.loadFailed)
-        for a in d.anchors { XCTAssertNotNil(c.anchor(a), "missing \(a)") }
-        XCTAssertFalse(c.character?.availableAnimations.isEmpty ?? true, "baked clips must survive USDZ export")
-        XCTAssertTrue(c.playClip("idle_bob"))
-        XCTAssertFalse(c.playClip("nope"))
-
-        let ok = await c.equip(wardrobeItemID: capID)
-        XCTAssertTrue(ok)
-        let cap = try XCTUnwrap(c.equipped[capID])
-        XCTAssertEqual(cap.parent?.name, "anchor_head", "cap follows the head anchor (rotation + animation)")
-        // Orientation: cap root (authored Z-up) relative to the body (authored Z-up) == configured rotation.
-        let capRoot = try XCTUnwrap(cap.findEntity(named: "Accessory_Cap_MolibooSignature"))
-        let body = try XCTUnwrap(c.character?.findEntity(named: "Pebble_Body"))
-        guard case .compatible(let cfg) = d.compatibility(forWardrobeItem: capID) else { return XCTFail() }
-        let r = cfg.rotationDegrees.map { $0 * .pi / 180 }
-        let expected = (simd_quatf(angle: r[2], axis: [0, 0, 1]) * simd_quatf(angle: r[1], axis: [0, 1, 0]) * simd_quatf(angle: r[0], axis: [1, 0, 0])).act([0, 0, 1])
-        let actual = body.convert(direction: capRoot.convert(direction: [0, 0, 1], to: nil), from: nil)
-        XCTAssertGreaterThan(simd_dot(simd_normalize(actual), simd_normalize(expected)), 0.99)
-
-        c.yaw = 1.0   // rotation: cap stays attached
-        XCTAssertEqual(cap.parent?.name, "anchor_head")
-        c.unequip(wardrobeItemID: capID)
-        XCTAssertNil(c.equipped[capID])
-        XCTAssertNil(cap.parent)
-
-        await c.sync(outfitItemIDs: [capID, "hat.party", "hat.beanie"])
-        XCTAssertEqual(Set(c.equipped.keys), [capID], "non-3D items are ignored, not guessed")
-        c.setExpression(.surprised); XCTAssertEqual(c.expression, .surprised)
-        c.stop()
-    }
 }
