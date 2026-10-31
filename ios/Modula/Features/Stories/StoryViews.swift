@@ -1131,7 +1131,7 @@ struct StoryFilter: Identifiable, Hashable, Sendable {
         .init(id: "process", title: "Process", systemImage: "drop.fill"),
         .init(id: "tonal", title: "Tonal", systemImage: "circle.righthalf.filled"),
         .init(id: "transfer", title: "Retro", systemImage: "film.fill"),
-    ]
+    ] + PhotoFilterDialLook.allCases.map(\.storyFilter)
 }
 
 enum StoryFilterEngine {
@@ -1231,10 +1231,52 @@ enum StoryFilterEngine {
             let f = CIFilter.photoEffectTransfer()
             f.inputImage = ci
             output = f.outputImage
+        case "bw":
+            let f = CIFilter.photoEffectMono()
+            f.inputImage = ci
+            output = f.outputImage
+        case "dreamy":
+            let bloom = CIFilter.bloom()
+            bloom.inputImage = ci
+            bloom.radius = 10
+            bloom.intensity = 0.55
+            let glowed = (bloom.outputImage ?? ci).cropped(to: ci.extent)
+            let color = CIFilter.colorControls()
+            color.inputImage = glowed
+            color.saturation = 0.78
+            color.contrast = 0.9
+            color.brightness = 0.05
+            output = color.outputImage?.cropped(to: ci.extent)
+        case "soft-light":
+            output = softLight(ci)
+        case "dither":
+            let dither = CIFilter(name: "CIDither")
+            dither?.setValue(ci, forKey: kCIInputImageKey)
+            dither?.setValue(0.82, forKey: kCIInputIntensityKey)
+            output = dither?.outputImage?.cropped(to: ci.extent)
         default:
             output = ci
         }
         return output ?? ci
+    }
+
+    /// Soft-light blend of a slightly warmed copy over the original, then a gentle lift.
+    private static func softLight(_ ci: CIImage) -> CIImage {
+        let warm = CIFilter.temperatureAndTint()
+        warm.inputImage = ci
+        warm.neutral = CIVector(x: 6500, y: 0)
+        warm.targetNeutral = CIVector(x: 5600, y: 0)
+        let warmed = (warm.outputImage ?? ci).cropped(to: ci.extent)
+        let blend = CIFilter(name: "CISoftLightBlendMode")
+        blend?.setValue(warmed, forKey: kCIInputImageKey)
+        blend?.setValue(ci, forKey: kCIInputBackgroundImageKey)
+        let blended = (blend?.outputImage ?? warmed).cropped(to: ci.extent)
+        let color = CIFilter.colorControls()
+        color.inputImage = blended
+        color.contrast = 0.94
+        color.brightness = 0.02
+        color.saturation = 1.02
+        return (color.outputImage ?? blended).cropped(to: ci.extent)
     }
 }
 
@@ -2888,9 +2930,10 @@ struct StoryCreateView: View {
                 .padding(.horizontal, 18)
                 .padding(.bottom, 6)
             }
+            PhotoFilterDial(selection: $filter, accent: accent, reduceMotion: reduceMotion)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
-                    ForEach(StoryFilter.catalog) { item in
+                    ForEach(StoryFilter.catalog.filter { !PhotoFilterDialLook.ids.contains($0.id) }) { item in
                         Button {
                             filter = item
                             HapticEngine.shared.play(.selection)
