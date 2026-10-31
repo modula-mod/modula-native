@@ -330,6 +330,8 @@
 		D90195AB663F1D6B78E7D368 /* NodusConversationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EA749138365B53444A18694 /* NodusConversationModels.swift */; };
 		DB3BEA70380AF2D78B2306D5 /* ModulaIntelligenceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97B62939727826A0A7B6B6A /* ModulaIntelligenceService.swift */; };
 		DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */; };
+		D98B000000000000000000B3 /* ProductHubLayouts.swift in Sources */ = {isa = PBXBuildFile; fileRef = D98B000000000000000000A3 /* ProductHubLayouts.swift */; };
+		D98B000000000000000000B4 /* ProductHubLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D98B000000000000000000A4 /* ProductHubLayoutTests.swift */; };
 		E0D95AA46131E2250F52B55D /* NodusKnowledgeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC3695AE2813EB68FE1AE272 /* NodusKnowledgeModels.swift */; };
 		E20100000000000000000001 /* DiscoverModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000001 /* DiscoverModels.swift */; };
 		E20100000000000000000002 /* DiscoverRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000002 /* DiscoverRepository.swift */; };
@@ -810,6 +812,8 @@
 		D6F76DC91BAB0A497E6B24E0 /* NodusConversationStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusConversationStore.swift; path = Core/Intelligence/Nodus/Conversation/NodusConversationStore.swift; sourceTree = "<group>"; };
 		D902DDFA87CA1FD5224F1994 /* libPods-Modula.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Modula.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductHubView.swift; path = Features/ProductHub/ProductHubView.swift; sourceTree = "<group>"; };
+		D98B000000000000000000A3 /* ProductHubLayouts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductHubLayouts.swift; path = Features/ProductHub/ProductHubLayouts.swift; sourceTree = "<group>"; };
+		D98B000000000000000000A4 /* ProductHubLayoutTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProductHubLayoutTests.swift; sourceTree = "<group>"; };
 		DC4EF43E9E96C1202C4F7E36 /* Debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		DE7A82A7615F703ED7EFABC2 /* libPods-ModulaTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ModulaTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E024B7E018DE17EDE324AD6D /* NodusDeepReasoningCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusDeepReasoningCoordinator.swift; path = Core/Intelligence/Nodus/Reasoning/NodusDeepReasoningCoordinator.swift; sourceTree = "<group>"; };
@@ -1057,6 +1061,7 @@
 				G40100000000000000000007 /* N4GTests.swift */,
 				E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */,
 				D98B000000000000000000A1 /* AppearanceExperienceTests.swift */,
+				D98B000000000000000000A4 /* ProductHubLayoutTests.swift */,
 				04756B524E52AA56A61D2E0D /* LocalizationCatalogTests.swift */,
 				BFC9EF1CC67951AB29E6F94B /* ModuleSecurityTests.swift */,
 				T80100000000000000000001 /* ModuleHostEcosystemTests.swift */,
@@ -1362,6 +1367,7 @@
 				Q40100000000000000000007 /* LegalDocuments.swift */,
 				Q40100000000000000000008 /* LegalDocumentView.swift */,
 				DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */,
+				D98B000000000000000000A3 /* ProductHubLayouts.swift */,
 				F00100000000000000000001 /* ProfileModels.swift */,
 				F00100000000000000000002 /* ProfileRepository.swift */,
 				F00100000000000000000003 /* ProfileStore.swift */,
@@ -1861,6 +1867,7 @@
 				Q50100000000000000000006 /* SettingsServiceTests.swift in Sources */,
 				C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */,
 				D98B000000000000000000B1 /* AppearanceExperienceTests.swift in Sources */,
+				D98B000000000000000000B4 /* ProductHubLayoutTests.swift in Sources */,
 				5900B968FE1D07B3EE4DAEA0 /* LocalizationCatalogTests.swift in Sources */,
 				6ACC1709897F66B0E80839F2 /* ModuleSecurityTests.swift in Sources */,
 				T90100000000000000000001 /* ModuleHostEcosystemTests.swift in Sources */,
@@ -2089,6 +2096,7 @@
 				G50100000000000000000006 /* TypographyPreview.swift in Sources */,
 				E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */,
 				DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */,
+				D98B000000000000000000B3 /* ProductHubLayouts.swift in Sources */,
 				F10100000000000000000001 /* ProfileModels.swift in Sources */,
 				F10100000000000000000002 /* ProfileRepository.swift in Sources */,
 				F10100000000000000000003 /* ProfileStore.swift in Sources */,

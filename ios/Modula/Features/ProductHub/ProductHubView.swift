@@ -1451,6 +1451,7 @@ struct ProductShelf: View {
 
 struct ProductHero: View {
     let product: CatalogueProduct
+    var marksFeatured = true
     var action: () -> Void
     @Environment(AppEnvironment.self) private var app
     @Environment(\.modulaHeroScope) private var heroScope
@@ -1501,15 +1502,26 @@ struct ProductHero: View {
         .buttonStyle(.modulaPressTilt)
         .modulaScrollReveal(depth: true)
         .accessibilityLabel("Featured module, \(product.name)")
-        .accessibilityIdentifier("product-hub.featured")
+        .accessibilityIdentifier(marksFeatured ? "product-hub.featured" : "product-hub.card.\(product.moduleId)")
     }
 }
 
 struct ProductHubView: View {
     let route: ProductHubRoute
     @Environment(AppEnvironment.self) private var app
+    @AppStorage("modula.productHub.layout") private var layoutRaw = ProductHubLayout.story.rawValue
     @State private var query = ""
     @State private var categoryFilter: String?
+    @State private var segment = ProductHubSpaceSegment.discover
+
+    private var layout: ProductHubLayout { ProductHubLayout(rawValue: layoutRaw) ?? .story }
+    /// Installed and Updates routes use the space layout so the segment matches the route.
+    private var presentedLayout: ProductHubLayout {
+        switch route {
+        case .collection(.installed), .collection(.updates): .space
+        default: layout
+        }
+    }
 
     init(route: ProductHubRoute) {
         self.route = route
@@ -1558,6 +1570,21 @@ struct ProductHubView: View {
                             app.navigation.open(.productHub(.collection(.updates)))
                         }
                     }
+                    Section("Layout") {
+                        ForEach(ProductHubLayout.allCases) { item in
+                            Button {
+                                layoutRaw = item.rawValue
+                                HapticEngine.shared.play(.selection)
+                            } label: {
+                                if layout == item {
+                                    Label(item.title, systemImage: "checkmark")
+                                } else {
+                                    Text(item.title)
+                                }
+                            }
+                            .accessibilityIdentifier("product-hub.layout.\(item.rawValue)")
+                        }
+                    }
                     Section("Manage") {
                         Button("Module Settings", systemImage: "gearshape") {
                             app.navigation.open(.settings(.modules(.root)))
@@ -1585,6 +1612,12 @@ struct ProductHubView: View {
         }
         .accessibilityIdentifier("product-hub")
         .modulaCanvas()
+        .onAppear {
+            if case .collection(.installed) = route { segment = .installed }
+            if case .collection(.updates) = route { segment = .updates }
+            if case .category(let kind) = route { categoryFilter = kind }
+            if case .search(let text) = route, query.isEmpty, let text { query = text }
+        }
     }
 
     @ViewBuilder private var sessionState: some View {
@@ -1629,63 +1662,28 @@ struct ProductHubView: View {
             .frame(maxWidth: .infinity)
             .padding(.top, 24)
             .accessibilityIdentifier("product-hub.empty")
+        } else if query.isEmpty, case .collection(.comingSoon) = route {
+            let waiting = ProductHubCatalogue.comingSoon(app.catalogue.products)
+            if waiting.isEmpty {
+                ModulaEmptyState(title: "Nothing coming soon", message: "Every published module in the registry is installable.", symbol: "clock")
+                    .accessibilityIdentifier("product-hub.coming-soon.empty")
+            } else {
+                ProductShelf(title: "Coming soon", products: waiting, installedIDs: app.catalogue.installedIDs, action: open)
+            }
         } else if query.isEmpty {
-            // Feature something you don't have yet; fall back to Vault Notes (shown as "Open").
-            let featured = app.catalogue.products.first(where: { $0.installable && !app.catalogue.installedIDs.contains($0.id) })
-                ?? app.catalogue.product("digital.modula.vault-notes")
-                ?? app.catalogue.products.first
-            if let featured {
-                ProductHero(product: featured) { open(featured) }
-                    .modulaPageEntrance()
-            }
-            let installed = app.catalogue.products.filter { app.catalogue.installedIDs.contains($0.id) }
-            if !installed.isEmpty {
-                ProductShelf(
-                    title: "Installed",
-                    subtitle: "On your account",
-                    products: installed,
-                    installedIDs: app.catalogue.installedIDs,
-                    action: open
-                )
-                Button {
-                    app.navigation.open(.productHub(.collection(.updates)))
-                } label: {
-                    Label("Check for updates", systemImage: "arrow.triangle.2.circlepath")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(14)
-                        .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
-                }
-                .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: nil))
-                .accessibilityIdentifier("product-hub.updates")
-            }
-            ProductCategoryChips(products: app.catalogue.products, selected: categoryFilter) { kind in
-                withAnimation(.snappy) { categoryFilter = categoryFilter == kind ? nil : kind }
-            }
-            if let kind = categoryFilter, let sprout = SproutIllustration.matching(text: kind) {
-                SproutIllustrationView(illustration: sprout, height: 132)
-                    .accessibilityIdentifier("product-hub.category.sprout")
-            }
-            ProductRankedList(
-                title: categoryFilter.map { "Top \($0.capitalized)" } ?? "Top modules",
-                subtitle: "Ranked by availability and publisher",
-                products: Array(app.catalogue.products.filter { categoryFilter == nil || $0.productKind == categoryFilter }.sorted { lhs, rhs in
-                    (lhs.installable ? 0 : 1, lhs.name) < (rhs.installable ? 0 : 1, rhs.name)
-                }.prefix(8)),
+            ProductHubVariantView(
+                layout: presentedLayout,
+                products: app.catalogue.products,
                 installedIDs: app.catalogue.installedIDs,
-                action: open
+                installations: app.catalogue.installations,
+                category: categoryFilter,
+                segment: $segment,
+                onCategory: { kind in
+                    withAnimation(.snappy) { categoryFilter = categoryFilter == kind ? nil : kind }
+                },
+                onOpen: open,
+                onUpdates: { app.navigation.open(.productHub(.collection(.updates))) }
             )
-            let more = visible.filter { !app.catalogue.installedIDs.contains($0.id) }
-            if !more.isEmpty {
-                ProductShelf(
-                    title: "From Modula",
-                    subtitle: "More from the registry",
-                    // Installed modules already have their own shelf above.
-                    products: more,
-                    installedIDs: app.catalogue.installedIDs,
-                    action: open
-                )
-            }
         } else if visible.isEmpty {
             ModulaEmptyState(
                 title: "No results",
