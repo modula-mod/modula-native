@@ -63,7 +63,7 @@ extension HomeMode {
 enum HomeGreeting {
     static func line(for date: Date, calendar: Calendar = .current) -> String {
         let hour = calendar.component(.hour, from: date)
-        switch hour {
+        return switch hour {
         case 5..<12: "Good morning,"
         case 12..<17: "Good afternoon,"
         case 17..<22: "Good evening,"
@@ -73,7 +73,7 @@ enum HomeGreeting {
 
     static func symbol(for date: Date, calendar: Calendar = .current) -> String {
         let hour = calendar.component(.hour, from: date)
-        switch hour {
+        return switch hour {
         case 5..<12: "sunrise.fill"
         case 12..<17: "sun.max.fill"
         case 17..<22: "sunset.fill"

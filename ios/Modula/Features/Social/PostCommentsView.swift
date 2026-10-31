@@ -1245,7 +1245,7 @@ struct PostCommentsView: View {
         return "\(verb) \(author?.displayName ?? "comment")"
     }
 
-    private var composer: some View {
+    @ViewBuilder private var composer: some View {
         let canvas = ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas
         VStack(spacing: 0) {
             VStack(spacing: 8) {
