@@ -110,6 +110,7 @@ struct MascotStudioView: View {
             HStack { Spacer(); coinPill }
             actionBar
             MolibooCollectionEntry()
+            MolibooMarketplaceEntry()
             // Stacked sections, no inner tabs: the Studio sheet's segmented control is the only tab level.
             embeddedSection("Rewards", "gift.fill") { rewardsPanel }
             if tabs.contains(.custom) { embeddedSection("Custom Moliboos", "wand.and.stars") { customPanel } }
@@ -143,6 +144,7 @@ struct MascotStudioView: View {
                     heroControls
                     actionBar
                     MolibooCollectionEntry()
+                    MolibooMarketplaceEntry()
                     Picker("Studio", selection: $tab) {
                         ForEach(StudioTab.allCases) { t in Text(t.title).tag(t) }
                     }
