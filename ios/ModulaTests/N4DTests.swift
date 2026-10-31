@@ -270,6 +270,15 @@ final class CollectionsDraftsShareTests: XCTestCase {
         try await Task.sleep(nanoseconds: 50_000_000)
         XCTAssertTrue(store.flush())
         XCTAssertTrue(DraftStore(fileStore: files).allPreviews.isEmpty)
+        XCTAssertTrue(DraftStore(fileStore: files).libraryItems.isEmpty)
+    }
+
+    func testDraftAudienceTitleIgnoresUnknownValues() {
+        XCTAssertEqual(DraftLibraryItem.audienceTitle(for: "public"), "Everyone")
+        XCTAssertEqual(DraftLibraryItem.audienceTitle(for: "followers"), "Followers")
+        XCTAssertEqual(DraftLibraryItem.audienceTitle(for: "private"), "Only Me")
+        XCTAssertNil(DraftLibraryItem.audienceTitle(for: nil))
+        XCTAssertNil(DraftLibraryItem.audienceTitle(for: "close_friends"))
     }
 
     func testDiskFailureNeverReportsSavedAndCanRetry() throws {

@@ -87,7 +87,10 @@ enum ConnectorsSettingsRoute: String, CaseIterable, Codable, Hashable { case roo
 enum IntegrationsSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
 enum MonetisationSettingsRoute: String, CaseIterable, Codable, Hashable { case root, plans, payouts, invoices }
 /// Modula Premium (gated by `PremiumFeatureFlags`, off in Release).
-enum PremiumSettingsRoute: String, CaseIterable, Codable, Hashable { case root, badge }
+enum PremiumSettingsRoute: String, CaseIterable, Codable, Hashable {
+    case root, badge, compare, intro
+    case dashboard, features, manage, studio, storage, visitors, creator, possibilities
+}
 enum ChatsSettingsRoute: String, CaseIterable, Codable, Hashable {
     case root, composer, previews, privacy
 }

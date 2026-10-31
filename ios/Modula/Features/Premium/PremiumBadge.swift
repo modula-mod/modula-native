@@ -116,6 +116,26 @@ struct PremiumDestination: View {
                 PremiumHubView()
             case .badge:
                 PremiumBadgeSettingsView()
+            case .compare:
+                PremiumCompareView()
+            case .intro:
+                PremiumIntroView()
+            case .dashboard:
+                PremiumDashboardView()
+            case .features:
+                PremiumFeaturesView()
+            case .manage:
+                PremiumManageView()
+            case .studio:
+                PremiumStudioView()
+            case .storage:
+                PremiumStorageView()
+            case .visitors:
+                PremiumVisitorsView()
+            case .creator:
+                PremiumCreatorView()
+            case .possibilities:
+                PremiumPossibilitiesView()
             }
         } else {
             SettingsCapabilityUnavailableView(

@@ -44,6 +44,33 @@ final class DraftStore {
         return mapped.sorted { $0.3 > $1.3 }
     }
 
+    var libraryItems: [DraftLibraryItem] {
+        let postItems = posts.map {
+            DraftLibraryItem(
+                id: $0.id,
+                kind: .post,
+                preview: $0.preview,
+                lastEdited: $0.lastEdited,
+                mediaCount: $0.media.count,
+                audienceTitle: AudienceSelection(greenfield: $0.audience).title
+            )
+        }
+        let mailItems = inMails.map {
+            DraftLibraryItem(id: $0.id, kind: .inMail, preview: $0.preview, lastEdited: $0.lastEdited, mediaCount: 0, audienceTitle: nil)
+        }
+        let storyItems = stories.map {
+            DraftLibraryItem(
+                id: $0.id,
+                kind: .story,
+                preview: $0.preview,
+                lastEdited: $0.lastEdited,
+                mediaCount: max($0.mediaAssetIDs.count, $0.media == nil ? 0 : 1),
+                audienceTitle: DraftLibraryItem.audienceTitle(for: $0.visibility)
+            )
+        }
+        return (postItems + mailItems + storyItems).sorted { $0.lastEdited > $1.lastEdited }
+    }
+
     var countsByKind: [DraftKind: Int] {
         [.post: posts.count, .inMail: inMails.count, .story: stories.count]
     }

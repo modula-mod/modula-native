@@ -1,8 +1,33 @@
 import SwiftUI
 
+private enum DraftLibraryFilter: String, CaseIterable, Identifiable {
+    case all, posts, stories, inMail, reels
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .all: "All"
+        case .posts: "Posts"
+        case .stories: "Stories"
+        case .inMail: "In-Mail"
+        case .reels: "Reels"
+        }
+    }
+}
+
 struct DraftsView: View {
     @Environment(AppEnvironment.self) private var app
     @State private var pendingDiscard: (DraftKind, String)?
+    @State private var filter: DraftLibraryFilter = .all
+
+    private var items: [DraftLibraryItem] {
+        switch filter {
+        case .all: app.drafts.libraryItems
+        case .posts: app.drafts.libraryItems.filter { $0.kind == .post }
+        case .stories: app.drafts.libraryItems.filter { $0.kind == .story }
+        case .inMail: app.drafts.libraryItems.filter { $0.kind == .inMail }
+        case .reels: []
+        }
+    }
 
     var body: some View {
         List {
@@ -12,20 +37,50 @@ struct DraftsView: View {
                     Button("Retry Save") { app.drafts.flush() }
                 }
             }
-            if app.drafts.allPreviews.isEmpty {
-                ContentUnavailableView("No drafts", systemImage: "doc.text", description: Text("Unfinished posts and letters appear here."))
+            Section {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(DraftLibraryFilter.allCases) { option in
+                            Button(option.title) {
+                                filter = option
+                                HapticEngine.shared.play(.selection)
+                            }
+                            .font(.subheadline.weight(filter == option ? .semibold : .medium))
+                            .padding(.horizontal, 14)
+                            .frame(height: 34)
+                            .foregroundStyle(filter == option ? Color.white : Color.primary)
+                            .background(filter == option ? Color(hex: "#D66056") : Color(uiColor: .secondarySystemGroupedBackground), in: Capsule())
+                            .accessibilityAddTraits(filter == option ? .isSelected : [])
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            }
+            if filter == .reels {
+                Section {
+                    Text("Reel drafts aren’t stored on this device.")
+                        .foregroundStyle(.secondary)
+                }
+            } else if items.isEmpty {
+                Section {
+                    ContentUnavailableView("No drafts", systemImage: "doc.text", description: Text("Unfinished posts, stories and letters appear here."))
+                }
             } else {
-                ForEach(app.drafts.allPreviews, id: \.id) { item in
-                    DraftRow(
-                        kind: item.kind,
-                        preview: item.preview,
-                        lastEdited: item.lastEdited
-                    ) {
-                        continueDraft(kind: item.kind, id: item.id)
-                    } onDelete: {
-                        pendingDiscard = (item.kind, item.id)
+                Section {
+                    ForEach(items) { item in
+                        DraftRow(item: item) {
+                            continueDraft(kind: item.kind, id: item.id)
+                        } onDelete: {
+                            pendingDiscard = (item.kind, item.id)
+                        }
                     }
                 }
+            }
+            Section {
+                Text("Drafts are saved automatically. They’re stored on this device. There isn’t a drafts API.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         }
         .modulaSoftScrollEdge()
@@ -76,9 +131,7 @@ struct DraftsView: View {
 }
 
 struct DraftRow: View {
-    let kind: DraftKind
-    let preview: String
-    let lastEdited: Date
+    let item: DraftLibraryItem
     var onContinue: () -> Void
     var onDelete: () -> Void
 
@@ -87,18 +140,32 @@ struct DraftRow: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: icon)
                     .font(.body.weight(.semibold))
-                    .frame(width: 28, height: 28)
+                    .foregroundStyle(Color(hex: "#D66056"))
+                    .frame(width: 36, height: 36)
+                    .background(Color(hex: "#D66056").opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.subheadline.weight(.semibold))
-                    Text(preview)
-                        .font(.body)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text(item.preview)
+                        .font(.body.weight(.semibold))
                         .lineLimit(2)
                         .foregroundStyle(.primary)
-                    // "5 minutes ago" rather than a bare, ticking "5 min".
-                    Text(ModulaTimeFormat.short(lastEdited))
+                    Text("Edited \(ModulaTimeFormat.short(item.lastEdited))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if item.mediaCount > 0 || item.audienceTitle != nil {
+                        HStack(spacing: 8) {
+                            if item.mediaCount > 0 {
+                                Label("\(item.mediaCount) \(item.mediaCount == 1 ? "media item" : "media items")", systemImage: "photo")
+                            }
+                            if let audience = item.audienceTitle {
+                                Label(audience, systemImage: "person.2")
+                            }
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
                 }
                 Spacer(minLength: 0)
             }
@@ -107,11 +174,12 @@ struct DraftRow: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title) draft")
-        .accessibilityValue("\(preview). Last edited \(ModulaTimeFormat.short(lastEdited))")
+        .accessibilityValue("\(item.preview). Last edited \(ModulaTimeFormat.short(item.lastEdited))")
         .accessibilityHint("Continue draft")
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button("Delete", role: .destructive, action: onDelete)
             Button("Continue", action: onContinue)
+                .tint(Color(hex: "#D66056"))
         }
         .contextMenu {
             Button("Continue", systemImage: "arrow.right.circle", action: onContinue)
@@ -120,7 +188,7 @@ struct DraftRow: View {
     }
 
     private var title: String {
-        switch kind {
+        switch item.kind {
         case .post: "Post"
         case .inMail: "In-Mail"
         case .story: "Story"
@@ -128,7 +196,7 @@ struct DraftRow: View {
     }
 
     private var icon: String {
-        switch kind {
+        switch item.kind {
         case .post: "square.and.pencil"
         case .inMail: "envelope"
         case .story: "circle.dashed"

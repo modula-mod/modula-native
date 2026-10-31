@@ -375,6 +375,117 @@ struct StoryRootPlaceholder: View {
     }
 }
 
+struct StoryInsightsView: View {
+    let item: StoryItem
+    let position: Int
+    let count: Int
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack(alignment: .top, spacing: 14) {
+                        insightThumb
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Published")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(Color(hex: "#369CAA"))
+                            Text(headline)
+                                .font(.title3.bold())
+                                .lineLimit(3)
+                            Text(ConversationRow.relative(item.createdAt))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Text("Story \(position) of \(count)")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            if let remaining = StoryInsightFacts.remaining(until: item.expiresAt) {
+                                Label(remaining, systemImage: "clock")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.green)
+                            } else {
+                                Text("Expiry isn’t included on this story.")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+
+                    Text("Your story at a glance")
+                        .font(.title3.bold())
+                    if let viewers = item.viewerCount {
+                        insightStat("Views", value: viewers.formatted(), detail: "Included on this story item")
+                    } else {
+                        insightStat("Views", value: "—", detail: "This story didn’t include a view count")
+                    }
+                    insightStat("Replies", value: "—", detail: "Stories don’t return replies")
+                    insightStat("Reactions", value: "—", detail: "Stories don’t return reactions")
+                    insightStat("Completion", value: "—", detail: "Stories don’t return how far people watched")
+                    Text("There isn’t a views-over-time chart. Marking a story viewed doesn’t return a series.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Button("View your story") { dismiss() }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color(hex: "#369CAA"))
+                        .accessibilityIdentifier("story.insights.view")
+                }
+                .padding(16)
+            }
+            .background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle("Story Insights")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+            }
+        }
+        .accessibilityIdentifier("story.insights")
+    }
+
+    private var headline: String {
+        let text = item.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return text.isEmpty ? "Story" : text
+    }
+
+    @ViewBuilder
+    private var insightThumb: some View {
+        if let url = item.media?.url {
+            ModulaRemoteImage(url: url, cacheKey: "story-insight:\(item.id)") { phase in
+                switch phase {
+                case .success(let image):
+                    Image(uiImage: image).resizable().scaledToFill()
+                default:
+                    Color(hex: "#369CAA")
+                }
+            }
+            .frame(width: 84, height: 112)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        } else {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color(hex: "#369CAA"))
+                .frame(width: 84, height: 112)
+                .overlay { Image(systemName: "text.alignleft").foregroundStyle(.white) }
+        }
+    }
+
+    private func insightStat(_ title: String, value: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.subheadline).foregroundStyle(.secondary)
+            Text(value).font(.title.bold())
+            Text(detail).font(.footnote).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+}
+
 struct StoryViewerHost: View {
     let storyID: StoryID
     @Environment(AppEnvironment.self) private var app
@@ -414,6 +525,7 @@ struct StoryViewer: View {
     @State private var burstEmoji: String?
     @State private var confirmMute = false
     @State private var confirmReport = false
+    @State private var showsInsights = false
 
     private let teal = Color(hex: "#369CAA")
 
@@ -534,6 +646,11 @@ struct StoryViewer: View {
         .onChange(of: scenePhase) { _, phase in
             engine.isAppActive = phase == .active
             if phase != .active { engine.pause() } else if !holding, !replyFocused { engine.resume() }
+        }
+        .sheet(isPresented: $showsInsights) {
+            if let item = currentItem, item.isOwn {
+                StoryInsightsView(item: item, position: engine.index + 1, count: max(group.items.count, 1))
+            }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("story.viewer")
@@ -691,6 +808,11 @@ struct StoryViewer: View {
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.white)
                         HStack(spacing: 6) {
+                            Text("Story · \(engine.index + 1) of \(max(group.items.count, 1))")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.8))
+                            Text("·")
+                                .foregroundStyle(.white.opacity(0.45))
                             Text(ConversationRow.relative(item.createdAt))
                                 .font(.caption)
                                 .foregroundStyle(.white.opacity(0.8))
@@ -767,7 +889,7 @@ struct StoryViewer: View {
         let enabled = canReply && !own
         HStack(spacing: 8) {
             TextField(
-                own ? "Your story" : (enabled ? "Send message…" : "Replies unavailable"),
+                own ? "Your story" : (enabled ? "Send a reply…" : "Replies unavailable"),
                 text: $replyDraft
             )
             .textFieldStyle(.plain)
@@ -869,6 +991,7 @@ struct StoryViewer: View {
                     } else if app.stories.capabilities.viewers {
                         Text("Views aren’t loaded yet")
                     }
+                    Button("Story insights", systemImage: "chart.bar") { showsInsights = true }
                     Button("Share story", systemImage: "square.and.arrow.up") { share(item) }
                 } else {
                     if canReply {
@@ -1196,6 +1319,7 @@ struct StoryLayer: Identifiable, Equatable {
         case emoji(String)
         case animated(String)
         case mascot(String)
+        case sprout(String)
         case gif(URL)
         case text(StoryTextSpec)
         case location(String)
@@ -1486,6 +1610,10 @@ struct StoryLayerView: View {
         case .mascot(let raw):
             if let kind = ModulaMascotKind(rawValue: raw) {
                 ModulaMascotSticker(kind: kind, size: 130)
+            }
+        case .sprout(let raw):
+            if let item = SproutStickerPack.sticker(id: raw) {
+                SproutStickerImage(assetName: item.assetName, size: 140)
             }
         case .gif:
             Group {
@@ -2307,7 +2435,15 @@ struct StoryCreateView: View {
             }
             railButton("scribble.variable", label: "Draw", active: tool == .draw) { toggle(.draw) }
             railButton("music.note", label: "Music", active: tool == .music) { toggle(.music) }
-            railButton("camera.filters", label: "Filters", active: tool == .filters) { toggle(.filters) }
+            railButton("camera.filters", label: "Effects", active: tool == .filters) { toggle(.filters) }
+            railButton("list.bullet", label: "Poll", active: sheet == .poll) {
+                noticeInteractive()
+                sheet = .poll
+            }
+            railButton("questionmark", label: "Question", active: sheet == .question) {
+                noticeInteractive()
+                sheet = .question
+            }
             railButton("rectangle.split.2x2", label: "Layout", active: tool == .layout) {
                 if collageLayout == nil {
                     withAnimation(spring) {
@@ -3011,6 +3147,7 @@ struct StoryCreateView: View {
             case .mascot: return .mascot(local.value)
             case .anim: return .animated(local.value)
             case .emoji: return .emoji(local.value)
+            case .sprout: return .sprout(local.value)
             }
         }
         return .emoji(sticker.emoji)
@@ -3148,7 +3285,7 @@ struct StoryCreateView: View {
         VStack(spacing: 10) {
             if hasMedia && !showsCamera {
                 HStack(spacing: 10) {
-                    TextField("Add a caption…", text: $caption, axis: .vertical)
+                    TextField("Add a story…", text: $caption, axis: .vertical)
                         .lineLimit(1...3)
                         .textFieldStyle(.plain)
                         .foregroundStyle(.primary)

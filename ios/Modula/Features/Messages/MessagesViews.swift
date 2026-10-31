@@ -748,12 +748,18 @@ struct MessageBubble: View {
                 .accessibilityHidden(true)
             }
             VStack(alignment: message.isOwn ? .trailing : .leading, spacing: 6) {
-                Text(message.body.text)
-                    .font(.body)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(bubbleFill, in: bubbleShape)
-                    .foregroundStyle(message.isOwn ? Color.white : Color.primary)
+                let parsed = ModulaLocalSticker.extract(message.body.text)
+                if !parsed.text.isEmpty {
+                    Text(parsed.text)
+                        .font(.body)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(bubbleFill, in: bubbleShape)
+                        .foregroundStyle(message.isOwn ? Color.white : Color.primary)
+                }
+                if !parsed.stickers.isEmpty {
+                    ModulaLocalStickerRow(stickers: parsed.stickers)
+                }
                 if let attachment = MessageInlineContent.detect(in: message.body.text) {
                     MessageInlineContentView(content: attachment)
                 }
@@ -868,7 +874,10 @@ struct MessageBubble: View {
     private var accessibilityLabel: String {
         let who = message.isOwn ? "You" : message.sender.displayName
         let time = ConversationRow.relative(message.sentAt)
-        var parts = [who, time, message.body.text]
+        let parsed = ModulaLocalSticker.extract(message.body.text)
+        var parts = [who, time]
+        if !parsed.text.isEmpty { parts.append(parsed.text) }
+        if !parsed.stickers.isEmpty { parts.append(parsed.stickers.map(\.label).joined(separator: ", ")) }
         if message.delivery == .failed { parts.append("Failed to send") }
         if message.delivery == .sending { parts.append("Sending") }
         if app.messaging.capabilities.readReceipts, ModulaPreferences.chatShowReadReceipts, message.delivery == .read { parts.append("Read") }
@@ -887,24 +896,63 @@ struct MessageComposer: View {
     var onSend: () -> Void
     @AppStorage("settings.chats.enterToSend") private var enterToSend = false
     @AppStorage("settings.chats.spellCheck") private var spellCheck = true
+    @Environment(AppEnvironment.self) private var app
+    @State private var showStickers = false
 
     var body: some View {
-        ModulaComposer(
-            text: $text,
-            prompt: "Add a message...",
-            enabled: canSend,
-            showsAttachmentButton: showsAttachments,
-            externalFocus: focus,
-            returnSends: enterToSend,
-            spellCheck: spellCheck,
-            reply: reply,
-            onCancelReply: onCancelReply,
-            collapsesWhenUnfocused: true,
-            onSend: onSend
-        )
+        let typing = showStickers || focus?.wrappedValue == true
+        VStack(spacing: 0) {
+            if showStickers {
+                ModulaStickerPicker(client: app.client, initialSection: "sprout") { sticker in
+                    insert(sticker)
+                    showStickers = false
+                }
+                .frame(height: 300)
+                .accessibilityIdentifier("messages.stickers")
+            }
+            HStack(alignment: .bottom, spacing: 0) {
+                // The seal sits with the docked composer. While the keyboard is down it folds into the pill.
+                if typing {
+                    Button {
+                        showStickers.toggle()
+                        if showStickers { focus?.wrappedValue = false }
+                    } label: {
+                        Image(systemName: showStickers ? "keyboard" : "seal.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(showStickers ? "Hide stickers" : "Stickers")
+                    .accessibilityIdentifier("messages.stickers.button")
+                }
+                ModulaComposer(
+                    text: $text,
+                    prompt: "Add a message...",
+                    enabled: canSend,
+                    showsAttachmentButton: showsAttachments,
+                    externalFocus: focus,
+                    returnSends: enterToSend,
+                    spellCheck: spellCheck,
+                    reply: reply,
+                    onCancelReply: onCancelReply,
+                    collapsesWhenUnfocused: !showStickers,
+                    onSend: onSend
+                )
+            }
+        }
         .padding(.horizontal, ModulaLayout.contentInset)
         .padding(.vertical, 8)
         .accessibilityIdentifier("messages.composer")
+    }
+
+    /// Server packs stay emoji. Sprout and other local packs travel as text tokens.
+    private func insert(_ sticker: ModulaSticker) {
+        let piece = ModulaLocalSticker.from(sticker)?.token ?? sticker.emoji
+        if text.isEmpty {
+            text = piece
+        } else {
+            text += (text.hasSuffix(" ") ? "" : " ") + piece
+        }
     }
 }
 

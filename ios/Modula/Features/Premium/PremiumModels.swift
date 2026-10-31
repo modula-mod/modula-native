@@ -46,6 +46,12 @@ enum PremiumAPI {
     static let membership = "/v1/me/membership"
     static let entitlements = "/v1/me/entitlements"
     static let badgeVisibility = "/v1/me/membership/badge-visibility"
+    static let verification = "/v1/me/verification"
+    static let insights = "/v1/creator/insights"
+    static let payouts = "/v1/creator/payouts"
+    static let invoices = "/v1/commerce/invoices"
+    static let billingAdapters = "/v1/commerce/billing-adapters"
+    static let inMail = "/v1/in-mail"
 
     static func entitlement(capabilityId: String) -> String {
         "/v1/me/entitlements/\(capabilityId)"
@@ -62,6 +68,32 @@ enum PremiumRemote {
             path: PremiumAPI.badgeVisibility,
             body: .object(["visible": .bool(visible)])
         )
+    }
+
+    /// `GET /v1/premium/tiers`. The atlas declares no response fields, so the payload is not turned into prices.
+    static func loadTiers(client: GreenfieldClient) async throws {
+        let _: JSONValue = try await client.authenticatedJSON("GET", path: PremiumAPI.tiers)
+    }
+
+    /// `GET /v1/me/membership`. No declared response fields, so the body is not read as a plan.
+    static func loadMembership(client: GreenfieldClient) async throws {
+        let _: JSONValue = try await client.authenticatedJSON("GET", path: PremiumAPI.membership)
+    }
+
+    /// `GET /v1/me/entitlements`. No declared response fields, so capabilities are not invented from it.
+    static func loadEntitlements(client: GreenfieldClient) async throws {
+        let _: JSONValue = try await client.authenticatedJSON("GET", path: PremiumAPI.entitlements)
+    }
+
+    /// `GET /v1/commerce/billing-adapters`. No declared response fields, so no card or wallet is shown.
+    static func loadBillingAdapters(client: GreenfieldClient) async throws {
+        let _: JSONValue = try await client.authenticatedJSON("GET", path: PremiumAPI.billingAdapters)
+    }
+
+    /// `GET /v1/creator/insights` with no query. Profile visitors are not part of this model.
+    static func loadInsights(client: GreenfieldClient) async throws -> CreatorInsightsResponse {
+        let value = try await client.authenticatedJSON("GET", path: PremiumAPI.insights)
+        return try GreenfieldValueDecoder.decode(CreatorInsightsResponse.self, from: value)
     }
 }
 
@@ -229,6 +261,19 @@ enum PremiumPricing {
             let perMonth = format(minor: Int((Double(plan.placeholderAnnualMinor) / 12).rounded()), locale: locale)
             return "\(from)\(format(minor: plan.placeholderAnnualMinor, locale: locale))/yr\(seat) · \(perMonth)/mo"
         }
+    }
+
+    /// Percent saved vs 12 monthly payments, rounded. Derived from the catalogue, not a marketing claim.
+    static func annualSavePercent(_ plan: PremiumPlan) -> Int {
+        guard plan.placeholderMonthlyMinor > 0 else { return 0 }
+        let full = plan.placeholderMonthlyMinor * 12
+        let saved = full - plan.placeholderAnnualMinor
+        guard saved > 0 else { return 0 }
+        return Int((Double(saved) / Double(full) * 100).rounded())
+    }
+
+    static var annualSaveUpTo: Int {
+        PremiumPlan.paid.map(annualSavePercent).max() ?? 0
     }
 
     /// Annual saving vs 12 monthly payments, in whole months (framed as "months included").
