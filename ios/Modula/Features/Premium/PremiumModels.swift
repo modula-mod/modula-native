@@ -36,9 +36,11 @@ enum PremiumFeatureFlags {
 }
 
 /// Authenticated premium routes from the Greenfield HTTP atlas (`premium/routes.ts`).
-/// Phase 1 does not call them. The atlas has no purchase or checkout route, so the hub cannot buy a plan.
+/// The atlas has no purchase or checkout route, so nothing here can buy a plan.
 /// Admin QA routes and `/v1/commerce/entitlements` are a different surface and are not used here.
 /// Verification is `GET /v1/me/verification` and is never a premium purchase.
+/// `PATCH /v1/me/membership/badge-visibility` is called with the atlas field `visible`.
+/// Membership and tier responses have no declared schema, so they are not parsed into a plan.
 enum PremiumAPI {
     static let tiers = "/v1/premium/tiers"
     static let membership = "/v1/me/membership"
@@ -47,6 +49,19 @@ enum PremiumAPI {
 
     static func entitlement(capabilityId: String) -> String {
         "/v1/me/entitlements/\(capabilityId)"
+    }
+}
+
+/// Authenticated calls whose paths and fields are in the HTTP atlas.
+/// Membership and tier payloads have no declared response schema, so callers must not invent fields from them.
+enum PremiumRemote {
+    /// `PATCH /v1/me/membership/badge-visibility` with the atlas field `visible`.
+    static func setBadgeVisible(_ visible: Bool, client: GreenfieldClient) async throws {
+        let _: JSONValue = try await client.authenticatedJSON(
+            "PATCH",
+            path: PremiumAPI.badgeVisibility,
+            body: .object(["visible": .bool(visible)])
+        )
     }
 }
 
@@ -413,6 +428,8 @@ struct PremiumFAQItem: Identifiable, Hashable, Sendable {
 
 enum PremiumCatalog {
     static let positioning = "Your profile, with more power behind it: more reach, more room and more expression."
+    /// Shown on every Premium surface. Membership and verification are different things.
+    static let membershipDisclaimer = "Modula Premium is a paid membership. It does not verify identity."
 
     static let comparison: [PremiumComparisonRow] = [
         .init(area: "Badge", symbol: "seal", values: ["None", "Pearl mark", "Gold glass mark", "Horizon gradient mark", "Obsidian-gold mark"]),

@@ -33,6 +33,28 @@ final class PremiumTests: XCTestCase {
         XCTAssertFalse(source.contains("checkout"))
         XCTAssertFalse(source.contains("/admin/"))
         XCTAssertFalse(source.contains("/commerce/"))
+        XCTAssertEqual(PremiumCatalog.membershipDisclaimer, "Modula Premium is a paid membership. It does not verify identity.")
+    }
+
+    func testProfileBadgeFollowsTierAndIsNotVerification() {
+        XCTAssertEqual(PremiumBadgeAsset.allCases.count, 16)
+        XCTAssertNil(PremiumBadgeAsset.profileMark(for: .core))
+        XCTAssertEqual(PremiumBadgeAsset.profileMark(for: .plus), .pearl)
+        XCTAssertEqual(PremiumBadgeAsset.profileMark(for: .horizon), .horizon)
+        XCTAssertEqual(PremiumBadgeAsset.profileMark(for: .horizonPlus), .horizonPlus)
+        XCTAssertEqual(PremiumBadgeAsset.profileMark(for: .studio), .obsidian)
+        let marks = PremiumPlan.paid.compactMap(PremiumBadgeAsset.profileMark(for:))
+        XCTAssertEqual(Set(marks.map(\.rawValue)).count, 4)
+        XCTAssertFalse(PremiumBadgeAsset.tierMarks.contains(.memberMark))
+        XCTAssertTrue(PremiumBadgeAsset.gallery.contains(.memberMark))
+        XCTAssertEqual(
+            RouteParser.parse("/settings/premium/badge"),
+            .settings(.premium(.badge))
+        )
+        XCTAssertEqual(
+            RouteSerializer.serialize(.settings(.premium(.badge))),
+            "/settings/premium/badge"
+        )
     }
 
     func testFlagIsAlwaysOffInRelease() {

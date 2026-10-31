@@ -90,6 +90,13 @@ struct PremiumHubView: View {
 
             comparison
 
+            TelegramSettingsCard {
+                TelegramRow(title: "Premium badge", symbol: "seal.fill", tint: app.appearance.accent.color, value: store.plan.showsBadge ? store.plan.shortTitle : "Core") {
+                    app.navigation.open(.settings(.premium(.badge)))
+                }
+                .accessibilityIdentifier("premium.badge.link")
+            }
+
             faq
 
             #if DEBUG
