@@ -150,6 +150,15 @@ struct PremiumHeroCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            ShellSceneImage(scene: .moonLake)
+                .scaledToFill()
+                .frame(height: 112)
+                .frame(maxWidth: .infinity)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(alignment: .bottom) {
+                    LinearGradient(colors: [.clear, .black.opacity(0.28)], startPoint: .top, endPoint: .bottom)
+                }
+                .accessibilityHidden(true)
             HStack(spacing: 12) {
                 Image(systemName: "sun.horizon.fill")
                     .font(.system(size: 24, weight: .semibold))
