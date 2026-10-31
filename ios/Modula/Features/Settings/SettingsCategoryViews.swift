@@ -794,6 +794,11 @@ private struct PackageStorageDownloadsView: View {
     var body: some View {
         SettingsScrollCanvas {
             SettingsHeroBanner(title: "Storage & Downloads", subtitle: "Measured optional content on this device.", symbol: "square.stack.3d.up")
+            ShellSceneImage(scene: .storageCloud)
+                .scaledToFit()
+                .frame(height: 120)
+                .frame(maxWidth: .infinity)
+                .accessibilityHidden(true)
             if let usage {
                 SettingsGroup(title: "Usage") {
                     VStack(spacing: 0) {

@@ -117,6 +117,16 @@ struct MolibooWorldView: View {
             )
             .ignoresSafeArea()
             .allowsHitTesting(false)
+            ShellSceneImage(scene: .misty)
+                .scaledToFill()
+                .frame(height: 220)
+                .frame(maxWidth: .infinity, alignment: .top)
+                .mask(
+                    LinearGradient(colors: [.white, .white.opacity(0.92), .clear], startPoint: .top, endPoint: .bottom)
+                )
+                .ignoresSafeArea(edges: .top)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
             ScrollView {
                 VStack(spacing: 32) {
                     if shows("stage") {

@@ -214,6 +214,8 @@
 		L50100000000000000000002 /* OnboardingLandingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = L40100000000000000000002 /* OnboardingLandingModels.swift */; };
 		L50100000000000000000003 /* OnboardingLandingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = L40100000000000000000003 /* OnboardingLandingTests.swift */; };
 		B7E4A91C2D6F4A18B0C3E502 /* SproutIllustration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E4A91C2D6F4A18B0C3E501 /* SproutIllustration.swift */; };
+		C8F1A02D3E4B5C6D7E8F9012 /* ShellScenes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F1A02D3E4B5C6D7E8F9011 /* ShellScenes.swift */; };
+		C8F1A02D3E4B5C6D7E8F9014 /* ShellSceneTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F1A02D3E4B5C6D7E8F9013 /* ShellSceneTests.swift */; };
 		B7E4A91C2D6F4A18B0C3E504 /* SproutIllustrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E4A91C2D6F4A18B0C3E503 /* SproutIllustrationTests.swift */; };
 		A50100000000000000000006 /* FirstRunModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000006 /* FirstRunModels.swift */; };
 		A50100000000000000000007 /* FirstRunView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000007 /* FirstRunView.swift */; };
@@ -673,6 +675,8 @@
 		L40100000000000000000002 /* OnboardingLandingModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingLandingModels.swift; path = Features/Onboarding/OnboardingLandingModels.swift; sourceTree = "<group>"; };
 		L40100000000000000000003 /* OnboardingLandingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingLandingTests.swift; sourceTree = "<group>"; };
 		B7E4A91C2D6F4A18B0C3E501 /* SproutIllustration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SproutIllustration.swift; path = DesignSystem/SproutIllustration.swift; sourceTree = "<group>"; };
+		C8F1A02D3E4B5C6D7E8F9011 /* ShellScenes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShellScenes.swift; path = DesignSystem/ShellScenes.swift; sourceTree = "<group>"; };
+		C8F1A02D3E4B5C6D7E8F9013 /* ShellSceneTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShellSceneTests.swift; sourceTree = "<group>"; };
 		B7E4A91C2D6F4A18B0C3E503 /* SproutIllustrationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SproutIllustrationTests.swift; sourceTree = "<group>"; };
 		A40100000000000000000006 /* FirstRunModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FirstRunModels.swift; path = Features/FirstRun/FirstRunModels.swift; sourceTree = "<group>"; };
 		A40100000000000000000007 /* FirstRunView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FirstRunView.swift; path = Features/FirstRun/FirstRunView.swift; sourceTree = "<group>"; };
@@ -998,6 +1002,7 @@
 				A03100000000000000000007 /* POST03Tests.swift */,
 				L40100000000000000000003 /* OnboardingLandingTests.swift */,
 				B7E4A91C2D6F4A18B0C3E503 /* SproutIllustrationTests.swift */,
+				C8F1A02D3E4B5C6D7E8F9013 /* ShellSceneTests.swift */,
 				F70100000000000000000004 /* EffectKitTests.swift */,
 				775DC34FE761435741076D26 /* MOL01Tests.swift */,
 				A1B2C3D4E5F6A7B8C9D0E104 /* MOL02Tests.swift */,
@@ -1382,6 +1387,7 @@
 				97029B142178008022F2424B /* ModuleBackendRequest.swift */,
 				ADB419E3CAE3BA05CB1C1E59 /* ModulaDesignSystem.swift */,
 				B7E4A91C2D6F4A18B0C3E501 /* SproutIllustration.swift */,
+				C8F1A02D3E4B5C6D7E8F9011 /* ShellScenes.swift */,
 				G40100000000000000000001 /* ModulaSurfaceSystem.swift */,
 				G40100000000000000000002 /* EdgeLoopEngine.swift */,
 				G40100000000000000000003 /* EdgeLoopShape.swift */,
@@ -1796,6 +1802,7 @@
 				A03200000000000000000007 /* POST03Tests.swift in Sources */,
 				L50100000000000000000003 /* OnboardingLandingTests.swift in Sources */,
 				B7E4A91C2D6F4A18B0C3E504 /* SproutIllustrationTests.swift in Sources */,
+				C8F1A02D3E4B5C6D7E8F9014 /* ShellSceneTests.swift in Sources */,
 				F70200000000000000000004 /* EffectKitTests.swift in Sources */,
 				17ACCE3135E58A0DA2856DAF /* MOL01Tests.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E103 /* MOL02Tests.swift in Sources */,
@@ -2103,6 +2110,7 @@
 				48EF6D3FADBF1FED0E9DC0F6 /* ModuleBackendRequest.swift in Sources */,
 				20DD2162957F75B8920F2E80 /* ModulaDesignSystem.swift in Sources */,
 				B7E4A91C2D6F4A18B0C3E502 /* SproutIllustration.swift in Sources */,
+				C8F1A02D3E4B5C6D7E8F9012 /* ShellScenes.swift in Sources */,
 				4D06B1162F85CC39C781DF95 /* ShellComponents.swift in Sources */,
 				D5010000000000000000001B /* ModulaPullActions.swift in Sources */,
 				D5010000000000000000001C /* ModulaPullEffects.metal in Sources */,
