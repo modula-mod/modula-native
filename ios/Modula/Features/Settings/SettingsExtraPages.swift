@@ -92,7 +92,7 @@ struct CreatorSettingsHost: View {
         case .root:
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Creator", subtitle: "Studio defaults for people who publish.", symbol: "paintbrush.pointed")
-                SettingsSceneGraphic(style: .stack)
+                SproutIllustrationView(illustration: .painter, height: 148)
                 SettingsGroup(title: "Open") {
                     VStack(spacing: 0) {
                         SettingsNavigationRow(title: "Studio defaults", subtitle: "Audience and hints", symbol: "slider.horizontal.2.square") {

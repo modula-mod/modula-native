@@ -22,6 +22,12 @@ struct OnboardingView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 22) {
                         brand
+                        if step == .modules {
+                            // One pose on the step about adding tools. The other steps stay typographic.
+                            SproutIllustrationView(illustration: .builder, height: 168)
+                                .frame(maxWidth: 220)
+                                .frame(maxWidth: .infinity)
+                        }
                         content
                         points
                     }

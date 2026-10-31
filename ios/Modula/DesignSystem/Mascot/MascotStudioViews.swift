@@ -742,11 +742,8 @@ struct MascotStudioView: View {
 
     private var chestCard: some View {
         HStack(spacing: 14) {
-            Image(systemName: progress.canOpenChest ? "shippingbox.fill" : "shippingbox")
-                .font(.system(size: 34, weight: .semibold))
-                .foregroundStyle(LinearGradient(colors: [.yellow, .orange], startPoint: .top, endPoint: .bottom))
-                .symbolEffect(.bounce, value: progress.canOpenChest)
-                .frame(width: 56)
+            SproutIllustrationView(illustration: .rewards, height: 72)
+                .frame(width: 72, height: 72)
             VStack(alignment: .leading, spacing: 3) {
                 Text("Daily chest").font(.headline)
                 if let r = chestReward {

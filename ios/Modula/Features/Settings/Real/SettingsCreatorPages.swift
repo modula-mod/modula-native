@@ -168,6 +168,7 @@ struct PayoutsLedgerView: View {
     var body: some View {
         SettingsScrollCanvas {
             SettingsHeroBanner(title: "Payouts", subtitle: "Your earnings ledger. Every amount comes from a recorded entry.", symbol: "banknote")
+            SproutIllustrationView(illustration: .finance, height: 140)
             if let ledger {
                 SettingsGroup(title: "Balance") {
                     if ledger.balances.isEmpty {

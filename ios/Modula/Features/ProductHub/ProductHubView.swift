@@ -1192,12 +1192,17 @@ struct ProductBackdrop: View {
                 .fill(app.appearance.accent.color.opacity(0.2))
                 .frame(width: size.width * 0.8)
                 .offset(x: size.width * 0.34, y: -size.height * 0.24)
-            ForEach(0..<4, id: \.self) { index in
-                Capsule()
-                    .fill(Color.white.opacity(0.07 + Double(index) * 0.025))
-                    .frame(width: size.width * (0.46 - Double(index) * 0.055), height: 7)
-                    .rotationEffect(.degrees(-22))
-                    .offset(x: -size.width * 0.25, y: CGFloat(index * 27) - 18)
+            if let sprout = SproutIllustration.matching(text: "\(product.name) \(product.moduleId) \(product.productKind)") {
+                SproutIllustrationView(illustration: sprout, height: min(size.height * 0.62, 220))
+                    .padding(.horizontal, 28)
+            } else {
+                ForEach(0..<4, id: \.self) { index in
+                    Capsule()
+                        .fill(Color.white.opacity(0.07 + Double(index) * 0.025))
+                        .frame(width: size.width * (0.46 - Double(index) * 0.055), height: 7)
+                        .rotationEffect(.degrees(-22))
+                        .offset(x: -size.width * 0.25, y: CGFloat(index * 27) - 18)
+                }
             }
         }
     }
@@ -1506,6 +1511,13 @@ struct ProductHubView: View {
     @State private var query = ""
     @State private var categoryFilter: String?
 
+    init(route: ProductHubRoute) {
+        self.route = route
+        let initial: String?
+        if case .category(let id) = route { initial = id } else { initial = nil }
+        _categoryFilter = State(initialValue: initial)
+    }
+
     private var visible: [CatalogueProduct] {
         query.isEmpty ? app.catalogue.products : app.catalogue.products.filter {
             $0.name.localizedCaseInsensitiveContains(query) || $0.description.localizedCaseInsensitiveContains(query)
@@ -1598,7 +1610,8 @@ struct ProductHubView: View {
                 ModulaEmptyState(
                     title: "No modules yet",
                     message: "Nothing is in the Product Hub right now. Check back soon.",
-                    symbol: "shippingbox"
+                    symbol: "shippingbox",
+                    illustration: .builder
                 )
                 Button {
                     HapticEngine.shared.play(.selection)
@@ -1649,6 +1662,10 @@ struct ProductHubView: View {
             ProductCategoryChips(products: app.catalogue.products, selected: categoryFilter) { kind in
                 withAnimation(.snappy) { categoryFilter = categoryFilter == kind ? nil : kind }
             }
+            if let kind = categoryFilter, let sprout = SproutIllustration.matching(text: kind) {
+                SproutIllustrationView(illustration: sprout, height: 132)
+                    .accessibilityIdentifier("product-hub.category.sprout")
+            }
             ProductRankedList(
                 title: categoryFilter.map { "Top \($0.capitalized)" } ?? "Top modules",
                 subtitle: "Ranked by availability and publisher",
@@ -1673,11 +1690,15 @@ struct ProductHubView: View {
             ModulaEmptyState(
                 title: "No results",
                 message: "No modules match “\(query)”. Try a different name.",
-                symbol: "magnifyingglass"
+                symbol: "magnifyingglass",
+                illustration: SproutIllustration.matching(text: query)
             )
             .padding(.top, 24)
             .accessibilityIdentifier("product-hub.search.empty")
         } else {
+            if let sprout = SproutIllustration.matching(text: query) {
+                SproutIllustrationView(illustration: sprout, height: 120)
+            }
             ProductShelf(title: "Results", products: visible, installedIDs: app.catalogue.installedIDs, action: open)
         }
     }

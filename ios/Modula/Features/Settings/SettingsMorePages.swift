@@ -275,7 +275,7 @@ struct LabsSettingsHost: View {
         case .root:
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Labs", subtitle: "Optional experiments on this device — not the Features registry.", symbol: "flask")
-                SettingsSceneGraphic(style: .pulse)
+                SproutIllustrationView(illustration: .science, height: 148)
                 SettingsToggleCard {
                     Toggle("Experimental bottom chrome", isOn: $experimentalChrome)
                     Toggle("Debug overlay", isOn: $debugOverlays)
