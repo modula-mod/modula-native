@@ -180,9 +180,27 @@ final class PremiumTests: XCTestCase {
         XCTAssertEqual(PremiumPricing.annualMonthsIncluded(.horizon), 2)
         XCTAssertEqual(PremiumPricing.annualSavePercent(.horizon), 17)
         XCTAssertEqual(PremiumPricing.annualSaveUpTo, 17)
+        XCTAssertEqual(PremiumPricing.annualMonthsIncluded(.horizonPlus), 2)
         XCTAssertEqual(RouteParser.parse("/settings/premium/compare"), .settings(.premium(.compare)))
         XCTAssertEqual(RouteParser.parse("/settings/premium/intro"), .settings(.premium(.intro)))
-        XCTAssertEqual(PremiumPricing.annualMonthsIncluded(.horizonPlus), 2)
+        XCTAssertEqual(PremiumAPI.verification, "/v1/me/verification")
+        XCTAssertEqual(PremiumAPI.insights, "/v1/creator/insights")
+        XCTAssertEqual(PremiumAPI.invoices, "/v1/commerce/invoices")
+        XCTAssertEqual(PremiumAPI.billingAdapters, "/v1/commerce/billing-adapters")
+        XCTAssertEqual(PremiumAPI.payouts, "/v1/creator/payouts")
+        XCTAssertEqual(PremiumAPI.inMail, "/v1/in-mail")
+        XCTAssertFalse(PremiumAPI.billingAdapters.contains("entitlements"))
+        for path in ["/settings/premium/dashboard", "/settings/premium/manage", "/settings/premium/visitors", "/settings/premium/storage", "/settings/premium/possibilities"] {
+            XCTAssertEqual(RouteSerializer.serialize(try XCTUnwrap(RouteParser.parse(path))), path)
+        }
+    }
+
+    func testDowngradeNeverDeletesData() {
+        let usage = PremiumUsage(installedModules: 12, storageUsedGB: 80, unusedInMailCredits: 2, claimedPremiumItems: 3)
+        let outcomes = PremiumDowngrade.outcomes(from: .horizon, to: .core, usage: usage)
+        XCTAssertFalse(outcomes.isEmpty)
+        XCTAssertTrue(outcomes.allSatisfy { $0.deletesData == false })
+        XCTAssertTrue(outcomes.contains { $0.id == "verification" })
     }
 
     func testComparisonCoversEveryPlanAndCoreStaysFree() {

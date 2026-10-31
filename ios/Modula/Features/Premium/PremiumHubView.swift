@@ -108,6 +108,11 @@ struct PremiumHubView: View {
             }
 
             TelegramSettingsCard {
+                TelegramRow(title: "Dashboard", symbol: "square.grid.2x2", tint: app.appearance.accent.color, value: store.plan.shortTitle) {
+                    app.navigation.open(.settings(.premium(.dashboard)))
+                }
+                .accessibilityIdentifier("premium.dashboard.link")
+                TelegramDivider()
                 TelegramRow(title: "Compare plans", symbol: "checklist", tint: app.appearance.accent.color) {
                     app.navigation.open(.settings(.premium(.compare)))
                 }
