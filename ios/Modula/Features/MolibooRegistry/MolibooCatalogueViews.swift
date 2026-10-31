@@ -57,8 +57,10 @@ struct MolibooCollectionBrowser: View {
     private let registry = MolibooRegistryStore.bundled
 
     var body: some View {
-        let families = registry?.families ?? []
-        let shown = MolibooCatalogueQuery.filter(registry?.characters ?? [], family: family, search: search, families: families)
+        let families = registry?.families.filter { $0.series == 1 } ?? []
+        // Series 2 drafts have no built-in figure. The studio collection shows the native roster only.
+        let roster = (registry?.characters ?? []).filter { $0.kind != nil }
+        let shown = MolibooCatalogueQuery.filter(roster, family: family, search: search, families: families)
         let _ = MolibooPackageRevision.shared.value
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
@@ -71,7 +73,7 @@ struct MolibooCollectionBrowser: View {
                         .padding(.horizontal, 16)
                     }
                 }
-                Text("\(shown.count) of \(registry?.characters.count ?? 0)")
+                Text("\(shown.count) of \(roster.count)")
                     .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     .padding(.horizontal, 16)
                     .accessibilityIdentifier("moliboo.collection.count")
@@ -230,7 +232,7 @@ struct MolibooCollectionEntry: View {
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("All Moliboos").font(.subheadline.weight(.semibold))
-                    Text("\(MolibooRegistryStore.bundled?.characters.count ?? 0) characters · personalities, moves and artwork")
+                    Text("\(MolibooRegistryStore.bundled?.characters.filter { $0.kind != nil }.count ?? 0) characters · personalities, moves and artwork")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()

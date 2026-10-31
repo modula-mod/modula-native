@@ -95,7 +95,10 @@ final class MOL03VisualAcceptanceTests: XCTestCase {
 
     func testRegistryReactionsResolveForEveryMoliboo() throws {
         let reg = try XCTUnwrap(MolibooRegistryStore.bundled)
-        for c in reg.characters {
+        let native = reg.characters.filter { $0.number <= 115 }
+        XCTAssertEqual(native.count, 115)
+        XCTAssertTrue(reg.characters.filter { $0.number >= 116 }.allSatisfy { $0.kind == nil && !$0.purchasable })
+        for c in native {
             let kind = try XCTUnwrap(c.kind, c.key)
             for (name, reaction) in c.reactions {
                 let mood = try XCTUnwrap(MolibooReactionMoods.mood(named: reaction.mood), "\(c.key).\(name) → \(reaction.mood)")
