@@ -181,7 +181,7 @@ enum ShareCoordinator {
         return draft
     }
 
-    static func messageBodyFallback(for payload: SharePayload) -> String {
+    nonisolated static func messageBodyFallback(for payload: SharePayload) -> String {
         payload.canonicalURL.absoluteString
     }
 }

@@ -33,7 +33,7 @@ enum MolibooMarketplaceFacts {
         registry.families.filter { $0.series == 2 && $0.availability == "draft" }
     }
 
-    static func showing(_ characters: [MolibooRegistryCharacter], family: String?, search: String, families: [MolibooRegistryFamily]) -> [MolibooRegistryCharacter] {
+    @MainActor static func showing(_ characters: [MolibooRegistryCharacter], family: String?, search: String, families: [MolibooRegistryFamily]) -> [MolibooRegistryCharacter] {
         MolibooCatalogueQuery.filter(characters, family: family, search: search, families: families)
     }
 }
