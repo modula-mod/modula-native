@@ -91,6 +91,8 @@
 		AF8255A5603EBFD6401C548A /* MolibooFitProfiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E4B8D45F1AA50C1D4B6FA8 /* MolibooFitProfiles.swift */; };
 		F1EBCBFEBEEA3F2255CF76B9 /* MolibooRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FE8EDB540DDE8E7078DD077 /* MolibooRegistry.swift */; };
 		3F68A564E6A09107514875CE /* MolibooFeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = A278B9E952CA3FF760FDDDB0 /* MolibooFeatureFlags.swift */; };
+		6EA21C08BAFDA513CD756C41 /* PremiumHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 764C7E4089A3806C2B0799D5 /* PremiumHubView.swift */; };
+		4A0F657603DE75A0977546FE /* PremiumModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC4ED8693B1B0C39DC054732 /* PremiumModels.swift */; };
 		C1DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift */; };
 		C12F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift */; };
 		C17A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift in Sources */ = {isa = PBXBuildFile; fileRef = C07A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift */; };
@@ -360,6 +362,7 @@
 		F10100000000000000000004 /* ProfileComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000004 /* ProfileComponents.swift */; };
 		F10100000000000000000005 /* ProfileEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000005 /* ProfileEditView.swift */; };
 		F10100000000000000000006 /* ProfileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000006 /* ProfileTests.swift */; };
+		876A4A792369DBEA180D421D /* PremiumTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92DB1BA049C34A721DBEAFB7 /* PremiumTests.swift */; };
 		F10100000000000000000007 /* ProfileContextActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000007 /* ProfileContextActions.swift */; };
 		F10100000000000000000008 /* ProfileShareViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000008 /* ProfileShareViews.swift */; };
 		F10100000000000000000009 /* ProfileMediaViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000009 /* ProfileMediaViews.swift */; };
@@ -560,6 +563,8 @@
 		A2E4B8D45F1AA50C1D4B6FA8 /* MolibooFitProfiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooFitProfiles.swift; path = Features/MolibooRegistry/MolibooFitProfiles.swift; sourceTree = "<group>"; };
 		8FE8EDB540DDE8E7078DD077 /* MolibooRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooRegistry.swift; path = Features/MolibooRegistry/MolibooRegistry.swift; sourceTree = "<group>"; };
 		A278B9E952CA3FF760FDDDB0 /* MolibooFeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooFeatureFlags.swift; path = Features/Moliboo3D/MolibooFeatureFlags.swift; sourceTree = "<group>"; };
+		764C7E4089A3806C2B0799D5 /* PremiumHubView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PremiumHubView.swift; path = Features/Premium/PremiumHubView.swift; sourceTree = "<group>"; };
+		FC4ED8693B1B0C39DC054732 /* PremiumModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PremiumModels.swift; path = Features/Premium/PremiumModels.swift; sourceTree = "<group>"; };
 		C0DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommentAttachExtras.swift; path = Features/Social/CommentAttachExtras.swift; sourceTree = "<group>"; };
 		C02F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaStickerExtras.swift; path = DesignSystem/AdvancedInteraction/ModulaStickerExtras.swift; sourceTree = "<group>"; };
 		C07A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaInlineCamera.swift; path = DesignSystem/AdvancedInteraction/ModulaInlineCamera.swift; sourceTree = "<group>"; };
@@ -847,6 +852,7 @@
 		F00100000000000000000004 /* ProfileComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileComponents.swift; path = Features/Profile/ProfileComponents.swift; sourceTree = "<group>"; };
 		F00100000000000000000005 /* ProfileEditView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileEditView.swift; path = Features/Profile/ProfileEditView.swift; sourceTree = "<group>"; };
 		F00100000000000000000006 /* ProfileTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileTests.swift; sourceTree = "<group>"; };
+		92DB1BA049C34A721DBEAFB7 /* PremiumTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PremiumTests.swift; sourceTree = "<group>"; };
 		F00100000000000000000007 /* ProfileContextActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileContextActions.swift; path = Features/Profile/ProfileContextActions.swift; sourceTree = "<group>"; };
 		F00100000000000000000008 /* ProfileShareViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileShareViews.swift; path = Features/Profile/ProfileShareViews.swift; sourceTree = "<group>"; };
 		F00100000000000000000009 /* ProfileMediaViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileMediaViews.swift; path = Features/Profile/ProfileMediaViews.swift; sourceTree = "<group>"; };
@@ -1028,6 +1034,7 @@
 				AA7F7ED971B64DE79A592E1E /* PDFInlineCarouselTests.swift */,
 				259E9F3382BC4EA5811690EC /* PDFReaderV2Tests.swift */,
 				F00100000000000000000006 /* ProfileTests.swift */,
+				92DB1BA049C34A721DBEAFB7 /* PremiumTests.swift */,
 				834A240ED776595650758ACA /* LI02IntelligenceTests.swift */,
 				A40300000000000000000002 /* LI03AppleProviderTests.swift */,
 				A6010000000000000000000D /* Nodus01Tests.swift */,
@@ -1272,6 +1279,8 @@
 				A2E4B8D45F1AA50C1D4B6FA8 /* MolibooFitProfiles.swift */,
 				8FE8EDB540DDE8E7078DD077 /* MolibooRegistry.swift */,
 				A278B9E952CA3FF760FDDDB0 /* MolibooFeatureFlags.swift */,
+				764C7E4089A3806C2B0799D5 /* PremiumHubView.swift */,
+				FC4ED8693B1B0C39DC054732 /* PremiumModels.swift */,
 				C08E3F07060BD5F1C2F6D22C8A /* MascotWardrobeLayers.swift */,
 				C0403BE7599E95D561F435C27E /* MascotCustom.swift */,
 				C0BAD833BF4AA294710BD47644 /* MascotAssistant.swift */,
@@ -1816,6 +1825,7 @@
 				N50100000000000000000012 /* N4CTests.swift in Sources */,
 				V50100000000000000000003 /* ModuleVersionSwitchTests.swift in Sources */,
 				F10100000000000000000006 /* ProfileTests.swift in Sources */,
+				876A4A792369DBEA180D421D /* PremiumTests.swift in Sources */,
 				D50100000000000000000018 /* N4DTests.swift in Sources */,
 				A50100000000000000000017 /* N4ETests.swift in Sources */,
 				C5010000000000000000000C /* N4FTests.swift in Sources */,
@@ -1979,6 +1989,8 @@
 				AF8255A5603EBFD6401C548A /* MolibooFitProfiles.swift in Sources */,
 				F1EBCBFEBEEA3F2255CF76B9 /* MolibooRegistry.swift in Sources */,
 				3F68A564E6A09107514875CE /* MolibooFeatureFlags.swift in Sources */,
+				6EA21C08BAFDA513CD756C41 /* PremiumHubView.swift in Sources */,
+				4A0F657603DE75A0977546FE /* PremiumModels.swift in Sources */,
 				C18E3F07060BD5F1C2F6D22C8A /* MascotWardrobeLayers.swift in Sources */,
 				C1403BE7599E95D561F435C27E /* MascotCustom.swift in Sources */,
 				C1BAD833BF4AA294710BD47644 /* MascotAssistant.swift in Sources */,
