@@ -312,7 +312,7 @@ struct MolibooMarketplaceDetail: View {
                 if !character.traits.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
-                            ForEach(character.traits, id: \.self) { trait in
+                            ForEach(Array(character.traits.enumerated()), id: \.offset) { _, trait in
                                 Text(trait).font(.caption.weight(.semibold))
                                     .padding(.horizontal, 10).padding(.vertical, 6)
                                     .modulaGlass(in: Capsule(), interactive: false)
