@@ -229,7 +229,7 @@ struct PremiumIntroView: View {
         ("chart.bar", "\(PremiumPlan.horizon.visitorHistoryDays)-day visitor insights", "Coming soon. Profile visitors aren’t tracked."),
         ("shippingbox", "Unlimited modules", "Horizon removes the module cap. Modules you already installed stay."),
         ("person.crop.rectangle", "Premium profile customisation", "Profile plate and QR card styles are part of Horizon."),
-        ("lifepreserver", "Priority support", "Coming soon.")
+        ("headphones", "Priority support", "Coming soon.")
     ]
 }
 
