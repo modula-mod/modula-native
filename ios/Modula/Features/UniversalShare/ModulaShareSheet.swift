@@ -1,6 +1,8 @@
 import SwiftUI
 
-/// Modula's share sheet: preview, recent chats, quick actions, and the system sheet under "More".
+/// Modula's share sheet: a list of people, then a horizontal row of real share actions.
+/// Selecting someone checks them, slides that row away, and brings up a message field
+/// with a widening Send button. Two or more people retitle it "Send separately".
 struct ModulaShareSheet: View {
     let payload: SharePayload
     /// Richer code card for a profile (verified badge, avatar) than the payload alone carries.
@@ -9,15 +11,35 @@ struct ModulaShareSheet: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @FocusState private var noteFocused: Bool
+
     @State private var showCollectionPicker = false
     @State private var showPeoplePicker = false
-    @State private var peopleMode: PeoplePickerMode = .message
     @State private var copied = false
     @State private var showCode = false
     @State private var post: SocialPost?
+    @State private var suggestions: [DiscoverPerson] = []
+    @State private var searchPeople: [DiscoverPerson] = []
+    @State private var searching = false
+    @State private var query = ""
+    @State private var selectedKeys: [String] = []
+    @State private var known: [String: ShareRecipient] = [:]
+    @State private var note = ""
+    @State private var sending = false
+    @State private var sendError: String?
 
     private var reduceMotion: Bool { ModulaEffectGate.reduceMotion(systemReduceMotion) }
     private var accent: Color { app.appearance.accent.color }
+    private var canMessage: Bool { app.messaging.capabilities.send }
+
+    private var motion: Animation {
+        reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.38, dampingFraction: 0.62)
+    }
+
+    private var slide: AnyTransition {
+        reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity)
+    }
 
     private var destinations: [ShareDestination] {
         ShareDestinationRegistry.destinations(
@@ -30,33 +52,52 @@ struct ModulaShareSheet: View {
 
     private func has(_ kind: ShareDestinationKind) -> Bool { destinations.contains { $0.kind == kind } }
 
-    /// Most recent direct and group chats — the "send to" row.
-    private var recentChats: [Conversation] {
-        guard app.messaging.capabilities.send else { return [] }
-        return Array(app.messaging.visibleConversations.filter { $0.kind != .request }.prefix(12))
-    }
-
     private var canRepost: Bool {
         if case .post = payload { return app.postActions.capabilities.repost && post != nil }
         return false
     }
 
+    private var audience: [ShareRecipient] {
+        ShareAudience.recipients(
+            conversations: app.messaging.conversations,
+            suggestions: suggestions + searchPeople,
+            ownID: app.auth.account?.accountId,
+            ownHandle: app.auth.account?.primaryHandle
+        )
+    }
+
+    private var visiblePeople: [ShareRecipient] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !trimmed.isEmpty else { return audience }
+        return audience.filter {
+            $0.displayName.lowercased().contains(trimmed) || $0.handle.lowercased().contains(trimmed)
+        }
+    }
+
+    private var selectedPeople: [ShareRecipient] {
+        selectedKeys.compactMap { known[$0] }
+    }
+
+    private var hasRecipients: Bool { canMessage && !selectedKeys.isEmpty }
+    private var canSend: Bool { hasRecipients && !sending }
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 16) {
                     ShareHeroPreview(payload: payload, post: post)
-                    // Only when there are chats to show; Message still opens the people picker.
-                    if !recentChats.isEmpty { sendToRow }
-                    quickActions
-                    linkRow
+                    if canMessage {
+                        peopleSection
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 4)
-                .padding(.bottom, 24)
+                .padding(.bottom, 12)
             }
             .scrollBounceBehavior(.basedOnSize)
+            .scrollDismissesKeyboard(.interactively)
             .modulaSoftScrollEdge()
+            .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
             .navigationTitle("Share")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -69,12 +110,9 @@ struct ModulaShareSheet: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
-        .task {
-            await app.messaging.loadInboxIfNeeded()
-            if case .post(let id, _, _, _) = payload, post == nil {
-                post = try? await app.postActions.loadPost(id: id)
-            }
-        }
+        .task { await loadPeople() }
+        .task(id: query) { await search() }
+        .onChange(of: audience.map(\.key)) { _, _ in remember(audience) }
         .sheet(isPresented: $showCode) {
             ModulaCodeView(subject: codeSubject ?? ModulaCodeSubject(payload: payload)) { showCode = false }
                 .presentationDetents([.large])
@@ -86,186 +124,376 @@ struct ModulaShareSheet: View {
             }
         }
         .sheet(isPresented: $showPeoplePicker) {
-            PeoplePicker(mode: peopleMode, selectionLimit: 1) { people in
+            PeoplePicker(mode: .inMail, selectionLimit: 1) { people in
                 guard let person = people.first else { return }
-                switch peopleMode {
-                case .message:
-                    // Match the whole inbox (not the search-filtered list) on handle or id.
-                    if let chat = app.messaging.directConversation(with: person.handle ?? person.id)
-                        ?? app.messaging.directConversation(with: person.id) {
-                        send(to: chat)
-                    } else {
-                        // No thread yet: open the 1:1 starter addressed to them (not the generic New Message list).
-                        UIPasteboard.general.string = ShareCoordinator.messageBodyFallback(for: payload)
-                        dismiss()
-                        let who = (person.handle?.isEmpty == false ? person.handle : nil) ?? person.id
-                        app.navigation.open(.messages(.direct(who)))
-                        app.navigation.flash("Link copied — paste it to \(person.displayName)", symbol: "bubble.left")
-                    }
-                case .inMail:
-                    var draft = ShareCoordinator.inMailPrefill(for: payload)
-                    draft.toHandle = person.handle ?? person.id
-                    app.inMail.draft = draft
-                    dismiss()
-                    app.navigation.open(.messages(.inMail(.compose)))
-                case .share:
-                    break
-                }
+                var draft = ShareCoordinator.inMailPrefill(for: payload)
+                draft.toHandle = person.handle ?? person.id
+                app.inMail.draft = draft
+                dismiss()
+                app.navigation.open(.messages(.inMail(.compose)))
             }
         }
         .accessibilityIdentifier("share.universal")
     }
 
-    // MARK: Send to
+    // MARK: People
 
-    private var sendToRow: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Send to")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 14) {
-                    ShareBubble(title: "Search", accent: accent) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundStyle(.primary)
-                            .frame(width: 58, height: 58)
-                            .modulaGlass(in: Circle(), interactive: true)
-                    } action: {
-                        peopleMode = .message
-                        showPeoplePicker = true
-                        HapticEngine.shared.play(.selection)
+    private var peopleSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ModulaGlassSearchField(prompt: "Search people", text: $query)
+                .accessibilityIdentifier("share.people.search")
+            if visiblePeople.isEmpty {
+                Text(emptyPeopleCopy)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 12)
+                    .accessibilityIdentifier("share.people.empty")
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(visiblePeople) { person in
+                        personRow(person)
                     }
-                    .accessibilityIdentifier("share.sendTo.search")
-                    ForEach(recentChats) { chat in
-                        let person = chat.participants.first
-                        ShareBubble(title: chat.title, accent: accent) {
-                            ModulaAvatar(initials: person?.initials ?? String(chat.title.prefix(1)), url: person?.avatarURL, size: 58, name: chat.title)
-                                .overlay(alignment: .bottomTrailing) {
-                                    if chat.kind == .group {
-                                        Image(systemName: "person.2.fill")
-                                            .font(.system(size: 9, weight: .bold))
-                                            .foregroundStyle(.white)
-                                            .padding(4)
-                                            .background(accent, in: Circle())
-                                    }
-                                }
-                        } action: {
-                            send(to: chat)
+                }
+                .accessibilityIdentifier("share.people")
+            }
+        }
+    }
+
+    private var emptyPeopleCopy: String {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if searching && !trimmed.isEmpty { return "Searching…" }
+        if !trimmed.isEmpty { return "No one matches that." }
+        return "People you chat with show up here."
+    }
+
+    private func personRow(_ person: ShareRecipient) -> some View {
+        let on = selectedKeys.contains(person.key)
+        return Button {
+            toggle(person)
+        } label: {
+            HStack(spacing: 12) {
+                ModulaAvatar(initials: initials(person.displayName), url: person.avatarURL, size: 44, name: person.displayName)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(person.displayName)
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    Text(person.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                check(on: on)
+            }
+            .padding(.vertical, 8)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(person.displayName)
+        .accessibilityValue(on ? "Selected" : "Not selected")
+        .accessibilityHint(person.hasDirectChat ? "Adds them to this send" : "No direct chat yet")
+        .accessibilityAddTraits(on ? [.isSelected, .isButton] : .isButton)
+        .accessibilityIdentifier("share.person.\(person.key)")
+    }
+
+    private func check(on: Bool) -> some View {
+        Image(systemName: on ? "checkmark.circle.fill" : "circle")
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(on ? accent : Color.secondary.opacity(0.55))
+            .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
+            .symbolEffect(.bounce, value: reduceMotion ? false : on)
+            .frame(width: 44, height: 44)
+            .accessibilityHidden(true)
+    }
+
+    private func initials(_ name: String) -> String {
+        let parts = name.split(separator: " ")
+        if parts.count >= 2 { return String(parts[0].prefix(1) + parts[1].prefix(1)).uppercased() }
+        return String(name.prefix(2)).uppercased()
+    }
+
+    private func toggle(_ person: ShareRecipient) {
+        known[person.key] = person
+        withAnimation(motion) {
+            if let index = selectedKeys.firstIndex(of: person.key) {
+                selectedKeys.remove(at: index)
+                if selectedKeys.isEmpty { noteFocused = false }
+            } else {
+                let wasEmpty = selectedKeys.isEmpty
+                selectedKeys.append(person.key)
+                if wasEmpty { noteFocused = true }
+            }
+        }
+        HapticEngine.shared.play(.selection)
+    }
+
+    private func remember(_ people: [ShareRecipient]) {
+        for person in people {
+            if known[person.key] == nil || person.conversationID != nil {
+                known[person.key] = person
+            }
+        }
+    }
+
+    // MARK: Bottom bar
+
+    private var bottomBar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let sendError {
+                Text(sendError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("share.send.error")
+            }
+            HStack(alignment: .center, spacing: 10) {
+                Group {
+                    if canMessage && !selectedKeys.isEmpty {
+                        messageField
+                            .transition(slide)
+                    } else {
+                        appRow
+                            .transition(slide)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                if canMessage { sendButton }
+            }
+            .animation(motion, value: selectedKeys.isEmpty)
+            .animation(motion, value: selectedKeys.count)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .background {
+            if reduceTransparency {
+                Color(uiColor: .systemBackground).ignoresSafeArea(edges: .bottom)
+            } else {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .ignoresSafeArea(edges: .bottom)
+                    .mask(
+                        LinearGradient(
+                            colors: [.clear, .black, .black],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+            }
+        }
+    }
+
+    private var messageField: some View {
+        TextField("Write a message", text: $note, axis: .vertical)
+            .lineLimit(1...3)
+            .textFieldStyle(.plain)
+            .focused($noteFocused)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .frame(minHeight: 44)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
+            .accessibilityLabel("Write a message")
+            .accessibilityIdentifier("share.message")
+    }
+
+    private var sendButton: some View {
+        Button(action: sendSelected) {
+            HStack(spacing: 8) {
+                if sending {
+                    ProgressView().controlSize(.small).tint(.white)
+                } else if selectedKeys.count >= 2 {
+                    stackedAvatars
+                        .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
+                }
+                if selectedKeys.isEmpty && !sending {
+                    Image(systemName: "paperplane.fill")
+                        .font(.body.weight(.semibold))
+                } else if !selectedKeys.isEmpty {
+                    Text(selectedKeys.count >= 2 ? "Send separately" : "Send")
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                        .contentTransition(.opacity)
+                }
+            }
+            .foregroundStyle(canSend ? Color.white : Color.secondary)
+            .padding(.horizontal, selectedKeys.isEmpty ? 0 : 16)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: Capsule(), interactive: true, tint: hasRecipients ? accent : nil, prominent: hasRecipients, specular: true)
+        .disabled(!canSend)
+        .accessibilityLabel(sendLabel)
+        .accessibilityIdentifier(selectedKeys.count >= 2 ? "share.sendSeparately" : "share.send")
+    }
+
+    private var sendLabel: String {
+        if sending { return "Sending" }
+        if selectedKeys.count >= 2 { return "Send separately" }
+        if selectedKeys.isEmpty { return "Send" }
+        return "Send"
+    }
+
+    private var stackedAvatars: some View {
+        HStack(spacing: -8) {
+            ForEach(Array(selectedPeople.prefix(3))) { person in
+                ModulaAvatar(initials: initials(person.displayName), url: person.avatarURL, size: 22, name: person.displayName)
+                    .overlay(Circle().strokeBorder(accent, lineWidth: 1.5))
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private var appRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            ModulaGlassGroup(spacing: 12) {
+                HStack(alignment: .top, spacing: 6) {
+                    ShareActionTile(title: copied ? "Copied" : "Copy Link", symbol: copied ? "checkmark" : "link", accent: accent, highlighted: copied) {
+                        copyLink()
+                    }
+                    .accessibilityIdentifier("share.destination.copyLink")
+                    if has(.qr) {
+                        ShareActionTile(title: "QR Code", symbol: "qrcode", accent: accent) {
+                            HapticEngine.shared.play(.selection)
+                            showCode = true
                         }
-                        .accessibilityHint("Opens the chat with this link ready to send")
+                        .accessibilityIdentifier("share.destination.qr")
                     }
-                    if recentChats.isEmpty {
-                        Text("Your recent chats show up here.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .frame(height: 58)
+                    if canRepost, let post {
+                        let reposted = app.postActions.resolved(post).reposted
+                        ShareActionTile(title: reposted ? "Reposted" : "Repost", symbol: "arrow.2.squarepath", accent: accent, highlighted: reposted) {
+                            Task { await app.postActions.toggleRepost(post) }
+                        }
+                        .accessibilityIdentifier("share.destination.repost")
                     }
+                    if has(.saveToCollection) {
+                        ShareActionTile(title: "Save", symbol: "rectangle.stack.badge.plus", accent: accent) {
+                            HapticEngine.shared.play(.selection)
+                            showCollectionPicker = true
+                        }
+                        .accessibilityIdentifier("share.destination.saveToCollection")
+                    }
+                    if has(.inMail) {
+                        ShareActionTile(title: "In-Mail", symbol: "envelope", accent: accent) {
+                            showPeoplePicker = true
+                            HapticEngine.shared.play(.selection)
+                        }
+                        .accessibilityIdentifier("share.destination.inMail")
+                    }
+                    ShareLink(item: payload.canonicalURL, subject: Text(payload.title), message: Text(payload.title)) {
+                        ShareActionTileLabel(title: "More", symbol: "ellipsis", accent: accent, highlighted: false)
+                    }
+                    .buttonStyle(.plain)
+                    .simultaneousGesture(TapGesture().onEnded { HapticEngine.shared.play(.lightImpact) })
+                    .accessibilityLabel("More sharing options")
+                    .accessibilityIdentifier("share.destination.systemShare")
                 }
                 .padding(.vertical, 2)
             }
-            .scrollClipDisabled()
-        }
-    }
-
-    /// Prefills the chat's draft with the link and opens it — the user still taps Send.
-    private func send(to chat: Conversation) {
-        HapticEngine.shared.play(.confirmation)
-        let link = ShareCoordinator.messageBodyFallback(for: payload)
-        let existing = (app.messaging.drafts[chat.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        app.messaging.drafts[chat.id] = existing.isEmpty ? link : existing + "\n" + link
-        dismiss()
-        app.navigation.open(.messages(.conversation(chat.id)))
-    }
-
-    // MARK: Quick actions
-
-    private var quickActions: some View {
-        // One swipeable row so every action is visible at the half-height detent.
-        return ScrollView(.horizontal, showsIndicators: false) {
-        ModulaGlassGroup(spacing: 12) {
-            HStack(alignment: .top, spacing: 6) {
-                ShareActionTile(title: copied ? "Copied" : "Copy Link", symbol: copied ? "checkmark" : "link", accent: accent, highlighted: copied) {
-                    copyLink()
-                }
-                .accessibilityIdentifier("share.destination.copyLink")
-                if has(.qr) {
-                    ShareActionTile(title: "QR Code", symbol: "qrcode", accent: accent) {
-                        HapticEngine.shared.play(.selection)
-                        showCode = true
-                    }
-                    .accessibilityIdentifier("share.destination.qr")
-                }
-                if canRepost, let post {
-                    let reposted = app.postActions.resolved(post).reposted
-                    ShareActionTile(title: reposted ? "Reposted" : "Repost", symbol: "arrow.2.squarepath", accent: accent, highlighted: reposted) {
-                        Task { await app.postActions.toggleRepost(post) }
-                    }
-                    .accessibilityIdentifier("share.destination.repost")
-                }
-                if has(.saveToCollection) {
-                    ShareActionTile(title: "Save", symbol: "rectangle.stack.badge.plus", accent: accent) {
-                        HapticEngine.shared.play(.selection)
-                        showCollectionPicker = true
-                    }
-                    .accessibilityIdentifier("share.destination.saveToCollection")
-                }
-                if has(.messages) {
-                    ShareActionTile(title: "Message", symbol: "bubble.left.and.bubble.right", accent: accent) {
-                        peopleMode = .message
-                        showPeoplePicker = true
-                        HapticEngine.shared.play(.selection)
-                    }
-                    .accessibilityIdentifier("share.destination.messages")
-                }
-                if has(.inMail) {
-                    ShareActionTile(title: "In-Mail", symbol: "envelope", accent: accent) {
-                        peopleMode = .inMail
-                        showPeoplePicker = true
-                        HapticEngine.shared.play(.selection)
-                    }
-                    .accessibilityIdentifier("share.destination.inMail")
-                }
-                ShareLink(item: payload.canonicalURL, subject: Text(payload.title), message: Text(payload.title)) {
-                    ShareActionTileLabel(title: "More", symbol: "ellipsis", accent: accent, highlighted: false)
-                }
-                .buttonStyle(.plain)
-                .simultaneousGesture(TapGesture().onEnded { HapticEngine.shared.play(.lightImpact) })
-                .accessibilityLabel("More sharing options")
-                .accessibilityIdentifier("share.destination.systemShare")
-            }
-            .padding(.vertical, 2)
-        }
         }
         .scrollClipDisabled()
     }
 
-    private var linkRow: some View {
-        Button(action: copyLink) {
-            HStack(spacing: 10) {
-                Image(systemName: "link")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(accent)
-                Text(payload.canonicalURL.absoluteString.replacingOccurrences(of: "https://", with: ""))
-                    .font(.footnote.monospaced())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Spacer(minLength: 8)
-                Text(copied ? "Copied" : "Copy")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(accent)
-                    .contentTransition(.opacity)
-            }
-            .padding(.horizontal, 16)
-            .frame(minHeight: 46)
-            .contentShape(Capsule())
+    // MARK: Actions
+
+    private func loadPeople() async {
+        await app.messaging.loadInboxIfNeeded()
+        if case .post(let id, _, _, _) = payload, post == nil {
+            post = try? await app.postActions.loadPost(id: id)
         }
-        .buttonStyle(.plain)
-        .modulaGlass(in: Capsule(), interactive: true)
-        .accessibilityLabel("Copy link \(payload.canonicalURL.absoluteString)")
-        .accessibilityIdentifier("share.link")
+        let loaded = (try? await GreenfieldDiscoverRepository(client: app.client).people(cursor: nil).items) ?? app.discover.people.items
+        suggestions = loaded.filter { !ModulaFixtureFilter.isFixture(name: $0.displayName, handle: $0.handle) }
+        remember(audience)
+    }
+
+    private func search() async {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2 else {
+            searchPeople = []
+            searching = false
+            return
+        }
+        searching = true
+        try? await Task.sleep(for: .milliseconds(250))
+        guard !Task.isCancelled else { return }
+        let page = try? await GreenfieldDiscoverRepository(client: app.client).search(query: trimmed, entityType: "profile", cursor: nil)
+        guard !Task.isCancelled else { return }
+        searchPeople = (page?.results.compactMap(\.person) ?? []).filter {
+            !ModulaFixtureFilter.isFixture(name: $0.displayName, handle: $0.handle)
+        }
+        searching = false
+        remember(audience)
+    }
+
+    private func sendSelected() {
+        guard canSend else { return }
+        let keys = selectedKeys
+        let note = note
+        let payload = payload
+        sending = true
+        sendError = nil
+        HapticEngine.shared.play(.confirmation)
+        Task { await deliver(keys: keys, note: note, payload: payload) }
+    }
+
+    private func deliver(keys: [String], note: String, payload: SharePayload) async {
+        await app.messaging.refreshInbox()
+        var pages = 0
+        while app.messaging.conversationHasMore, pages < 4, keys.contains(where: { conversationID(for: $0) == nil }) {
+            let before = app.messaging.conversations.count
+            await app.messaging.loadMoreConversations()
+            pages += 1
+            if app.messaging.conversations.count == before { break }
+        }
+        remember(audience)
+
+        let text = ShareOutboundMessage.text(note: note, payload: payload)
+        var sent: [String] = []
+        var noChat: [String] = []
+        var failed: [String] = []
+        for key in keys {
+            let person = known[key] ?? audience.first(where: { $0.key == key })
+            guard let person else {
+                failed.append(key)
+                continue
+            }
+            guard let conversationID = conversationID(for: key) else {
+                noChat.append(person.displayName)
+                continue
+            }
+            let ok = await app.messaging.sendPrepared(text: text, conversation: conversationID)
+            if ok { sent.append(key) } else { failed.append(person.displayName) }
+        }
+
+        withAnimation(motion) {
+            selectedKeys.removeAll { sent.contains($0) }
+            sending = false
+        }
+        if sent.count == keys.count {
+            HapticEngine.shared.play(.success)
+            let separately = keys.count >= 2
+            dismiss()
+            app.navigation.flash(separately ? "Sent separately" : "Sent", symbol: "paperplane.fill")
+        } else {
+            HapticEngine.shared.play(.failure)
+            let copy = failureCopy(noChat: noChat, failed: failed, sentCount: sent.count)
+            sendError = copy.isEmpty ? "Couldn't send." : copy
+        }
+    }
+
+    private func conversationID(for key: String) -> ConversationID? {
+        ShareAudience.directConversationID(matching: key, in: app.messaging.conversations)
+    }
+
+    private func failureCopy(noChat: [String], failed: [String], sentCount: Int) -> String {
+        var parts: [String] = []
+        if sentCount > 0 { parts.append("Sent to \(sentCount).") }
+        if !noChat.isEmpty { parts.append("No chat with \(noChat.joined(separator: ", ")) yet.") }
+        if !failed.isEmpty { parts.append("Couldn't send to \(failed.joined(separator: ", ")).") }
+        return parts.joined(separator: " ")
     }
 
     private func copyLink() {
@@ -277,30 +505,6 @@ struct ModulaShareSheet: View {
             try? await Task.sleep(for: .seconds(1.4))
             withAnimation(reduceMotion ? nil : .snappy) { copied = false }
         }
-    }
-}
-
-/// Round avatar/glyph with a name under it (Send to row).
-private struct ShareBubble<Glyph: View>: View {
-    let title: String
-    var accent: Color
-    @ViewBuilder var glyph: () -> Glyph
-    var action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 6) {
-                glyph()
-                Text(title)
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .frame(width: 66)
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title)
     }
 }
 

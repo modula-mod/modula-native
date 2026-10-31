@@ -677,6 +677,19 @@ final class MessagingDomainTests: XCTestCase {
         XCTAssertTrue(ordered[1].isOwn)
     }
 
+    func testPreparedSendDoesNotTouchTheOpenDraftWhenSendingIsUnavailable() async {
+        let store = MessagingStore(
+            client: GreenfieldClient(baseURL: URL(string: "https://api.modula.digital")),
+            capabilities: MessagingBackendCapabilities()
+        )
+        store.drafts["c1"] = "Keep this"
+        let sent = await store.sendPrepared(text: "https://modula.digital/post/p1", conversation: "c1")
+        XCTAssertFalse(sent)
+        XCTAssertEqual(store.drafts["c1"], "Keep this")
+        XCTAssertEqual(store.actionError, "Couldn't send message.")
+        XCTAssertEqual(MessagingBackendCapabilities.Paths.send(conversationID: "c1"), "/v1/conversations/c1/messages")
+    }
+
     func testOptimisticSendRollbackPreservesDraft() async {
         let store = MessagingStore(
             client: GreenfieldClient(baseURL: URL(string: "https://api.modula.digital")),
