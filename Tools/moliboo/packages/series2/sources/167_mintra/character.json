@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.167",
+  "key": "mintra",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#9DDFCD",
+    "accent": "#CDEFE6",
+    "light": "#CDEFE6",
+    "dark": "#8CC6B6"
+  },
+  "form": "Mint stopwatch tuft, gold toe dots"
+}

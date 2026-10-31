@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.203",
+  "key": "synki",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#F3A8D7",
+    "accent": "#F9D3EB",
+    "light": "#F9D3EB",
+    "dark": "#D896BF"
+  },
+  "form": "Magenta symmetric cheek lights"
+}

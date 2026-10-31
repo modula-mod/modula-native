@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.153",
+  "key": "tindle",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#F6C071",
+    "accent": "#FADFB7",
+    "light": "#FADFB7",
+    "dark": "#DBAB65"
+  },
+  "form": "Marigold seedpod, firefly eyes"
+}

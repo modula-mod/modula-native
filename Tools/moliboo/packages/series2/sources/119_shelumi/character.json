@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.119",
+  "key": "shelumi",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#F9DDBA",
+    "accent": "#FCEEDC",
+    "light": "#FCEEDC",
+    "dark": "#DEC5A6"
+  },
+  "form": "Sand-coloured shell spiral crest"
+}

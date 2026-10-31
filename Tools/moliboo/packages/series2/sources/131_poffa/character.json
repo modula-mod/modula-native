@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.131",
+  "key": "poffa",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#D9C3FF",
+    "accent": "#ECE0FF",
+    "light": "#ECE0FF",
+    "dark": "#C1AEE3"
+  },
+  "form": "Lavender cumulus cheeks, short feet"
+}

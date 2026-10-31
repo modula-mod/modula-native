@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.173",
+  "key": "dialli",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#F6E9DD",
+    "accent": "#FAF4EE",
+    "light": "#FAF4EE",
+    "dark": "#DBCFC5"
+  },
+  "form": "Round ivory face, red dial cheek"
+}

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.191",
+  "key": "smudgi",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#B9B1BA",
+    "accent": "#DBD7DC",
+    "light": "#DBD7DC",
+    "dark": "#A59EA6"
+  },
+  "form": "Graphite body, playful paint smears"
+}

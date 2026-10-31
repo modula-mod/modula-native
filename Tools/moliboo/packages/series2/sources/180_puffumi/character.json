@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.180",
+  "key": "puffumi",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#F5E6C9",
+    "accent": "#FAF2E3",
+    "light": "#FAF2E3",
+    "dark": "#DACDB3"
+  },
+  "form": "Vanilla marshmallow shape, toasted tips"
+}

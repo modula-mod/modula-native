@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.214",
+  "key": "noctali",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#779AC1",
+    "accent": "#BACBDF",
+    "light": "#BACBDF",
+    "dark": "#6A89AC"
+  },
+  "form": "Blue-black body, crescent-gold brow"
+}

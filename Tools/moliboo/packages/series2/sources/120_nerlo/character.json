@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.120",
+  "key": "nerlo",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#BFA5F6",
+    "accent": "#DED1FA",
+    "light": "#DED1FA",
+    "dark": "#AA93DB"
+  },
+  "form": "Lilac jelly-bell head, glowing dots"
+}

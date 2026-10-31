@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.163",
+  "key": "kivvi",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#DAEFF6",
+    "accent": "#ECF7FA",
+    "light": "#ECF7FA",
+    "dark": "#C2D5DB"
+  },
+  "form": "Tiny snowflake crown, rosy eyes"
+}

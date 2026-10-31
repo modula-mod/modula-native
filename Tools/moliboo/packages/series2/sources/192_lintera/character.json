@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.192",
+  "key": "lintera",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#F5E8DB",
+    "accent": "#FAF3ED",
+    "light": "#FAF3ED",
+    "dark": "#DACEC3"
+  },
+  "form": "Linen-beige body, bow-shaped ears"
+}

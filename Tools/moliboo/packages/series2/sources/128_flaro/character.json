@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.128",
+  "key": "flaro",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#FFB5A4",
+    "accent": "#FFD9D1",
+    "light": "#FFD9D1",
+    "dark": "#E3A192"
+  },
+  "form": "Peach windsock tail, pointed tuft"
+}

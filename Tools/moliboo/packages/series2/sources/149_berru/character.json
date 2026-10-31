@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.149",
+  "key": "berru",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#A27AAB",
+    "accent": "#D0BBD4",
+    "light": "#D0BBD4",
+    "dark": "#906D98"
+  },
+  "form": "Plum berry orb, leaflike collar"
+}
