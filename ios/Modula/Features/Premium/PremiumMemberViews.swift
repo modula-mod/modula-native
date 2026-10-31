@@ -565,11 +565,11 @@ struct PremiumPossibilitiesView: View {
             }
             Button {
                 store.selectedPlan = .horizon
-                app.navigation.open(.settings(.premium(.compare)))
+                app.navigation.open(.settings(.premium(.purchase)))
             } label: {
                 VStack(spacing: 2) {
                     Text("Get Modula Horizon")
-                    Text("\(PremiumPricing.priceLine(.horizon, billing: .monthly)) · Purchases aren’t available yet")
+                    Text("\(PremiumPricing.priceLine(.horizon, billing: .monthly)) · Sandbox, nothing is charged")
                         .font(.caption)
                 }
                 .font(.body.weight(.semibold))

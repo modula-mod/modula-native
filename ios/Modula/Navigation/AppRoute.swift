@@ -90,6 +90,7 @@ enum MonetisationSettingsRoute: String, CaseIterable, Codable, Hashable { case r
 enum PremiumSettingsRoute: String, CaseIterable, Codable, Hashable {
     case root, badge, compare, intro
     case dashboard, features, manage, studio, storage, visitors, creator, possibilities
+    case purchase, welcome, profile, settings, upsell
 }
 enum ChatsSettingsRoute: String, CaseIterable, Codable, Hashable {
     case root, composer, previews, privacy

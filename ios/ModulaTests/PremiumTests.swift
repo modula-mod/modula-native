@@ -190,6 +190,17 @@ final class PremiumTests: XCTestCase {
         XCTAssertEqual(PremiumAPI.payouts, "/v1/creator/payouts")
         XCTAssertEqual(PremiumAPI.inMail, "/v1/in-mail")
         XCTAssertFalse(PremiumAPI.billingAdapters.contains("entitlements"))
+        XCTAssertEqual(PremiumStoreKitLocal.productID(plan: .horizon, billing: .monthly), "modula.premium.horizon.monthly")
+        XCTAssertEqual(PremiumStoreKitLocal.productID(plan: .studio, billing: .annual), "modula.premium.studio.annual")
+        XCTAssertNil(PremiumStoreKitLocal.productID(plan: .core, billing: .monthly))
+        XCTAssertFalse(PremiumStoreKitLocal.livePurchases)
+        XCTAssertEqual(PremiumPurchaseCopy.sandbox, "Nothing is charged. This is a local sandbox preview.")
+        XCTAssertEqual(PremiumPurchaseCopy.welcomeTitle, "You’re Premium!")
+        XCTAssertEqual(PremiumMemberSettingsView.upsell(from: .plus), .horizon)
+        XCTAssertEqual(PremiumMemberSettingsView.upsell(from: .horizon), .horizonPlus)
+        XCTAssertNil(PremiumMemberSettingsView.upsell(from: .studio))
+        XCTAssertEqual(RouteParser.parse("/settings/premium/purchase"), .settings(.premium(.purchase)))
+        XCTAssertEqual(RouteParser.parse("/settings/premium/welcome"), .settings(.premium(.welcome)))
         for path in ["/settings/premium/dashboard", "/settings/premium/manage", "/settings/premium/visitors", "/settings/premium/storage", "/settings/premium/possibilities"] {
             XCTAssertEqual(RouteSerializer.serialize(try XCTUnwrap(RouteParser.parse(path))), path)
         }
