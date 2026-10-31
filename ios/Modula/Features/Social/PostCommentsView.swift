@@ -1276,6 +1276,15 @@ struct PostCommentsView: View {
                         }
                     })
                 }
+                // Instagram-style quick reactions: one tap drops an emoji into an empty comment.
+                if composerFocused, (store?.draft ?? "").isEmpty, !mediaStage.isExpanded, store != nil {
+                    CommentQuickEmojiRow { emoji in
+                        store?.draft = emoji
+                        HapticEngine.shared.play(.selection)
+                    }
+                    .padding(.horizontal, 12)
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                }
                 // Composer + perched mascot always sit fully above the emoji/GIF panel
                 // (keyboard-replacement). Opaque backing stops the comment list showing through.
                 ModulaComposer(
@@ -1655,5 +1664,29 @@ struct CommentCameraPicker: UIViewControllerRepresentable {
             parent.dismiss()
         }
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) { parent.dismiss() }
+    }
+}
+
+
+/// Quick emoji above the comment composer (shown while focused with an empty draft).
+struct CommentQuickEmojiRow: View {
+    static let emoji = ["❤️", "🙌", "🔥", "👏", "😢", "😍", "😮", "😂"]
+    var onPick: (String) -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Self.emoji, id: \.self) { e in
+                Button { onPick(e) } label: {
+                    Text(e).font(.title2)
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Comment \(e)")
+                .accessibilityIdentifier("post.comment.quick.\(e)")
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("post.comment.quick")
     }
 }
