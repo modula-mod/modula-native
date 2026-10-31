@@ -124,6 +124,44 @@ final class MessagingStore {
         }
     }
 
+    /// Posts `text` to an existing conversation (`POST /v1/conversations/:id/messages`, body `{text}`).
+    /// Does not touch the open composer's draft.
+    func sendPrepared(text: String, conversation id: ConversationID) async -> Bool {
+        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return false }
+        guard capabilities.send else {
+            actionError = "Couldn't send message."
+            return false
+        }
+        do {
+            let confirmed = try await repository.send(
+                conversation: id,
+                message: MessageDraft(conversationID: id, text: text)
+            )
+            let stored = Message(
+                id: confirmed.id,
+                conversationID: confirmed.conversationID,
+                sender: confirmed.sender,
+                body: confirmed.body,
+                sentAt: confirmed.sentAt,
+                delivery: confirmed.delivery == .unknown ? .sent : confirmed.delivery,
+                isOwn: true,
+                localDraft: nil
+            )
+            if threads[id] != nil {
+                var items = threads[id] ?? []
+                items.append(stored)
+                threads[id] = items
+            }
+            let preview = confirmed.body.text.isEmpty ? text : confirmed.body.text
+            noteLocalSend(stored, preview: preview)
+            return true
+        } catch {
+            actionError = "Couldn't send message."
+            return false
+        }
+    }
+
     func send(conversation id: ConversationID, viewer: ConversationParticipant) async {
         let text = (drafts[id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
@@ -302,6 +340,20 @@ final class MessagingStore {
 
     private func refreshUnreadSummary() async {
         accountUnreadCount = try? await repository.unreadSummary()
+    }
+
+    private func noteLocalSend(_ message: Message, preview: String) {
+        guard let index = conversations.firstIndex(where: { $0.id == message.conversationID }) else { return }
+        let current = conversations[index]
+        conversations[index] = Conversation(
+            id: current.id,
+            kind: current.kind,
+            participants: current.participants,
+            lastMessage: MessagePreview(id: message.id, body: preview, sentAt: message.sentAt, senderID: message.sender.id),
+            unreadCount: current.unreadCount,
+            updatedAt: message.sentAt,
+            titleOverride: current.titleOverride
+        )
     }
 
     private func replace(localID: MessageID, in conversation: ConversationID, with message: Message) {

@@ -361,6 +361,74 @@ final class CollectionsDraftsShareTests: XCTestCase {
         XCTAssertTrue(destinations.contains { $0.kind == .saveToCollection })
     }
 
+    func testShareOutboundMessageKeepsTheCanonicalLink() {
+        let post = SharePayload.post(id: "p1", authorName: "A", excerpt: "Hi", hasMedia: true)
+        XCTAssertEqual(ShareOutboundMessage.text(note: "  ", payload: post), "https://modula.digital/post/p1")
+        XCTAssertEqual(ShareOutboundMessage.text(note: "Look at this", payload: post), "Look at this\nhttps://modula.digital/post/p1")
+    }
+
+    func testShareAudienceUsesExistingDirectChatsAndSkipsEveryoneElse() {
+        let group = Conversation(
+            id: "group-1",
+            kind: .group,
+            participants: [MessagingFixtures.alex],
+            lastMessage: nil,
+            unreadCount: 0,
+            updatedAt: Date(),
+            titleOverride: "Group"
+        )
+        let request = Conversation(
+            id: "req-1",
+            kind: .request,
+            participants: [MessagingFixtures.alex],
+            lastMessage: nil,
+            unreadCount: 0,
+            updatedAt: Date(),
+            titleOverride: nil
+        )
+        let people = ShareAudience.recipients(
+            conversations: [MessagingFixtures.unreadConversation, MessagingFixtures.readConversation, group, request],
+            suggestions: [
+                person(id: "user-sophia", handle: "sophia.chen", name: "Sophia Chen"),
+                person(id: "user-ada", handle: "ada", name: "Ada"),
+                person(id: "user-me", handle: "me", name: "You"),
+                person(id: "fixture", handle: "vps-checked-demo", name: "Fixture")
+            ],
+            ownID: "user-me",
+            ownHandle: "me"
+        )
+        XCTAssertEqual(people.map(\.key), ["sophia.chen", "marcus", "ada"])
+        XCTAssertEqual(people[0].conversationID, "convo-sophia")
+        XCTAssertEqual(people[1].conversationID, "convo-marcus")
+        XCTAssertNil(people[2].conversationID)
+        XCTAssertFalse(people[2].hasDirectChat)
+        XCTAssertEqual(people[2].subtitle, "@ada · No chat yet")
+        XCTAssertEqual(
+            ShareAudience.directConversationID(matching: "@Sophia.Chen", in: [MessagingFixtures.unreadConversation]),
+            "convo-sophia"
+        )
+        XCTAssertNil(ShareAudience.directConversationID(matching: "ada", in: [MessagingFixtures.unreadConversation]))
+        XCTAssertNil(ShareAudience.directConversationID(matching: "alex", in: [group, request]))
+    }
+
+    private func person(id: String, handle: String, name: String) -> DiscoverPerson {
+        DiscoverPerson(
+            id: id,
+            handle: handle,
+            displayName: name,
+            kind: nil,
+            bio: nil,
+            avatarURL: nil,
+            followerCount: nil,
+            followingCount: nil,
+            postCount: nil,
+            isFollowing: false,
+            followsViewer: false,
+            isVerified: false,
+            joinedAt: nil
+        )
+    }
+
     func testPeoplePickerSelectionSemantics() {
         let people = [
             PeoplePickerPerson(id: "1", displayName: "Sophia", handle: "sophia"),
