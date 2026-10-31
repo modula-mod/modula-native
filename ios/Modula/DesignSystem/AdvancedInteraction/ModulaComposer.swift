@@ -191,6 +191,8 @@ struct ModulaComposer: View {
     var onVoiceNote: ((ModulaVoiceNote) -> Void)? = nil
     /// Where this composer sits, for the mascot preference (Settings → Chats → Composer).
     var mascot: ModulaMascotPlacement = .other
+    /// Keyboard down: the field, attach control and send button collapse into one floating glass pill.
+    var collapsesWhenUnfocused = false
     var onSend: () -> Void
 
     @FocusState private var plainFocused: Bool
@@ -212,8 +214,11 @@ struct ModulaComposer: View {
     @State private var handsFreeRecording = false
     @State private var attachAppeared = false
     @State private var attachPage: Int? = 0
+    /// Keeps the docked composer open for the moment between a pill tap and the keyboard appearing.
+    @State private var holdExpanded = false
     @Namespace private var glass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(AppEnvironment.self) private var app
 
     private var state: ModulaComposerState {
@@ -228,9 +233,97 @@ struct ModulaComposer: View {
         reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.34, dampingFraction: 0.8)
     }
 
+    /// Bouncier than the in-bar tweaks. Reduce Motion crossfades instead.
+    private var collapseAnimation: Animation {
+        reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.42, dampingFraction: 0.58)
+    }
+
+    /// Keyboard dismissed, and nothing else (attach menu, media panel, recording) is using the dock.
+    private var idleCollapsed: Bool {
+        collapsesWhenUnfocused
+            && !focused
+            && !holdExpanded
+            && !attachMenuOpen
+            && !recorder.isRecording
+            && !handsFreeRecording
+            && mediaPanelActive?.wrappedValue != true
+            && !sending
+            && !dictation.isListening
+    }
+
     var body: some View {
         ModulaGlassGroup(spacing: 10) {
-            VStack(alignment: .leading, spacing: ModulaSpacing.xs) {
+            Group {
+                if idleCollapsed {
+                    collapsedPill.modifier(ComposerDockMorph(namespace: glass, enabled: !reduceMotion))
+                } else {
+                    dockedComposer.modifier(ComposerDockMorph(namespace: glass, enabled: !reduceMotion))
+                }
+            }
+            .animation(collapseAnimation, value: idleCollapsed)
+        }
+        .animation(motion, value: attachMenuOpen)
+        .animation(motion, value: showsMic)
+        .animation(motion, value: attachments)
+        .animation(motion, value: reply)
+        .animation(motion, value: mentionSuggestions)
+        .animation(motion, value: hashtagSuggestions)
+        .animation(motion, value: recorder.isRecording)
+        .animation(motion, value: focused)
+        .translationPresentation(isPresented: $showTranslate, text: text) { translated in
+            text = translated
+        }
+        .sheet(item: Binding(get: { linkSheet.map { LinkSheetItem(mode: $0) } }, set: { linkSheet = $0?.mode })) { item in
+            ModulaLinkInsertSheet(mode: item.mode, initialText: rich.selectedText) { label, value in
+                switch item.mode {
+                case .link: rich.insertLink(text: label, url: value)
+                case .abbr: rich.insertAbbreviation(label, title: value)
+            }
+        }
+        }
+        .onChange(of: text) { _, value in
+            onMentionQuery?(ModulaComposerState.mentionQuery(in: value))
+            onHashtagQuery?(ModulaComposerState.hashtagQuery(in: value))
+            // A vertical TextField inserts "\n" for Return; treat a trailing newline as Send.
+            guard returnSends, value.hasSuffix("\n") else { return }
+            text = String(value.dropLast())
+            send()
+        }
+        .onChange(of: focused) { wasFocused, value in
+            externalFocus?.wrappedValue = value
+            if value {
+                attachMenuOpen = false
+                mediaPanelActive?.wrappedValue = false
+            } else if wasFocused {
+                // Keyboard went down after it was up. A failed focus before the field exists stays expanded.
+                holdExpanded = false
+            }
+        }
+        .onChange(of: externalFocus?.wrappedValue) { _, value in
+            guard let value else { return }
+            if value {
+                holdExpanded = true
+                if !focused { focused = true }
+            } else {
+                holdExpanded = false
+                if focused { focused = false }
+            }
+        }
+        .onDisappear { if dictation.isListening { dictation.stop() } }
+        #if DEBUG
+        .onAppear {
+            if DebugSettingsHarness.composerState == "attach", !attachmentOptions.isEmpty { attachMenuOpen = true }
+        }
+        #endif
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("modula.composer")
+        // Mascot perches on the composer's top edge (topmost bar), clear of the mic/send button.
+        .modulaMascotPerch()
+        .modulaComposerMascot(mascot, busy: sending, text: text, attachmentCount: attachments.count, trailingInset: 62)
+    }
+
+    private var dockedComposer: some View {
+        VStack(alignment: .leading, spacing: ModulaSpacing.xs) {
                 if !mentionSuggestions.isEmpty { mentionList }
                 if !hashtagSuggestions.isEmpty { hashtagList }
                 if showsFormatting && focused && !recorder.isRecording {
@@ -269,56 +362,65 @@ struct ModulaComposer: View {
                     }
                     trailingButton
                 }
-            }
         }
-        .animation(motion, value: attachMenuOpen)
-        .animation(motion, value: showsMic)
-        .animation(motion, value: attachments)
-        .animation(motion, value: reply)
-        .animation(motion, value: mentionSuggestions)
-        .animation(motion, value: hashtagSuggestions)
-        .animation(motion, value: recorder.isRecording)
-        .animation(motion, value: focused)
-        .translationPresentation(isPresented: $showTranslate, text: text) { translated in
-            text = translated
+        .task(id: holdExpanded) {
+            guard collapsesWhenUnfocused, holdExpanded, !focused else { return }
+            focused = true
         }
-        .sheet(item: Binding(get: { linkSheet.map { LinkSheetItem(mode: $0) } }, set: { linkSheet = $0?.mode })) { item in
-            ModulaLinkInsertSheet(mode: item.mode, initialText: rich.selectedText) { label, value in
-                switch item.mode {
-                case .link: rich.insertLink(text: label, url: value)
-                case .abbr: rich.insertAbbreviation(label, title: value)
+    }
+
+    /// Keyboard down: attach, field and send sit in one floating Liquid Glass pill.
+    private var collapsedPill: some View {
+        Button {
+            withAnimation(collapseAnimation) { holdExpanded = true }
+        } label: {
+            HStack(spacing: 10) {
+                if showsAttachmentButton {
+                    Image(systemName: "plus")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .accessibilityHidden(true)
                 }
+                Text(state.trimmed.isEmpty ? prompt : state.trimmed)
+                    .font(.body)
+                    .foregroundStyle(state.trimmed.isEmpty ? Color.secondary : Color.primary)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: state.canSend ? "arrow.up" : "mic")
+                    .font(.body.weight(.bold))
+                    .foregroundStyle(state.canSend ? Color.white : Color.secondary)
+                    .frame(width: 28, height: 28)
+                    .background {
+                        if state.canSend {
+                            Circle().fill(app.appearance.accent.color)
+                        }
+                    }
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 52)
+            .modulaGlass(in: Capsule(), interactive: true, specular: true)
+            .modulaGlassID("composer.field", in: glass)
+            .overlay {
+                Capsule()
+                    .strokeBorder(
+                        reduceTransparency ? Color.primary.opacity(0.35) : app.appearance.accent.color.opacity(0.7),
+                        lineWidth: 1.15
+                    )
+                    .shadow(
+                        color: reduceTransparency ? .clear : app.appearance.accent.color.opacity(0.5),
+                        radius: reduceTransparency ? 0 : 7
+                    )
+                    .allowsHitTesting(false)
             }
         }
-        .onChange(of: text) { _, value in
-            onMentionQuery?(ModulaComposerState.mentionQuery(in: value))
-            onHashtagQuery?(ModulaComposerState.hashtagQuery(in: value))
-            // A vertical TextField inserts "\n" for Return; treat a trailing newline as Send.
-            guard returnSends, value.hasSuffix("\n") else { return }
-            text = String(value.dropLast())
-            send()
-        }
-        .onChange(of: focused) { _, value in
-            externalFocus?.wrappedValue = value
-            if value {
-                attachMenuOpen = false
-                mediaPanelActive?.wrappedValue = false
-            }
-        }
-        .onChange(of: externalFocus?.wrappedValue) { _, value in
-            if let value, value != focused { focused = value }
-        }
-        .onDisappear { if dictation.isListening { dictation.stop() } }
-        #if DEBUG
-        .onAppear {
-            if DebugSettingsHarness.composerState == "attach", !attachmentOptions.isEmpty { attachMenuOpen = true }
-        }
-        #endif
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("modula.composer")
-        // Mascot perches on the composer's top edge (topmost bar), clear of the mic/send button.
-        .modulaMascotPerch()
-        .modulaComposerMascot(mascot, busy: sending, text: text, attachmentCount: attachments.count, trailingInset: 62)
+        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 4)
+        .accessibilityLabel(state.trimmed.isEmpty ? prompt : state.trimmed)
+        .accessibilityHint("Opens the keyboard")
+        .accessibilityIdentifier("composer.collapsed")
     }
 
     // MARK: Pieces
@@ -624,26 +726,32 @@ struct ModulaComposer: View {
     }
 
     private func replyPreview(_ reply: ModulaComposerReply) -> some View {
-        HStack(spacing: 10) {
-            Capsule().fill(app.appearance.accent.color).frame(width: 3, height: 30)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(reply.title).font(.caption.weight(.semibold)).foregroundStyle(app.appearance.accent.color)
-                Text(reply.excerpt).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            }
+        HStack(spacing: 8) {
+            Text(reply.title)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
             Spacer(minLength: 0)
             if let onCancelReply {
                 Button(action: onCancelReply) {
-                    Image(systemName: "xmark").font(.caption.weight(.bold)).foregroundStyle(.secondary)
-                        .frame(width: 32, height: 32)
+                    Image(systemName: "xmark")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Cancel reply")
             }
         }
-        .padding(.leading, 12).padding(.trailing, 4).padding(.vertical, 6)
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: false)
+        .padding(.leading, 14)
+        .padding(.trailing, 6)
+        .frame(minHeight: 36)
+        .modulaGlass(in: Capsule(), interactive: false, tint: app.appearance.accent.color.opacity(0.2))
         .modulaGlassID("composer.reply", in: glass)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(reply.title)
+        .accessibilityValue(reply.excerpt)
         .accessibilityIdentifier("composer.reply")
     }
 
@@ -728,6 +836,21 @@ struct ModulaComposer: View {
         if dictation.isListening { dictation.stop() }
         onSend()
         HapticEngine.shared.play(.actionConfirmed)
+    }
+}
+
+/// Matched-geometry morph between the docked composer and the floating pill.
+/// Reduce Motion leaves this off so the swap is a crossfade.
+private struct ComposerDockMorph: ViewModifier {
+    var namespace: Namespace.ID
+    var enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.matchedGeometryEffect(id: "composer.dock", in: namespace)
+        } else {
+            content.transition(.opacity)
+        }
     }
 }
 
