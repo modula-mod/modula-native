@@ -3,31 +3,22 @@ import SwiftUI
 struct SavedView: View {
     var section: SavedSection = .root
     @Environment(AppEnvironment.self) private var app
-    @State private var videoCoordinator = FeedVideoCoordinator()
 
     var body: some View {
         Group {
-            if app.saved.backendListOpen {
+            if showsPosts, app.saved.backendListOpen {
                 ModulaEmptyState(
                     title: "Saved",
-                    message: "Posts you save will show up here.",
+                    message: "Saved posts aren’t available from this account yet.",
                     symbol: "bookmark"
                 )
-            } else if (!app.saved.loaded || app.saved.loading) && app.saved.posts.isEmpty {
-                // Skeleton instead of a bare spinner (and never an error flash while loading).
+            } else if showsPosts, (!app.saved.loaded || app.saved.loading) && app.saved.posts.isEmpty {
                 ScrollView {
                     VStack(spacing: 14) {
                         ForEach(0..<3, id: \.self) { _ in
-                            VStack(alignment: .leading, spacing: 10) {
-                                HStack(spacing: 10) {
-                                    Circle().fill(Color.primary.opacity(0.08)).frame(width: 36, height: 36)
-                                    RoundedRectangle(cornerRadius: 5).fill(Color.primary.opacity(0.08)).frame(width: 120, height: 12)
-                                }
-                                RoundedRectangle(cornerRadius: 5).fill(Color.primary.opacity(0.06)).frame(height: 12)
-                                RoundedRectangle(cornerRadius: 5).fill(Color.primary.opacity(0.06)).frame(width: 220, height: 12)
-                                RoundedRectangle(cornerRadius: 16).fill(Color.primary.opacity(0.05)).frame(height: 180)
-                            }
-                            .padding(14)
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(Color.primary.opacity(0.06))
+                                .frame(height: 92)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -35,76 +26,12 @@ struct SavedView: View {
                 }
                 .scrollDisabled(true)
                 .accessibilityLabel("Loading saved posts")
-            } else if let error = app.saved.error, app.saved.posts.isEmpty {
+            } else if showsPosts, let error = app.saved.error, app.saved.posts.isEmpty {
                 ModulaErrorState(message: error) {
                     Task { await app.saved.load(force: true) }
                 }
-            } else if app.saved.posts.isEmpty && app.saved.loaded {
-                ModulaEmptyState(
-                    title: "No saved posts",
-                    message: "Bookmark posts to find them here later.",
-                    symbol: "bookmark"
-                )
             } else {
-                ScrollView {
-                    LazyVStack(spacing: app.appearance.density == .compact ? 10 : 14) {
-                        ForEach(app.saved.posts) { post in
-                            let resolved = app.posts.resolved(post)
-                            PostCard(
-                                post: resolved,
-                                showsActionRail: resolved.hasMedia,
-                                isOwnPost: resolved.author?.id == app.auth.account?.accountId,
-                                onOpenPost: {
-                                    app.postActions.ingest(resolved)
-                                    app.navigation.open(.post(resolved.id, .root))
-                                    HapticEngine.shared.play(.navigation)
-                                },
-                                onOpenAuthor: {
-                                    guard let author = resolved.author else { return }
-                                    app.navigation.push(.profile(author.routeID, .overview))
-                                    HapticEngine.shared.play(.navigation)
-                                },
-                                onLike: {
-                                    Task {
-                                        app.postActions.ingest(resolved)
-                                        await app.postActions.toggleLike(resolved)
-                                    }
-                                },
-                                onComment: {
-                                    app.navigation.open(.post(resolved.id, .comments))
-                                    HapticEngine.shared.play(.navigation)
-                                },
-                                onRepost: {
-                                    Task {
-                                        app.postActions.ingest(resolved)
-                                        await app.postActions.toggleRepost(resolved)
-                                    }
-                                },
-                                onSave: {
-                                    Task { await app.saved.unsave(postID: resolved.id, postActions: app.postActions) }
-                                },
-                                // Same single-active-video policy as Home, so saved
-                                // videos don't all autoplay at once.
-                                videoCoordinator: videoCoordinator,
-                                style: .immersive
-                            )
-                                // Media corners follow the card radius.
-                                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                                .contextMenu {
-                                    Button("Unsave", systemImage: "bookmark.slash", role: .destructive) {
-                                        Task { await app.saved.unsave(postID: post.id, postActions: app.postActions) }
-                                    }
-                                }
-                        }
-                        if app.saved.hasMore {
-                            ProgressView()
-                                .task { await app.saved.loadMore() }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                }
-                .modulaSoftScrollEdge()
+                savedList
             }
         }
         .modulaCanvas()
@@ -114,11 +41,120 @@ struct SavedView: View {
         .refreshable { await app.saved.load(force: true) }
     }
 
+    private var showsPosts: Bool { section == .root || section == .posts }
+    private var showsModules: Bool { section == .root || section == .modules }
+    private var showsLinks: Bool { section == .root || section == .links }
+
+    private var savedList: some View {
+        List {
+            Section {
+                Text("Saved posts load from your account. Modules and links can’t be saved yet.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            if showsPosts { postsSection }
+            if showsModules { unavailableSection("Modules", "Saved modules aren’t available. There’s no saved-modules route.") }
+            if showsLinks { unavailableSection("Links & Media", "Saved links aren’t available. There’s no saved-links route.") }
+        }
+        .listStyle(.insetGrouped)
+        .modulaSoftScrollEdge()
+    }
+
+    private var postsSection: some View {
+        Section {
+            if app.saved.posts.isEmpty && app.saved.loaded {
+                Text("Bookmark a post and it will show up here.")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(app.saved.posts) { post in
+                    SavedPostRow(post: app.posts.resolved(post)) {
+                        Task { await app.saved.unsave(postID: post.id, postActions: app.postActions) }
+                    }
+                }
+                if app.saved.hasMore {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .task { await app.saved.loadMore() }
+                }
+            }
+        } header: {
+            HStack {
+                Text("Posts")
+                Spacer()
+                Text(app.saved.posts.isEmpty ? "None yet" : "\(app.saved.posts.count) \(app.saved.posts.count == 1 ? "item" : "items")")
+            }
+        }
+    }
+
+    private func unavailableSection(_ title: String, _ message: String) -> some View {
+        Section {
+            Text(message).foregroundStyle(.secondary)
+        } header: {
+            Text(title)
+        }
+    }
+
     private var title: String {
         switch section {
         case .root, .posts: "Saved"
         case .modules: "Saved Modules"
         case .links: "Saved Links"
         }
+    }
+}
+
+private struct SavedPostRow: View {
+    let post: SocialPost
+    var onUnsave: () -> Void
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        Button {
+            app.postActions.ingest(post)
+            app.navigation.open(.post(post.id, .root))
+            HapticEngine.shared.play(.navigation)
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                if let author = post.author {
+                    ModulaAvatar(initials: author.initials, url: author.avatarURL, size: 40)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text(post.author?.displayName ?? "Post")
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
+                        Text(ActivityRelativeTime.string(from: post.createdAt))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: 4)
+                        Image(systemName: "bookmark.fill")
+                            .foregroundStyle(Color(hex: "#D66056"))
+                            .accessibilityHidden(true)
+                    }
+                    Text(excerpt)
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+                        .lineLimit(3)
+                        .multilineTextAlignment(.leading)
+                }
+            }
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button("Unsave", systemImage: "bookmark.slash", role: .destructive, action: onUnsave)
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button("Unsave", role: .destructive, action: onUnsave)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Opens the saved post")
+    }
+
+    private var excerpt: String {
+        if let text = post.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty { return text }
+        if !post.media.isEmpty { return "Photo or video" }
+        return "Saved post"
     }
 }

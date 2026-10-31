@@ -10,6 +10,11 @@ struct CollectionsView: View {
         List {
             if let error = app.collections.error { Text(error).foregroundStyle(.red) }
             Section {
+                Text("Save posts on this iPhone. Collections aren’t synced — there isn’t a collections API.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
                 ForEach(app.collections.collections.filter(\.isDefault)) { collection in
                     NavigationLink(value: AppRoute.collections(.collection(collection.id))) {
                         CollectionCard(collection: collection)
@@ -48,15 +53,25 @@ struct CollectionsView: View {
         }
         .sheet(isPresented: $showCreate) {
             NavigationStack {
-                Form {
-                    if let error = app.collections.error { Text(error).foregroundStyle(.red) }
-                    TextField("Name", text: $newName)
-                    Text("Stored on this iPhone")
+                VStack(alignment: .leading, spacing: 16) {
+                    if let error = app.collections.error {
+                        Text(error).foregroundStyle(.red)
+                    }
+                    TextField("Collection name", text: $newName)
+                        .textFieldStyle(.plain)
+                        .padding(14)
+                        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    Label("Stored on this iPhone", systemImage: "iphone")
+                        .font(.subheadline.weight(.semibold))
+                    Text("Collections stay on this device. There isn’t a collections API, so they aren’t synced.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
                 }
-                .modulaSoftScrollEdge()
+                .padding(20)
+                .modulaCanvas()
                 .navigationTitle("New Collection")
+                .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") { showCreate = false }
@@ -68,11 +83,14 @@ struct CollectionsView: View {
                             showCreate = false
                             HapticEngine.shared.play(.confirmation)
                         }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color(hex: "#D66056"))
                         .disabled(newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
             }
             .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
         }
         .confirmationDialog(
             pendingDelete.map { "Delete “\($0.name)”?" } ?? "Delete collection?",
@@ -111,7 +129,7 @@ struct CollectionDetailView: View {
             if let collection = app.collections.collections.first(where: { $0.id == collectionID }) {
                 List {
                     Section {
-                        Text(collection.storage == .local ? "Saved on this iPhone only." : "Synced with your account.")
+                        Text(collection.storage == .local ? "Saved on this iPhone only." : "Collections stay on this iPhone. They aren’t synced.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -221,19 +239,27 @@ struct CollectionCard: View {
         HStack(spacing: 12) {
             Image(systemName: collection.isDefault ? "bookmark.fill" : "rectangle.stack")
                 .font(.body.weight(.semibold))
-                .frame(width: 28, height: 28)
-            VStack(alignment: .leading, spacing: 2) {
+                .foregroundStyle(Color(hex: "#D66056"))
+                .frame(width: 36, height: 36)
+                .background(Color(hex: "#D66056").opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            VStack(alignment: .leading, spacing: 4) {
                 Text(collection.name)
                     .font(.body.weight(.semibold))
-                Text("\(collection.itemCount) items · \(collection.storage == .local ? "On This Device" : "Synced")")
+                Text("\(collection.itemCount) \(collection.itemCount == 1 ? "item" : "items") · \(collection.storage == .local ? "On This Device" : "On your account")")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Text(collection.isDefault ? "Smart Collection" : "My Collection")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(Color(hex: "#D66056"))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color(hex: "#D66056").opacity(0.12), in: Capsule())
             }
             Spacer()
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(collection.name), \(collection.itemCount) saved items")
+        .accessibilityLabel("\(collection.name), \(collection.itemCount) saved items, \(collection.storage == .local ? "on this device" : "on your account")")
     }
 }
 
