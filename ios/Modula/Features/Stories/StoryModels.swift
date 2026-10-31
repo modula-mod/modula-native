@@ -72,6 +72,21 @@ struct StoryGroup: Identifiable, Hashable, Sendable {
     var needsHydration: Bool { items.isEmpty || items.count < (itemCount ?? 0) }
 }
 
+/// Copy for Story Insights. Only expiry is computed; view counts come from the item payload.
+enum StoryInsightFacts {
+    static func remaining(until expiresAt: Date?, now: Date = Date()) -> String? {
+        guard let expiresAt else { return nil }
+        let seconds = expiresAt.timeIntervalSince(now)
+        if seconds <= 0 { return "This story has expired" }
+        let hours = Int(seconds / 3600)
+        if hours >= 1 {
+            return hours == 1 ? "1 hour remaining" : "\(hours) hours remaining"
+        }
+        let minutes = max(1, Int(seconds / 60))
+        return minutes == 1 ? "1 minute remaining" : "\(minutes) minutes remaining"
+    }
+}
+
 struct StoryBackendCapabilities: Sendable, Equatable {
     var list = false
     var create = false
