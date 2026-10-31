@@ -940,6 +940,14 @@ final class StoryDomainTests: XCTestCase {
         XCTAssertTrue(own.needsHydration)
     }
 
+    func testStoryInsightRemainingUsesExpiryOnly() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        XCTAssertNil(StoryInsightFacts.remaining(until: nil, now: now))
+        XCTAssertEqual(StoryInsightFacts.remaining(until: now.addingTimeInterval(3 * 3600), now: now), "3 hours remaining")
+        XCTAssertEqual(StoryInsightFacts.remaining(until: now.addingTimeInterval(60), now: now), "1 minute remaining")
+        XCTAssertEqual(StoryInsightFacts.remaining(until: now.addingTimeInterval(-10), now: now), "This story has expired")
+    }
+
     /// The exact envelope shape `POST /v1/stories` returns (201, `ok/data/meta`, null fields).
     func testCreateResponseEnvelopeDecodesToOwnGroup() throws {
         let body = """
