@@ -302,9 +302,28 @@ struct MolibooActionTile: View {
                     .background(Circle().fill(action.tint.gradient))
                     .opacity(cooling ? 0.45 : 1)
                 Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).lineLimit(1)
-                Text(cooling ? "Ready in \(MolibooCareStore.short(remaining))" : (action == .nap && asleep ? "Wake up" : action.effect))
-                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
-                    .monospacedDigit()
+                Group {
+                    if cooling {
+                        Label(MolibooCareStore.short(remaining), systemImage: "hourglass")
+                            .font(.caption2.weight(.semibold)).monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    } else if action.effectIcons.isEmpty || (action == .nap && asleep) {
+                        Text(action == .nap && asleep ? "Wake up" : "Studio")
+                            .font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+                    } else {
+                        // Tiny stat chips instead of cramped "Full · +Energy" text.
+                        HStack(spacing: 6) {
+                            ForEach(action.effectIcons, id: \.symbol) { e in
+                                HStack(spacing: 1) {
+                                    Image(systemName: e.symbol).font(.system(size: 10, weight: .bold))
+                                    Image(systemName: e.up ? "arrow.up" : "arrow.down").font(.system(size: 8, weight: .heavy))
+                                }
+                                .foregroundStyle(e.up ? action.tint : Color.secondary)
+                            }
+                        }
+                    }
+                }
+                .lineLimit(1).frame(height: 14)
             }
             .frame(maxWidth: .infinity).frame(height: 116)
             .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true)
