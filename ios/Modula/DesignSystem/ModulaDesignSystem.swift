@@ -218,7 +218,7 @@ struct ModulaPalette {
     var canvas: Color; var surface: Color; var elevated: Color; var primary: Color; var secondary: Color; var separator: Color; var accent: Color
     @MainActor static func resolve(_ store: AppearanceStore, scheme: ColorScheme, increasedContrast: Bool = false) -> Self {
         let dark = scheme == .dark
-        let accent = store.accent.color
+        let accent = store.liveAccent
         if dark && store.darkStyle == .oled {
             return Self(canvas: .black, surface: Color.white.opacity(0.055), elevated: Color.white.opacity(0.1), primary: .white,
                         secondary: Color.white.opacity(increasedContrast ? 0.78 : 0.66), separator: Color.white.opacity(0.14), accent: accent)

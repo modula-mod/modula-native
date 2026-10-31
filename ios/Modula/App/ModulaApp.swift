@@ -11,7 +11,7 @@ struct ModulaApp: App {
         WindowGroup {
             AppGateHost()
                 .environment(environment)
-                .tint(environment.appearance.accent.color)
+                .tint(environment.appearance.liveAccent)
                 .preferredColorScheme(environment.appearance.colorScheme)
                 // Web links anywhere in the app open in the Modula browser (Settings → Links).
                 .environment(\.openURL, OpenURLAction { url in ModulaLinkRouter.handle(url, source: nil) })

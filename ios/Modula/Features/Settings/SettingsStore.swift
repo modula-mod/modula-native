@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import Observation
 
 @MainActor @Observable
@@ -45,10 +46,56 @@ final class AppearanceStore {
     var interfaceShape: InterfaceShape { didSet { save() } }
     var moduleBranding: ModuleBranding { didSet { save() } }
     var brandWordmark: BrandWordmark { didSet { save() } }
+    /// A colour chosen from the wheel. Nil means the named `accent` swatch is in use.
+    /// Stored on this iPhone only: `PATCH /v1/accounts/me/appearance` has no declared body.
+    var customAccentHex: String? { didSet { save() } }
     /// Edge Picker personalization. Nested under Appearance; reset separately via `resetEdgePicker()`.
     var edgePicker: EdgePickerPreferences { didSet { save() } }
 
     var colorScheme: ColorScheme? { switch theme { case .system: nil; case .light: .light; case .dark: .dark } }
+    /// Named swatch, or the wheel colour when one is stored.
+    var liveAccent: Color {
+        if let customAccentHex, let normalized = Self.normalizedHex(customAccentHex) {
+            return Color(hex: normalized)
+        }
+        return accent.color
+    }
+    var accentTitle: String { customAccentHex == nil ? accent.title : "Custom" }
+
+    func selectNamedAccent(_ value: Accent) {
+        if customAccentHex != nil { customAccentHex = nil }
+        accent = value
+    }
+
+    func selectCustomAccent(hex: String) {
+        guard let normalized = Self.normalizedHex(hex) else { return }
+        customAccentHex = normalized
+    }
+
+    static func normalizedHex(_ raw: String) -> String? {
+        var hex = raw.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if hex.hasPrefix("#") { hex.removeFirst() }
+        guard hex.count == 6, hex.allSatisfy(\.isHexDigit) else { return nil }
+        return "#\(hex)"
+    }
+
+    static func hex(from color: Color) -> String {
+        let ui = UIColor(color)
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        if ui.getRed(&red, green: &green, blue: &blue, alpha: &alpha) {
+            return formatHex(red, green, blue)
+        }
+        let space = CGColorSpaceCreateDeviceRGB()
+        let resolved = ui.cgColor.converted(to: space, intent: .defaultIntent, options: nil) ?? ui.cgColor
+        if let components = resolved.components, components.count >= 3 {
+            return formatHex(components[0], components[1], components[2])
+        }
+        return "#369CAA"
+    }
+
+    private static func formatHex(_ red: CGFloat, _ green: CGFloat, _ blue: CGFloat) -> String {
+        String(format: "#%02X%02X%02X", Int((red * 255).rounded()), Int((green * 255).rounded()), Int((blue * 255).rounded()))
+    }
     var fontDesign: Font.Design { switch fontFamily { case .rounded, .geometric: .rounded; case .editorial: .serif; case .mono: .monospaced; default: .default } }
     var appearance: LegacyAppearance {
         get { if theme == .system { .system } else if theme == .light { .light } else if darkStyle == .oled { .oled } else { .dark } }
@@ -80,6 +127,7 @@ final class AppearanceStore {
         interfaceShape = saved?.interfaceShape ?? .balanced
         moduleBranding = saved?.moduleBranding ?? .blend
         brandWordmark = saved?.brandWordmark ?? .modula
+        customAccentHex = saved?.customAccentHex.flatMap(Self.normalizedHex)
         edgePicker = saved?.edgePicker ?? .default
         if saved == nil, let legacy = LegacyAppearance(rawValue: defaults.string(forKey: "modula.native.appearance.v1") ?? "") { appearance = legacy }
     }
@@ -90,6 +138,7 @@ final class AppearanceStore {
         appIcon = .default; density = .standard; motion = .standard; haptics = .standard
         contrastTransparency = .standard; iconStyle = .balanced; interfaceShape = .balanced; moduleBranding = .blend
         brandWordmark = .modula
+        customAccentHex = nil
         edgePicker = .default
     }
 
@@ -104,7 +153,7 @@ final class AppearanceStore {
             appIcon: appIcon, density: density, motion: motion, haptics: haptics,
             contrastTransparency: contrastTransparency, iconStyle: iconStyle,
             interfaceShape: interfaceShape, moduleBranding: moduleBranding,
-            brandWordmark: brandWordmark, edgePicker: edgePicker
+            brandWordmark: brandWordmark, customAccentHex: customAccentHex, edgePicker: edgePicker
         )
         defaults.set(try? JSONEncoder().encode(value), forKey: key)
     }
@@ -116,19 +165,22 @@ final class AppearanceStore {
         var moduleBranding: ModuleBranding
         var brandWordmark: BrandWordmark?
         /// Optional so existing v2 blobs without this field decode to defaults.
+        var customAccentHex: String?
+        /// Optional so existing v2 blobs without this field decode to defaults.
         var edgePicker: EdgePickerPreferences?
 
         init(
             theme: Theme, darkStyle: DarkStyle, accent: Accent, fontFamily: FontFamily, textSize: TextSize,
             appIcon: AppIcon, density: Density, motion: MotionPersonality, haptics: HapticIntensity,
             contrastTransparency: ContrastTransparency, iconStyle: IconStyle, interfaceShape: InterfaceShape,
-            moduleBranding: ModuleBranding, brandWordmark: BrandWordmark, edgePicker: EdgePickerPreferences
+            moduleBranding: ModuleBranding, brandWordmark: BrandWordmark, customAccentHex: String?, edgePicker: EdgePickerPreferences
         ) {
             self.theme = theme; self.darkStyle = darkStyle; self.accent = accent
             self.fontFamily = fontFamily; self.textSize = textSize; self.appIcon = appIcon
             self.density = density; self.motion = motion; self.haptics = haptics
             self.contrastTransparency = contrastTransparency; self.iconStyle = iconStyle
             self.interfaceShape = interfaceShape; self.moduleBranding = moduleBranding; self.brandWordmark = brandWordmark
+            self.customAccentHex = customAccentHex
             self.edgePicker = edgePicker
         }
     }

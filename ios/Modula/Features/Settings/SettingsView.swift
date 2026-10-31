@@ -745,13 +745,276 @@ struct AppearanceSettingsView: View {
     let focus: AppearanceSettingsRoute
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var confirmsReset = false
+    @State private var showsAdvanced = false
+    @State private var wheel = Color(hex: "#369CAA")
 
     var body: some View {
         @Bindable var store = app.appearance
+        Group {
+            if focus == .root {
+                rootExperience(store)
+            } else {
+                legacyExperience(store)
+            }
+        }
+        .confirmationDialog("Reset Appearance?", isPresented: $confirmsReset, titleVisibility: .visible) {
+            Button("Reset Appearance", role: .destructive) { store.reset() }
+        } message: {
+            Text("This restores Modula appearance defaults without changing other settings.")
+        }
+        .accessibilityIdentifier("settings.appearance")
+        .onAppear {
+            wheel = store.customAccentHex.map(Color.init(hex:)) ?? store.accent.color
+        }
+    }
+
+    private func rootExperience(_ store: AppearanceStore) -> some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("YOUR EXPERIENCE")
+                        .font(.caption.weight(.bold))
+                        .tracking(1.1)
+                        .foregroundStyle(store.liveAccent)
+                    Text("Make it yours.")
+                        .font(.largeTitle.bold())
+                    Text("See every change before you apply it.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityElement(children: .combine)
+
+                AppearanceLivePreview(scheme: previewScheme(store))
+                    .accessibilityIdentifier("appearance.live-preview")
+
+                themeSection(store)
+                accentSection(store)
+                brandingSection(store)
+                advancedSection(store)
+
+                HStack(spacing: 12) {
+                    Button("Restore defaults") { confirmsReset = true }
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .background(Color.primary.opacity(0.06), in: Capsule())
+                        .accessibilityIdentifier("appearance.restore")
+                    Button {
+                        app.navigation.open(.settings(.appearance(.preview)))
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text("Preview full screen")
+                            Image(systemName: "arrow.up.right")
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .foregroundStyle(Color(uiColor: .systemBackground))
+                        .background(Color.primary, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("appearance.preview-full")
+                }
+
+                Text("Saved on this iPhone. Account appearance sync isn’t available — the server route has no declared preference shape.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("appearance.storage-note")
+            }
+            .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.top, 8)
+            .padding(.bottom, 28)
+        }
+        .modulaSoftScrollEdge()
+        .modulaCanvas()
+        .navigationTitle("Appearance")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Reset") { confirmsReset = true }
+                    .accessibilityIdentifier("appearance.reset")
+            }
+        }
+    }
+
+    private func previewScheme(_ store: AppearanceStore) -> ColorScheme {
+        switch store.theme {
+        case .light: .light
+        case .dark: .dark
+        case .system: scheme
+        }
+    }
+
+    private func themeSection(_ store: AppearanceStore) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Choose your appearance").font(.headline)
+                Spacer()
+                Text("Theme").font(.subheadline).foregroundStyle(.secondary)
+            }
+            HStack(spacing: 10) {
+                AppearanceThemeCard(title: "Light", kind: .light, selected: store.theme == .light, accent: store.liveAccent) {
+                    select(store, theme: .light)
+                }
+                AppearanceThemeCard(title: "Dark", kind: .dark, selected: store.theme == .dark, accent: store.liveAccent) {
+                    select(store, theme: .dark)
+                }
+                AppearanceThemeCard(title: "System", kind: .system, selected: store.theme == .system, accent: store.liveAccent) {
+                    select(store, theme: .system)
+                }
+            }
+            if store.theme == .dark || (store.theme == .system && scheme == .dark) {
+                Text("Dark canvas").font(.subheadline.weight(.semibold))
+                darkCanvasChoices(store)
+            }
+        }
+    }
+
+    private func darkCanvasChoices(_ store: AppearanceStore) -> some View {
+        @Bindable var store = store
+        return HStack(spacing: 8) {
+            AppearanceChoice(title: "Standard", symbol: nil, value: .standard, selection: $store.darkStyle)
+            AppearanceChoice(title: "Dim", symbol: nil, value: .dim, selection: $store.darkStyle)
+            AppearanceChoice(title: "OLED", symbol: nil, value: .oled, selection: $store.darkStyle)
+        }
+    }
+
+    private func select(_ store: AppearanceStore, theme: AppearanceStore.Theme) {
+        let change = {
+            store.theme = theme
+            HapticEngine.shared.play(.selection)
+        }
+        if reduceMotion { change() } else { withAnimation(.snappy) { change() } }
+    }
+
+    private func accentSection(_ store: AppearanceStore) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Accent colour").font(.headline)
+                Spacer()
+                Text("\(store.accentTitle) selected")
+                    .font(.subheadline)
+                    .foregroundStyle(store.liveAccent)
+            }
+            HStack(spacing: 12) {
+                ForEach(AppearanceStore.Accent.allCases) { accent in
+                    let selected = store.customAccentHex == nil && store.accent == accent
+                    Button {
+                        store.selectNamedAccent(accent)
+                        wheel = accent.color
+                        HapticEngine.shared.play(.selection)
+                    } label: {
+                        Circle()
+                            .fill(accent.color)
+                            .frame(width: 34, height: 34)
+                            .overlay {
+                                if selected {
+                                    Circle().strokeBorder(Color.primary, lineWidth: 2).padding(-5)
+                                }
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .accessibilityLabel(accent.title)
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                    .accessibilityIdentifier("appearance.accent.\(accent.rawValue)")
+                }
+                ColorPicker("Custom accent colour", selection: $wheel, supportsOpacity: false)
+                    .labelsHidden()
+                    .frame(width: 44, height: 44)
+                    .overlay {
+                        if store.customAccentHex != nil {
+                            Circle().strokeBorder(Color.primary, lineWidth: 2).padding(2)
+                        }
+                    }
+                    .accessibilityIdentifier("appearance.accent.custom")
+                    .onChange(of: wheel) { _, newValue in
+                        let hex = AppearanceStore.hex(from: newValue)
+                        if let match = AppearanceStore.Accent.allCases.first(where: { $0.hex.caseInsensitiveCompare(hex) == .orderedSame }) {
+                            if store.customAccentHex != nil || store.accent != match { store.selectNamedAccent(match) }
+                        } else if store.customAccentHex?.caseInsensitiveCompare(hex) != .orderedSame {
+                            store.selectCustomAccent(hex: hex)
+                        }
+                    }
+            }
+        }
+        .padding(16)
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    private func brandingSection(_ store: AppearanceStore) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Header branding").font(.headline)
+                Spacer()
+                Text("Shown on Home").font(.subheadline).foregroundStyle(.secondary)
+            }
+            HStack(spacing: 12) {
+                ForEach(AppearanceStore.BrandWordmark.allCases) { mark in
+                    AppearanceLogoChoice(mark: mark, selected: store.brandWordmark == mark) {
+                        store.brandWordmark = mark
+                        HapticEngine.shared.play(.selection)
+                    }
+                }
+            }
+        }
+    }
+
+    private func advancedSection(_ store: AppearanceStore) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                if reduceMotion { showsAdvanced.toggle() } else { withAnimation(.snappy) { showsAdvanced.toggle() } }
+            } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Fine-tune your interface").font(.headline).foregroundStyle(.primary)
+                        Text("Type, glass, motion and more").font(.subheadline).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Text(showsAdvanced ? "Hide" : "Advanced")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(store.liveAccent)
+                    Image(systemName: showsAdvanced ? "chevron.up" : "chevron.down")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(store.liveAccent)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("appearance.advanced")
+            if showsAdvanced {
+                advancedGroups(store)
+            }
+        }
+        .padding(16)
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func advancedGroups(_ store: AppearanceStore) -> some View {
+        @Bindable var store = store
+        VStack(alignment: .leading, spacing: 18) {
+            AppearanceMenuRow(title: "Contrast & Transparency", symbol: "circle.righthalf.filled", selection: $store.contrastTransparency, options: AppearanceStore.ContrastTransparency.allCases, label: display)
+            AppearanceMenuRow(title: "Font Family", symbol: "textformat", selection: $store.fontFamily, options: AppearanceStore.FontFamily.allCases, label: display)
+            AppearanceMenuRow(title: "Text Size", symbol: "textformat.size", selection: $store.textSize, options: AppearanceStore.TextSize.allCases, label: display)
+            TypographyPreviewCard(family: store.fontFamily)
+            GlassIntensityRow()
+            AppearanceMenuRow(title: "Density", symbol: "arrow.up.left.and.arrow.down.right", selection: $store.density, options: AppearanceStore.Density.allCases, label: display)
+            AppearanceMenuRow(title: "Motion", symbol: "waveform.path", selection: $store.motion, options: AppearanceStore.MotionPersonality.allCases, label: display)
+            AppearanceMenuRow(title: "Haptics", symbol: "hand.tap", selection: $store.haptics, options: AppearanceStore.HapticIntensity.allCases, label: display)
+            AppearanceMenuRow(title: "Icon Style", symbol: "circle.grid.cross", selection: $store.iconStyle, options: AppearanceStore.IconStyle.allCases, label: display)
+            AppearanceMenuRow(title: "Interface Shape", symbol: "rectangle.roundedtop", selection: $store.interfaceShape, options: AppearanceStore.InterfaceShape.allCases, label: display)
+            AppearanceMenuRow(title: "Module Branding", symbol: "paintbrush", selection: $store.moduleBranding, options: AppearanceStore.ModuleBranding.allCases, label: display)
+            SettingsNavigationRow(title: "Edge Picker", subtitle: "Position, size, side, glass", symbol: "rectangle.trailinghalf.inset.filled") {
+                app.navigation.open(.settings(.appearance(.edgePicker)))
+            }
+        }
+    }
+
+    private func legacyExperience(_ store: AppearanceStore) -> some View {
+        @Bindable var store = store
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
-                AppearancePreviewView(compact: true)
+                AppearanceLivePreview(scheme: previewScheme(store))
                 SettingsGroup(title: "Colour") {
                     VStack(alignment: .leading, spacing: 14) {
                         Text("Theme").font(.subheadline.weight(.semibold))
@@ -780,7 +1043,7 @@ struct AppearanceSettingsView: View {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 76), spacing: 12)], spacing: 12) {
                             ForEach(AppearanceStore.Accent.allCases) { accent in
                                 Button {
-                                    store.accent = accent
+                                    store.selectNamedAccent(accent)
                                     HapticEngine.shared.play(.selection)
                                 } label: {
                                     VStack(spacing: 7) {
@@ -863,19 +1126,176 @@ struct AppearanceSettingsView: View {
         }
         .modulaSoftScrollEdge()
         .modulaCanvas()
-        .navigationTitle(focus == .root ? "Appearance" : display(focus.rawValue))
+        .navigationTitle(display(focus.rawValue))
         .navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog("Reset Appearance?", isPresented: $confirmsReset, titleVisibility: .visible) {
-            Button("Reset Appearance", role: .destructive) { store.reset() }
-        } message: {
-            Text("This restores Modula appearance defaults without changing other settings.")
-        }
-        .accessibilityIdentifier("settings.appearance")
     }
 
     private func display<T: RawRepresentable>(_ value: T) -> String where T.RawValue == String { display(value.rawValue) }
     private func display(_ value: String) -> String {
         value.replacingOccurrences(of: "([a-z])([A-Z])", with: "$1 $2", options: .regularExpression).replacingOccurrences(of: "-", with: " ").capitalized
+    }
+}
+
+struct AppearanceLivePreview: View {
+    var scheme: ColorScheme
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        let store = app.appearance
+        let accent = store.liveAccent
+        let resolved = scheme == .dark ? "Dark" : "Light"
+        let label = store.theme == .system ? "System (\(resolved))" : resolved
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Live preview").font(.subheadline.weight(.semibold))
+                Spacer()
+                HStack(spacing: 6) {
+                    Circle().fill(accent).frame(width: 7, height: 7)
+                    Text("Previewing \(label) · \(store.accentTitle)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(accent)
+                }
+            }
+            .accessibilityHidden(true)
+            chrome
+                .padding(12)
+                .background(scheme == .dark ? Color(red: 0.11, green: 0.12, blue: 0.14) : Color.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .environment(\.colorScheme, scheme)
+                .tint(accent)
+        }
+        .padding(14)
+        .background {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(reduceTransparency ? AnyShapeStyle(Color.primary.opacity(0.06)) : AnyShapeStyle(.background))
+        }
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Live preview. \(label), \(store.accentTitle) accent, \(store.brandWordmark.title) header.")
+    }
+
+    private var chrome: some View {
+        let accent = app.appearance.liveAccent
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                switch app.appearance.brandWordmark {
+                case .modula: ModulaWordmark(height: 16)
+                case .moliboos: MoliboosWordmark(height: 18)
+                }
+                Spacer()
+                Image(systemName: "plus").font(.caption.weight(.bold))
+                Image(systemName: "ellipsis").font(.caption.weight(.bold)).padding(.leading, 8)
+            }
+            .foregroundStyle(.primary)
+            HStack(spacing: 8) {
+                Circle().fill(accent).frame(width: 26, height: 26)
+                    .overlay(Image(systemName: "plus").font(.system(size: 10, weight: .bold)).foregroundStyle(.white))
+                Circle().fill(Color.primary.opacity(0.12)).frame(width: 26, height: 26)
+                Text("Stories").font(.caption.weight(.semibold))
+                Text("Following").font(.caption).foregroundStyle(.secondary)
+            }
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(app.auth.account?.primaryHandle ?? "modula") · preview")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text("A space that feels like yours.")
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(2)
+                    HStack(spacing: 10) {
+                        Image(systemName: "heart.fill").foregroundStyle(accent)
+                        Image(systemName: "bubble.left")
+                        Image(systemName: "arrow.2.squarepath")
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                }
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(LinearGradient(colors: [accent.opacity(0.55), accent.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 78, height: 52)
+                    .accessibilityHidden(true)
+            }
+            HStack {
+                Label("Home", systemImage: "house.fill").foregroundStyle(accent).labelStyle(.titleAndIcon)
+                Spacer()
+                Image(systemName: "safari")
+                Spacer()
+                Image(systemName: "shippingbox")
+                Spacer()
+                Image(systemName: "bell")
+                Spacer()
+                Image(systemName: "person")
+            }
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(.secondary)
+            .accessibilityHidden(true)
+        }
+    }
+}
+
+private struct AppearanceThemeCard: View {
+    enum Kind { case light, dark, system }
+    let title: String
+    let kind: Kind
+    let selected: Bool
+    let accent: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                preview
+                    .frame(height: 74)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
+                Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+            }
+            .padding(8)
+            .frame(maxWidth: .infinity)
+            .background(selected ? accent.opacity(0.14) : Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(selected ? accent : Color.clear, lineWidth: 2))
+            .overlay(alignment: .bottomTrailing) {
+                if selected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(accent)
+                        .padding(6)
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(title) appearance")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("appearance.theme.\(title.lowercased())")
+    }
+
+    @ViewBuilder private var preview: some View {
+        switch kind {
+        case .light:
+            miniature(background: Color(red: 0.96, green: 0.97, blue: 0.98), ink: .black.opacity(0.72))
+        case .dark:
+            miniature(background: Color(red: 0.12, green: 0.13, blue: 0.15), ink: .white.opacity(0.86))
+        case .system:
+            HStack(spacing: 0) {
+                miniature(background: Color(red: 0.96, green: 0.97, blue: 0.98), ink: .black.opacity(0.72))
+                miniature(background: Color(red: 0.12, green: 0.13, blue: 0.15), ink: .white.opacity(0.86))
+            }
+        }
+    }
+
+    private func miniature(background: Color, ink: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Capsule().fill(ink.opacity(0.4)).frame(width: 34, height: 6)
+            HStack(spacing: 4) {
+                RoundedRectangle(cornerRadius: 4, style: .continuous).fill(ink.opacity(0.16)).frame(height: 22)
+                RoundedRectangle(cornerRadius: 4, style: .continuous).fill(ink.opacity(0.16)).frame(height: 22)
+            }
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(background)
+        .accessibilityHidden(true)
     }
 }
 
@@ -899,7 +1319,7 @@ struct AppearancePreviewView: View {
                 ModulaText(text: "Trying out a new look for my Modula. What do you think? 🎨", role: compact ? .body : .headline)
                 // A realistic mini post, so accent / theme / density changes are visible live.
                 HStack(spacing: 18) {
-                    Label("24", systemImage: "heart.fill").foregroundStyle(app.appearance.accent.color)
+                    Label("24", systemImage: "heart.fill").foregroundStyle(app.appearance.liveAccent)
                     Label("6", systemImage: "bubble.left")
                     Label("2", systemImage: "arrow.2.squarepath")
                     Spacer()
@@ -915,9 +1335,22 @@ struct AppearancePreviewView: View {
 }
 
 struct AppearancePreviewScreen: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.colorScheme) private var scheme
+
+    private var previewScheme: ColorScheme {
+        switch app.appearance.theme {
+        case .light: .light
+        case .dark: .dark
+        case .system: scheme
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
+                AppearanceLivePreview(scheme: previewScheme)
+                    .accessibilityIdentifier("appearance.live-preview.full")
                 AppearancePreviewView()
                 ModulaSection(title: "Navigation accessory") {
                     VStack(alignment: .leading, spacing: 8) {
@@ -1322,38 +1755,38 @@ private struct GlassIntensityRow: View {
 }
 
 
-/// Appearance → Logo tile: a live preview of the wordmark in the current theme.
+/// Appearance → header branding. The real wordmark assets, never a retyped logo.
 private struct AppearanceLogoChoice: View {
     let mark: AppearanceStore.BrandWordmark
     let selected: Bool
     let action: () -> Void
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 10) {
-                Group {
-                    switch mark {
-                    case .modula: ModulaWordmark(height: 22)
-                    case .moliboos: MoliboosWordmark(height: 26)
-                    }
-                }
-                .frame(maxWidth: .infinity, minHeight: 56)
-                .accessibilityHidden(true)
-                Text(mark.title).font(.footnote.weight(.semibold)).foregroundStyle(selected ? .primary : .secondary)
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity)
-            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.primary.opacity(0.08)), lineWidth: selected ? 2 : 1))
-            .overlay(alignment: .topTrailing) {
-                if selected {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).padding(8)
+            HStack(spacing: 8) {
+                switch mark {
+                case .modula:
+                    ModulaWordmark(height: 20)
+                case .moliboos:
+                    Image(systemName: "sparkle")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(app.appearance.liveAccent)
+                        .accessibilityHidden(true)
+                    MoliboosWordmark(height: 22)
                 }
             }
+            .frame(maxWidth: .infinity, minHeight: 56)
+            .padding(.horizontal, 12)
+            .background(selected ? app.appearance.liveAccent.opacity(0.1) : Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(selected ? app.appearance.liveAccent : Color.primary.opacity(0.08), lineWidth: selected ? 1.5 : 1)
+            )
             .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(mark.title) logo")
+        .accessibilityLabel("\(mark.title) header")
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier("appearance.logo.\(mark.rawValue)")
     }

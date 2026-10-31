@@ -202,7 +202,7 @@ struct RootView: View {
                         Image(uiImage: app.profile.tabBarAvatar ?? ProfileTabAvatarRenderer.fallback(
                             profile: app.profile.ownProfile,
                             account: app.auth.account,
-                            accent: UIColor(app.appearance.accent.color)
+                            accent: UIColor(app.appearance.liveAccent)
                         ))
                         .renderingMode(.original)
                         Text(tab.title)
@@ -243,7 +243,7 @@ struct RootView: View {
     private func refreshTabAvatar() async {
         await app.profile.refreshTabBarAvatar(
             account: app.auth.account,
-            accent: UIColor(app.appearance.accent.color)
+            accent: UIColor(app.appearance.liveAccent)
         )
     }
 }
