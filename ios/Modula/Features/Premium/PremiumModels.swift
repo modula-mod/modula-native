@@ -35,6 +35,26 @@ enum PremiumFeatureFlags {
     }
 }
 
+/// Authenticated premium routes from the Greenfield HTTP atlas (`premium/routes.ts`).
+/// Phase 1 does not call them. The atlas has no purchase or checkout route, so the hub cannot buy a plan.
+/// Admin QA routes and `/v1/commerce/entitlements` are a different surface and are not used here.
+/// Verification is `GET /v1/me/verification` and is never a premium purchase.
+enum PremiumAPI {
+    static let tiers = "/v1/premium/tiers"
+    static let membership = "/v1/me/membership"
+    static let entitlements = "/v1/me/entitlements"
+    static let badgeVisibility = "/v1/me/membership/badge-visibility"
+
+    static func entitlement(capabilityId: String) -> String {
+        "/v1/me/entitlements/\(capabilityId)"
+    }
+}
+
+/// Body for `PATCH /v1/me/membership/badge-visibility`. The atlas field is `visible`.
+struct PremiumBadgeVisibilityRequest: Encodable, Equatable {
+    var visible: Bool
+}
+
 // MARK: Plans
 
 /// The plan ladder. `ModulaPremiumTier` (identity marks) is the *visual* tier; this is the product plan
@@ -103,7 +123,7 @@ enum PremiumPlan: String, CaseIterable, Identifiable, Hashable, Codable, Sendabl
         case .core: 0
         case .plus: 399
         case .horizon: 899
-        case .horizonPlus: 1799
+        case .horizonPlus: 1499
         case .studio: 2999
         }
     }
@@ -113,7 +133,7 @@ enum PremiumPlan: String, CaseIterable, Identifiable, Hashable, Codable, Sendabl
         case .core: 0
         case .plus: 3999
         case .horizon: 8999
-        case .horizonPlus: 17999
+        case .horizonPlus: 14999
         case .studio: 29999
         }
     }
@@ -186,12 +206,13 @@ enum PremiumPricing {
     static func priceLine(_ plan: PremiumPlan, billing: PremiumBilling, locale: Locale = Locale(identifier: "en_GB")) -> String {
         guard plan.isPaid else { return "Free" }
         let seat = plan.isPerSeat ? " per seat" : ""
+        let from = plan.isPerSeat ? "from " : ""
         switch billing {
         case .monthly:
-            return "\(format(minor: plan.placeholderMonthlyMinor, locale: locale))/mo\(seat)"
+            return "\(from)\(format(minor: plan.placeholderMonthlyMinor, locale: locale))/mo\(seat)"
         case .annual:
             let perMonth = format(minor: Int((Double(plan.placeholderAnnualMinor) / 12).rounded()), locale: locale)
-            return "\(format(minor: plan.placeholderAnnualMinor, locale: locale))/yr\(seat) · \(perMonth)/mo"
+            return "\(from)\(format(minor: plan.placeholderAnnualMinor, locale: locale))/yr\(seat) · \(perMonth)/mo"
         }
     }
 
@@ -199,7 +220,8 @@ enum PremiumPricing {
     static func annualMonthsIncluded(_ plan: PremiumPlan) -> Int {
         guard plan.isPaid, plan.placeholderMonthlyMinor > 0 else { return 0 }
         let saved = plan.placeholderMonthlyMinor * 12 - plan.placeholderAnnualMinor
-        return max(0, Int((Double(saved) / Double(plan.placeholderMonthlyMinor)).rounded(.down)))
+        // Nearest whole month. The £x.99 annual totals sit a few pence under exactly two months free.
+        return max(0, Int((Double(saved) / Double(plan.placeholderMonthlyMinor)).rounded()))
     }
 }
 
@@ -282,8 +304,9 @@ struct PremiumEntitlement: Equatable, Sendable {
     static let core = PremiumEntitlement(plan: .core, source: .none, since: nil)
 }
 
-/// Local, phase-1 entitlement state. Defaults to Core. Phase 2 will feed `serverPlan` from GreenField
-/// (server-verified); until then the Debug preview override is the only way to see a paid plan.
+/// Local, phase-1 entitlement state. Defaults to Core. Phase 2 reads `serverPlan` from
+/// `GET /v1/me/membership` (see `PremiumAPI`). Until then the Debug preview is the only paid plan,
+/// and it never leaves the device.
 @MainActor
 @Observable
 final class PremiumEntitlementStore {
@@ -292,7 +315,7 @@ final class PremiumEntitlementStore {
     private let defaults: UserDefaults
     private let isDebugBuild: Bool
 
-    /// Server-verified plan (phase 2). Always Core in phase 1.
+    /// Server-verified plan (phase 2, `GET /v1/me/membership`). Always Core in phase 1.
     private(set) var serverPlan: PremiumPlan = .core
     private(set) var debugOverride: PremiumPlan?
     private(set) var debugSince: Date?

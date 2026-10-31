@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Modula Premium hub (phase 1, UI only)
 //

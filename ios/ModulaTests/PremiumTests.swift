@@ -21,6 +21,20 @@ final class PremiumTests: XCTestCase {
 
     // MARK: Feature flag
 
+    func testPremiumRoutesMatchTheAtlasAndDoNotInventPurchases() throws {
+        XCTAssertEqual(PremiumAPI.tiers, "/v1/premium/tiers")
+        XCTAssertEqual(PremiumAPI.membership, "/v1/me/membership")
+        XCTAssertEqual(PremiumAPI.entitlements, "/v1/me/entitlements")
+        XCTAssertEqual(PremiumAPI.entitlement(capabilityId: "in-mail"), "/v1/me/entitlements/in-mail")
+        XCTAssertEqual(PremiumAPI.badgeVisibility, "/v1/me/membership/badge-visibility")
+        let data = try JSONEncoder().encode(PremiumBadgeVisibilityRequest(visible: false))
+        XCTAssertEqual(String(decoding: data, as: UTF8.self), "{\"visible\":false}")
+        let source = PremiumAPI.tiers + PremiumAPI.membership + PremiumAPI.entitlements + PremiumAPI.badgeVisibility
+        XCTAssertFalse(source.contains("checkout"))
+        XCTAssertFalse(source.contains("/admin/"))
+        XCTAssertFalse(source.contains("/commerce/"))
+    }
+
     func testFlagIsAlwaysOffInRelease() {
         defaults.set(true, forKey: PremiumFeatureFlags.enabledKey)
         XCTAssertFalse(PremiumFeatureFlags.premiumEnabled(defaults: defaults, isDebugBuild: false))
@@ -133,12 +147,16 @@ final class PremiumTests: XCTestCase {
     func testPricesArePlaceholdersAndAnnualShowsTotal() {
         XCTAssertTrue(PremiumPricing.placeholderNote.lowercased().contains("placeholder"))
         XCTAssertEqual(PremiumPricing.priceLine(.core, billing: .annual), "Free")
+        XCTAssertEqual(PremiumPricing.priceLine(.core, billing: .monthly), "Free")
+        XCTAssertEqual(PremiumPricing.priceLine(.plus, billing: .monthly), "£3.99/mo")
         XCTAssertEqual(PremiumPricing.priceLine(.horizon, billing: .monthly), "£8.99/mo")
+        XCTAssertEqual(PremiumPricing.priceLine(.horizonPlus, billing: .monthly), "£14.99/mo")
+        XCTAssertEqual(PremiumPricing.priceLine(.studio, billing: .monthly), "from £29.99/mo per seat")
         let annual = PremiumPricing.priceLine(.horizon, billing: .annual)
         XCTAssertTrue(annual.hasPrefix("£89.99/yr"), annual)
         XCTAssertTrue(annual.contains("/mo"), "Annual always shows the per-month figure next to the total")
-        XCTAssertTrue(PremiumPricing.priceLine(.studio, billing: .monthly).contains("per seat"))
         XCTAssertEqual(PremiumPricing.annualMonthsIncluded(.horizon), 2)
+        XCTAssertEqual(PremiumPricing.annualMonthsIncluded(.horizonPlus), 2)
     }
 
     func testComparisonCoversEveryPlanAndCoreStaysFree() {
