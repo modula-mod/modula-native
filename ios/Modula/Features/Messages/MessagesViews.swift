@@ -885,7 +885,15 @@ struct MessageRequestsView: View {
         }
         .modulaSoftScrollEdge()
         .navigationTitle("Requests")
-        .task { await app.messaging.loadRequestsIfNeeded() }
+        .task {
+            #if DEBUG
+            if MessagingDebugFixture.isEnabled {
+                if app.messaging.requests.isEmpty { app.messaging.installDebugRequests(MessagingDebugFixture.requests()) }
+                return
+            }
+            #endif
+            await app.messaging.loadRequestsIfNeeded()
+        }
         .refreshable { await app.messaging.refreshRequests() }
         .accessibilityIdentifier("messages.requests")
     }
@@ -950,30 +958,58 @@ struct MessageRequestRow: View {
     var canAct: Bool
     var onAccept: () -> Void
     var onDecline: () -> Void
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                ConversationAvatar(participant: request.sender)
-                VStack(alignment: .leading, spacing: 4) {
+        let accent = app.appearance.accent.color
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                ConversationAvatar(participant: request.sender, size: 48)
+                VStack(alignment: .leading, spacing: 3) {
                     Text(request.sender.displayName)
                         .font(.body.weight(.semibold))
-                    Text(request.preview)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    Text("@\(request.sender.handle)")
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    if !request.preview.isEmpty {
+                        Text(request.preview)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.primary.opacity(0.88))
+                            .lineLimit(3)
+                            .padding(.horizontal, 12).padding(.vertical, 9)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.primary.opacity(0.05)))
+                            .padding(.top, 4)
+                    }
                 }
             }
             if canAct {
-                HStack {
-                    Button("Accept", action: onAccept)
-                        .buttonStyle(.borderedProminent)
-                        .disabled(busy)
-                    Button("Decline", role: .destructive, action: onDecline)
-                        .disabled(busy)
+                HStack(spacing: 10) {
+                    Button(action: onAccept) {
+                        HStack(spacing: 6) {
+                            if busy { ProgressView().controlSize(.mini).tint(.white) }
+                            Text("Accept").font(.subheadline.weight(.semibold))
+                        }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity).frame(height: 38)
+                        .background(Capsule().fill(accent))
+                        .modulaGlass(in: Capsule(), interactive: true, tint: accent.opacity(0.4))
+                    }
+                    .accessibilityIdentifier("messages.request.accept")
+                    Button(action: onDecline) {
+                        Text("Decline").font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.red)
+                            .frame(maxWidth: .infinity).frame(height: 38)
+                            .modulaGlass(in: Capsule(), interactive: true)
+                    }
+                    .accessibilityIdentifier("messages.request.decline")
                 }
+                .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: .lightImpact))
+                .disabled(busy)
+                .padding(.leading, 60)
             }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(request.sender.displayName). \(request.preview)")
     }
