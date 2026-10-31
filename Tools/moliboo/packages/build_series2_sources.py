@@ -6,9 +6,8 @@ source tree. They are not copied into the app bundle.
 
 Each character directory holds:
   character.json  — declarative patch (modula.moliboo.character.1), no wardrobe fit
-  portrait.png    — the complete 640×640 transparent PNG, byte-for-byte
-  source.svg      — the complete 320×320 SVG, kept beside the pack (the signed
-                    container allows json and png only, so the SVG is not packed)
+  portrait.png    — 640×640 transparent PNG cut from the painted family poster
+                    (the genesis blob SVGs are deprecated and are not shipped)
 
 Greenfield's HTTP atlas has no Moliboo or marketplace route. This script does
 not sign packages and does not invent a signature. Sign later with
@@ -23,6 +22,7 @@ from pathlib import Path
 
 ROOT = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
 CHECK = "--check" in sys.argv
+REWRITE = "--rewrite-manifest" in sys.argv
 ZIP = None
 if "--from-zip" in sys.argv:
     ZIP = Path(sys.argv[sys.argv.index("--from-zip") + 1])
@@ -135,9 +135,9 @@ def write_manifest(drafts) -> None:
     for c in drafts:
         folder = SOURCES / safe_name(c)
         png = (folder / "portrait.png").read_bytes()
-        svg = (folder / "source.svg").read_text()
         png_ok(png)
-        svg_ok(svg)
+        if (folder / "source.svg").exists():
+            fail(f"{c['key']} still has a genesis blob SVG")
         patch = json.loads((folder / "character.json").read_text())
         expect = patch_for(c, json.loads(ACCENTS.read_text()))
         if patch != expect:
@@ -159,14 +159,14 @@ def write_manifest(drafts) -> None:
             "containerFiles": ["character.json", "portrait.png"],
             "files": [
                 file_record(folder / "character.json", "application/json", {}),
-                file_record(folder / "portrait.png", "image/png", {"width": 640, "height": 640}),
-                file_record(folder / "source.svg", "image/svg+xml", {"width": 320, "height": 320, "packed": False}),
+                file_record(folder / "portrait.png", "image/png", {"width": 640, "height": 640, "art": "poster-cutout"}),
             ],
         })
     manifest = {
         "schemaVersion": "modula.moliboo.series2-sources.1",
         "availability": "draft",
         "purchasable": False,
+        "art": "poster-cutout",
         "distribution": "on-demand",
         "backend": "none — the Greenfield HTTP atlas has no Moliboo or marketplace route",
         "signing": "unsigned sources; publish_qa_package.mjs --portrait portrait.png signs when MODULA_SIGNING_KEY_PATH is set",
@@ -207,6 +207,8 @@ def check() -> None:
             fail(f"{c['key']} has an unsafe directory")
         if pkg["containerFiles"] != ["character.json", "portrait.png"]:
             fail(f"{c['key']} container file list changed")
+        if (folder / "source.svg").exists():
+            fail(f"{c['key']} still has a genesis blob SVG")
         expect_patch = patch_for(c, accents)
         on_disk = json.loads((folder / "character.json").read_text())
         if on_disk != expect_patch or "fit" in on_disk:
@@ -222,15 +224,19 @@ def check() -> None:
                 png_ok(blob)
                 if rec.get("width") != 640 or rec.get("height") != 640:
                     fail(f"{c['key']} portrait dimensions are not 640")
+                if blob[25] != 6:
+                    fail(f"{c['key']} portrait is not RGBA")
             if rel == "source.svg":
-                svg_ok(blob.decode())
-                if rec.get("packed") is not False:
-                    fail("SVG must stay out of the signed container")
+                fail(f"{c['key']} manifest still lists a genesis blob SVG")
     print(f"series 2 pack sources ok ({len(drafts)} drafts, unsigned, not bundled)")
 
 
 def main() -> None:
     _, drafts, accents = load_registry()
+    if REWRITE:
+        write_manifest(drafts)
+        check()
+        return
     if CHECK:
         check()
         return
