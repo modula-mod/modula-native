@@ -63,6 +63,11 @@ enum PremiumRemote {
             body: .object(["visible": .bool(visible)])
         )
     }
+
+    /// `GET /v1/premium/tiers`. The atlas declares no response fields, so the payload is not turned into prices.
+    static func loadTiers(client: GreenfieldClient) async throws {
+        let _: JSONValue = try await client.authenticatedJSON("GET", path: PremiumAPI.tiers)
+    }
 }
 
 /// Body for `PATCH /v1/me/membership/badge-visibility`. The atlas field is `visible`.
@@ -229,6 +234,19 @@ enum PremiumPricing {
             let perMonth = format(minor: Int((Double(plan.placeholderAnnualMinor) / 12).rounded()), locale: locale)
             return "\(from)\(format(minor: plan.placeholderAnnualMinor, locale: locale))/yr\(seat) · \(perMonth)/mo"
         }
+    }
+
+    /// Percent saved vs 12 monthly payments, rounded. Derived from the catalogue, not a marketing claim.
+    static func annualSavePercent(_ plan: PremiumPlan) -> Int {
+        guard plan.placeholderMonthlyMinor > 0 else { return 0 }
+        let full = plan.placeholderMonthlyMinor * 12
+        let saved = full - plan.placeholderAnnualMinor
+        guard saved > 0 else { return 0 }
+        return Int((Double(saved) / Double(full) * 100).rounded())
+    }
+
+    static var annualSaveUpTo: Int {
+        PremiumPlan.paid.map(annualSavePercent).max() ?? 0
     }
 
     /// Annual saving vs 12 monthly payments, in whole months (framed as "months included").

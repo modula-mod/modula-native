@@ -46,27 +46,45 @@ struct PremiumHubView: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var store = PremiumEntitlementStore.shared
-    @State private var comparePlan: PremiumPlan = .recommended
+    @State private var audience: PremiumAudience = .personal
     @State private var expandedFAQ: String?
+    @State private var catalogueNote: String?
 
     var body: some View {
         SettingsScrollCanvas {
             PremiumHeroCard(plan: store.plan, previewing: store.isPreviewing)
+            PremiumMasthead(
+                eyebrow: "PREMIUM",
+                title: "Choose your plan",
+                subtitle: "Find the right level for you."
+            )
+
+            Picker("Audience", selection: $audience) {
+                ForEach(PremiumAudience.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("premium.audience")
+            .onChange(of: audience) { _, value in
+                guard !value.plans.contains(store.selectedPlan) else { return }
+                store.selectedPlan = value == .personal ? .recommended : .studio
+            }
 
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("Choose a plan").font(.headline)
+                    Text("Billing").font(.headline)
                     Spacer()
                     Picker("Billing", selection: $store.selectedBilling) {
-                        ForEach(PremiumBilling.allCases) { Text($0.title).tag($0) }
+                        ForEach(PremiumBilling.allCases) { billing in
+                            Text(billingLabel(billing)).tag(billing)
+                        }
                     }
                     .pickerStyle(.segmented)
-                    .frame(maxWidth: 200)
+                    .frame(maxWidth: 220)
                     .accessibilityIdentifier("premium.billing")
                 }
                 ModulaGlassGroup(spacing: 10) {
                     VStack(spacing: 10) {
-                        ForEach(PremiumPlan.paid) { plan in
+                        ForEach(audience.plans) { plan in
                             PremiumPlanCard(
                                 plan: plan,
                                 billing: store.selectedBilling,
@@ -75,22 +93,30 @@ struct PremiumHubView: View {
                             ) {
                                 withAnimation(ModulaMotion.animation(.selection, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
                                     store.selectedPlan = plan
-                                    comparePlan = plan
                                 }
                             }
                         }
                     }
                 }
-                PremiumPrimaryButton(plan: store.selectedPlan, currentPlan: store.plan, comingSoon: true) {}
+                PremiumPrimaryButton(plan: store.selectedPlan, currentPlan: store.plan, comingSoon: false) {
+                    app.navigation.open(.settings(.premium(.compare)))
+                }
                 Text(PremiumPricing.placeholderNote)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("premium.placeholderNote")
             }
 
-            comparison
-
             TelegramSettingsCard {
+                TelegramRow(title: "Compare plans", symbol: "checklist", tint: app.appearance.accent.color) {
+                    app.navigation.open(.settings(.premium(.compare)))
+                }
+                TelegramDivider()
+                TelegramRow(title: "Why Horizon", symbol: "sun.horizon.fill", tint: PremiumPlan.horizon.tint) {
+                    app.navigation.open(.settings(.premium(.intro)))
+                }
+                .accessibilityIdentifier("premium.intro.link")
+                TelegramDivider()
                 TelegramRow(title: "Premium badge", symbol: "seal.fill", tint: app.appearance.accent.color, value: store.plan.showsBadge ? store.plan.shortTitle : "Core") {
                     app.navigation.open(.settings(.premium(.badge)))
                 }
@@ -99,6 +125,14 @@ struct PremiumHubView: View {
 
             faq
 
+            if let catalogueNote {
+                SettingsAPIFootnote(text: catalogueNote)
+            }
+            Text(PremiumCatalog.membershipDisclaimer)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("premium.disclaimer")
+
             #if DEBUG
             PremiumDeveloperCard(store: store)
             #endif
@@ -106,27 +140,27 @@ struct PremiumHubView: View {
         .navigationTitle("Modula Premium")
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("premium.hub")
+        .task { await refreshCatalogue() }
     }
 
-    private var comparison: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Compare with Core").font(.headline)
-            Picker("Plan", selection: $comparePlan) {
-                ForEach(PremiumPlan.paid) { Text($0.shortTitle).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .accessibilityIdentifier("premium.comparePicker")
-            TelegramSettingsCard {
-                ForEach(Array(PremiumCatalog.comparison.enumerated()), id: \.element.id) { index, row in
-                    PremiumComparisonRowView(row: row, plan: comparePlan)
-                    if index < PremiumCatalog.comparison.count - 1 { TelegramDivider() }
-                }
-            }
-            Text("Everything in Core stays free. Premium only adds.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+    private func billingLabel(_ billing: PremiumBilling) -> String {
+        if billing == .annual, PremiumPricing.annualSaveUpTo > 0 {
+            return "Yearly · \(PremiumPricing.annualSaveUpTo)%"
         }
-        .accessibilityIdentifier("premium.compare")
+        return billing == .monthly ? "Monthly" : "Yearly"
+    }
+
+    private func refreshCatalogue() async {
+        guard app.auth.isSignedIn else {
+            catalogueNote = "Sign in to refresh the live catalogue. Prices shown are the on-device catalogue."
+            return
+        }
+        do {
+            try await PremiumRemote.loadTiers(client: app.client)
+            catalogueNote = "Live catalogue loaded. It has no declared price fields, so the prices above stay the on-device catalogue."
+        } catch {
+            catalogueNote = "Couldn’t refresh the live catalogue. Showing the on-device catalogue."
+        }
     }
 
     private var faq: some View {
@@ -278,11 +312,12 @@ struct PremiumPrimaryButton: View {
     let currentPlan: PremiumPlan
     /// Phase 1 before the upgrade flow exists: shows "Coming soon" and stays disabled.
     var comingSoon = false
+    var identifier = "premium.continue"
     var action: () -> Void
 
     private var label: String {
         if currentPlan == plan { return "You’re on \(plan.shortTitle)" }
-        return comingSoon ? "\(plan.shortTitle) · \(PremiumPricing.comingSoon)" : "Continue with \(plan.shortTitle)"
+        return comingSoon ? "\(plan.shortTitle) · \(PremiumPricing.comingSoon)" : "Choose \(plan.shortTitle)"
     }
 
     var body: some View {
@@ -297,7 +332,7 @@ struct PremiumPrimaryButton: View {
         .modulaGlass(in: Capsule(), interactive: true, tint: plan.tint, prominent: true, specular: true)
         .disabled(currentPlan == plan || comingSoon)
         .opacity(comingSoon ? 0.6 : 1)
-        .accessibilityIdentifier("premium.continue")
+        .accessibilityIdentifier(identifier)
     }
 }
 
