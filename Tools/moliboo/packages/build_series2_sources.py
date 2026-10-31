@@ -159,14 +159,15 @@ def write_manifest(drafts) -> None:
             "containerFiles": ["character.json", "portrait.png"],
             "files": [
                 file_record(folder / "character.json", "application/json", {}),
-                file_record(folder / "portrait.png", "image/png", {"width": 640, "height": 640, "art": "poster-cutout"}),
+                file_record(folder / "portrait.png", "image/png", {"width": 640, "height": 640, "art": "glossy-figure"}),
+                file_record(folder / "figure.svg", "image/svg+xml", {"packed": False, "art": "glossy-figure"}),
             ],
         })
     manifest = {
         "schemaVersion": "modula.moliboo.series2-sources.1",
         "availability": "draft",
         "purchasable": False,
-        "art": "poster-cutout",
+        "art": "glossy-figure",
         "distribution": "on-demand",
         "backend": "none — the Greenfield HTTP atlas has no Moliboo or marketplace route",
         "signing": "unsigned sources; publish_qa_package.mjs --portrait portrait.png signs when MODULA_SIGNING_KEY_PATH is set",
@@ -184,6 +185,8 @@ def check() -> None:
         fail("unexpected manifest schema")
     if manifest.get("purchasable") is not False or manifest.get("signed") is True:
         fail("manifest must stay unsigned and not purchasable")
+    if manifest.get("art") != "glossy-figure":
+        fail("series 2 art must be the glossy in-app figure, not a poster cutout")
     by_id = {p["packageId"]: p for p in manifest["packages"]}
     if len(by_id) != 100:
         fail(f"expected 100 packages, found {len(by_id)}")
@@ -222,10 +225,13 @@ def check() -> None:
                 fail(f"{c['key']} {rel} digest or size does not match the manifest")
             if rel == "portrait.png":
                 png_ok(blob)
-                if rec.get("width") != 640 or rec.get("height") != 640:
-                    fail(f"{c['key']} portrait dimensions are not 640")
+                if rec.get("width") != 640 or rec.get("height") != 640 or rec.get("art") != "glossy-figure":
+                    fail(f"{c['key']} portrait is not the 640 glossy figure")
                 if blob[25] != 6:
                     fail(f"{c['key']} portrait is not RGBA")
+            if rel == "figure.svg":
+                if "<svg" not in blob.decode() or rec.get("art") != "glossy-figure":
+                    fail(f"{c['key']} figure.svg is missing the glossy figure")
             if rel == "source.svg":
                 fail(f"{c['key']} manifest still lists a genesis blob SVG")
     print(f"series 2 pack sources ok ({len(drafts)} drafts, unsigned, not bundled)")
