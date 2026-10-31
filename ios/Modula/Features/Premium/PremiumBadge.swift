@@ -116,6 +116,10 @@ struct PremiumDestination: View {
                 PremiumHubView()
             case .badge:
                 PremiumBadgeSettingsView()
+            case .compare:
+                PremiumCompareView()
+            case .intro:
+                PremiumIntroView()
             }
         } else {
             SettingsCapabilityUnavailableView(

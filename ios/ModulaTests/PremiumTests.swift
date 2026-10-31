@@ -178,6 +178,10 @@ final class PremiumTests: XCTestCase {
         XCTAssertTrue(annual.hasPrefix("£89.99/yr"), annual)
         XCTAssertTrue(annual.contains("/mo"), "Annual always shows the per-month figure next to the total")
         XCTAssertEqual(PremiumPricing.annualMonthsIncluded(.horizon), 2)
+        XCTAssertEqual(PremiumPricing.annualSavePercent(.horizon), 17)
+        XCTAssertEqual(PremiumPricing.annualSaveUpTo, 17)
+        XCTAssertEqual(RouteParser.parse("/settings/premium/compare"), .settings(.premium(.compare)))
+        XCTAssertEqual(RouteParser.parse("/settings/premium/intro"), .settings(.premium(.intro)))
         XCTAssertEqual(PremiumPricing.annualMonthsIncluded(.horizonPlus), 2)
     }
 
