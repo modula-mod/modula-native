@@ -258,7 +258,20 @@ enum MolibooCareAction: String, CaseIterable, Identifiable, Codable, Sendable {
         case .bath: "bubbles.and.sparkles.fill"; case .dance: "music.note"; case .photo: "camera.fill"
         }
     }
-    /// Short effect line shown on tiles.
+    /// What the action changes, as (need symbol, raises?) pairs: the tile draws these as tiny stat icons
+    /// matching the status rings (heart = Mood, bolt = Energy, drop = Clean, fork = Full, star = Bond).
+    var effectIcons: [(symbol: String, up: Bool)] {
+        switch self {
+        case .feed: [("fork.knife", true), ("bolt.fill", true)]
+        case .play: [("heart.fill", true), ("bolt.fill", false)]
+        case .cuddle: [("heart.fill", true), ("star.fill", true)]
+        case .nap: [("bolt.fill", true)]
+        case .bath: [("drop.fill", true)]
+        case .dance: [("heart.fill", true), ("star.fill", true)]
+        case .photo: []
+        }
+    }
+    /// Short effect line (VoiceOver value; Photo's tile caption).
     var effect: String {
         switch self {
         case .feed: "Full · +Energy"; case .play: "+Mood · −Energy"; case .cuddle: "+Mood · +Bond"; case .nap: "Restores energy"

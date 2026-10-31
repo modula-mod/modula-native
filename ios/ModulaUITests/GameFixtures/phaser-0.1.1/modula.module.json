@@ -1,0 +1,178 @@
+{
+  "actions": [
+    {
+      "family": "route.open",
+      "id": "openSettings",
+      "label": "Open settings"
+    },
+    {
+      "family": "settings.update",
+      "id": "saveSettings",
+      "label": "Save settings"
+    },
+    {
+      "family": "dismiss",
+      "id": "dismiss",
+      "label": "Dismiss"
+    }
+  ],
+  "assets": [
+    {
+      "path": "assets/icon.svg",
+      "role": "icon",
+      "sha256": "ee67b79cce4f038793d9a0de1ccf6d6e26672a17028f592f31c40cba52765a65"
+    },
+    {
+      "path": "assets/cover.png",
+      "role": "cover",
+      "sha256": "c414cd0e204de974f73753c7e28d7638e7b3691bb8b1a2bab6b25bb7fed7ce77"
+    }
+  ],
+  "capabilities": {
+    "provides": [],
+    "requests": [],
+    "requires": []
+  },
+  "category": "games",
+  "collections": [
+    {
+      "id": "playerProgress",
+      "recordType": "playerProgress",
+      "schemaPath": "src/schemas/playerProgress.schema.json",
+      "title": "playerProgress"
+    },
+    {
+      "id": "gameSettings",
+      "recordType": "gameSettings",
+      "schemaPath": "src/schemas/gameSettings.schema.json",
+      "title": "gameSettings"
+    },
+    {
+      "id": "runHistory",
+      "recordType": "runHistory",
+      "schemaPath": "src/schemas/runHistory.schema.json",
+      "title": "runHistory"
+    }
+  ],
+  "compatibility": {
+    "minimumGreenfieldVersion": "0.1.0",
+    "minimumModulaHostVersion": "1.0.0",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "protocolVersions": [
+      "greenfield.v1"
+    ]
+  },
+  "description": "Orbit Arena 2D generated as an MPS 1.0 / GreenField module.",
+  "frontend": {
+    "mediaType": "application/vnd.modula.frontend+json",
+    "path": "frontend/frontend.manifest.json",
+    "schema": "modula.frontend.1.0",
+    "sha256": "8e9fe2ccb34fbebb9c35db96ad6488513c21b4c2294ef5855bf09a1fda568795"
+  },
+  "functions": [],
+  "manifestVersion": 2,
+  "moduleId": "digital.modula.orbit-phaser",
+  "name": "Orbit Arena 2D",
+  "permissions": [
+    {
+      "category": "settings",
+      "granted": false,
+      "id": "settings:register",
+      "reason": "Register a settings surface for this module.",
+      "required": true,
+      "risk": "low"
+    },
+    {
+      "category": "settings",
+      "granted": false,
+      "id": "settings:read",
+      "reason": "Read module settings the user saved.",
+      "required": true,
+      "risk": "low"
+    },
+    {
+      "category": "settings",
+      "granted": false,
+      "id": "settings:write",
+      "reason": "Update module settings the user edits.",
+      "required": true,
+      "risk": "medium"
+    },
+    {
+      "category": "records",
+      "granted": false,
+      "id": "records:read",
+      "reason": "Read only this game’s account-scoped records.",
+      "required": true,
+      "risk": "low"
+    },
+    {
+      "category": "records",
+      "granted": false,
+      "id": "records:write",
+      "reason": "Save only this game’s account-scoped records.",
+      "required": true,
+      "risk": "medium"
+    }
+  ],
+  "privacy": {
+    "analytics": "none",
+    "dataAccessed": [
+      "module settings"
+    ],
+    "dataCreated": [
+      "module settings"
+    ],
+    "dataTransmitted": [
+      "none-by-default"
+    ],
+    "deletion": "settings removed with the module",
+    "export": "not-applicable",
+    "retention": "until uninstall",
+    "telemetry": "none"
+  },
+  "productUiVersion": "1.0.0",
+  "publisher": {
+    "displayName": "modula",
+    "publisherId": "modula"
+  },
+  "releaseChannel": "development",
+  "requestedHostCapabilities": [],
+  "routes": [
+    {
+      "id": "digital.modula.orbit-phaser.routes.home",
+      "path": "/",
+      "viewId": "home"
+    },
+    {
+      "id": "digital.modula.orbit-phaser.routes.settings",
+      "path": "/settings",
+      "viewId": "settings"
+    }
+  ],
+  "schemas": [
+    {
+      "$id": "digital.modula.orbit-phaser.playerProgress.v1",
+      "path": "src/schemas/playerProgress.schema.json"
+    },
+    {
+      "$id": "digital.modula.orbit-phaser.gameSettings.v1",
+      "path": "src/schemas/gameSettings.schema.json"
+    },
+    {
+      "$id": "digital.modula.orbit-phaser.runHistory.v1",
+      "path": "src/schemas/runHistory.schema.json"
+    }
+  ],
+  "sdkCompatibility": {
+    "greenfieldProtocol": "greenfield.v1",
+    "host": ">=1.0.0 <2.0.0",
+    "productStandard": "^1.0.0"
+  },
+  "standardVersion": "2.1.0",
+  "version": "0.1.1"
+}

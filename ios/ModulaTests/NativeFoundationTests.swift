@@ -200,7 +200,7 @@ final class NativeFoundationTests: XCTestCase {
         XCTAssertFalse(ShellChromePolicy.policy(for: .auth(.login)).bottomBarVisible)
         XCTAssertFalse(ShellChromePolicy.policy(for: .settings(.account(.root))).bottomBarVisible)
         XCTAssertFalse(ShellChromePolicy.policy(for: .settings(.account(.root))).shellAccessoryVisible)
-        XCTAssertTrue(ShellChromePolicy.policy(for: .activity(.all)).shellAccessoryVisible)
+        XCTAssertFalse(ShellChromePolicy.policy(for: .activity(.all)).shellAccessoryVisible)
         XCTAssertFalse(ShellChromePolicy.policy(for: .discover(.trending)).contextRailVisible)
         XCTAssertFalse(ShellChromePolicy.policy(for: .search(.root(nil))).shellAccessoryVisible)
         XCTAssertFalse(ShellChromePolicy.policy(for: .messages(.inbox)).bottomBarVisible)

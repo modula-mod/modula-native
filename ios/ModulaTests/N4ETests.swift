@@ -151,8 +151,8 @@ final class AppLockTests: XCTestCase {
     @MainActor
     func testAttemptDelay() {
         XCTAssertEqual(AppLockAttemptPolicy.delay(afterFailureCount: 1), .seconds(0))
-        XCTAssertEqual(AppLockAttemptPolicy.delay(afterFailureCount: 6), .seconds(5))
-        XCTAssertEqual(AppLockAttemptPolicy.delay(afterFailureCount: 12), .seconds(60))
+        XCTAssertEqual(AppLockAttemptPolicy.delay(afterFailureCount: 6), .seconds(60))
+        XCTAssertEqual(AppLockAttemptPolicy.delay(afterFailureCount: 12), .seconds(3600))
     }
 
     @MainActor

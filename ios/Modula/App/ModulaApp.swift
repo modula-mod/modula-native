@@ -142,6 +142,9 @@ enum MainThreadHangWatchdog {
     nonisolated(unsafe) static var started = false
 
     static func start() {
+        // XCTest startup can briefly stall the simulator main thread. Its
+        // signal handler is diagnostic only and is unsafe during that stall.
+        guard !ProcessInfo.processInfo.arguments.contains("--modula-disable-hang-watchdog") else { return }
         guard !started else { return }
         started = true
         mainThread = pthread_self()

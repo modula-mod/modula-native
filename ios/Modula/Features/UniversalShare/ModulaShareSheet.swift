@@ -90,14 +90,16 @@ struct ModulaShareSheet: View {
                 guard let person = people.first else { return }
                 switch peopleMode {
                 case .message:
-                    if let chat = app.messaging.visibleConversations.first(where: { chat in
-                        chat.kind == .direct && chat.participants.contains { $0.id == person.id || $0.handle == person.handle }
-                    }) {
+                    // Match the whole inbox (not the search-filtered list) on handle or id.
+                    if let chat = app.messaging.directConversation(with: person.handle ?? person.id)
+                        ?? app.messaging.directConversation(with: person.id) {
                         send(to: chat)
                     } else {
+                        // No thread yet: open the 1:1 starter addressed to them (not the generic New Message list).
                         UIPasteboard.general.string = ShareCoordinator.messageBodyFallback(for: payload)
                         dismiss()
-                        app.navigation.open(.messages(.new))
+                        let who = (person.handle?.isEmpty == false ? person.handle : nil) ?? person.id
+                        app.navigation.open(.messages(.direct(who)))
                         app.navigation.flash("Link copied — paste it to \(person.displayName)", symbol: "bubble.left")
                     }
                 case .inMail:

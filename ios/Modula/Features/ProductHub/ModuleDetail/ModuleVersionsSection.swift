@@ -197,6 +197,7 @@ struct ModuleVersionSwitchSheet: View {
     let moduleName: String
     let option: ModuleVersionOption
     let phase: Phase
+    let packagePlan: PackageInstallPlan?
     let onConfirm: (ModuleVersionPreview) -> Void
     let onCancel: () -> Void
     @Environment(AppEnvironment.self) private var app
@@ -262,6 +263,32 @@ struct ModuleVersionSwitchSheet: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("From version \(preview.fromVersion) to version \(preview.toVersion)")
+
+        if let packagePlan {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Download plan").font(.headline)
+                ForEach(packagePlan.packages, id: \.id) { package in
+                    HStack {
+                        Text(package.id == packagePlan.requested ? "Content" : package.category == "web-runtime" ? "Shared runtime" : package.category.capitalized)
+                        Spacer()
+                        Text(ByteCountFormatter.string(fromByteCount: package.compressedBytes, countStyle: .file))
+                    }
+                    .font(.subheadline)
+                    Text("\(package.id) \(package.version) · \(String(package.sha256.prefix(12)))…")
+                        .font(.caption.monospaced()).foregroundStyle(.secondary)
+                    if packagePlan.reusedDigests.contains(package.sha256) {
+                        Text("Already downloaded and verified").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Divider()
+                LabeledContent("New download", value: ByteCountFormatter.string(fromByteCount: packagePlan.newDownloadBytes, countStyle: .file))
+                LabeledContent("Installed estimate", value: ByteCountFormatter.string(fromByteCount: packagePlan.aggregateInstalledBytes, countStyle: .file))
+                Text("Installation lock \(String(packagePlan.lockSha256.prefix(12)))…")
+                    .font(.caption.monospaced()).foregroundStyle(.secondary)
+            }
+            .padding(14)
+            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
+        }
 
         if let warning = preview.downgradeWarning {
             HStack(alignment: .top, spacing: 10) {
