@@ -979,40 +979,82 @@ struct MessageRequestRow: View {
     }
 }
 
-/// Pick someone to talk to: real suggested people (fixtures filtered), each opening their
-/// profile where Message / In-Mail lives. In-Mail compose is offered when it can send.
+/// Pick someone to talk to. Every row starts or opens a chat with that person (never a Follow button):
+/// recent 1:1 chats first, then real suggested people (fixtures and machine-made accounts filtered).
 struct NewConversationView: View {
     @Environment(AppEnvironment.self) private var app
+    @State private var people: [DiscoverPerson] = []
+
+    private var recentDirect: [Conversation] {
+        Array(app.messaging.conversations.filter { $0.kind == .direct && !$0.participants.isEmpty }.prefix(5))
+    }
+
+    /// Suggestions without people you already chat with (or yourself).
+    private var suggestions: [DiscoverPerson] {
+        let own = app.profile.ownProfile?.handle.lowercased()
+        return people.filter { p in
+            p.handle.lowercased() != own && app.messaging.directConversation(with: p.handle) == nil
+        }
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Button {
-                    app.navigation.push(.search(.section(.people, nil)))
-                    HapticEngine.shared.play(.navigation)
-                } label: {
-                    Label("Search people", systemImage: "magnifyingglass")
-                        .font(.body.weight(.semibold))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 16).frame(height: 48)
+                ModulaGlassGroup(spacing: 10) {
+                    VStack(spacing: 10) {
+                        Button {
+                            app.navigation.push(.search(.section(.people, nil)))
+                            HapticEngine.shared.play(.navigation)
+                        } label: {
+                            Label("Search people", systemImage: "magnifyingglass")
+                                .font(.body.weight(.semibold))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 16).frame(height: 48)
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
                         .modulaGlass(in: Capsule(), interactive: true)
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("messages.new.search")
-                if app.inMail.capabilities.send {
-                    Button {
-                        app.navigation.push(.messages(.inMail(.compose)))
-                        HapticEngine.shared.play(.navigation)
-                    } label: {
-                        Label("Write an In-Mail", systemImage: "envelope.badge.fill")
-                            .font(.body.weight(.semibold))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 16).frame(height: 48)
+                        .accessibilityIdentifier("messages.new.search")
+                        if app.inMail.capabilities.send {
+                            Button {
+                                app.navigation.push(.messages(.inMail(.compose)))
+                                HapticEngine.shared.play(.navigation)
+                            } label: {
+                                Label("Write an In-Mail", systemImage: "envelope.badge.fill")
+                                    .font(.body.weight(.semibold))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 16).frame(height: 48)
+                                    .contentShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
                             .modulaGlass(in: Capsule(), interactive: true)
+                        }
                     }
-                    .buttonStyle(.plain)
                 }
-                ActivitySuggestedPeople()
+                if !recentDirect.isEmpty {
+                    section("Recent") {
+                        ForEach(recentDirect) { c in
+                            let p = c.participants[0]
+                            MessagePersonRow(name: c.title, handle: p.handle, avatarURL: p.avatarURL ?? avatar(for: p.handle),
+                                             detail: c.lastMessage?.body) {
+                                app.navigation.push(.messages(.conversation(c.id)))
+                            }
+                            .accessibilityIdentifier("messages.new.recent.\(c.id)")
+                        }
+                    }
+                }
+                if !suggestions.isEmpty {
+                    section("Suggested") {
+                        ForEach(suggestions.prefix(8)) { person in
+                            MessagePersonRow(name: person.displayName, handle: person.handle,
+                                             avatarURL: person.avatarURL ?? avatar(for: person.handle),
+                                             detail: person.followsViewer ? "Follows you" : nil) {
+                                app.navigation.push(.messages(.direct(person.handle)))
+                            }
+                            .accessibilityIdentifier("messages.new.person.\(person.handle)")
+                        }
+                    }
+                }
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.vertical, 12)
@@ -1020,7 +1062,69 @@ struct NewConversationView: View {
         .modulaSoftScrollEdge()
         .navigationTitle("New Message")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await app.messaging.loadInboxIfNeeded()
+            guard ModulaPreferences.showsSuggestedPeople else { return }
+            people = ((try? await GreenfieldDiscoverRepository(client: app.client).people(cursor: nil).items) ?? [])
+                .filter { !ActivitySuggestedPeople.isFixture($0) }
+        }
         .accessibilityIdentifier("messages.new")
+    }
+
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).font(.headline).padding(.top, 10).padding(.bottom, 4).accessibilityAddTraits(.isHeader)
+            content()
+        }
+    }
+
+    /// Photo from a profile already loaded this session when the list payload has none.
+    private func avatar(for handle: String) -> URL? {
+        let key = handle.lowercased()
+        return app.profile.sessions.values.lazy.compactMap(\.profile).first { $0.handle.lowercased() == key }?.avatarURL
+    }
+}
+
+/// One person in the New Message picker: tap anywhere to chat.
+struct MessagePersonRow: View {
+    let name: String
+    let handle: String
+    var avatarURL: URL?
+    var detail: String?
+    var action: () -> Void
+
+    private var initials: String {
+        let parts = name.split(separator: " ")
+        if parts.count >= 2 { return String(parts[0].prefix(1) + parts[1].prefix(1)).uppercased() }
+        return String(name.prefix(2)).uppercased()
+    }
+
+    var body: some View {
+        Button {
+            HapticEngine.shared.play(.navigation)
+            action()
+        } label: {
+            HStack(spacing: 12) {
+                ModulaAvatar(initials: initials, url: avatarURL, size: 44, name: name)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).lineLimit(1)
+                    Text(detail.map { "@\(handle) · \($0)" } ?? "@\(handle)")
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "bubble.left.fill")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 34, height: 34)
+                    .modulaGlass(in: Circle(), interactive: false)
+                    .accessibilityHidden(true)
+            }
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Message \(name), @\(handle)")
+        .accessibilityAddTraits(.isButton)
     }
 }
 
