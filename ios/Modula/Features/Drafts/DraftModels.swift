@@ -228,3 +228,23 @@ struct DraftIndex: Codable, Sendable, Equatable {
 enum DraftBackendCapabilities: Sendable, Equatable {
     // Server drafts remain OPEN; local persistence is the N4D/N4F path.
 }
+
+/// One row in the Drafts library. Counts and audience come from the on-device draft, not a server.
+struct DraftLibraryItem: Identifiable, Equatable, Sendable {
+    var id: String
+    var kind: DraftKind
+    var preview: String
+    var lastEdited: Date
+    var mediaCount: Int
+    var audienceTitle: String?
+
+    /// Known audience values only. An empty or unknown string is not shown as "Everyone".
+    static func audienceTitle(for raw: String?) -> String? {
+        switch (raw ?? "").lowercased() {
+        case "public", "everyone": "Everyone"
+        case "followers": "Followers"
+        case "private", "only-me", "only_me": "Only Me"
+        default: nil
+        }
+    }
+}
