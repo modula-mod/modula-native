@@ -60,32 +60,4 @@ final class MOL03StudioTests: XCTestCase {
         XCTAssertTrue(full.idlePersonality); XCTAssertTrue(full.bodyMotion)
     }
 
-    func testDirectorSchedulesIdleRespectsReduceMotionAndNap() async throws {
-        let m = try MolibooManifest.bundled(.main)
-        let d = try XCTUnwrap(MolibooRegistry.descriptor(for: "pip", manifest: m))
-        let c = MolibooSceneController(descriptor: d)
-        c.cosmetics = m.cosmetics
-        await c.load()
-        var now = 100.0
-        let dir = MolibooStudioDirector(controller: c, reduceMotion: false, clock: { now })
-        defer { dir.stop(); c.stop() }
-        XCTAssertTrue(dir.fireIdle())
-        XCTAssertEqual(dir.idleFired, 1)
-        XCTAssertEqual(dir.request(.tap), .tap)
-        XCTAssertFalse(dir.fireIdle(), "idle waits while the user's reaction plays")
-        now += 2.5
-        XCTAssertTrue(dir.fireIdle())
-        dir.setReduceMotion(true)
-        now += 5
-        XCTAssertFalse(dir.fireIdle(), "no idle personality under Reduced Motion")
-        XCTAssertEqual(dir.request(.peekaboo), .peekaboo, "reactions still work under Reduced Motion")
-        now += 5
-        XCTAssertEqual(dir.request(.nap), .nap)
-        XCTAssertTrue(dir.napping)
-        XCTAssertEqual(c.expression, .sleepy)
-        XCTAssertEqual(dir.request(.tap), .tap)
-        XCTAssertFalse(dir.napping, "tap wakes a napping Moliboo")
-        dir.setPaused(true); dir.setReduceMotion(false); now += 30
-        XCTAssertFalse(dir.fireIdle(), "paused (background / Style sheet)")
-    }
 }

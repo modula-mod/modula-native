@@ -68,7 +68,7 @@ enum AppearanceSettingsRoute: String, CaseIterable, Codable, Hashable {
 }
 enum NotificationSettingsRoute: String, CaseIterable, Codable, Hashable { case root, push, social, modules, quietHours = "quiet-hours" }
 enum PrivacySettingsRoute: String, CaseIterable, Codable, Hashable { case root, privacy, security, glassPrivacy = "glass-privacy", blocked, appLock = "app-lock", biometrics }
-enum DataSettingsRoute: String, CaseIterable, Codable, Hashable { case root, storage, cache, downloads, backup, export }
+enum DataSettingsRoute: String, CaseIterable, Codable, Hashable { case root, storage, packages = "storage-downloads", cache, downloads, backup, export }
 enum AccessibilitySettingsRoute: String, CaseIterable, Codable, Hashable { case root, text, contrast, motion }
 enum FeatureSettingsRoute: String, CaseIterable, Codable, Hashable { case root, enabled, experimental }
 enum UpdateSettingsRoute: String, CaseIterable, Codable, Hashable { case root, channel, stable, unstable, versionLock = "version-lock" }

@@ -56,6 +56,9 @@ struct AppGateHost: View {
         } else if ProcessInfo.processInfo.arguments.contains("--debug-moliboo-world") {
             // Straight to the Moliboo home (World), for simulator screenshots of the hero / number label.
             NavigationStack { MolibooWorldView() }
+        } else if ProcessInfo.processInfo.arguments.contains("--debug-modula-unit") {
+            // Every Modula Unit mark style + app-icon tiles, for simulator screenshots.
+            ModulaUnitGalleryView()
         } else if let mode = DebugSettingsHarness.modulaCodeMode {
             // `--debug-modula-code mycode|scan`: the Modula Code screen with a sample public profile link.
             ModulaCodeView(subject: DebugSettingsHarness.sampleCodeSubject, initialMode: mode) {}

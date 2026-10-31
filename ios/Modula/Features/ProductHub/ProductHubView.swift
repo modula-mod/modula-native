@@ -3,11 +3,24 @@ import Observation
 import CryptoKit
 import UIKit
 
+private enum PackagePlanningError: LocalizedError {
+    case insufficientStorage
+    case storageUnavailable
+
+    var errorDescription: String? {
+        switch self {
+        case .insufficientStorage: "There isn’t enough free space for this download and its installed files."
+        case .storageUnavailable: "Available device storage could not be measured. Try again."
+        }
+    }
+}
+
 @MainActor @Observable
 final class ProductHubStore {
     private let client: GreenfieldClient
     var activation: ModuleActivationController?
     var accountID: String?
+    private var packagePlans: [String: PackageInstallPlan] = [:]
     private(set) var products: [CatalogueProduct] = []
     /// Account installations keyed by module id, including transitional states.
     private(set) var installations: [String: ModuleInstallation] = [:]
@@ -23,6 +36,12 @@ final class ProductHubStore {
     /// Install descriptors this device verified against the registry and the server then
     /// issued byte-for-byte (version switching). The module host re-checks them before load.
     private(set) var verifiedDescriptors: [String: ModuleInstallDescriptor] = [:]
+    /// Online launch eligibility is exact-release and account-scoped. Offline
+    /// launches use the previously verified cache only when catalogue load fails.
+    private var eligibleGameReleases: [String: String] = [:]
+    /// A PREVIOUS_GOOD game may run only while its exact signed package closure
+    /// remains trusted by GreenField for this account.
+    private var eligibleRollbackReleases: [String: String] = [:]
     private(set) var loading = false
     private(set) var loaded = false
     var error: String?
@@ -31,6 +50,10 @@ final class ProductHubStore {
     var settleAttempts = 30
     /// Override in tests. Production scans Application Support and ~/Developer/modula-dev-modules.
     var localDevRoots: [URL] = ProductHubStore.defaultLocalDevRoots()
+    /// Account-scoped catalogue metadata for previously verified web games.
+    /// Offline entries are rebuilt from ACTIVE cache slots before display.
+    var offlineGameCatalogueRoot: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        .appendingPathComponent("Modula/OfflineGameCatalogue", isDirectory: true)
     /// Local-only versions discovered on disk, keyed by module id.
     private(set) var localDevVersions: [String: [String]] = [:]
     /// Permissions the account reviewed for a local development module.
@@ -67,8 +90,11 @@ final class ProductHubStore {
             products = try await client.catalogue()
             loaded = true
             installations = await Self.installations(client: client, previous: installations)
+            await refreshGameEligibility()
+            saveOfflineGameCatalogue()
         } catch {
             self.error = "Product catalogue is unavailable. Pull to refresh."
+            if GreenfieldClient.isConnectivityFailure(error) { restoreOfflineGameCatalogue() }
         }
         mergeLocalDevModules()
         restoreLocalDevelopmentInstallations()
@@ -87,20 +113,103 @@ final class ProductHubStore {
         }
     }
 
+    private func offlineGameCatalogueURL(account: String) -> URL {
+        let digest = SHA256.hash(data: Data(account.utf8)).map { String(format: "%02x", $0) }.joined()
+        return offlineGameCatalogueRoot.appendingPathComponent("\(digest).json")
+    }
+
+    private func verifiedOfflineGame(_ product: CatalogueProduct, account: String) -> ModuleCachedRelease? {
+        guard product.productKind == "game", let activation,
+              let release = activation.active(accountID: account, moduleId: product.moduleId),
+              release.hostManifest.runtime == "web-game", release.gameSha256 != nil,
+              (try? activation.store.frontendData(for: release)) != nil,
+              (try? activation.store.verifiedGameEntry(for: release)) != nil else { return nil }
+        return release
+    }
+
+    private func saveOfflineGameCatalogue() {
+        guard let accountID else { return }
+        let games = products.filter { verifiedOfflineGame($0, account: accountID) != nil }
+        guard let data = try? JSONEncoder().encode(games) else { return }
+        try? FileManager.default.createDirectory(at: offlineGameCatalogueRoot, withIntermediateDirectories: true)
+        try? data.write(to: offlineGameCatalogueURL(account: accountID), options: .atomic)
+    }
+
+    private func restoreOfflineGameCatalogue() {
+        guard let accountID,
+              let data = try? Data(contentsOf: offlineGameCatalogueURL(account: accountID)),
+              let cached = try? JSONDecoder().decode([CatalogueProduct].self, from: data) else { return }
+        let games = cached.compactMap { product -> (CatalogueProduct, ModuleCachedRelease)? in
+            guard let release = verifiedOfflineGame(product, account: accountID) else { return nil }
+            return (product, release)
+        }
+        products = games.map { $0.0 }
+        installations = Dictionary(uniqueKeysWithValues: games.map { item in
+            (item.0.moduleId, ModuleInstallation(moduleId: item.0.moduleId, status: "enabled", version: item.1.version))
+        })
+        // Keep `loaded` false: offline launch uses the verified local release,
+        // while install/update and online revocation decisions still need the registry.
+        loaded = false
+    }
+
     /// Drops the signed-in account's hub installation list. Cached bytes stay in that
     /// account's store and are not offered again until the same account signs in.
     func dropAccountScope() {
         accountID = nil
+        packagePlans = [:]
         installations = [:]
+        eligibleGameReleases = [:]
+        eligibleRollbackReleases = [:]
     }
 
     func product(_ id: String) -> CatalogueProduct? { products.first { $0.moduleId == id } }
+
+    func isWebGameCached(_ id: String) -> Bool {
+        activation?.active(accountID: accountID, moduleId: id)?.hostManifest.runtime == "web-game"
+    }
+
+    func isRollbackEligible(moduleID: String, releaseID: String) -> Bool {
+        eligibleRollbackReleases[moduleID] == releaseID
+    }
+
+    /// A prior result cannot authorize a later rollback. Recheck the exact
+    /// signed closure at launch; an unavailable registry leaves rollback closed.
+    func refreshRollbackEligibility(for id: String) async {
+        eligibleRollbackReleases[id] = nil
+        guard loaded, let accountID, let activation,
+              installations[id]?.isRunnable == true,
+              eligibleGameReleases[id] != nil,
+              let active = activation.active(accountID: accountID, moduleId: id) else { return }
+        let candidate = active.version == installations[id]?.version
+            ? activation.store.release(in: .previousGood, accountID: accountID, moduleId: id)
+            : active
+        guard let candidate, candidate.accountID == accountID,
+              candidate.releaseId != eligibleGameReleases[id],
+              candidate.hostManifest.runtime == "web-game",
+              (try? activation.store.verifiedGameEntry(for: candidate)) != nil,
+              await trustedPackageClosure(for: candidate),
+              self.accountID == accountID else { return }
+        eligibleRollbackReleases[id] = candidate.releaseId
+    }
 
     /// Whether `/module/<id>` may open for this account. Before the catalogue has loaded
     /// (offline launch) the host can't decide and defers to the backend, which still
     /// rejects records for modules that aren't installed.
     func installGate(for id: String) -> ModuleInstallGate {
         if let cached = activation?.active(accountID: accountID, moduleId: id) {
+            if loaded, product(id)?.betaClassification != "local-development" {
+                guard let installation = installations[id], installation.isRunnable else { return .notInstalled }
+                if product(id)?.productKind == "game" {
+                    let eligible = installation.version == cached.version
+                        ? eligibleGameReleases[id] : eligibleRollbackReleases[id]
+                    guard eligible == cached.releaseId else { return .untrustedRelease }
+                    if installation.version != cached.version {
+                        return .runnable(descriptor: cached.descriptor)
+                    }
+                } else if installation.version != cached.version {
+                    return .notInstalled
+                }
+            }
             return .runnable(descriptor: verifiedDescriptors[id] ?? cached.descriptor)
         }
         guard loaded else { return .runnable(descriptor: nil) }
@@ -121,7 +230,48 @@ final class ProductHubStore {
 
     func refreshInstallations() async {
         installations = await Self.installations(client: client, previous: installations)
+        await refreshGameEligibility()
         restoreLocalDevelopmentInstallations()
+    }
+
+    private func refreshGameEligibility() async {
+        eligibleGameReleases = [:]
+        eligibleRollbackReleases = [:]
+        for product in products where product.productKind == "game" && product.betaClassification != "local-development" {
+            guard installations[product.moduleId]?.isRunnable == true,
+                  let descriptor = try? await client.installedDistributionDescriptor(product.moduleId),
+                  descriptor["moduleId"]?.string == product.moduleId,
+                  descriptor["launchEligible"]?.bool == true,
+                  descriptor["currentRelease"]?["trust"]?["verified"]?.bool == true,
+                  descriptor["currentRelease"]?["revoked"]?.bool == false,
+                  let releaseID = descriptor["currentRelease"]?["releaseId"]?.string,
+                  descriptor["permissionReview"]?["releaseId"]?.string == releaseID,
+                  descriptor["permissionReview"]?["status"]?.string == "approved" else { continue }
+            let active = activation?.active(accountID: accountID, moduleId: product.moduleId)
+            if let active, active.releaseId == releaseID,
+               !(await trustedPackageClosure(for: active)) { continue }
+            eligibleGameReleases[product.moduleId] = releaseID
+            guard let accountID, let activation else { continue }
+            let candidate = active?.version == installations[product.moduleId]?.version
+                ? activation.store.release(in: .previousGood, accountID: accountID, moduleId: product.moduleId)
+                : active
+            guard let candidate, candidate.accountID == accountID,
+                  candidate.releaseId != releaseID,
+                  candidate.hostManifest.runtime == "web-game",
+                  (try? activation.store.verifiedGameEntry(for: candidate)) != nil else { continue }
+            guard await trustedPackageClosure(for: candidate) else { continue }
+            eligibleRollbackReleases[product.moduleId] = candidate.releaseId
+        }
+    }
+
+    private func trustedPackageClosure(for release: ModuleCachedRelease) async -> Bool {
+        let body: JSONValue = .object([
+            "platform": .string("ios"), "hostVersion": .string(ModulaHost.version),
+            "version": .string(release.version), "cachedPublicDigests": .array([]),
+        ])
+        guard let plan = try? await client.authenticatedJSON(
+            "POST", path: "/v1/modules/\(release.moduleId)/package-install-plan", body: body) else { return false }
+        return RollbackPackageClosure.isEligible(plan, for: release)
     }
 
     /// Installed modules belong to the signed-in account. Signed out (or the session was
@@ -148,7 +298,94 @@ final class ProductHubStore {
     /// Installs (granting the permissions the listing declared and the user reviewed),
     /// then waits until the installation is enabled. Returns true when it can be opened.
     @discardableResult
-    func install(_ id: String, permissions: [String]) async -> Bool {
+    func preparePackagePlan(_ id: String, version: String?) async throws -> PackageInstallPlan? {
+        let shared = SharedWebRuntimeStore(moduleCacheRoot: ModuleArtifactStore().root)
+        let digests = shared.installedDigests().filter { (try? shared.verifiedEngine(sha256: $0)) != nil }
+        do {
+            let plan = try await client.packageInstallPlan(id, version: version, cachedPublicDigests: digests)
+            try validateSupportedPackagePlan(plan, moduleID: id)
+            try requireDiskCapacity(for: plan)
+            return plan
+        } catch APIError.rejected(404, "NOT_FOUND") {
+            return nil
+        }
+    }
+
+    /// Restores content removed from this device while preserving the account's
+    /// existing installation and grants. The exact closure is reviewed again
+    /// before any bytes are downloaded.
+    func redownloadInstalledGame(_ id: String, approvedPlan: PackageInstallPlan?) async -> Bool {
+        guard operations[id] == nil,
+              product(id)?.productKind == "game",
+              let installation = installations[id], installation.isRunnable,
+              let version = installation.version,
+              let approvedPlan,
+              let approvedRoot = approvedPlan.package(id), approvedRoot.version == version else {
+            return false
+        }
+        operations[id] = .installing
+        lifecycleErrors[id] = nil
+        defer { operations[id] = nil }
+        do {
+            let fresh = try await preparePackagePlan(id, version: version)
+            guard fresh?.lockSha256 == approvedPlan.lockSha256 else {
+                lifecycleErrors[id] = "The package download plan changed. Review its size and dependencies again."
+                return false
+            }
+            packagePlans[id] = approvedPlan
+            await activateVerifiedFrontend(id)
+            guard let accountID,
+                  let active = activation?.active(accountID: accountID, moduleId: id),
+                  active.version == version,
+                  active.gameSha256 == approvedRoot.sha256,
+                  let runtimeID = approvedRoot.dependencies.first,
+                  let runtime = approvedPlan.package(runtimeID),
+                  active.runtimeSha256 == runtime.sha256,
+                  (try? SharedWebRuntimeStore(moduleCacheRoot: ModuleArtifactStore().root)
+                    .verifiedEngine(sha256: runtime.sha256)) != nil else {
+                packagePlans[id] = nil
+                lifecycleErrors[id] = lifecycleErrors[id] ?? "The reviewed game packages could not be activated."
+                return false
+            }
+            return true
+        } catch {
+            packagePlans[id] = nil
+            lifecycleErrors[id] = error.localizedDescription
+            return false
+        }
+    }
+
+    /// This Native revision can activate one game-content package and its exact
+    /// shared web runtime. Other categories remain fail-closed until the generic
+    /// installer owns their verification and activation path.
+    private func validateSupportedPackagePlan(_ plan: PackageInstallPlan, moduleID: String) throws {
+        guard product(moduleID)?.productKind == "game",
+              let root = plan.package(moduleID), root.category == "game-content",
+              plan.packages.count == 2,
+              root.dependencies.count == 1,
+              let runtime = plan.package(root.dependencies[0]), runtime.category == "web-runtime",
+              runtime.sharing == "public-immutable", runtime.dependencies.isEmpty else {
+            throw ModuleActivationError.incompatible
+        }
+    }
+
+    private func requireDiskCapacity(for plan: PackageInstallPlan) throws {
+        let fresh = plan.packages.filter { !plan.reusedDigests.contains($0.sha256) }
+        let bytes = fresh.reduce(Int64(32 * 1_024 * 1_024)) { total, package in
+            total + package.compressedBytes + package.installedBytes
+        }
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        guard let support,
+              let values = try? support.deletingLastPathComponent().resourceValues(forKeys: [
+                .volumeAvailableCapacityForImportantUsageKey, .volumeAvailableCapacityKey]),
+              let available = values.volumeAvailableCapacityForImportantUsage
+                ?? values.volumeAvailableCapacity.map(Int64.init) else {
+            throw PackagePlanningError.storageUnavailable
+        }
+        guard available >= bytes else { throw PackagePlanningError.insufficientStorage }
+    }
+
+    func install(_ id: String, permissions: [String], approvedPlan: PackageInstallPlan? = nil) async -> Bool {
         if product(id)?.betaClassification == "local-development",
            let local = await installLocalDevelopment(id, permissions: permissions) { return local }
         guard operations[id] == nil else { return false }
@@ -156,9 +393,31 @@ final class ProductHubStore {
         lifecycleErrors[id] = nil
         defer { operations[id] = nil }
         do {
-            _ = try await client.installModule(id, version: product(id)?.latestVersion, approvedPermissions: permissions, idempotencyKey: Self.key("install", id))
+            let discovered = try await preparePackagePlan(id, version: product(id)?.latestVersion)
+            guard discovered?.lockSha256 == approvedPlan?.lockSha256 else {
+                lifecycleErrors[id] = "The package download plan changed. Review its size and dependencies again."
+                return false
+            }
+            let packagePlan = approvedPlan
+            if let packagePlan { packagePlans[id] = packagePlan }
+            _ = try await client.installModule(id, version: product(id)?.latestVersion, approvedPermissions: permissions,
+                                               idempotencyKey: Self.key("install", id),
+                                               packageLockSha256: packagePlan?.lockSha256,
+                                               cachedPublicDigests: packagePlan?.reusedDigests ?? [])
             let settled = try await settle(id) { $0?.isRunnable == true }
-            if settled { await activateVerifiedFrontend(id) }
+            if settled {
+                await activateVerifiedFrontend(id)
+                if let packagePlan {
+                    guard let accountID, let active = activation?.active(accountID: accountID, moduleId: id),
+                          let root = packagePlan.package(id), active.version == root.version,
+                          active.gameSha256 == root.sha256,
+                          let runtimeID = root.dependencies.first,
+                          active.runtimeSha256 == packagePlan.package(runtimeID)?.sha256 else {
+                        lifecycleErrors[id] = "The signed package could not be activated on this device. Its previous verified content remains available."
+                        return false
+                    }
+                }
+            }
             return settled
         } catch {
             lifecycleErrors[id] = Self.message(error, verb: "install")
@@ -195,6 +454,10 @@ final class ProductHubStore {
         lifecycleErrors[id] = nil
         defer { operations[id] = nil }
         do {
+            if try await preparePackagePlan(id, version: latest) != nil {
+                lifecycleErrors[id] = "This package update needs dependency review before it can be activated."
+                return false
+            }
             try await client.updateModule(id, version: latest, approvedPermissionIncrease: false, idempotencyKey: Self.key("update", id))
             let settled = try await settle(id) { $0?.isRunnable == true && $0?.version.map { !ModuleVersion.isOlder($0, than: latest) } ?? true }
             if settled { await activateVerifiedFrontend(id) }
@@ -233,16 +496,23 @@ final class ProductHubStore {
     /// Switches the installation to the previewed version (upgrade or downgrade), consenting
     /// to exactly the new permissions the user saw, then waits for the server to settle.
     @discardableResult
-    func switchVersion(_ id: String, preview: ModuleVersionPreview) async -> Bool {
+    func switchVersion(_ id: String, preview: ModuleVersionPreview, approvedPlan: PackageInstallPlan? = nil) async -> Bool {
         guard operations[id] == nil else { return false }
         operations[id] = .updating
         lifecycleErrors[id] = nil
         defer { operations[id] = nil }
         let verb = preview.isDowngrade ? "downgrade" : "update"
         do {
+            let discovered = try await preparePackagePlan(id, version: preview.toVersion)
+            guard discovered?.lockSha256 == approvedPlan?.lockSha256 else {
+                lifecycleErrors[id] = "The package download plan changed. Review its size and dependencies again."
+                return false
+            }
             let issued = try await client.switchModuleVersion(
                 id, version: preview.toVersion, approvedPermissions: preview.requiresConsent,
-                acknowledgeDowngradeRisk: preview.dataSchemaOlder, idempotencyKey: Self.key("version", id))
+                acknowledgeDowngradeRisk: preview.dataSchemaOlder, idempotencyKey: Self.key("version", id),
+                packageLockSha256: approvedPlan?.lockSha256,
+                cachedPublicDigests: approvedPlan?.reusedDigests ?? [])
             // The registry must issue the descriptor the user confirmed, byte for byte.
             guard let issued, issued.computedSha256 == issued.descriptorSha256,
                   issued.descriptorSha256 == preview.descriptor.descriptorSha256 else {
@@ -251,7 +521,20 @@ final class ProductHubStore {
             verifiedDescriptors[id] = issued
             let target = preview.toVersion
             let settled = try await settle(id) { $0?.isRunnable == true && $0?.version == target }
-            if settled { await activateVerifiedFrontend(id) }
+            if settled {
+                if let approvedPlan { packagePlans[id] = approvedPlan }
+                await activateVerifiedFrontend(id)
+                if let approvedPlan {
+                    guard let accountID, let active = activation?.active(accountID: accountID, moduleId: id),
+                          let root = approvedPlan.package(id), active.version == root.version,
+                          active.gameSha256 == root.sha256,
+                          let runtimeID = root.dependencies.first,
+                          active.runtimeSha256 == approvedPlan.package(runtimeID)?.sha256 else {
+                        lifecycleErrors[id] = "The signed update could not be activated on this device. Its previous verified content remains available."
+                        return false
+                    }
+                }
+            }
             await loadVersions(id)
             return settled
         } catch let error as InstallDescriptorVerificationError {
@@ -275,8 +558,15 @@ final class ProductHubStore {
         lifecycleErrors[id] = nil
         defer { operations[id] = nil }
         do {
+            if let activation, let accountID,
+               WebGameSessionPins.shared.contains(activation.store.moduleRoot(accountID: accountID, moduleId: id)) {
+                throw ModuleActivationError.activeSession
+            }
             try await client.uninstallModule(id, idempotencyKey: Self.key("uninstall", id))
             let removed = try await settle(id) { $0 == nil || $0?.isPresent == false }
+            if removed, let activation, let accountID {
+                try activation.store.removeModule(accountID: accountID, moduleId: id)
+            }
             restoreLocalDevelopmentInstallations()
             return removed
         } catch {
@@ -341,18 +631,99 @@ final class ProductHubStore {
         guard let version else { return }
         let descriptor = verifiedDescriptors[id].flatMap { $0.version == version ? $0 : nil }
         let registryProduct = product(id)?.betaClassification != "local-development"
+        let isWebGame = product(id)?.productKind == "game" && registryProduct
         var hosted: HostedModuleFrontend?
         if registryProduct, let fetched = try? await client.installedProductFrontend(id),
            fetched.productId == id, fetched.version == version {
             hosted = fetched
         }
-        let declaredSha = VerifiedFrontendSelection.normalized(descriptor?.frontendSha256)
-            ?? VerifiedFrontendSelection.normalized(hosted?.sha256)
         guard let account = accountID ?? self.accountID else { return }
+        var gameSha256: String?
+        var runtimePackage: PackageInstallPlan.Package?
+        var gameReleaseID: String?
+        var gameFrontendSha256: String?
+        var gameGrants: [String] = []
+        if isWebGame {
+            do {
+                let installation = try await client.installedDistributionDescriptor(id)
+                let release = installation["currentRelease"]
+                guard installation["moduleId"]?.string == id,
+                      installation["enabled"]?.bool == true,
+                      installation["launchEligible"]?.bool == true,
+                      installation["permissionReview"]?["status"]?.string == "approved",
+                      let releaseID = release?["releaseId"]?.string,
+                      installation["permissionReview"]?["releaseId"]?.string == releaseID,
+                      release?["releaseId"]?.string == releaseID,
+                      release?["moduleId"]?.string == id,
+                      release?["version"]?.string == version,
+                      let packageDigest = release?["packageDigest"]?.string,
+                      InstallDescriptorVerifier.isHex64(packageDigest),
+                      let frontendDigest = release?["frontendDigest"]?.string,
+                      InstallDescriptorVerifier.isHex64(frontendDigest),
+                      release?["signature"]?["algorithm"]?.string == "Ed25519",
+                      release?["trust"]?["verified"]?.bool == true,
+                      release?["trust"]?["signatureState"]?.string == "verified",
+                      release?["revoked"]?.bool == false,
+                      let artifacts = release?["artifacts"]?.array,
+                      let game = artifacts.first(where: { $0["artifactId"]?.string == "release:\(releaseID):web-game" &&
+                          $0["kind"]?.string == "asset" && $0["requiredForOfflineLaunch"]?.bool == true &&
+                          $0["access"]?.string == "installation" && $0["immutable"]?.bool == true }),
+                      let digest = game["digest"]?.string, InstallDescriptorVerifier.isHex64(digest),
+                      ["application/gzip", "application/vnd.modula.game-web+tgz"].contains(game["contentType"]?.string ?? "") else {
+                    throw ModuleActivationError.untrusted
+                }
+                if let plan = packagePlans[id] {
+                    guard let root = plan.package(id), root.category == "game-content",
+                          root.releaseID == releaseID, root.version == version, root.sha256 == digest,
+                          let runtime = plan.packages.first(where: { root.dependencies.contains($0.id) && $0.category == "web-runtime" }),
+                          plan.packages.filter({ root.dependencies.contains($0.id) && $0.category == "web-runtime" }).count == 1 else {
+                        throw ModuleActivationError.untrusted
+                    }
+                    runtimePackage = runtime
+                }
+                if let descriptor, (descriptor.registryReleaseId != releaseID ||
+                    descriptor.artifactSha256 != packageDigest || descriptor.frontendSha256 != frontendDigest) {
+                    throw ModuleActivationError.untrusted
+                }
+                gameReleaseID = releaseID
+                gameFrontendSha256 = frontendDigest
+                gameGrants = installation["permissionReview"]?["effectiveCapabilities"]?.array?.compactMap(\.string) ?? []
+                gameSha256 = digest
+                if packagePlans[id] == nil {
+                    let shared = SharedWebRuntimeStore(moduleCacheRoot: activation.store.root)
+                    let cachedDigests = shared.installedDigests().filter { (try? shared.verifiedEngine(sha256: $0)) != nil }
+                    do {
+                        let plan = try await client.packageInstallPlan(id, version: version, cachedPublicDigests: cachedDigests)
+                        try validateSupportedPackagePlan(plan, moduleID: id)
+                        guard let root = plan.package(id), root.sha256 == digest,
+                              let runtime = plan.packages.first(where: { root.dependencies.contains($0.id) && $0.category == "web-runtime" }),
+                              let cached = activation.active(accountID: account, moduleId: id),
+                              cached.version == version, cached.gameSha256 == digest,
+                              cached.runtimeSha256 == runtime.sha256,
+                              (try? shared.verifiedEngine(sha256: runtime.sha256)) != nil else {
+                            lifecycleErrors[id] = "Review this game’s package download plan before installing its runtime."
+                            return
+                        }
+                        packagePlans[id] = plan
+                        runtimePackage = runtime
+                    } catch APIError.rejected(404, "NOT_FOUND") {
+                        // Older self-contained games use the existing release contract.
+                    }
+                }
+            } catch {
+                lifecycleErrors[id] = "The game release descriptor could not be verified."
+                return
+            }
+        }
+        let declaredSha = gameFrontendSha256
+            ?? VerifiedFrontendSelection.normalized(descriptor?.frontendSha256)
+            ?? VerifiedFrontendSelection.normalized(hosted?.sha256)
         if let declaredSha,
            let cached = activation.active(accountID: account, moduleId: id),
-           cached.version == version, cached.frontendSha256 == declaredSha {
+           cached.version == version, cached.frontendSha256 == declaredSha,
+           (!isWebGame || cached.gameSha256 == gameSha256 && cached.runtimeSha256 == runtimePackage?.sha256) {
             lifecycleErrors[id] = nil
+            if isWebGame { saveOfflineGameCatalogue() }
             return
         }
         var artifact: Data?
@@ -376,23 +747,55 @@ final class ProductHubStore {
             return
         }
         let digest = VerifiedFrontendSelection.sha256(bytes)
-        let grants = descriptor?.grantedPermissions ?? []
+        var gameArchive: Data?
+        var runtimeArchive: Data?
+        if let runtimePackage {
+            do {
+                let shared = SharedWebRuntimeStore(moduleCacheRoot: activation.store.root)
+                if (try? shared.verifiedEngine(sha256: runtimePackage.sha256)) == nil {
+                    runtimeArchive = try await client.downloadVerifiedArtifact(
+                        ref: runtimePackage.downloadRef, expectedSha256: runtimePackage.sha256,
+                        maximumBytes: WebGamePackage.maximumCompressedBytes)
+                }
+            } catch {
+                ModulaLog.network.error("Shared runtime artifact download failed: \(String(reflecting: error), privacy: .public)")
+                lifecycleErrors[id] = "The verified shared runtime could not be downloaded."
+                return
+            }
+        }
+        if let gameSha256 {
+            do {
+                gameArchive = try await client.downloadVerifiedArtifact(
+                    ref: packagePlans[id]?.package(id)?.downloadRef ?? "/v1/registry/artifacts/\(gameSha256)",
+                    expectedSha256: gameSha256,
+                    maximumBytes: WebGamePackage.maximumCompressedBytes
+                )
+            } catch {
+                lifecycleErrors[id] = "The verified game package could not be downloaded."
+                return
+            }
+        }
+        let grants = isWebGame ? gameGrants : descriptor?.grantedPermissions ?? []
         let manifest = ModuleManifest(
-            id: id, name: product(id)?.name ?? id, version: version, runtime: "declarative",
-            entry: "product-ui",
+            id: id, name: product(id)?.name ?? id, version: version, runtime: isWebGame ? "web-game" : "declarative",
+            entry: isWebGame ? "index.html" : "product-ui",
             permissions: Array(Set(grants + ModulePolicy.hostCapabilities(coveredBy: grants))).sorted(),
-            minHostVersion: ">=1.0.0", minBridgeVersion: "0.1.0",
+            minHostVersion: isWebGame ? ">=1.1.0" : ">=1.0.0", minBridgeVersion: "0.1.0",
             collections: ["item"]
         )
         do {
             try activation.stageVerified(
                 accountID: account, moduleId: id, version: version,
-                releaseId: descriptor?.registryReleaseId ?? "\(id)@\(version)",
+                releaseId: gameReleaseID ?? descriptor?.registryReleaseId ?? "\(id)@\(version)",
                 frontend: bytes, frontendSha256: digest, mediaType: ProductUIDocument.mediaType,
-                hostManifest: manifest, descriptor: descriptor
+                hostManifest: manifest, descriptor: descriptor,
+                gameArchive: gameArchive, gameSha256: gameSha256,
+                runtimeArchive: runtimeArchive, runtimeSha256: runtimePackage?.sha256
             )
             _ = try activation.activate(accountID: account, moduleId: id)
+            if let gameReleaseID { eligibleGameReleases[id] = gameReleaseID }
             lifecycleErrors[id] = nil
+            if isWebGame { saveOfflineGameCatalogue() }
         } catch {
             lifecycleErrors[id] = error.localizedDescription
         }
@@ -449,7 +852,8 @@ final class ProductHubStore {
         }
     }
 
-    /// Installs a verified local frontend without GreenField. Returns nil when no local package exists.
+    /// Installs a signed local development package without GreenField. This is
+    /// kept separate from the registry path and never marks a QA release trusted.
     func installLocalDevelopment(_ id: String, permissions: [String], version: String? = nil) async -> Bool? {
         let chosen = version
             ?? localDevVersions[id]?.last
@@ -460,17 +864,34 @@ final class ProductHubStore {
         guard let activation else { return false }
         let account = accountID ?? "local-dev"
         accountID = account
+        let gameArchive = localDevRoots.lazy.compactMap { root -> (Data, String)? in
+            let directory = root.appendingPathComponent("\(id)/\(chosen)")
+            guard let manifestData = try? Data(contentsOf: directory.appendingPathComponent("modula.product.json")),
+                  let manifest = try? JSONDecoder().decode(JSONValue.self, from: manifestData),
+                  manifest["gameRuntime"]?["type"]?.string == "web-mini-game",
+                  manifest["gameRuntime"]?["artifact"]?["path"]?.string == "game/game.tgz",
+                  let digest = manifest["gameRuntime"]?["artifact"]?["sha256"]?.string,
+                  InstallDescriptorVerifier.isHex64(digest),
+                  let archive = try? Data(contentsOf: directory.appendingPathComponent("game/game.tgz")) else { return nil }
+            return (archive, digest)
+        }.first
         let manifest = ModuleManifest(
-            id: id, name: product(id)?.name ?? id, version: chosen, runtime: "declarative",
-            entry: "product-ui", permissions: permissions,
-            minHostVersion: ">=1.0.0", minBridgeVersion: "0.1.0", collections: ["item"]
+            id: id, name: product(id)?.name ?? id, version: chosen,
+            runtime: gameArchive == nil ? "declarative" : "web-game",
+            entry: gameArchive == nil ? "product-ui" : "index.html", permissions: permissions,
+            minHostVersion: gameArchive == nil ? ">=1.0.0" : ">=1.1.0",
+            minBridgeVersion: "0.1.0", collections: ["item"]
         )
         do {
             try verifyLocalTrust(moduleId: id, version: chosen)
-            _ = try activation.installLocalPackage(
-                accountID: account, moduleId: id, version: chosen,
-                releaseId: "local:\(id)@\(chosen)", frontend: bytes, hostManifest: manifest
+            let frontendDigest = VerifiedFrontendSelection.sha256(bytes)
+            try activation.stageVerified(
+                accountID: account, moduleId: id, version: chosen, releaseId: "local:\(id)@\(chosen)",
+                frontend: bytes, frontendSha256: frontendDigest, mediaType: ProductUIDocument.mediaType,
+                hostManifest: manifest, descriptor: nil,
+                gameArchive: gameArchive?.0, gameSha256: gameArchive?.1
             )
+            _ = try activation.activate(accountID: account, moduleId: id)
             activation.reviews.record(ModulePermissionReview(
                 moduleId: id, releaseId: "local:\(id)@\(chosen)", descriptorRevision: "local",
                 granted: permissions, denied: [], reviewedAt: Date()
@@ -615,11 +1036,12 @@ final class ProductHubStore {
         var version: String
         var name: String
         var description: String
+        var productKind: String = "module"
 
         var asProduct: CatalogueProduct {
             CatalogueProduct(
                 moduleId: moduleId,
-                productKind: "module",
+                productKind: productKind,
                 name: name,
                 description: description,
                 publisherId: "modula",
@@ -654,7 +1076,10 @@ final class ProductHubStore {
                         name = moduleRaw["name"]?.string ?? name
                         description = moduleRaw["description"]?.string ?? description
                     }
-                    found.append(LocalDevListing(moduleId: moduleId, version: version, name: name, description: description))
+                    let productKind = FileManager.default.fileExists(atPath: versionDir.appendingPathComponent("game/game.tgz").path)
+                        ? "game" : "module"
+                    found.append(LocalDevListing(moduleId: moduleId, version: version, name: name,
+                                                 description: description, productKind: productKind))
                 }
             }
         }

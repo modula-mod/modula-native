@@ -251,8 +251,7 @@ private struct ModulaCodeCenterBadge: View {
                             ModulaAvatar(initials: initials, url: avatarURL, size: side * 0.8)
                                 .environment(\.modulaSuppressOwnFrame, true)
                         } else {
-                            Image("ModulaAppIcon").resizable().scaledToFill()
-                                .clipShape(RoundedRectangle(cornerRadius: side * 0.22, style: .continuous))
+                            ModulaUnitTile(variant: .teal, cornerFraction: 0.22)
                         }
                     }
                     .frame(width: side * 0.8, height: side * 0.8)

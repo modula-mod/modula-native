@@ -179,13 +179,13 @@ final class ProfileTests: XCTestCase {
     func testShellChromeOwnVersusPushedProfile() {
         let meRoot = ShellChromePolicy.policy(for: .me(.overview), isTabRoot: true)
         XCTAssertTrue(meRoot.bottomBarVisible)
-        XCTAssertTrue(meRoot.contextRailVisible)
-        XCTAssertTrue(meRoot.shellAccessoryVisible)
+        XCTAssertFalse(meRoot.contextRailVisible)
+        XCTAssertFalse(meRoot.shellAccessoryVisible)
         XCTAssertFalse(meRoot.showsBack)
 
         let pushed = ShellChromePolicy.policy(for: .profile("sophia", .overview), isTabRoot: false)
         XCTAssertTrue(pushed.bottomBarVisible)
-        XCTAssertTrue(pushed.contextRailVisible)
+        XCTAssertFalse(pushed.contextRailVisible)
         XCTAssertFalse(pushed.shellAccessoryVisible)
         XCTAssertTrue(pushed.showsBack)
     }

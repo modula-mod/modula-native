@@ -582,6 +582,10 @@ struct DataStorageHost: View {
                             app.navigation.open(.settings(.dataStorage(.storage)))
                         }
                         SettingsDivider()
+                        SettingsNavigationRow(title: "Storage & Downloads", subtitle: "Packages and shared runtimes", symbol: "square.stack.3d.up") {
+                            app.navigation.open(.settings(.dataStorage(.packages)))
+                        }
+                        SettingsDivider()
                         SettingsNavigationRow(title: "Cache", subtitle: "Clear rebuildable cache", symbol: "xmark.bin") {
                             app.navigation.open(.settings(.dataStorage(.cache)))
                         }
@@ -606,6 +610,8 @@ struct DataStorageHost: View {
             .modulaSoftScrollEdge()
             .navigationTitle("Data & Storage")
             .navigationBarTitleDisplayMode(.inline)
+        case .packages:
+            PackageStorageDownloadsView(accountID: app.catalogue.accountID)
         case .storage:
             Form {
                 if let usage {
@@ -625,7 +631,7 @@ struct DataStorageHost: View {
             .task { usage = await Task.detached(priority: .utility) { StorageUsageSnapshot.measure() }.value }
         case .cache:
             Form {
-                Text("Clears URLCache and temporary files only. Account session, drafts and offline module data are kept.")
+                Text("Clears cached network responses only. Account sessions, drafts and offline module data are kept.")
                     .foregroundStyle(.secondary)
                 Button("Clear Cache", role: .destructive) {
                     confirmingClearCache = true
@@ -636,7 +642,7 @@ struct DataStorageHost: View {
                     Button("Clear Cache", role: .destructive) {
                         clearingCache = true
                         Task {
-                            // File deletion off the main thread.
+                            // Clear only the known rebuildable response cache.
                             await Task.detached(priority: .userInitiated) { StorageUsageSnapshot.clearCache() }.value
                             clearingCache = false
                             cleared = true
@@ -685,15 +691,10 @@ struct StorageUsageSnapshot: Sendable {
     }
 
     static func clearCache() {
+        // Other Caches and tmp children may belong to a draft, an in-flight
+        // transfer, or another subsystem. Only the URL response cache is known
+        // to be rebuildable here.
         URLCache.shared.removeAllCachedResponses()
-        let fm = FileManager.default
-        if let caches = fm.urls(for: .cachesDirectory, in: .userDomainMask).first,
-           let items = try? fm.contentsOfDirectory(at: caches, includingPropertiesForKeys: nil) {
-            for item in items { try? fm.removeItem(at: item) }
-        }
-        if let items = try? fm.contentsOfDirectory(at: URL(fileURLWithPath: NSTemporaryDirectory()), includingPropertiesForKeys: nil) {
-            for item in items { try? fm.removeItem(at: item) }
-        }
     }
 
     private static func folderSize(_ url: URL) -> Int64 {
@@ -710,6 +711,205 @@ struct StorageUsageSnapshot: Sendable {
 
     private static func byteCount(_ value: Int64) -> String {
         ByteCountFormatter.string(fromByteCount: value, countStyle: .file)
+    }
+}
+
+private struct DownloadedPackageRow: Identifiable, Sendable {
+    let id: String
+    let version: String
+    let isGame: Bool
+    let bytes: Int64
+    let runtimeDigest: String?
+}
+
+private struct PackageStorageSnapshot: Sendable {
+    let coreBytes: Int64
+    let moduleBytes: Int64
+    let gameBytes: Int64
+    let runtimeBytes: Int64
+    let modelBytes: Int64
+    let assetBytes: Int64
+    let temporaryBytes: Int64
+    let packages: [DownloadedPackageRow]
+    let runtimeDigests: [String]
+
+    var optionalBytes: Int64 { moduleBytes + gameBytes + runtimeBytes + modelBytes + assetBytes + temporaryBytes }
+
+    static func measure(accountID: String?) -> Self {
+        let manager = FileManager.default
+        let cache = ModuleArtifactStore()
+        var packages: [DownloadedPackageRow] = []
+        var moduleBytes: Int64 = 0
+        var gameBytes: Int64 = 0
+        if let accountID {
+            let accountRoot = cache.moduleRoot(accountID: accountID, moduleId: "_").deletingLastPathComponent()
+            if let modules = try? manager.contentsOfDirectory(at: accountRoot, includingPropertiesForKeys: [.isDirectoryKey]) {
+                for module in modules {
+                    guard let release = cache.release(in: .active, accountID: accountID, moduleId: module.lastPathComponent) else { continue }
+                    let bytes = size(module)
+                    let isGame = release.hostManifest.runtime == "web-game"
+                    packages.append(DownloadedPackageRow(id: module.lastPathComponent, version: release.version,
+                                                         isGame: isGame, bytes: bytes, runtimeDigest: release.runtimeSha256))
+                    if isGame { gameBytes += bytes } else { moduleBytes += bytes }
+                }
+            }
+        }
+        let runtimeRoot = cache.root.appendingPathComponent("SharedWebRuntimes", isDirectory: true)
+        let runtimeDigests = SharedWebRuntimeStore(moduleCacheRoot: cache.root).installedDigests()
+        let support = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        return Self(coreBytes: size(Bundle.main.bundleURL), moduleBytes: moduleBytes, gameBytes: gameBytes,
+                    runtimeBytes: size(runtimeRoot),
+                    modelBytes: support.map { size($0.appendingPathComponent("Modula/Packages/ModelData")) } ?? 0,
+                    assetBytes: support.map { size($0.appendingPathComponent("Modula/Packages/AssetPacks")) } ?? 0,
+                    temporaryBytes: Int64(URLCache.shared.currentDiskUsage),
+                    packages: packages.sorted { $0.id < $1.id }, runtimeDigests: runtimeDigests)
+    }
+
+    private static func size(_ url: URL) -> Int64 {
+        let manager = FileManager.default
+        guard let iterator = manager.enumerator(at: url, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey]) else { return 0 }
+        var total: Int64 = 0
+        for case let file as URL in iterator {
+            guard let values = try? file.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
+                  values.isRegularFile == true else { continue }
+            total += Int64(values.fileSize ?? 0)
+        }
+        return total
+    }
+}
+
+private struct PackageStorageDownloadsView: View {
+    let accountID: String?
+    @Environment(AppEnvironment.self) private var app
+    @AppStorage("settings.downloads.allowCellular") private var allowCellular = false
+    @State private var usage: PackageStorageSnapshot?
+    @State private var packageToRemove: DownloadedPackageRow?
+    @State private var confirmingCacheClear = false
+    @State private var confirmingReclaim = false
+    @State private var errorMessage: String?
+    @State private var refreshGeneration = 0
+
+    private func bytes(_ value: Int64) -> String { ByteCountFormatter.string(fromByteCount: value, countStyle: .file) }
+
+    var body: some View {
+        SettingsScrollCanvas {
+            SettingsHeroBanner(title: "Storage & Downloads", subtitle: "Measured optional content on this device.", symbol: "square.stack.3d.up")
+            if let usage {
+                SettingsGroup(title: "Usage") {
+                    VStack(spacing: 0) {
+                        LabeledContent("Modula Core", value: bytes(usage.coreBytes))
+                        SettingsDivider()
+                        LabeledContent("Modules", value: bytes(usage.moduleBytes))
+                        SettingsDivider()
+                        LabeledContent("Games", value: bytes(usage.gameBytes))
+                        SettingsDivider()
+                        LabeledContent("Shared Runtimes", value: bytes(usage.runtimeBytes))
+                            .accessibilityIdentifier("storage.sharedRuntimeBytes")
+                            .accessibilityValue(bytes(usage.runtimeBytes))
+                        SettingsDivider()
+                        LabeledContent("AI Models", value: bytes(usage.modelBytes))
+                        SettingsDivider()
+                        LabeledContent("Media & Assets", value: bytes(usage.assetBytes))
+                        SettingsDivider()
+                        LabeledContent("Temporary Cache", value: bytes(usage.temporaryBytes))
+                        SettingsDivider()
+                        LabeledContent("Total Optional Storage", value: bytes(usage.optionalBytes)).fontWeight(.semibold)
+                    }
+                    .padding(14)
+                }
+                SettingsGroup(title: "Downloaded packages") {
+                    if usage.packages.isEmpty {
+                        Text("No downloaded modules or games for this account.").foregroundStyle(.secondary).padding(16)
+                    } else {
+                        ForEach(usage.packages) { package in
+                            SettingsTileRow(title: package.id, subtitle: "Version \(package.version) · \(bytes(package.bytes))",
+                                            symbol: package.isGame ? "gamecontroller.fill" : "shippingbox.fill") {
+                                packageToRemove = package
+                            }
+                            if package.id != usage.packages.last?.id { SettingsDivider() }
+                        }
+                    }
+                }
+                SettingsGroup(title: "Shared runtimes") {
+                    if usage.runtimeDigests.isEmpty {
+                        Text("No shared web runtimes are downloaded.").foregroundStyle(.secondary).padding(16)
+                    } else {
+                        ForEach(usage.runtimeDigests, id: \.self) { digest in
+                            let owners = usage.packages.filter { $0.runtimeDigest == digest }.count
+                            LabeledContent(String(digest.prefix(12)) + "…", value: "\(owners) game\(owners == 1 ? "" : "s")")
+                                .padding(14)
+                        }
+                    }
+                }
+                SettingsGroup(title: "Manage downloads") {
+                    VStack(spacing: 0) {
+                        SettingsNavigationRow(title: "Find optional content", subtitle: "Open Product Hub", symbol: "square.grid.2x2") {
+                            app.navigation.open(.productHub(.featured))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Refresh storage", subtitle: "Measure downloads on this device", symbol: "arrow.clockwise") {
+                            Task { await refresh() }
+                        }
+                        SettingsDivider()
+                        Button("Remove unused dependencies", role: .destructive) { confirmingReclaim = true }
+                            .padding(16)
+                        SettingsDivider()
+                        Button("Clear eligible temporary cache", role: .destructive) { confirmingCacheClear = true }
+                            .padding(16)
+                        SettingsDivider()
+                        Toggle("Allow downloads over cellular", isOn: $allowCellular).padding(16)
+                    }
+                }
+                Text("Removing a download keeps account records, game progress, documents and permission grants. Delete user data is a separate account action.")
+                    .font(.footnote).foregroundStyle(.secondary).padding(.horizontal, 14)
+            } else {
+                ProgressView("Measuring storage…")
+            }
+            if let errorMessage { Text(errorMessage).foregroundStyle(.red).font(.footnote) }
+        }
+        .modulaSoftScrollEdge()
+        .navigationTitle("Storage & Downloads")
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await refresh() }
+        .confirmationDialog("Remove downloaded package?", isPresented: Binding(get: { packageToRemove != nil }, set: { if !$0 { packageToRemove = nil } }), titleVisibility: .visible) {
+            if let packageToRemove {
+                Button("Remove \(packageToRemove.id) download", role: .destructive) { remove(packageToRemove) }
+            }
+        } message: { Text("Account records, progress and grants are kept. The package can download again when you choose to open it.") }
+        .confirmationDialog("Remove unused dependencies?", isPresented: $confirmingReclaim, titleVisibility: .visible) {
+            Button("Remove unused dependencies", role: .destructive) { reclaim() }
+        } message: { Text("Runtimes needed by active, staged or rollback packages stay on this device.") }
+        .confirmationDialog("Clear temporary cache?", isPresented: $confirmingCacheClear, titleVisibility: .visible) {
+            Button("Clear temporary cache", role: .destructive) { clearTemporaryCache() }
+        } message: { Text("Only rebuildable cache is removed. Account records and downloads are kept.") }
+    }
+
+    private func refresh() async {
+        refreshGeneration += 1
+        let generation = refreshGeneration
+        let measured = await Task.detached(priority: .utility) { PackageStorageSnapshot.measure(accountID: accountID) }.value
+        guard generation == refreshGeneration else { return }
+        usage = measured
+    }
+
+    private func remove(_ package: DownloadedPackageRow) {
+        guard let accountID else { return }
+        do {
+            try ModuleArtifactStore().removeModule(accountID: accountID, moduleId: package.id)
+            Task { await refresh() }
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    private func reclaim() {
+        do {
+            _ = try SharedWebRuntimeStore(moduleCacheRoot: ModuleArtifactStore().root).reclaimUnused()
+            Task { await refresh() }
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    private func clearTemporaryCache() {
+        URLCache.shared.removeAllCachedResponses()
+        Task { await refresh() }
     }
 }
 

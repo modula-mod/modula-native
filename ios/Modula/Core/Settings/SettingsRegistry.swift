@@ -259,6 +259,7 @@ enum SettingsRegistry {
             item(.modules(.permissions), "Module Permissions", "HostBridge grants", "switch.2", .implemented, terms: ["permissions"]),
             item(.dataStorage(.root), "Data & Storage", "Cache, downloads, backup and export", "internaldrive", .implemented, terms: ["storage", "cache"]),
             item(.dataStorage(.storage), "Storage", "Measured local usage", "externaldrive", .implemented, terms: ["storage", "mb"]),
+            item(.dataStorage(.packages), "Storage & Downloads", "Downloaded packages and shared runtimes", "square.stack.3d.up", .implemented, terms: ["packages", "games", "runtimes", "models"]),
             item(.dataStorage(.cache), "Cache", "Clear rebuildable cache", "xmark.bin", .implemented, terms: ["cache", "clear"]),
             item(.dataStorage(.downloads), "Downloads", "Downloaded content", "arrow.down.to.line", .implemented, terms: ["downloads"]),
             item(.dataStorage(.backup), "Backup", "Account or module backup", "arrow.clockwise.icloud", .capabilityUnavailable, terms: ["backup"], reason: "Backup isn’t available yet."),

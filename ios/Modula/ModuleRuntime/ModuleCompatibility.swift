@@ -100,9 +100,9 @@ enum ModuleCompatibility: Equatable, Sendable {
     /// The module targets an older, no-longer-compatible contract: the module must update.
     case moduleOutdated(field: String, required: String, actual: String)
 
-    static let supportedRuntimes: Set<String> = ["react-native", "declarative", "product-ui"]
+    static let supportedRuntimes: Set<String> = ["react-native", "declarative", "product-ui", "web-game"]
     /// Bundled RN modules still declare `^0.1.0`; Product UI modules declare `>=1.0.0`.
-    static let advertisedHostVersions = ["0.1.0", "1.0.0"]
+    static let advertisedHostVersions = ["0.1.0", "1.0.0", "1.1.0"]
 
     static func evaluate(_ manifest: ModuleManifest, hostVersion: String, bridgeVersion: String) -> Self {
         evaluate(manifest, hostVersions: [hostVersion], bridgeVersion: bridgeVersion)
