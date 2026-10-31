@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.193",
+  "key": "stampo",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#C99682",
+    "accent": "#E3C9BF",
+    "light": "#E3C9BF",
+    "dark": "#B38674"
+  },
+  "form": "Brick-red stamp-like feet, navy head"
+}

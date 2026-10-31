@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.160",
+  "key": "opaliq",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#E9E9F5",
+    "accent": "#F4F4FA",
+    "light": "#F4F4FA",
+    "dark": "#CFCFDA"
+  },
+  "form": "Pearl-white orb, iridescent freckles"
+}

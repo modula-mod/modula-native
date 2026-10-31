@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.213",
+  "key": "paradi",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#A7DDD1",
+    "accent": "#D2EEE8",
+    "light": "#D2EEE8",
+    "dark": "#95C5BA"
+  },
+  "form": "Mint bell-shaped body, coral cheeks"
+}

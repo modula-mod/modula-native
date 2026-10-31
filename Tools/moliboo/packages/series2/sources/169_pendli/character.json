@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.169",
+  "key": "pendli",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#F0DEC2",
+    "accent": "#F7EEE0",
+    "light": "#F7EEE0",
+    "dark": "#D6C6AD"
+  },
+  "form": "Pewter body, pendulum-curled tail"
+}

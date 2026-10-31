@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.139",
+  "key": "magmi",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#E94D6E",
+    "accent": "#F4A4B5",
+    "light": "#F4A4B5",
+    "dark": "#CF4562"
+  },
+  "form": "Ruby teardrop, molten orange stripe"
+}

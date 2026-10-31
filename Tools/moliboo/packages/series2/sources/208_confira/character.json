@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.208",
+  "key": "confira",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#FFB7C2",
+    "accent": "#FFDAE0",
+    "light": "#FFDAE0",
+    "dark": "#E3A3AD"
+  },
+  "form": "Rainbow confetti freckles, cream body"
+}

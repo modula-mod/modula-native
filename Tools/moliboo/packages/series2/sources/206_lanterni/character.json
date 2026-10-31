@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.206",
+  "key": "lanterni",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#F7D189",
+    "accent": "#FBE8C3",
+    "light": "#FBE8C3",
+    "dark": "#DCBA7A"
+  },
+  "form": "Gold pear-shaped ears, dusk-blue body"
+}

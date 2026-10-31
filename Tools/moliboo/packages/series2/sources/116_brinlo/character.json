@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.116",
+  "key": "brinlo",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#84E1D8",
+    "accent": "#C0F0EB",
+    "light": "#C0F0EB",
+    "dark": "#75C8C0"
+  },
+  "form": "Seafoam droplet body, curled fin"
+}

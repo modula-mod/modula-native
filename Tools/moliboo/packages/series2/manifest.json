@@ -1,0 +1,4210 @@
+{
+  "schemaVersion": "modula.moliboo.series2-sources.1",
+  "availability": "draft",
+  "purchasable": false,
+  "distribution": "on-demand",
+  "backend": "none \u2014 the Greenfield HTTP atlas has no Moliboo or marketplace route",
+  "signing": "unsigned sources; publish_qa_package.mjs --portrait portrait.png signs when MODULA_SIGNING_KEY_PATH is set",
+  "packages": [
+    {
+      "packageId": "moliboo.character.116",
+      "version": "0.1.0",
+      "characterId": "moliboo.116",
+      "key": "brinlo",
+      "familyId": "tideborn",
+      "number": 116,
+      "conceptId": "moliboo.concept.101",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/116_brinlo",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "57be17d7bd27ccddc5b8f9f44784fefb82e64b2087115f7b2e0d7359f2429a40",
+          "bytes": 289
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "2c41cd124dee3fdd04ace100901c352b471afc5047ee8be64c5474fa35a4ddb8",
+          "bytes": 54595,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "7a0cc2b1d5ce27cae24757c2372275bcc86de59c10a831dd7f37a47b7b4e4f0f",
+          "bytes": 3315,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.117",
+      "version": "0.1.0",
+      "characterId": "moliboo.117",
+      "key": "calyra",
+      "familyId": "tideborn",
+      "number": 117,
+      "conceptId": "moliboo.concept.102",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/117_calyra",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "7c3667121f0c3b332a565809acac237856f18dd965803b087ca79a575e3d4829",
+          "bytes": 292
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "bc416109ecf7acb07780012018ee523496371997a402df6bb7dd64d3c7519ae7",
+          "bytes": 59615,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "f7483ba8b7616133c6250ecf8406a01ceeed38bd089d3edd710c7009baf8c984",
+          "bytes": 4081,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.118",
+      "version": "0.1.0",
+      "characterId": "moliboo.118",
+      "key": "dovvi",
+      "familyId": "tideborn",
+      "number": 118,
+      "conceptId": "moliboo.concept.103",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/118_dovvi",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "abb974c22ff65a59096c5ee58f9d826ad746105fc6fd069f553824ed8c3a9fdd",
+          "bytes": 293
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "53450dc00360b52bf497bf0ed918c3f1c605eb8d97e007f72867a024803fc545",
+          "bytes": 59650,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "c58036496db619f0ce63f0fd9766da4d228939e1a9614c3384abcf9a2794abc8",
+          "bytes": 3324,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.119",
+      "version": "0.1.0",
+      "characterId": "moliboo.119",
+      "key": "shelumi",
+      "familyId": "tideborn",
+      "number": 119,
+      "conceptId": "moliboo.concept.104",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/119_shelumi",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "d5ae4d3a586f2e68f83458913f14616ea2850de2d22a8ed99c4a13817a803041",
+          "bytes": 290
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "2bfc6cbed7e3e12ac7ceabed28363bedd6b001a62a0df333efaf6ac13575c5c4",
+          "bytes": 55460,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "7ab54f90773c098707e4331efd47294747b7a722f3313c688237731b61e0cc14",
+          "bytes": 3795,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.120",
+      "version": "0.1.0",
+      "characterId": "moliboo.120",
+      "key": "nerlo",
+      "familyId": "tideborn",
+      "number": 120,
+      "conceptId": "moliboo.concept.105",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/120_nerlo",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "1bc73ac00d8db8494f7fa9718bdcd1118ab12b5a0651878505a0d1d196b38a78",
+          "bytes": 291
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "1dd31167fa5f13d9dd54fd366593d91a72065d50b45e4ac29b57d7e1aa6f8ba5",
+          "bytes": 55946,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "fce3a4e5be9fadbf60a6dda7078871418dc465db9761595904703aa92ac51061",
+          "bytes": 4007,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.121",
+      "version": "0.1.0",
+      "characterId": "moliboo.121",
+      "key": "quibby",
+      "familyId": "tideborn",
+      "number": 121,
+      "conceptId": "moliboo.concept.106",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/121_quibby",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "a50221eb5186632b6d253f8e1933c5f84cef962101a1305320701b57e619a808",
+          "bytes": 293
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "d3fde63b34cf2ebe630d2ad7d2734a659442a540337cb08f73e007217a64a1bd",
+          "bytes": 56401,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "21d407c5fdd53ea0be2dad9679fb30b835f35ee8baba064ecbb2f6bdc6c2c395",
+          "bytes": 3376,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.122",
+      "version": "0.1.0",
+      "characterId": "moliboo.122",
+      "key": "tavaroo",
+      "familyId": "tideborn",
+      "number": 122,
+      "conceptId": "moliboo.concept.107",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/122_tavaroo",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "6fa1cb52f3c06a5c0beaa68315f2bd2ed5713c5f99da7854b0a9932e70b37fda",
+          "bytes": 290
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "5dd5f1937f16d3d5b44113204f20b8d32f22bd5b4acd0c379ac4b81192160c21",
+          "bytes": 53562,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "f79a9316bfefbb3b4e7fe48420fd40918da275d62ae60fd8b7b29f4ed170282e",
+          "bytes": 3167,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.123",
+      "version": "0.1.0",
+      "characterId": "moliboo.123",
+      "key": "ostra",
+      "familyId": "tideborn",
+      "number": 123,
+      "conceptId": "moliboo.concept.108",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/123_ostra",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "194244eb975d3cd51b7d914d22e67a98ad5191d43a1dba9db507557c82a88c55",
+          "bytes": 293
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "bc1a49d4fe229f3ac5c0fa547e88b624ca4d653cc64e5eaeca9016ee846df4b2",
+          "bytes": 57474,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "c8d1b4b1e92a63c4dbeb64d1761a41f47ffac891deb849962467978335162041",
+          "bytes": 3316,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.124",
+      "version": "0.1.0",
+      "characterId": "moliboo.124",
+      "key": "vaeli",
+      "familyId": "tideborn",
+      "number": 124,
+      "conceptId": "moliboo.concept.109",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/124_vaeli",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "211c8afa0413a3e8f224e6b21edc6e5a14ad8805b94b047bcc147e60f9817d61",
+          "bytes": 288
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "85483b5ec35ce99b328a00bdc54088bd1526216a8745d7812a7f081f17282b25",
+          "bytes": 53052,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "6e0cdec835a20f19504e13f8fdd46f26ec70d59e24c7cb692ee4628e094743c3",
+          "bytes": 3292,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.125",
+      "version": "0.1.0",
+      "characterId": "moliboo.125",
+      "key": "driftu",
+      "familyId": "tideborn",
+      "number": 125,
+      "conceptId": "moliboo.concept.110",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/125_driftu",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "8216fd0261a9cbb5727bf29d9e4103bdacb91a6b357b3093a93fa373a2dce925",
+          "bytes": 294
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "264c66705974b40ba3de472559c5f92b38058e1d0973affd9733fb5cd42f743c",
+          "bytes": 57565,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "6fff127f5eacb0e5fb9ca04d74b452ebc6e6512971a98457e3124224bd729f28",
+          "bytes": 3244,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.126",
+      "version": "0.1.0",
+      "characterId": "moliboo.126",
+      "key": "zeppi",
+      "familyId": "skyweavers",
+      "number": 126,
+      "conceptId": "moliboo.concept.111",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/126_zeppi",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "0e93ab9e3a44e7c9ba0f5093df1d85bfbf8f15e6a90f4fc54c0e6172997f640f",
+          "bytes": 288
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "134d66b0145ef6add911ea0431b336f766be9a86479fff8d2a7adcc355e348e1",
+          "bytes": 56363,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "d982a99b42ffea9d4871c19f878da316de15f80fbba033b9edfe309ff7a7b229",
+          "bytes": 3592,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.127",
+      "version": "0.1.0",
+      "characterId": "moliboo.127",
+      "key": "cirra",
+      "familyId": "skyweavers",
+      "number": 127,
+      "conceptId": "moliboo.concept.112",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/127_cirra",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "405ac4ac4488e265a5f7332eaab9d1c58128bd100d17172727af94ee4e34a12a",
+          "bytes": 294
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "a4febb513eea6d57648819596021a29095b3640676a52282ef7d81ab1ac00449",
+          "bytes": 57206,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "ebe4117a3886a4da1fd021fc1670b872eb65f0367c839d4f7f853e5345c31327",
+          "bytes": 3564,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.128",
+      "version": "0.1.0",
+      "characterId": "moliboo.128",
+      "key": "flaro",
+      "familyId": "skyweavers",
+      "number": 128,
+      "conceptId": "moliboo.concept.113",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/128_flaro",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "eee2b381c826c1492194496bf0121698b94e502b6423a3b5cd7a3bf02943028a",
+          "bytes": 289
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "4195536f3931d883fd566a54f759b2f42fcdb0dcdd2612bc92a55fbc5d5c0566",
+          "bytes": 54366,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "f274d72b26326ed5e9c49c6271aa89f72e56a5c1357fe6486f2482e8baf54e42",
+          "bytes": 3467,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.129",
+      "version": "0.1.0",
+      "characterId": "moliboo.129",
+      "key": "nimbuski",
+      "familyId": "skyweavers",
+      "number": 129,
+      "conceptId": "moliboo.concept.114",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/129_nimbuski",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "7afcb6fb7071918365804f9f44e7a67e052637c7090e59fbb776724f5ddb2181",
+          "bytes": 296
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "be0c406fd8a4bf75f096c0109e21b3fd94b85e493fbcb5192db44b8fc9e53466",
+          "bytes": 54576,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "81d674b4f10f1fe94264d97b7573bc4cdd64195a3db4ee2c1218b702358b6e94",
+          "bytes": 3478,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.130",
+      "version": "0.1.0",
+      "characterId": "moliboo.130",
+      "key": "breezo",
+      "familyId": "skyweavers",
+      "number": 130,
+      "conceptId": "moliboo.concept.115",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/130_breezo",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "f180d029fa7386a68e37960b397237d49ebb1e24c2efe70da3c5daefd4a75a3a",
+          "bytes": 294
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "79f669e91e2f8bed3a5f63ba4085d5fea6811714671f3421f101edc7ebb7998c",
+          "bytes": 61621,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "069d0d4d51f03a496c86e7e74b12b7901d38cbbfe0735754317e9de294e0e567",
+          "bytes": 4498,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.131",
+      "version": "0.1.0",
+      "characterId": "moliboo.131",
+      "key": "poffa",
+      "familyId": "skyweavers",
+      "number": 131,
+      "conceptId": "moliboo.concept.116",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/131_poffa",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "7e0b59d18083588a067197e35fabae4016a26eb369f0b6b2d2e1295d28097dcb",
+          "bytes": 291
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "4573daf08a050e876ddd2f31c0f2bf71f7a829b41ec4e2b620ec7efa46a43be7",
+          "bytes": 55873,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "2bf8d76a01a0cac0abf163545de85fbf43bbba04804cf58978c825f7b32d9e70",
+          "bytes": 3486,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.132",
+      "version": "0.1.0",
+      "characterId": "moliboo.132",
+      "key": "aerin",
+      "familyId": "skyweavers",
+      "number": 132,
+      "conceptId": "moliboo.concept.117",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/132_aerin",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "0e4296b830812625e4b8b61e786a5696ad5b3d1f05a13181836cdccf81fc7d7d",
+          "bytes": 292
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "52bdd0f15b32a5ac5d3ce57f211977addb2529558d34e1a8209bb479945c6c0a",
+          "bytes": 53750,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "342d545037d8fa6a2056cace2d7bbf022637d30cafd125e37a695712cebc3848",
+          "bytes": 3454,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.133",
+      "version": "0.1.0",
+      "characterId": "moliboo.133",
+      "key": "whispel",
+      "familyId": "skyweavers",
+      "number": 133,
+      "conceptId": "moliboo.concept.118",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/133_whispel",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "7ee0f84da282082cdb949fa79c7c99750d21e3a8bff534891c3614bade862988",
+          "bytes": 294
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "4a47468ad9edb77b4a705345e7724ac009899a1ee4604246f14dba00da1f5ede",
+          "bytes": 56585,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "e8ce929592b978c932850259670015a807ccf5c722406f86de41f56bdd2dded6",
+          "bytes": 3571,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.134",
+      "version": "0.1.0",
+      "characterId": "moliboo.134",
+      "key": "gustra",
+      "familyId": "skyweavers",
+      "number": 134,
+      "conceptId": "moliboo.concept.119",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/134_gustra",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "d49c8b0ef595d298bcbe317ace8ac287c74db4520c4e89f41cb2869e5c86b19a",
+          "bytes": 292
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "36c7550852749dec5279c2a80cc447c73428959e488d79fbf9cf8072bedd3023",
+          "bytes": 56026,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "db98c60fad5cc52c42fa6c8f6e8accf82d1388b3dd9f8267fa1c0ba08f6a7781",
+          "bytes": 3606,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.135",
+      "version": "0.1.0",
+      "characterId": "moliboo.135",
+      "key": "solviq",
+      "familyId": "skyweavers",
+      "number": 135,
+      "conceptId": "moliboo.concept.120",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/135_solviq",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "7b77d50d83669b9a3491b18c57f7bece6d3304d2fa5cbe38a120199d6f43607e",
+          "bytes": 287
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "ea6e5e2ec02d66f3092f74683654af9b92c74ae4938146f2b9fa26b1ff03918f",
+          "bytes": 58224,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "7c026e6a6430092659a3f5a87692d8b31bbddfb2046ae71794228b80334776ef",
+          "bytes": 3655,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.136",
+      "version": "0.1.0",
+      "characterId": "moliboo.136",
+      "key": "ashumo",
+      "familyId": "cinderlings",
+      "number": 136,
+      "conceptId": "moliboo.concept.121",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/136_ashumo",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "04b178c505bda69c84a0643dedc6ea57e62e1ec8e533f060fa8dda076d23b204",
+          "bytes": 292
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "7e111adc14aa37021eb596ec29e731e2df3d75f8fb9e87c857e53f1dfa1374b5",
+          "bytes": 54081,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "992359bffd89e40449f5ef8e33995abd54abe8ca81ac40bf3ab33081ce74c66b",
+          "bytes": 3919,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.137",
+      "version": "0.1.0",
+      "characterId": "moliboo.137",
+      "key": "fizzra",
+      "familyId": "cinderlings",
+      "number": 137,
+      "conceptId": "moliboo.concept.122",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/137_fizzra",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "029cf0bc33c39277e8915c80cd97fe6fd45088ceb3aadb4540d45bfe1046be04",
+          "bytes": 289
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "aab6b94dc57397b6a4d99a997bf80f4961a2ae50b74615b9700c7ab0713c4eac",
+          "bytes": 56192,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "d7c43cba05501777f8dbcd5ebc2a605a3dde777351817b0324d7e51d3a3693f6",
+          "bytes": 4105,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.138",
+      "version": "0.1.0",
+      "characterId": "moliboo.138",
+      "key": "cindoo",
+      "familyId": "cinderlings",
+      "number": 138,
+      "conceptId": "moliboo.concept.123",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/138_cindoo",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "4d96ab7c198c61f61eca1741edaa250ec117fbcdb9a8d20f1491c71110aec523",
+          "bytes": 291
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "ff24af100e4c412689b6b6aeefcaac64c094900ddddbd8e15781716396609a47",
+          "bytes": 55501,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "57de3ec6894b7de16ba0b048e5801ffb561a7372d610d4fb4dc96fac2c8f8065",
+          "bytes": 3814,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.139",
+      "version": "0.1.0",
+      "characterId": "moliboo.139",
+      "key": "magmi",
+      "familyId": "cinderlings",
+      "number": 139,
+      "conceptId": "moliboo.concept.124",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/139_magmi",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "142a6b150e98c9cd9f342fa684a4f6eaaf5807425713e7c1ffc8b8d4d6ade255",
+          "bytes": 291
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "14c5015924b626729660213bb66d9c24b6327eadc509be4de2d4d997deaa10ab",
+          "bytes": 52835,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "2747fad3b961a4b05600719955e4285a3c0441a6a94938a22b492cdd89b7ed1c",
+          "bytes": 4015,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.140",
+      "version": "0.1.0",
+      "characterId": "moliboo.140",
+      "key": "kohli",
+      "familyId": "cinderlings",
+      "number": 140,
+      "conceptId": "moliboo.concept.125",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/140_kohli",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "29ac32039d4edb648ed2b78388ac1c735ef9178fb1acd5712a565269fb4a54e5",
+          "bytes": 293
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "6c26159d6e5d78b9a6589a21317eba1b4bd0363da2ff36f3725d43e45c9e6dea",
+          "bytes": 58318,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "d375c7ce42259e4bfa6b7e63d9dad6958e4396e3399d550a44a89889506b706d",
+          "bytes": 4248,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.141",
+      "version": "0.1.0",
+      "characterId": "moliboo.141",
+      "key": "brasa",
+      "familyId": "cinderlings",
+      "number": 141,
+      "conceptId": "moliboo.concept.126",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/141_brasa",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "07f505ceeb2ecfbf3cf060517061d744334dc09bef6bc6dec317c4399fd67aca",
+          "bytes": 294
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "623cc3919e353e82e7534dfbb8d0be6244c1056f4de88086db5d970a3dcb5c48",
+          "bytes": 54880,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "977a3d9a782c65a0d462d5817c7be30c70255b6ce80c9ba7a4eca11be16956d2",
+          "bytes": 3812,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.142",
+      "version": "0.1.0",
+      "characterId": "moliboo.142",
+      "key": "flinti",
+      "familyId": "cinderlings",
+      "number": 142,
+      "conceptId": "moliboo.concept.127",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/142_flinti",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "5c9bdc0c17ce9dede2913c318ea589e968a19d6cf547d05576c4245c63c6b5b5",
+          "bytes": 291
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "103ebf2b2c30b7733ccb7ee9457d0a28be96fcb11ddafafd2e28a1051de342e3",
+          "bytes": 57813,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "9ceab500b848dcc34755fa2d4387335bb9ec32774edf3c6a95674f1d4cea3800",
+          "bytes": 4035,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.143",
+      "version": "0.1.0",
+      "characterId": "moliboo.143",
+      "key": "lavajo",
+      "familyId": "cinderlings",
+      "number": 143,
+      "conceptId": "moliboo.concept.128",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/143_lavajo",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "7ab446d14447522251894ed19ecf7925873969d1f4c039ece00ff3671b17e7c9",
+          "bytes": 289
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "6e27f3237ed38b44209414b2feb878eeb60d9fe51aa3e1057d9fbd0a94d5abc6",
+          "bytes": 56488,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "3d4a60d8acb4e47b95307444ccec733251e33d9a4e70debbe5673e754982dbde",
+          "bytes": 4110,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.144",
+      "version": "0.1.0",
+      "characterId": "moliboo.144",
+      "key": "searli",
+      "familyId": "cinderlings",
+      "number": 144,
+      "conceptId": "moliboo.concept.129",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/144_searli",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "9965b4e12901345db369b24383ccd3cb3e9bfee604c1c973680e8fc3fc05caa6",
+          "bytes": 289
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "0a953befbd2e6588240f2d033d46c698d17f6fdcba048fc88e392cc13e53a611",
+          "bytes": 53727,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "35f826a4492f6174a740498d3a78b7069fc38e7be2d4954504c7f9041df61e17",
+          "bytes": 4146,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.145",
+      "version": "0.1.0",
+      "characterId": "moliboo.145",
+      "key": "pyvra",
+      "familyId": "cinderlings",
+      "number": 145,
+      "conceptId": "moliboo.concept.130",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/145_pyvra",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "0b1b0f2491af5bc2638f0a5b45583b48494beb67d4aadeabb7b58e1559649741",
+          "bytes": 289
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "578e440dca225822481e55db2486ba80b0aabd05fd83c6b72ccafe5c5f8831b4",
+          "bytes": 58300,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "360d4c31d61abc773608677ca94d44451bc52930c387b30a32262cf7b05aae7c",
+          "bytes": 3796,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.146",
+      "version": "0.1.0",
+      "characterId": "moliboo.146",
+      "key": "petalia",
+      "familyId": "mosslight-grove",
+      "number": 146,
+      "conceptId": "moliboo.concept.131",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/146_petalia",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "fd708cde73da91cf5e3fe517b6ff8bc6bb3fe25a9b4e6e1c4d1cd3341c2c2bc4",
+          "bytes": 293
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "ad9db3678fbbce726ea91de6ea776a0d1f97db80aaf6abe859540a008c425a6b",
+          "bytes": 58914,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "1fbb9a21fc03be776cd9e714be57e5abb201e8d56582b621c50d175773a4abdf",
+          "bytes": 4355,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.147",
+      "version": "0.1.0",
+      "characterId": "moliboo.147",
+      "key": "spriggo",
+      "familyId": "mosslight-grove",
+      "number": 147,
+      "conceptId": "moliboo.concept.132",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/147_spriggo",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "09edb28e40ace3e6371060762edbf975eb857aec2d2ca34198cd0c66d3a0c1a5",
+          "bytes": 295
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "b8f4ac072e05cf609a408c1c70ff15100fe1af0c6561c78c0b335dbea335235d",
+          "bytes": 54403,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "63142cc5af1db4019e0ab4acce1a1cb1e9913c16f5783e4f5c679a6699b070ac",
+          "bytes": 3509,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.148",
+      "version": "0.1.0",
+      "characterId": "moliboo.148",
+      "key": "floressa",
+      "familyId": "mosslight-grove",
+      "number": 148,
+      "conceptId": "moliboo.concept.133",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/148_floressa",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "19df4846d9af0047807bfea80411d44ae4457a7b89c71daf814462487e1ee964",
+          "bytes": 295
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "dd14ea8286d0f00015bec24ebfa451371903936e67716c1d41835c7f468468ef",
+          "bytes": 59291,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "a76934993d29cc684c063c168238ea1f91013cae802d67b8ef6a5cd6d48f748b",
+          "bytes": 4251,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.149",
+      "version": "0.1.0",
+      "characterId": "moliboo.149",
+      "key": "berru",
+      "familyId": "mosslight-grove",
+      "number": 149,
+      "conceptId": "moliboo.concept.134",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/149_berru",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "95630155b4589738ac701c34194b3b62f6518c62826d5e8554530c4d723d21dc",
+          "bytes": 287
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "9910dea930f98d49fc734e1b42aec992608d67a738cc2202434a7dfa5703ec0e",
+          "bytes": 50960,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "d7601dad825d518c2d1e31c1915af5987b296c723b10e6dd46ee6223f049a1c3",
+          "bytes": 3364,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.150",
+      "version": "0.1.0",
+      "characterId": "moliboo.150",
+      "key": "necti",
+      "familyId": "mosslight-grove",
+      "number": 150,
+      "conceptId": "moliboo.concept.135",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/150_necti",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "9e32d795be2c77cb537b9a045245163340355c0098e82cf2f3813ac6a5b3d3e1",
+          "bytes": 292
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "626d47813df502f6790e4ceb474f0a7d131bcc7aab8821bfaa4814488655cb73",
+          "bytes": 59083,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "da5d3b7ed3e9497d25f07487bfdc68677f45cf596551179f0d506f237bec56cb",
+          "bytes": 4449,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.151",
+      "version": "0.1.0",
+      "characterId": "moliboo.151",
+      "key": "mossini",
+      "familyId": "mosslight-grove",
+      "number": 151,
+      "conceptId": "moliboo.concept.136",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/151_mossini",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "60c30298f61d07891595ce2e682b7448843587ecf3097a23cdda4f14810af9c8",
+          "bytes": 291
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "f977cf78050f270f4e495ab1ba2e0223200593f2a27698eea61ef4537e28555b",
+          "bytes": 55652,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "4aac50195177c3cec6adec37f4e6e3472d992d319a4c5815a1f4661ff0c30fe0",
+          "bytes": 3373,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.152",
+      "version": "0.1.0",
+      "characterId": "moliboo.152",
+      "key": "veyla",
+      "familyId": "mosslight-grove",
+      "number": 152,
+      "conceptId": "moliboo.concept.137",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/152_veyla",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "5dc823adff16e9c33a5528ebd360c0d65b9cfadf8837e60247514dc5dcdb13eb",
+          "bytes": 295
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "606b05a9b1657ad43d1dd055e0c0a58ed03044cdad83b4976465383b71a038eb",
+          "bytes": 59551,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "aea146b91b60a5b013cc870d2c5e472783501f47b6031a903c0d3a9bfb78d639",
+          "bytes": 4235,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.153",
+      "version": "0.1.0",
+      "characterId": "moliboo.153",
+      "key": "tindle",
+      "familyId": "mosslight-grove",
+      "number": 153,
+      "conceptId": "moliboo.concept.138",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/153_tindle",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "65089d4c97df05b63f02b84cf224ce951036c3f71116f58965aeadb1f61510fc",
+          "bytes": 287
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "bdd147fae154be5f51c488dbfcc5e7792d2b4f28f2bf5cffc7626cb7eeca88e9",
+          "bytes": 58848,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "8fae6ac1aea5f1faec50470b698668e658119bcd842613b631406f180dd93840",
+          "bytes": 4331,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.154",
+      "version": "0.1.0",
+      "characterId": "moliboo.154",
+      "key": "clovey",
+      "familyId": "mosslight-grove",
+      "number": 154,
+      "conceptId": "moliboo.concept.139",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/154_clovey",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "4aee9e5d1abeeba351db5dcefd057ae1dd41af6c29374409f30c91d7d4847810",
+          "bytes": 289
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "bb8af5ad556faec5656879b84e646c4505f7084ad6eb69590459f9fc81d68c98",
+          "bytes": 53485,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "4ee7d10d282dc841501b20880520f93bc478da4689985a80f455fc31afd8a112",
+          "bytes": 3972,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.155",
+      "version": "0.1.0",
+      "characterId": "moliboo.155",
+      "key": "rhuvi",
+      "familyId": "mosslight-grove",
+      "number": 155,
+      "conceptId": "moliboo.concept.140",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/155_rhuvi",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "edce6c0a2d2664cdbc6ef11180451b88dd7cc746ed24f655c0e0b98526935682",
+          "bytes": 290
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "969ced9fceba666e37bbead157c9c8bfe7a05a12ae2455263bd0a624ba96ecb4",
+          "bytes": 59860,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "f847b031fc07ed96003c7161a04008e9c37392435b8c908be0f538cd26338da8",
+          "bytes": 4231,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.156",
+      "version": "0.1.0",
+      "characterId": "moliboo.156",
+      "key": "boreli",
+      "familyId": "aurora-vale",
+      "number": 156,
+      "conceptId": "moliboo.concept.141",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/156_boreli",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "2562f2b25c01037a662f7e3386f4633c7bdf4261f1ae0f632a8e46c48580cf04",
+          "bytes": 297
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "def32099b3114caa638dcc80afb7aa428ce0341df2064cc283c3c21cec6ffcc8",
+          "bytes": 56869,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "81fba80e89bcb32b50798d5dcb6d237c2780117f1cd8c7e874a28ec2f091a9fd",
+          "bytes": 3987,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.157",
+      "version": "0.1.0",
+      "characterId": "moliboo.157",
+      "key": "prismel",
+      "familyId": "aurora-vale",
+      "number": 157,
+      "conceptId": "moliboo.concept.142",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/157_prismel",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "f1c9e775127e0b33c1889b4d5f16d843ace1883969742d0fc6e82c149f1ce756",
+          "bytes": 289
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "1a7eb03844a201efa59d3de1a05dd70d294a621ae9b5ad7ae9ddee1b71367264",
+          "bytes": 59597,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "7b51e457d763014c9208e061a5efddbf8654b77738f5be3adc4569b4c33e0b6e",
+          "bytes": 4391,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.158",
+      "version": "0.1.0",
+      "characterId": "moliboo.158",
+      "key": "shivera",
+      "familyId": "aurora-vale",
+      "number": 158,
+      "conceptId": "moliboo.concept.143",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/158_shivera",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "066046d0f618e36183cb223b1d583d9b2952ceda91bd37012f40e7de2f740f4a",
+          "bytes": 297
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "2bf4bc581f15c7a4f49081893cc799e7538a5788baf094cd0c58ea36cef5123d",
+          "bytes": 56697,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "6ad6895e4a7576dd2c9bc9f2f59cb06e51f9906c8e726fba30407e7a4ae6a97e",
+          "bytes": 3883,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.159",
+      "version": "0.1.0",
+      "characterId": "moliboo.159",
+      "key": "lumaine",
+      "familyId": "aurora-vale",
+      "number": 159,
+      "conceptId": "moliboo.concept.144",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/159_lumaine",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "8f0947c15e5bd637cb3019d5d979965ae8b1b15436e1bf9416ac67e12abc4b6f",
+          "bytes": 290
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "f9273cb47a11ce44aa6b9c2b14b6850725564372c1bc37f7b531d938b6460af9",
+          "bytes": 55541,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "42848d538afb9d41279f306f753021600dafd7886f8faaeb78aaf7734b212bd2",
+          "bytes": 3705,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.160",
+      "version": "0.1.0",
+      "characterId": "moliboo.160",
+      "key": "opaliq",
+      "familyId": "aurora-vale",
+      "number": 160,
+      "conceptId": "moliboo.concept.145",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/160_opaliq",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "73bfc1a852f1ff8fed1c783c85951f9ef12304eaa672e120f6146fa20a202bd2",
+          "bytes": 293
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "998b359ac514e38d0a283726a49fce04c240b8aa0dd6c15dd6aae115e05d84b0",
+          "bytes": 57745,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "5ecde1ff17ed551d4341eb5ae5ffe7ae78e0624c7822cbe843c52912bd2043af",
+          "bytes": 4514,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.161",
+      "version": "0.1.0",
+      "characterId": "moliboo.161",
+      "key": "glacchi",
+      "familyId": "aurora-vale",
+      "number": 161,
+      "conceptId": "moliboo.concept.146",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/161_glacchi",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "74e0c841fdd75408b7470d425c9cd88679a1cdc2919ae7ac8456937150264f5d",
+          "bytes": 287
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "76fc0feddf5f41fc071a92c957ae10a7683b4bc06422475eda738792e54ef7f9",
+          "bytes": 57316,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "c7a2b72a3b5d277683927ed1913ca713e8782b6947614951f6e12e068f5bc1e4",
+          "bytes": 3882,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.162",
+      "version": "0.1.0",
+      "characterId": "moliboo.162",
+      "key": "selka",
+      "familyId": "aurora-vale",
+      "number": 162,
+      "conceptId": "moliboo.concept.147",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/162_selka",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "17b7fe68cc5528008f2e0b95de68b10c27db900feaf3c26f284e50241c20d200",
+          "bytes": 292
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "29a63a8dd3bf2a6ce405bce29aaec24c1da48b76e6a43f53b43077c2e3b51a19",
+          "bytes": 56602,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "f1111e92779e927c39fbb162eeaae2875740742deb3da09320ef7ac201a48372",
+          "bytes": 3702,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.163",
+      "version": "0.1.0",
+      "characterId": "moliboo.163",
+      "key": "kivvi",
+      "familyId": "aurora-vale",
+      "number": 163,
+      "conceptId": "moliboo.concept.148",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/163_kivvi",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "f8c6ee518e86d84a06d7038b59eddfe850b9e8fa0fadd130e58b238de98c4966",
+          "bytes": 287
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "399baf6f3671e0648f45bbabc7443ee7b0c18ab01e5c190c6a61b6c82d83fa3e",
+          "bytes": 56515,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "7a656a97c6cad4908e297411a9469929957c1e446b732408cb79eab1fe651840",
+          "bytes": 3963,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.164",
+      "version": "0.1.0",
+      "characterId": "moliboo.164",
+      "key": "polari",
+      "familyId": "aurora-vale",
+      "number": 164,
+      "conceptId": "moliboo.concept.149",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/164_polari",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "e25e783e43736c924a095a9dbcfc2b10791289be16f4fbdebbc394cb6c07bfd7",
+          "bytes": 289
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "356d1f6469bed9f9c79d85625c29dc7e32897408a20b6e775a5b5c12832eef74",
+          "bytes": 55717,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "2168f5fb073d8529951bd30f1f6419b647279d6a3589244ed6785e476b3d10d0",
+          "bytes": 4000,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.165",
+      "version": "0.1.0",
+      "characterId": "moliboo.165",
+      "key": "veilo",
+      "familyId": "aurora-vale",
+      "number": 165,
+      "conceptId": "moliboo.concept.150",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/165_veilo",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "7d2aefa092aa2545a0a99e9df81287897e4903981e9e2149bfc5e7fb696f1f60",
+          "bytes": 290
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "524e74b0f69267362079c8dc82fc616a3b0f2cb6af9dd955a1a68ab53f226567",
+          "bytes": 58866,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "07abc00c32439d028bc93d66dd396eae7304ed38309da8a2e119c89a881c9dd6",
+          "bytes": 4295,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.166",
+      "version": "0.1.0",
+      "characterId": "moliboo.166",
+      "key": "tocko",
+      "familyId": "clocklings",
+      "number": 166,
+      "conceptId": "moliboo.concept.151",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/166_tocko",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "47c09453a32b5544822e0ef8a4db7074e03febdf81ff7124be93bad89729febd",
+          "bytes": 292
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "723b9209aeaddc82b58ae2ce741760df3b7e9305cafa1e7a82b30fcda9f6a23d",
+          "bytes": 54266,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "9d99ddd29a492e9f3e940fd09650783b6fb1f1d184bac63e729c1decf94c0305",
+          "bytes": 3573,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.167",
+      "version": "0.1.0",
+      "characterId": "moliboo.167",
+      "key": "mintra",
+      "familyId": "clocklings",
+      "number": 167,
+      "conceptId": "moliboo.concept.152",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/167_mintra",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "248a3378ae5ee37325263111b166a8e948a37a340502d2c0d1eafed4d8d2c626",
+          "bytes": 291
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "ac03ccdd530e9ff8d0489c0dc05dd82b9fd743d1d47ada7126264c5e387d12c0",
+          "bytes": 53709,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "2123a449e5916e7856109e6b461740bfc5a01174d0abf35876b3410d646ac27b",
+          "bytes": 3442,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.168",
+      "version": "0.1.0",
+      "characterId": "moliboo.168",
+      "key": "cogsy",
+      "familyId": "clocklings",
+      "number": 168,
+      "conceptId": "moliboo.concept.153",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/168_cogsy",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "d06ce8b007fcebdae3a6cae3a384b46caadccd8ea95161a93bfd67963e49d2cd",
+          "bytes": 290
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "e29336d4a438ba7349c7d9122b3f54de171c842f7c642a3a28faca64cdd6224a",
+          "bytes": 51307,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "00f7160be465b72c598e075438ca2ba1e1492458e1c191c366658581295c18c2",
+          "bytes": 4302,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.169",
+      "version": "0.1.0",
+      "characterId": "moliboo.169",
+      "key": "pendli",
+      "familyId": "clocklings",
+      "number": 169,
+      "conceptId": "moliboo.concept.154",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/169_pendli",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "1f9bd73574a1d13dc4477f9f5c4fad1760c04b037cad84ebd5c589c54f5f2f81",
+          "bytes": 290
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "c896e74ca979e8593dcc7233d22fe2e76a18210ddbbc3d9b9ba4d9e5c505e94f",
+          "bytes": 53323,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "3174526c1f57089a74d47f2961bc81a7d9738a43ffdd9d0b68b58c2e68f2152d",
+          "bytes": 3457,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.170",
+      "version": "0.1.0",
+      "characterId": "moliboo.170",
+      "key": "whirlo",
+      "familyId": "clocklings",
+      "number": 170,
+      "conceptId": "moliboo.concept.155",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/170_whirlo",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "ba57a6c6d92df9406f5ec5aa4d45207ea1d466e3d10c174bdea91e856af94bcf",
+          "bytes": 291
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "c2d0d9ef57471050bd7261f2886ba18c075f2431857ba027a3f42bde0373a089",
+          "bytes": 51912,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "63f43fb7a0de9e040aa0a88eac26c5066448d33a86985cc13bf1f4be0e4bdd8c",
+          "bytes": 3538,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.171",
+      "version": "0.1.0",
+      "characterId": "moliboo.171",
+      "key": "ticklet",
+      "familyId": "clocklings",
+      "number": 171,
+      "conceptId": "moliboo.concept.156",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/171_ticklet",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "11a6237c1026ef96de5e01538781df48315ff385a5adc75a8f16e17059cd8b3d",
+          "bytes": 297
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "216b4e7d8c250905420b88a49d0c82677d488c090c22946c9aff4180f84185a1",
+          "bytes": 52509,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "ec9b21aeead908179c312c4d527f1570226080d9c30c4c9fc39f66a4e4cfb6e7",
+          "bytes": 3310,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.172",
+      "version": "0.1.0",
+      "characterId": "moliboo.172",
+      "key": "riveti",
+      "familyId": "clocklings",
+      "number": 172,
+      "conceptId": "moliboo.concept.157",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/172_riveti",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "a869f4465e96d2bec08b77aa549013091a49d85cab05aea78c77e711ac1fe495",
+          "bytes": 291
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "d5384cf65715dccbe7a9ed8da9646ea7466df26799b456ac78730acea97ca4bd",
+          "bytes": 51615,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "ea011d3304cf50b6e2ce2df10ec3762b9de8dcdb165d74940a0694463327f51f",
+          "bytes": 4290,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.173",
+      "version": "0.1.0",
+      "characterId": "moliboo.173",
+      "key": "dialli",
+      "familyId": "clocklings",
+      "number": 173,
+      "conceptId": "moliboo.concept.158",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/173_dialli",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "7dcfc130a80460d55b611fa2f5b98aec423455eaaaf8de060f729424897d69ee",
+          "bytes": 289
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "697e2f3115d7746647cd1c54b8d2cad2bed2cf5008f3d948ef8b4de6463fa059",
+          "bytes": 53859,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "ea7c695e7f7363d2e55100f915d408de36b67c4a9e75b98eff45d1553316025b",
+          "bytes": 3551,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.174",
+      "version": "0.1.0",
+      "characterId": "moliboo.174",
+      "key": "spoolen",
+      "familyId": "clocklings",
+      "number": 174,
+      "conceptId": "moliboo.concept.159",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/174_spoolen",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "1ff3ba37ca77ae4e0ab6944590d505e1c63a5e685640fc9bea40f9418cccde04",
+          "bytes": 295
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "c15e8efa1bcf3d2ad8021106d1fdd47f1670605179fb91d7836bc4aa2bf2ae31",
+          "bytes": 51778,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "f7ad2a8aaae99bffb926b7ed6acf4ce377f80339b9af638500c37cb08f35a1b5",
+          "bytes": 3484,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.175",
+      "version": "0.1.0",
+      "characterId": "moliboo.175",
+      "key": "tempoo",
+      "familyId": "clocklings",
+      "number": 175,
+      "conceptId": "moliboo.concept.160",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/175_tempoo",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "36890f5569b28e9c80f67979e4ed685f98e8c48e0a643bd5b345230faa8dd507",
+          "bytes": 291
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "4383e11e14ffda342adf79c897c7202ee77d62b03605e06aa004810dfffa2b80",
+          "bytes": 56450,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "5896e0b04798a4b5e48a0e78739e797a43f7b6eb4e2e493aa75ba73e38c7f4bf",
+          "bytes": 3452,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.176",
+      "version": "0.1.0",
+      "characterId": "moliboo.176",
+      "key": "caramie",
+      "familyId": "sugarvale",
+      "number": 176,
+      "conceptId": "moliboo.concept.161",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/176_caramie",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "2d40d612c3fa24592db1c3217344b9bdd88adcf9838ea9925765fdb6535dcd18",
+          "bytes": 296
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "98eb95543584d6d863673f4137759a9892262cccae98c365ec84d69508b30395",
+          "bytes": 50962,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "5bda2be3cc4de090829c836ee6b7cf92324f1eec08321cd722a719ea05fe5833",
+          "bytes": 3580,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.177",
+      "version": "0.1.0",
+      "characterId": "moliboo.177",
+      "key": "mochiri",
+      "familyId": "sugarvale",
+      "number": 177,
+      "conceptId": "moliboo.concept.162",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/177_mochiri",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "da5a88a655fbd422f325086dd8f0055f687cfc847eae2c5b98fda94051fbff56",
+          "bytes": 290
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "35cd62f4f3063bb984b7886cc3afdac8806e2e412c19838fdd678c78abc75599",
+          "bytes": 51415,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "de94093cb9280820040aaf6698e6b176cbe3050bc7e4dc1929a5bd8d1806e440",
+          "bytes": 3552,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.178",
+      "version": "0.1.0",
+      "characterId": "moliboo.178",
+      "key": "zestiq",
+      "familyId": "sugarvale",
+      "number": 178,
+      "conceptId": "moliboo.concept.163",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/178_zestiq",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "4e2ed358a3a8fed5ac9d4e084fbae870d26c41a638f393f6320d6a14f8a39572",
+          "bytes": 294
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "5bd37146bdd4074456dd77c1a749a9223e9a162cff44412d41f10e1f4aee2bb5",
+          "bytes": 50769,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "30f5c9796caea430c8c57f2a9e7397d80d668092b17a2a94f34f1000f0a4fe74",
+          "bytes": 3481,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.179",
+      "version": "0.1.0",
+      "characterId": "moliboo.179",
+      "key": "churli",
+      "familyId": "sugarvale",
+      "number": 179,
+      "conceptId": "moliboo.concept.164",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/179_churli",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "eacceadbb495d44c03ab4c67a1d3b7a155c3cee9a0b07ebe0148ad53b7bb6be8",
+          "bytes": 288
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "38ee419988a3c82033ce84b3958546d3c848c4d6fb20554d1bcb729e1ebaf94e",
+          "bytes": 48198,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "ef61f555fc659419f56cb8ad9c5346f7946ba2766ae56c31b24a20c204c03c39",
+          "bytes": 3408,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.180",
+      "version": "0.1.0",
+      "characterId": "moliboo.180",
+      "key": "puffumi",
+      "familyId": "sugarvale",
+      "number": 180,
+      "conceptId": "moliboo.concept.165",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/180_puffumi",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "680ca595a2d5fa43c22aa23984ea0575d9b8eb2b3a8e55af89db806f1210a956",
+          "bytes": 297
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "5a6727f9347af847a3f07c16284ece15c07c884c20c9754534a093065076deae",
+          "bytes": 51067,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "4cd25ede27c7e3ba95b2b681504e7d0defc53342515b929b60ecf82769d17af0",
+          "bytes": 3676,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.181",
+      "version": "0.1.0",
+      "characterId": "moliboo.181",
+      "key": "sorbelle",
+      "familyId": "sugarvale",
+      "number": 181,
+      "conceptId": "moliboo.concept.166",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/181_sorbelle",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "c2356406e29dbfa2110c4a5e9dc185bc20d6da7efe0bc927608e64c8b0980efa",
+          "bytes": 292
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "0806002f54bc7e1d4fc8102842a8d98e96096f36098f9686d1c42e013a335b85",
+          "bytes": 51214,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "b9353955bd43b8c1d9029e5c825ed580bde422b165d7aa4961714bb902c419e3",
+          "bytes": 3475,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.182",
+      "version": "0.1.0",
+      "characterId": "moliboo.182",
+      "key": "biskin",
+      "familyId": "sugarvale",
+      "number": 182,
+      "conceptId": "moliboo.concept.167",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/182_biskin",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "cce7385cb3563a8625205008fae689d30eada4b9f6de6e409fc08c115a2d04f3",
+          "bytes": 295
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "f67c543ffa365a6de7de3bb88e9c048df8d65cd151345603e6ce2e97a6e54aa0",
+          "bytes": 48048,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "f224c68aa0c7cfd16d8ed6398b8c79f1d9588f919a5f5cafdf739c6cbbe95a27",
+          "bytes": 3324,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.183",
+      "version": "0.1.0",
+      "characterId": "moliboo.183",
+      "key": "jellune",
+      "familyId": "sugarvale",
+      "number": 183,
+      "conceptId": "moliboo.concept.168",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/183_jellune",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "40dc097c1b53c8835e6c09c157bdceeb689ed88f82eb025fa315e6a2d9d4b9cf",
+          "bytes": 292
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "fa457dcd9f53c7dc309610b1a98d85b753e41cb012619f8e8f0f1befc7bc4951",
+          "bytes": 51005,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "694d4f192c6aba6ba04bcd99a8f58ecb52c94df6df38a6e090dc5b51e17d6ca6",
+          "bytes": 3503,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.184",
+      "version": "0.1.0",
+      "characterId": "moliboo.184",
+      "key": "bonbiri",
+      "familyId": "sugarvale",
+      "number": 184,
+      "conceptId": "moliboo.concept.169",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/184_bonbiri",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "7a303aa13b615ff3b6733f3cad301ae420ab07826309e52882ae3a0e48e71cf3",
+          "bytes": 295
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "bcbc4390d671dc81ecb0989bf4ecbd34e79d18359eb6e196cc3b2991b80e6998",
+          "bytes": 50983,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "8b6bdea9042b1a41d7125a08ee88c915c31f46857f7eeec363dbf9f212ee3a56",
+          "bytes": 3600,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.185",
+      "version": "0.1.0",
+      "characterId": "moliboo.185",
+      "key": "crembo",
+      "familyId": "sugarvale",
+      "number": 185,
+      "conceptId": "moliboo.concept.170",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/185_crembo",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "bf500c9b23056f92c8ef3518584f3d4236a564f37321364b0fc48a9c731bb5ef",
+          "bytes": 294
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "8d2d21a1f9d664d2284b878b1338cbda2f26f6ebb0e1858d3a2af01119c53503",
+          "bytes": 52617,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "ac0909a356d36db5d8dcd751f5e2a6fc9466a856e3869b93e44f1470a4331e2b",
+          "bytes": 3457,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.186",
+      "version": "0.1.0",
+      "characterId": "moliboo.186",
+      "key": "inkaro",
+      "familyId": "inkbound-atelier",
+      "number": 186,
+      "conceptId": "moliboo.concept.171",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/186_inkaro",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "5513f241f382a83b2518d82503fce5dcc5ed897d3435885aedaf6c610b1ee349",
+          "bytes": 292
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "4bf7aa3834fcef8d5d3a4f293a9e5ccc68355f49ffb8a4001d90681870427c0f",
+          "bytes": 51002,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "b11e733f89e90cdbcb76362a1cbdb609580c42e8ebcf05cf50d0aa3744decc61",
+          "bytes": 3534,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.187",
+      "version": "0.1.0",
+      "characterId": "moliboo.187",
+      "key": "papillo",
+      "familyId": "inkbound-atelier",
+      "number": 187,
+      "conceptId": "moliboo.concept.172",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/187_papillo",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "685f371ae8ccfcdf308755011e6b13afe8dcd7e7dffa93936f8664c6713986fd",
+          "bytes": 296
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "2746cc1e66ae8f6e3bc7e9154a2976167b969b1dce113f9922e998e067b0226a",
+          "bytes": 52973,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "deb6e05a54bc9484f928b86b7f93034836e106826fdda460028693a906ce0441",
+          "bytes": 3399,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.188",
+      "version": "0.1.0",
+      "characterId": "moliboo.188",
+      "key": "quilli",
+      "familyId": "inkbound-atelier",
+      "number": 188,
+      "conceptId": "moliboo.concept.173",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/188_quilli",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "e8b30ac4a5246b1d01d8c2932c2f0a19af1e147330168cfdd80a5deb891f0cb3",
+          "bytes": 294
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "74fba16c5e9cc0b03292637dcc1b1f2b0c7d2e5ccac4457ca4b6bc047b9c699e",
+          "bytes": 49919,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "112f965a987b2e2b156a2bddd475c94bcd1d6afdce6b450a4fea4aa8a47c43c2",
+          "bytes": 3240,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.189",
+      "version": "0.1.0",
+      "characterId": "moliboo.189",
+      "key": "dottori",
+      "familyId": "inkbound-atelier",
+      "number": 189,
+      "conceptId": "moliboo.concept.174",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/189_dottori",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "8f85a0f037f3c274a234f12c9d548c6d9b43b9730471c5664e30e1e7e9ece429",
+          "bytes": 297
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "8fc2cbf8ee13db0e5399e83889af92ded4db92a81926e9b54d9f8c60b54027b2",
+          "bytes": 49004,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "13fbd698fe9dd092ffdd3f3843a0be543935505177d403202bd0cddf3536a31e",
+          "bytes": 3418,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.190",
+      "version": "0.1.0",
+      "characterId": "moliboo.190",
+      "key": "origra",
+      "familyId": "inkbound-atelier",
+      "number": 190,
+      "conceptId": "moliboo.concept.175",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/190_origra",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "037ed9679582570adb0882ff8e96d278287b2a695ff660e80710e634ef5fd139",
+          "bytes": 290
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "57be1e9ebd7527ae9d81a2855b294af1dc37ad3f5cd3a5dada74da9b864f3df2",
+          "bytes": 52915,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "4e12ca25e70013aee94b42c6f201aaf93d2ba580501b7865fe4c46a527076b3a",
+          "bytes": 3522,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.191",
+      "version": "0.1.0",
+      "characterId": "moliboo.191",
+      "key": "smudgi",
+      "familyId": "inkbound-atelier",
+      "number": 191,
+      "conceptId": "moliboo.concept.176",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/191_smudgi",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "a966ebe2dc10b38014965d32fa51b9ca7b5422de201c5c2437b6facf1664801d",
+          "bytes": 292
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "dba7803bff4bdf46897310819dd6de62026c846009dc41d0d1368247e2edf57e",
+          "bytes": 49706,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "ad2e6a381db51c898a4d1236888e41abd881bc60b2dd78fc688e625526ad2774",
+          "bytes": 3428,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.192",
+      "version": "0.1.0",
+      "characterId": "moliboo.192",
+      "key": "lintera",
+      "familyId": "inkbound-atelier",
+      "number": 192,
+      "conceptId": "moliboo.concept.177",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/192_lintera",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "f6912ffb2629a6742fbe76483f67094ae25bbe9181b2bd5053e4df5e7e935d22",
+          "bytes": 291
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "4c5ad58c4fc53d67da4f343e446b15ff4ed18e52cd658bf90719232092d73425",
+          "bytes": 50599,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "680e6fb41c642d42fc28465ff2cdacbefc7e66db51eeac120ef5d7df49a7a797",
+          "bytes": 3326,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.193",
+      "version": "0.1.0",
+      "characterId": "moliboo.193",
+      "key": "stampo",
+      "familyId": "inkbound-atelier",
+      "number": 193,
+      "conceptId": "moliboo.concept.178",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/193_stampo",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "5cb7ee944c5bcf2e3bafb2d9dff826d8ba0fd2a5ac464ef4c09b6a0eab8e7baf",
+          "bytes": 293
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "5d042942c4c8d44876e66bbf146a82ad0b12b49cf7bd7051456f3be27c36c669",
+          "bytes": 53438,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "8d1d32c7a7832502466b713882235539ffb34e047ff878e1910de28c35c59d56",
+          "bytes": 3403,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.194",
+      "version": "0.1.0",
+      "characterId": "moliboo.194",
+      "key": "scrolli",
+      "familyId": "inkbound-atelier",
+      "number": 194,
+      "conceptId": "moliboo.concept.179",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/194_scrolli",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "0b5f6cc1fcc91e833f670bee6d4b236f5acc832a4c9dbcc92923d43b8551452d",
+          "bytes": 293
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "f4e87114238fec503d9bb0aba45a26ce33c9ba614861aa23a8670ca2c36de8d2",
+          "bytes": 47334,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "3913766bc6473dc2700eaccd5eb9359b4c4d9b3855b5985f54b4e38ec481df61",
+          "bytes": 3359,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.195",
+      "version": "0.1.0",
+      "characterId": "moliboo.195",
+      "key": "chalko",
+      "familyId": "inkbound-atelier",
+      "number": 195,
+      "conceptId": "moliboo.concept.180",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/195_chalko",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "f2a40ff75569c47fb11323f91f5659d1bc6c8815029bded2b6b9de20956087be",
+          "bytes": 285
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "c36fb9b451ffea5ba2a701da577eb61dc83eb96bf2d36adcbec66dfba3cb7eaa",
+          "bytes": 53892,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "2f41e2bbe882c37cb6b9d0ac89b1da35cfaa8d43c248ad538a256d34d2f31a36",
+          "bytes": 3412,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.196",
+      "version": "0.1.0",
+      "characterId": "moliboo.196",
+      "key": "pixori",
+      "familyId": "neon-arcade",
+      "number": 196,
+      "conceptId": "moliboo.concept.181",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/196_pixori",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "047a77dd7da69d34dd7450ccd5c76ce8eec9fed28e3986133bf9ad0f33b85f22",
+          "bytes": 295
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "b9b81811b3c2b3691b3ae95e68c47589631a7e718fabff76ee30e2923d944bf5",
+          "bytes": 53091,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "bb767647a60142a5a65e7482cdffdd8d928425ec0c517397aa710c9c1145f371",
+          "bytes": 3628,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.197",
+      "version": "0.1.0",
+      "characterId": "moliboo.197",
+      "key": "voltae",
+      "familyId": "neon-arcade",
+      "number": 197,
+      "conceptId": "moliboo.concept.182",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/197_voltae",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "fb167c4926325a0f73df4104c8e1ebe61f88a56514cbd32fb82ef3e627933e97",
+          "bytes": 288
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "c81d90e37105c99487cc8967475b9324fd8337abe88fbaa5b489ca8fc8cc2bc9",
+          "bytes": 52556,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "24f18cb6c3a5cdbe70f48aba58f534e78d24485a8104b49fd1451a690fcbe68b",
+          "bytes": 3533,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.198",
+      "version": "0.1.0",
+      "characterId": "moliboo.198",
+      "key": "glitcho",
+      "familyId": "neon-arcade",
+      "number": 198,
+      "conceptId": "moliboo.concept.183",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/198_glitcho",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "7d1b5c28130f5d05f13cb6c68ed4b571a54b89410c5c81e06aa284613cb9c363",
+          "bytes": 293
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "3f73738b5e1c1f6b392187d7aa638e277b92350cae9a63843d6343e4603a0599",
+          "bytes": 54068,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "ea3a9be9b8637c65387b5981b40fa4655a78bfeef2a236d65017d4b1b17f596e",
+          "bytes": 3524,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.199",
+      "version": "0.1.0",
+      "characterId": "moliboo.199",
+      "key": "cybri",
+      "familyId": "neon-arcade",
+      "number": 199,
+      "conceptId": "moliboo.concept.184",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/199_cybri",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "f8aa1617911b79bc576ce6cb5081b1bd8d2b5dfab08c29aeca1139f772e7718a",
+          "bytes": 291
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "3a367b6f1079177473370a50bd3d5d8c646fc86228a3bfbec340171033f571fd",
+          "bytes": 52294,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "dcc7a93df1789282400a6a019204f7b2158e35f6e3d6d517cc6896bb09ee218b",
+          "bytes": 3510,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.200",
+      "version": "0.1.0",
+      "characterId": "moliboo.200",
+      "key": "bippi",
+      "familyId": "neon-arcade",
+      "number": 200,
+      "conceptId": "moliboo.concept.185",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/200_bippi",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "3e7c8286bcefc52429d87292356e51f6e7fa23dc7372440f8b55ad19e99acb27",
+          "bytes": 292
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "447f649eaeedc4b1cd11019a36670d23b470d3a99e8d72d7237a3a4920c66bf3",
+          "bytes": 53994,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "d809b6cca53876579648953e951cd13f0ac282fb593483c3b68df16008d0c7bb",
+          "bytes": 3735,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.201",
+      "version": "0.1.0",
+      "characterId": "moliboo.201",
+      "key": "tappi",
+      "familyId": "neon-arcade",
+      "number": 201,
+      "conceptId": "moliboo.concept.186",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/201_tappi",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "fa6cdc63bec59e6ade20694baad4a54c544b9322f779c7b1072fcd18e072e7b9",
+          "bytes": 289
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "0ac070ed3ffdda07492bf5d28c15a2e3350013db64ffd618734bbadbc3a185a8",
+          "bytes": 54376,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "3785394503410fa5010d7d33ae54bb812ed8514588102330f475483de3d6cb2d",
+          "bytes": 3533,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.202",
+      "version": "0.1.0",
+      "characterId": "moliboo.202",
+      "key": "loopin",
+      "familyId": "neon-arcade",
+      "number": 202,
+      "conceptId": "moliboo.concept.187",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/202_loopin",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "d87064105bfe6e828315f70c8e0e2df4d459b18421f1bbee5014f205d5295fd3",
+          "bytes": 288
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "ddf9aa8bb356a553ba0aed089bb552b02b3bfaf77b0b34774b45b4ef1b681987",
+          "bytes": 54612,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "d803933c43b377c5256e11d8e38e9548feb72352c0fa5dcae6994b6d479d3114",
+          "bytes": 3522,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.203",
+      "version": "0.1.0",
+      "characterId": "moliboo.203",
+      "key": "synki",
+      "familyId": "neon-arcade",
+      "number": 203,
+      "conceptId": "moliboo.concept.188",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/203_synki",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "d5076eb04cacb90ae4cc2168e70c96d4c73528b591f10240b6bf3ed7f0c0226c",
+          "bytes": 286
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "92698d120fa33215524a11160ac0ccbdd01e1e1f848852181c44b32b6aae1813",
+          "bytes": 54662,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "4b9620bc5ab341df03d6e4563b454ff3725d6633dc7e6f5c2aebb40156cf54e2",
+          "bytes": 3604,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.204",
+      "version": "0.1.0",
+      "characterId": "moliboo.204",
+      "key": "datto",
+      "familyId": "neon-arcade",
+      "number": 204,
+      "conceptId": "moliboo.concept.189",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/204_datto",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "a2f01ff9546279e5bfc28abc6bf3b005ed79810944cfb55d0b4de34cebd7f8dd",
+          "bytes": 291
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "a95d3d98cef235fa59c4ab91b2d945a4a1237c1d134dca1d28f33f9d145d3db0",
+          "bytes": 53225,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "45dc3e0e6a25cbaf653f9a5ff7be1364e90e6bc2a26283e2ac76cc4dfa4949d1",
+          "bytes": 3652,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.205",
+      "version": "0.1.0",
+      "characterId": "moliboo.205",
+      "key": "zingra",
+      "familyId": "neon-arcade",
+      "number": 205,
+      "conceptId": "moliboo.concept.190",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/205_zingra",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "eeb472f12e5ae7ebfaaa9cbca5d31465eb229fddee491eeea5fdae9dcc7c01fb",
+          "bytes": 287
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "bae72e89f8365c091a6eda9fd2aa0910164bd64e701b8bdee61f65000b2d0687",
+          "bytes": 53745,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "034c0ac1921e2abc857043a47febc59b82c49c1fb71e7fe5a1c4c040f4bb86e4",
+          "bytes": 3439,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.206",
+      "version": "0.1.0",
+      "characterId": "moliboo.206",
+      "key": "lanterni",
+      "familyId": "lantern-parade",
+      "number": 206,
+      "conceptId": "moliboo.concept.191",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/206_lanterni",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "e34764f58b474769f504f36fc601a4f95ebf46e93702c209944b96653160a544",
+          "bytes": 296
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "f28626a4cb566bd5e2db601a19cbb467ebd7a703d24c40571954fa1e9d850393",
+          "bytes": 52678,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "e954e5e20a39eca5eefa9d39437fd2de727544c084ff9a82f8dddc10bd78352f",
+          "bytes": 4037,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.207",
+      "version": "0.1.0",
+      "characterId": "moliboo.207",
+      "key": "masqora",
+      "familyId": "lantern-parade",
+      "number": 207,
+      "conceptId": "moliboo.concept.192",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/207_masqora",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "d0f3ee1faededadf3adaf611457acb13a82ccc4e485d95bbc126524306eb9436",
+          "bytes": 285
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "ac838b85753a49a8020a944a906bfa6b85c7558e52eb09871de2c34d825c4c4c",
+          "bytes": 53893,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "a7db869550a88a6085637f04f243cf4f8b69309699197a20200711667481c627",
+          "bytes": 3847,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.208",
+      "version": "0.1.0",
+      "characterId": "moliboo.208",
+      "key": "confira",
+      "familyId": "lantern-parade",
+      "number": 208,
+      "conceptId": "moliboo.concept.193",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/208_confira",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "56b51a65b2388487e2c22ab7c03a9c13a7f45bcd1ce2abd0c33eea98538519e0",
+          "bytes": 295
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "899e84699befc6fa2845d4a73d830b69fb64a9dd26b0ba5a286fe383ebcb2288",
+          "bytes": 52357,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "2cecc6fc509c2ea9dc7c9a885c1388b4b0d341c633215115c2c8bc840411215e",
+          "bytes": 3767,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.209",
+      "version": "0.1.0",
+      "characterId": "moliboo.209",
+      "key": "velloo",
+      "familyId": "lantern-parade",
+      "number": 209,
+      "conceptId": "moliboo.concept.194",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/209_velloo",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "53e2dec824f4cceae03464503f0c9603d28570d638b2a911bfc5d6b161ddc646",
+          "bytes": 296
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "8c52e93bb9ea7d88d27155c3942d60537bfdd5e4bfd4c1ae2e5431c0a81c3189",
+          "bytes": 51290,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "0ac71dabc7298993c6759c2e7fb8423fe546709f2a3c40cff2bfb404881ef7bf",
+          "bytes": 3757,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.210",
+      "version": "0.1.0",
+      "characterId": "moliboo.210",
+      "key": "ribbika",
+      "familyId": "lantern-parade",
+      "number": 210,
+      "conceptId": "moliboo.concept.195",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/210_ribbika",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "dc0a80d7e16db3d69671ee2a095e79397c9cc4cf0958b5d221b6880d4f4a6bc3",
+          "bytes": 283
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "d5bb67d37acd1c75e2da5e51516d201551635089b8528060a9bace38d51ac70c",
+          "bytes": 53730,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "d17aa7977cf15dff28ed018ea3af9d2c96d3d96c45540d3e236429d22280a6b5",
+          "bytes": 3968,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.211",
+      "version": "0.1.0",
+      "characterId": "moliboo.211",
+      "key": "marvello",
+      "familyId": "lantern-parade",
+      "number": 211,
+      "conceptId": "moliboo.concept.196",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/211_marvello",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "ec3a27dee3964ffdc29d2e540e3357ce4d50eba0116427cd904d529ff3ca7a75",
+          "bytes": 293
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "43478d31d0f58c15c3d20417853834b5fd8abf2688f45943e88c5568ce048872",
+          "bytes": 53016,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "00d67073583dd361f2c8851e8b3ce3a744327a060f2c05aee1589b7b4ac739ae",
+          "bytes": 3767,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.212",
+      "version": "0.1.0",
+      "characterId": "moliboo.212",
+      "key": "glimora",
+      "familyId": "lantern-parade",
+      "number": 212,
+      "conceptId": "moliboo.concept.197",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/212_glimora",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "5a3729d52b2cec83aa28513e8dcc18c6eb7b6cd1ab854919a43bbfb12a241c19",
+          "bytes": 294
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "96ea5dd51b558a7d223ba02f62d98e0a534364a7f76a9b37abc3edb781413023",
+          "bytes": 51980,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "1de0e4c8676e5bf0ce128c2fd9ffe6b520c3b98bd645ded2556add2cd7c887f7",
+          "bytes": 3918,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.213",
+      "version": "0.1.0",
+      "characterId": "moliboo.213",
+      "key": "paradi",
+      "familyId": "lantern-parade",
+      "number": 213,
+      "conceptId": "moliboo.concept.198",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/213_paradi",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "561830af74c65fea7ba0eaafdbe414e9948eb8abaf7d03e949227df0919ee35d",
+          "bytes": 292
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "c7ba9a49ad9398e360f4204f8f22a68476c380fffd8fb410b1c7e6ce2ba0452b",
+          "bytes": 54059,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "f02dfcfd709fe9c9d76e7e62a10a4a723e0bc8fe62a7cd453e8508f9207ed4b8",
+          "bytes": 3848,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.214",
+      "version": "0.1.0",
+      "characterId": "moliboo.214",
+      "key": "noctali",
+      "familyId": "lantern-parade",
+      "number": 214,
+      "conceptId": "moliboo.concept.199",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/214_noctali",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "2e0860419122334182585bb05e8f8b2ac4de741d843c03926dca122226f74e72",
+          "bytes": 293
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "f8f6cbc804c984f103f79a13289fbcff395501247e870685bf1536553c0c6597",
+          "bytes": 51328,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "e337e10be2e0f42ad2a9fc3171587c173840d9666e60922a04b0f38c60dbff86",
+          "bytes": 3888,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    },
+    {
+      "packageId": "moliboo.character.215",
+      "version": "0.1.0",
+      "characterId": "moliboo.215",
+      "key": "jubilo",
+      "familyId": "lantern-parade",
+      "number": 215,
+      "conceptId": "moliboo.concept.200",
+      "availability": "draft",
+      "purchasable": false,
+      "signed": false,
+      "directory": "sources/215_jubilo",
+      "containerFiles": [
+        "character.json",
+        "portrait.png"
+      ],
+      "files": [
+        {
+          "path": "character.json",
+          "mediaType": "application/json",
+          "sha256": "9000b404862fba1530e73c6df892ead115a0c4091d5d34f87abf3c9f6c0acd19",
+          "bytes": 287
+        },
+        {
+          "path": "portrait.png",
+          "mediaType": "image/png",
+          "sha256": "ff95874a473afc80d46ecce973be65061f18a19d71ac28f46cf21e1833ad33ee",
+          "bytes": 52878,
+          "width": 640,
+          "height": 640
+        },
+        {
+          "path": "source.svg",
+          "mediaType": "image/svg+xml",
+          "sha256": "cc67f50ce009884ec5fedb53c7bed3b0d3adb63465c4688a5be1d2d91faa725b",
+          "bytes": 3913,
+          "width": 320,
+          "height": 320,
+          "packed": false
+        }
+      ]
+    }
+  ]
+}

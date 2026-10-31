@@ -5,7 +5,8 @@
 // `modula.package.1` descriptor into <out>/catalog.json. The private key is read from MODULA_SIGNING_KEY_PATH and never printed.
 //
 // usage: publish_qa_package.mjs --patch character.json --version 2.0.0 --family dreamers --out <qa-root>
-//        [--min-host 0.1.0] [--tamper-after-sign] [--thumb file.png]
+//        [--min-host 0.1.0] [--tamper-after-sign] [--thumb file.png] [--portrait portrait.png]
+// --portrait must be the complete 640×640 PNG. It is stored as portrait.png (never resized or cropped).
 import {createHash, createPrivateKey, createPublicKey, sign} from 'node:crypto'
 import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
@@ -27,10 +28,28 @@ if (patch.assetVersion !== version) { console.error('patch.assetVersion must equ
 const number = patch.characterId.split('.')[1]
 const packageId = `moliboo.character.${number}`
 
+function assertFullPortrait(buf) {
+  const sig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  const iend = Buffer.from([0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82])
+  if (buf.length < 32 || !buf.subarray(0, 8).equals(sig) || !buf.subarray(buf.length - 12).equals(iend)) {
+    console.error('portrait is not a complete PNG')
+    process.exit(2)
+  }
+  if (buf.readUInt32BE(16) !== 640 || buf.readUInt32BE(20) !== 640) {
+    console.error('portrait must be the full 640×640 PNG, not a crop or thumb')
+    process.exit(2)
+  }
+}
+
 const files = [{path: 'character.json', mediaType: 'application/json', sha256: sha256(patchBytes), bytes: patchBytes.length, data: patchBytes.toString('base64')}]
 if (args.thumb && args.thumb !== true) {
   const t = readFileSync(args.thumb)
   files.push({path: `thumbs/${patch.key}-128.png`, mediaType: 'image/png', sha256: sha256(t), bytes: t.length, data: t.toString('base64')})
+}
+if (args.portrait && args.portrait !== true) {
+  const portrait = readFileSync(args.portrait)
+  assertFullPortrait(portrait)
+  files.push({path: 'portrait.png', mediaType: 'image/png', sha256: sha256(portrait), bytes: portrait.length, data: portrait.toString('base64')})
 }
 const container = {schemaVersion: 'modula.moliboo.assetpack.1', packageId, version, characterId: patch.characterId, files}
 let artifact = Buffer.from(JSON.stringify(container))

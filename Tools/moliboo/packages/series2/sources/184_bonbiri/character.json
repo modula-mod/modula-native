@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.184",
+  "key": "bonbiri",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#A1E1DC",
+    "accent": "#CFF0ED",
+    "light": "#CFF0ED",
+    "dark": "#8FC8C4"
+  },
+  "form": "Teal candy-like bead spots, pink body"
+}

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.129",
+  "key": "nimbuski",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#9FA2B5",
+    "accent": "#CED0D9",
+    "light": "#CED0D9",
+    "dark": "#8E90A1"
+  },
+  "form": "Charcoal cloud puff, silver halo mark"
+}

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.201",
+  "key": "tappi",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#F9D886",
+    "accent": "#FCEBC1",
+    "light": "#FCEBC1",
+    "dark": "#DEC077"
+  },
+  "form": "Yellow paw pads, mint curved ears"
+}

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.159",
+  "key": "lumaine",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#B8E6D8",
+    "accent": "#DBF2EB",
+    "light": "#DBF2EB",
+    "dark": "#A4CDC0"
+  },
+  "form": "Mint body, flowing aurora fringe"
+}

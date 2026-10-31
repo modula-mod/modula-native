@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.154",
+  "key": "clovey",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#A5D8A1",
+    "accent": "#D1EBCF",
+    "light": "#D1EBCF",
+    "dark": "#93C08F"
+  },
+  "form": "Four-leaf ears, emerald freckles"
+}

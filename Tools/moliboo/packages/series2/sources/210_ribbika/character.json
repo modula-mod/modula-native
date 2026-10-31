@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.210",
+  "key": "ribbika",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#EFB4C4",
+    "accent": "#F7D9E1",
+    "light": "#F7D9E1",
+    "dark": "#D5A0AE"
+  },
+  "form": "Rose ribbon-curl antennae"
+}

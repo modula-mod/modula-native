@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.164",
+  "key": "polari",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#C2E4E7",
+    "accent": "#E0F1F3",
+    "light": "#E0F1F3",
+    "dark": "#ADCBCE"
+  },
+  "form": "White body, twin cyan side bands"
+}

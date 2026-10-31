@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.174",
+  "key": "spoolen",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#D6B5DE",
+    "accent": "#EAD9EE",
+    "light": "#EAD9EE",
+    "dark": "#BEA1C6"
+  },
+  "form": "Spool-shaped torso, soft thread curls"
+}

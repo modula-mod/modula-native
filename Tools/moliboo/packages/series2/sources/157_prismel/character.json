@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.157",
+  "key": "prismel",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#D0BEF2",
+    "accent": "#E7DEF8",
+    "light": "#E7DEF8",
+    "dark": "#B9A9D7"
+  },
+  "form": "Lilac shape, opal diamond belly"
+}

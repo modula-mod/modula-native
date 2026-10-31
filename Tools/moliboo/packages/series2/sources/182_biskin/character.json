@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.182",
+  "key": "biskin",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#E7C590",
+    "accent": "#F3E1C6",
+    "light": "#F3E1C6",
+    "dark": "#CEAF80"
+  },
+  "form": "Rounded biscuit square, cocoa freckles"
+}

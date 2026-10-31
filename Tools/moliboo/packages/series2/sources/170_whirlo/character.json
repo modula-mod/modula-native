@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.170",
+  "key": "whirlo",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#F7D385",
+    "accent": "#FBE9C1",
+    "light": "#FBE9C1",
+    "dark": "#DCBC76"
+  },
+  "form": "Spring-spiral crown, yellow cheeks"
+}

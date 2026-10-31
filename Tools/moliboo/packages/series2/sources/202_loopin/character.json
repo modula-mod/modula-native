@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.202",
+  "key": "loopin",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#78E3DB",
+    "accent": "#BAF1ED",
+    "light": "#BAF1ED",
+    "dark": "#6BCAC3"
+  },
+  "form": "Turquoise overlapping-ring ears"
+}

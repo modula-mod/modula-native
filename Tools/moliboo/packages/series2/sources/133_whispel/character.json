@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.133",
+  "key": "whispel",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#CDE8F6",
+    "accent": "#E6F3FA",
+    "light": "#E6F3FA",
+    "dark": "#B6CEDB"
+  },
+  "form": "Slim misty teardrop, trailing fringe"
+}

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.148",
+  "key": "floressa",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#F7DA83",
+    "accent": "#FBECC0",
+    "light": "#FBECC0",
+    "dark": "#DCC275"
+  },
+  "form": "Golden petal halo, luminous freckles"
+}
