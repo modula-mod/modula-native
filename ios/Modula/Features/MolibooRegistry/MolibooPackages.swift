@@ -363,6 +363,19 @@ final class MolibooPackageStore: @unchecked Sendable {
 
     func remove(_ id: String) throws { if fm.fileExists(atPath: packageDir(id).path) { try fm.removeItem(at: packageDir(id)) } }
 
+    /// Bytes of one file in the active package, or nil when it is not installed.
+    /// Paths that leave the package directory are refused. The caller draws the whole image; nothing here crops it.
+    func activeMedia(packageId: String, path: String) -> Data? {
+        guard MolibooPackageValidator.isSafe(path: path) else { return nil }
+        guard let version = index(packageId).active else { return nil }
+        let dir = versionDir(packageId, version)
+        let dest = dir.appendingPathComponent(path)
+        let prefix = dir.standardizedFileURL.path + "/"
+        guard dest.standardizedFileURL.path.hasPrefix(prefix) else { return nil }
+        guard let data = try? Data(contentsOf: dest), !data.isEmpty else { return nil }
+        return data
+    }
+
     func activePatch(_ id: String) -> (MolibooPackageDescriptor, MolibooCharacterPatch)? {
         let i = index(id)
         guard let v = i.active else { return nil }
