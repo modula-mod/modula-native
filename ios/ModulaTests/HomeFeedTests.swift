@@ -14,6 +14,20 @@ final class HomeFeedTests: XCTestCase {
         }
     }
 
+    func testHomeGreetingUsesClockAndProfileName() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let afternoon = calendar.date(from: DateComponents(year: 2026, month: 10, day: 27, hour: 15))!
+        XCTAssertEqual(HomeGreeting.line(for: afternoon, calendar: calendar), "Good afternoon,")
+        XCTAssertEqual(HomeGreeting.symbol(for: afternoon, calendar: calendar), "sun.max.fill")
+        let morning = calendar.date(from: DateComponents(year: 2026, month: 10, day: 27, hour: 8))!
+        XCTAssertEqual(HomeGreeting.line(for: morning, calendar: calendar), "Good morning,")
+        XCTAssertEqual(HomeGreeting.name(displayName: "Andrei Milea", handle: "andrei"), "Andrei")
+        XCTAssertEqual(HomeGreeting.name(displayName: "  ", handle: "@modula"), "modula")
+        XCTAssertEqual(HomeGreeting.name(displayName: nil, handle: nil), "there")
+        XCTAssertFalse(HomeGreeting.dateChip(afternoon, locale: Locale(identifier: "en_GB")).isEmpty)
+    }
+
     func testHomeModeApiQueryValues() {
         XCTAssertEqual(HomeMode.following.apiQueryValue, "following")
         XCTAssertEqual(HomeMode.forYou.apiQueryValue, "forYou")
