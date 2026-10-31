@@ -429,6 +429,10 @@
 		N5010000000000000000000D /* StoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000D /* StoryViews.swift */; };
 		C0F11D1A0000000000000A01 /* PhotoFilterDial.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F11D1A0000000000000A02 /* PhotoFilterDial.swift */; };
 		C0F11D1A0000000000000B01 /* PhotoFilterDialTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F11D1A0000000000000B02 /* PhotoFilterDialTests.swift */; };
+		C0MM00010000000000000011 /* CommunityModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0MM00010000000000000012 /* CommunityModels.swift */; };
+		C0MM00010000000000000021 /* CommunityHubViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0MM00010000000000000022 /* CommunityHubViews.swift */; };
+		C0MM00010000000000000031 /* CommunityDetailViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0MM00010000000000000032 /* CommunityDetailViews.swift */; };
+		C0MM00010000000000000041 /* CommunityShellTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0MM00010000000000000042 /* CommunityShellTests.swift */; };
 		N5010000000000000000000E /* ReelModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000E /* ReelModels.swift */; };
 		N5010000000000000000000F /* ReelViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000F /* ReelViewer.swift */; };
 		B34580D3CE7F4E9799B1B33C /* ReelChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44422B2509D46A6802844A3 /* ReelChrome.swift */; };
@@ -919,6 +923,10 @@
 		N4010000000000000000000D /* StoryViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryViews.swift; path = Features/Stories/StoryViews.swift; sourceTree = "<group>"; };
 		C0F11D1A0000000000000A02 /* PhotoFilterDial.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PhotoFilterDial.swift; path = Features/Stories/PhotoFilterDial.swift; sourceTree = "<group>"; };
 		C0F11D1A0000000000000B02 /* PhotoFilterDialTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PhotoFilterDialTests.swift; sourceTree = "<group>"; };
+		C0MM00010000000000000012 /* CommunityModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommunityModels.swift; path = Features/Community/CommunityModels.swift; sourceTree = "<group>"; };
+		C0MM00010000000000000022 /* CommunityHubViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommunityHubViews.swift; path = Features/Community/CommunityHubViews.swift; sourceTree = "<group>"; };
+		C0MM00010000000000000032 /* CommunityDetailViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommunityDetailViews.swift; path = Features/Community/CommunityDetailViews.swift; sourceTree = "<group>"; };
+		C0MM00010000000000000042 /* CommunityShellTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CommunityShellTests.swift; sourceTree = "<group>"; };
 		N4010000000000000000000E /* ReelModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelModels.swift; path = Features/Reels/ReelModels.swift; sourceTree = "<group>"; };
 		N4010000000000000000000F /* ReelViewer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelViewer.swift; path = Features/Reels/ReelViewer.swift; sourceTree = "<group>"; };
 		A44422B2509D46A6802844A3 /* ReelChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelChrome.swift; path = Features/Reels/ReelChrome.swift; sourceTree = "<group>"; };
@@ -1024,6 +1032,7 @@
 				D91AB23E4F5C6D7E8091A013 /* SproutStickerPackTests.swift */,
 				F70100000000000000000004 /* EffectKitTests.swift */,
 				C0F11D1A0000000000000B02 /* PhotoFilterDialTests.swift */,
+				C0MM00010000000000000042 /* CommunityShellTests.swift */,
 				775DC34FE761435741076D26 /* MOL01Tests.swift */,
 				A1B2C3D4E5F6A7B8C9D0E104 /* MOL02Tests.swift */,
 				545EE2428098F54A19A0941E /* MOL03AmbienceTests.swift */,
@@ -1181,6 +1190,9 @@
 				N4010000000000000000000C /* StoryModels.swift */,
 				N4010000000000000000000D /* StoryViews.swift */,
 				C0F11D1A0000000000000A02 /* PhotoFilterDial.swift */,
+				C0MM00010000000000000012 /* CommunityModels.swift */,
+				C0MM00010000000000000022 /* CommunityHubViews.swift */,
+				C0MM00010000000000000032 /* CommunityDetailViews.swift */,
 				N40100000000000000000FFE /* StoryVideo.swift */,
 				N40100000000000000000FFD /* StoryCamera.swift */,
 				N4010000000000000000000E /* ReelModels.swift */,
@@ -1833,6 +1845,7 @@
 				D91AB23E4F5C6D7E8091A014 /* SproutStickerPackTests.swift in Sources */,
 				F70200000000000000000004 /* EffectKitTests.swift in Sources */,
 				C0F11D1A0000000000000B01 /* PhotoFilterDialTests.swift in Sources */,
+				C0MM00010000000000000041 /* CommunityShellTests.swift in Sources */,
 				17ACCE3135E58A0DA2856DAF /* MOL01Tests.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E103 /* MOL02Tests.swift in Sources */,
 				84BBACB941ED587B4B71B874 /* MOL03AmbienceTests.swift in Sources */,
@@ -1963,6 +1976,9 @@
 				N5010000000000000000000C /* StoryModels.swift in Sources */,
 				N5010000000000000000000D /* StoryViews.swift in Sources */,
 				C0F11D1A0000000000000A01 /* PhotoFilterDial.swift in Sources */,
+				C0MM00010000000000000011 /* CommunityModels.swift in Sources */,
+				C0MM00010000000000000021 /* CommunityHubViews.swift in Sources */,
+				C0MM00010000000000000031 /* CommunityDetailViews.swift in Sources */,
 				N50100000000000000000FFE /* StoryVideo.swift in Sources */,
 				N50100000000000000000FFD /* StoryCamera.swift in Sources */,
 				N5010000000000000000000E /* ReelModels.swift in Sources */,

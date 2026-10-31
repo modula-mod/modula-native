@@ -222,6 +222,8 @@ enum AppRoute: Hashable {
     case saved(SavedRoute)
     case collections(CollectionsRoute)
     case drafts(DraftsRoute)
+    /// Debug community shell. Not a sixth tab. The flag is off in Release.
+    case community(CommunityRoute)
 
     var tab: AppTab? {
         switch self {
@@ -339,6 +341,10 @@ enum RouteParser {
             case "stories": return .drafts(.stories)
             default: return nil
             }
+        case "community":
+            guard p.count <= 2 else { return nil }
+            if p.count == 1 { return .community(.hub) }
+            return CommunityRoute(rawValue: p[1]).map(AppRoute.community)
         default: return nil
         }
     }
@@ -556,6 +562,8 @@ enum RouteSerializer {
             case .inMail: "/drafts/in-mail"
             case .stories: "/drafts/stories"
             }
+        case .community(let route):
+            route == .hub ? "/community" : path("community", route.rawValue)
         }
     }
     private static func productHub(_ route: ProductHubRoute) -> String {
