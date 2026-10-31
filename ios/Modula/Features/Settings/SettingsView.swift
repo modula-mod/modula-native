@@ -1010,6 +1010,7 @@ struct AppearanceSettingsView: View {
         }
     }
 
+    @ViewBuilder
     private func legacyExperience(_ store: AppearanceStore) -> some View {
         @Bindable var store = store
         ScrollView {
@@ -1602,9 +1603,14 @@ struct ComponentCatalogView: View {
                             action: {}
                         )
                         DraftRow(
-                            kind: .post,
-                            preview: "Profile should become the social OS home",
-                            lastEdited: Date(),
+                            item: DraftLibraryItem(
+                                id: "sample",
+                                kind: .post,
+                                preview: "Profile should become the social OS home",
+                                lastEdited: Date(),
+                                mediaCount: 0,
+                                audienceTitle: nil
+                            ),
                             onContinue: {},
                             onDelete: {}
                         )

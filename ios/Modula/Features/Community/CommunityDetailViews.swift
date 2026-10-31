@@ -93,7 +93,7 @@ struct CommunitySettingsView: View {
         }
     }
 
-    private func section<Content: View>(_ title: String, footnote: String, @ViewBuilder content: () -> Content) -> some View {
+    private func section<Content: View>(_ title: String, footnote: String, @ViewBuilder content: @escaping () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             ModulaSectionHeader(title: title, subtitle: footnote)
             CommunityPanel { content() }
