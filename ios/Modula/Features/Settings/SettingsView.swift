@@ -164,7 +164,19 @@ struct SettingsView: View {
                         }
                     }
                 } else {
-                    telegramHeader
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Settings")
+                            .font(.largeTitle.bold())
+                            .opacity(collapse > 0.55 ? 0 : 1)
+                            .accessibilityAddTraits(.isHeader)
+                        Text("Personalise your Modula experience.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .opacity(collapse > 0.35 ? 0 : 1)
+                    }
+                    .accessibilityIdentifier("settings.heading")
+
+                    settingsCover
 
                     if identityAvatarURL == nil, app.auth.account != nil {
                         TelegramSettingsCard {
@@ -172,18 +184,14 @@ struct SettingsView: View {
                         }
                     }
 
-                    TelegramSettingsCard {
-                        TelegramRow(title: "Saved", symbol: "bookmark.fill", tint: .blue) { app.navigation.open(.saved(.root)) }
+                    settingsSection("Account") {
+                        TelegramRow(title: "Account", symbol: "person.fill", tint: .blue) { app.navigation.open(.settings(.account(.root))) }
                         TelegramDivider()
-                        TelegramRow(title: "Recent Activity", symbol: "clock.fill", tint: .orange, badge: app.activity.state(for: .all).unreadCount) { app.navigation.open(.activity(.all)) }
-                        TelegramDivider()
-                        TelegramRow(title: "Devices", symbol: "laptopcomputer.and.iphone", tint: .orange) { app.navigation.open(.settings(.account(.sessions))) }
-                        TelegramDivider()
-                        TelegramRow(title: "Modules", symbol: "shippingbox.fill", tint: .green, value: "\(app.catalogue.installedIDs.count)") { app.navigation.open(.settings(.modules(.root))) }
-                    }
-
-                    if PremiumFeatureFlags.premiumEnabled() {
-                        TelegramSettingsCard {
+                        TelegramRow(title: "Your Stats", symbol: "chart.line.uptrend.xyaxis", tint: .green) {
+                            app.navigation.open(.settings(.creator(.insights)))
+                        }
+                        if PremiumFeatureFlags.premiumEnabled() {
+                            TelegramDivider()
                             TelegramRow(title: "Modula Premium", symbol: "sun.horizon.fill", tint: PremiumPlan.horizon.tint, value: PremiumEntitlementStore.shared.plan.shortTitle) {
                                 app.navigation.open(.settings(.premium(.root)))
                             }
@@ -191,29 +199,39 @@ struct SettingsView: View {
                         }
                     }
 
-                    TelegramSettingsCard {
-                        TelegramRow(title: "Notifications and Sounds", symbol: "bell.badge.fill", tint: .red) { app.navigation.open(.settings(.notifications(.root))) }
+                    settingsSection("Content & Activity") {
+                        TelegramRow(title: "Saved", symbol: "bookmark.fill", tint: .blue) { app.navigation.open(.saved(.root)) }
                         TelegramDivider()
-                        TelegramRow(title: "Privacy and Security", symbol: "lock.fill", tint: .gray) { app.navigation.open(.settings(.privacy(.root))) }
+                        TelegramRow(title: "Recent Activity", symbol: "clock.fill", tint: .orange, badge: app.activity.state(for: .all).unreadCount) { app.navigation.open(.activity(.all)) }
+                        TelegramDivider()
+                        TelegramRow(title: "Modules", symbol: "shippingbox.fill", tint: .green, value: "\(app.catalogue.installedIDs.count)") { app.navigation.open(.settings(.modules(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Feed", symbol: "rectangle.stack.fill", tint: .pink, value: feedValue) { app.navigation.open(.settings(.feed(.root))) }
+                    }
+
+                    settingsSection("Devices & Data") {
+                        TelegramRow(title: "Devices", symbol: "laptopcomputer", tint: .orange) { app.navigation.open(.settings(.account(.sessions))) }
                         TelegramDivider()
                         TelegramRow(title: "Data and Storage", symbol: "internaldrive.fill", tint: .green) { app.navigation.open(.settings(.dataStorage(.root))) }
                         TelegramDivider()
-                        TelegramRow(title: "Storage & Downloads", symbol: "square.stack.3d.up.fill", tint: .green) { app.navigation.open(.settings(.dataStorage(.packages))) }
+                        TelegramRow(title: "Storage & Downloads", symbol: "square.stack.3d.up.fill", tint: .yellow) { app.navigation.open(.settings(.dataStorage(.packages))) }
+                    }
+
+                    settingsSection("Experience") {
+                        TelegramRow(title: "Notifications and Sounds", symbol: "bell.fill", tint: .red) { app.navigation.open(.settings(.notifications(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Privacy and Security", symbol: "lock.fill", tint: .gray) { app.navigation.open(.settings(.privacy(.root))) }
                         TelegramDivider()
                         TelegramRow(title: "Appearance", symbol: "paintbrush.fill", tint: .cyan, value: themeValue) { app.navigation.open(.settings(.appearance(.root))) }
                         TelegramDivider()
-                        TelegramRow(title: "Power Saving", symbol: "battery.100.bolt", tint: .orange, value: dataSaver ? "On" : "Off") { app.navigation.open(.settings(.battery(.root))) }
+                        TelegramRow(title: "Power Saving", symbol: "battery.100.bolt", tint: .green, value: dataSaver ? "On" : "Off") { app.navigation.open(.settings(.battery(.root))) }
                         TelegramDivider()
-                        TelegramRow(title: "Language", symbol: "globe", tint: .purple) { app.navigation.open(.settings(.language(.root))) }
+                        TelegramRow(title: "Language", symbol: "globe", tint: .blue) { app.navigation.open(.settings(.language(.root))) }
                         TelegramDivider()
                         TelegramRow(title: "Moliboo", symbol: "pawprint.fill", tint: .orange) { app.navigation.open(.settings(.moliboo)) }
                     }
 
-                    TelegramSettingsCard {
-                        TelegramRow(title: "Account", symbol: "person.fill", tint: .blue) { app.navigation.open(.settings(.account(.root))) }
-                        TelegramDivider()
-                        TelegramRow(title: "Feed", symbol: "rectangle.stack.fill", tint: .orange, value: feedValue) { app.navigation.open(.settings(.feed(.root))) }
-                        TelegramDivider()
+                    settingsSection("More") {
                         TelegramRow(title: "Chats", symbol: "bubble.left.and.bubble.right.fill", tint: .green) { app.navigation.open(.settings(.chats(.root))) }
                         TelegramDivider()
                         TelegramRow(title: "Media and Camera", symbol: "photo.on.rectangle.angled", tint: .pink) { app.navigation.open(.settings(.media(.root))) }
@@ -227,9 +245,7 @@ struct SettingsView: View {
                         TelegramRow(title: "Accessibility", symbol: "accessibility", tint: .blue) { app.navigation.open(.settings(.accessibility(.root))) }
                         TelegramDivider()
                         TelegramRow(title: "Intelligence", symbol: "brain", tint: .purple, value: intelligenceStatus) { app.navigation.open(.settings(.intelligence(.root))) }
-                    }
-
-                    TelegramSettingsCard {
+                        TelegramDivider()
                         TelegramRow(title: "Help and Status", symbol: "questionmark.bubble.fill", tint: .orange) { app.navigation.open(.settings(.help(.root))) }
                         TelegramDivider()
                         TelegramRow(title: "What’s New", symbol: "sparkles", tint: .blue) { app.navigation.open(.settings(.whatsNew(.root))) }
@@ -313,7 +329,16 @@ struct SettingsView: View {
         // Liquid Glass search capsule pinned under the nav bar (replaces the system `.searchable`
         // field, which rendered as a flat grey rounded rect). Same query → same results.
         .modifier(SettingsSearchBarPlacement(query: $query, presented: $searchPresented))
-        .task { await refreshIntelligenceStatus() }
+        .task {
+            await refreshIntelligenceStatus()
+            guard app.auth.account != nil else { return }
+            await app.profile.loadIfNeeded(
+                .me,
+                handleHint: nil,
+                accountHandle: app.auth.account?.primaryHandle,
+                catalogue: app.catalogue.products
+            )
+        }
         #if DEBUG
         // Screenshot hooks: `--debug-settings-query <text>` prefills search,
         // `--debug-settings-scroll <y>` parks the page at an offset.
@@ -339,32 +364,116 @@ struct SettingsView: View {
         ModulaAvatar(initials: identityInitials, url: identityAvatarURL, size: size)
     }
 
-    /// Telegram header: big centred avatar · bold name · grey @handle.
-    private var telegramHeader: some View {
-        let p = IslandAvatarMerge<EmptyView>.progress(for: avatarFrame)
-        let overscroll = max(0, -scrollY)
-        return VStack(spacing: 6) {
-            heroAvatar(size: 100)
-                .scaleEffect(reduceMotion ? 1 : 1 + min(overscroll / 220, 0.5), anchor: .bottom)
-                .opacity(p > 0 ? 0 : 1)
-                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { avatarFrame = $0 }
-                .onTapGesture { openProfileEdit() }
-                .accessibilityLabel("Profile photo")
-            Text(identityDisplayName)
-                .font(.title2.weight(.bold))
-                .lineLimit(1)
-                .padding(.top, 6)
-            if let identityHandle {
-                Text(identityHandle)
-                    .font(.subheadline)
+    /// Cover banner: real profile cover when the account has one, otherwise the accent gradient.
+    /// Counts come from `GET /v1/profiles/:handle` via the profile store. Missing profile hides the chips.
+    private var settingsCover: some View {
+        let profile = app.profile.ownProfile
+        let merge = IslandAvatarMerge<EmptyView>.progress(for: avatarFrame)
+        return VStack(alignment: .leading, spacing: 12) {
+            ZStack(alignment: .bottomLeading) {
+                settingsCoverArt
+                    .frame(height: 156)
+                    .frame(maxWidth: .infinity)
+                    .clipped()
+                LinearGradient(colors: [.black.opacity(0.05), .black.opacity(0.55)], startPoint: .top, endPoint: .bottom)
+                    .allowsHitTesting(false)
+                HStack(alignment: .center, spacing: 12) {
+                    heroAvatar(size: 64)
+                        .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+                        .scaleEffect(reduceMotion ? 1 : 1 + min(max(0, -scrollY) / 280, 0.25), anchor: .bottom)
+                        .opacity(merge > 0 ? 0 : 1)
+                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { avatarFrame = $0 }
+                        .onTapGesture { openProfileEdit() }
+                        .accessibilityLabel("Profile photo")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(identityDisplayName)
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        if let identityHandle {
+                            Text(identityHandle)
+                                .font(.subheadline)
+                                .foregroundStyle(.white.opacity(0.88))
+                                .lineLimit(1)
+                        }
+                    }
+                    Spacer(minLength: 8)
+                    Button("Edit profile") { openProfileEdit() }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .frame(height: 36)
+                        .background(.white.opacity(0.22), in: Capsule())
+                        .accessibilityIdentifier("settings.edit.cover")
+                }
+                .padding(14)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+
+            if app.auth.account != nil, let profile {
+                HStack(spacing: 8) {
+                    settingsStat(profile.postCount, "Posts", "square.and.pencil")
+                    settingsStat(profile.followerCount, "Followers", "person.fill")
+                    settingsStat(profile.followingCount, "Following", "person.2.fill")
+                }
+            } else if app.auth.account == nil {
+                Text("Sign in to see your posts, followers and following.")
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
-                    .opacity(Double(1 - min(collapse * 2, 1)))
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 4)
-        .padding(.bottom, 6)
+        .accessibilityIdentifier("settings.cover")
+    }
+
+    @ViewBuilder
+    private var settingsCoverArt: some View {
+        if let url = app.profile.ownProfile?.coverURL {
+            ModulaRemoteImage(url: url, cacheKey: "settings-cover:\(url.absoluteString)") { phase in
+                switch phase {
+                case .success(let image):
+                    Image(uiImage: image).resizable().scaledToFill()
+                default:
+                    settingsCoverFallback
+                }
+            }
+        } else {
+            settingsCoverFallback
+        }
+    }
+
+    private var settingsCoverFallback: some View {
+        LinearGradient(
+            colors: [Color(hex: app.profile.ownProfile?.coverColour ?? "#369CAA"), app.appearance.accent.color.opacity(0.85)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private func settingsStat(_ count: Int, _ label: String, _ symbol: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Label(count.formatted(), systemImage: symbol)
+                .font(.subheadline.weight(.semibold))
+                .labelStyle(.titleAndIcon)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label), \(count.formatted())")
+    }
+
+    private func settingsSection(_ title: String, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.none)
+                .padding(.leading, 4)
+            TelegramSettingsCard { content() }
+        }
     }
 
     /// Developer rows: each gets its own symbol and colour tile (they all looked like the same puzzle piece).

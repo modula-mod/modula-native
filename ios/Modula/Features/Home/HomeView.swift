@@ -89,6 +89,11 @@ struct HomeView: View {
                         .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
                         .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
 
+                        greetingHero
+                            .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
+                            .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
+                            .padding(.bottom, 14)
+
                         feedContent(state)
                     }
                     .padding(.top, 4)
@@ -244,6 +249,114 @@ struct HomeView: View {
             return String(localized: "Messages, \(count) unread")
         }
         return "Messages"
+    }
+
+    /// Greeting card from the signed-in profile and the device clock. Actions open real destinations.
+    private var greetingHero: some View {
+        let now = Date()
+        let name = HomeGreeting.name(
+            displayName: app.profile.ownProfile?.displayName,
+            handle: app.profile.ownProfile?.handle ?? app.auth.account?.primaryHandle
+        )
+        return VStack(alignment: .leading, spacing: 12) {
+            ZStack(alignment: .bottomLeading) {
+                LinearGradient(
+                    colors: [Color(hex: "#369CAA"), app.appearance.accent.color, Color(hex: "#1B3A4B")],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Label(HomeGreeting.line(for: now), systemImage: HomeGreeting.symbol(for: now))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.92))
+                        Spacer(minLength: 8)
+                        Text(HomeGreeting.dateChip(now))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(.white.opacity(0.18), in: Capsule())
+                            .accessibilityLabel(HomeGreeting.dateChip(now))
+                    }
+                    Text(name)
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                    Text("Your space. Your people. Your modules.")
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.9))
+                    Button {
+                        app.navigation.open(.settings(.whatsNew(.root)))
+                        HapticEngine.shared.play(.navigation)
+                    } label: {
+                        Text("What’s new")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14)
+                            .frame(height: 36)
+                            .background(.white.opacity(0.2), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("home.greeting.whats-new")
+                }
+                .padding(18)
+            }
+            .frame(maxWidth: .infinity, minHeight: 176, alignment: .bottomLeading)
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+
+            greetingActions
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.greeting")
+    }
+
+    private var greetingActions: some View {
+        HStack(spacing: 8) {
+            greetingAction("Write", "square.and.pencil", "home.greeting.write") {
+                app.navigation.open(.compose(.post))
+            }
+            greetingAction("Create", "sparkles", "home.greeting.create") {
+                if app.stories.capabilities.create {
+                    app.navigation.push(.stories(.create))
+                } else {
+                    app.navigation.open(.compose(.post))
+                }
+            }
+            greetingAction("Vault", "note.text", "home.greeting.vault") {
+                if let product = app.catalogue.product("digital.modula.vault-notes") {
+                    app.navigation.open(.productHub(.module(product.id, .overview)))
+                } else {
+                    app.navigation.open(.productHub(.featured))
+                }
+            }
+            greetingAction("Browse", "safari", "home.greeting.browse") {
+                app.navigation.open(.discover(.trending))
+            }
+        }
+    }
+
+    private func greetingAction(_ title: String, _ symbol: String, _ identifier: String, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            HapticEngine.shared.play(.navigation)
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: symbol)
+                    .font(.body.weight(.semibold))
+                Text(title)
+                    .font(.caption2.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity, minHeight: 62)
+            .foregroundStyle(.primary)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityIdentifier(identifier)
     }
 
     private var modeCaption: some View {

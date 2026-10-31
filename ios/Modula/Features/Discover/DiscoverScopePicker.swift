@@ -45,10 +45,15 @@ struct DiscoverScopePicker: View {
             onSelect(scope)
             HapticEngine.shared.play(.selection)
         } label: {
-            Text(title(scope))
-                .font(.subheadline.weight(selected ? .semibold : .medium))
-                .lineLimit(1)
-                .fixedSize()
+            HStack(spacing: 6) {
+                Image(systemName: symbol(scope))
+                    .font(.caption.weight(.bold))
+                    .accessibilityHidden(true)
+                Text(title(scope))
+                    .font(.subheadline.weight(selected ? .semibold : .medium))
+                    .lineLimit(1)
+                    .fixedSize()
+            }
                 .padding(.horizontal, 14)
                 .padding(.horizontal, compact ? -2 : 0)
                 .frame(minHeight: compact ? 32 : 34)
@@ -71,6 +76,16 @@ struct DiscoverScopePicker: View {
         case .topics: "Topics"
         case .posts: "Posts"
         case .modules: "Modules"
+        }
+    }
+
+    private func symbol(_ route: DiscoverRoute) -> String {
+        switch route {
+        case .trending: "flame.fill"
+        case .people: "person.fill"
+        case .topics: "number"
+        case .posts: "doc.text.fill"
+        case .modules: "shippingbox.fill"
         }
     }
 }
