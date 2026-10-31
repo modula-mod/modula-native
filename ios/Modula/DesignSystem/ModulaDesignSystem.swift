@@ -1013,11 +1013,17 @@ struct ModulaEmptyState: View {
     var title: String
     var message: String
     var symbol: String
+    /// One character, in place of the symbol. Call sites that omit it keep the symbol.
+    var illustration: SproutIllustration? = nil
     @Environment(AppEnvironment.self) private var app
     var body: some View {
         ContentUnavailableView {
             VStack(spacing: 10) {
-                ModulaEffectSymbol(symbol: symbol, tint: app.appearance.accent.color, size: 40)
+                if let illustration {
+                    SproutIllustrationView(illustration: illustration, height: 168)
+                } else {
+                    ModulaEffectSymbol(symbol: symbol, tint: app.appearance.accent.color, size: 40)
+                }
                 Text(title).font(.title3.weight(.semibold))
             }
             .accessibilityElement(children: .combine)

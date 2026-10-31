@@ -308,7 +308,7 @@ struct DiscoverScreen: View {
             ModulaErrorState(message: message) { Task { await app.discover.refresh(.modules) } }
                 .padding(.top, 40)
         case _ where items.isEmpty:
-            ModulaEmptyState(title: "No modules match this selection.", message: "Try another filter.", symbol: "shippingbox")
+            ModulaEmptyState(title: "No modules match this selection.", message: "Try another filter.", symbol: "shippingbox", illustration: .modules)
                 .padding(.top, 28)
         default:
             VStack(alignment: .leading, spacing: 16) {

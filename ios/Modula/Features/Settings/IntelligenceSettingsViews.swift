@@ -36,7 +36,7 @@ struct IntelligenceSettingsRootView: View {
                 subtitle: providerLine,
                 symbol: "brain"
             )
-            SettingsSceneGraphic(style: .orbit)
+            SproutIllustrationView(illustration: .ai, height: 148)
             NodusModelSettingsCard()
             SettingsGroup(title: "Chat") {
                 VStack(spacing: 0) {
