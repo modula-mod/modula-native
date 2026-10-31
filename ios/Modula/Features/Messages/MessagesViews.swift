@@ -18,6 +18,8 @@ struct MessagesRootView: View {
                 InMailRouteView(route: mail)
             case .new:
                 NewConversationView()
+            case .direct(let person):
+                DirectMessageView(person: person)
             case .conversation(let id):
                 ConversationView(conversationID: id)
                     .modulaZoomDestination(id: "conversation.\(id)", namespace: routeTransitions, reduceMotion: reduceMotion)
@@ -493,15 +495,16 @@ struct ConversationView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            Divider().opacity(0.4)
-            thread
-            composer
-        }
-        .navigationBarTitleDisplayMode(.inline)
-        .modulaSoftScrollEdge()
-        .navigationTitle("")
+        thread
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Composer floats over the thread so messages scroll under its glass.
+            .safeAreaInset(edge: .bottom, spacing: 0) { composer }
+            .navigationBarTitleDisplayMode(.inline)
+            .modulaSoftScrollEdge()
+            .navigationTitle(conversation?.title ?? "Conversation")
+            .toolbar {
+                ToolbarItem(placement: .principal) { header }
+            }
         .task { await app.messaging.loadThreadIfNeeded(conversationID) }
         .refreshable { await app.messaging.refreshThread(conversationID) }
         .accessibilityIdentifier("messages.conversation.\(conversationID)")
@@ -510,23 +513,34 @@ struct ConversationView: View {
 
     private var conversation: Conversation? { app.messaging.conversation(id: conversationID) }
 
+    /// Name and avatar in the navigation bar; a direct chat's header opens that profile.
     private var header: some View {
-        HStack(spacing: 10) {
-            ConversationAvatar(participant: conversation?.participants.first)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(conversation?.title ?? "Conversation")
-                    .font(.headline)
-                if let handle = conversation?.handleLabel {
-                    Text(handle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        Button {
+            guard let conversation, conversation.kind == .direct, let person = conversation.participants.first else { return }
+            HapticEngine.shared.play(.navigation)
+            app.navigation.push(.profile(person.handle.isEmpty ? person.id : person.handle, .overview))
+        } label: {
+            HStack(spacing: 8) {
+                ModulaAvatar(initials: conversation?.participants.first?.initials ?? "?",
+                             url: conversation?.participants.first?.avatarURL, size: 30)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(conversation?.title ?? "Conversation")
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                    if let handle = conversation?.handleLabel {
+                        Text(handle)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
             }
-            Spacer()
+            .contentShape(Rectangle())
         }
-        .padding(.horizontal, ModulaLayout.contentInset)
-        .padding(.vertical, 8)
+        .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
+        .accessibilityHint(conversation?.kind == .direct ? "Opens their profile" : "")
+        .accessibilityIdentifier("messages.conversation.header")
     }
 
     @ViewBuilder
@@ -540,18 +554,31 @@ struct ConversationView: View {
                 Task { await app.messaging.refreshThread(conversationID) }
             }
         case _ where items.isEmpty:
-            ModulaEmptyState(
-                title: "No messages yet",
-                message: app.messaging.capabilities.send ? "Write the first message." : "This conversation isn’t available yet.",
-                symbol: "text.bubble"
-            )
+            if app.messaging.capabilities.send {
+                MessageStarterView(conversation: conversation) { text in
+                    app.messaging.drafts[conversationID] = text
+                    HapticEngine.shared.play(.selection)
+                }
+            } else {
+                ModulaEmptyState(
+                    title: "No messages yet",
+                    message: "This conversation isn’t available yet.",
+                    symbol: "text.bubble"
+                )
+            }
         default:
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
+                        let lastOwnID = items.last(where: \.isOwn)?.id
                         ForEach(Array(items.enumerated()), id: \.element.id) { index, message in
                             let position = MessageGroupPosition.resolve(index: index, in: items)
-                            MessageBubble(message: message, position: position) { action in
+                            if let label = MessageTimeline.separator(at: index, in: items) {
+                                MessageTimeSeparator(label: label)
+                                    .padding(.top, index == 0 ? 0 : 14)
+                                    .padding(.bottom, 6)
+                            }
+                            MessageBubble(message: message, position: position, showsStatus: message.id == lastOwnID) { action in
                                 handle(action, message: message)
                             }
                             // Tight spacing inside a run of messages, roomier between senders.
@@ -669,6 +696,8 @@ enum MessageGroupPosition: Sendable {
 struct MessageBubble: View {
     let message: Message
     var position: MessageGroupPosition = .single
+    /// Sending / Sent / Delivered under the newest own message only.
+    var showsStatus = false
     var onAction: (ModulaContextAction) -> Void
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
@@ -713,6 +742,12 @@ struct MessageBubble: View {
                         Text("Read")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
+                    } else if showsStatus, message.isOwn, let status = MessageTimeline.status(for: message.delivery) {
+                        Text(status)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .contentTransition(.opacity)
+                            .accessibilityIdentifier("messages.bubble.status")
                     }
                 }
             }
@@ -980,176 +1015,152 @@ struct MessageRequestRow: View {
     }
 }
 
-/// New chat: one glass "To:" field that filters people you already chat with (opens the
-/// live conversation), plus suggested people (opens their profile). The API has no
-/// "start a conversation with X" endpoint yet, so a brand-new chat goes through the
-/// person's profile or In-Mail, and the screen says so instead of faking a thread.
+/// Pick someone to talk to. Every row starts or opens a chat with that person (never a Follow button):
+/// recent 1:1 chats first, then real suggested people (fixtures and machine-made accounts filtered).
 struct NewConversationView: View {
     @Environment(AppEnvironment.self) private var app
-    @State private var query = ""
-    @FocusState private var focused: Bool
+    @State private var people: [DiscoverPerson] = []
 
-    private var trimmed: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var recentDirect: [Conversation] {
+        Array(app.messaging.conversations.filter { $0.kind == .direct && !$0.participants.isEmpty }.prefix(5))
+    }
 
-    private var matches: [Conversation] {
-        let all = app.messaging.conversations
-        guard !trimmed.isEmpty else { return Array(all.prefix(8)) }
-        let q = trimmed.lowercased().replacingOccurrences(of: "@", with: "")
-        return all.filter { c in
-            c.title.lowercased().contains(q) || c.participants.contains {
-                $0.displayName.lowercased().contains(q) || $0.handle.lowercased().contains(q)
-            }
+    /// Suggestions without people you already chat with (or yourself).
+    private var suggestions: [DiscoverPerson] {
+        let own = app.profile.ownProfile?.handle.lowercased()
+        return people.filter { p in
+            p.handle.lowercased() != own && app.messaging.directConversation(with: p.handle) == nil
         }
     }
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                if !trimmed.isEmpty {
-                    actionRow(title: "Search everyone for \u{201C}\(trimmed)\u{201D}", symbol: "magnifyingglass", id: "messages.new.search-all") {
-                        app.navigation.push(.search(.section(.people, trimmed)))
-                    }
-                    .padding(.top, 6)
-                } else {
+            VStack(alignment: .leading, spacing: 16) {
+                ModulaGlassGroup(spacing: 10) {
                     VStack(spacing: 10) {
-                        actionRow(title: "Find people", symbol: "person.crop.circle.badge.plus", id: "messages.new.search") {
-                            app.navigation.push(.search(.section(.people, nil)))
-                        }
-                        if app.inMail.capabilities.send {
-                            actionRow(title: "Write an In-Mail", symbol: "envelope.badge.fill", id: "messages.new.inmail") {
-                                app.navigation.push(.messages(.inMail(.compose)))
-                            }
-                        }
-                    }
-                    .padding(.top, 6)
-                }
-
-                if !matches.isEmpty {
-                    sectionTitle(trimmed.isEmpty ? "Recent chats" : "Chats")
-                    ForEach(matches) { conversation in
                         Button {
+                            app.navigation.push(.search(.section(.people, nil)))
                             HapticEngine.shared.play(.navigation)
-                            app.navigation.push(.messages(.conversation(conversation.id)))
-                        } label: { recentRow(conversation) }
-                        .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: nil))
-                        .accessibilityIdentifier("messages.new.recent.\(conversation.id)")
+                        } label: {
+                            Label("Search people", systemImage: "magnifyingglass")
+                                .font(.body.weight(.semibold))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 16).frame(height: 48)
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .modulaGlass(in: Capsule(), interactive: true)
+                        .accessibilityIdentifier("messages.new.search")
+                        if app.inMail.capabilities.send {
+                            Button {
+                                app.navigation.push(.messages(.inMail(.compose)))
+                                HapticEngine.shared.play(.navigation)
+                            } label: {
+                                Label("Write an In-Mail", systemImage: "envelope.badge.fill")
+                                    .font(.body.weight(.semibold))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 16).frame(height: 48)
+                                    .contentShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .modulaGlass(in: Capsule(), interactive: true)
+                        }
                     }
-                } else if !trimmed.isEmpty {
-                    VStack(spacing: 6) {
-                        Image(systemName: "person.crop.circle.badge.questionmark")
-                            .font(.system(size: 34, weight: .regular)).foregroundStyle(.secondary)
-                            .padding(.bottom, 4)
-                        Text("No chats with \u{201C}\(trimmed)\u{201D}").font(.headline)
-                        Text("Search everyone to find them, then message from their profile.")
-                            .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 36)
                 }
-
-                if trimmed.isEmpty {
-                    ActivitySuggestedPeople()
-                    Text("Starting a chat with someone new happens from their profile.")
-                        .font(.footnote).foregroundStyle(.secondary)
-                        .padding(.top, 18)
+                if !recentDirect.isEmpty {
+                    section("Recent") {
+                        ForEach(recentDirect) { c in
+                            let p = c.participants[0]
+                            MessagePersonRow(name: c.title, handle: p.handle, avatarURL: p.avatarURL ?? avatar(for: p.handle),
+                                             detail: c.lastMessage?.body) {
+                                app.navigation.push(.messages(.conversation(c.id)))
+                            }
+                            .accessibilityIdentifier("messages.new.recent.\(c.id)")
+                        }
+                    }
+                }
+                if !suggestions.isEmpty {
+                    section("Suggested") {
+                        ForEach(suggestions.prefix(8)) { person in
+                            MessagePersonRow(name: person.displayName, handle: person.handle,
+                                             avatarURL: person.avatarURL ?? avatar(for: person.handle),
+                                             detail: person.followsViewer ? "Follows you" : nil) {
+                                app.navigation.push(.messages(.direct(person.handle)))
+                            }
+                            .accessibilityIdentifier("messages.new.person.\(person.handle)")
+                        }
+                    }
                 }
             }
             .padding(.horizontal, ModulaLayout.contentInset)
-            .padding(.bottom, 24)
-        }
-        .scrollDismissesKeyboard(.interactively)
-        .messagesTopBar {
-            HStack(spacing: 8) {
-                Text("To:").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-                TextField("Name or @handle", text: $query)
-                    .textFieldStyle(.plain)
-                    .focused($focused)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .submitLabel(.search)
-                    .onSubmit {
-                        if !trimmed.isEmpty, matches.isEmpty { app.navigation.push(.search(.section(.people, trimmed))) }
-                    }
-                    .accessibilityIdentifier("messages.new.to")
-                if !query.isEmpty {
-                    Button { query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
-                        .buttonStyle(.plain).accessibilityLabel("Clear")
-                }
-            }
-            .padding(.horizontal, 14)
-            .frame(height: 44)
-            .modulaGlass(in: Capsule(), interactive: true)
-            .contentShape(Capsule())
-            .onTapGesture { focused = true }
-            .padding(.horizontal, ModulaLayout.contentInset)
-            .padding(.vertical, 8)
+            .padding(.vertical, 12)
         }
         .modulaSoftScrollEdge()
         .navigationTitle("New Message")
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            #if DEBUG
-            if MessagingDebugFixture.isEnabled {
-                if app.messaging.conversations.isEmpty { app.messaging.installDebugInbox(MessagingDebugFixture.inbox()) }
-                return
-            }
-            #endif
             await app.messaging.loadInboxIfNeeded()
+            guard ModulaPreferences.showsSuggestedPeople else { return }
+            people = ((try? await GreenfieldDiscoverRepository(client: app.client).people(cursor: nil).items) ?? [])
+                .filter { !ActivitySuggestedPeople.isFixture($0) }
         }
         .accessibilityIdentifier("messages.new")
     }
 
-    private func sectionTitle(_ title: String) -> some View {
-        Text(title).font(.headline).padding(.top, 22).padding(.bottom, 6)
-            .accessibilityAddTraits(.isHeader)
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).font(.headline).padding(.top, 10).padding(.bottom, 4).accessibilityAddTraits(.isHeader)
+            content()
+        }
     }
 
-    private func actionRow(title: String, symbol: String, id: String, action: @escaping () -> Void) -> some View {
+    /// Photo from a profile already loaded this session when the list payload has none.
+    private func avatar(for handle: String) -> URL? {
+        let key = handle.lowercased()
+        return app.profile.sessions.values.lazy.compactMap(\.profile).first { $0.handle.lowercased() == key }?.avatarURL
+    }
+}
+
+/// One person in the New Message picker: tap anywhere to chat.
+struct MessagePersonRow: View {
+    let name: String
+    let handle: String
+    var avatarURL: URL?
+    var detail: String?
+    var action: () -> Void
+
+    private var initials: String {
+        let parts = name.split(separator: " ")
+        if parts.count >= 2 { return String(parts[0].prefix(1) + parts[1].prefix(1)).uppercased() }
+        return String(name.prefix(2)).uppercased()
+    }
+
+    var body: some View {
         Button {
             HapticEngine.shared.play(.navigation)
             action()
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: symbol)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(app.appearance.accent.color)
-                    .frame(width: 34, height: 34)
-                    .modulaGlass(in: Circle(), interactive: false, tint: app.appearance.accent.color.opacity(0.18))
-                Text(title).font(.body.weight(.semibold)).lineLimit(1)
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.right").font(.footnote.weight(.bold)).foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, 12)
-            .frame(height: 56)
-            .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true)
-            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        }
-        .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: nil))
-        .accessibilityIdentifier(id)
-    }
-
-    private func recentRow(_ conversation: Conversation) -> some View {
-        let isGroup = conversation.kind == .group || conversation.participants.count > 1
-        let subtitle: String = isGroup
-            ? "\(conversation.participants.count) people"
-            : (conversation.participants.first.map { "@\($0.handle)" } ?? "")
-        return HStack(spacing: 12) {
-            ConversationAvatar(participants: conversation.participants, unread: false, size: 44)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(conversation.title).font(.subheadline.weight(.semibold)).lineLimit(1)
-                if !subtitle.isEmpty {
-                    Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                ModulaAvatar(initials: initials, url: avatarURL, size: 44, name: name)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).lineLimit(1)
+                    Text(detail.map { "@\(handle) · \($0)" } ?? "@\(handle)")
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
+                Spacer(minLength: 8)
+                Image(systemName: "bubble.left.fill")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 34, height: 34)
+                    .modulaGlass(in: Circle(), interactive: false)
+                    .accessibilityHidden(true)
             }
-            Spacer(minLength: 8)
-            Image(systemName: "bubble.left.and.bubble.right.fill")
-                .font(.footnote).foregroundStyle(app.appearance.accent.color)
-                .accessibilityHidden(true)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
         }
-        .padding(.vertical, 8)
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
-        .accessibilityHint("Opens your chat")
+        .buttonStyle(.plain)
+        .accessibilityLabel("Message \(name), @\(handle)")
+        .accessibilityAddTraits(.isButton)
     }
 }
 
@@ -1388,5 +1399,227 @@ extension View {
         } else {
             self.background(.ultraThinMaterial, in: shape)
         }
+    }
+}
+
+
+// MARK: - Thread timeline
+
+enum MessageTimeline {
+    /// A centred time label before a message that starts a new day or follows an hour-long gap.
+    static func separator(at index: Int, in items: [Message], calendar: Calendar = .current, now: Date = Date()) -> String? {
+        guard items.indices.contains(index) else { return nil }
+        let current = items[index].sentAt
+        if index > 0 {
+            let previous = items[index - 1].sentAt
+            if calendar.isDate(previous, inSameDayAs: current), current.timeIntervalSince(previous) < 60 * 60 { return nil }
+        }
+        return label(for: current, calendar: calendar, now: now)
+    }
+
+    static func label(for date: Date, calendar: Calendar = .current, now: Date = Date()) -> String {
+        var timeStyle = Date.FormatStyle(date: .omitted, time: .shortened)
+        timeStyle.timeZone = calendar.timeZone
+        let time = date.formatted(timeStyle)
+        if calendar.isDate(date, inSameDayAs: now) { return "Today \(time)" }
+        if let yesterday = calendar.date(byAdding: .day, value: -1, to: now), calendar.isDate(date, inSameDayAs: yesterday) {
+            return "Yesterday \(time)"
+        }
+        if let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: now)).day,
+           (0..<7).contains(days) {
+            var weekday = Date.FormatStyle().weekday(.wide)
+            weekday.timeZone = calendar.timeZone
+            return "\(date.formatted(weekday)) \(time)"
+        }
+        var day = Date.FormatStyle().day().month(.abbreviated)
+        if calendar.component(.year, from: date) != calendar.component(.year, from: now) { day = day.year() }
+        day.timeZone = calendar.timeZone
+        return "\(date.formatted(day)), \(time)"
+    }
+
+    /// Honest delivery wording from the server state; nothing for unknown.
+    static func status(for delivery: MessageDeliveryState) -> String? {
+        switch delivery {
+        case .sending: "Sending…"
+        case .sent: "Sent"
+        case .delivered: "Delivered"
+        case .read, .failed, .unknown: nil
+        }
+    }
+}
+
+struct MessageTimeSeparator: View {
+    let label: String
+
+    var body: some View {
+        Text(label)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .modulaGlass(in: Capsule(), interactive: false)
+            .frame(maxWidth: .infinity)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// Empty chat: who you're talking to and a few one-tap openers (they only fill the composer).
+struct MessageStarterView: View {
+    let conversation: Conversation?
+    var onPick: (String) -> Void
+    @Environment(AppEnvironment.self) private var app
+
+    private let openers = ["👋", "Hey!", "How’s it going?"]
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Spacer(minLength: 24)
+            let person = conversation?.participants.first
+            ModulaAvatar(initials: person?.initials ?? "?", url: person?.avatarURL, size: 84, name: person?.displayName)
+            VStack(spacing: 4) {
+                Text(conversation?.title ?? "New conversation")
+                    .font(.title3.weight(.bold))
+                if let handle = conversation?.handleLabel {
+                    Text(handle).font(.subheadline).foregroundStyle(.secondary)
+                }
+            }
+            Text("Say hi — your first message starts the chat.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            ModulaGlassGroup(spacing: 8) {
+                HStack(spacing: 8) {
+                    ForEach(openers, id: \.self) { opener in
+                        Button { onPick(opener) } label: {
+                            Text(opener)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                                .padding(.horizontal, 12)
+                                .frame(height: 36)
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .modulaGlass(in: Capsule(), interactive: true)
+                    }
+                }
+            }
+            .padding(.top, 4)
+            Spacer(minLength: 24)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, ModulaLayout.contentInset)
+        .accessibilityIdentifier("messages.starter")
+    }
+}
+
+// MARK: - Direct (profile → chat)
+
+/// Opens the 1:1 chat with `person`. Looks the thread up in the inbox (loading it if needed) and swaps
+/// itself for the live conversation. With no thread yet, the server has no "start a conversation"
+/// endpoint, so this shows a starter addressed to them (In-Mail when it can send) instead of the inbox.
+struct DirectMessageView: View {
+    let person: String
+    @Environment(AppEnvironment.self) private var app
+    @State private var resolving = true
+
+    private var handle: String { person.trimmingCharacters(in: CharacterSet(charactersIn: "@")) }
+    private var profile: ModulaProfile? {
+        let key = handle.lowercased()
+        return app.profile.sessions.values.lazy.compactMap(\.profile)
+            .first { $0.handle.lowercased() == key || $0.id.lowercased() == key }
+    }
+    private var name: String { profile?.displayName ?? "@\(handle)" }
+    private var initials: String {
+        let parts = name.trimmingCharacters(in: CharacterSet(charactersIn: "@")).split(separator: " ")
+        if parts.count >= 2 { return String(parts[0].prefix(1) + parts[1].prefix(1)).uppercased() }
+        return String(name.trimmingCharacters(in: CharacterSet(charactersIn: "@")).prefix(2)).uppercased()
+    }
+
+    var body: some View {
+        Group {
+            if resolving {
+                VStack(spacing: 12) {
+                    ProgressView()
+                    Text("Opening your chat with \(name)…").font(.subheadline).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityIdentifier("messages.direct.resolving")
+            } else {
+                starter
+            }
+        }
+        .navigationTitle(name)
+        .navigationBarTitleDisplayMode(.inline)
+        .task(id: person) { await resolve() }
+        .accessibilityIdentifier("messages.direct")
+        .accessibilityValue(RouteSerializer.serialize(.messages(.direct(person))))
+    }
+
+    private func resolve() async {
+        if let found = app.messaging.directConversation(with: person) { open(found); return }
+        await app.messaging.loadInboxIfNeeded()
+        if let found = app.messaging.directConversation(with: person) { open(found); return }
+        // Older threads may sit beyond the first page; one refresh before giving up.
+        await app.messaging.refreshInbox()
+        if let found = app.messaging.directConversation(with: person) { open(found); return }
+        withAnimation(.smooth(duration: 0.2)) { resolving = false }
+    }
+
+    private func open(_ conversation: Conversation) {
+        app.navigation.replaceTop(with: .messages(.conversation(conversation.id)))
+    }
+
+    private var starter: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                ModulaAvatar(initials: initials, url: profile?.avatarURL, size: 88, name: name)
+                    .padding(.top, 36)
+                VStack(spacing: 4) {
+                    Text(name).font(.title3.weight(.bold))
+                    if profile != nil { Text("@\(handle)").font(.subheadline).foregroundStyle(.secondary) }
+                }
+                Text("No chat with \(profile?.displayName ?? "them") yet. When either of you starts one, it opens right here.")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+                ModulaGlassGroup(spacing: 10) {
+                    VStack(spacing: 10) {
+                        if app.inMail.capabilities.send {
+                            Button {
+                                app.inMail.draft.toHandle = handle
+                                app.navigation.replaceTop(with: .messages(.inMail(.compose)))
+                                HapticEngine.shared.play(.navigation)
+                            } label: {
+                                Label("Write an In-Mail to \(profile?.displayName ?? "@\(handle)")", systemImage: "envelope.badge.fill")
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(.white)
+                                    .frame(maxWidth: .infinity).frame(height: 50)
+                                    .contentShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color, prominent: true)
+                            .accessibilityIdentifier("messages.direct.inmail")
+                        }
+                        Button {
+                            app.navigation.replaceTop(with: .profile(handle, .overview))
+                            HapticEngine.shared.play(.navigation)
+                        } label: {
+                            Label("View profile", systemImage: "person.crop.circle")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .frame(maxWidth: .infinity).frame(height: 50)
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .modulaGlass(in: Capsule(), interactive: true)
+                        .accessibilityIdentifier("messages.direct.profile")
+                    }
+                }
+                .padding(.horizontal, ModulaLayout.contentInset)
+                .padding(.top, 8)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .accessibilityIdentifier("messages.direct.starter")
     }
 }

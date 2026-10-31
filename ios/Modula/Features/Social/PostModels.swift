@@ -372,10 +372,10 @@ struct FeedSummary: Hashable, Sendable {
         }
         let top = counts.sorted { $0.value > $1.value }.prefix(3).map(\.key)
         var highlights: [String] = []
-        if !posts.isEmpty { highlights.append("\(posts.count) posts in loaded window") }
+        if !posts.isEmpty { highlights.append(posts.count == 1 ? "1 post loaded" : "\(posts.count) posts loaded") }
         if likes > 0 { highlights.append(String(localized: "\(likes) likes")) }
         if replies > 0 { highlights.append(String(localized: "\(replies) replies")) }
-        if media > 0 { highlights.append("\(media) with media") }
+        if media > 0 { highlights.append(media == 1 ? "1 post with media" : "\(media) posts with media") }
         if modules > 0 { highlights.append(String(localized: "\(modules) module updates")) }
         return FeedSummary(
             source: .aggregate,

@@ -48,7 +48,7 @@ struct RootView: View {
         .overlay { CommandPaletteHost() }
         .overlay { CelebrationHost() }
         .sheet(item: $navigation.presented) { presentation in
-            ModulaSheet { PresentationView(presentation: presentation) }
+            ModulaSheet(detents: presentation.sheetDetents) { PresentationView(presentation: presentation) }
         }
         .overlay {
             // Morphs from Dynamic Island (or notch/status fallback). Shared by every `flash`.
@@ -316,7 +316,7 @@ struct RouteView: View {
     }
 }
 
-private struct PresentationView: View {
+struct PresentationView: View {
     let presentation: AppPresentation
     @Environment(AppEnvironment.self) private var app
 
@@ -329,12 +329,11 @@ private struct PresentationView: View {
         switch presentation {
         case .composer(let route): CreationStudioView(route: route)
         case .share(let route):
-            let url = shareURL(for: route)
-            ShareLink(item: url) {
-                Label("Share", systemImage: "square.and.arrow.up")
-            }
-            .padding()
-            .accessibilityIdentifier("share.sheet")
+            // Straight to the system share sheet (was a lone "Share" button in an empty sheet).
+            ModulaActivityShareView(items: [shareURL(for: route)]) { app.navigation.presented = nil }
+                .ignoresSafeArea()
+                .presentationDetents([.medium, .large])
+                .accessibilityIdentifier("share.sheet")
         case .filters: DevelopmentRouteView(title: "Filters", symbol: "line.3.horizontal.decrease.circle")
         case .modulePermissions: DevelopmentRouteView(title: "Module Permissions", symbol: "hand.raised")
         case .appearancePicker(let route): AppearanceSettingsView(focus: route)
@@ -403,4 +402,30 @@ private struct SystemTabBarHidden: ViewModifier {
             content
         }
     }
+}
+
+extension AppPresentation {
+    /// Share sheets open at half height and pull up; everything else stays full height.
+    var sheetDetents: [ModulaSheetDetent] {
+        switch self {
+        case .universalShare, .share: [.medium, .large]
+        // Short option sheets open at half height instead of a mostly empty full-height page.
+        case .homeFeeds, .homeFeedTools, .homeSummary, .discoverFilter: [.medium, .large]
+        default: [.large]
+        }
+    }
+}
+
+/// UIActivityViewController for SwiftUI presentations.
+struct ModulaActivityShareView: UIViewControllerRepresentable {
+    let items: [Any]
+    var onDismiss: () -> Void
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        controller.completionWithItemsHandler = { _, _, _, _ in onDismiss() }
+        return controller
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }

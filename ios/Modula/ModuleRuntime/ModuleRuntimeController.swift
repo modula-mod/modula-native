@@ -12,6 +12,7 @@ enum ModuleInstallGate: Equatable, Sendable {
     /// store holds one (Product Hub version switching), used for the integrity check.
     case runnable(descriptor: ModuleInstallDescriptor?)
     case notInstalled
+    case untrustedRelease
 }
 
 @MainActor @Observable
@@ -49,6 +50,9 @@ final class ModuleRuntimeController {
     private(set) var lastRejectedAction: String?
     /// Injected by AppEnvironment from Product Hub. nil (unit tests, previews) skips the gate.
     var installationGate: ((String) -> ModuleInstallGate)?
+    /// The account's exact rollback closure must be freshly approved before
+    /// PREVIOUS_GOOD is made ACTIVE. Missing approval fails closed.
+    var rollbackEligibility: ((String, String) -> Bool)?
     var activation: ModuleActivationController?
     var productUIRecordSource: ((String, String) -> [ProductUIRecord])?
     var now: () -> Date = Date.init
@@ -71,6 +75,12 @@ final class ModuleRuntimeController {
     }
 
     func prepare(moduleID: String, environment: ModuleEnvironment, initialLocalPath: String? = nil) -> ModuleSession? {
+        prepare(moduleID: moduleID, environment: environment, initialLocalPath: initialLocalPath,
+                recoverCorruptGame: true)
+    }
+
+    private func prepare(moduleID: String, environment: ModuleEnvironment, initialLocalPath: String?,
+                         recoverCorruptGame: Bool) -> ModuleSession? {
         let cached = activation?.active(accountID: accountID, moduleId: moduleID)
         let bundled = manifests.first(where: { $0.id == moduleID })
         guard let manifest = cached?.hostManifest ?? bundled else { return nil }
@@ -95,8 +105,11 @@ final class ModuleRuntimeController {
         case .moduleOutdated:
             return blocked(session, .updateRequired, "This version of \(manifest.name) is too old for this app. Update it in Product Hub.")
         }
-        if gate == .notInstalled && cached == nil {
+        if gate == .notInstalled {
             return blocked(session, .notInstalled, "\(manifest.name) isn’t installed on your account. Install it from Product Hub to open it.")
+        }
+        if gate == .untrustedRelease {
+            return blocked(session, .integrityFailed, "\(manifest.name) has no trusted installation plan for this release, so it wasn’t opened.")
         }
         if let descriptor, ModuleReleaseVerifier.verify(moduleID: moduleID, bundledManifest: manifestJSON[moduleID], descriptor: descriptor) != nil {
             return blocked(session, .integrityFailed, "\(manifest.name) didn’t pass its integrity check, so it wasn’t opened.")
@@ -104,7 +117,36 @@ final class ModuleRuntimeController {
         if !policy.requiredDenied.isEmpty {
             return blocked(session, .permissionDenied, "\(manifest.name) needs permissions that aren’t granted for this installation.")
         }
-        if let cached, cached.frontendMediaType == ProductUIDocument.mediaType {
+        if let cached, cached.gameSha256 != nil {
+            do {
+                _ = try activation?.store.frontendData(for: cached)
+                session.webGameEntry = try activation?.store.verifiedGameEntry(for: cached)
+                guard session.webGameEntry != nil else { throw WebGamePackageError.invalid("cache unavailable") }
+                session.runtimeKind = .webGame
+                session.state = .ready
+            } catch {
+                if recoverCorruptGame, let accountID, let activation,
+                   let previous = activation.store.release(in: .previousGood, accountID: accountID, moduleId: moduleID),
+                   previous.hostManifest.runtime == "web-game",
+                   rollbackEligibility?(moduleID, previous.releaseId) == true,
+                   trustedPreviousGame(previous, moduleID: moduleID),
+                   ModuleCompatibility.evaluate(previous.hostManifest,
+                                                hostVersions: ModuleCompatibility.advertisedHostVersions,
+                                                bridgeVersion: Self.bridgeVersion) == .compatible,
+                   ModulePolicy.grant(manifest: previous.hostManifest, descriptor: previous.descriptor,
+                                      supported: Self.supportedCapabilities).requiredDenied.isEmpty,
+                   (try? activation.store.frontendData(for: previous)) != nil,
+                   (try? activation.store.verifiedGameEntry(for: previous)) != nil,
+                   (try? activation.rollback(accountID: accountID, moduleId: moduleID,
+                                             reason: "active-game-integrity")) != nil {
+                    return prepare(moduleID: moduleID, environment: environment,
+                                   initialLocalPath: initialLocalPath, recoverCorruptGame: false)
+                }
+                return blocked(session, .integrityFailed, "\(manifest.name) failed game package verification.")
+            }
+        } else if manifest.runtime == "web-game" {
+            return blocked(session, .integrityFailed, "\(manifest.name) has no verified game package.")
+        } else if let cached, cached.frontendMediaType == ProductUIDocument.mediaType {
             do {
                 let data = try activation?.store.frontendData(for: cached) ?? Data()
                 session.productUI = try ProductUIDocument.parse(data: data, productId: cached.moduleId, version: cached.version)
@@ -124,6 +166,18 @@ final class ModuleRuntimeController {
             session.error = "The module bundle is unavailable."
         }
         return session
+    }
+
+    private func trustedPreviousGame(_ release: ModuleCachedRelease, moduleID: String) -> Bool {
+        guard release.moduleId == moduleID, release.gameSha256 != nil else { return false }
+        if let descriptor = release.descriptor {
+            return descriptor.registryReleaseId == release.releaseId && descriptor.version == release.version &&
+                ModuleReleaseVerifier.verify(moduleID: moduleID, bundledManifest: manifestJSON[moduleID],
+                                             descriptor: descriptor) == nil
+        }
+        // Product Hub verifies signed game registry facts before writing this
+        // account slot; local development packages use local: release IDs.
+        return release.releaseId == "module-release:\(moduleID):\(release.version)" && release.runtimeSha256 != nil
     }
 
     private func blocked(_ session: ModuleSession, _ state: ModuleSession.State, _ message: String) -> ModuleSession {
@@ -195,7 +249,7 @@ final class ModuleRuntimeController {
     func makeSurface(_ session: ModuleSession) -> UIView? {
         ModulaLog.runtime.debug("Creating module surface, valid \(session.isValid)")
         guard session.isValid else { return nil }
-        if session.runtimeKind == .declarativeProductUI { return nil }
+        if session.runtimeKind == .declarativeProductUI || session.runtimeKind == .webGame { return nil }
         guard !ProcessInfo.processInfo.arguments.contains("--runtime-unavailable"),
               Bundle.main.url(forResource: "main", withExtension: "jsbundle") != nil else {
             session.state = .unavailable

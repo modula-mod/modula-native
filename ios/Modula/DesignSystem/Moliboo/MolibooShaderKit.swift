@@ -124,21 +124,45 @@ private struct MolibooRippleEffect: ViewModifier {
     }
 }
 
+/// Expanding joy ring drawn as its own overlay (not a colour effect on the content), so it is a clean circle
+/// over every layer, is never squared off by layer bounds, and ends at 0.86 × the host's half-size.
 private struct MolibooJoyPulseEffect: ViewModifier {
     let trigger: Int
     let tint: Color
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var start: Date = .distantPast
+    @State private var running = false
+    private static let duration = 1.4
     func body(content: Content) -> some View {
-        let active = !reduceMotion && Date().timeIntervalSince(start) < 1.4
-        TimelineView(.animation(minimumInterval: 1 / 60, paused: !active)) { ctx in
-            let age = ctx.date.timeIntervalSince(start)
-            content.visualEffect { v, proxy in
-                v.colorEffect(ShaderLibrary.molibooJoyPulse(.float2(proxy.size), .float(age < 1.4 ? age : 0), .color(tint)),
-                              isEnabled: !reduceMotion && age > 0 && age < 1.4)
+        content.overlay {
+            if running && !reduceMotion {
+                GeometryReader { g in
+                    TimelineView(.animation(minimumInterval: 1 / 60)) { ctx in
+                        let p = min(1, max(0, ctx.date.timeIntervalSince(start) / Self.duration))
+                        let eased = 1 - pow(1 - p, 2.2)
+                        let r = min(g.size.width, g.size.height) / 2 * 0.86 * max(0.12, eased)
+                        Circle()
+                            .stroke(AngularGradient(colors: [tint, tint.opacity(0.75), .pink.opacity(0.7), tint], center: .center),
+                                    lineWidth: 4 + 10 * (1 - p))
+                            .blur(radius: 3 + 5 * p)
+                            .frame(width: r * 2, height: r * 2)
+                            .position(x: g.size.width / 2, y: g.size.height / 2)
+                            .opacity(0.8 * (1 - p))
+                    }
+                }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
             }
         }
-        .onChange(of: trigger) { _, _ in start = Date() }
+        .onChange(of: trigger) { _, _ in
+            let begun = Date()
+            start = begun; running = true
+            // Stop the 60 fps timeline once the ring has faded.
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(Self.duration + 0.05))
+                if start == begun { running = false }
+            }
+        }
     }
 }
 

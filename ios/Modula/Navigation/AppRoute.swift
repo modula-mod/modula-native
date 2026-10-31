@@ -68,7 +68,7 @@ enum AppearanceSettingsRoute: String, CaseIterable, Codable, Hashable {
 }
 enum NotificationSettingsRoute: String, CaseIterable, Codable, Hashable { case root, push, social, modules, quietHours = "quiet-hours" }
 enum PrivacySettingsRoute: String, CaseIterable, Codable, Hashable { case root, privacy, security, glassPrivacy = "glass-privacy", blocked, appLock = "app-lock", biometrics }
-enum DataSettingsRoute: String, CaseIterable, Codable, Hashable { case root, storage, cache, downloads, backup, export }
+enum DataSettingsRoute: String, CaseIterable, Codable, Hashable { case root, storage, packages = "storage-downloads", cache, downloads, backup, export }
 enum AccessibilitySettingsRoute: String, CaseIterable, Codable, Hashable { case root, text, contrast, motion }
 enum FeatureSettingsRoute: String, CaseIterable, Codable, Hashable { case root, enabled, experimental }
 enum UpdateSettingsRoute: String, CaseIterable, Codable, Hashable { case root, channel, stable, unstable, versionLock = "version-lock" }
@@ -175,6 +175,9 @@ enum MessagesRoute: Hashable {
     case inMail(InMailRoute)
     case new
     case conversation(String)
+    /// 1:1 chat with a person (handle or profile id): opens the existing conversation, else a starter
+    /// addressed to them. Never the inbox.
+    case direct(String)
 }
 enum InMailRoute: Hashable { case inbox, compose, thread(String) }
 enum StoriesRoute: Hashable { case root, create, story(String) }
@@ -345,6 +348,9 @@ enum RouteParser {
         case "new":
             guard p.count == 2 else { return nil }
             return .messages(.new)
+        case "to":
+            guard p.count == 3, validID(p[2]) else { return nil }
+            return .messages(.direct(p[2]))
         case "in-mail":
             if p.count == 2 { return .messages(.inMail(.inbox)) }
             guard p.count == 3 else { return nil }
@@ -500,6 +506,7 @@ enum RouteSerializer {
             case .requests: "/messages/requests"
             case .new: "/messages/new"
             case .conversation(let id): "/messages/\(id)"
+            case .direct(let person): "/messages/to/\(person)"
             case .inMail(let mail):
                 switch mail {
                 case .inbox: "/messages/in-mail"

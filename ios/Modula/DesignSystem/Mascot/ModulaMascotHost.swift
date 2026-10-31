@@ -490,6 +490,8 @@ struct ModulaComposerMascot: View {
     @State private var lastTap: Date = .distantPast
     @State private var moved = false
     @State private var typingSettle: Task<Void, Never>?
+    /// Global top of the mascot: the picker grows upward from here, so its grid is capped to the room above.
+    @State private var mascotTop: CGFloat = 800
     private let context = MascotContext.shared
     private var wardrobe = MascotWardrobeStore.shared
 
@@ -552,9 +554,11 @@ struct ModulaComposerMascot: View {
             .scaleEffect(picking ? 1.1 : 1, anchor: .bottom)
             .contentShape(Ellipse().scale(x: 0.42, y: 0.46))
             .gesture(pressGesture)
+            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { mascotTop = $0 }
             .overlay(alignment: .bottomTrailing) {
                 if picking {
-                    ModulaMascotPicker(selected: kind, hovered: hovered, onFrames: { tileFrames = $0 }) { choice in
+                    // Room above the mascot minus the status bar + navigation bar (~110pt) and the picker's lift.
+                    ModulaMascotPicker(selected: kind, hovered: hovered, availableHeight: mascotTop + size * 0.25 - 110, onFrames: { tileFrames = $0 }) { choice in
                         commit(choice)
                     } onClose: {
                         withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) { picking = false }
@@ -705,11 +709,17 @@ struct ModulaComposerMascot: View {
 struct ModulaMascotPicker: View {
     let selected: ModulaMascotKind
     var hovered: ModulaMascotKind?
+    /// Vertical room the whole picker may take (it springs upward from the mascot).
+    var availableHeight: CGFloat = 640
     var onFrames: ([ModulaMascotKind: CGRect]) -> Void
     var onSelect: (ModulaMascotKind) -> Void
     var onClose: () -> Void
     var onDressUp: (() -> Void)? = nil
     @State private var frames: [ModulaMascotKind: CGRect] = [:]
+    /// Family page shown in the grid (starts on the selected Moliboo's family). 115 Moliboos never fit one panel.
+    @State private var family: MolibooFamily?
+    /// Visible grid viewport (global): slide-to-pick only targets tiles you can actually see.
+    @State private var gridViewport: CGRect = .zero
     @State private var brains: [ModulaMascotKind: MascotBrain] = Dictionary(uniqueKeysWithValues: ModulaMascotKind.allCases.map { ($0, MascotBrain()) })
     @State private var appeared = false
     @State private var bob = false
@@ -721,17 +731,48 @@ struct ModulaMascotPicker: View {
     private let gap: CGFloat = 5
     private var columns: [GridItem] { Array(repeating: GridItem(.fixed(tile), spacing: gap), count: 5) }
     private var ink: Color { ambience.isDark ? .white : .primary }
+    private var families: [MolibooFamily] { MolibooFamily.allCases.filter { !$0.kinds.isEmpty } }
+    private var currentFamily: MolibooFamily { family ?? selected.family }
+    private static let tileHeight: CGFloat = 66
+    /// Hero, chips, Dress up, paddings and gaps around the grid.
+    private var chromeHeight: CGFloat { 64 + 30 + (onDressUp != nil ? 38 + 8 : 0) + 8 * 2 + 20 }
+    /// Grid height: the family's rows, capped at 3½ rows (and at the room above the mascot, never below 1½ rows).
+    private var gridHeight: CGFloat {
+        let rows = CGFloat((currentFamily.kinds.count + 4) / 5)
+        let full = rows * Self.tileHeight + max(0, rows - 1) * gap
+        let cap = 3.5 * Self.tileHeight + 3 * gap
+        let room = max(1.5 * Self.tileHeight + gap, availableHeight - chromeHeight)
+        return min(full, cap, room)
+    }
     private var subInk: Color { ambience.isDark ? .white.opacity(0.75) : .secondary }
 
     var body: some View {
         let focus = hovered ?? selected
         VStack(alignment: .leading, spacing: 8) {
             hero(focus)
-            LazyVGrid(columns: columns, spacing: gap) {
-                ForEach(Array(ModulaMascotKind.allCases.enumerated()), id: \.element) { index, kind in
-                    tileView(kind, index: index)
+            familyChips
+            ScrollViewReader { proxy in
+                ScrollView(.vertical) {
+                    LazyVGrid(columns: columns, spacing: gap) {
+                        ForEach(Array(currentFamily.kinds.enumerated()), id: \.element) { index, kind in
+                            tileView(kind, index: index).id(kind)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+                .scrollIndicators(.hidden)
+                .scrollBounceBehavior(.basedOnSize)
+                .frame(height: gridHeight)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { gridViewport = $0; publishFrames() }
+                .onAppear { proxy.scrollTo(selected, anchor: .center) }
+                .onChange(of: currentFamily) { _, f in
+                    frames = [:]
+                    publishFrames()
+                    if f == selected.family { proxy.scrollTo(selected, anchor: .center) }
                 }
             }
+            .accessibilityIdentifier("moliboo.picker.grid")
             if onDressUp != nil {
                 Button { onDressUp?() } label: {
                     Label("Dress up", systemImage: "tshirt.fill")
@@ -759,6 +800,46 @@ struct ModulaMascotPicker: View {
         .onChange(of: hovered) { _, kind in if let kind { brains[kind]?.hop(burst: nil, height: 6) } }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("moliboo.picker")
+    }
+
+    /// Only tiles of the shown family whose centre is inside the visible grid are slide-to-pick targets.
+    private func publishFrames() {
+        let shown = Set(currentFamily.kinds)
+        onFrames(frames.filter { shown.contains($0.key) && gridViewport.contains(CGPoint(x: $0.value.midX, y: $0.value.midY)) })
+    }
+
+    /// Family chips in the Moliboos (rounded, heavy) face; the selected family takes its Moliboo's colour.
+    private var familyChips: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal) {
+                HStack(spacing: 6) {
+                    ForEach(families) { f in
+                        let on = f == currentFamily
+                        let tint = (f == selected.family ? selected : (f.kinds.first ?? selected)).palette.dark
+                        Button {
+                            withAnimation(reduceMotion ? nil : .snappy(duration: 0.22)) { family = f }
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            Text(f.label)
+                                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                                .lineLimit(1).fixedSize()
+                                .foregroundStyle(on ? Color.white : ink.opacity(0.8))
+                                .padding(.horizontal, 12).frame(height: 30)
+                                .background(Capsule().fill(on ? AnyShapeStyle(tint.gradient) : AnyShapeStyle(Color.primary.opacity(ambience.isDark ? 0.16 : 0.07))))
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .id(f)
+                        .accessibilityLabel(f.name)
+                        .accessibilityAddTraits(on ? .isSelected : [])
+                        .accessibilityIdentifier("moliboo.picker.family.\(f.rawValue)")
+                    }
+                }
+            }
+            .scrollIndicators(.hidden)
+            .frame(height: 30)
+            .onAppear { proxy.scrollTo(currentFamily, anchor: .center) }
+        }
     }
 
     /// Hero preview of the focused character with a gentle idle bob (still under Reduce Motion).
@@ -834,7 +915,7 @@ struct ModulaMascotPicker: View {
         .buttonStyle(.plain)
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
             frames[kind] = frame
-            onFrames(frames)
+            publishFrames()
         }
         .accessibilityLabel("\(kind.name)\(kind.isPremium ? ", Premium" : ""). \(kind.personality)")
         .accessibilityIdentifier("moliboo.picker.tile.\(kind.rawValue)")

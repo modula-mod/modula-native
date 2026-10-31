@@ -71,6 +71,15 @@ final class ModuleSecurityTests: XCTestCase {
         XCTAssertNil(runtime.session(forToken: session.surfaceToken, moduleID: "a.mod"))
     }
 
+    func testInstalledReleaseWithoutTrustedPlanFailsClosed() {
+        let runtime = ModuleRuntimeController(manifests: [manifest("a.mod")])
+        runtime.installationGate = { _ in .untrustedRelease }
+        let session = runtime.prepare(moduleID: "a.mod", environment: environment)!
+        XCTAssertEqual(session.state, .integrityFailed)
+        XCTAssertFalse(session.isValid)
+        XCTAssertNil(runtime.session(forToken: session.surfaceToken, moduleID: "a.mod"))
+    }
+
     private func descriptor(module: String = "a.mod", tamper: Bool = false, revoked: Bool = false,
                             granted: [String] = ["storage:records"]) throws -> ModuleInstallDescriptor {
         var body: [String: JSONValue] = [

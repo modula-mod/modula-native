@@ -3,7 +3,8 @@ import SwiftUI
 struct DiscoverSearchEntry: View {
     var compact: Bool = false
     var action: () -> Void
-    var onCustomise: () -> Void
+    /// Nil when the current scope has no filters (Trending, Topics): the menu then only offers Refresh.
+    var onCustomise: (() -> Void)?
     var onRefresh: () -> Void
     @Environment(\.modulaHeroScope) private var heroScope
 
@@ -38,8 +39,10 @@ struct DiscoverSearchEntry: View {
 
             // Filter + options merged into one glass menu.
             Menu {
-                Button("Customise", systemImage: "slider.horizontal.3", action: onCustomise)
-                    .accessibilityIdentifier("discover.customise")
+                if let onCustomise {
+                    Button("Customise", systemImage: "slider.horizontal.3", action: onCustomise)
+                        .accessibilityIdentifier("discover.customise")
+                }
                 Button("Refresh", systemImage: "arrow.clockwise", action: onRefresh)
             } label: {
                 Image(systemName: "line.3.horizontal.decrease")

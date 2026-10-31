@@ -45,6 +45,47 @@ enum DebugSettingsHarness {
         store.equip(scenes[n])
     }
 
+    /// `--debug-modula-code mycode|scan` opens the Modula Code screen (sample public link only).
+    static var modulaCodeMode: ModulaCodeMode? {
+        switch value(after: "--debug-modula-code") {
+        case "mycode": .myCode
+        case "scan": .scan
+        default: nil
+        }
+    }
+
+    static var sampleCodeSubject: ModulaCodeSubject {
+        ModulaCodeSubject(
+            title: "Andrei",
+            subtitle: "@andrei.modula",
+            url: ModulaShareLink.profile("andrei.modula"),
+            initials: "AN"
+        )
+    }
+
+    /// `--debug-share profile|post|link` opens the universal share sheet for screenshots.
+    static var sharePayload: SharePayload? {
+        switch value(after: "--debug-share") {
+        case "profile": .profile(identity: "andrei.modula", displayName: "Andrei", handle: "andrei.modula", avatarURL: nil)
+        case "post": .post(id: "debug-post", authorName: "Andrei", excerpt: "Sample post for the share sheet", hasMedia: true)
+        case "link": .link(url: URL(string: "https://modula.digital/docs") ?? ModulaShareLink.base, title: "Modula Docs")
+        default: nil
+        }
+    }
+
+    /// `--debug-sheet feeds|summary|discover-people|discover-posts|discover-modules` presents a shell sheet
+    /// over a plain canvas, for screenshots (discover-* sets the Discover scope the sheet reads).
+    static var sheetPresentation: (AppPresentation, AppRoute?)? {
+        switch value(after: "--debug-sheet") {
+        case "feeds": (.homeFeeds, .home(.following))
+        case "summary": (.homeSummary, .home(.following))
+        case "discover-people": (.discoverFilter, .discover(.people))
+        case "discover-posts": (.discoverFilter, .discover(.posts))
+        case "discover-modules": (.discoverFilter, .discover(.modules))
+        default: nil
+        }
+    }
+
     /// `--debug-route /profile/andrei.modula` renders any route (signed-out real data only).
     static var anyRoute: AppRoute? {
         let args = ProcessInfo.processInfo.arguments
@@ -114,6 +155,23 @@ struct MolibooPickerHarnessView: View {
         }
         .environment(\.colorScheme, MolibooAmbience.resolved().isDark ? .dark : .light)
         .accessibilityIdentifier("moliboo.picker.harness")
+    }
+}
+struct DebugSheetHarnessView: View {
+    @Environment(AppEnvironment.self) private var app
+    let presentation: AppPresentation
+    let context: AppRoute?
+    @State private var shown = false
+    var body: some View {
+        Color(uiColor: .systemBackground).ignoresSafeArea()
+            .sheet(isPresented: $shown) {
+                ModulaSheet(detents: presentation.sheetDetents) { PresentationView(presentation: presentation) }
+            }
+            .task {
+                if let context { app.navigation.replaceContext(with: context) }
+                try? await Task.sleep(for: .milliseconds(300))
+                shown = true
+            }
     }
 }
 #endif

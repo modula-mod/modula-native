@@ -900,5 +900,26 @@ enum ModulaFixtureFilter {
         let hexSuffix = #"[\s_\-][0-9a-f]{5,}$"#
         return name.range(of: hexSuffix, options: .regularExpression) != nil
             || handle.range(of: hexSuffix, options: .regularExpression) != nil
+            || handle.hasPrefix("vps-") || handle.contains("-checked-")
+            || looksGenerated(handle)
+    }
+
+    /// Machine-made handles such as "b14bmsb2xub7n73r", "p6smrq8pwcc" or "macb17863988517690": letters and
+    /// digits only, 8+ long, and either 2+ digits with 3+ letter/digit switches or 40%+ digits (6+). Real handles ("andrei.modula", "sam2024") don't qualify.
+    static func looksGenerated(_ handle: String) -> Bool {
+        let h = handle.lowercased()
+        guard h.count >= 8, h.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber) }) else { return false }
+        let digits = h.filter(\.isNumber).count
+        // Long digit runs ("macb17863988517690"): mostly numbers.
+        if digits >= 6 && digits * 5 >= h.count * 2 { return true }
+        guard digits >= 2 else { return false }
+        var switches = 0
+        var last: Bool?
+        for c in h {
+            let isDigit = c.isNumber
+            if let last, last != isDigit { switches += 1 }
+            last = isDigit
+        }
+        return switches >= 3
     }
 }

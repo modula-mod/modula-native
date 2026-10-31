@@ -167,7 +167,7 @@ struct ProfileView: View {
                 ModulaProfileCodeView(profile: profile) {
                     showsModulaCode = false
                 }
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .presentationCornerRadius(32)
             }
@@ -1659,13 +1659,21 @@ struct ProfileView: View {
         return nil
     }
 
+    /// Message opens the 1:1 chat with this person (existing thread, else a starter addressed to them),
+    /// never the inbox. Without chat, In-Mail compose opens already addressed to them.
     private func openMessaging(for profile: ModulaProfile) {
+        let person = profile.handle.isEmpty ? profile.id : profile.handle
         if app.messaging.capabilities.send {
-            app.navigation.push(.messages(.new))
+            if let existing = app.messaging.directConversation(with: person) {
+                app.navigation.push(.messages(.conversation(existing.id)))
+            } else {
+                app.navigation.push(.messages(.direct(person)))
+            }
             HapticEngine.shared.play(.navigation)
             return
         }
         if app.inMail.capabilities.send {
+            if !profile.handle.isEmpty { app.inMail.draft.toHandle = profile.handle }
             app.navigation.push(.messages(.inMail(.compose)))
             HapticEngine.shared.play(.navigation)
         }

@@ -36,7 +36,7 @@ struct ModulaApp: App {
                 }
                 .modifier(MOL01DebugCover())
                 .modifier(MOL01StudioCover())
-                .modifier(MOL03StudioCover())
+                .modifier(MOL03StudioCover(environment: environment))
                 #endif
                 .onContinueUserActivity(CSSearchableItemActionType) { activity in
                     guard let id = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String else { return }
@@ -142,6 +142,9 @@ enum MainThreadHangWatchdog {
     nonisolated(unsafe) static var started = false
 
     static func start() {
+        // XCTest startup can briefly stall the simulator main thread. Its
+        // signal handler is diagnostic only and is unsafe during that stall.
+        guard !ProcessInfo.processInfo.arguments.contains("--modula-disable-hang-watchdog") else { return }
         guard !started else { return }
         started = true
         mainThread = pthread_self()
