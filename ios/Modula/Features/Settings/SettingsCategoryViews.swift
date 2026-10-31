@@ -1047,6 +1047,7 @@ struct DeveloperSettingsHost: View {
         switch route {
         case .root:
             Form {
+                CommunityDeveloperEntry()
                 Button("Module Studio") { app.navigation.open(.developer(.studio)) }
                     .accessibilityIdentifier("developer.settings.studio")
                 Button("Runtime") { app.navigation.open(.settings(.developer(.runtime))) }

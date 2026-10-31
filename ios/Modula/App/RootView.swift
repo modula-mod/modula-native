@@ -312,6 +312,8 @@ struct RouteView: View {
             CollectionDetailView(collectionID: id)
         case .drafts:
             DraftsView()
+        case .community(let route):
+            CommunityRootView(route: route)
         }
     }
 }

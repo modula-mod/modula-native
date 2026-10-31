@@ -325,7 +325,8 @@ enum FeatureFlagRegistry {
         .init(id: "post.like", title: "Post likes", detail: "Like toggle against Greenfield.", exposedToProduction: true, enabled: true),
         .init(id: "reactions.v2", title: "Multi-reactions", detail: "Capability-gated until Greenfield reaction types are verified.", exposedToProduction: false, enabled: false),
         .init(id: "app.lock", title: "App Lock", detail: "Local passcode and biometrics.", exposedToProduction: true, enabled: true),
-        .init(id: "command.center", title: "Command Center", detail: "Native command palette.", exposedToProduction: true, enabled: true)
+        .init(id: "command.center", title: "Command Center", detail: "Native command palette.", exposedToProduction: true, enabled: true),
+        .init(id: "community.shell", title: "Community shell", detail: "Debug-only preview. Always off in Release. Greenfield has no communities routes.", exposedToProduction: false, enabled: false)
     ]
 
     static var productionVisible: [FeatureFlag] { all.filter(\.exposedToProduction) }
