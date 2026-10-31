@@ -1,0 +1,248 @@
+{
+  "identifier": "ModulaPremium",
+  "nonRenewingSubscriptions": [],
+  "products": [],
+  "settings": {
+    "_applicationInternalID": "local",
+    "_developerTeamID": "",
+    "_failTransactionsEnabled": false,
+    "_locale": "en_GB",
+    "_storefront": "GBR",
+    "_storeKitErrors": [
+      {
+        "current": null,
+        "enabled": false,
+        "name": "Load Products"
+      },
+      {
+        "current": null,
+        "enabled": false,
+        "name": "Purchase"
+      },
+      {
+        "current": null,
+        "enabled": false,
+        "name": "Verification"
+      },
+      {
+        "current": null,
+        "enabled": false,
+        "name": "App Store Sync"
+      },
+      {
+        "current": null,
+        "enabled": false,
+        "name": "Subscription Status"
+      },
+      {
+        "current": null,
+        "enabled": false,
+        "name": "App Transaction"
+      },
+      {
+        "current": null,
+        "enabled": false,
+        "name": "Manage Subscriptions Sheet"
+      },
+      {
+        "current": null,
+        "enabled": false,
+        "name": "Refund Request Sheet"
+      },
+      {
+        "current": null,
+        "enabled": false,
+        "name": "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups": [
+    {
+      "id": "modula.premium",
+      "localizations": [],
+      "name": "Modula Premium",
+      "subscriptions": [
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "3.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "plus.monthly",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Modula Plus. A paid membership. It does not verify identity.",
+              "displayName": "Modula Plus",
+              "locale": "en_GB"
+            }
+          ],
+          "productID": "modula.premium.plus.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Modula Plus Monthly",
+          "subscriptionGroupID": "modula.premium",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "39.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "plus.annual",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Modula Plus. A paid membership. It does not verify identity.",
+              "displayName": "Modula Plus",
+              "locale": "en_GB"
+            }
+          ],
+          "productID": "modula.premium.plus.annual",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "Modula Plus Annual",
+          "subscriptionGroupID": "modula.premium",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "8.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "horizon.monthly",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Modula Horizon. A paid membership. It does not verify identity.",
+              "displayName": "Modula Horizon",
+              "locale": "en_GB"
+            }
+          ],
+          "productID": "modula.premium.horizon.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Modula Horizon Monthly",
+          "subscriptionGroupID": "modula.premium",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "89.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "horizon.annual",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Modula Horizon. A paid membership. It does not verify identity.",
+              "displayName": "Modula Horizon",
+              "locale": "en_GB"
+            }
+          ],
+          "productID": "modula.premium.horizon.annual",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "Modula Horizon Annual",
+          "subscriptionGroupID": "modula.premium",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "14.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "horizonPlus.monthly",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Modula Horizon Plus. A paid membership. It does not verify identity.",
+              "displayName": "Modula Horizon Plus",
+              "locale": "en_GB"
+            }
+          ],
+          "productID": "modula.premium.horizonPlus.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Modula Horizon Plus Monthly",
+          "subscriptionGroupID": "modula.premium",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "149.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "horizonPlus.annual",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Modula Horizon Plus. A paid membership. It does not verify identity.",
+              "displayName": "Modula Horizon Plus",
+              "locale": "en_GB"
+            }
+          ],
+          "productID": "modula.premium.horizonPlus.annual",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "Modula Horizon Plus Annual",
+          "subscriptionGroupID": "modula.premium",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "29.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "studio.monthly",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Modula Studio. A paid membership. It does not verify identity.",
+              "displayName": "Modula Studio",
+              "locale": "en_GB"
+            }
+          ],
+          "productID": "modula.premium.studio.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Modula Studio Monthly",
+          "subscriptionGroupID": "modula.premium",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "299.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "studio.annual",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Modula Studio. A paid membership. It does not verify identity.",
+              "displayName": "Modula Studio",
+              "locale": "en_GB"
+            }
+          ],
+          "productID": "modula.premium.studio.annual",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "Modula Studio Annual",
+          "subscriptionGroupID": "modula.premium",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        }
+      ]
+    }
+  ],
+  "version": {
+    "major": 3,
+    "minor": 0
+  }
+}

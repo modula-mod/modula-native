@@ -136,6 +136,16 @@ struct PremiumDestination: View {
                 PremiumCreatorView()
             case .possibilities:
                 PremiumPossibilitiesView()
+            case .purchase:
+                PremiumPurchaseView()
+            case .welcome:
+                PremiumWelcomeView()
+            case .profile:
+                PremiumProfilePreviewView()
+            case .settings:
+                PremiumMemberSettingsView()
+            case .upsell:
+                PremiumUpsellView()
             }
         } else {
             SettingsCapabilityUnavailableView(

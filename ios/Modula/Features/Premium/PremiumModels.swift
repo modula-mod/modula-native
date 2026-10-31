@@ -91,6 +91,11 @@ enum PremiumRemote {
     }
 
     /// `GET /v1/creator/insights` with no query. Profile visitors are not part of this model.
+    /// `GET /v1/me/verification`. Verification is never a premium purchase, and the response schema is not declared.
+    static func loadVerification(client: GreenfieldClient) async throws {
+        let _: JSONValue = try await client.authenticatedJSON("GET", path: PremiumAPI.verification)
+    }
+
     static func loadInsights(client: GreenfieldClient) async throws -> CreatorInsightsResponse {
         let value = try await client.authenticatedJSON("GET", path: PremiumAPI.insights)
         return try GreenfieldValueDecoder.decode(CreatorInsightsResponse.self, from: value)

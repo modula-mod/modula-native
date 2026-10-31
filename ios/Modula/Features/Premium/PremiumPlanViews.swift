@@ -95,9 +95,11 @@ struct PremiumCompareView: View {
             PremiumPrimaryButton(
                 plan: store.selectedPlan,
                 currentPlan: store.plan,
-                comingSoon: true,
+                comingSoon: false,
                 identifier: "premium.compare.choose"
-            ) {}
+            ) {
+                app.navigation.open(.settings(.premium(.purchase)))
+            }
             Text(PremiumPricing.placeholderNote)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
