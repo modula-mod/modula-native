@@ -256,8 +256,7 @@ struct QRCodeSettingsHost: View {
                 if let profile = app.profile.ownProfile, let matrix = ModulaQRMatrix.make(profile.shareURL.absoluteString) {
                     ModulaBrandedQRCode(matrix: matrix, accent: accent) {
                         RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white)
-                            .overlay(Image("ModulaAppIcon").resizable().scaledToFill()
-                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous)).padding(3))
+                            .overlay(ModulaUnitTile(variant: .teal, cornerFraction: 0.2).padding(3))
                     }
                     .padding(14)
                     .background(Color.white, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
