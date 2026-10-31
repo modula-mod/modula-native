@@ -493,6 +493,9 @@ struct ConversationView: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var reply: ModulaComposerReply?
+    @State private var replyQuote: String?
+    @State private var composerFocused = false
 
     var body: some View {
         thread
@@ -622,8 +625,13 @@ struct ConversationView: View {
             ),
             canSend: app.messaging.capabilities.send,
             showsAttachments: app.messaging.capabilities.attachments,
-            largeText: dynamicTypeSize.isAccessibilitySize
+            largeText: dynamicTypeSize.isAccessibilitySize,
+            reply: reply,
+            onCancelReply: cancelReply,
+            focus: $composerFocused
         ) {
+            reply = nil
+            replyQuote = nil
             IslandSendEffect.shared.fire("Message sent", accent: app.appearance.accent.color)
             Task {
                 await app.messaging.send(
@@ -632,6 +640,19 @@ struct ConversationView: View {
                 )
             }
         }
+    }
+
+    private func cancelReply() {
+        if let replyQuote {
+            let prefix = replyQuote + "\n"
+            var draft = app.messaging.drafts[conversationID] ?? ""
+            if draft.hasPrefix(prefix) {
+                draft.removeFirst(prefix.count)
+                app.messaging.drafts[conversationID] = draft
+            }
+        }
+        reply = nil
+        replyQuote = nil
     }
 
     private var viewer: ConversationParticipant {
@@ -652,13 +673,18 @@ struct ConversationView: View {
             Task { await app.messaging.retry(message: message, viewer: viewer) }
         case "reply":
             // Swipe-to-reply (Settings → Gestures): quote the message into the composer.
+            // There is no reply-to field on POST /v1/conversations/:id/messages, so the quote stays in the text.
             let quoted = message.body.text
                 .split(separator: "\n", omittingEmptySubsequences: false)
                 .prefix(3)
                 .map { "> " + $0 }
                 .joined(separator: "\n")
+            let who = message.sender.handle.isEmpty ? message.sender.displayName : "@\(message.sender.handle)"
+            reply = ModulaComposerReply(title: "Replying to \(who)", excerpt: message.body.text)
+            replyQuote = quoted
             let existing = app.messaging.drafts[conversationID] ?? ""
             app.messaging.drafts[conversationID] = quoted + "\n" + existing
+            composerFocused = true
             HapticEngine.shared.play(.selection)
         default:
             break
@@ -864,6 +890,9 @@ struct MessageComposer: View {
     var canSend: Bool
     var showsAttachments: Bool
     var largeText: Bool
+    var reply: ModulaComposerReply? = nil
+    var onCancelReply: (() -> Void)? = nil
+    var focus: Binding<Bool>? = nil
     var onSend: () -> Void
     @AppStorage("settings.chats.enterToSend") private var enterToSend = false
     @AppStorage("settings.chats.spellCheck") private var spellCheck = true
@@ -871,6 +900,7 @@ struct MessageComposer: View {
     @State private var showStickers = false
 
     var body: some View {
+        let typing = showStickers || focus?.wrappedValue == true
         VStack(spacing: 0) {
             if showStickers {
                 ModulaStickerPicker(client: app.client, initialSection: "sprout") { sticker in
@@ -881,23 +911,31 @@ struct MessageComposer: View {
                 .accessibilityIdentifier("messages.stickers")
             }
             HStack(alignment: .bottom, spacing: 0) {
-                Button {
-                    showStickers.toggle()
-                } label: {
-                    Image(systemName: showStickers ? "keyboard" : "seal.fill")
-                        .font(.system(size: 18, weight: .semibold))
-                        .frame(width: 44, height: 44)
+                // The seal sits with the docked composer. While the keyboard is down it folds into the pill.
+                if typing {
+                    Button {
+                        showStickers.toggle()
+                        if showStickers { focus?.wrappedValue = false }
+                    } label: {
+                        Image(systemName: showStickers ? "keyboard" : "seal.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(showStickers ? "Hide stickers" : "Stickers")
+                    .accessibilityIdentifier("messages.stickers.button")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(showStickers ? "Hide stickers" : "Stickers")
-                .accessibilityIdentifier("messages.stickers.button")
                 ModulaComposer(
                     text: $text,
                     prompt: "Add a message...",
                     enabled: canSend,
                     showsAttachmentButton: showsAttachments,
+                    externalFocus: focus,
                     returnSends: enterToSend,
                     spellCheck: spellCheck,
+                    reply: reply,
+                    onCancelReply: onCancelReply,
+                    collapsesWhenUnfocused: !showStickers,
                     onSend: onSend
                 )
             }

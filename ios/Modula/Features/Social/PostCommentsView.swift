@@ -435,6 +435,7 @@ struct PostCommentsView: View {
     @State private var showsSearch = false
     @State private var scrollTarget: SocialCommentID?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -1238,6 +1239,12 @@ struct PostCommentsView: View {
     }
 
     @ViewBuilder
+    /// "Replying to @handle" when the author has a handle; the display name only when they don't.
+    private static func composerContext(_ verb: String, author: SocialAuthor?) -> String {
+        if let handle = author?.handle, !handle.isEmpty { return "\(verb) @\(handle)" }
+        return "\(verb) \(author?.displayName ?? "comment")"
+    }
+
     private var composer: some View {
         let canvas = ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas
         VStack(spacing: 0) {
@@ -1307,8 +1314,8 @@ struct PostCommentsView: View {
                             url: app.profile.ownProfile?.avatarURL
                         )
                     },
-                    reply: store?.replyingTo.map { ModulaComposerReply(title: "Replying to \($0.author?.displayName ?? "comment")", excerpt: $0.text) }
-                        ?? store?.quoting.map { ModulaComposerReply(title: "Quoting \($0.author?.displayName ?? "comment")", excerpt: $0.text) },
+                    reply: store?.replyingTo.map { ModulaComposerReply(title: Self.composerContext("Replying to", author: $0.author), excerpt: $0.text) }
+                        ?? store?.quoting.map { ModulaComposerReply(title: Self.composerContext("Quoting", author: $0.author), excerpt: $0.text) },
                     onCancelReply: { store?.replyingTo = nil; store?.quoting = nil },
                     attachmentOptions: attachmentOptions,
                     onAttachmentOption: handleAttachmentOption,
@@ -1334,6 +1341,7 @@ struct PostCommentsView: View {
                     showsFormatting: true,
                     onVoiceNote: { note in Task { await store?.addVoiceNote(note) } },
                     mascot: .comments,
+                    collapsesWhenUnfocused: true,
                     onSend: {
                         // The send starts immediately; the island effect is decorative.
                         // Failures still surface through the composer error / island toast.
@@ -1355,10 +1363,15 @@ struct PostCommentsView: View {
             .background {
                 if mediaPanelActive {
                     canvas
-                } else {
+                } else if composerFocused || mediaStage.isExpanded || store?.isSending == true {
+                    // Docked to the keyboard. The idle state is the floating pill, with no full-bleed bar behind it.
                     ZStack {
-                        Rectangle().fill(.ultraThinMaterial)
-                        canvas.opacity(0.35)
+                        if reduceTransparency {
+                            canvas
+                        } else {
+                            Rectangle().fill(.ultraThinMaterial)
+                            canvas.opacity(0.35)
+                        }
                     }
                     .mask(LinearGradient(stops: [
                         .init(color: .clear, location: 0),
