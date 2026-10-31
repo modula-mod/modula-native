@@ -137,7 +137,7 @@ struct SettingsCoverHeader: View {
         }
         .frame(height: coverHeight)
         .padding(.horizontal, -ModulaLayout.contentInset)
-        .accessibilityLabel(coverURL == nil ? "Profile cover, accent background" : "Profile cover photo")
+        .accessibilityLabel(coverURL == nil ? "Profile cover, library illustration" : "Profile cover photo")
         .accessibilityIdentifier("settings.cover")
     }
 
@@ -209,8 +209,12 @@ struct SettingsCoverHeader: View {
     }
 
     private var fallback: some View {
-        ModulaAuroraBackground(tint: app.appearance.accent.color, intensity: 1)
-            .accessibilityHidden(true)
+        ZStack {
+            ModulaAuroraBackground(tint: app.appearance.accent.color, intensity: 1)
+            ShellSceneImage(scene: .library)
+                .scaledToFill()
+        }
+        .accessibilityHidden(true)
     }
 
     private var legacyFallback: some View {

@@ -54,8 +54,8 @@ struct SettingsDestinationHost: View {
             IntelligenceSettingsHost(route: nested)
         case .moliboo:
             MolibooWorldView()
-        case .premium:
-            PremiumHubView()
+        case .premium(let nested):
+            PremiumDestination(route: nested)
         case .chats(let nested):
             ChatsSettingsHost(route: nested)
         case .audio(let nested):
@@ -794,6 +794,11 @@ private struct PackageStorageDownloadsView: View {
     var body: some View {
         SettingsScrollCanvas {
             SettingsHeroBanner(title: "Storage & Downloads", subtitle: "Measured optional content on this device.", symbol: "square.stack.3d.up")
+            ShellSceneImage(scene: .storageCloud)
+                .scaledToFit()
+                .frame(height: 120)
+                .frame(maxWidth: .infinity)
+                .accessibilityHidden(true)
             if let usage {
                 SettingsGroup(title: "Usage") {
                     VStack(spacing: 0) {

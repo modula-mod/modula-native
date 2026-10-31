@@ -522,15 +522,27 @@ struct ProfileIdentityBlock: View {
     @Environment(\.profileAccentColor) private var profileAccent
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var bioExpanded = false
+    @State private var premiumStore = PremiumEntitlementStore.shared
 
     private var bioIsLong: Bool { profile.bio.count > 160 || profile.bio.contains("\n") }
     private var accent: Color { profileAccent ?? app.appearance.accent.color }
+
+    /// Own profile only. Other profiles have no membership field we are allowed to read.
+    private var showsOwnPremiumBadge: Bool {
+        guard premiumStore.showsOwnBadge else { return false }
+        if profile.id == app.auth.account?.accountId { return true }
+        let handle = app.auth.account?.primaryHandle ?? ""
+        return !handle.isEmpty && profile.handle.caseInsensitiveCompare(handle) == .orderedSame
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 ModulaText(text: profile.displayName, role: .title)
                     .lineLimit(2)
+                if showsOwnPremiumBadge {
+                    PremiumProfileBadge(plan: premiumStore.plan)
+                }
                 if profile.isVerified {
                     Image(systemName: "checkmark.seal.fill")
                         .font(.title3)

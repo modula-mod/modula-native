@@ -185,6 +185,7 @@ enum SettingsRegistry {
             item(.intelligence(.privacy), "Intelligence Privacy", "Local-only fail-closed policy", "hand.raised.fill", .implemented, terms: ["privacy", "local-only"]),
             item(.intelligence(.tools), "Tools", "Registered intelligence tools", "wrench.and.screwdriver", .implemented, terms: ["tools", "tool registry"]),
             item(.premium(.root), "Modula Premium", "Plans, comparison and FAQ (preview)", "sun.horizon.fill", .developerOnly, terms: ["premium", "horizon", "plus", "studio", "subscription", "membership", "upgrade", "badge"]),
+            item(.premium(.badge), "Premium badge", "Membership mark on your profile", "seal", .developerOnly, terms: ["badge", "pearl", "horizon", "obsidian", "membership mark"]),
             item(.moliboo, "Moliboo", "Choose, dress up, 3D, motion and sounds", "pawprint.fill", .implemented, terms: ["moliboo", "moliboos", "mascot", "companion", "wardrobe", "studio", "pebble", "3d"]),
             item(.chats(.root), "Chats", "Composer, previews and chat privacy", "bubble.left.and.bubble.right", .implemented, terms: ["chats", "messages", "messaging"]),
             item(.chats(.composer), "Composer", "Enter to send and spell check", "keyboard", .implemented, terms: ["composer", "enter to send"]),
