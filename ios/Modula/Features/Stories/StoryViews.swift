@@ -1319,6 +1319,7 @@ struct StoryLayer: Identifiable, Equatable {
         case emoji(String)
         case animated(String)
         case mascot(String)
+        case sprout(String)
         case gif(URL)
         case text(StoryTextSpec)
         case location(String)
@@ -1609,6 +1610,10 @@ struct StoryLayerView: View {
         case .mascot(let raw):
             if let kind = ModulaMascotKind(rawValue: raw) {
                 ModulaMascotSticker(kind: kind, size: 130)
+            }
+        case .sprout(let raw):
+            if let item = SproutStickerPack.sticker(id: raw) {
+                SproutStickerImage(assetName: item.assetName, size: 140)
             }
         case .gif:
             Group {
@@ -3142,6 +3147,7 @@ struct StoryCreateView: View {
             case .mascot: return .mascot(local.value)
             case .anim: return .animated(local.value)
             case .emoji: return .emoji(local.value)
+            case .sprout: return .sprout(local.value)
             }
         }
         return .emoji(sticker.emoji)

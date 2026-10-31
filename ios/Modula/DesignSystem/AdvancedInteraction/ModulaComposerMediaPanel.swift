@@ -471,7 +471,8 @@ struct ModulaStickerPicker: View {
     private var sections: [Section] {
         (recentStickers.isEmpty ? [] : [Section(id: "recent", title: "Recent", icon: "clock", isSymbol: true)])
         + [Section(id: "animated", title: "Animated", icon: "sparkles", isSymbol: true),
-         Section(id: "mascots", title: "Moliboos", icon: "pawprint.fill", isSymbol: true)]
+         Section(id: "mascots", title: "Moliboos", icon: "pawprint.fill", isSymbol: true),
+         Section(id: "sprout", title: "Sprout", icon: "leaf.fill", isSymbol: true)]
         + packs.map { Section(id: $0.id, title: $0.title, icon: $0.icon, isSymbol: false) }
         + custom.packs.map { Section(id: "custom.\($0.id)", title: $0.title, icon: $0.emoji.first ?? "⭐️", isSymbol: false) }
         + [Section(id: "mine", title: "My packs", icon: "plus.square.on.square", isSymbol: true)]
@@ -529,7 +530,13 @@ struct ModulaStickerPicker: View {
         case "recent":
             LazyVGrid(columns: columns, spacing: 10) {
                 ForEach(recentStickers) { sticker in
-                    Button { pickSticker(sticker) } label: { ModulaStickerView(emoji: sticker.emoji, size: 64) }
+                    Button { pickSticker(sticker) } label: {
+                        if let local = ModulaLocalSticker.from(sticker) {
+                            ModulaLocalStickerView(sticker: local, size: 64)
+                        } else {
+                            ModulaStickerView(emoji: sticker.emoji, size: 64)
+                        }
+                    }
                         .buttonStyle(.plain)
                         .accessibilityLabel("\(sticker.label) sticker")
                         .contextMenu { Button("Send") { pickSticker(sticker) } } preview: { ModulaStickerView(emoji: sticker.emoji, size: 180).padding(12) }
@@ -539,6 +546,17 @@ struct ModulaStickerPicker: View {
             LazyVGrid(columns: columns, spacing: 10) {
                 ForEach(ModulaAnimatedSticker.Style.allCases) { style in
                     stickerButton(ModulaLocalSticker(kind: .anim, value: style.rawValue)) { ModulaAnimatedSticker(style: style, size: 70) }
+                }
+            }
+        case "sprout":
+            LazyVGrid(columns: columns, spacing: 10) {
+                ForEach(SproutStickerPack.all) { item in
+                    Button { pickSticker(item.local.asSticker) } label: {
+                        SproutStickerImage(assetName: item.assetName, size: 64)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(item.title) sticker")
+                    .accessibilityIdentifier("stickers.sprout.\(item.id)")
                 }
             }
         case "mascots":
