@@ -427,7 +427,9 @@ struct HomeView: View {
                 .padding(.horizontal, ModulaLayout.contentInset)
                 .padding(.top, 20)
             default:
-                ForEach(app.home.visiblePosts(for: mode)) { post in
+                // Perf: filter + resolve the feed once per body pass instead of three times.
+                let visiblePosts = app.home.visiblePosts(for: mode)
+                ForEach(visiblePosts) { post in
                     let resolved = app.posts.resolved(post)
                     PostCard(
                         post: resolved,
@@ -495,9 +497,9 @@ struct HomeView: View {
                         }
                     }
                 }
-                if mode != .forYou, state.loadState == .loaded, app.home.visiblePosts(for: mode).count < 3 {
+                if mode != .forYou, state.loadState == .loaded, visiblePosts.count < 3 {
                     HomeCatchUpSection(
-                        excluding: Set(app.home.visiblePosts(for: mode).map(\.id)),
+                        excluding: Set(visiblePosts.map(\.id)),
                         onOpen: { openPost($0) }
                     )
                     .padding(.horizontal, ModulaLayout.contentInset)
