@@ -262,7 +262,7 @@ enum SettingsRegistry {
             item(.notifications(.quietHours), "Quiet Hours", "Hide the badge and hold digests overnight", "moon.zzz", .implemented, terms: ["quiet hours", "dnd"]),
             item(.privacy(.root), "Privacy & Security", "App Lock, biometrics and blocked accounts", "lock.shield", .implemented, terms: ["privacy", "security", "face id", "app lock"]),
             item(.privacy(.privacy), "Privacy", "Profile visibility and data", "hand.raised", .implemented, terms: ["visibility"]),
-            item(.privacy(.security), "Security Center", "Passkeys, recovery codes, devices and App Lock", "lock.shield.fill", .implemented, terms: ["security", "security center", "2fa", "two-factor", "two factor", "recovery codes", "passkeys", "sign out other devices", "login alerts", "sign in with apple"]),
+            item(.privacy(.security), "Security Center", "Passkeys, recovery codes, devices and App Lock", "lock.shield.fill", .implemented, terms: ["security", "security center", "2fa", "two-factor", "two factor", "recovery codes", "passkeys", "sign out other devices", "login alerts", "sign in with apple", "authenticator", "totp", "add passkey", "link apple"]),
             item(.privacy(.glassPrivacy), "Glass Privacy", "Conversation privacy levels", "bubble.left.and.bubble.right", .capabilityUnavailable, terms: ["protected chat", "vault chat", "glass"], reason: "Protected chats aren’t available yet."),
             item(.privacy(.blocked), "Blocked Accounts", "People you’ve blocked", "nosign", .implemented, terms: ["blocked", "block list"]),
             item(.privacy(.appLock), "App Lock", "Passcode lock for this device", "lock.fill", .implemented, terms: ["app lock", "passcode", "pin"]),

@@ -7,8 +7,10 @@ import SwiftUI
 /// - `GET /v1/auth/recovery-codes`, `POST /v1/auth/recovery-codes/regenerate`
 /// - `GET /v1/auth/apple/status`
 /// - `DELETE /v1/accounts/me/sessions` (sign out all other devices)
-/// Gaps (no fake controls): login alerts (no route), native TOTP enrolment and passkey registration flows
-/// (routes exist; the QR / ASAuthorization flows are not built), Apple linking flow.
+/// Flows: TOTP setup (`/v1/auth/totp/enroll|verify|disable`), passkey registration
+/// (`/v1/auth/passkeys/registration/options|verify`), Apple linking (`/v1/auth/apple/link/options`, `/v1/auth/apple/link`).
+/// Step-up: STEP_UP_REQUIRED opens PasswordStepUpSheet and retries the action.
+/// Gaps (no fake controls): login alerts (no route); no route reports whether TOTP / Apple are already linked.
 /// Psychology: a visible checklist with status (goal-gradient) and plain-language footers reduce the anxiety
 /// of security settings; destructive actions are confirmed (prevent errors, Nielsen #5).
 struct SettingsSecurityCenter: View {
@@ -17,7 +19,19 @@ struct SettingsSecurityCenter: View {
     @State private var passkeyError: String?
     @State private var recovery: JSONValue?
     @State private var recoveryError: String?
-    @State private var appleLinked: Bool?
+    @State private var appleConfigured: Bool?
+    @State private var showTOTPSetup = false
+    @State private var confirmDisableTOTP = false
+    @State private var totpMessage: String?
+    @State private var passkeyAddError: String?
+    @State private var appleMessage: String?
+    @State private var stepUpRetry: StepUpRetry?
+
+    private struct StepUpRetry: Identifiable {
+        let id = UUID()
+        let reason: String
+        let action: @MainActor () async -> Void
+    }
     @State private var busy: String?
     @State private var confirmSignOutOthers = false
     @State private var pendingPasskeyDelete: RegisteredPasskey?
@@ -30,8 +44,6 @@ struct SettingsSecurityCenter: View {
                 statusRow("Passkeys", value: passkeys.map { $0.isEmpty ? "None" : "\($0.count)" } ?? "…",
                           symbol: "person.badge.key.fill", good: (passkeys?.isEmpty == false))
                 statusRow("Recovery codes", value: recoverySummary, symbol: "key.horizontal.fill", good: recoveryRemaining.map { $0 > 0 } ?? false)
-                statusRow("Sign in with Apple", value: appleLinked.map { $0 ? "Linked" : "Not linked" } ?? "…",
-                          symbol: "apple.logo", good: appleLinked == true)
                 statusRow("App Lock", value: lock.enabled ? "On" : "Off", symbol: "lock.fill", good: lock.enabled)
             } header: {
                 Text("Overview")
@@ -68,7 +80,49 @@ struct SettingsSecurityCenter: View {
             } header: {
                 Text("Passkeys")
             } footer: {
-                Text("Passkeys let you sign in with Face ID instead of a password. Removing one signs that passkey out everywhere. Adding new passkeys from this app is coming; the account already supports them.")
+                Text("Passkeys let you sign in with Face ID instead of a password. Removing one signs that passkey out everywhere. ")
+            }
+
+            Section {
+                Button { Task { await addPasskey() } } label: {
+                    Label(busy == "addPasskey" ? "Adding passkey…" : "Add a passkey", systemImage: "plus.circle.fill")
+                }
+                .disabled(busy != nil)
+            } footer: {
+                Text(passkeyAddError ?? "Creates a passkey saved in your iCloud Keychain. You'll confirm your password first, then Face ID.")
+                    .foregroundStyle(passkeyAddError == nil ? Color.secondary : Color.red)
+            }
+
+            Section {
+                Button { showTOTPSetup = true } label: {
+                    Label("Set up authenticator app", systemImage: "lock.rotation")
+                }
+                .disabled(busy != nil)
+                Button(role: .destructive) { confirmDisableTOTP = true } label: {
+                    Label(busy == "totp" ? "Turning off…" : "Turn off authenticator app", systemImage: "lock.open")
+                }
+                .disabled(busy != nil)
+            } header: {
+                Text("Two-factor authentication")
+            } footer: {
+                Text(totpMessage ?? "Adds a 6-digit code from an authenticator app when you sign in somewhere new, so a stolen password alone can't get in.")
+            }
+
+            Section {
+                if appleConfigured == false {
+                    Label("Not available yet", systemImage: "apple.logo").foregroundStyle(.secondary)
+                } else {
+                    Button { Task { await linkApple() } } label: {
+                        Label(busy == "apple" ? "Linking…" : "Link Sign in with Apple", systemImage: "apple.logo")
+                    }
+                    .disabled(busy != nil || appleConfigured == nil)
+                }
+            } header: {
+                Text("Sign in with Apple")
+            } footer: {
+                Text(appleMessage ?? (appleConfigured == false
+                     ? "Modula's server hasn't turned on Sign in with Apple yet. When it does, you can link your Apple ID here."
+                     : "Link your Apple ID so you can sign in with one tap. Your password keeps working."))
             }
 
             Section {
@@ -145,6 +199,17 @@ struct SettingsSecurityCenter: View {
         } message: {
             Text("You can still sign in with your password or other passkeys.")
         }
+        .sheet(isPresented: $showTOTPSetup) {
+            TOTPSetupSheet { totpMessage = "Authenticator app is on for this account." }
+        }
+        .sheet(item: $stepUpRetry) { retry in
+            PasswordStepUpSheet(reason: retry.reason) { Task { await retry.action() } }
+        }
+        .confirmationDialog("Turn off two-factor authentication?", isPresented: $confirmDisableTOTP, titleVisibility: .visible) {
+            Button("Turn Off", role: .destructive) { Task { await disableTOTP() } }
+        } message: {
+            Text("You'll sign in with just your password or a passkey.")
+        }
         .accessibilityIdentifier("settings.security-center")
     }
 
@@ -192,7 +257,8 @@ struct SettingsSecurityCenter: View {
 
     private func loadApple() async {
         if let value = try? await app.client.authenticatedJSON("GET", path: "/v1/auth/apple/status") {
-            appleLinked = value["linked"]?.bool ?? value["isLinked"]?.bool ?? false
+            // This route reports server capability ({configured, mode, clientIds}), not whether this account is linked.
+            appleConfigured = (value["configured"]?.bool ?? false)
         }
     }
 
@@ -205,6 +271,8 @@ struct SettingsSecurityCenter: View {
             }
             HapticEngine.shared.play(.success)
             await loadRecovery()
+        } catch where SettingsAuthStepUp.isRequired(error) {
+            stepUpRetry = StepUpRetry(reason: "Confirm your password to generate new recovery codes.") { await regenerateRecovery() }
         } catch {
             HapticEngine.shared.play(.failure)
             recoveryError = (error as? APIError)?.userFacingMessage ?? "Couldn't generate new codes. You may need to confirm your password first."
@@ -217,6 +285,8 @@ struct SettingsSecurityCenter: View {
             _ = try await app.client.authenticatedJSON("DELETE", path: "/v1/accounts/me/sessions")
             HapticEngine.shared.play(.success)
             app.navigation.flash("Signed out of other devices", symbol: "checkmark.shield.fill")
+        } catch where SettingsAuthStepUp.isRequired(error) {
+            stepUpRetry = StepUpRetry(reason: "Confirm your password to sign out your other devices.") { await signOutOthers() }
         } catch {
             HapticEngine.shared.play(.failure)
             app.navigation.flash((error as? APIError)?.userFacingMessage ?? "Couldn't sign out other devices", symbol: "exclamationmark.triangle")
@@ -230,9 +300,43 @@ struct SettingsSecurityCenter: View {
             _ = try await app.client.authenticatedJSON("DELETE", path: "/v1/auth/passkeys/\(id)")
             passkeys?.removeAll { $0.id == key.id }
             HapticEngine.shared.play(.success)
+        } catch where SettingsAuthStepUp.isRequired(error) {
+            stepUpRetry = StepUpRetry(reason: "Confirm your password to remove this passkey.") { await deletePasskey(key) }
         } catch {
             HapticEngine.shared.play(.failure)
             app.navigation.flash((error as? APIError)?.userFacingMessage ?? "Couldn't remove the passkey", symbol: "exclamationmark.triangle")
+        }
+    }
+
+    private func addPasskey() async {
+        busy = "addPasskey"; passkeyAddError = nil; defer { busy = nil }
+        do {
+            passkeyAddError = try await PasskeyRegistrationFlow.run(app: app, label: UIDevice.current.name)
+            if passkeyAddError == nil { await loadPasskeys() }
+        } catch {
+            stepUpRetry = StepUpRetry(reason: "Confirm your password to add a passkey.") { await addPasskey() }
+        }
+    }
+
+    private func linkApple() async {
+        busy = "apple"; appleMessage = nil; defer { busy = nil }
+        do {
+            appleMessage = try await AppleLinkFlow.run(app: app) ?? "Apple ID linked. You can now sign in with Apple."
+        } catch {
+            stepUpRetry = StepUpRetry(reason: "Confirm your password to link your Apple ID.") { await linkApple() }
+        }
+    }
+
+    private func disableTOTP() async {
+        busy = "totp"; defer { busy = nil }
+        do {
+            _ = try await app.client.authenticatedJSON("POST", path: "/v1/auth/totp/disable", body: .object([:]))
+            HapticEngine.shared.play(.success)
+            totpMessage = "Authenticator app turned off."
+        } catch where SettingsAuthStepUp.isRequired(error) {
+            stepUpRetry = StepUpRetry(reason: "Confirm your password to turn off two-factor authentication.") { await disableTOTP() }
+        } catch {
+            totpMessage = SettingsRemoteError.message(error, fallback: "Couldn't turn off the authenticator app.")
         }
     }
 

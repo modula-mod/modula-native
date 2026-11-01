@@ -147,6 +147,8 @@
 		R3B100000000000000000006 /* EcosystemBasicLifecycleUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R3A100000000000000000006 /* EcosystemBasicLifecycleUITests.swift */; };
 		0139D48F433333A6C105C394 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E9539623085AAA12077638F /* SettingsView.swift */; };
 		5BC2CD708605BE414A846142 /* SettingsSecurityCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F7DC2CD708605BE414A8461 /* SettingsSecurityCenter.swift */; };
+
+		5B0869F092AE8FAA2C9867BF /* SettingsAuthFlows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F250869F092AE8FAA2C9867 /* SettingsAuthFlows.swift */; };
 		5B083A4720CF4F634590613D /* SettingsSurfaceCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F58083A4720CF4F63459061 /* SettingsSurfaceCards.swift */; };
 		02ED22D448BC35987DA41C41 /* RuntimeDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */; };
 		045022BFF07BCC1674A60821 /* NavigationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */; };
@@ -681,6 +683,8 @@
 		8BB4C8A7DBAF1068946F2678 /* ActivityStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityStore.swift; path = Features/Activity/ActivityStore.swift; sourceTree = "<group>"; };
 		8E9539623085AAA12077638F /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsView.swift; path = Features/Settings/SettingsView.swift; sourceTree = "<group>"; };
 		5F7DC2CD708605BE414A8461 /* SettingsSecurityCenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsSecurityCenter.swift; path = Features/Settings/SettingsSecurityCenter.swift; sourceTree = "<group>"; };
+
+		5F250869F092AE8FAA2C9867 /* SettingsAuthFlows.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsAuthFlows.swift; path = Features/Settings/SettingsAuthFlows.swift; sourceTree = "<group>"; };
 		5F58083A4720CF4F63459061 /* SettingsSurfaceCards.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsSurfaceCards.swift; path = Features/Settings/SettingsSurfaceCards.swift; sourceTree = "<group>"; };
 		8EA749138365B53444A18694 /* NodusConversationModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusConversationModels.swift; path = Core/Intelligence/Nodus/Conversation/NodusConversationModels.swift; sourceTree = "<group>"; };
 		9041733DFED31156EFEE81C2 /* ModulaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ModulaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1399,6 +1403,7 @@
 				003916B967E1900F61DFB206 /* SettingsStore.swift */,
 				8E9539623085AAA12077638F /* SettingsView.swift */,
 				5F7DC2CD708605BE414A8461 /* SettingsSecurityCenter.swift */,
+				5F250869F092AE8FAA2C9867 /* SettingsAuthFlows.swift */,
 				5F58083A4720CF4F63459061 /* SettingsSurfaceCards.swift */,
 				B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */,
 				2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */,
@@ -2144,6 +2149,7 @@
 				21638B169590129BA65823F1 /* SettingsStore.swift in Sources */,
 				0139D48F433333A6C105C394 /* SettingsView.swift in Sources */,
 				5BC2CD708605BE414A846142 /* SettingsSecurityCenter.swift in Sources */,
+				5B0869F092AE8FAA2C9867BF /* SettingsAuthFlows.swift in Sources */,
 				5B083A4720CF4F634590613D /* SettingsSurfaceCards.swift in Sources */,
 				90EC78DC1C87A9562EC08717 /* AppRoute.swift in Sources */,
 				045022BFF07BCC1674A60821 /* NavigationCoordinator.swift in Sources */,
