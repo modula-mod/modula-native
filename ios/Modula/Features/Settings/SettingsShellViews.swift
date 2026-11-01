@@ -168,8 +168,8 @@ struct MediaSettingsHost: View {
                 )
                 MediaQualityGraphic(quality: videoQuality)
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    SettingsFeatureTile(title: "Video", detail: "Quality & mute", symbol: "film", tint: app.appearance.accent.color)
-                    SettingsFeatureTile(title: "Images", detail: "Upload originals", symbol: "photo", tint: app.appearance.accent.color)
+                    SettingsFeatureTile(title: "Video", detail: "Quality & mute", symbol: "film", tint: app.appearance.liveAccent)
+                    SettingsFeatureTile(title: "Images", detail: "Upload originals", symbol: "photo", tint: app.appearance.liveAccent)
                 }
                 SettingsGroup(title: "Open") {
                     VStack(spacing: 0) {
@@ -285,7 +285,7 @@ struct FeedSettingsHost: View {
                 }
                 Spacer()
                 if defaultMode == tag {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(app.appearance.accent.color)
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(app.appearance.liveAccent)
                 }
             }
             .padding(.vertical, 8)
@@ -437,8 +437,8 @@ struct MonetisationSettingsHost: View {
                 )
                 SettingsSceneGraphic(style: .meter)
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    SettingsFeatureTile(title: "Plans", detail: "Subscriptions", symbol: "rectangle.stack", tint: app.appearance.accent.color)
-                    SettingsFeatureTile(title: "Payouts", detail: "Creator earnings", symbol: "banknote", tint: app.appearance.accent.color)
+                    SettingsFeatureTile(title: "Plans", detail: "Subscriptions", symbol: "rectangle.stack", tint: app.appearance.liveAccent)
+                    SettingsFeatureTile(title: "Payouts", detail: "Creator earnings", symbol: "banknote", tint: app.appearance.liveAccent)
                 }
                 SettingsGroup(title: "Browse") {
                     VStack(spacing: 0) {
@@ -664,7 +664,7 @@ private struct AudioWaveGraphic: View {
         HStack(alignment: .center, spacing: 5) {
             ForEach(0..<18, id: \.self) { index in
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .fill(app.appearance.accent.color.opacity(0.35 + Double(index % 4) * 0.15))
+                    .fill(app.appearance.liveAccent.opacity(0.35 + Double(index % 4) * 0.15))
                     .frame(width: 6, height: CGFloat(12 + (index % 5) * 8))
             }
         }
@@ -672,7 +672,7 @@ private struct AudioWaveGraphic: View {
         .padding(.vertical, 22)
         .background {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(app.appearance.accent.color.opacity(0.08))
+                .fill(app.appearance.liveAccent.opacity(0.08))
         }
         .accessibilityHidden(true)
     }

@@ -42,7 +42,7 @@ struct PasskeysSettingsView: View {
                     }
                     ForEach(active) { passkey in
                         HStack(spacing: 12) {
-                            Image(systemName: "person.badge.key.fill").foregroundStyle(app.appearance.accent.color).frame(width: 28)
+                            Image(systemName: "person.badge.key.fill").foregroundStyle(app.appearance.liveAccent).frame(width: 28)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(passkey.label ?? "Passkey").font(.body.weight(.medium))
                                 Text(Self.detail(passkey)).font(.caption).foregroundStyle(.secondary)
@@ -141,7 +141,7 @@ struct ConnectorsSettingsView: View {
                                 Spacer()
                                 Text(provider.statusLabel)
                                     .font(.caption)
-                                    .foregroundStyle(provider.canConnect ? AnyShapeStyle(app.appearance.accent.color) : AnyShapeStyle(.secondary))
+                                    .foregroundStyle(provider.canConnect ? AnyShapeStyle(app.appearance.liveAccent) : AnyShapeStyle(.secondary))
                             }
                             if let privacy = provider.privacySummary {
                                 Text(privacy).font(.caption).foregroundStyle(.secondary)

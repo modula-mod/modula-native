@@ -485,7 +485,7 @@ struct PostCommentsView: View {
             .overlay {
                 if dropTargeted {
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .strokeBorder(app.appearance.accent.color, style: StrokeStyle(lineWidth: 2, dash: [8, 6]))
+                        .strokeBorder(app.appearance.liveAccent, style: StrokeStyle(lineWidth: 2, dash: [8, 6]))
                         .padding(8)
                         .allowsHitTesting(false)
                 }
@@ -785,7 +785,7 @@ struct PostCommentsView: View {
                 VStack(spacing: 10) {
                     Image(systemName: "bubble.left.and.bubble.right")
                         .font(.title2)
-                        .foregroundStyle(app.appearance.accent.color)
+                        .foregroundStyle(app.appearance.liveAccent)
                     Text("Start the conversation")
                         .font(.subheadline.weight(.semibold))
                     Text("Be the first to leave a comment.")
@@ -853,7 +853,7 @@ struct PostCommentsView: View {
                                     else { Image(systemName: "chevron.down").font(.caption2.weight(.bold)) }
                                 }
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(app.appearance.accent.color)
+                                .foregroundStyle(app.appearance.liveAccent)
                                 .padding(.leading, 42)
                                 .frame(minHeight: 44)
                             }
@@ -952,7 +952,7 @@ struct PostCommentsView: View {
         HStack(alignment: .top, spacing: 10) {
             if indented {
                 RoundedRectangle(cornerRadius: 1)
-                    .fill(app.appearance.accent.color.opacity(0.35))
+                    .fill(app.appearance.liveAccent.opacity(0.35))
                     .frame(width: 2)
                     .padding(.vertical, 4)
                 Color.clear.frame(width: 8)
@@ -980,10 +980,10 @@ struct PostCommentsView: View {
                     if isOP(comment) {
                         Text("OP")
                             .font(.caption2.weight(.bold))
-                            .foregroundStyle(app.appearance.accent.color)
+                            .foregroundStyle(app.appearance.liveAccent)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1)
-                            .background(app.appearance.accent.color.opacity(0.14), in: Capsule())
+                            .background(app.appearance.liveAccent.opacity(0.14), in: Capsule())
                             .accessibilityLabel("Original poster")
                     }
                     }
@@ -999,7 +999,7 @@ struct PostCommentsView: View {
                     }
                     .padding(.horizontal, 10).padding(.vertical, 6)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .overlay(alignment: .leading) { Capsule().fill(app.appearance.accent.color).frame(width: 3) }
+                    .overlay(alignment: .leading) { Capsule().fill(app.appearance.liveAccent).frame(width: 3) }
                     .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .accessibilityLabel("Quoting \(quoted.authorName ?? "a comment"): \(quoted.text)")
                 }
@@ -1088,7 +1088,7 @@ struct PostCommentsView: View {
         .background(alignment: .trailing) {
             Image(systemName: "arrowshape.turn.up.left.fill")
                 .font(.title3)
-                .foregroundStyle(app.appearance.accent.color)
+                .foregroundStyle(app.appearance.liveAccent)
                 .opacity(Double(min(abs(swipeOffsets[comment.id] ?? 0) / 64, 1)))
                 .scaleEffect(min(abs(swipeOffsets[comment.id] ?? 0) / 64, 1))
                 .padding(.trailing, 4)
@@ -1259,7 +1259,7 @@ struct PostCommentsView: View {
                 if mediaStage.isExpanded {
                     ComposeMediaAttachStage(
                         stage: $mediaStage,
-                        accent: app.appearance.accent.color,
+                        accent: app.appearance.liveAccent,
                         idPrefix: "comment.media",
                         height: 300,
                         maxSelectionCount: 4,
@@ -1345,7 +1345,7 @@ struct PostCommentsView: View {
                     onSend: {
                         // The send starts immediately; the island effect is decorative.
                         // Failures still surface through the composer error / island toast.
-                        IslandSendEffect.shared.fire(store?.replyingTo == nil ? "Comment sent" : "Reply sent", accent: app.appearance.accent.color)
+                        IslandSendEffect.shared.fire(store?.replyingTo == nil ? "Comment sent" : "Reply sent", accent: app.appearance.liveAccent)
                         Task { _ = await store?.send() }
                     }
                 )

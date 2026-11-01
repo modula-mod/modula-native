@@ -823,7 +823,7 @@ struct Lab30WhatsNewSheet: View {
             Spacer(minLength: 0)
             Button { dismiss(); onTry() } label: { Text("Try them").frame(maxWidth: .infinity).padding(.vertical, 12) }
                 .buttonStyle(.plain).foregroundStyle(.white)
-                .modulaGlass(in: Capsule(), tint: .accentColor, prominent: true)
+                .modulaAccentCTA()
                 .padding(.horizontal, 24)
             Button("Not now") { dismiss() }.padding(.bottom, 16)
         }

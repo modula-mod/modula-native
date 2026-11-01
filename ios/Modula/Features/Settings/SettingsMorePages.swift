@@ -66,7 +66,7 @@ struct CameraSettingsHost: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(app.appearance.accent.color)
+                .tint(app.appearance.liveAccent)
                 SettingsAPIFootnote(text: "Shows the access you’ve given Modula in iOS Settings.")
             }
             .navigationTitle("Permissions")

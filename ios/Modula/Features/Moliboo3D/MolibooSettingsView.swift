@@ -238,7 +238,7 @@ struct MolibooSettingsView: View {
                                 .background {
                                     if segment == s {
                                         Capsule().fill(Color.clear)
-                                            .modulaGlass(in: Capsule(), tint: Color(red: 0.16, green: 0.62, blue: 0.85), prominent: true)
+                                            .modulaAccentCTA()
                                             .modulaGlassID("hub.segment", in: glassNS)
                                     }
                                 }
@@ -622,7 +622,7 @@ struct MolibooWelcomeSheet: View {
                         .frame(maxWidth: .infinity, minHeight: 54).contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
-                .modulaGlass(in: Capsule(), interactive: true, tint: Color(red: 0.45, green: 0.35, blue: 0.95), prominent: true, specular: true)
+                .modulaAccentCTA()
                 .shadow(color: Color(red: 0.5, green: 0.4, blue: 1).opacity(0.6), radius: 18, y: 6)
                 .padding(.horizontal, 28)
                 .accessibilityIdentifier("moliboo.welcome.go")

@@ -393,7 +393,7 @@ struct ModulaComposer: View {
                     .frame(width: 28, height: 28)
                     .background {
                         if state.canSend {
-                            Circle().fill(app.appearance.accent.color)
+                            Circle().fill(app.appearance.liveAccent)
                         }
                     }
                     .accessibilityHidden(true)
@@ -405,11 +405,11 @@ struct ModulaComposer: View {
             .overlay {
                 Capsule()
                     .strokeBorder(
-                        reduceTransparency ? Color.primary.opacity(0.35) : app.appearance.accent.color.opacity(0.7),
+                        reduceTransparency ? Color.primary.opacity(0.35) : app.appearance.liveAccent.opacity(0.7),
                         lineWidth: 1.15
                     )
                     .shadow(
-                        color: reduceTransparency ? .clear : app.appearance.accent.color.opacity(0.5),
+                        color: reduceTransparency ? .clear : app.appearance.liveAccent.opacity(0.5),
                         radius: reduceTransparency ? 0 : 7
                     )
                     .allowsHitTesting(false)
@@ -585,7 +585,7 @@ struct ModulaComposer: View {
     @ViewBuilder
     private var trailingButton: some View {
         if handsFreeRecording && recorder.isRecording {
-            ModulaGlassSendButton(title: "Send voice note", systemImage: "arrow.up", ready: true, busy: false, size: ModulaLayout.minimumTouch, tint: app.appearance.accent.color) {
+            ModulaGlassSendButton(title: "Send voice note", systemImage: "arrow.up", ready: true, busy: false, size: ModulaLayout.minimumTouch, tint: app.appearance.liveAccent) {
                 handsFreeRecording = false
                 if let note = recorder.finish() {
                     onVoiceNote?(note)
@@ -614,7 +614,7 @@ struct ModulaComposer: View {
             .modulaGlassID("composer.trailing", in: glass)
             .transition(reduceMotion ? .opacity : .scale(scale: 0.7).combined(with: .opacity))
         } else {
-            ModulaGlassSendButton(ready: state.canSend, busy: sending, size: ModulaLayout.minimumTouch, tint: app.appearance.accent.color, action: send)
+            ModulaGlassSendButton(ready: state.canSend, busy: sending, size: ModulaLayout.minimumTouch, tint: app.appearance.liveAccent, action: send)
             .modulaGlassID("composer.trailing", in: glass)
             .transition(reduceMotion ? .opacity : .scale(scale: 0.7).combined(with: .opacity))
             .accessibilityLabel(sending ? "Sending" : "Send")
@@ -746,7 +746,7 @@ struct ModulaComposer: View {
         .padding(.leading, 14)
         .padding(.trailing, 6)
         .frame(minHeight: 36)
-        .modulaGlass(in: Capsule(), interactive: false, tint: app.appearance.accent.color.opacity(0.2))
+        .modulaGlass(in: Capsule(), interactive: false, tint: app.appearance.liveAccent.opacity(0.2))
         .modulaGlassID("composer.reply", in: glass)
         .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
         .accessibilityElement(children: .combine)

@@ -72,7 +72,7 @@ struct WhatsNewSettingsHost: View {
 
     private func bullet(_ text: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(app.appearance.accent.color)
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(app.appearance.liveAccent)
                 .accessibilityHidden(true)
             Text(text).font(.subheadline).fixedSize(horizontal: false, vertical: true)
         }
@@ -247,7 +247,7 @@ struct QRCodeSettingsHost: View {
 
     @ViewBuilder
     private var preview: some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         Button {
             HapticEngine.shared.play(.selection)
             presentedMode = app.profile.ownProfile == nil ? .scan : .myCode

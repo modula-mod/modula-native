@@ -201,3 +201,44 @@ struct ModulaGlassSearchField: View {
         .modulaGlass(in: Capsule())
     }
 }
+
+// MARK: - Shared filled accent CTA
+//
+// One style for every primary/filled call to action: a solid fill in the user's live accent
+// (custom or preset) with white text, so the single strongest action on a screen always looks
+// the same (Von Restorff). On iOS 26 the fill sits under interactive Liquid Glass tinted with the
+// same accent; with Reduce Transparency or on iOS 18–25 it is a plain solid capsule.
+private struct ModulaAccentCTAModifier<S: InsettableShape>: ViewModifier {
+    let shape: S
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    func body(content: Content) -> some View {
+        let accent = app.appearance.liveAccent
+        let styled = content
+            .foregroundStyle(isEnabled ? Color.white : accent)
+            .tint(isEnabled ? .white : accent)
+        if !isEnabled {
+            // Inactive (e.g. "You're on Horizon"): accent outline, never a washed-out fill.
+            styled
+                .background(accent.opacity(0.10), in: shape)
+                .overlay(shape.strokeBorder(accent.opacity(contrast == .increased ? 1 : 0.6), lineWidth: 1.2))
+        } else if #available(iOS 26.0, *), !reduceTransparency {
+            styled
+                .background(shape.fill(accent))
+                .glassEffect(.regular.tint(accent).interactive(), in: shape)
+        } else {
+            styled
+                .background(shape.fill(accent))
+                .shadow(color: accent.opacity(0.28), radius: 10, y: 4)
+        }
+    }
+}
+
+extension View {
+    /// The one filled accent CTA used app-wide.
+    func modulaAccentCTA() -> some View { modifier(ModulaAccentCTAModifier(shape: Capsule())) }
+    func modulaAccentCTA<S: InsettableShape>(in shape: S) -> some View { modifier(ModulaAccentCTAModifier(shape: shape)) }
+}

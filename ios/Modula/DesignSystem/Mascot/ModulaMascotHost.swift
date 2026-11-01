@@ -1693,7 +1693,7 @@ private struct CelebrationMoment: View {
     }
 
     var body: some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         let selection = MascotSelection.resolve(raw: kindRaw)
         ZStack {
             Color.black.opacity(0.28)

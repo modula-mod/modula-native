@@ -271,7 +271,7 @@ struct SearchScreen: View {
                         .padding(.horizontal, 14).frame(height: 34)
                         .background {
                             if selected {
-                                Capsule().fill(app.appearance.accent.color.opacity(0.18))
+                                Capsule().fill(app.appearance.liveAccent.opacity(0.18))
                                     .matchedGeometryEffect(id: "scope", in: scopeNS)
                             }
                         }

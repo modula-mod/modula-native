@@ -616,7 +616,7 @@ struct MolibooPackOpeningView: View {
                         Label("Add to binder", systemImage: "books.vertical.fill").font(.headline).foregroundStyle(.white).frame(maxWidth: .infinity, minHeight: 52)
                     }
                     .buttonStyle(.plain)
-                    .modulaGlass(in: Capsule(), tint: Color(red: 0.21, green: 0.61, blue: 0.67), prominent: true)
+                    .modulaAccentCTA()
                     .accessibilityIdentifier("pack.done")
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
@@ -663,7 +663,7 @@ struct MolibooPackOpeningView: View {
                 Label("Tear open", systemImage: "hand.draw.fill").font(.headline).foregroundStyle(.white).padding(.horizontal, 28).frame(minHeight: 50)
             }
             .buttonStyle(.plain)
-            .modulaGlass(in: Capsule(), tint: .purple, prominent: true)
+            .modulaAccentCTA()
             .opacity(phase == .sealed ? 1 : 0)
             .accessibilityIdentifier("pack.tear")
         }
@@ -812,7 +812,7 @@ struct MolibooLegendaryReveal: View {
                     Text("Continue").font(.headline).foregroundStyle(.white).padding(.horizontal, 36).frame(minHeight: 50)
                 }
                 .buttonStyle(.plain)
-                .modulaGlass(in: Capsule(), tint: .orange, prominent: true)
+                .modulaAccentCTA()
                 .accessibilityIdentifier("pack.legendary.continue")
                 .padding(.bottom, 50)
             }

@@ -115,13 +115,13 @@ struct ConversationListView: View {
                                 Text(item.title).font(.subheadline.weight(.semibold))
                                 if item == .unread, unread > 0 {
                                     Text("\(unread)").font(.caption2.weight(.bold)).monospacedDigit()
-                                        .foregroundStyle(on ? Color.white.opacity(0.9) : app.appearance.accent.color)
+                                        .foregroundStyle(on ? Color.white.opacity(0.9) : app.appearance.liveAccent)
                                 }
                             }
                             .foregroundStyle(on ? Color.white : Color.primary)
                             .padding(.horizontal, 14).frame(height: 34)
-                            .background { if on { Capsule().fill(app.appearance.accent.color) } }
-                            .modulaGlass(in: Capsule(), interactive: true, tint: on ? app.appearance.accent.color.opacity(0.35) : nil)
+                            .background { if on { Capsule().fill(app.appearance.liveAccent) } }
+                            .modulaGlass(in: Capsule(), interactive: true, tint: on ? app.appearance.liveAccent.opacity(0.35) : nil)
                         }
                         .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
                         .accessibilityAddTraits(on ? .isSelected : [])
@@ -166,7 +166,7 @@ struct ConversationListView: View {
                             Button {
                                 Task { await app.messaging.markConversationRead(conversation.id) }
                             } label: { Label("Read", systemImage: "checkmark.message.fill") }
-                            .tint(app.appearance.accent.color)
+                            .tint(app.appearance.liveAccent)
                         }
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -351,7 +351,7 @@ struct ConversationRow: View {
 
     var body: some View {
         let unread = conversation.isUnread
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         HStack(alignment: .center, spacing: 12) {
             ConversationAvatar(participants: conversation.participants, unread: unread, size: 54)
                 .modulaZoomSource(id: "conversation.\(conversation.id)", namespace: routeTransitions)
@@ -469,7 +469,7 @@ struct ConversationAvatar: View {
         .frame(width: size, height: size)
         .overlay(alignment: .topTrailing) {
             if unread {
-                Circle().fill(app.appearance.accent.color)
+                Circle().fill(app.appearance.liveAccent)
                     .frame(width: 12, height: 12)
                     .overlay(Circle().stroke(canvas, lineWidth: 2))
                     .offset(x: 1, y: -1)
@@ -632,7 +632,7 @@ struct ConversationView: View {
         ) {
             reply = nil
             replyQuote = nil
-            IslandSendEffect.shared.fire("Message sent", accent: app.appearance.accent.color)
+            IslandSendEffect.shared.fire("Message sent", accent: app.appearance.liveAccent)
             Task {
                 await app.messaging.send(
                     conversation: conversationID,
@@ -859,7 +859,7 @@ struct MessageBubble: View {
 
     private var bubbleFill: Color {
         if message.isOwn {
-            return app.appearance.accent.color
+            return app.appearance.liveAccent
         }
         let oled = scheme == .dark && app.appearance.darkStyle == .oled
         return oled ? Color.white.opacity(0.08) : Color.primary.opacity(0.08)
@@ -1042,7 +1042,7 @@ struct MessageRequestRow: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
                 ConversationAvatar(participant: request.sender, size: 48)
@@ -1678,7 +1678,7 @@ struct DirectMessageView: View {
                                     .contentShape(Capsule())
                             }
                             .buttonStyle(.plain)
-                            .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color, prominent: true)
+                            .modulaAccentCTA()
                             .accessibilityIdentifier("messages.direct.inmail")
                         }
                         Button {

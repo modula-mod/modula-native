@@ -341,7 +341,7 @@ struct ModulaCodeView: View {
     @State private var avatarImage: UIImage?
     @Namespace private var switchNamespace
 
-    private var accent: Color { app.appearance.accent.color }
+    private var accent: Color { app.appearance.liveAccent }
     private var style: ModulaCodeStyle { ModulaCodeStyle(rawValue: styleRaw) ?? .theme }
     private var reduceMotion: Bool { ModulaEffectGate.reduceMotion(systemReduceMotion) }
     private var matrix: ModulaQRMatrix? { subject.flatMap { ModulaQRMatrix.make($0.url.absoluteString) } }
@@ -558,7 +558,7 @@ struct ModulaCodeView: View {
                         }
                         .buttonStyle(.plain)
                         .simultaneousGesture(TapGesture().onEnded { HapticEngine.shared.play(.lightImpact) })
-                        .modulaGlass(in: Capsule(), interactive: true, tint: accent, prominent: true, specular: true)
+                        .modulaAccentCTA()
                         .accessibilityIdentifier("modulaCode.shareImage")
                     }
                     Button { copyLink(subject) } label: {
@@ -827,7 +827,7 @@ struct ModulaCodeScanner: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 18).frame(height: 40)
-                    .modulaGlass(in: Capsule(), interactive: true, tint: accent, prominent: true)
+                    .modulaAccentCTA()
                     .buttonStyle(.plain)
             }
         }
@@ -906,7 +906,7 @@ struct ModulaCodeScanner: View {
                             .frame(maxWidth: .infinity).frame(height: 44).contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .modulaGlass(in: Capsule(), interactive: true, tint: accent, prominent: true)
+                    .modulaAccentCTA()
                     .accessibilityIdentifier("modulaCode.result.open")
                 }
             }

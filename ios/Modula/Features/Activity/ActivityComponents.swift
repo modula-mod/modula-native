@@ -22,7 +22,7 @@ struct ActivityUnreadIndicator: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     var body: some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         Circle()
             .fill(accent)
             .frame(width: 7, height: 7)
@@ -49,7 +49,7 @@ struct ActivityKindBadge: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let style = Self.style(for: kind, accent: app.appearance.accent.color)
+        let style = Self.style(for: kind, accent: app.appearance.liveAccent)
         Image(systemName: style.symbol)
             .font(.system(size: 9, weight: .bold))
             .foregroundStyle(.white)
@@ -232,7 +232,7 @@ struct ActivityRow: View {
         .padding(.horizontal, 10)
         .background {
             if !event.isRead {
-                let accent = app.appearance.accent.color
+                let accent = app.appearance.liveAccent
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(LinearGradient(colors: [accent.opacity(0.11), accent.opacity(0.03)], startPoint: .leading, endPoint: .trailing))
                     .overlay(
@@ -322,7 +322,7 @@ struct ActivityTimeline: View {
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         if !event.isRead {
                             Button("Read") { onMarkRead(event) }
-                                .tint(app.appearance.accent.color)
+                                .tint(app.appearance.liveAccent)
                         }
                     }
                     Divider().opacity(0.22).padding(.leading, 62)

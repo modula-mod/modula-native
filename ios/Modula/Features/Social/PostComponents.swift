@@ -353,7 +353,7 @@ struct PostBody: View {
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityLabel(text)
-                    .tint(app.appearance.accent.color)
+                    .tint(app.appearance.liveAccent)
                     .environment(\.openURL, OpenURLAction { url in
                         if let route = PostTextLinks.route(for: url) {
                             app.navigation.push(route)
@@ -373,7 +373,7 @@ struct PostBody: View {
                         }
                     }
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(app.appearance.accent.color)
+                    .foregroundStyle(app.appearance.liveAccent)
                     .accessibilityLabel(expanded ? "Show less" : "Show more")
                 }
                 PostTranslationControl(text: text)
@@ -478,10 +478,10 @@ struct PostModuleChip: View {
                     }
                 }
             }
-            .foregroundStyle(app.appearance.accent.color)
+            .foregroundStyle(app.appearance.liveAccent)
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(app.appearance.accent.color.opacity(0.12), in: RoundedRectangle(cornerRadius: ModulaRadius.small, style: .continuous))
+            .background(app.appearance.liveAccent.opacity(0.12), in: RoundedRectangle(cornerRadius: ModulaRadius.small, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Module \(module.name ?? module.id)")
@@ -526,7 +526,7 @@ struct PostActions: View {
             Button(action: onSave) {
                 Image(systemName: post.saved ? "bookmark.fill" : "bookmark")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(post.saved ? app.appearance.accent.color : .secondary)
+                    .foregroundStyle(post.saved ? app.appearance.liveAccent : .secondary)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
@@ -616,7 +616,7 @@ struct PostActions: View {
                         .monospacedDigit()
                 }
             }
-            .foregroundStyle(active ? app.appearance.accent.color : .secondary)
+            .foregroundStyle(active ? app.appearance.liveAccent : .secondary)
             .opacity(differentiateWithoutColor && active ? 1 : 1)
             .frame(minWidth: 44, minHeight: 44)
             .padding(.horizontal, 4)
@@ -624,7 +624,7 @@ struct PostActions: View {
             .overlay(alignment: .bottom) {
                 if differentiateWithoutColor && active {
                     Capsule()
-                        .fill(app.appearance.accent.color)
+                        .fill(app.appearance.liveAccent)
                         .frame(width: 16, height: 2)
                         .offset(y: 4)
                 }
@@ -841,7 +841,7 @@ struct SharedFeedPostCard: View {
         .modifier(PostSwipeActions(
             enabled: resolved.media.count <= 1,
             saved: resolved.saved,
-            accent: app.appearance.accent.color,
+            accent: app.appearance.liveAccent,
             onSave: {
                 toggleSave(resolved)
                 app.navigation.flash(resolved.saved ? "Removed from Bookmarks" : "Saved to Bookmarks", symbol: resolved.saved ? "bookmark.slash" : "bookmark.fill")

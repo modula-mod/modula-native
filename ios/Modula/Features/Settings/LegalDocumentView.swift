@@ -43,7 +43,7 @@ struct LegalDocumentView: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "pencil.and.outline")
                     .font(.title3)
-                    .foregroundStyle(app.appearance.accent.color)
+                    .foregroundStyle(app.appearance.liveAccent)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Draft")
@@ -95,7 +95,7 @@ struct LegalDocumentView: View {
                             ForEach(Array(section.bullets.enumerated()), id: \.offset) { _, bullet in
                                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                                     Circle()
-                                        .fill(app.appearance.accent.color)
+                                        .fill(app.appearance.liveAccent)
                                         .frame(width: 6, height: 6)
                                         .accessibilityHidden(true)
                                     Text(bullet)

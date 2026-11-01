@@ -183,7 +183,7 @@ struct NodusLibraryBrowser: View {
                         Label(project.name, systemImage: project.symbol)
                         Spacer()
                         if selectedProjectID == project.id {
-                            Image(systemName: "checkmark").foregroundStyle(app.appearance.accent.color)
+                            Image(systemName: "checkmark").foregroundStyle(app.appearance.liveAccent)
                         }
                     }
                 }
@@ -227,7 +227,7 @@ struct NodusLibraryBrowser: View {
                         Label(folder.name, systemImage: folder.symbol)
                         Spacer()
                         if selectedFolderID == folder.id {
-                            Image(systemName: "checkmark").foregroundStyle(app.appearance.accent.color)
+                            Image(systemName: "checkmark").foregroundStyle(app.appearance.liveAccent)
                         }
                     }
                 }
@@ -278,7 +278,7 @@ struct NodusLibraryBrowser: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     if let tint = NodusChatTint(rawValue: placement?.color ?? ""), tint != .accent {
-                        Circle().fill(tint.color(accent: app.appearance.accent.color)).frame(width: 8, height: 8)
+                        Circle().fill(tint.color(accent: app.appearance.liveAccent)).frame(width: 8, height: 8)
                     }
                     if placement?.important == true {
                         Image(systemName: "flag.fill").font(.caption2).foregroundStyle(.orange)
@@ -544,7 +544,7 @@ struct NodusChatSettingsSheet: View {
                         in: 1...5,
                         step: 1
                     )
-                    .tint(app.appearance.accent.color)
+                    .tint(app.appearance.liveAccent)
                     Text("Short, Standard, and Fuller are one draft. Review adds a revision. Deep adds a review and a final pass.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)

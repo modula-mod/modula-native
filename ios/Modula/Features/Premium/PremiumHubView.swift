@@ -108,12 +108,12 @@ struct PremiumHubView: View {
             }
 
             TelegramSettingsCard {
-                TelegramRow(title: "Dashboard", symbol: "square.grid.2x2", tint: app.appearance.accent.color, value: store.plan.shortTitle) {
+                TelegramRow(title: "Dashboard", symbol: "square.grid.2x2", tint: app.appearance.liveAccent, value: store.plan.shortTitle) {
                     app.navigation.open(.settings(.premium(.dashboard)))
                 }
                 .accessibilityIdentifier("premium.dashboard.link")
                 TelegramDivider()
-                TelegramRow(title: "Compare plans", symbol: "checklist", tint: app.appearance.accent.color) {
+                TelegramRow(title: "Compare plans", symbol: "checklist", tint: app.appearance.liveAccent) {
                     app.navigation.open(.settings(.premium(.compare)))
                 }
                 TelegramDivider()
@@ -122,7 +122,7 @@ struct PremiumHubView: View {
                 }
                 .accessibilityIdentifier("premium.intro.link")
                 TelegramDivider()
-                TelegramRow(title: "Premium badge", symbol: "seal.fill", tint: app.appearance.accent.color, value: store.plan.showsBadge ? store.plan.shortTitle : "Core") {
+                TelegramRow(title: "Premium badge", symbol: "seal.fill", tint: app.appearance.liveAccent, value: store.plan.showsBadge ? store.plan.shortTitle : "Core") {
                     app.navigation.open(.settings(.premium(.badge)))
                 }
                 .accessibilityIdentifier("premium.badge.link")
@@ -243,6 +243,7 @@ struct PremiumPlanCard: View {
     let selected: Bool
     let current: Bool
     var action: () -> Void
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         Button(action: action) {
@@ -285,7 +286,7 @@ struct PremiumPlanCard: View {
                 Spacer(minLength: 0)
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundStyle(selected ? plan.tint : Color.secondary.opacity(0.6))
+                    .foregroundStyle(selected ? app.appearance.liveAccent : Color.secondary.opacity(0.6))
                     .accessibilityHidden(true)
             }
             .padding(14)
@@ -293,11 +294,11 @@ struct PremiumPlanCard: View {
             .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(ModulaPressStyle(scale: 0.98))
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true, tint: selected ? plan.tint.opacity(0.4) : nil, specular: selected)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true, tint: selected ? app.appearance.liveAccent.opacity(0.25) : nil, specular: selected)
         .overlay {
             if selected {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .strokeBorder(plan.tint.opacity(0.85), lineWidth: 1.5)
+                    .strokeBorder(app.appearance.liveAccent.opacity(0.85), lineWidth: 1.5)
                     .allowsHitTesting(false)
             }
         }
@@ -343,9 +344,8 @@ struct PremiumPrimaryButton: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(ModulaPressStyle(scale: 0.97))
-        .modulaGlass(in: Capsule(), interactive: true, tint: plan.tint, prominent: true, specular: true)
+        .modulaAccentCTA()
         .disabled(currentPlan == plan || comingSoon)
-        .opacity(comingSoon ? 0.6 : 1)
         .accessibilityIdentifier(identifier)
     }
 }

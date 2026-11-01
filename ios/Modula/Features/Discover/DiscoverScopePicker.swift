@@ -99,14 +99,14 @@ private struct DiscoverScopeGlass: ViewModifier {
         let opaque = reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
         if #available(iOS 26.0, *), !opaque {
             if selected {
-                content.glassEffect(.regular.tint(app.appearance.accent.color).interactive(), in: Capsule())
+                content.glassEffect(.regular.tint(app.appearance.liveAccent).interactive(), in: Capsule())
             } else {
                 content.glassEffect(.regular.interactive(), in: Capsule())
             }
         } else {
             content
                 .background(opaque ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(.regularMaterial), in: Capsule())
-                .overlay(Capsule().stroke(selected ? app.appearance.accent.color.opacity(0.7) : Color.primary.opacity(0.08), lineWidth: selected ? 1.25 : 0.75))
+                .overlay(Capsule().stroke(selected ? app.appearance.liveAccent.opacity(0.7) : Color.primary.opacity(0.08), lineWidth: selected ? 1.25 : 0.75))
         }
     }
 }

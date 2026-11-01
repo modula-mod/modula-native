@@ -381,7 +381,7 @@ struct ActivityFilterSheet: View {
                     ProgressView().controlSize(.small)
                 } else if selected {
                     Image(systemName: "checkmark")
-                        .foregroundStyle(app.appearance.accent.color)
+                        .foregroundStyle(app.appearance.liveAccent)
                 }
             }
             .frame(minHeight: ModulaLayout.minimumTouch)

@@ -50,7 +50,7 @@ struct CommunityHubView: View {
     @State private var query = ""
 
     private var scope: CommunityHubScope { route.hubScope ?? .forYou }
-    private var accent: Color { app.appearance.accent.color }
+    private var accent: Color { app.appearance.liveAccent }
 
     var body: some View {
         ScrollView {
@@ -294,7 +294,7 @@ struct CommunityBuildersView: View {
     @State private var tab: CommunityBuildersTab = .feed
     @State private var settings = CommunityLocalSettings.load()
 
-    private var accent: Color { app.appearance.accent.color }
+    private var accent: Color { app.appearance.liveAccent }
 
     var body: some View {
         ScrollView {
@@ -486,7 +486,7 @@ struct CommunityComingSoonButton: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(.white)
-        .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color, prominent: true, specular: true)
+        .modulaAccentCTA()
         .accessibilityHint(CommunityCopy.comingSoon)
     }
 }

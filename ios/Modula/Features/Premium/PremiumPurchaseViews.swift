@@ -30,7 +30,7 @@ struct PremiumPurchaseView: View {
             Text("Sandbox")
                 .font(.caption.weight(.semibold))
                 .tracking(1.4)
-                .foregroundStyle(app.appearance.accent.color)
+                .foregroundStyle(app.appearance.liveAccent)
                 .frame(maxWidth: .infinity)
             if let asset = PremiumBadgeAsset.profileMark(for: store.selectedPlan) {
                 PremiumBadgeImage(asset: asset, size: 96).frame(maxWidth: .infinity)
@@ -59,7 +59,7 @@ struct PremiumPurchaseView: View {
                     .frame(maxWidth: .infinity, minHeight: 52)
             }
             .buttonStyle(ModulaPressStyle(scale: 0.97))
-            .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color, prominent: true, specular: true)
+            .modulaAccentCTA()
             .accessibilityIdentifier("premium.purchase.confirm")
             if let message {
                 Text(message).font(.footnote).foregroundStyle(.secondary)
@@ -115,7 +115,7 @@ struct PremiumWelcomeView: View {
                     .frame(maxWidth: .infinity, minHeight: 52)
             }
             .buttonStyle(ModulaPressStyle(scale: 0.97))
-            .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color, prominent: true, specular: true)
+            .modulaAccentCTA()
             Button("Premium settings") { app.navigation.open(.settings(.premium(.settings))) }
                 .font(.body.weight(.semibold))
                 .frame(maxWidth: .infinity, minHeight: 44)
@@ -231,11 +231,11 @@ struct PremiumMemberSettingsView: View {
             Text("Premium settings").font(.largeTitle.weight(.bold))
             Text(store.plan.title).font(.headline).foregroundStyle(.secondary)
             TelegramSettingsCard {
-                TelegramRow(title: "Badge", symbol: "seal.fill", tint: app.appearance.accent.color, value: store.badgeVisible ? "Shown" : "Hidden") {
+                TelegramRow(title: "Badge", symbol: "seal.fill", tint: app.appearance.liveAccent, value: store.badgeVisible ? "Shown" : "Hidden") {
                     app.navigation.open(.settings(.premium(.badge)))
                 }
                 TelegramDivider()
-                TelegramRow(title: "Manage subscription", symbol: "creditcard", tint: app.appearance.accent.color) {
+                TelegramRow(title: "Manage subscription", symbol: "creditcard", tint: app.appearance.liveAccent) {
                     app.navigation.open(.settings(.premium(.manage)))
                 }
                 TelegramDivider()
@@ -282,7 +282,7 @@ struct PremiumUpsellView: View {
             Text(target.shortTitle.uppercased())
                 .font(.caption.weight(.semibold))
                 .tracking(1.6)
-                .foregroundStyle(app.appearance.accent.color)
+                .foregroundStyle(app.appearance.liveAccent)
             Text(target.title).font(.largeTitle.weight(.bold))
             Text(target.tagline).font(.body).foregroundStyle(.secondary)
             if let reason = target.recommendationReason {
@@ -303,7 +303,7 @@ struct PremiumUpsellView: View {
                     .frame(maxWidth: .infinity, minHeight: 52)
             }
             .buttonStyle(ModulaPressStyle(scale: 0.97))
-            .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color, prominent: true, specular: true)
+            .modulaAccentCTA()
             .accessibilityIdentifier("premium.upsell.preview")
             Button("Maybe later") { app.navigation.close() }
                 .font(.body.weight(.semibold))

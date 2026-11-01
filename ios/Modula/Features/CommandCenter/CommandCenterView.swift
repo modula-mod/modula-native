@@ -118,7 +118,7 @@ struct CommandCenterView: View {
                 }
             }
             .modulaCanvas()
-            .tint(app.appearance.accent.color)
+            .tint(app.appearance.liveAccent)
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Command Center")
             .accessibilityIdentifier("command.center")
@@ -256,15 +256,15 @@ struct CommandRow: View {
                 if command.category == .create {
                     Text("Create")
                         .font(.caption2.weight(.bold))
-                        .foregroundStyle(app.appearance.accent.color)
+                        .foregroundStyle(app.appearance.liveAccent)
                         .padding(.horizontal, 8).padding(.vertical, 3)
-                        .background(app.appearance.accent.color.opacity(0.16), in: Capsule())
+                        .background(app.appearance.liveAccent.opacity(0.16), in: Capsule())
                 }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 10)
             .frame(minHeight: 44)
-            .background(selected ? app.appearance.accent.color.opacity(0.14) : Color.clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .background(selected ? app.appearance.liveAccent.opacity(0.14) : Color.clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

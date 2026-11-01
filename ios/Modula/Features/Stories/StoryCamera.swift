@@ -398,7 +398,7 @@ struct StoryCaptureStage: View {
             return true
         }
     }
-    private var accent: Color { app.appearance.accent.color }
+    private var accent: Color { app.appearance.liveAccent }
     private var recordLimit: Double {
         switch mode {
         case .boomerang: 1.5

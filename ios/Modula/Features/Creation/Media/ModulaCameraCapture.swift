@@ -51,7 +51,7 @@ struct ModulaCameraCaptureView: View {
                     Circle()
                         .fill(.white)
                         .frame(width: 74, height: 74)
-                        .overlay { Circle().stroke(app.appearance.accent.color, lineWidth: 4).padding(5) }
+                        .overlay { Circle().stroke(app.appearance.liveAccent, lineWidth: 4).padding(5) }
                 }
                 .buttonStyle(.plain)
                 .disabled(!camera.isReady)

@@ -130,11 +130,11 @@ private struct AccountIdentityGraphic: View {
             VStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .stroke(app.appearance.accent.color.opacity(0.35), lineWidth: 1.5)
+                        .stroke(app.appearance.liveAccent.opacity(0.35), lineWidth: 1.5)
                         .frame(width: 108, height: 108)
                         .scaleEffect(appeared && !reduceMotion ? 1 : 0.86)
                     Circle()
-                        .stroke(app.appearance.accent.color.opacity(0.7), lineWidth: 2)
+                        .stroke(app.appearance.liveAccent.opacity(0.7), lineWidth: 2)
                         .frame(width: 92, height: 92)
                     ModulaAvatar(initials: String(name.prefix(1)), url: avatarURL, size: 72)
                         .scaleEffect(appeared ? 1 : 0.9)

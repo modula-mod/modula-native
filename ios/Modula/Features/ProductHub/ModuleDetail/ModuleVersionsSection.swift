@@ -91,7 +91,7 @@ private struct ModuleVersionRow: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text("Version \(option.version)").font(.headline)
-                        if option.isLatest { tag("Latest", tint: app.appearance.accent.color) }
+                        if option.isLatest { tag("Latest", tint: app.appearance.liveAccent) }
                         if option.isCurrent { tag("Installed", tint: .green) }
                         if option.releaseState == "superseded" { tag("Superseded", tint: .secondary) }
                     }
@@ -159,8 +159,8 @@ private struct ModuleVersionRow: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
                 .frame(minWidth: 84, minHeight: 34)
-                .foregroundStyle(action == .update ? Color.white : app.appearance.accent.color)
-                .background(action == .update ? app.appearance.accent.color : app.appearance.accent.color.opacity(0.12), in: Capsule())
+                .foregroundStyle(action == .update ? Color.white : app.appearance.liveAccent)
+                .background(action == .update ? app.appearance.liveAccent : app.appearance.liveAccent.opacity(0.12), in: Capsule())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(accessibilityTitle)
@@ -378,7 +378,7 @@ struct ModuleVersionSwitchSheet: View {
                         .frame(maxWidth: .infinity, minHeight: 50)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(preview.isDowngrade ? .orange : app.appearance.accent.color)
+                .tint(preview.isDowngrade ? .orange : app.appearance.liveAccent)
                 .disabled(!preview.allowed)
                 .accessibilityIdentifier("module.version-switch.confirm")
             }

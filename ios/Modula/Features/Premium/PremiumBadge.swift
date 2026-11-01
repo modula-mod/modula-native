@@ -211,7 +211,7 @@ struct PremiumBadgeSettingsView: View {
                         .modulaGlass(
                             in: RoundedRectangle(cornerRadius: 16, style: .continuous),
                             interactive: false,
-                            tint: asset.plan == store.plan ? app.appearance.accent.color.opacity(0.35) : nil,
+                            tint: asset.plan == store.plan ? app.appearance.liveAccent.opacity(0.35) : nil,
                             specular: asset.plan == store.plan
                         )
                         .accessibilityElement(children: .combine)

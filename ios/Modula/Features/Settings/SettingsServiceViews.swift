@@ -33,7 +33,7 @@ struct HelpStatusView: View {
     }
 
     private var overall: ServiceComponentState { model.overall }
-    private var radarTint: Color { overall == .unknown ? app.appearance.accent.color : overall.tint }
+    private var radarTint: Color { overall == .unknown ? app.appearance.liveAccent : overall.tint }
 
     private var statusHero: some View {
         ModulaCard {
@@ -141,18 +141,18 @@ struct HelpStatusView: View {
                     title: "Network",
                     value: network.snapshot?.summary ?? "Checking…",
                     symbol: network.snapshot?.satisfied == false ? "wifi.slash" : "wifi",
-                    tint: network.snapshot?.satisfied == false ? .red : app.appearance.accent.color
+                    tint: network.snapshot?.satisfied == false ? .red : app.appearance.liveAccent
                 )
                 SettingsDivider()
                 StatusFactRow(
                     title: "Server",
                     value: SettingsEnvironmentInfo.apiHost,
                     symbol: "globe",
-                    tint: app.appearance.accent.color
+                    tint: app.appearance.liveAccent
                 )
                 if let release = model.snapshot?.release, let commit = release.commit {
                     SettingsDivider()
-                    StatusFactRow(title: "Server release", value: commit, symbol: "shippingbox", tint: app.appearance.accent.color)
+                    StatusFactRow(title: "Server release", value: commit, symbol: "shippingbox", tint: app.appearance.liveAccent)
                 }
             }
         }
@@ -487,7 +487,7 @@ struct SupportCaseComposer: View {
             }
             Section {
                 Toggle("Attach diagnostics", isOn: $draft.attachDiagnostics.animation())
-                    .tint(app.appearance.accent.color)
+                    .tint(app.appearance.liveAccent)
                 if draft.attachDiagnostics {
                     DisclosureGroup("Review what’s sent (\(diagnostics.count))") {
                         ForEach(diagnostics) { item in
@@ -520,7 +520,7 @@ struct SupportCaseComposer: View {
             Spacer(minLength: 20)
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 64, weight: .semibold))
-                .foregroundStyle(app.appearance.accent.color)
+                .foregroundStyle(app.appearance.liveAccent)
                 .symbolEffect(.bounce, value: opened.reference)
                 .modulaHeroSheen(intensity: 0.8)
             Text("We’ve got it")
@@ -531,7 +531,7 @@ struct SupportCaseComposer: View {
                 .font(.title3.monospaced().weight(.semibold))
                 .textSelection(.enabled)
                 .padding(.horizontal, 16).padding(.vertical, 8)
-                .background(app.appearance.accent.color.opacity(0.12), in: Capsule())
+                .background(app.appearance.liveAccent.opacity(0.12), in: Capsule())
             if let email = contact?.supportEmail {
                 Text("Replies come from \(email) to the email on your account.")
                     .font(.subheadline)
@@ -685,7 +685,7 @@ struct AccountDataExportView: View {
                                 .font(.headline)
                                 .frame(maxWidth: .infinity, minHeight: 52)
                         }
-                        .buttonStyle(ModulaPrimaryButtonStyle(accent: app.appearance.accent.color))
+                        .buttonStyle(ModulaPrimaryButtonStyle(accent: app.appearance.liveAccent))
                         Button("Prepare Again") { model.reset() }
                             .font(.subheadline)
                     case .failed(let message):

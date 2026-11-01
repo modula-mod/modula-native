@@ -121,7 +121,7 @@ struct ReelFeedView: View {
                         .frame(height: 44)
                         .contentShape(Capsule())
                 }
-                .modulaGlass(in: Capsule(), tint: app.appearance.accent.color.opacity(0.45), specular: true)
+                .modulaGlass(in: Capsule(), tint: app.appearance.liveAccent.opacity(0.45), specular: true)
                 .accessibilityLabel("Create")
                 .accessibilityIdentifier("reels.create")
             }
@@ -493,7 +493,7 @@ struct ReelOverlay: View {
                     .padding(2)
                     .background(
                         Circle().stroke(
-                            AngularGradient(colors: [app.appearance.accent.color, .white.opacity(0.9), app.appearance.accent.color], center: .center),
+                            AngularGradient(colors: [app.appearance.liveAccent, .white.opacity(0.9), app.appearance.liveAccent], center: .center),
                             lineWidth: 2
                         )
                     )
@@ -505,7 +505,7 @@ struct ReelOverlay: View {
                         if reel.author?.isVerified == true {
                             Image(systemName: "checkmark.seal.fill")
                                 .font(.caption)
-                                .foregroundStyle(app.appearance.accent.color)
+                                .foregroundStyle(app.appearance.liveAccent)
                                 .accessibilityLabel("Verified")
                         }
                     }
@@ -693,7 +693,7 @@ struct ReelsInstallModuleCard: View {
         VStack(spacing: 14) {
             Image(systemName: "puzzlepiece.extension.fill")
                 .font(.system(size: 34, weight: .semibold))
-                .foregroundStyle(app.appearance.accent.color)
+                .foregroundStyle(app.appearance.liveAccent)
                 .frame(width: 76, height: 76)
                 .modulaGlass(in: Circle(), interactive: false)
             Text("Install a module to watch")
@@ -708,7 +708,7 @@ struct ReelsInstallModuleCard: View {
                     .padding(.horizontal, 20).frame(height: 44)
             }
             .buttonStyle(.plain)
-            .modulaGlass(in: Capsule(), tint: app.appearance.accent.color)
+            .modulaGlass(in: Capsule(), tint: app.appearance.liveAccent)
             Button("Try again", action: onRetry)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)

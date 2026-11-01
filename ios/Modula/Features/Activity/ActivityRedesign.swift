@@ -46,7 +46,7 @@ struct ActivityChipBar: View {
     @Namespace private var chipSpace
 
     var body: some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         let calm = ModulaEffectGate.reduceMotion(systemReduceMotion)
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
@@ -183,7 +183,7 @@ struct ActivityIdentityBlock: View {
 
     var body: some View {
         let canvas = ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas
-        let style = ActivityKindBadge.style(for: kind, accent: app.appearance.accent.color)
+        let style = ActivityKindBadge.style(for: kind, accent: app.appearance.liveAccent)
         ZStack {
             if actors.count >= 2 {
                 let small = size * 0.72
@@ -229,7 +229,7 @@ struct ActivityStackedAvatars: View {
             if extra > 0 {
                 Text("+\(extra)").font(.caption2.weight(.bold)).monospacedDigit()
                     .frame(width: size, height: size)
-                    .modulaGlass(in: Circle(), interactive: false, tint: app.appearance.accent.color.opacity(0.18))
+                    .modulaGlass(in: Circle(), interactive: false, tint: app.appearance.liveAccent.opacity(0.18))
                     .overlay(Circle().stroke(canvas, lineWidth: 2))
             }
         }.accessibilityHidden(true)
@@ -261,7 +261,7 @@ struct ActivityFollowBackButton: View {
     @State private var state: Phase = .idle
     enum Phase { case idle, busy, following }
     var body: some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         Button {
             guard state == .idle else { return }
             withAnimation(.snappy) { state = .busy }
@@ -301,7 +301,7 @@ struct ActivityInlineReply: View {
             TextField("Reply to \(replyingTo)…", text: $text, axis: .vertical).lineLimit(1...4).font(.subheadline)
                 .focused($focused).padding(.horizontal, 14).padding(.vertical, 9).modulaGlass(in: Capsule(), interactive: true)
                 .submitLabel(.send).onSubmit(send)
-            ModulaGlassSendButton(ready: ready, busy: sending, size: 38, tint: app.appearance.accent.color, action: send)
+            ModulaGlassSendButton(ready: ready, busy: sending, size: 38, tint: app.appearance.liveAccent, action: send)
         }
         .onAppear { focused = true }
     }
@@ -332,7 +332,7 @@ struct ActivityPillButton: View {
     let action: () -> Void
     @Environment(AppEnvironment.self) private var app
     var body: some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         Button(action: action) {
             Label(title, systemImage: symbol)
                 .font(.footnote.weight(.semibold))
@@ -507,7 +507,7 @@ struct ActivitySwipeRow<Content: View>: View {
     var body: some View {
         ZStack {
             HStack {
-                if offset > 0 { action(isRead ? "checkmark.circle.fill" : "envelope.open.fill", isRead ? "Read" : "Mark read", app.appearance.accent.color, offset) }
+                if offset > 0 { action(isRead ? "checkmark.circle.fill" : "envelope.open.fill", isRead ? "Read" : "Mark read", app.appearance.liveAccent, offset) }
                 Spacer(minLength: 0)
                 if offset < 0 { action(deleteSymbol, deleteTitle, .orange, -offset) }
             }.padding(.horizontal, 6)
@@ -557,7 +557,7 @@ struct ActivityRequestsEntry: View {
     @Environment(AppEnvironment.self) private var app
     var body: some View {
         let actors = ActivityCluster(events: requests).actors
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         Button(action: action) {
             HStack(spacing: 12) {
                 ZStack {
@@ -599,7 +599,7 @@ struct ActivityLivelyEmptyState: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
     var body: some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         let still = ModulaEffectGate.reduceMotion(reduceMotion)
         VStack(spacing: 16) {
             TimelineView(.animation(minimumInterval: 1/30, paused: still)) { ctx in
@@ -716,14 +716,14 @@ struct ActivityClusterFeed: View {
                 Text("\(unread)")
                     .font(.caption.weight(.bold)).monospacedDigit().foregroundStyle(.white)
                     .padding(.horizontal, 7).frame(minHeight: 20)
-                    .background(Capsule().fill(app.appearance.accent.color))
+                    .background(Capsule().fill(app.appearance.liveAccent))
                     .contentTransition(.numericText(value: Double(unread)))
             }
             Spacer(minLength: 8)
             if section == .new, unread > 0, let onMarkAllRead {
                 Button("Mark all read", action: onMarkAllRead)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(app.appearance.accent.color)
+                    .foregroundStyle(app.appearance.liveAccent)
                     .accessibilityIdentifier("activity.mark-all")
             }
         }
@@ -873,7 +873,7 @@ struct ActivitySuggestedPeople: View {
                             Text(done ? "Following" : (person.followsViewer ? "Follow back" : "Follow"))
                                 .font(.footnote.weight(.semibold))
                                 .padding(.horizontal, 14).frame(height: 32)
-                                .modulaGlass(in: Capsule(), interactive: true, tint: done ? nil : app.appearance.accent.color.opacity(0.25))
+                                .modulaGlass(in: Capsule(), interactive: true, tint: done ? nil : app.appearance.liveAccent.opacity(0.25))
                         }.buttonStyle(.plain).disabled(done)
                     }
                     .padding(.vertical, 6)

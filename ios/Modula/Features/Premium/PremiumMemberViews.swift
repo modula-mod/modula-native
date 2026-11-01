@@ -19,7 +19,7 @@ struct PremiumDashboardView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(store.isPreviewing ? "Preview" : "Your plan")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(app.appearance.accent.color)
+                        .foregroundStyle(app.appearance.liveAccent)
                     Text(store.plan.title).font(.title2.weight(.bold))
                     Text(PremiumPricing.priceLine(store.plan, billing: store.selectedBilling))
                         .font(.subheadline.monospacedDigit())
@@ -49,7 +49,7 @@ struct PremiumDashboardView: View {
                         ForEach(Array(included.enumerated()), id: \.element.id) { index, feature in
                             HStack(spacing: 12) {
                                 Image(systemName: "checkmark")
-                                    .foregroundStyle(app.appearance.accent.color)
+                                    .foregroundStyle(app.appearance.liveAccent)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(feature.title).font(.subheadline.weight(.semibold))
                                     Text(catalogueLine(feature)).font(.caption).foregroundStyle(.secondary)
@@ -71,7 +71,7 @@ struct PremiumDashboardView: View {
                     .frame(maxWidth: .infinity, minHeight: 52)
             }
             .buttonStyle(ModulaPressStyle(scale: 0.97))
-            .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color, prominent: true, specular: true)
+            .modulaAccentCTA()
             .accessibilityIdentifier("premium.dashboard.manage")
             Button("Explore all features") { open(.features) }
                 .font(.body.weight(.semibold))
@@ -109,7 +109,7 @@ struct PremiumDashboardView: View {
     private func dashboardCard(_ title: String, _ detail: String, _ symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 8) {
-                Image(systemName: symbol).foregroundStyle(app.appearance.accent.color)
+                Image(systemName: symbol).foregroundStyle(app.appearance.liveAccent)
                 Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
                 Text(detail).font(.caption).foregroundStyle(.secondary)
                 Spacer(minLength: 0)
@@ -163,7 +163,7 @@ struct PremiumFeaturesView: View {
                     let included = store.selectedPlan.includes(feature.minimumPlan)
                     HStack(spacing: 12) {
                         Image(systemName: included ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(included ? app.appearance.accent.color : Color.secondary)
+                            .foregroundStyle(included ? app.appearance.liveAccent : Color.secondary)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(feature.title).font(.subheadline.weight(.semibold))
                             Text(included ? "Included" : "From \(feature.minimumPlan.shortTitle)")
@@ -208,7 +208,7 @@ struct PremiumManageView: View {
                     .font(.subheadline.monospacedDigit())
                 Text(store.isPreviewing ? "Preview on this device" : (store.plan.isPaid ? "On this device" : "No paid plan"))
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(app.appearance.accent.color)
+                    .foregroundStyle(app.appearance.liveAccent)
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -276,7 +276,7 @@ struct PremiumManageView: View {
     private func manageRow(_ title: String, _ subtitle: String, _ symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                Image(systemName: symbol).frame(width: 24).foregroundStyle(app.appearance.accent.color)
+                Image(systemName: symbol).frame(width: 24).foregroundStyle(app.appearance.liveAccent)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
                     Text(subtitle).font(.caption).foregroundStyle(.secondary)
@@ -346,7 +346,7 @@ struct PremiumStudioView: View {
                     .frame(maxWidth: .infinity, minHeight: 52)
             }
             .buttonStyle(ModulaPressStyle(scale: 0.97))
-            .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color, prominent: true, specular: true)
+            .modulaAccentCTA()
             PremiumDisclaimerText()
         }
         .navigationTitle("Studio")
@@ -558,10 +558,10 @@ struct PremiumPossibilitiesView: View {
             }
             Text("What you get").font(.headline)
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                SettingsFeatureTile(title: "More storage", detail: "Up to \(PremiumPlan.horizon.storageGB) GB in the Horizon catalogue.", symbol: "internaldrive", tint: app.appearance.accent.color)
-                SettingsFeatureTile(title: "Premium tools", detail: "Modules, In-Mail and a membership mark.", symbol: "sparkles", tint: app.appearance.accent.color)
-                SettingsFeatureTile(title: "Deeper insights", detail: "Counted activity is live. Profile visitors are coming soon.", symbol: "chart.bar", tint: app.appearance.accent.color)
-                SettingsFeatureTile(title: "Priority support", detail: "Coming soon.", symbol: "headphones", tint: app.appearance.accent.color)
+                SettingsFeatureTile(title: "More storage", detail: "Up to \(PremiumPlan.horizon.storageGB) GB in the Horizon catalogue.", symbol: "internaldrive", tint: app.appearance.liveAccent)
+                SettingsFeatureTile(title: "Premium tools", detail: "Modules, In-Mail and a membership mark.", symbol: "sparkles", tint: app.appearance.liveAccent)
+                SettingsFeatureTile(title: "Deeper insights", detail: "Counted activity is live. Profile visitors are coming soon.", symbol: "chart.bar", tint: app.appearance.liveAccent)
+                SettingsFeatureTile(title: "Priority support", detail: "Coming soon.", symbol: "headphones", tint: app.appearance.liveAccent)
             }
             Button {
                 store.selectedPlan = .horizon
@@ -577,7 +577,7 @@ struct PremiumPossibilitiesView: View {
                 .frame(maxWidth: .infinity, minHeight: 56)
             }
             .buttonStyle(ModulaPressStyle(scale: 0.97))
-            .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color, prominent: true, specular: true)
+            .modulaAccentCTA()
             .accessibilityIdentifier("premium.possibilities.horizon")
             PremiumDisclaimerText()
         }
@@ -591,7 +591,7 @@ struct PremiumPossibilitiesView: View {
         let current = store.plan == plan
         return VStack(alignment: .leading, spacing: 6) {
             if plan == .recommended {
-                Text("Recommended").font(.caption2.weight(.semibold)).foregroundStyle(app.appearance.accent.color)
+                Text("Recommended").font(.caption2.weight(.semibold)).foregroundStyle(app.appearance.liveAccent)
             }
             Text(plan.shortTitle).font(.headline)
             Text(plan.isPaid ? PremiumPricing.priceLine(plan, billing: .monthly) : "Free")
@@ -611,7 +611,7 @@ struct PremiumPossibilitiesView: View {
         .modulaGlass(
             in: RoundedRectangle(cornerRadius: 18, style: .continuous),
             interactive: false,
-            tint: plan == .recommended ? app.appearance.accent.color.opacity(0.35) : nil,
+            tint: plan == .recommended ? app.appearance.liveAccent.opacity(0.35) : nil,
             specular: plan == .recommended
         )
     }

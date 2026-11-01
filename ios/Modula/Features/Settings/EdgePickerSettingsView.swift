@@ -79,7 +79,7 @@ struct EdgePickerSettingsView: View {
                         LinearGradient(
                             colors: [
                                 Color.primary.opacity(0.06),
-                                app.appearance.accent.color.opacity(0.18),
+                                app.appearance.liveAccent.opacity(0.18),
                                 Color.primary.opacity(0.04)
                             ],
                             startPoint: .topLeading,

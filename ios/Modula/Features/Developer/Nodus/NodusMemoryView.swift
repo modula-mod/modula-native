@@ -236,7 +236,7 @@ private struct NodusSuggestionCardStack: View {
                 if isTop, drag.width != 0 {
                     Label(drag.width > 0 ? "Add" : "Reject", systemImage: drag.width > 0 ? "checkmark.circle.fill" : "xmark.circle.fill")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(drag.width > 0 ? app.appearance.accent.color : .red)
+                        .foregroundStyle(drag.width > 0 ? app.appearance.liveAccent : .red)
                         .opacity(progress)
                 }
             }
@@ -249,7 +249,7 @@ private struct NodusSuggestionCardStack: View {
                 Button("Edit & Add") { onEdit(suggestion) }
                 Button("Add") { fling(suggestion, add: true) }
                     .buttonStyle(.borderedProminent)
-                    .tint(app.appearance.accent.color)
+                    .tint(app.appearance.liveAccent)
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
