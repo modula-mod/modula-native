@@ -8,94 +8,76 @@ import UniformTypeIdentifiers
 
 struct StoryRing: View {
     let state: StoryRingState
-    var size: CGFloat = 64
+    var size: CGFloat = 58
     var accent: Color
     /// `.own` shows a "+" only when there is nothing posted yet; an own ring with live
-    /// stories is drawn as an active (thick) ring instead.
+    /// stories is drawn as an active (gradient) ring instead.
     var showsAddBadge = true
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let emphasised = state == .unseen || (state == .own && !showsAddBadge)
-        let line = emphasised ? max(3.2, size * 0.055) : max(1.6, size * 0.028)
-        let outer = size + line * 2 + 4
+        // Unseen: thick gradient ring (Von Restorff). Seen: hairline grey so it recedes.
+        let line: CGFloat = emphasised ? 2.6 : 1.2
+        let outer = size + 8
         ZStack {
             if emphasised {
-                Circle()
-                    .fill(accent.opacity(reduceMotion ? 0.18 : 0.32))
-                    .blur(radius: reduceMotion ? 0 : 7)
-                    .scaleEffect(1.06)
+                Circle().strokeBorder(Self.gradient(accent), lineWidth: line)
+            } else if state == .own {
+                Circle().strokeBorder(Color.primary.opacity(0.16), style: StrokeStyle(lineWidth: 1.4, dash: [3, 3]))
+            } else {
+                Circle().strokeBorder(Color.primary.opacity(0.22), lineWidth: line)
             }
-            ringStroke(emphasised: emphasised, line: line)
-                .frame(width: size + line * 2, height: size + line * 2)
-            if state == .own && showsAddBadge {
-                plusBadge
-            }
+            if state == .own && showsAddBadge { plusBadge }
         }
         .frame(width: outer, height: outer)
         .accessibilityHidden(true)
     }
 
-    @ViewBuilder
-    private func ringStroke(emphasised: Bool, line: CGFloat) -> some View {
-        let idle = Circle().strokeBorder(ringColor, lineWidth: line)
-        if emphasised && !reduceMotion {
-            TimelineView(.animation(minimumInterval: 1 / 18, paused: false)) { context in
-                let turn = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 7) / 7
-                Circle()
-                    .strokeBorder(
-                        AngularGradient(
-                            colors: [accent, accent.opacity(0.45), Color.white.opacity(0.9), accent],
-                            center: .center,
-                            angle: .degrees(turn * 360)
-                        ),
-                        lineWidth: line
-                    )
-            }
-        } else if emphasised {
-            Circle()
-                .strokeBorder(
-                    AngularGradient(colors: [accent, accent.opacity(0.55), Color.white.opacity(0.8), accent], center: .center),
-                    lineWidth: line
-                )
-        } else {
-            idle
-        }
+    /// Shared story gradient: accent → magenta → amber. Used by rings, cards and the hero.
+    static func gradient(_ accent: Color) -> AngularGradient {
+        AngularGradient(
+            colors: [accent, Color(hex: "#FF2D87"), Color(hex: "#FFB020"), accent],
+            center: .center,
+            angle: .degrees(-90)
+        )
     }
 
     private var plusBadge: some View {
         Image(systemName: "plus")
-            .font(.system(size: size * 0.22, weight: .bold))
+            .font(.system(size: 11, weight: .heavy))
             .foregroundStyle(.white)
-            .frame(width: max(22, size * 0.34), height: max(22, size * 0.34))
+            .frame(width: 20, height: 20)
             .background(accent, in: Circle())
-            .overlay(Circle().stroke(ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas, lineWidth: 2))
+            .overlay(Circle().stroke(ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas, lineWidth: 2.5))
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             .accessibilityHidden(true)
-    }
-
-    private var ringColor: Color {
-        switch state {
-        case .unseen: accent
-        case .seen: Color.primary.opacity(0.22)
-        case .own: showsAddBadge ? accent.opacity(0.9) : accent
-        }
     }
 }
 
 struct StoryAvatar: View {
     let group: StoryGroup
-    var size: CGFloat = 64
+    var size: CGFloat = 58
     var accent: Color
 
     var body: some View {
         ZStack {
             StoryRing(state: group.ring, size: size, accent: accent, showsAddBadge: group.isComposerPlaceholder)
-            ModulaAvatar(initials: group.author.initials, url: group.author.avatarURL, size: size - 6)
+            ModulaAvatar(initials: group.author.initials, url: group.author.avatarURL, size: size - 2)
         }
-        .frame(width: size + 14, height: size + 14)
+        .frame(width: size + 8, height: size + 8)
+        .overlay(alignment: .topTrailing) {
+            // "New" dot: something posted in the last hour that you haven't seen.
+            if group.ring == .unseen, let latest = group.items.map(\.createdAt).max(), Date().timeIntervalSince(latest) < 3600 {
+                Circle()
+                    .fill(Color(hex: "#34C759"))
+                    .frame(width: 11, height: 11)
+                    .overlay(Circle().stroke(Color(uiColor: .systemBackground), lineWidth: 2))
+                    .offset(x: -3, y: 3)
+                    .accessibilityHidden(true)
+            }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityAddTraits(.isButton)
@@ -120,8 +102,9 @@ struct StoryTray: View {
     @Environment(AppEnvironment.self) private var app
 
     /// Home uses a larger, image-led disc so "Your story" never truncates to "Your st…".
-    private var avatarSize: CGFloat { compact ? 68 : 88 }
-    private var labelWidth: CGFloat { compact ? 82 : 92 }
+    /// ~58pt discs so ~6 fit across a phone (Fitts: still well above 44pt; Hick: more choices at a glance).
+    private var avatarSize: CGFloat { compact ? 54 : 58 }
+    private var labelWidth: CGFloat { compact ? 60 : 64 }
 
     private var ownHandle: String? { app.auth.account?.primaryHandle.lowercased() }
 
@@ -156,7 +139,7 @@ struct StoryTray: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: compact ? 12 : 16) {
+            HStack(alignment: .top, spacing: compact ? 8 : 10) {
                 if showsComposer {
                     Button(action: onCreate ?? {}) {
                         trayCell(
@@ -208,14 +191,14 @@ struct StoryTray: View {
                                 Image(systemName: "plus")
                                     .font(.system(size: 12, weight: .bold))
                                     .foregroundStyle(.white)
-                                    .frame(width: 22, height: 22)
+                                    .frame(width: 20, height: 20)
                                     .background(app.appearance.liveAccent, in: Circle())
-                                    .overlay(Circle().stroke(Color.black.opacity(0.35), lineWidth: 2))
+                                    .overlay(Circle().stroke(Color(uiColor: .systemBackground), lineWidth: 2.5))
                                     .frame(width: 44, height: 44)
                                     .contentShape(Circle())
                             }
                             .buttonStyle(.plain)
-                            .offset(x: 8, y: -18)
+                            .offset(x: 12, y: -14)
                             .accessibilityLabel("Add to your story")
                             .accessibilityIdentifier("home.story.add")
                         }
@@ -232,8 +215,8 @@ struct StoryTray: View {
                             HapticEngine.shared.play(.navigation)
                         } label: {
                             trayCell(
-                                avatar: ModulaAvatar(initials: author.initials, url: author.avatarURL, size: avatarSize - 12, name: author.displayName)
-                                    .padding(6)
+                                avatar: ModulaAvatar(initials: author.initials, url: author.avatarURL, size: avatarSize - 2, name: author.displayName)
+                                    .padding(4)
                                     .overlay(
                                         Circle().strokeBorder(
                                             Color.primary.opacity(0.2),
@@ -273,16 +256,16 @@ struct StoryTray: View {
                 )
             }
         }
-        .frame(minHeight: compact ? 104 : 128)
-        .frame(maxHeight: compact ? 120 : 148)
+        .frame(minHeight: compact ? 88 : 94)
+        .frame(maxHeight: compact ? 96 : 104)
         .accessibilityIdentifier("home.story.tray")
     }
 
     private func trayCell<Avatar: View>(avatar: Avatar, title: String, secondary: Bool = false) -> some View {
-        VStack(spacing: 7) {
+        VStack(spacing: 5) {
             avatar
             Text(title)
-                .font(.caption.weight(.semibold))
+                .font(.caption2.weight(.semibold))
                 .foregroundStyle(secondary ? Color.secondary : Color.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.9)
@@ -346,32 +329,267 @@ struct StoriesRouteView: View {
 
 struct StoryRootPlaceholder: View {
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var accent: Color { app.appearance.liveAccent }
+    private var others: [StoryGroup] { app.stories.trayGroups.filter { !$0.isOwn && $0.hasStories } }
+    private var unseen: [StoryGroup] { others.filter { $0.ring == .unseen } }
+    private var ownGroup: StoryGroup? { app.stories.trayGroups.first { $0.isOwn && $0.hasStories } }
 
     var body: some View {
-        Group {
-            if app.stories.trayGroups.isEmpty {
-                ModulaEmptyState(
-                    title: "Stories",
-                    message: "Stories will appear here when they’re available.",
-                    symbol: "circle.dashed"
-                )
-            } else {
-                StoryTray(groups: app.stories.trayGroups) { group in
-                    Task {
-                        if let route = await app.stories.destination(for: group) {
-                            app.navigation.replaceTop(with: route)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 26) {
+                StoryCenteredCarousel(groups: app.stories.trayGroups, onSelect: open, onCreate: create)
+                    .padding(.top, 4)
+                quickActions
+                if !unseen.isEmpty {
+                    section("New for you", count: unseen.count) {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(unseen) { group in
+                                    StoryCoverCard(group: group, accent: accent, width: 132) { open(group) }
+                                }
+                            }
+                            .padding(.horizontal, ModulaLayout.contentInset)
+                        }
+                        .padding(.horizontal, -ModulaLayout.contentInset)
+                    }
+                }
+                if !others.isEmpty {
+                    section("Following", count: others.count) {
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                            ForEach(others) { group in
+                                StoryCoverCard(group: group, accent: accent, width: nil) { open(group) }
+                            }
                         }
                     }
-                } onCreate: {
-                    app.navigation.replaceTop(with: .stories(.create))
+                } else {
+                    emptyFollowing
                 }
-                .padding(ModulaLayout.contentInset)
             }
+            .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.bottom, 40)
         }
+        .refreshable { await app.stories.refresh() }
         .modulaCanvas()
         .modulaSoftScrollEdge()
         .navigationTitle("Stories")
         .task { await app.stories.loadIfNeeded() }
+    }
+
+    private func open(_ group: StoryGroup) {
+        HapticEngine.shared.play(.selection)
+        if group.isComposerPlaceholder { create(); return }
+        Task {
+            if let route = await app.stories.destination(for: group) {
+                app.navigation.push(route)
+            }
+        }
+    }
+
+    private func create() {
+        HapticEngine.shared.play(.navigation)
+        app.navigation.push(.stories(.create))
+    }
+
+    /// Three big, equal targets (Fitts + Hick): every entry point opens the real composer.
+    private var quickActions: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Create").font(.headline)
+            HStack(spacing: 10) {
+                quickTile("Camera", symbol: "camera.fill", tint: accent)
+                quickTile("Text", symbol: "textformat", tint: Color(hex: "#FF2D87"))
+                quickTile("Photo", symbol: "photo.on.rectangle.angled", tint: Color(hex: "#FFB020"))
+            }
+        }
+    }
+
+    private func quickTile(_ title: String, symbol: String, tint: Color) -> some View {
+        Button(action: create) {
+            VStack(spacing: 8) {
+                Image(systemName: symbol)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 40, height: 40)
+                    .background(tint.gradient, in: Circle())
+                Text(title).font(.footnote.weight(.semibold)).foregroundStyle(.primary)
+            }
+            .frame(maxWidth: .infinity, minHeight: 88)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true)
+        }
+        .buttonStyle(.modulaPress)
+        .accessibilityLabel("Create \(title.lowercased()) story")
+    }
+
+    private func section<Content: View>(_ title: String, count: Int, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(title).font(.headline)
+                Text("\(count)").font(.subheadline.weight(.semibold).monospacedDigit()).foregroundStyle(.secondary)
+            }
+            content()
+        }
+    }
+
+    private var emptyFollowing: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "circle.dashed").font(.title2).foregroundStyle(accent)
+            Text("No stories from people you follow yet").font(.subheadline.weight(.semibold))
+            Text("Stories disappear after 24 hours. Share one to get things going.")
+                .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            Button(action: create) {
+                Label("Create story", systemImage: "plus")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 18)
+                    .frame(minHeight: 44)
+                    .background(accent, in: Capsule())
+            }
+            .buttonStyle(.modulaPress)
+            .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .padding(.horizontal, 16)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
+    }
+}
+
+/// Centred story carousel: your bubble enlarged in the middle with an "Add story" pill,
+/// friends shrinking away on either side (reference: centred bubbles).
+struct StoryCenteredCarousel: View {
+    let groups: [StoryGroup]
+    var onSelect: (StoryGroup) -> Void
+    var onCreate: () -> Void
+    @Environment(AppEnvironment.self) private var app
+
+    private var others: [StoryGroup] { groups.filter { !$0.isOwn && $0.hasStories } }
+    private var own: StoryGroup? { groups.first { $0.isOwn } }
+
+    var body: some View {
+        let left = Array(others.prefix(2))
+        let right = Array(others.dropFirst(2).prefix(2))
+        VStack(spacing: 0) {
+            HStack(alignment: .center, spacing: 10) {
+                ForEach(Array(left.reversed().enumerated()), id: \.element.id) { idx, g in side(g, size: idx == 0 && left.count == 2 ? 44 : 56) }
+                centre
+                ForEach(Array(right.enumerated()), id: \.element.id) { idx, g in side(g, size: idx == 0 ? 56 : 44) }
+            }
+            .frame(maxWidth: .infinity)
+            Button(action: onCreate) {
+                HStack(spacing: 10) {
+                    Text(own?.hasStories == true ? "Add to story" : "Add story")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 32, height: 32)
+                        .background(app.appearance.liveAccent, in: Circle())
+                }
+                .padding(.leading, 16)
+                .padding(.trailing, 6)
+                .frame(minHeight: 44)
+                .modulaGlass(in: Capsule(), interactive: true)
+            }
+            .buttonStyle(.modulaPress)
+            .offset(y: -18)
+            .accessibilityIdentifier("stories.add")
+        }
+        .padding(.top, 8)
+    }
+
+    private var centre: some View {
+        let profile = app.profile.ownProfile
+        return Button {
+            if let own, own.hasStories { onSelect(own) } else { onCreate() }
+        } label: {
+            ZStack {
+                if own?.hasStories == true {
+                    Circle().strokeBorder(StoryRing.gradient(app.appearance.liveAccent), lineWidth: 3)
+                } else {
+                    Circle().strokeBorder(Color.primary.opacity(0.14), lineWidth: 1.5)
+                }
+                ModulaAvatar(initials: String((profile?.displayName ?? "You").prefix(2)).uppercased(), url: profile?.avatarURL, size: 104)
+            }
+            .frame(width: 114, height: 114)
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
+        .accessibilityLabel(own?.hasStories == true ? "Your story" : "Create your story")
+    }
+
+    private func side(_ g: StoryGroup, size: CGFloat) -> some View {
+        Button { onSelect(g) } label: {
+            VStack(spacing: 4) {
+                StoryAvatar(group: g, size: size, accent: app.appearance.liveAccent)
+                Text(g.author.displayName.split(separator: " ").first.map(String.init) ?? g.author.displayName)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .frame(width: size + 10)
+            }
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.93, haptic: nil))
+        .opacity(size < 50 ? 0.7 : 1)
+    }
+}
+
+/// Tall 3:4 cover card for a story group: cover media when hydrated, else a gradient
+/// with the author's avatar, plus a ring-state stripe and the author's name.
+struct StoryCoverCard: View {
+    let group: StoryGroup
+    let accent: Color
+    var width: CGFloat?
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack(alignment: .bottomLeading) {
+                cover
+                LinearGradient(colors: [.clear, .black.opacity(0.65)], startPoint: .center, endPoint: .bottom)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(group.author.displayName).font(.subheadline.weight(.semibold)).foregroundStyle(.white).lineLimit(1)
+                    if let date = group.items.map(\.createdAt).max() {
+                        Text(ActivityRelativeTime.string(from: date)).font(.caption2).foregroundStyle(.white.opacity(0.8))
+                    }
+                }
+                .padding(10)
+            }
+            .overlay(alignment: .topLeading) {
+                StoryAvatar(group: group, size: 34, accent: accent)
+                    .padding(6)
+            }
+            .frame(width: width)
+            .aspectRatio(3 / 4, contentMode: .fit)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(group.ring == .unseen ? AnyShapeStyle(StoryRing.gradient(accent)) : AnyShapeStyle(Color.primary.opacity(0.08)), lineWidth: group.ring == .unseen ? 2 : 1)
+            )
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
+        .accessibilityLabel("\(group.author.displayName)’s story, \(group.ring == .unseen ? "unseen" : "seen")")
+    }
+
+    @ViewBuilder
+    private var cover: some View {
+        if let item = group.representative, let url = item.media?.posterURL ?? item.media?.url, item.kind != .text {
+            ModulaRemoteImage(url: url, cacheKey: "story-cover:\(item.id)") { phase in
+                switch phase {
+                case .success(let image): Image(uiImage: image).resizable().scaledToFill()
+                default: fallback
+                }
+            }
+        } else {
+            fallback
+        }
+    }
+
+    private var fallback: some View {
+        ZStack {
+            LinearGradient(colors: [accent.opacity(0.85), Color(hex: "#FF2D87").opacity(0.75)], startPoint: .topLeading, endPoint: .bottomTrailing)
+            ModulaAvatar(initials: group.author.initials, url: group.author.avatarURL, size: 56)
+        }
     }
 }
 
@@ -417,26 +635,40 @@ struct StoryInsightsView: View {
 
                     Text("Your story at a glance")
                         .font(.title3.bold())
-                    if let viewers = item.viewerCount {
-                        insightStat("Views", value: viewers.formatted(), detail: "Included on this story item")
-                    } else {
-                        insightStat("Views", value: "—", detail: "This story didn’t include a view count")
+                    // Only metrics the API actually returns; unsupported ones are hidden, not faked.
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                        if let viewers = item.viewerCount {
+                            insightCard("Views", value: viewers.formatted(), detail: "People who opened it")
+                        }
+                        insightCard("Position", value: "\(position) of \(count)", detail: "In your current story")
+                        if let remaining = StoryInsightFacts.remaining(until: item.expiresAt) {
+                            insightCard("Time left", value: remaining.replacingOccurrences(of: " remaining", with: ""), detail: "Before it expires")
+                        }
+                        insightCard("Type", value: item.kind == .video ? "Video" : item.kind == .text ? "Text" : "Photo", detail: ConversationRow.relative(item.createdAt))
                     }
-                    insightStat("Replies", value: "—", detail: "Stories don’t return replies")
-                    insightStat("Reactions", value: "—", detail: "Stories don’t return reactions")
-                    insightStat("Completion", value: "—", detail: "Stories don’t return how far people watched")
-                    Text("There isn’t a views-over-time chart. Marking a story viewed doesn’t return a series.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    Button { dismiss() } label: {
-                        Text("View your story")
-                            .font(.headline)
+                    HStack(spacing: 12) {
+                        ShareLink(item: insightReport) {
+                            Label("Share report", systemImage: "paperplane")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
+                                .modulaGlass(in: Capsule(), interactive: true)
+                        }
+                        .accessibilityIdentifier("story.insights.share")
+                        Button { dismiss() } label: {
+                            HStack(spacing: 6) {
+                                Text("View your story")
+                                Image(systemName: "chevron.right").font(.caption.weight(.bold))
+                            }
+                            .font(.subheadline.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
                             .contentShape(Capsule())
-                    }
+                        }
                         .buttonStyle(.plain)
                         .modulaAccentCTA()
                         .accessibilityIdentifier("story.insights.view")
+                    }
+                    .padding(.top, 6)
                 }
                 .padding(16)
             }
@@ -455,6 +687,25 @@ struct StoryInsightsView: View {
     private var headline: String {
         let text = item.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return text.isEmpty ? "Story" : text
+    }
+
+    private var insightReport: String {
+        var lines = ["Story insights — \(headline)", "Story \(position) of \(count)"]
+        if let v = item.viewerCount { lines.append("Views: \(v)") }
+        if let r = StoryInsightFacts.remaining(until: item.expiresAt) { lines.append(r) }
+        return lines.joined(separator: "\n")
+    }
+
+    private func insightCard(_ title: String, value: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.footnote).foregroundStyle(.secondary)
+            Text(value).font(.title.bold()).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
+            Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder
@@ -807,17 +1058,23 @@ struct StoryViewer: View {
                 .padding(.top, 8)
             HStack(spacing: 10) {
                 if let item {
-                    ModulaAvatar(initials: item.author.initials, url: item.author.avatarURL, size: 36)
-                    VStack(alignment: .leading, spacing: 2) {
+                    ZStack {
+                        Circle().strokeBorder(StoryRing.gradient(teal), lineWidth: 2)
+                        ModulaAvatar(initials: item.author.initials, url: item.author.avatarURL, size: 34)
+                    }
+                    .frame(width: 40, height: 40)
+                    VStack(alignment: .leading, spacing: 1) {
                         Text(item.author.displayName)
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.white)
+                            .lineLimit(1)
                         HStack(spacing: 6) {
-                            Text("Story · \(engine.index + 1) of \(max(group.items.count, 1))")
-                                .font(.caption)
-                                .foregroundStyle(.white.opacity(0.8))
-                            Text("·")
-                                .foregroundStyle(.white.opacity(0.45))
+                            if group.items.count > 1 {
+                                Text("\(engine.index + 1) of \(group.items.count)")
+                                    .font(.caption.weight(.semibold).monospacedDigit())
+                                    .foregroundStyle(.white.opacity(0.9))
+                                Text("·").foregroundStyle(.white.opacity(0.45))
+                            }
                             Text(ConversationRow.relative(item.createdAt))
                                 .font(.caption)
                                 .foregroundStyle(.white.opacity(0.8))
@@ -1087,19 +1344,20 @@ struct StoryProgressBar: View {
     let progress: Double
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: count > 12 ? 2 : 3) {
             ForEach(0..<count, id: \.self) { idx in
                 GeometryReader { proxy in
                     ZStack(alignment: .leading) {
-                        Capsule().fill(Color.white.opacity(0.28))
+                        Capsule().fill(Color.white.opacity(0.32))
                         Capsule()
                             .fill(Color.white)
                             .frame(width: proxy.size.width * fill(for: idx))
                     }
                 }
-                .frame(height: 3)
+                .frame(height: 2.5)
             }
         }
+        .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Story \(index + 1) of \(count)")
         .accessibilityIdentifier("story.progress")
