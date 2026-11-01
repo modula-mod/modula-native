@@ -154,8 +154,10 @@ final class MOL03VisualAcceptanceTests: XCTestCase {
             }
         }, dir, "mol03-acceptance-base-capped.png")
 
+        // One sheet per series: a single 215-row image is past what ImageRenderer can encode.
+        for (part, kinds) in [("", all.filter { !$0.isDraft }), ("-series2", all.filter(\.isDraft))] {
         try write(MOL03Sheet(title: "MOL-03 small-scale avatars — 32 / 48 / 64 / 96 / 128 px", columns: 4) {
-            ForEach(all, id: \.self) { k in
+            ForEach(kinds, id: \.self) { k in
                 MOL03Cell(kind: k, caption: "\(k.catalogueNumber) \(k.name)") {
                     HStack(alignment: .bottom, spacing: 4) {
                         ForEach([32, 48, 64, 96, 128], id: \.self) { px in
@@ -164,7 +166,8 @@ final class MOL03VisualAcceptanceTests: XCTestCase {
                     }
                 }
             }
-        }, dir, "mol03-small-scale.png")
+        }, dir, "mol03-small-scale\(part).png")
+        }
 
         for fam in MolibooFamily.allCases {
             try write(MOL03Sheet(title: "MOL-03 expressions — \(fam.name): " + MolibooSemanticExpression.allCases.map(\.title).joined(separator: " · "), columns: 3) {
@@ -213,6 +216,21 @@ final class MOL03VisualAcceptanceTests: XCTestCase {
                 }
             }
         }, dir, "mol03-difficult-fittings.png")
+    }
+
+    /// In-app thumbnails: every Moliboo rendered alone by the native renderer (MOLIBOO_THUMB_DIR, 2x, transparent).
+    func testWriteInAppThumbnails() throws {
+        guard let path = ProcessInfo.processInfo.environment["MOLIBOO_THUMB_DIR"], !path.isEmpty else {
+            throw XCTSkip("Set MOLIBOO_THUMB_DIR to write in-app thumbnails")
+        }
+        let dir = URL(fileURLWithPath: path)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        for k in ModulaMascotKind.allCases {
+            let r = ImageRenderer(content: ModulaMascotFigure(kind: k, pose: .still(), size: 160))
+            r.scale = 2
+            let img = try XCTUnwrap(r.uiImage, k.rawValue)
+            try XCTUnwrap(img.pngData()).write(to: dir.appendingPathComponent("\(k.catalogueNumber)_\(k.rawValue).png"))
+        }
     }
 
     private func write<V: View>(_ view: V, _ dir: URL, _ name: String) throws {

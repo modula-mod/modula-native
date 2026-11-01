@@ -43,11 +43,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.955,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.4865,
       "zIndex" : 30
     },
@@ -62,11 +73,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.834,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -112,7 +134,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.966,
+        "attachedFraction" : 0.967,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -142,7 +164,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.949,
+        "attachedFraction" : 0.953,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -201,11 +223,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.805,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.4816,
       "zIndex" : 30
     },
@@ -220,11 +253,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.568,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -239,11 +283,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.613,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -258,7 +313,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.389,
+        "attachedFraction" : 0.394,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -287,7 +342,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.566,
+        "attachedFraction" : 0.553,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -316,11 +371,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.505,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -335,11 +401,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.984,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.4865,
       "zIndex" : 30
     },
@@ -355,8 +432,8 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.967,
-        "eyeCover" : 0.02,
+        "attachedFraction" : 0.95,
+        "eyeCover" : 0.003,
         "phasesChecked" : [
           "still",
           "t=0.0",
@@ -384,11 +461,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.569,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -403,11 +491,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.814,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -422,11 +521,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.917,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.4625,
       "zIndex" : 30
     },
@@ -442,7 +552,7 @@
       "layer" : "front",
       "maxWidth" : 0.5,
       "measured" : {
-        "attachedFraction" : 0.606,
+        "attachedFraction" : 0.596,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -471,11 +581,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.568,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -490,11 +611,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.822,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.4625,
       "zIndex" : 30
     },
@@ -510,7 +642,7 @@
       "layer" : "front",
       "maxWidth" : 0.58,
       "measured" : {
-        "attachedFraction" : 0.924,
+        "attachedFraction" : 0.925,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -539,11 +671,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.892,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -588,7 +731,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.875,
+        "attachedFraction" : 0.886,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -617,11 +760,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.757,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -636,11 +790,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.57,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -655,11 +820,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.516,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -674,11 +850,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.85,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -693,11 +880,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.761,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -712,7 +910,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.683,
+        "attachedFraction" : 0.707,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -771,11 +969,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.651,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -791,7 +1000,7 @@
       "layer" : "front",
       "maxWidth" : 0.5,
       "measured" : {
-        "attachedFraction" : 0.701,
+        "attachedFraction" : 0.689,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -820,11 +1029,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.58,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -839,11 +1059,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.697,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -858,11 +1089,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.584,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -877,11 +1119,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.652,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -896,7 +1149,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.295,
+        "attachedFraction" : 0.279,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -925,11 +1178,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.844,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -945,7 +1209,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.748,
+        "attachedFraction" : 0.72,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -974,11 +1238,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.559,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -1023,11 +1298,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.778,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -1043,7 +1329,7 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.678,
+        "attachedFraction" : 0.67,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1073,7 +1359,7 @@
       "layer" : "front",
       "maxWidth" : 0.44,
       "measured" : {
-        "attachedFraction" : 0.735,
+        "attachedFraction" : 0.725,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1103,7 +1389,7 @@
       "layer" : "front",
       "maxWidth" : 0.48,
       "measured" : {
-        "attachedFraction" : 0.665,
+        "attachedFraction" : 0.69,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1133,7 +1419,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.958,
+        "attachedFraction" : 0.943,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1192,7 +1478,7 @@
       "layer" : "front",
       "maxWidth" : 0.5,
       "measured" : {
-        "attachedFraction" : 0.943,
+        "attachedFraction" : 0.948,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1222,8 +1508,8 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.974,
-        "eyeCover" : 0.003,
+        "attachedFraction" : 0.947,
+        "eyeCover" : 0,
         "phasesChecked" : [
           "still",
           "t=0.0",
@@ -1251,11 +1537,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.57,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -1270,11 +1567,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.932,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -1290,7 +1598,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.759,
+        "attachedFraction" : 0.753,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1319,11 +1627,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.852,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -1338,11 +1657,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.937,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -1358,7 +1688,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.662,
+        "attachedFraction" : 0.648,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1387,11 +1717,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.757,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -1407,8 +1748,8 @@
       "layer" : "front",
       "maxWidth" : 0.48,
       "measured" : {
-        "attachedFraction" : 0.989,
-        "eyeCover" : 0.033,
+        "attachedFraction" : 0.982,
+        "eyeCover" : 0.008,
         "phasesChecked" : [
           "still",
           "t=0.0",
@@ -1437,7 +1778,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.903,
+        "attachedFraction" : 0.905,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1466,7 +1807,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.617,
+        "attachedFraction" : 0.614,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1495,11 +1836,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.529,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -1515,7 +1867,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.912,
+        "attachedFraction" : 0.914,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1545,7 +1897,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.62,
+        "attachedFraction" : 0.607,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1574,11 +1926,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.613,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -1594,7 +1957,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.571,
+        "attachedFraction" : 0.557,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1623,11 +1986,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.567,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -1643,7 +2017,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.949,
+        "attachedFraction" : 0.948,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1673,7 +2047,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.87,
+        "attachedFraction" : 0.873,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1703,7 +2077,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.958,
+        "attachedFraction" : 0.959,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1733,7 +2107,7 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.747,
+        "attachedFraction" : 0.742,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1762,11 +2136,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.8,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.4625,
       "zIndex" : 30
     },
@@ -1781,11 +2166,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.842,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.4613,
       "zIndex" : 30
     },
@@ -1801,7 +2197,7 @@
       "layer" : "front",
       "maxWidth" : 0.48,
       "measured" : {
-        "attachedFraction" : 0.648,
+        "attachedFraction" : 0.682,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1830,11 +2226,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.569,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -1850,7 +2257,7 @@
       "layer" : "front",
       "maxWidth" : 0.48,
       "measured" : {
-        "attachedFraction" : 0.757,
+        "attachedFraction" : 0.697,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1879,11 +2286,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.623,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -1928,11 +2346,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.561,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -1947,11 +2376,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.57,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -1966,11 +2406,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.994,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -1986,7 +2437,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.915,
+        "attachedFraction" : 0.696,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2015,11 +2466,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.803,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.4816,
       "zIndex" : 30
     },
@@ -2035,7 +2497,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.834,
+        "attachedFraction" : 0.83,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2064,11 +2526,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.695,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -2084,7 +2557,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.726,
+        "attachedFraction" : 0.738,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2114,7 +2587,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.936,
+        "attachedFraction" : 0.941,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2143,11 +2616,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 1,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -2163,7 +2647,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.958,
+        "attachedFraction" : 0.959,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2192,11 +2676,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.824,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.4625,
       "zIndex" : 30
     },
@@ -2212,8 +2707,8 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.998,
-        "eyeCover" : 0.019,
+        "attachedFraction" : 0.98,
+        "eyeCover" : 0.003,
         "phasesChecked" : [
           "still",
           "t=0.0",
@@ -2241,11 +2736,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.83,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -2260,11 +2766,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.865,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -2280,7 +2797,7 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.704,
+        "attachedFraction" : 0.696,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2310,7 +2827,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.836,
+        "attachedFraction" : 0.837,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2340,7 +2857,7 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.789,
+        "attachedFraction" : 0.783,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2369,11 +2886,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.83,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -2389,7 +2917,7 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.643,
+        "attachedFraction" : 0.635,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2418,11 +2946,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.764,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -2467,7 +3006,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.397,
+        "attachedFraction" : 0.389,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2496,11 +3035,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.996,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -2516,8 +3066,8 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.965,
-        "eyeCover" : 0.019,
+        "attachedFraction" : 0.938,
+        "eyeCover" : 0.003,
         "phasesChecked" : [
           "still",
           "t=0.0",
@@ -2545,11 +3095,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.689,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -2564,11 +3125,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.973,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -2583,7 +3155,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.309,
+        "attachedFraction" : 0.301,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2612,11 +3184,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.893,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -2632,7 +3215,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.747,
+        "attachedFraction" : 0.738,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2661,11 +3244,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.476,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.4865,
       "zIndex" : 30
     },
@@ -2681,7 +3275,7 @@
       "layer" : "front",
       "maxWidth" : 0.48,
       "measured" : {
-        "attachedFraction" : 0.767,
+        "attachedFraction" : 0.792,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2711,8 +3305,8 @@
       "layer" : "front",
       "maxWidth" : 0.48,
       "measured" : {
-        "attachedFraction" : 0.986,
-        "eyeCover" : 0.03,
+        "attachedFraction" : 0.983,
+        "eyeCover" : 0.008,
         "phasesChecked" : [
           "still",
           "t=0.0",
@@ -2741,7 +3335,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.498,
+        "attachedFraction" : 0.535,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2770,11 +3364,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.624,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -2789,7 +3394,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.445,
+        "attachedFraction" : 0.442,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2818,11 +3423,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.674,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.4712,
       "zIndex" : 30
     },
@@ -2837,11 +3453,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.663,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -2856,11 +3483,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.671,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -2875,11 +3513,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.743,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -2894,7 +3543,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.679,
+        "attachedFraction" : 0.61,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2923,11 +3572,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.537,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -2942,11 +3602,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.825,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -2962,7 +3633,7 @@
       "layer" : "front",
       "maxWidth" : 0.62,
       "measured" : {
-        "attachedFraction" : 0.466,
+        "attachedFraction" : 0.458,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2991,11 +3662,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.891,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -3010,11 +3692,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.517,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -3029,7 +3722,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.6,
+        "attachedFraction" : 0.611,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -3058,11 +3751,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.569,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -3078,7 +3782,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.944,
+        "attachedFraction" : 0.95,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -3108,7 +3812,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.83,
+        "attachedFraction" : 0.825,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -3137,7 +3841,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.404,
+        "attachedFraction" : 0.386,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -3166,11 +3870,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.98,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -3185,7 +3900,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.51,
+        "attachedFraction" : 0.513,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -3214,11 +3929,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.586,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -3234,7 +3960,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.951,
+        "attachedFraction" : 0.949,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -3263,11 +3989,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.969,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -3282,11 +4019,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.785,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -3301,7 +4049,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.885,
+        "attachedFraction" : 0.881,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -3330,11 +4078,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.507,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -3350,7 +4109,7 @@
       "layer" : "front",
       "maxWidth" : 0.48,
       "measured" : {
-        "attachedFraction" : 0.741,
+        "attachedFraction" : 0.73,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -3379,11 +4138,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.901,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -3398,11 +4168,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.75,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -3418,7 +4199,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.578,
+        "attachedFraction" : 0.562,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -3447,11 +4228,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.613,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -3466,7 +4258,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.795,
+        "attachedFraction" : 0.788,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -3496,7 +4288,7 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.727,
+        "attachedFraction" : 0.685,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -3526,7 +4318,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.977,
+        "attachedFraction" : 0.976,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -3555,11 +4347,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.728,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -3574,11 +4377,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.523,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.4865,
       "zIndex" : 30
     },
@@ -3593,11 +4407,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.582,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -3613,7 +4438,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.958,
+        "attachedFraction" : 0.959,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -3642,11 +4467,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.861,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -3661,11 +4497,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 1,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.4613,
       "zIndex" : 30
     },
@@ -3681,7 +4528,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.565,
+        "attachedFraction" : 0.564,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -3710,11 +4557,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.578,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -3730,7 +4588,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.964,
+        "attachedFraction" : 0.963,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -3760,7 +4618,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.844,
+        "attachedFraction" : 0.84,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -3789,11 +4647,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.837,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -3809,7 +4678,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.946,
+        "attachedFraction" : 0.944,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -3839,8 +4708,8 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.955,
-        "eyeCover" : 0.056,
+        "attachedFraction" : 0.93,
+        "eyeCover" : 0.02,
         "phasesChecked" : [
           "still",
           "t=0.0",
@@ -3868,11 +4737,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.568,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -3888,7 +4768,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.65,
+        "attachedFraction" : 0.665,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -3917,11 +4797,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.857,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -3936,11 +4827,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.507,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -3955,7 +4857,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.627,
+        "attachedFraction" : 0.623,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -3984,11 +4886,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.614,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -4003,7 +4916,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.92,
+        "attachedFraction" : 0.919,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -4033,7 +4946,7 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.986,
+        "attachedFraction" : 0.985,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -4063,7 +4976,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.696,
+        "attachedFraction" : 0.687,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -4092,11 +5005,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.98,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -4111,11 +5035,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.581,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -4130,11 +5065,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.521,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -4149,11 +5095,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.623,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -4198,11 +5155,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.569,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -4217,11 +5185,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.96,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -4236,11 +5215,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.844,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -4255,7 +5245,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.466,
+        "attachedFraction" : 0.45,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -4315,7 +5305,7 @@
       "layer" : "front",
       "maxWidth" : 0.5,
       "measured" : {
-        "attachedFraction" : 0.586,
+        "attachedFraction" : 0.571,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -4375,7 +5365,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.753,
+        "attachedFraction" : 0.744,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -4404,11 +5394,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.52,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.4865,
       "zIndex" : 30
     },
@@ -4423,11 +5424,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.863,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -4443,7 +5455,7 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.88,
+        "attachedFraction" : 0.878,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -4472,11 +5484,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.567,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.4613,
       "zIndex" : 30
     },
@@ -4492,7 +5515,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.97,
+        "attachedFraction" : 0.968,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -4522,7 +5545,7 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.768,
+        "attachedFraction" : 0.765,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -4552,7 +5575,7 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.994,
+        "attachedFraction" : 0.993,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -4581,11 +5604,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.935,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.4613,
       "zIndex" : 30
     },
@@ -4600,11 +5634,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.648,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -4619,11 +5664,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.849,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -4638,11 +5694,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.929,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.4613,
       "zIndex" : 30
     },
@@ -4658,8 +5725,8 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.955,
-        "eyeCover" : 0.017,
+        "attachedFraction" : 0.93,
+        "eyeCover" : 0.003,
         "phasesChecked" : [
           "still",
           "t=0.0",
@@ -4688,7 +5755,7 @@
       "layer" : "front",
       "maxWidth" : 0.58,
       "measured" : {
-        "attachedFraction" : 0.549,
+        "attachedFraction" : 0.534,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -4717,7 +5784,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.801,
+        "attachedFraction" : 0.796,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -4747,8 +5814,8 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.98,
-        "eyeCover" : 0.006,
+        "attachedFraction" : 0.951,
+        "eyeCover" : 0,
         "phasesChecked" : [
           "still",
           "t=0.0",
@@ -4806,11 +5873,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.57,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -4825,11 +5903,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.801,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -4844,11 +5933,22 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.57,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
       "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
       "rotation" : 0,
       "scale" : 0.9,
       "sink" : 0.06,
-      "validated" : false,
+      "validated" : true,
       "width" : 0.504,
       "zIndex" : 30
     },
@@ -4864,7 +5964,7 @@
       "layer" : "front",
       "maxWidth" : 0.5,
       "measured" : {
-        "attachedFraction" : 0.739,
+        "attachedFraction" : 0.73,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",

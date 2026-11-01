@@ -2,6 +2,7 @@ import XCTest
 @testable import Modula
 
 /// Series 2 marketplace: local drafts only. No prices, no sales, no server catalogue.
+@MainActor
 final class MOL06MarketplaceTests: XCTestCase {
     private func registry() throws -> MolibooCharacterRegistry {
         try XCTUnwrap(MolibooRegistryStore.bundled)
