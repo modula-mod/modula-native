@@ -304,6 +304,14 @@ struct CommunityBuildersView: View {
             VStack(alignment: .leading, spacing: 16) {
                 hero
                 identity
+                VStack(spacing: 0) {
+                    CommunityInfoRow(symbol: settings.isPrivate ? "lock.fill" : "globe", tint: accent, title: settings.isPrivate ? "Private community" : "Public community", subtitle: "Your setting on this iPhone")
+                    Divider().padding(.leading, 64)
+                    CommunityInfoRow(symbol: "person.3", tint: .purple, title: "Members", subtitle: "No member list until communities are on the server")
+                    Divider().padding(.leading, 64)
+                    CommunityInfoRow(symbol: "calendar", tint: .blue, title: "Events", subtitle: "None scheduled")
+                }
+                .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
                 tabs
                 tabBody
             }

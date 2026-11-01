@@ -353,15 +353,14 @@ struct CommunityEventView: View {
                     .accessibilityValue(settings.interestedOnDevice ? "On" : "Off")
                     .accessibilityIdentifier("community.event.interest")
                 }
-                CommunityPanel {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Label("Time isn’t set", systemImage: "clock")
-                        Label("No place or link yet", systemImage: "globe")
-                        Label(settings.interestedOnDevice ? "You’re interested on this device" : "Headcount isn’t available", systemImage: "person.2")
-                    }
-                    .font(.subheadline)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(spacing: 0) {
+                    CommunityInfoRow(symbol: "clock", tint: accent, title: "Time isn’t set", subtitle: "Shown in your time zone once scheduled")
+                    Divider().padding(.leading, 64)
+                    CommunityInfoRow(symbol: "globe", tint: .blue, title: "No place or link yet", subtitle: "Access details arrive with community events")
+                    Divider().padding(.leading, 64)
+                    CommunityInfoRow(symbol: "person.2", tint: .purple, title: settings.interestedOnDevice ? "You’re interested on this device" : "Headcount isn’t available", subtitle: "No attendee route yet")
                 }
+                .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
                 VStack(alignment: .leading, spacing: 8) {
                     ModulaSectionHeader(title: "About this event")
                     Text("Workshops and calls need a community events endpoint. Until then this page stays empty of dates, hosts and headcounts.")
@@ -378,5 +377,31 @@ struct CommunityEventView: View {
         }
         .modulaSoftScrollEdge()
         .accessibilityIdentifier("community.event.screen")
+    }
+}
+
+
+/// Reference event info row: tinted icon tile, bold title, secondary detail.
+struct CommunityInfoRow: View {
+    let symbol: String
+    let tint: Color
+    let title: String
+    let subtitle: String
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(tint)
+                .frame(width: 40, height: 40)
+                .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.subheadline.weight(.semibold))
+                Text(subtitle).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .frame(minHeight: 64)
+        .accessibilityElement(children: .combine)
     }
 }
