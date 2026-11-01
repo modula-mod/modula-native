@@ -22,7 +22,8 @@ struct GubicGameSource: Identifiable {
 
 /// Serves one game's files from memory under `gubic://<session-origin>/`. Unlisted paths,
 /// queries and fragments fail, so the page cannot reach anything but its own package.
-final class GubicSchemeHandler: NSObject, WKURLSchemeHandler {
+/// Plain Swift type (not NSObject) so it stays out of the generated ObjC header; WebKit sees `makeWebKitHandler()`.
+final class GubicSchemeHandler: @unchecked Sendable {
     static let scheme = "gubic"
     static let contentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 
@@ -47,7 +48,9 @@ final class GubicSchemeHandler: NSObject, WKURLSchemeHandler {
 
     func close() { lock.lock(); closed = true; lock.unlock() }
 
-    func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
+    func makeWebKitHandler() -> any WKURLSchemeHandler { GubicWebKitSchemeHandler(owner: self) }
+
+    func serve(_ task: WKURLSchemeTask) {
         guard let url = task.request.url, allows(url), let bytes = files[String(url.path.dropFirst())] else {
             task.didFailWithError(URLError(.fileDoesNotExist))
             return
@@ -81,6 +84,12 @@ final class GubicSchemeHandler: NSObject, WKURLSchemeHandler {
         task.didFinish()
     }
 
+}
+
+private final class GubicWebKitSchemeHandler: NSObject, WKURLSchemeHandler {
+    let owner: GubicSchemeHandler
+    init(owner: GubicSchemeHandler) { self.owner = owner }
+    func webView(_ webView: WKWebView, start task: WKURLSchemeTask) { owner.serve(task) }
     func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {}
 }
 

@@ -8,7 +8,8 @@ enum GubicSampleGame {
     static let title = "Orbit Tap"
     static let summary = "Tap to hop between two orbits. Collect stars, dodge rocks. A bundled sample that runs in the GUBIC HTML5 runtime."
 
-    static let manifest: [String: Any] = [
+    static var manifest: [String: Any] {
+        [
         "schema": "modula.gubic.game.v1",
         "gameId": id,
         "version": "1.0.0",
@@ -21,6 +22,7 @@ enum GubicSampleGame {
         "ageRating": "4+",
         "monetisation": "free",
     ]
+    }
 
     static let capabilities: Set<String> = ["lifecycle", "score", "achievements"]
 

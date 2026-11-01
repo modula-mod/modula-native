@@ -200,7 +200,7 @@ private struct GubicWebSurface: UIViewRepresentable {
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
         configuration.allowsInlineMediaPlayback = true
         configuration.mediaTypesRequiringUserActionForPlayback = []
-        configuration.setURLSchemeHandler(handler, forURLScheme: GubicSchemeHandler.scheme)
+        configuration.setURLSchemeHandler(handler.makeWebKitHandler(), forURLScheme: GubicSchemeHandler.scheme)
         var hello: [String: Any] = [
             "bridgeVersion": 1, "reduceMotion": reduceMotion,
             "locale": Locale.current.identifier, "capabilities": source.capabilities.sorted(),
