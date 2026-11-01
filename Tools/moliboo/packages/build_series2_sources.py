@@ -138,6 +138,8 @@ def write_manifest(drafts) -> None:
         png_ok(png)
         if (folder / "source.svg").exists():
             fail(f"{c['key']} still has a genesis blob SVG")
+        if (folder / "figure.svg").exists():
+            fail(f"{c['key']} still has the stale v1 figure.svg (Series 2 is drawn by the native rig; portrait.png is a thumbnail)")
         patch = json.loads((folder / "character.json").read_text())
         expect = patch_for(c, json.loads(ACCENTS.read_text()))
         if patch != expect:
@@ -160,7 +162,6 @@ def write_manifest(drafts) -> None:
             "files": [
                 file_record(folder / "character.json", "application/json", {}),
                 file_record(folder / "portrait.png", "image/png", {"width": 640, "height": 640, "art": "glossy-figure"}),
-                file_record(folder / "figure.svg", "image/svg+xml", {"packed": False, "art": "glossy-figure"}),
             ],
         })
     manifest = {
@@ -230,8 +231,7 @@ def check() -> None:
                 if blob[25] != 6:
                     fail(f"{c['key']} portrait is not RGBA")
             if rel == "figure.svg":
-                if "<svg" not in blob.decode() or rec.get("art") != "glossy-figure":
-                    fail(f"{c['key']} figure.svg is missing the glossy figure")
+                fail(f"{c['key']} manifest still lists the stale v1 figure.svg")
             if rel == "source.svg":
                 fail(f"{c['key']} manifest still lists a genesis blob SVG")
     print(f"series 2 pack sources ok ({len(drafts)} drafts, unsigned, not bundled)")

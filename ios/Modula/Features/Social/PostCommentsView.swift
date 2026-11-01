@@ -380,7 +380,7 @@ enum CommentSort: String, CaseIterable, Identifiable, Sendable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .best: "Best"
+        case .best: "Top"
         case .newest: "Newest"
         case .oldest: "Oldest"
         }
@@ -668,33 +668,33 @@ struct PostCommentsView: View {
                             .accessibilityLabel("\(displayedCount) comments")
                     }
                 }
-                Menu {
+                // Segmented sort (Hick: three visible choices beat a hidden menu).
+                HStack(spacing: 6) {
                     ForEach(CommentSort.allCases) { option in
+                        let selected = sort == option
                         Button {
-                            sort = option
+                            withAnimation(reduceMotion ? nil : .snappy(duration: 0.22)) { sort = option }
                             HapticEngine.shared.play(.selection)
                         } label: {
-                            HStack {
-                                Text(option.title)
-                                if sort == option { Image(systemName: "checkmark") }
-                            }
+                            Text(option.title)
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(selected ? Color.white : Color.primary.opacity(0.8))
+                                .padding(.horizontal, 14)
+                                .frame(minHeight: 32)
+                                .background {
+                                    if selected { Capsule().fill(app.appearance.liveAccent) }
+                                }
+                                .contentShape(Capsule())
                         }
+                        .buttonStyle(.plain)
+                        .frame(minHeight: 44)
+                        .accessibilityAddTraits(selected ? .isSelected : [])
+                        .accessibilityLabel("Sort by \(option.title)")
                     }
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "arrow.up.arrow.down")
-                            .font(.system(size: 11, weight: .bold))
-                        Text(sort.title)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 10, weight: .bold))
-                    }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .padding(.horizontal, 14)
-                    .frame(minHeight: 34)
-                    .modulaGlass(in: Capsule(), interactive: true)
                 }
-                .accessibilityLabel("Sort comments, \(sort.title)")
+                .padding(.horizontal, 3)
+                .modulaGlass(in: Capsule(), interactive: false)
+                .frame(minHeight: 44)
             }
             Spacer(minLength: 8)
             Button {
@@ -848,7 +848,7 @@ struct PostCommentsView: View {
                             } label: {
                                 HStack(spacing: 8) {
                                     Rectangle().frame(width: 20, height: 1)
-                                    Text("Show \(comment.replyCount) \(comment.replyCount == 1 ? "reply" : "replies")")
+                                    Text("View \(comment.replyCount) \(comment.replyCount == 1 ? "reply" : "replies")")
                                     if store.loadingReplies.contains(comment.id) { ProgressView().controlSize(.mini) }
                                     else { Image(systemName: "chevron.down").font(.caption2.weight(.bold)) }
                                 }
@@ -978,13 +978,22 @@ struct PostCommentsView: View {
                         Text("Edited").font(.caption2).foregroundStyle(.secondary)
                     }
                     if isOP(comment) {
-                        Text("OP")
+                        Text("Author")
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(app.appearance.liveAccent)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1)
                             .background(app.appearance.liveAccent.opacity(0.14), in: Capsule())
                             .accessibilityLabel("Original poster")
+                    }
+                    if comment.pinned {
+                        Label("Pinned", systemImage: "pin.fill")
+                            .font(.caption2.weight(.bold))
+                            .labelStyle(.titleAndIcon)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(Color.primary.opacity(0.07), in: Capsule())
                     }
                     }
                     VStack(alignment: .leading, spacing: 2) {
@@ -1043,13 +1052,22 @@ struct PostCommentsView: View {
                     }
                     .accessibilityLabel("Jump to parent comment")
                 }
-                HStack(spacing: 18) {
-                    Button("Reply") {
+                HStack(spacing: 6) {
+                    Button {
                         store.quoting = nil
                         store.replyingTo = comment
                         composerFocused = true
                         HapticEngine.shared.play(.selection)
+                    } label: {
+                        Label("Reply", systemImage: "arrowshape.turn.up.left")
+                            .labelStyle(.titleAndIcon)
+                            .padding(.horizontal, 10)
+                            .frame(minHeight: 30)
+                            .background(Color.primary.opacity(0.06), in: Capsule())
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
                     }
+                    .accessibilityIdentifier("comment.reply")
                     Button {
                         Task { await store.react(comment, type: "like") }
                         HapticEngine.shared.play(.confirmation)
@@ -1066,24 +1084,23 @@ struct PostCommentsView: View {
                             }
                         }
                     }
+                    .padding(.horizontal, 10)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
                     .accessibilityLabel(comment.viewerReaction == "like" ? "Unlike" : "Like")
                     .accessibilityValue(comment.likeCount > 0 ? "\(comment.likeCount)" : "")
                 }
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .buttonStyle(.plain)
-                .frame(minHeight: 30, alignment: .leading)
-                .contentShape(Rectangle())
+                .frame(minHeight: 44, alignment: .leading)
             }
         }
         .padding(.vertical, 2)
+        // The whole row (including blank space beside short comments) takes the swipe.
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
         .id(comment.id)
-        .overlay(alignment: .topTrailing) {
-            if comment.pinned {
-                Label("Pinned", systemImage: "pin.fill").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
-                    .labelStyle(.titleAndIcon)
-            }
-        }
         // Swipe left to reply (Telegram-style) with a haptic at the threshold.
         .background(alignment: .trailing) {
             Image(systemName: "arrowshape.turn.up.left.fill")
@@ -1126,16 +1143,16 @@ struct PostCommentsView: View {
     }
 
     private func swipeToReply(_ comment: SocialComment, store: PostCommentsStore) -> some Gesture {
-        DragGesture(minimumDistance: 24)
+        DragGesture(minimumDistance: 14)
             .onChanged { value in
-                guard abs(value.translation.width) > abs(value.translation.height) * 1.6, value.translation.width < 0 else { return }
+                guard abs(value.translation.width) > abs(value.translation.height) * 1.2, value.translation.width < 0 else { return }
                 let offset = max(value.translation.width * 0.6, -90)
                 let previous = swipeOffsets[comment.id] ?? 0
-                if previous > -64 && offset <= -64 { HapticEngine.shared.play(.dragThreshold) }
+                if previous > -56 && offset <= -56 { HapticEngine.shared.play(.dragThreshold) }
                 swipeOffsets[comment.id] = offset
             }
             .onEnded { _ in
-                let triggered = (swipeOffsets[comment.id] ?? 0) <= -64
+                let triggered = (swipeOffsets[comment.id] ?? 0) <= -56
                 withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.3, dampingFraction: 0.75)) {
                     swipeOffsets[comment.id] = nil
                 }
@@ -1154,6 +1171,11 @@ struct PostCommentsView: View {
             if comment.parentID == nil {
                 Button { menuComment = nil; store.replyingTo = nil; store.quoting = comment; composerFocused = true } label: { Label("Quote", systemImage: "quote.opening") }
             }
+            Button {
+                menuComment = nil
+                Task { await store.react(comment, type: "like") }
+                HapticEngine.shared.play(.confirmation)
+            } label: { Label(comment.viewerReaction == "like" ? "Unlike" : "Like", systemImage: comment.viewerReaction == "like" ? "heart.slash" : "heart") }
             Button {
                 UIPasteboard.general.string = comment.text
                 HapticEngine.shared.play(.lightImpact)

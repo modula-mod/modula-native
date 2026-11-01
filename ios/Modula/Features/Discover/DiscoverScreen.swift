@@ -93,7 +93,16 @@ struct DiscoverScreen: View {
                         searchEntry.modulaGlassID("discover.search", in: glassNS)
                     }
                 } else {
-                    VStack(spacing: 8) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Discover")
+                                .font(.largeTitle.bold())
+                                .accessibilityAddTraits(.isHeader)
+                            Text("People, posts, modules and topics.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         searchEntry.modulaGlassID("discover.search", in: glassNS)
                         chips
                     }

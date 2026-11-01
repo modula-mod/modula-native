@@ -24,6 +24,9 @@ struct HomeView: View {
     @State private var commentsBubble: SocialPost?
     @State private var lastCommentsPost: SocialPost?
     @State private var bubbleExpiry: Task<Void, Never>?
+    @State private var feedFilter: HomeFeedFilter = .all
+    @State private var editingQuickActions = false
+    @AppStorage(HomeQuickAction.storageKey) private var quickActionsRaw = HomeQuickAction.defaultRaw
 
     var body: some View {
         let state = app.home.state(for: mode)
@@ -94,7 +97,16 @@ struct HomeView: View {
                         greetingHero
                             .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
                             .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
-                            .padding(.bottom, ModulaSpacing.xs)
+                            .padding(.bottom, ModulaSpacing.xxs)
+
+                        if HomeTodayFlags.isEnabled {
+                            HomeTodayCard()
+                                .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
+                                .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
+                        }
+
+                        feedFilterChips
+                            .padding(.bottom, ModulaSpacing.xxs)
 
                         feedContent(state)
                     }
@@ -253,89 +265,147 @@ struct HomeView: View {
         return "Messages"
     }
 
-    /// Greeting card from the signed-in profile and the device clock. Actions open real destinations.
+    /// Greeting hero (reference: scenic card, name in display type, glass quick actions inside the card).
+    /// Name comes from the signed-in profile, the scene/greeting from the device clock.
     private var greetingHero: some View {
         let now = Date()
         let name = HomeGreeting.name(
             displayName: app.profile.ownProfile?.displayName,
             handle: app.profile.ownProfile?.handle ?? app.auth.account?.primaryHandle
         )
-        return VStack(alignment: .leading, spacing: ModulaSpacing.xs) {
-            ZStack(alignment: .bottomLeading) {
-                LinearGradient(
-                    colors: [Color(hex: "#369CAA"), app.appearance.liveAccent, Color(hex: "#1B3A4B")],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                VStack(alignment: .leading, spacing: ModulaSpacing.xs) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Label(HomeGreeting.line(for: now), systemImage: HomeGreeting.symbol(for: now))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.92))
-                        Spacer(minLength: 8)
-                        Text(HomeGreeting.dateChip(now))
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(.white.opacity(0.18), in: Capsule())
-                            .accessibilityLabel(HomeGreeting.dateChip(now))
-                    }
-                    Text(name)
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
+        let hour = Calendar.current.component(.hour, from: now)
+        let scene = (hour >= 20 || hour < 6) ? "SceneMoonLake" : "SceneMountainLake"
+        return VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .center) {
+                    Label(HomeGreeting.line(for: now), systemImage: HomeGreeting.symbol(for: now))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.95))
+                        .symbolRenderingMode(.multicolor)
+                    Spacer(minLength: 8)
+                    Text(HomeGreeting.dateChip(now))
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                    Text("Your space. Your people. Your modules.")
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.9))
-                    Button {
-                        app.navigation.open(.settings(.whatsNew(.root)))
-                        HapticEngine.shared.play(.navigation)
-                    } label: {
-                        Text("What’s new")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 14)
-                            .frame(height: 36)
-                            .background(.white.opacity(0.2), in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("home.greeting.whats-new")
+                        .padding(.horizontal, 10)
+                        .frame(height: 26)
+                        .modulaGlass(in: Capsule(), interactive: false)
                 }
-                .padding(ModulaLayout.contentInset)
+                Text(name)
+                    .font(.system(size: 40, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.55)
+                    .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
+                Text(HomeMolibooGreeting.mood(hour: hour, streak: MascotProgressStore.shared.streak))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                if MascotProgressStore.shared.streak > 1 {
+                    Label("\(MascotProgressStore.shared.streak)-day streak", systemImage: "flame.fill")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white)
+                        .symbolRenderingMode(.multicolor)
+                        .padding(.horizontal, 10).frame(height: 26)
+                        .modulaGlass(in: Capsule(), interactive: false, tint: .orange.opacity(0.35))
+                        .accessibilityIdentifier("home.greeting.streak")
+                }
+                Text("Your space. Your people. Your modules.")
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.85))
+                Button {
+                    app.navigation.open(.settings(.whatsNew(.root)))
+                    HapticEngine.shared.play(.navigation)
+                } label: {
+                    HStack(spacing: 8) {
+                        Text("What’s new")
+                        Image(systemName: "arrow.right")
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.black.opacity(0.85))
+                    .padding(.horizontal, 16)
+                    .frame(height: 40)
+                    .background(.white, in: Capsule())
+                    .shadow(color: .black.opacity(0.15), radius: 6, y: 3)
+                    .frame(minHeight: 44)
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 6)
+                .accessibilityIdentifier("home.greeting.whats-new")
             }
-            .frame(maxWidth: .infinity, minHeight: 176, alignment: .bottomLeading)
-            .clipShape(RoundedRectangle(cornerRadius: ModulaRadius.xl, style: .continuous))
+            .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.top, ModulaLayout.contentInset)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
+            Spacer(minLength: 14)
             greetingActions
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
         }
+        .frame(maxWidth: .infinity, minHeight: 300, alignment: .topLeading)
+        .background {
+            ZStack {
+                LinearGradient(colors: [app.appearance.liveAccent, Color(hex: "#1B3A4B")], startPoint: .topLeading, endPoint: .bottomTrailing)
+                Image(scene)
+                    .resizable()
+                    .scaledToFill()
+                    .accessibilityHidden(true)
+                LinearGradient(colors: [.black.opacity(0.42), .black.opacity(0.05), .black.opacity(0.35)], startPoint: .top, endPoint: .bottom)
+            }
+        }
+        .overlay(alignment: .trailing) {
+            Image(HomeMolibooGreeting.sprout(hour: hour))
+                .resizable()
+                .scaledToFit()
+                .frame(width: 120, height: 120)
+                .shadow(color: .black.opacity(0.3), radius: 10, y: 6)
+                .padding(.trailing, 12)
+                .offset(y: -6)
+                .accessibilityHidden(true)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder(LinearGradient(colors: [.white.opacity(0.5), .white.opacity(0.05)], startPoint: .top, endPoint: .bottom), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.18), radius: 16, y: 8)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.greeting")
     }
 
     private var greetingActions: some View {
-        HStack(spacing: 8) {
-            greetingAction("Write", "square.and.pencil", "home.greeting.write") {
-                app.navigation.open(.compose(.post))
-            }
-            greetingAction("Create", "sparkles", "home.greeting.create") {
-                if app.stories.capabilities.create {
-                    app.navigation.push(.stories(.create))
-                } else {
-                    app.navigation.open(.compose(.post))
+        ModulaGlassGroup(spacing: 8) {
+            HStack(spacing: 8) {
+                ForEach(HomeQuickAction.decode(quickActionsRaw)) { item in
+                    greetingAction(item.title, item.symbol, "home.greeting.\(item.rawValue)") { run(item) }
+                        .contextMenu {
+                            Button("Customise quick actions", systemImage: "slider.horizontal.3") { editingQuickActions = true }
+                        }
                 }
             }
-            greetingAction("Vault", "note.text", "home.greeting.vault") {
-                if let product = app.catalogue.product("digital.modula.vault-notes") {
-                    app.navigation.open(.productHub(.module(product.id, .overview)))
-                } else {
-                    app.navigation.open(.productHub(.featured))
-                }
+        }
+        .sheet(isPresented: $editingQuickActions) {
+            HomeQuickActionEditor(raw: $quickActionsRaw)
+                .presentationDetents([.medium, .large])
+        }
+    }
+
+    private func run(_ item: HomeQuickAction) {
+        switch item {
+        case .write: app.navigation.open(.compose(.post))
+        case .create:
+            if app.stories.capabilities.create { app.navigation.push(.stories(.create)) } else { app.navigation.open(.compose(.post)) }
+        case .vault:
+            if let product = app.catalogue.product("digital.modula.vault-notes") {
+                app.navigation.open(.productHub(.module(product.id, .overview)))
+            } else {
+                app.navigation.open(.productHub(.featured))
             }
-            greetingAction("Browse", "safari", "home.greeting.browse") {
-                app.navigation.open(.discover(.trending))
-            }
+        case .moliboos: app.navigation.open(.settings(.moliboo))
+        case .browse: app.navigation.open(.discover(.trending))
+        case .reels: app.navigation.push(.reels(.feed))
+        case .messages: app.navigation.push(.messages(.inbox))
+        case .modules: app.navigation.open(.productHub(.featured))
+        case .saved: app.navigation.open(.saved(.root))
         }
     }
 
@@ -346,19 +416,53 @@ struct HomeView: View {
         } label: {
             VStack(spacing: 6) {
                 Image(systemName: symbol)
-                    .font(.body.weight(.semibold))
+                    .font(.title3.weight(.semibold))
                 Text(title)
                     .font(.caption2.weight(.semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
-            .frame(maxWidth: .infinity, minHeight: 62)
-            .foregroundStyle(.primary)
-            .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, minHeight: 64)
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
         .buttonStyle(.plain)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true, tint: .white.opacity(0.08), specular: true)
         .accessibilityLabel(title)
         .accessibilityIdentifier(identifier)
+    }
+
+    /// Reference filter chips; each filters the loaded feed by real post fields.
+    private var feedFilterChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(HomeFeedFilter.allCases) { filter in
+                    let selected = feedFilter == filter
+                    Button {
+                        withAnimation(ModulaMotion.animation(.reveal, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
+                            feedFilter = filter
+                        }
+                        HapticEngine.shared.play(.selection)
+                    } label: {
+                        Label(filter.title, systemImage: filter.symbol)
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(selected ? app.appearance.liveAccent : Color.primary)
+                            .padding(.horizontal, 14)
+                            .frame(height: 36)
+                            .background(selected ? app.appearance.liveAccent.opacity(0.14) : .clear, in: Capsule())
+                            .overlay(Capsule().strokeBorder(selected ? app.appearance.liveAccent.opacity(0.45) : .clear, lineWidth: 1))
+                            .modulaGlass(in: Capsule(), interactive: true)
+                            .frame(minHeight: 44)
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                    .accessibilityIdentifier("home.filter.\(filter.rawValue)")
+                }
+            }
+            .padding(.horizontal, ModulaLayout.contentInset + leadingInteractionInset)
+        }
+        .scrollClipDisabled()
     }
 
     private var modeCaption: some View {
@@ -428,7 +532,16 @@ struct HomeView: View {
                 .padding(.top, 20)
             default:
                 // Perf: filter + resolve the feed once per body pass instead of three times.
-                let visiblePosts = app.home.visiblePosts(for: mode)
+                let visiblePosts = HomeFeedOrdering.friendsFirst(
+                    app.home.visiblePosts(for: mode).filter(feedFilter.matches),
+                    friendIDs: mode == .following ? [] : Set(app.home.state(for: .following).items.compactMap { $0.author?.id }),
+                    ownID: app.auth.account?.accountId
+                )
+                if visiblePosts.isEmpty {
+                    ModulaEmptyState(title: "No \(feedFilter.title.lowercased()) yet", message: "Try another filter or pull to refresh.", symbol: feedFilter.symbol)
+                        .padding(.horizontal, ModulaLayout.contentInset)
+                        .padding(.top, 20)
+                }
                 ForEach(visiblePosts) { post in
                     let resolved = app.posts.resolved(post)
                     PostCard(
@@ -1180,5 +1293,226 @@ private struct HomeCatchUpSection: View {
         }
         .task { await app.home.loadIfNeeded(.forYou, signedIn: app.auth.isSignedIn) }
         .accessibilityIdentifier("home.catch-up")
+    }
+}
+
+/// Home feed filter chips. Every case filters on fields the feed API already returns.
+enum HomeFeedFilter: String, CaseIterable, Identifiable {
+    case all, media, video, links, modules, text
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .all: "All"
+        case .media: "Photos"
+        case .video: "Videos"
+        case .links: "Links"
+        case .modules: "Modules"
+        case .text: "Thoughts"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .all: "square.grid.2x2"
+        case .media: "photo.on.rectangle"
+        case .video: "play.rectangle"
+        case .links: "link"
+        case .modules: "shippingbox"
+        case .text: "text.quote"
+        }
+    }
+    func matches(_ post: SocialPost) -> Bool {
+        switch self {
+        case .all: true
+        case .media: post.hasMedia && !(post.kind == .video || post.kind == .movie)
+        case .video: post.kind == .video || post.kind == .movie
+        case .links: post.link != nil
+        case .modules: post.module != nil
+        case .text: !post.hasMedia && post.link == nil && post.module == nil
+        }
+    }
+}
+
+
+// MARK: - Moliboo greeting (time of day + on-device streak from MascotProgressStore)
+
+enum HomeMolibooGreeting {
+    static func mood(hour: Int, streak: Int) -> String {
+        if streak >= 7 { return "A whole week together. Your Moliboo is glowing." }
+        if streak >= 3 { return "\(streak) days in a row. Keep it going." }
+        switch hour {
+        case 5..<12: return "Fresh start. What will you build today?"
+        case 12..<17: return "Build. Create. Explore."
+        case 17..<21: return "Golden hour. Catch up with your people."
+        default: return "Winding down. Your Moliboo is getting sleepy."
+        }
+    }
+    /// Bundled sprout art per part of the day.
+    static func sprout(hour: Int) -> String {
+        switch hour {
+        case 5..<12: "SproutSticker01_15_fitness"
+        case 12..<17: "SproutBuilder"
+        case 17..<21: "SproutSticker01_07_music_producer"
+        default: "SproutSticker01_29_meditation"
+        }
+    }
+}
+
+// MARK: - Friends-first ordering
+//
+// Accounts the viewer follows are taken from the authors in the loaded Following feed (no
+// separate follow-graph route is cached on device). Their posts from the last 24 hours move to
+// the top, keeping server order within each group.
+enum HomeFeedOrdering {
+    static func friendsFirst(_ posts: [SocialPost], friendIDs: Set<String>, ownID: String?, now: Date = .now) -> [SocialPost] {
+        guard !friendIDs.isEmpty else { return posts }
+        let cutoff = now.addingTimeInterval(-86_400)
+        var fresh: [SocialPost] = []
+        var rest: [SocialPost] = []
+        for post in posts {
+            if let id = post.author?.id, id != ownID, friendIDs.contains(id), post.createdAt > cutoff { fresh.append(post) } else { rest.append(post) }
+        }
+        return fresh + rest
+    }
+}
+
+// MARK: - Customisable quick actions
+
+enum HomeQuickAction: String, CaseIterable, Identifiable {
+    case write, create, vault, moliboos, browse, reels, messages, modules, saved
+    static let storageKey = "home.quickActions"
+    static let defaultRaw = "write,create,vault,moliboos,browse"
+    static let maxCount = 5
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .write: "Write"
+        case .create: "Create"
+        case .vault: "Vault"
+        case .moliboos: "Moliboos"
+        case .browse: "Browse"
+        case .reels: "Reels"
+        case .messages: "Messages"
+        case .modules: "Modules"
+        case .saved: "Saved"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .write: "square.and.pencil"
+        case .create: "sparkles"
+        case .vault: "doc.text"
+        case .moliboos: "pawprint"
+        case .browse: "safari"
+        case .reels: "play.rectangle"
+        case .messages: "message"
+        case .modules: "shippingbox"
+        case .saved: "bookmark"
+        }
+    }
+    static func decode(_ raw: String) -> [HomeQuickAction] {
+        let items = raw.split(separator: ",").compactMap { HomeQuickAction(rawValue: String($0)) }
+        return items.isEmpty ? decode(defaultRaw) : Array(items.prefix(maxCount))
+    }
+}
+
+struct HomeQuickActionEditor: View {
+    @Binding var raw: String
+    @Environment(\.dismiss) private var dismiss
+    @Environment(AppEnvironment.self) private var app
+    private var selected: [HomeQuickAction] { HomeQuickAction.decode(raw) }
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(HomeQuickAction.allCases) { item in
+                        let on = selected.contains(item)
+                        Button {
+                            var list = selected
+                            if on { if list.count > 1 { list.removeAll { $0 == item } } }
+                            else if list.count < HomeQuickAction.maxCount { list.append(item) }
+                            raw = list.map(\.rawValue).joined(separator: ",")
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            HStack {
+                                Label(item.title, systemImage: item.symbol).foregroundStyle(.primary)
+                                Spacer()
+                                Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(on ? app.appearance.liveAccent : .secondary)
+                            }
+                            .frame(minHeight: 44)
+                        }
+                        .disabled(!on && selected.count >= HomeQuickAction.maxCount)
+                        .accessibilityAddTraits(on ? .isSelected : [])
+                    }
+                } footer: {
+                    Text("Pick up to \(HomeQuickAction.maxCount). Saved on this iPhone.")
+                }
+            }
+            .navigationTitle("Quick actions")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Reset") { raw = HomeQuickAction.defaultRaw } }
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+            }
+        }
+    }
+}
+
+// MARK: - Today card (feature-flagged; game-systems routes are not live)
+
+enum HomeTodayFlags {
+    static let key = "dev.home.today"
+    /// Off by default until the game-systems routes (daily quests, buffs) exist on GreenField.
+    static var isEnabled: Bool { UserDefaults.standard.bool(forKey: key) }
+}
+
+/// Hook for the upcoming game-systems API. Returns nil until a route exists, so the card never
+/// invents quests or buffs.
+struct HomeTodaySnapshot: Equatable {
+    struct Quest: Identifiable, Equatable { let id: String; let title: String; let progress: Int; let goal: Int }
+    struct Buff: Identifiable, Equatable { let id: String; let title: String; let endsAt: Date }
+    var quests: [Quest]
+    var buffs: [Buff]
+}
+
+enum HomeTodayProvider {
+    static func load(client: GreenfieldClient) async -> HomeTodaySnapshot? { nil }
+}
+
+struct HomeTodayCard: View {
+    @Environment(AppEnvironment.self) private var app
+    @State private var snapshot: HomeTodaySnapshot?
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Today", systemImage: "sun.max.fill")
+                    .font(.headline)
+                    .symbolRenderingMode(.multicolor)
+                Spacer()
+                Label("\(MascotProgressStore.shared.streak)", systemImage: "flame.fill")
+                    .font(.caption.weight(.bold).monospacedDigit())
+                    .foregroundStyle(.orange)
+                    .accessibilityLabel("\(MascotProgressStore.shared.streak)-day streak")
+            }
+            if let snapshot, !(snapshot.quests.isEmpty && snapshot.buffs.isEmpty) {
+                ForEach(snapshot.quests) { quest in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(quest.title).font(.subheadline.weight(.semibold))
+                        ProgressView(value: Double(quest.progress), total: Double(max(quest.goal, 1))).tint(app.appearance.liveAccent)
+                    }
+                }
+                ForEach(snapshot.buffs) { buff in
+                    Label(buff.title, systemImage: "bolt.fill").font(.caption)
+                }
+            } else {
+                Text("Daily quests and active buffs appear here when Moliboo game systems launch.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(14)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
+        .task { snapshot = await HomeTodayProvider.load(client: app.client) }
+        .accessibilityIdentifier("home.today")
     }
 }
