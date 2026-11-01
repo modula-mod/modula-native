@@ -1543,6 +1543,7 @@ struct ProductHubView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 sessionState
+                GubicProductHubEntry()
                 catalogueContent
             }
             .padding(.horizontal, ModulaLayout.contentInset)
