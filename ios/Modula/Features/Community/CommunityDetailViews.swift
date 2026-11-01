@@ -286,18 +286,29 @@ struct CommunityEventView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 ZStack(alignment: .bottomLeading) {
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .fill(LinearGradient(colors: [accent.opacity(0.9), Color.orange.opacity(0.55)], startPoint: .top, endPoint: .bottom))
-                        .frame(height: 180)
+                    Image("SceneMoonLake")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(height: 230)
+                        .frame(maxWidth: .infinity)
+                        .clipped()
+                        .accessibilityHidden(true)
+                    LinearGradient(colors: [.clear, .black.opacity(0.65)], startPoint: .center, endPoint: .bottom)
                     VStack(alignment: .leading, spacing: 6) {
                         Text("COMMUNITY EVENT")
-                            .font(.caption.weight(.bold))
+                            .font(.caption2.weight(.bold))
+                            .padding(.horizontal, 10).frame(height: 24)
+                            .modulaGlass(in: Capsule(), interactive: false)
                         Text(CommunityCopy.comingSoon)
-                            .font(.title.bold())
+                            .font(.system(size: 30, weight: .bold, design: .rounded))
                     }
                     .foregroundStyle(.white)
                     .padding(18)
                 }
+                .frame(height: 230)
+                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(.white.opacity(0.25), lineWidth: 0.8))
+                .shadow(color: .black.opacity(0.18), radius: 16, y: 8)
                 HStack(alignment: .top, spacing: 12) {
                     VStack(spacing: 2) {
                         Text("—")
@@ -306,7 +317,7 @@ struct CommunityEventView: View {
                             .font(.caption2.weight(.semibold))
                     }
                     .frame(width: 64, height: 64)
-                    .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: false, specular: true)
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel("Not scheduled")
                     VStack(alignment: .leading, spacing: 4) {
@@ -342,15 +353,14 @@ struct CommunityEventView: View {
                     .accessibilityValue(settings.interestedOnDevice ? "On" : "Off")
                     .accessibilityIdentifier("community.event.interest")
                 }
-                CommunityPanel {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Label("Time isn’t set", systemImage: "clock")
-                        Label("No place or link yet", systemImage: "globe")
-                        Label(settings.interestedOnDevice ? "You’re interested on this device" : "Headcount isn’t available", systemImage: "person.2")
-                    }
-                    .font(.subheadline)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(spacing: 0) {
+                    CommunityInfoRow(symbol: "clock", tint: accent, title: "Time isn’t set", subtitle: "Shown in your time zone once scheduled")
+                    Divider().padding(.leading, 64)
+                    CommunityInfoRow(symbol: "globe", tint: .blue, title: "No place or link yet", subtitle: "Access details arrive with community events")
+                    Divider().padding(.leading, 64)
+                    CommunityInfoRow(symbol: "person.2", tint: .purple, title: settings.interestedOnDevice ? "You’re interested on this device" : "Headcount isn’t available", subtitle: "No attendee route yet")
                 }
+                .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
                 VStack(alignment: .leading, spacing: 8) {
                     ModulaSectionHeader(title: "About this event")
                     Text("Workshops and calls need a community events endpoint. Until then this page stays empty of dates, hosts and headcounts.")
@@ -367,5 +377,31 @@ struct CommunityEventView: View {
         }
         .modulaSoftScrollEdge()
         .accessibilityIdentifier("community.event.screen")
+    }
+}
+
+
+/// Reference event info row: tinted icon tile, bold title, secondary detail.
+struct CommunityInfoRow: View {
+    let symbol: String
+    let tint: Color
+    let title: String
+    let subtitle: String
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(tint)
+                .frame(width: 40, height: 40)
+                .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.subheadline.weight(.semibold))
+                Text(subtitle).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .frame(minHeight: 64)
+        .accessibilityElement(children: .combine)
     }
 }

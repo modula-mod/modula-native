@@ -369,49 +369,92 @@ struct PremiumStudioView: View {
 struct PremiumStorageView: View {
     @Environment(AppEnvironment.self) private var app
     @State private var store = PremiumEntitlementStore.shared
+    @State private var local: StorageUsageSnapshot?
+
+    private static let rows: [(String, String, String, Color)] = [
+        ("Automatic backup", "Your content backed up across devices", "icloud.and.arrow.up.fill", .green),
+        ("Access anywhere", "View and manage files on any device", "laptopcomputer.and.iphone", .blue),
+        ("Version history", "Go back to earlier versions", "clock.arrow.circlepath", .purple),
+        ("Large file support", "Upload and work with large files", "doc.fill", .pink)
+    ]
 
     var body: some View {
         SettingsScrollCanvas {
-            PremiumSceneHeader(scene: .storageCloud)
-            Text("Storage & Files").font(.largeTitle.weight(.bold))
-            Text("More room for what matters.").font(.subheadline).foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 6) {
-                Text("\(store.plan.storageGB) GB")
-                    .font(.largeTitle.weight(.bold).monospacedDigit())
-                Text("Included in the \(store.plan.shortTitle) catalogue.")
-                    .font(.subheadline)
-                Text("How much you’ve used: Coming soon.")
-                    .font(.subheadline.weight(.semibold))
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Storage & Files").font(.largeTitle.weight(.bold)).accessibilityAddTraits(.isHeader)
+                    Text("More room for what matters.").font(.subheadline).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                Image("SceneStorageCloud").resizable().scaledToFit().frame(width: 120, height: 96).accessibilityHidden(true)
+            }
+
+            HStack(spacing: 18) {
+                ZStack {
+                    Circle().stroke(Color.primary.opacity(0.08), lineWidth: 14)
+                    Circle().stroke(app.appearance.liveAccent.opacity(0.35), style: StrokeStyle(lineWidth: 14, dash: [4, 6]))
+                    VStack(spacing: 0) {
+                        Text("\(store.plan.storageGB) GB").font(.title3.bold().monospacedDigit())
+                        Text("allowance").font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
+                .frame(width: 120, height: 120)
+                .accessibilityElement(children: .combine)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Included with \(store.plan.shortTitle)").font(.headline)
+                    Text("Cloud usage isn’t reported yet, so the ring shows your allowance, not a guess.")
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    if let local {
+                        Label("\(ByteCountFormatter.string(fromByteCount: local.totalBytes, countStyle: .file)) on this iPhone", systemImage: "iphone")
+                            .font(.caption.weight(.semibold))
+                    }
+                }
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: false, specular: true)
             .accessibilityIdentifier("premium.storage.allowance")
-            TelegramSettingsCard {
-                ForEach(Array(Self.rows.enumerated()), id: \.offset) { index, title in
-                    HStack {
-                        Text(title).font(.subheadline.weight(.semibold))
+
+            Text("Need more space?").font(.title3.bold())
+            Text("Higher storage limits come with Horizon and Studio.").font(.subheadline).foregroundStyle(.secondary)
+            VStack(spacing: 8) {
+                ForEach(Self.rows, id: \.0) { row in
+                    HStack(spacing: 12) {
+                        Image(systemName: row.2)
+                            .font(.body.weight(.semibold)).foregroundStyle(.white)
+                            .frame(width: 40, height: 40)
+                            .background(row.3.gradient, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(row.0).font(.subheadline.weight(.semibold))
+                            Text(row.1).font(.caption).foregroundStyle(.secondary)
+                        }
                         Spacer()
-                        Text("Coming soon").font(.caption).foregroundStyle(.secondary)
+                        Text("Coming soon").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    if index < Self.rows.count - 1 { TelegramDivider() }
+                    .padding(12)
+                    .frame(minHeight: 64)
+                    .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
+                    .accessibilityElement(children: .combine)
                 }
             }
-            Button("Explore storage plans") {
+            Button {
                 app.navigation.open(.settings(.premium(.compare)))
+            } label: {
+                HStack { Text("Explore storage plans"); Spacer(); Image(systemName: "arrow.right") }
+                    .font(.body.weight(.semibold))
+                    .padding(.horizontal, 20)
+                    .frame(maxWidth: .infinity, minHeight: 54)
+                    .contentShape(Capsule())
             }
-            .font(.body.weight(.semibold))
-            .frame(maxWidth: .infinity, minHeight: 44)
-            SettingsAPIFootnote(text: "There is no storage-usage route, so used space, file lists and backups are not shown.")
+            .buttonStyle(.plain)
+            .modulaAccentCTA()
+            SettingsAPIFootnote(text: "There is no storage-usage route, so used cloud space, file lists and backups are not shown.")
         }
         .navigationTitle("Storage & Files")
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("premium.storage")
+        .task { local = await Task.detached(priority: .utility) { StorageUsageSnapshot.measure() }.value }
     }
-
-    private static let rows = ["Automatic backup", "Access on your devices", "Version history", "Large file support"]
 }
 
 // MARK: - Visitors

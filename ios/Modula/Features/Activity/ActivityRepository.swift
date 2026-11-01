@@ -12,7 +12,7 @@ protocol ActivityRepository: Sendable {
 ///
 /// Contract (public probe + auth inventory, VPS source pending):
 /// - `GET /v1/notifications` — authenticated timeline (All / Mentions)
-/// - `GET /v1/connections/requests` — authenticated Requests mode
+/// - `GET /v1/profiles/me/follow-requests` — authenticated Requests mode
 /// - `POST /v1/notifications/:id/read`
 /// - `POST /v1/notifications/read-all`
 /// - Accept: `POST /v1/profiles/:id/follow`
@@ -123,7 +123,7 @@ actor GreenfieldActivityRepository: ActivityRepository {
     }
 
     private func loadRequests(cursor: String?) async throws -> ActivityPage {
-        var path = "/v1/connections/requests?limit=30"
+        var path = "/v1/profiles/me/follow-requests?limit=30"
         if let cursor, let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
             path += "&cursor=\(encoded)"
         }
