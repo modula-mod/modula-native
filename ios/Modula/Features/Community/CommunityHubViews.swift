@@ -313,8 +313,8 @@ struct CommunityBuildersView: View {
 
     private var hero: some View {
         ZStack(alignment: .bottomLeading) {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(LinearGradient(colors: [accent, accent.opacity(0.55), Color.orange.opacity(0.45)], startPoint: .topLeading, endPoint: .bottomTrailing))
+            RoundedRectangle(cornerRadius: GeneratedDesignContract.Radius.xl, style: .continuous)
+                .fill(LinearGradient(colors: [accent, accent.opacity(0.55)], startPoint: .topLeading, endPoint: .bottomTrailing))
                 .frame(height: 168)
             VStack(alignment: .leading, spacing: 6) {
                 Text("MODULA BUILDERS")

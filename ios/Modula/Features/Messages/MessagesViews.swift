@@ -1441,10 +1441,15 @@ struct MessagesRetryBanner: View {
             Button {
                 Task { await run() }
             } label: {
-                if busy { ProgressView().controlSize(.small) } else { Text("Retry").font(.footnote.weight(.semibold)) }
+                Group {
+                    if busy { ProgressView().controlSize(.small) } else { Text("Retry").font(.footnote.weight(.semibold)) }
+                }
+                .padding(.horizontal, GeneratedDesignContract.Spacing.sm)
+                .frame(minHeight: GeneratedDesignContract.Layout.minimumTouchTarget)
+                .contentShape(Capsule())
             }
-            .buttonStyle(.bordered)
-            .buttonBorderShape(.capsule)
+            .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+            .modulaAccentCTA()
             .disabled(busy)
         }
         .padding(.leading, 14)
