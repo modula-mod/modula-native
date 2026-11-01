@@ -52,12 +52,13 @@ struct PremiumHubView: View {
 
     var body: some View {
         SettingsScrollCanvas {
-            PremiumHeroCard(plan: store.plan, previewing: store.isPreviewing)
+            // Reference order: brand + promise + Unit on its pedestal first, then the member status.
             PremiumMasthead(
                 eyebrow: "PREMIUM",
                 title: "Choose your plan",
                 subtitle: "Find the right level for you."
             )
+            PremiumHeroCard(plan: store.plan, previewing: store.isPreviewing)
 
             Picker("Audience", selection: $audience) {
                 ForEach(PremiumAudience.allCases) { Text($0.title).tag($0) }
@@ -69,7 +70,7 @@ struct PremiumHubView: View {
                 store.selectedPlan = value == .personal ? .recommended : .studio
             }
 
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: ModulaSpacing.sm) {
                 HStack {
                     Text("Billing").font(.headline)
                     Spacer()
@@ -82,8 +83,8 @@ struct PremiumHubView: View {
                     .frame(maxWidth: 220)
                     .accessibilityIdentifier("premium.billing")
                 }
-                ModulaGlassGroup(spacing: 10) {
-                    VStack(spacing: 10) {
+                ModulaGlassGroup(spacing: ModulaSpacing.sm) {
+                    VStack(spacing: ModulaSpacing.sm) {
                         ForEach(audience.plans) { plan in
                             PremiumPlanCard(
                                 plan: plan,
@@ -117,7 +118,7 @@ struct PremiumHubView: View {
                     app.navigation.open(.settings(.premium(.compare)))
                 }
                 TelegramDivider()
-                TelegramRow(title: "Why Horizon", symbol: "sun.horizon.fill", tint: PremiumPlan.horizon.tint) {
+                TelegramRow(title: "Why Horizon", symbol: "sun.horizon.fill", tint: app.appearance.liveAccent) {
                     app.navigation.open(.settings(.premium(.intro)))
                 }
                 .accessibilityIdentifier("premium.intro.link")
@@ -195,24 +196,14 @@ struct PremiumHeroCard: View {
     let previewing: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ShellSceneImage(scene: .moonLake)
-                .scaledToFill()
-                .frame(height: 112)
-                .frame(maxWidth: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(alignment: .bottom) {
-                    LinearGradient(colors: [.clear, .black.opacity(0.28)], startPoint: .top, endPoint: .bottom)
-                }
-                .accessibilityHidden(true)
-            HStack(spacing: 12) {
-                Image(systemName: "sun.horizon.fill")
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 48, height: 48)
-                    .background(PremiumPlan.horizon.gradient, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        // Compact member status. The big visual is the Unit stage in the masthead above, so this
+        // card no longer repeats a scene image (one focal point per screen).
+        VStack(alignment: .leading, spacing: ModulaSpacing.sm) {
+            HStack(spacing: ModulaSpacing.sm) {
+                ModulaUnitMark(style: .glass(ModulaBrandPalette.lavenderDeep))
+                    .frame(width: ModulaPremiumMetrics.planIconSize, height: ModulaPremiumMetrics.planIconSize)
                     .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: ModulaSpacing.hairline) {
                     Text("Modula Premium").font(.title3.weight(.semibold))
                     Text(statusLine).font(.subheadline).foregroundStyle(.secondary)
                 }
@@ -222,9 +213,9 @@ struct PremiumHeroCard: View {
                 .font(.subheadline)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(16)
+        .padding(ModulaSpacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: false, tint: PremiumPlan.horizon.tint.opacity(0.35), specular: true)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: ModulaRadius.large, style: .continuous), interactive: false, tint: ModulaBrandPalette.lavender, specular: true)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("premium.hero")
     }
@@ -247,18 +238,19 @@ struct PremiumPlanCard: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: ModulaSpacing.sm) {
                 Image(systemName: plan.symbol)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(.white)
-                    .frame(width: 36, height: 36)
-                    .background(plan.gradient, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .frame(width: ModulaPremiumMetrics.planIconSize, height: ModulaPremiumMetrics.planIconSize)
+                    .background(plan.gradient, in: RoundedRectangle(cornerRadius: ModulaRadius.small, style: .continuous))
                     .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: ModulaSpacing.xxs) {
+                    HStack(spacing: ModulaSpacing.xs) {
                         Text(plan.title).font(.body.weight(.semibold))
                         if plan == .recommended {
-                            PremiumPill(text: "Recommended", tint: plan.tint)
+                            // Recommendation uses the accent, matching the selected state and CTA.
+                            PremiumPill(text: "Recommended", tint: app.appearance.liveAccent)
                         }
                         if current {
                             PremiumPill(text: "Current", tint: .secondary)
@@ -268,9 +260,10 @@ struct PremiumPlanCard: View {
                     if let reason = plan.recommendationReason {
                         Text(reason).font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
-                    HStack(spacing: 6) {
+                    // Price is the second thing the eye lands on after the name (clear card hierarchy).
+                    HStack(spacing: ModulaSpacing.xs) {
                         Text(PremiumPricing.priceLine(plan, billing: billing))
-                            .font(.subheadline.weight(.semibold).monospacedDigit())
+                            .font(.headline.monospacedDigit())
                         Text("Placeholder")
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.secondary)
@@ -289,15 +282,16 @@ struct PremiumPlanCard: View {
                     .foregroundStyle(selected ? app.appearance.liveAccent : Color.secondary.opacity(0.6))
                     .accessibilityHidden(true)
             }
-            .padding(14)
+            .padding(ModulaSpacing.md)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: ModulaRadius.large, style: .continuous))
         }
         .buttonStyle(ModulaPressStyle(scale: 0.98))
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true, tint: selected ? app.appearance.liveAccent.opacity(0.25) : nil, specular: selected)
+        // Unselected cards sit on soft lavender glass; the selected one switches to the accent.
+        .modulaGlass(in: RoundedRectangle(cornerRadius: ModulaRadius.large, style: .continuous), interactive: true, tint: selected ? app.appearance.liveAccent.opacity(0.25) : ModulaBrandPalette.lavender.opacity(0.6), specular: true)
         .overlay {
             if selected {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: ModulaRadius.large, style: .continuous)
                     .strokeBorder(app.appearance.liveAccent.opacity(0.85), lineWidth: 1.5)
                     .allowsHitTesting(false)
             }
@@ -337,10 +331,11 @@ struct PremiumPrimaryButton: View {
 
     var body: some View {
         Button(action: action) {
+            // No local foreground colour: `modulaAccentCTA` owns it (white on solid accent, accent
+            // text on the outline when disabled — previously white-on-pale read as washed out).
             Text(label)
                 .font(.body.weight(.semibold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity, minHeight: 52)
+                .frame(maxWidth: .infinity, minHeight: ModulaLayout.ctaHeight)
                 .contentShape(Capsule())
         }
         .buttonStyle(ModulaPressStyle(scale: 0.97))

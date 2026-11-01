@@ -60,6 +60,11 @@ enum GeneratedDesignContract {
     /// Brand accent default (user-selectable accents override this at runtime).
     static let accentDefaultColor = ${swiftColor(contract.colors['accent.default'])}
 
+    /// Named brand palette (e.g. the soft lavender used behind Premium glass).
+    enum Palette {
+${Object.entries(contract.palette ?? {}).map(([k, v]) => `        static let ${k} = ${swiftColor(v)}`).join('\n')}
+    }
+
     struct ThemeColors {
 ${roles.map((r) => `        let ${r}: Color`).join('\n')}
     }
@@ -76,6 +81,7 @@ ${indent(typeRoles, 8)}
 ${indent(block('Spacing', contract.spacing), 4)}
 ${indent(block('Radius', contract.radius), 4)}
 ${indent(block('Layout', contract.layout), 4)}
+${indent(block('Premium', contract.premium), 4)}
 
     struct Shadow { let radius: Double; let y: Double; let opacity: Double }
     enum Elevation {

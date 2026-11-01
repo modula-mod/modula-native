@@ -119,7 +119,6 @@
 		C14B413EE2CA03DFFC2B64FF /* CommentRichContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */; };
 		C1E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */; };
 		C13029B25B9DB3676F028E7B /* ModulaGlassShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */; };
-		C12C151370E36AF608722F3D /* EdgeBulgeFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02C151370E36AF608722F3D /* EdgeBulgeFlow.swift */; };
 		C1A939FC00EE1BFBCF34B881 /* ModulaInAppBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A939FC00EE1BFBCF34B881 /* ModulaInAppBrowser.swift */; };
 		C11D7B0B13F8243B07F10A44 /* ComposerServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = C01D7B0B13F8243B07F10A44 /* ComposerServices.swift */; };
 		C14CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift */; };
@@ -402,14 +401,9 @@
 		FCF5472ED72B6CF79891F968 /* IntelligenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB03DB7121ABD1E492F3AC7E /* IntelligenceProvider.swift */; };
 		FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */; };
 		G50100000000000000000001 /* ModulaSurfaceSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000001 /* ModulaSurfaceSystem.swift */; };
-		G50100000000000000000002 /* EdgeLoopEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000002 /* EdgeLoopEngine.swift */; };
-		G50100000000000000000003 /* EdgeLoopShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000003 /* EdgeLoopShape.swift */; };
-		G50100000000000000000004 /* ModulaEdgeLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000004 /* ModulaEdgeLoop.swift */; };
 		G50100000000000000000006 /* TypographyPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000006 /* TypographyPreview.swift */; };
 		G50100000000000000000007 /* N4GTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000007 /* N4GTests.swift */; };
 		G50100000000000000000008 /* EdgePickerPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000008 /* EdgePickerPreferences.swift */; };
-		G50100000000000000000009 /* EdgeLoopMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000009 /* EdgeLoopMetrics.swift */; };
-		G5010000000000000000000A /* EdgePickerSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = G4010000000000000000000A /* EdgePickerSettingsView.swift */; };
 		H50100000000000000000001 /* IntelligenceSettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = H40100000000000000000001 /* IntelligenceSettingsViews.swift */; };
 		H50100000000000000000002 /* SettingsShellViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = H40100000000000000000002 /* SettingsShellViews.swift */; };
 		H50100000000000000000003 /* SettingsChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = H40100000000000000000003 /* SettingsChrome.swift */; };
@@ -612,7 +606,6 @@
 		C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommentRichContent.swift; path = Features/Social/CommentRichContent.swift; sourceTree = "<group>"; };
 		C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaComposerExtras.swift; path = DesignSystem/AdvancedInteraction/ModulaComposerExtras.swift; sourceTree = "<group>"; };
 		C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = ModulaGlassShaders.metal; path = DesignSystem/Glass/ModulaGlassShaders.metal; sourceTree = "<group>"; };
-		C02C151370E36AF608722F3D /* EdgeBulgeFlow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeBulgeFlow.swift; path = DesignSystem/EdgeLoop/EdgeBulgeFlow.swift; sourceTree = "<group>"; };
 		C0A939FC00EE1BFBCF34B881 /* ModulaInAppBrowser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaInAppBrowser.swift; path = Features/Browser/ModulaInAppBrowser.swift; sourceTree = "<group>"; };
 		C01D7B0B13F8243B07F10A44 /* ComposerServices.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ComposerServices.swift; path = Core/Composer/ComposerServices.swift; sourceTree = "<group>"; };
 		C04CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaComposerMediaPanel.swift; path = DesignSystem/AdvancedInteraction/ModulaComposerMediaPanel.swift; sourceTree = "<group>"; };
@@ -899,14 +892,9 @@
 		F97B62939727826A0A7B6B6A /* ModulaIntelligenceService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaIntelligenceService.swift; path = Core/Intelligence/ModulaIntelligenceService.swift; sourceTree = "<group>"; };
 		FAC389B69B72346128446B86 /* NodusKnowledgeStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusKnowledgeStore.swift; path = Core/Intelligence/Nodus/Knowledge/NodusKnowledgeStore.swift; sourceTree = "<group>"; };
 		G40100000000000000000001 /* ModulaSurfaceSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaSurfaceSystem.swift; path = DesignSystem/Surface/ModulaSurfaceSystem.swift; sourceTree = "<group>"; };
-		G40100000000000000000002 /* EdgeLoopEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopEngine.swift; path = DesignSystem/EdgeLoop/EdgeLoopEngine.swift; sourceTree = "<group>"; };
-		G40100000000000000000003 /* EdgeLoopShape.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopShape.swift; path = DesignSystem/EdgeLoop/EdgeLoopShape.swift; sourceTree = "<group>"; };
-		G40100000000000000000004 /* ModulaEdgeLoop.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaEdgeLoop.swift; path = DesignSystem/EdgeLoop/ModulaEdgeLoop.swift; sourceTree = "<group>"; };
 		G40100000000000000000006 /* TypographyPreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TypographyPreview.swift; path = Features/Settings/TypographyPreview.swift; sourceTree = "<group>"; };
 		G40100000000000000000007 /* N4GTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4GTests.swift; sourceTree = "<group>"; };
 		G40100000000000000000008 /* EdgePickerPreferences.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgePickerPreferences.swift; path = DesignSystem/EdgeLoop/EdgePickerPreferences.swift; sourceTree = "<group>"; };
-		G40100000000000000000009 /* EdgeLoopMetrics.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopMetrics.swift; path = DesignSystem/EdgeLoop/EdgeLoopMetrics.swift; sourceTree = "<group>"; };
-		G4010000000000000000000A /* EdgePickerSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgePickerSettingsView.swift; path = Features/Settings/EdgePickerSettingsView.swift; sourceTree = "<group>"; };
 		H40100000000000000000001 /* IntelligenceSettingsViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceSettingsViews.swift; path = Features/Settings/IntelligenceSettingsViews.swift; sourceTree = "<group>"; };
 		H40100000000000000000002 /* SettingsShellViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsShellViews.swift; path = Features/Settings/SettingsShellViews.swift; sourceTree = "<group>"; };
 		H40100000000000000000003 /* SettingsChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsChrome.swift; path = Features/Settings/SettingsChrome.swift; sourceTree = "<group>"; };
@@ -1274,8 +1262,6 @@
 				A40100000000000000000016 /* PublisherView.swift */,
 				F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */,
 				G40100000000000000000008 /* EdgePickerPreferences.swift */,
-				G40100000000000000000009 /* EdgeLoopMetrics.swift */,
-				G4010000000000000000000A /* EdgePickerSettingsView.swift */,
 				H40100000000000000000001 /* IntelligenceSettingsViews.swift */,
 				82C70BDE2136649342EC7569 /* NodusModelSettingsCard.swift */,
 				H40100000000000000000002 /* SettingsShellViews.swift */,
@@ -1352,7 +1338,6 @@
 				C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */,
 				C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */,
 				C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */,
-				C02C151370E36AF608722F3D /* EdgeBulgeFlow.swift */,
 				C0A939FC00EE1BFBCF34B881 /* ModulaInAppBrowser.swift */,
 				C01D7B0B13F8243B07F10A44 /* ComposerServices.swift */,
 				C04CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift */,
@@ -1437,9 +1422,6 @@
 				C8F1A02D3E4B5C6D7E8F9011 /* ShellScenes.swift */,
 				D91AB23E4F5C6D7E8091A011 /* SproutStickerPack.swift */,
 				G40100000000000000000001 /* ModulaSurfaceSystem.swift */,
-				G40100000000000000000002 /* EdgeLoopEngine.swift */,
-				G40100000000000000000003 /* EdgeLoopShape.swift */,
-				G40100000000000000000004 /* ModulaEdgeLoop.swift */,
 				G40100000000000000000006 /* TypographyPreview.swift */,
 				E30100000000000000000008 /* ModulaProgressiveHeader.swift */,
 				D4010000000000000000001B /* ModulaPullActions.swift */,
@@ -2001,12 +1983,7 @@
 				N50100000000000000000011 /* ProfileCustomizationViews.swift in Sources */,
 				F50100000000000000000001 /* ModulaImmersiveSurfaces.swift in Sources */,
 				G50100000000000000000001 /* ModulaSurfaceSystem.swift in Sources */,
-				G50100000000000000000002 /* EdgeLoopEngine.swift in Sources */,
-				G50100000000000000000003 /* EdgeLoopShape.swift in Sources */,
-				G50100000000000000000004 /* ModulaEdgeLoop.swift in Sources */,
 				G50100000000000000000008 /* EdgePickerPreferences.swift in Sources */,
-				G50100000000000000000009 /* EdgeLoopMetrics.swift in Sources */,
-				G5010000000000000000000A /* EdgePickerSettingsView.swift in Sources */,
 				H50100000000000000000001 /* IntelligenceSettingsViews.swift in Sources */,
 				253A359389594877DBDBA326 /* NodusModelSettingsCard.swift in Sources */,
 				H50100000000000000000002 /* SettingsShellViews.swift in Sources */,
@@ -2083,7 +2060,6 @@
 				C14B413EE2CA03DFFC2B64FF /* CommentRichContent.swift in Sources */,
 				C1E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift in Sources */,
 				C13029B25B9DB3676F028E7B /* ModulaGlassShaders.metal in Sources */,
-				C12C151370E36AF608722F3D /* EdgeBulgeFlow.swift in Sources */,
 				C1A939FC00EE1BFBCF34B881 /* ModulaInAppBrowser.swift in Sources */,
 				C11D7B0B13F8243B07F10A44 /* ComposerServices.swift in Sources */,
 				C14CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift in Sources */,

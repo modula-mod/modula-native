@@ -30,8 +30,10 @@ struct HomeView: View {
         ZStack(alignment: .top) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    LazyVStack(alignment: .leading, spacing: 14) {
-                        VStack(alignment: .leading, spacing: 14) {
+                    // Vertical rhythm on the spacing scale: sections 12pt apart, a section's own
+                    // header and content 8pt apart (Gestalt proximity), matching the Home reference.
+                    LazyVStack(alignment: .leading, spacing: ModulaSpacing.sm) {
+                        VStack(alignment: .leading, spacing: ModulaSpacing.xs) {
                             if !showsStoryTray { modeCaption }
                             if showsStoryTray {
                                 let trayGroups = StoryStore.homeTrayGroups(app.stories.trayGroups)
@@ -96,7 +98,7 @@ struct HomeView: View {
 
                         feedContent(state)
                     }
-                    .padding(.top, 4)
+                    .padding(.top, ModulaSpacing.xxs)
                     .padding(.bottom, shellChromeMetrics.contentBottomInset)
                     .modulaPullContentEffects()
                 }
@@ -258,14 +260,14 @@ struct HomeView: View {
             displayName: app.profile.ownProfile?.displayName,
             handle: app.profile.ownProfile?.handle ?? app.auth.account?.primaryHandle
         )
-        return VStack(alignment: .leading, spacing: 12) {
+        return VStack(alignment: .leading, spacing: ModulaSpacing.xs) {
             ZStack(alignment: .bottomLeading) {
                 LinearGradient(
                     colors: [Color(hex: "#369CAA"), app.appearance.liveAccent, Color(hex: "#1B3A4B")],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: ModulaSpacing.xs) {
                     HStack(alignment: .firstTextBaseline) {
                         Label(HomeGreeting.line(for: now), systemImage: HomeGreeting.symbol(for: now))
                             .font(.subheadline.weight(.semibold))
@@ -301,10 +303,10 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("home.greeting.whats-new")
                 }
-                .padding(18)
+                .padding(ModulaLayout.contentInset)
             }
             .frame(maxWidth: .infinity, minHeight: 176, alignment: .bottomLeading)
-            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: ModulaRadius.xl, style: .continuous))
 
             greetingActions
         }
@@ -482,7 +484,6 @@ struct HomeView: View {
                         }
                     ))
                     .padding(.horizontal, ModulaLayout.postBleedGutter)
-                    .modulaEdgeFlow()
                     .modulaScrollReveal()
                     .onScrollVisibilityChange(threshold: 0.55) { visible in
                         if visible, ambient.postID != resolved.id { ambient.postID = resolved.id }

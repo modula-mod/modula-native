@@ -48,20 +48,14 @@ struct ModulaRailShape: Shape {
     }
 }
 
-struct ModulaContextRail: View {
-    struct Interaction: Equatable {
-        var isScrolling = false
-        var keyboardVisible = false
-        var immersive = false
-        static let idle = Self()
-    }
-
-    let route: AppRoute
-    var interaction: Interaction = .idle
-
-    var body: some View {
-        ShellEdgeLoop(route: route, interaction: interaction)
-    }
+/// Whether a page-level feed is actively scrolling. Decorative TimelineViews / shaders
+/// read this to drop their frame rate so scrolling keeps the GPU budget.
+/// (Moved here from the retired EdgeLoop/EdgeBulgeFlow.swift.)
+@MainActor @Observable
+final class ModulaScrollActivity {
+    static let shared = ModulaScrollActivity()
+    private(set) var isScrolling = false
+    func set(_ scrolling: Bool) { if isScrolling != scrolling { isScrolling = scrolling } }
 }
 
 extension View {

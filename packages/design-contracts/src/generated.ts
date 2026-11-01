@@ -5,6 +5,11 @@ export const designContract = {
     "accent.default": "#369CAA",
     "canvas.oled": "#000000"
   },
+  "palette": {
+    "lavenderMist": "#F1EDFF",
+    "lavender": "#C8BBF6",
+    "lavenderDeep": "#8B78E6"
+  },
   "themes": {
     "light": {
       "canvas": "rgb(0.975, 0.982, 0.988)",
@@ -124,7 +129,23 @@ export const designContract = {
     "listRowIconWidth": 28,
     "listRowMinHeight": 48,
     "heroHeight": 260,
-    "heroPadding": 20
+    "heroPadding": 20,
+    "mediaUnavailableHeight": 212,
+    "ctaHeight": 52
+  },
+  "premium": {
+    "heroStageHeight": 220,
+    "unitSize": 120,
+    "pedestalWidth": 184,
+    "pedestalHeight": 40,
+    "pedestalLift": 10,
+    "floatAmplitude": 4,
+    "floatSeconds": 3.2,
+    "planIconSize": 36,
+    "compareAreaWidth": 84,
+    "compareColumnWidth": 80,
+    "compareHeaderHeight": 64,
+    "compareRowHeight": 48
   },
   "elevation": {
     "hairlineOpacity": 0.07,

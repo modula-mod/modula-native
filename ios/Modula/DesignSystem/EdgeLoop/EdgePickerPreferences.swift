@@ -45,9 +45,6 @@ enum EdgePickerSide: String, CaseIterable, Codable, Identifiable, Sendable {
     case left, right
     var id: Self { self }
     var title: String { rawValue.capitalized }
-    var loopPosition: EdgeLoopPosition {
-        self == .left ? .leading : .trailing
-    }
 }
 
 enum EdgePickerLabelBehavior: String, CaseIterable, Codable, Identifiable, Sendable {

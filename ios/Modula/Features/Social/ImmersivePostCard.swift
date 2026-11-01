@@ -186,7 +186,7 @@ struct ImmersivePostCard: View {
             .allowsHitTesting(false)
         }
         .zIndex(showsReactions || !bursts.isEmpty ? 5 : 0)
-        .padding(.vertical, 6)
+        .padding(.vertical, ModulaSpacing.xxs)
         // Gate post share/save pans while the dock or full emoji grid is up.
         .postReactionPickerPresented(showsReactions || showsReactionGrid)
         .accessibilityElement(children: .contain)
@@ -296,7 +296,20 @@ struct ImmersivePostCard: View {
         .environment(\.colorScheme, .dark)
     }
 
+    @ViewBuilder
     private func mediaStageBase(pages: [ModulaAttachment]) -> some View {
+        if pages.allSatisfy(\.isMissingMedia) {
+            // Every page is missing (no URL, failed, expired or rejected): a short, honest stage
+            // instead of a tall empty dark slab. Header and caption overlays still sit on top.
+            MediaUnavailableStage(kind: pages.first?.kind ?? .image, count: pages.count)
+                .frame(maxWidth: .infinity)
+                .frame(height: ModulaLayout.mediaUnavailableHeight)
+        } else {
+            mediaStageBaseLoaded(pages: pages)
+        }
+    }
+
+    private func mediaStageBaseLoaded(pages: [ModulaAttachment]) -> some View {
         Color.black
             .aspectRatio(stageRatio(pages.first), contentMode: .fit)
             .frame(maxWidth: .infinity)
@@ -359,7 +372,9 @@ struct ImmersivePostCard: View {
     @ViewBuilder
     private func mediaPage(_ attachment: ModulaAttachment, gallery: [ModulaAttachment]) -> some View {
         Group {
-            if attachment.resolvedRemoteState != .ready {
+            if attachment.isMissingMedia {
+                MediaUnavailableStage(kind: attachment.kind, count: 1)
+            } else if attachment.resolvedRemoteState != .ready {
                 ZStack {
                     Color(white: 0.12)
                     VStack(spacing: 8) {
@@ -1813,3 +1828,76 @@ struct ImmersiveVideoProgress: View {
         return String(format: "%d:%02d", value / 60, value % 60)
     }
 }
+
+// MARK: - Missing media
+
+extension ModulaAttachment {
+    /// Nothing to show and nothing still on its way: no local/remote/preview URL, or the backend
+    /// reported the upload as failed, expired or rejected. Uploads still processing are not missing.
+    var isMissingMedia: Bool {
+        if !isAvailable { return true }
+        switch resolvedRemoteState {
+        case .failed, .expired, .rejected: return true
+        default: return false
+        }
+    }
+}
+
+/// Stage for a media post whose media can't be shown. Soft glass card with the media kind's
+/// symbol and a plain explanation; no fake retry (there is nothing to re-request).
+/// Decorative gradient flattens under Reduce Transparency.
+struct MediaUnavailableStage: View {
+    let kind: AttachmentKind
+    var count: Int = 1
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: reduceTransparency
+                    ? [Color(uiColor: .secondarySystemBackground), Color(uiColor: .secondarySystemBackground)]
+                    : [ModulaBrandPalette.lavenderDeep.opacity(0.45), Color(uiColor: .secondarySystemBackground)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            VStack(spacing: ModulaSpacing.xs) {
+                Image(systemName: symbol)
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
+                    .modulaGlass(in: Circle(), interactive: false)
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text("It may have been removed or failed to upload.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, ModulaLayout.contentInset)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("post.media.unavailable")
+    }
+
+    private var symbol: String {
+        switch kind {
+        case .video: "video.slash"
+        case .audio: "speaker.slash"
+        case .pdf, .document: "doc.badge.ellipsis"
+        default: "photo.badge.exclamationmark"
+        }
+    }
+
+    private var title: String {
+        let noun: String
+        switch kind {
+        case .video: noun = count > 1 ? "Videos" : "Video"
+        case .audio: noun = "Audio"
+        case .pdf, .document: noun = count > 1 ? "Files" : "File"
+        default: noun = count > 1 ? "Photos" : "Photo"
+        }
+        return "\(noun) unavailable"
+    }
+}
+

@@ -16,12 +16,12 @@ struct PremiumMasthead: View {
     var eyebrow: String
     var title: String
     var subtitle: String
-    var unit: ModulaUnitMark.Style = .glass()
+    var unit: ModulaUnitMark.Style = .glass(ModulaBrandPalette.lavenderDeep)
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        VStack(spacing: 12) {
-            ModulaWordmark(height: 26)
+        VStack(spacing: ModulaSpacing.sm) {
+            ModulaWordmark(height: ModulaLayout.homeWordmarkHeight)
             Text(eyebrow)
                 .font(.caption2.weight(.semibold))
                 .tracking(2.2)
@@ -33,12 +33,81 @@ struct PremiumMasthead: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-            ModulaUnitMark(style: unit)
-                .frame(width: 132, height: 132)
-                .padding(.top, 4)
-                .accessibilityHidden(true)
+            // Hero: the Modula Unit resting on a lavender glass pedestal (never the ribbon logo).
+            PremiumUnitStage(unit: unit)
+                .padding(.top, ModulaSpacing.xxs)
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+/// The Modula Unit floating over a soft lavender glass pedestal (Horizon / Compare / Choose plan
+/// references). Decorative only: hidden from VoiceOver. Reduce Motion keeps it still; Reduce
+/// Transparency gets an opaque backdrop and pedestal via `modulaGlass`'s fallback.
+struct PremiumUnitStage: View {
+    var unit: ModulaUnitMark.Style = .glass(ModulaBrandPalette.lavenderDeep)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var scheme
+    @State private var floating = false
+
+    private typealias Metrics = ModulaPremiumMetrics
+    private var stageShape: RoundedRectangle { RoundedRectangle(cornerRadius: ModulaRadius.xl, style: .continuous) }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            stageShape.fill(backdrop)
+            VStack(spacing: -Metrics.pedestalHeight / 2) {
+                ModulaUnitMark(style: unit)
+                    .frame(width: Metrics.unitSize, height: Metrics.unitSize)
+                    .shadow(color: ModulaBrandPalette.lavenderDeep.opacity(0.32), radius: ModulaSpacing.md, y: ModulaSpacing.xs)
+                    .offset(y: -Metrics.pedestalLift - (floating ? Metrics.floatAmplitude : 0))
+                    .zIndex(1)
+                pedestal
+            }
+            .padding(.bottom, ModulaSpacing.lg)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: Metrics.heroStageHeight)
+        .clipShape(stageShape)
+        .overlay(stageShape.strokeBorder(Color.white.opacity(reduceTransparency ? 0 : 0.35), lineWidth: 0.8))
+        .accessibilityHidden(true)
+        .onAppear { startFloating() }
+        .onChange(of: reduceMotion) { _, _ in startFloating() }
+    }
+
+    /// Lavender mist in light mode, a deep lavender wash in dark mode; flat under Reduce Transparency.
+    private var backdrop: LinearGradient {
+        let top = scheme == .dark ? ModulaBrandPalette.lavenderDeep.opacity(0.28) : ModulaBrandPalette.lavenderMist
+        let bottom = scheme == .dark ? ModulaBrandPalette.lavenderDeep.opacity(0.10) : ModulaBrandPalette.lavender.opacity(0.55)
+        return LinearGradient(colors: reduceTransparency ? [top, top] : [top, bottom], startPoint: .top, endPoint: .bottom)
+    }
+
+    private var pedestal: some View {
+        ZStack {
+            // Soft contact shadow under the disc.
+            Ellipse()
+                .fill(ModulaBrandPalette.lavenderDeep.opacity(0.18))
+                .frame(width: Metrics.pedestalWidth, height: Metrics.pedestalHeight)
+                .offset(y: ModulaSpacing.xxs)
+                .blur(radius: reduceTransparency ? 0 : ModulaSpacing.xxs)
+            // Glass disc the Unit rests on.
+            Color.clear
+                .frame(width: Metrics.pedestalWidth, height: Metrics.pedestalHeight)
+                .modulaGlass(in: Ellipse(), interactive: false, tint: ModulaBrandPalette.lavender, specular: true)
+        }
+    }
+
+    private func startFloating() {
+        guard !reduceMotion else {
+            var still = Transaction()
+            still.disablesAnimations = true
+            withTransaction(still) { floating = false }
+            return
+        }
+        withAnimation(.easeInOut(duration: Metrics.floatSeconds).repeatForever(autoreverses: true)) {
+            floating = true
+        }
     }
 }
 
@@ -100,7 +169,7 @@ struct PremiumCompareView: View {
                 .modulaHorizontalEdgeFade()
             }
             .padding(.vertical, ModulaSpacing.xs)
-            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: ModulaRadius.large, style: .continuous), interactive: false, tint: ModulaBrandPalette.lavender, specular: true)
             .accessibilityIdentifier("premium.compare.table")
 
             Text("Everything in Core stays free. Premium only adds.")
@@ -130,10 +199,10 @@ struct PremiumCompareView: View {
         return save > 0 ? "Yearly · \(save)%" : "Yearly"
     }
 
-    private static let areaWidth: CGFloat = 84
-    private static let columnWidth: CGFloat = 80
-    private static let headerHeight: CGFloat = 64
-    private static let rowHeight: CGFloat = 48
+    private static let areaWidth = ModulaPremiumMetrics.compareAreaWidth
+    private static let columnWidth = ModulaPremiumMetrics.compareColumnWidth
+    private static let headerHeight = ModulaPremiumMetrics.compareHeaderHeight
+    private static let rowHeight = ModulaPremiumMetrics.compareRowHeight
 
     private var header: some View {
         HStack(alignment: .top, spacing: 0) {
@@ -143,11 +212,17 @@ struct PremiumCompareView: View {
                         store.selectedPlan = plan
                     }
                 } label: {
-                    VStack(spacing: 4) {
+                    VStack(spacing: ModulaSpacing.xxs) {
                         if plan == .recommended {
+                            // One labelled recommendation (Von Restorff), in the accent only.
                             Text("Recommended")
                                 .font(.caption2.weight(.semibold))
-                                .foregroundStyle(app.appearance.liveAccent)
+                                .foregroundStyle(Color.white)
+                                .padding(.horizontal, ModulaSpacing.xs)
+                                .padding(.vertical, ModulaSpacing.hairline)
+                                .background(app.appearance.liveAccent, in: Capsule())
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
                         }
                         Text(plan.shortTitle)
                             .font(.caption.weight(.semibold))
@@ -160,6 +235,7 @@ struct PremiumCompareView: View {
                     }
                     .frame(width: Self.columnWidth, height: Self.headerHeight)
                     .background(plan == store.selectedPlan ? app.appearance.liveAccent.opacity(0.14) : Color.clear)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(plan == store.selectedPlan ? .isSelected : [])
@@ -205,10 +281,9 @@ struct PremiumIntroView: View {
             PremiumMasthead(
                 eyebrow: "HORIZON",
                 title: "More reach. More room. More expression.",
-                subtitle: "Modula Premium makes Modula bigger — more ways to connect, create and be seen, without changing what makes the free experience great.",
-                unit: .premiumGold
+                subtitle: "Modula Premium makes Modula bigger — more ways to connect, create and be seen, without changing what makes the free experience great."
             )
-            ModulaGlassGroup(spacing: 8) {
+            ModulaGlassGroup(spacing: ModulaSpacing.xs) {
                 VStack(spacing: 0) {
                     ForEach(Array(Self.rows.enumerated()), id: \.offset) { index, row in
                         PremiumIntroRow(symbol: row.symbol, title: row.title, detail: row.detail) {
@@ -217,22 +292,27 @@ struct PremiumIntroView: View {
                         if index < Self.rows.count - 1 { TelegramDivider() }
                     }
                 }
-                .padding(.horizontal, 4)
+                .padding(.horizontal, ModulaSpacing.xxs)
+                .padding(.vertical, ModulaSpacing.xxs)
+                // Soft lavender glass card (Gestalt common region: the five benefits read as one group).
+                .modulaGlass(in: RoundedRectangle(cornerRadius: ModulaRadius.large, style: .continuous), interactive: false, tint: ModulaBrandPalette.lavender, specular: true)
             }
+            // The one solid accent CTA on the page (Von Restorff); full width in the thumb zone (Fitts).
             Button {
                 app.navigation.open(.settings(.premium(.compare)))
             } label: {
                 Text("Explore plans")
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .frame(maxWidth: .infinity, minHeight: ModulaLayout.ctaHeight)
+                    .contentShape(Capsule())
             }
             .buttonStyle(ModulaPressStyle(scale: 0.97))
             .modulaAccentCTA()
             .accessibilityIdentifier("premium.intro.explore")
             Button("Maybe later") { app.navigation.close() }
                 .font(.body.weight(.semibold))
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .foregroundStyle(app.appearance.liveAccent)
+                .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
                 .accessibilityIdentifier("premium.intro.later")
             PremiumDisclaimerText()
         }
@@ -260,23 +340,24 @@ private struct PremiumIntroRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 12) {
+            HStack(spacing: ModulaSpacing.sm) {
                 Image(systemName: symbol)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(app.appearance.liveAccent)
-                    .frame(width: 32, height: 32)
-                    .background(app.appearance.liveAccent.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                VStack(alignment: .leading, spacing: 2) {
+                    .frame(width: ModulaLayout.listRowIconWidth + ModulaSpacing.xxs, height: ModulaLayout.listRowIconWidth + ModulaSpacing.xxs)
+                    .background(app.appearance.liveAccent.opacity(0.12), in: RoundedRectangle(cornerRadius: ModulaRadius.small, style: .continuous))
+                VStack(alignment: .leading, spacing: ModulaSpacing.hairline) {
                     Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
                     Text(detail).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
                 }
-                Spacer(minLength: 8)
+                Spacer(minLength: ModulaSpacing.xs)
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.tertiary)
             }
-            .padding(.vertical, 10)
-            .padding(.horizontal, 8)
+            .padding(.vertical, ModulaSpacing.sm)
+            .padding(.horizontal, ModulaSpacing.xs)
+            .frame(minHeight: ModulaLayout.listRowMinHeight)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

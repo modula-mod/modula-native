@@ -12,6 +12,13 @@ enum GeneratedDesignContract {
     /// Brand accent default (user-selectable accents override this at runtime).
     static let accentDefaultColor = Color(red: 54 / 255, green: 156 / 255, blue: 170 / 255)
 
+    /// Named brand palette (e.g. the soft lavender used behind Premium glass).
+    enum Palette {
+        static let lavenderMist = Color(red: 241 / 255, green: 237 / 255, blue: 255 / 255)
+        static let lavender = Color(red: 200 / 255, green: 187 / 255, blue: 246 / 255)
+        static let lavenderDeep = Color(red: 139 / 255, green: 120 / 255, blue: 230 / 255)
+    }
+
     struct ThemeColors {
         let canvas: Color
         let surface: Color
@@ -127,6 +134,22 @@ enum GeneratedDesignContract {
         static let listRowMinHeight = 48.0
         static let heroHeight = 260.0
         static let heroPadding = 20.0
+        static let mediaUnavailableHeight = 212.0
+        static let ctaHeight = 52.0
+    }
+    enum Premium {
+        static let heroStageHeight = 220.0
+        static let unitSize = 120.0
+        static let pedestalWidth = 184.0
+        static let pedestalHeight = 40.0
+        static let pedestalLift = 10.0
+        static let floatAmplitude = 4.0
+        static let floatSeconds = 3.2
+        static let planIconSize = 36.0
+        static let compareAreaWidth = 84.0
+        static let compareColumnWidth = 80.0
+        static let compareHeaderHeight = 64.0
+        static let compareRowHeight = 48.0
     }
 
     struct Shadow { let radius: Double; let y: Double; let opacity: Double }
