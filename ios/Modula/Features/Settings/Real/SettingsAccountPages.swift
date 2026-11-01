@@ -447,6 +447,9 @@ struct UsernameChangeView: View {
     @State private var working = false
     @State private var message: String?
     @State private var succeeded = false
+    /// Live answer from `GET /v1/accounts/handles/:handle/availability` (nil = not checked yet).
+    @State private var available: Bool?
+    @State private var checking = false
 
     var body: some View {
         Form {
@@ -460,7 +463,18 @@ struct UsernameChangeView: View {
                         if cleaned != value { handle = cleaned }
                         message = nil
                         succeeded = false
+                        available = nil
                     }
+                    .task(id: handle) { await checkAvailability() }
+                if checking || available != nil {
+                    Label(checking ? "Checking…" : (available == true ? "@\(handle) is available" : "@\(handle) is taken"),
+                          systemImage: checking ? "hourglass" : (available == true ? "checkmark.circle.fill" : "xmark.circle.fill"))
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(checking ? Color.secondary : (available == true ? Color.green : Color.red))
+                        .accessibilityIdentifier("settings.username.availability")
+                }
+            } header: {
+                Text("Username")
             } footer: {
                 Text(UsernameRules.problem(handle) ?? "Your old username stops working straight away and links to it won’t redirect.")
             }
@@ -473,12 +487,25 @@ struct UsernameChangeView: View {
                 } label: {
                     HStack { if working { ProgressView() }; Text("Change Username") }
                 }
-                .disabled(working || UsernameRules.problem(handle) != nil || handle == app.auth.account?.primaryHandle)
+                .disabled(working || UsernameRules.problem(handle) != nil || handle == app.auth.account?.primaryHandle || available == false)
             }
         }
         .modulaSoftScrollEdge()
         .navigationTitle("Username")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// Debounced live check so people learn a name is taken before submitting (error prevention).
+    private func checkAvailability() async {
+        let candidate = handle
+        guard !candidate.isEmpty, UsernameRules.problem(candidate) == nil, candidate != app.auth.account?.primaryHandle else { return }
+        try? await Task.sleep(for: .milliseconds(450))
+        guard !Task.isCancelled, candidate == handle else { return }
+        checking = true; defer { checking = false }
+        let escaped = candidate.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? candidate
+        guard let value = try? await app.client.json("GET", path: "/v1/accounts/handles/\(escaped)/availability"),
+              !Task.isCancelled, candidate == handle else { return }
+        available = value["available"]?.bool ?? value["data"]?["available"]?.bool
     }
 
     private func save() async {

@@ -228,6 +228,9 @@ struct SettingsView: View {
                         TelegramDivider()
                         TelegramRow(title: "Privacy and Security", symbol: "lock.fill", tint: .gray) { app.navigation.open(.settings(.privacy(.root))) }
                         TelegramDivider()
+                        TelegramRow(title: "Security Center", symbol: "lock.shield.fill", tint: .indigo) { app.navigation.open(.settings(.privacy(.security))) }
+                            .accessibilityIdentifier("settings.security-center.open")
+                        TelegramDivider()
                         TelegramRow(title: "Privacy Dashboard", symbol: "checkmark.shield.fill", tint: .indigo) { showsPrivacyDashboard = true }
                             .accessibilityIdentifier("settings.privacy-dashboard.open")
                         TelegramDivider()

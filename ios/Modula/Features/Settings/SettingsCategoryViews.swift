@@ -246,8 +246,11 @@ struct PrivacySecurityHost: View {
 
     var body: some View {
         switch route {
-        case .root, .privacy, .security, .appLock, .biometrics:
-            // One page: Privacy + Security + App Lock + Face ID (old sub-routes land here).
+        case .security:
+            // Security Center: sign-in methods, recovery, devices and this iPhone's lock in one hierarchy.
+            SettingsSecurityCenter()
+        case .root, .privacy, .appLock, .biometrics:
+            // One page: Privacy + App Lock + Face ID (old sub-routes land here).
             PrivacySafetySettingsPage()
         case .glassPrivacy:
             SettingsDesignedUnavailableCanvas(
