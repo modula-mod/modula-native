@@ -29,8 +29,8 @@ final class MOL03RegistryTests: XCTestCase {
         let r = try bundled()
         let builtIn = r.characters.filter { $0.kind != nil }
         XCTAssertEqual(builtIn.count, ModulaMascotKind.allCases.count)
-        XCTAssertEqual(builtIn.map(\.number), Array(1...115))
-        XCTAssertEqual(ModulaMascotKind.allCases.map(\.number), Array(1...115), "built-in numbers stay 001–115")
+        XCTAssertEqual(builtIn.map(\.number), Array(1...215))
+        XCTAssertEqual(ModulaMascotKind.allCases.map(\.number), Array(1...215), "001–115 keep their numbers; Series 2 is native #116–215")
         for kind in ModulaMascotKind.allCases {
             let c = try XCTUnwrap(r.character(key: kind.rawValue), "\(kind.rawValue) missing from registry")
             XCTAssertEqual(c.number, kind.number, kind.rawValue)
@@ -145,8 +145,10 @@ final class MOL03RegistryTests: XCTestCase {
         XCTAssertEqual(legends.map(\.key), ["kringle", "sasqui", "lochie", "yetti", "krakie", "pyra", "unika", "gryff", "frostie", "pearli", "kitsu", "chupi", "motho", "jacko", "thundra"])
         XCTAssertEqual(series2.map(\.number), Array(116...215))
         XCTAssertEqual(series2.count, 100)
-        XCTAssertTrue(series2.allSatisfy { $0.availability == "draft" && !$0.purchasable && $0.kind == nil && !$0.wearable })
-        XCTAssertTrue(series2.allSatisfy { $0.baseAsset.hasPrefix("package:") })
+        // Series 2 is drawn by the same native rig, so it is wearable like 001–100; it stays a non-purchasable draft.
+        XCTAssertTrue(series2.allSatisfy { $0.availability == "draft" && !$0.purchasable && $0.kind != nil && $0.wearable })
+        XCTAssertTrue(series2.allSatisfy { $0.baseAsset == "native2d:spec/\($0.key)" && ($0.thumbnail ?? "").hasPrefix("package:") })
+        XCTAssertTrue(series2.allSatisfy { $0.accessoryProfile == "fit/\($0.key)" })
         XCTAssertTrue(originals.allSatisfy { $0.availability == "released" && $0.conceptId == nil && $0.kind != nil })
         XCTAssertTrue(legends.allSatisfy { $0.availability == "released" && $0.conceptId == nil && !$0.wearable })
         let brinlo = try XCTUnwrap(r.character(number: 116))
@@ -171,7 +173,7 @@ final class MOL03RegistryTests: XCTestCase {
             XCTAssertEqual(f.range, [range.lowerBound, range.upperBound])
             XCTAssertEqual(f.availability, "draft")
             XCTAssertEqual(f.series, 2)
-            XCTAssertFalse(f.wearable)
+            XCTAssertTrue(f.wearable)
             XCTAssertEqual(r.characters(in: fam).map(\.number), Array(range))
             XCTAssertEqual(MolibooRegistryValidator.isHexColor(f.accentHex ?? ""), true)
         }

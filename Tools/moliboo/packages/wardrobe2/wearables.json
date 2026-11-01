@@ -1,0 +1,560 @@
+{
+ "schemaVersion": "modula.moliboo.wearables.1",
+ "status": "draft — not in the local MascotWardrobeCatalog, no price, no unlock, no ownership",
+ "anchorConvention": "Wardrobe pack 2: glossy 2D wearables as PNG + anchor metadata (schema modula.moliboo.wearables.1).\n\nEvery item is drawn in design units with its ANCHOR at (500, 600) and its REFERENCE WIDTH = 600 units.\nAt runtime: scale = rig[ref] * s / refPx, and the anchor pixel goes to the rig point named by `anchor`:\n  hat  -> (0, headTop + hatSink), ref hatWidth        face -> (0, eyeY), ref faceSpan = 2*faceHalfWidth + 0.08\n  neck -> (0, neckY + 0.02), ref chord(neckY + 0.06)  back -> (0, backAnchorY), ref bodyW (drawn behind the body)",
+ "items": [
+  {
+   "id": "hat2.flowercrown",
+   "slot": "hat",
+   "anchor": "hat",
+   "name": "Flower crown",
+   "blurb": "A ring of glossy blooms.",
+   "family": "mosslight-grove",
+   "file": "hat2.flowercrown.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "front",
+   "bibleSlot": "head",
+   "mascotNeed": "head",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "hat2.vikinghelm",
+   "slot": "hat",
+   "anchor": "hat",
+   "name": "Viking helmet",
+   "blurb": "Little horns, big courage.",
+   "family": null,
+   "file": "hat2.vikinghelm.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "front",
+   "bibleSlot": "head",
+   "mascotNeed": "head",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "hat2.starcrown",
+   "slot": "hat",
+   "anchor": "hat",
+   "name": "Star crown",
+   "blurb": "Five golden points that twinkle.",
+   "family": "skyweavers",
+   "file": "hat2.starcrown.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "front",
+   "bibleSlot": "head",
+   "mascotNeed": "head",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "hat2.icecrown",
+   "slot": "hat",
+   "anchor": "hat",
+   "name": "Ice crown",
+   "blurb": "Frosted crystal spires.",
+   "family": "aurora-vale",
+   "file": "hat2.icecrown.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "front",
+   "bibleSlot": "head",
+   "mascotNeed": "head",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "hat2.flamecrown",
+   "slot": "hat",
+   "anchor": "hat",
+   "name": "Ember crown",
+   "blurb": "Flickering, but never hot.",
+   "family": "cinderlings",
+   "file": "hat2.flamecrown.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "front",
+   "bibleSlot": "head",
+   "mascotNeed": "head",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "hat2.candycrown",
+   "slot": "hat",
+   "anchor": "hat",
+   "name": "Candy crown",
+   "blurb": "Gumdrops on a frosted band.",
+   "family": "sugarvale",
+   "file": "hat2.candycrown.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "front",
+   "bibleSlot": "head",
+   "mascotNeed": "head",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "hat2.piratehat",
+   "slot": "hat",
+   "anchor": "hat",
+   "name": "Pirate hat",
+   "blurb": "Skull-free, treasure-friendly.",
+   "family": "tideborn",
+   "file": "hat2.piratehat.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "front",
+   "bibleSlot": "head",
+   "mascotNeed": "head",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "hat2.leafcap",
+   "slot": "hat",
+   "anchor": "hat",
+   "name": "Leaf cap",
+   "blurb": "One big leaf, perfectly balanced.",
+   "family": "mosslight-grove",
+   "file": "hat2.leafcap.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "front",
+   "bibleSlot": "head",
+   "mascotNeed": "head",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "hat2.goggleband",
+   "slot": "hat",
+   "anchor": "hat",
+   "name": "Tinker goggles",
+   "blurb": "Brass goggles pushed up top.",
+   "family": "clocklings",
+   "file": "hat2.goggleband.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "front",
+   "bibleSlot": "head",
+   "mascotNeed": "head",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "hat2.paperlantern",
+   "slot": "hat",
+   "anchor": "hat",
+   "name": "Lantern hat",
+   "blurb": "A tiny glowing paper lantern.",
+   "family": "lantern-parade",
+   "file": "hat2.paperlantern.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "front",
+   "bibleSlot": "head",
+   "mascotNeed": "head",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "face2.heartglasses",
+   "slot": "face",
+   "anchor": "face",
+   "name": "Heart shades",
+   "blurb": "Love-tinted lenses.",
+   "family": null,
+   "file": "face2.heartglasses.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "front",
+   "bibleSlot": "face",
+   "mascotNeed": "face",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "face2.starshades",
+   "slot": "face",
+   "anchor": "face",
+   "name": "Star shades",
+   "blurb": "For main-character energy.",
+   "family": "skyweavers",
+   "file": "face2.starshades.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "front",
+   "bibleSlot": "face",
+   "mascotNeed": "face",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "face2.snorkel",
+   "slot": "face",
+   "anchor": "face",
+   "name": "Snorkel mask",
+   "blurb": "Ready for a reef dive.",
+   "family": "tideborn",
+   "file": "face2.snorkel.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "front",
+   "bibleSlot": "face",
+   "mascotNeed": "face",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "neck2.pearls",
+   "slot": "accessory",
+   "anchor": "neck",
+   "name": "Pearl necklace",
+   "blurb": "A string of ocean pearls.",
+   "family": "tideborn",
+   "file": "neck2.pearls.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "front",
+   "bibleSlot": "neck",
+   "mascotNeed": "neck",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "neck2.shellcharm",
+   "slot": "accessory",
+   "anchor": "neck",
+   "name": "Shell charm",
+   "blurb": "A seashell on a cord.",
+   "family": "tideborn",
+   "file": "neck2.shellcharm.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "front",
+   "bibleSlot": "neck",
+   "mascotNeed": "neck",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "neck2.bellcollar",
+   "slot": "accessory",
+   "anchor": "neck",
+   "name": "Bell collar",
+   "blurb": "Jingles with every hop.",
+   "family": "sugarvale",
+   "file": "neck2.bellcollar.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "front",
+   "bibleSlot": "neck",
+   "mascotNeed": "neck",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "neck2.medal",
+   "slot": "accessory",
+   "anchor": "neck",
+   "name": "Gold medal",
+   "blurb": "For tiny victories.",
+   "family": null,
+   "file": "neck2.medal.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "front",
+   "bibleSlot": "neck",
+   "mascotNeed": "neck",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "neck2.knitscarf",
+   "slot": "accessory",
+   "anchor": "neck",
+   "name": "Chunky knit scarf",
+   "blurb": "Extra cosy, extra long.",
+   "family": "aurora-vale",
+   "file": "neck2.knitscarf.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "front",
+   "bibleSlot": "neck",
+   "mascotNeed": "neck",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "neck2.bowtie",
+   "slot": "accessory",
+   "anchor": "neck",
+   "name": "Polka bow tie",
+   "blurb": "Dapper and dotty.",
+   "family": "inkbound-atelier",
+   "file": "neck2.bowtie.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "front",
+   "bibleSlot": "neck",
+   "mascotNeed": "neck",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "back2.backpack",
+   "slot": "back",
+   "anchor": "back",
+   "name": "Little backpack",
+   "blurb": "Room for one snack.",
+   "family": null,
+   "file": "back2.backpack.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "back",
+   "bibleSlot": "back",
+   "mascotNeed": "back",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "back2.jetpack",
+   "slot": "back",
+   "anchor": "back",
+   "name": "Rocket pack",
+   "blurb": "Two tiny thrusters, zero emissions.",
+   "family": "neon-arcade",
+   "file": "back2.jetpack.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "back",
+   "bibleSlot": "back",
+   "mascotNeed": "back",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "back2.shellpack",
+   "slot": "back",
+   "anchor": "back",
+   "name": "Turtle shell",
+   "blurb": "Home goes where you go.",
+   "family": "tideborn",
+   "file": "back2.shellpack.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "back",
+   "bibleSlot": "back",
+   "mascotNeed": "back",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "back2.fairywings",
+   "slot": "back",
+   "anchor": "back",
+   "name": "Petal wings",
+   "blurb": "Translucent and shimmery.",
+   "family": "mosslight-grove",
+   "file": "back2.fairywings.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "back",
+   "bibleSlot": "back",
+   "mascotNeed": "back",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  },
+  {
+   "id": "back2.windupkey",
+   "slot": "back",
+   "anchor": "back",
+   "name": "Wind-up key",
+   "blurb": "Tick, tick, go.",
+   "family": "clocklings",
+   "file": "back2.windupkey.png",
+   "size": 512,
+   "anchorPx": [
+    256.0,
+    307.2
+   ],
+   "refPx": 307.2,
+   "layer": "back",
+   "bibleSlot": "back",
+   "mascotNeed": "back",
+   "compatibility": {
+    "anatomy": "all native rig shapes",
+    "unsupported": "Legends (wearsOwnLook)",
+    "remap": null
+   }
+  }
+ ],
+ "bibleSlots": "Master Bible §5: head, face, neck, torso, outerwear, legs, feet, back, held_prop, aura. Pack 2 covers head/face/neck/back; outfits store item ids + variant ids."
+}
