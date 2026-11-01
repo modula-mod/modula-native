@@ -34,14 +34,14 @@ final class MOL05LegendsTests: XCTestCase {
         XCTAssertEqual(MolibooFamily.enchanted.range, 56...70)
         XCTAssertEqual(MolibooFamily.stardust.range, 71...85)
         XCTAssertEqual(MolibooFamily.dreamers.range, 86...100)
-        for fam in MolibooFamily.allCases where fam != .legends {
+        for fam in MolibooFamily.allCases where fam != .legends {  // includes the 10 native Series 2 families
             XCTAssertEqual(fam.kinds.map(\.number), Array(fam.range), fam.rawValue)
             XCTAssertTrue(fam.supportsWardrobe, fam.rawValue)
         }
     }
 
     func testLegendsFamilyIsNumbered101To115() {
-        XCTAssertEqual(MolibooFamily.allCases.count, 7)
+        XCTAssertEqual(MolibooFamily.allCases.count, 17, "7 released families + 10 native Series 2 draft families")
         XCTAssertEqual(MolibooFamily.legends.range, 101...115)
         XCTAssertEqual(MolibooFamily.legends.label, "Legends")
         XCTAssertEqual(MolibooFamily.legends.name, "Moliboo Legends")
@@ -49,9 +49,9 @@ final class MOL05LegendsTests: XCTestCase {
         let kinds = MolibooFamily.legends.kinds
         XCTAssertEqual(kinds.map(\.rawValue), Self.legends)
         XCTAssertEqual(kinds.map(\.number), Array(101...115))
-        XCTAssertEqual(ModulaMascotKind.allCases.count, 115)
-        XCTAssertEqual(Set(ModulaMascotKind.allCases.map(\.number)).count, 115, "numbers are unique")
-        XCTAssertEqual(Set(ModulaMascotKind.allCases.map(\.name)).count, 115, "names are unique")
+        XCTAssertEqual(ModulaMascotKind.allCases.count, 215)
+        XCTAssertEqual(Set(ModulaMascotKind.allCases.map(\.number)).count, 215, "numbers are unique")
+        XCTAssertEqual(Set(ModulaMascotKind.allCases.map(\.name)).count, 215, "names are unique")
         for k in kinds {
             XCTAssertEqual(k.family, .legends)
             XCTAssertFalse(k.supportsWardrobe, k.rawValue)

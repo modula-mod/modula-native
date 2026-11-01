@@ -731,7 +731,7 @@ struct ModulaMascotPicker: View {
     private let gap: CGFloat = 5
     private var columns: [GridItem] { Array(repeating: GridItem(.fixed(tile), spacing: gap), count: 5) }
     private var ink: Color { ambience.isDark ? .white : .primary }
-    private var families: [MolibooFamily] { MolibooFamily.allCases.filter { !$0.kinds.isEmpty } }
+    private var families: [MolibooFamily] { MolibooFamily.allCases.filter { !$0.isDraft && !$0.kinds.isEmpty } }
     private var currentFamily: MolibooFamily { family ?? selected.family }
     private static let tileHeight: CGFloat = 66
     /// Hero, chips, Dress up, paddings and gaps around the grid.
@@ -1205,7 +1205,7 @@ struct ComposerMascotSettingsSection: View {
         }
         Section("Choose") {
             LazyVGrid(columns: columns, spacing: 8) {
-                ForEach(ModulaMascotKind.allCases) { k in tile(k) }
+                ForEach(ModulaMascotKind.roster) { k in tile(k) }
                 offTile
             }
             .padding(.vertical, 6)

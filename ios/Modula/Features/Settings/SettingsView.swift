@@ -794,11 +794,21 @@ struct AppearanceSettingsView: View {
                 brandingSection(store)
                 advancedSection(store)
 
+                Text("Saved on this iPhone. Account appearance sync isn’t available — the server route has no declared preference shape.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("appearance.storage-note")
+            }
+            .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.top, 8)
+            .padding(.bottom, 28)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
                 HStack(spacing: 12) {
                     Button("Restore defaults") { confirmsReset = true }
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity, minHeight: 52)
-                        .background(Color.primary.opacity(0.06), in: Capsule())
+                        .modulaGlass(in: Capsule(), interactive: true)
                         .accessibilityIdentifier("appearance.restore")
                     Button {
                         app.navigation.open(.settings(.appearance(.preview)))
@@ -809,21 +819,14 @@ struct AppearanceSettingsView: View {
                         }
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity, minHeight: 52)
-                        .foregroundStyle(Color(uiColor: .systemBackground))
-                        .background(Color.primary, in: Capsule())
+                        .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
+                    .modulaAccentCTA()
                     .accessibilityIdentifier("appearance.preview-full")
                 }
-
-                Text("Saved on this iPhone. Account appearance sync isn’t available — the server route has no declared preference shape.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("appearance.storage-note")
-            }
-            .padding(.horizontal, ModulaLayout.contentInset)
-            .padding(.top, 8)
-            .padding(.bottom, 28)
+                .padding(.horizontal, ModulaLayout.contentInset)
+                .padding(.vertical, 8)
         }
         .modulaSoftScrollEdge()
         .modulaCanvas()

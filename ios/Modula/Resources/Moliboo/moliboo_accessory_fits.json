@@ -32,6 +32,66 @@
       "width" : 0.4428,
       "zIndex" : 30
     },
+    "fit\/aerin" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.37
+      },
+      "characterId" : "moliboo.132",
+      "eyeClearance" : 0.2798,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.955,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.4865,
+      "zIndex" : 30
+    },
+    "fit\/ashumo" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.29
+      },
+      "characterId" : "moliboo.136",
+      "eyeClearance" : 0.1998,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.834,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/asteri" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -74,7 +134,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.966,
+        "attachedFraction" : 0.967,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -104,7 +164,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.949,
+        "attachedFraction" : 0.953,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -152,6 +212,96 @@
       "width" : 0.494,
       "zIndex" : 30
     },
+    "fit\/berru" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.27
+      },
+      "characterId" : "moliboo.149",
+      "eyeClearance" : 0.2398,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.805,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.4816,
+      "zIndex" : 30
+    },
+    "fit\/bippi" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.200",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.568,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/biskin" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.3
+      },
+      "characterId" : "moliboo.182",
+      "eyeClearance" : 0.2098,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.613,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/bloop" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -163,7 +313,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.389,
+        "attachedFraction" : 0.394,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -192,7 +342,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.566,
+        "attachedFraction" : 0.553,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -210,6 +360,66 @@
       "width" : 0.74,
       "zIndex" : 30
     },
+    "fit\/bonbiri" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.36
+      },
+      "characterId" : "moliboo.184",
+      "eyeClearance" : 0.2698,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.505,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/boreli" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.37
+      },
+      "characterId" : "moliboo.156",
+      "eyeClearance" : 0.2798,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.984,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.4865,
+      "zIndex" : 30
+    },
     "fit\/bramble" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -222,8 +432,8 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.967,
-        "eyeCover" : 0.02,
+        "attachedFraction" : 0.95,
+        "eyeCover" : 0.003,
         "phasesChecked" : [
           "still",
           "t=0.0",
@@ -240,6 +450,96 @@
       "width" : 0.513,
       "zIndex" : 30
     },
+    "fit\/brasa" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.141",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.569,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/breezo" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.130",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.814,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/brinlo" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.28
+      },
+      "characterId" : "moliboo.116",
+      "eyeClearance" : 0.2498,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.917,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.4625,
+      "zIndex" : 30
+    },
     "fit\/bun" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -252,7 +552,7 @@
       "layer" : "front",
       "maxWidth" : 0.5,
       "measured" : {
-        "attachedFraction" : 0.606,
+        "attachedFraction" : 0.596,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -270,6 +570,66 @@
       "width" : 0.5,
       "zIndex" : 30
     },
+    "fit\/calyra" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.117",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.568,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/caramie" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.28
+      },
+      "characterId" : "moliboo.176",
+      "eyeClearance" : 0.2498,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.822,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.4625,
+      "zIndex" : 30
+    },
     "fit\/celio" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -282,7 +642,7 @@
       "layer" : "front",
       "maxWidth" : 0.58,
       "measured" : {
-        "attachedFraction" : 0.924,
+        "attachedFraction" : 0.925,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -298,6 +658,36 @@
       "sink" : 0.06,
       "validated" : true,
       "width" : 0.4756,
+      "zIndex" : 30
+    },
+    "fit\/chalko" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.29
+      },
+      "characterId" : "moliboo.195",
+      "eyeClearance" : 0.1998,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.892,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
       "zIndex" : 30
     },
     "fit\/cheri" : {
@@ -341,7 +731,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.875,
+        "attachedFraction" : 0.886,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -359,6 +749,156 @@
       "width" : 0.5116,
       "zIndex" : 30
     },
+    "fit\/churli" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.179",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.757,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/cindoo" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.138",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.57,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/cirra" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.29
+      },
+      "characterId" : "moliboo.127",
+      "eyeClearance" : 0.1998,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.516,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/clovey" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.27
+      },
+      "characterId" : "moliboo.154",
+      "eyeClearance" : 0.1798,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.85,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/cogsy" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.168",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.761,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/comet" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -370,7 +910,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.683,
+        "attachedFraction" : 0.707,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -418,6 +958,36 @@
       "width" : 0.4232,
       "zIndex" : 30
     },
+    "fit\/confira" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.208",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.651,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/cosmi" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -430,7 +1000,7 @@
       "layer" : "front",
       "maxWidth" : 0.5,
       "measured" : {
-        "attachedFraction" : 0.701,
+        "attachedFraction" : 0.689,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -448,6 +1018,126 @@
       "width" : 0.46,
       "zIndex" : 30
     },
+    "fit\/crembo" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.28
+      },
+      "characterId" : "moliboo.185",
+      "eyeClearance" : 0.1898,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.58,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/cybri" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.199",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.697,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/datto" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.27
+      },
+      "characterId" : "moliboo.204",
+      "eyeClearance" : 0.1798,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.584,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/dialli" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.173",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.652,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/doodle" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -459,7 +1149,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.295,
+        "attachedFraction" : 0.279,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -477,6 +1167,36 @@
       "width" : 0.7021,
       "zIndex" : 30
     },
+    "fit\/dottori" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.189",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.844,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/dovee" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -489,7 +1209,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.748,
+        "attachedFraction" : 0.72,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -505,6 +1225,36 @@
       "sink" : 0.06,
       "validated" : true,
       "width" : 0.494,
+      "zIndex" : 30
+    },
+    "fit\/dovvi" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.23
+      },
+      "characterId" : "moliboo.118",
+      "eyeClearance" : 0.1398,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.559,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
       "zIndex" : 30
     },
     "fit\/dozi" : {
@@ -537,6 +1287,36 @@
       "width" : 0.494,
       "zIndex" : 30
     },
+    "fit\/driftu" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.27
+      },
+      "characterId" : "moliboo.125",
+      "eyeClearance" : 0.1798,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.778,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/drifty" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -549,7 +1329,7 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.678,
+        "attachedFraction" : 0.67,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -579,7 +1359,7 @@
       "layer" : "front",
       "maxWidth" : 0.44,
       "measured" : {
-        "attachedFraction" : 0.735,
+        "attachedFraction" : 0.725,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -609,7 +1389,7 @@
       "layer" : "front",
       "maxWidth" : 0.48,
       "measured" : {
-        "attachedFraction" : 0.665,
+        "attachedFraction" : 0.69,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -639,7 +1419,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.958,
+        "attachedFraction" : 0.943,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -698,7 +1478,7 @@
       "layer" : "front",
       "maxWidth" : 0.5,
       "measured" : {
-        "attachedFraction" : 0.943,
+        "attachedFraction" : 0.948,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -728,8 +1508,8 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.974,
-        "eyeCover" : 0.003,
+        "attachedFraction" : 0.947,
+        "eyeCover" : 0,
         "phasesChecked" : [
           "still",
           "t=0.0",
@@ -746,6 +1526,66 @@
       "width" : 0.4752,
       "zIndex" : 30
     },
+    "fit\/fizzra" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.137",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.57,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/flaro" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.36
+      },
+      "characterId" : "moliboo.128",
+      "eyeClearance" : 0.2698,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.932,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/flick" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -758,7 +1598,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.759,
+        "attachedFraction" : 0.753,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -776,6 +1616,66 @@
       "width" : 0.494,
       "zIndex" : 30
     },
+    "fit\/flinti" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.28
+      },
+      "characterId" : "moliboo.142",
+      "eyeClearance" : 0.1898,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.852,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/floressa" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.148",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.937,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/fuse" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -788,7 +1688,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.662,
+        "attachedFraction" : 0.648,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -806,6 +1706,36 @@
       "width" : 0.513,
       "zIndex" : 30
     },
+    "fit\/glacchi" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.161",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.757,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/glade" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -818,8 +1748,8 @@
       "layer" : "front",
       "maxWidth" : 0.48,
       "measured" : {
-        "attachedFraction" : 0.989,
-        "eyeCover" : 0.033,
+        "attachedFraction" : 0.982,
+        "eyeCover" : 0.008,
         "phasesChecked" : [
           "still",
           "t=0.0",
@@ -848,7 +1778,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.903,
+        "attachedFraction" : 0.905,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -877,7 +1807,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.617,
+        "attachedFraction" : 0.614,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -895,6 +1825,36 @@
       "width" : 0.6096,
       "zIndex" : 30
     },
+    "fit\/glimora" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.212",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.529,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/glint" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -907,7 +1867,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.912,
+        "attachedFraction" : 0.914,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -937,7 +1897,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.62,
+        "attachedFraction" : 0.607,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -953,6 +1913,36 @@
       "sink" : 0.06,
       "validated" : true,
       "width" : 0.513,
+      "zIndex" : 30
+    },
+    "fit\/glitcho" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.198",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.613,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
       "zIndex" : 30
     },
     "fit\/graff" : {
@@ -967,7 +1957,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.571,
+        "attachedFraction" : 0.557,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -985,6 +1975,36 @@
       "width" : 0.513,
       "zIndex" : 30
     },
+    "fit\/gustra" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.134",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.567,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/haloa" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -997,7 +2017,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.949,
+        "attachedFraction" : 0.948,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1027,7 +2047,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.87,
+        "attachedFraction" : 0.873,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1057,7 +2077,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.958,
+        "attachedFraction" : 0.959,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1087,7 +2107,7 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.747,
+        "attachedFraction" : 0.742,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1105,6 +2125,66 @@
       "width" : 0.4232,
       "zIndex" : 30
     },
+    "fit\/inkaro" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.28
+      },
+      "characterId" : "moliboo.186",
+      "eyeClearance" : 0.2498,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.8,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.4625,
+      "zIndex" : 30
+    },
+    "fit\/jellune" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.34
+      },
+      "characterId" : "moliboo.183",
+      "eyeClearance" : 0.2498,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.842,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.4613,
+      "zIndex" : 30
+    },
     "fit\/jinx" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -1117,7 +2197,7 @@
       "layer" : "front",
       "maxWidth" : 0.48,
       "measured" : {
-        "attachedFraction" : 0.648,
+        "attachedFraction" : 0.682,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1135,6 +2215,36 @@
       "width" : 0.4416,
       "zIndex" : 30
     },
+    "fit\/jubilo" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.215",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.569,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/kiko" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -1147,7 +2257,7 @@
       "layer" : "front",
       "maxWidth" : 0.48,
       "measured" : {
-        "attachedFraction" : 0.757,
+        "attachedFraction" : 0.697,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1163,6 +2273,36 @@
       "sink" : 0.06,
       "validated" : true,
       "width" : 0.4416,
+      "zIndex" : 30
+    },
+    "fit\/kivvi" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.36
+      },
+      "characterId" : "moliboo.163",
+      "eyeClearance" : 0.2698,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.623,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
       "zIndex" : 30
     },
     "fit\/koda" : {
@@ -1195,6 +2335,96 @@
       "width" : 0.4232,
       "zIndex" : 30
     },
+    "fit\/kohli" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.29
+      },
+      "characterId" : "moliboo.140",
+      "eyeClearance" : 0.1998,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.561,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/lanterni" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.206",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.57,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/lavajo" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.27
+      },
+      "characterId" : "moliboo.143",
+      "eyeClearance" : 0.1798,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.994,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/lichen" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -1207,7 +2437,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.915,
+        "attachedFraction" : 0.696,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1225,6 +2455,36 @@
       "width" : 0.513,
       "zIndex" : 30
     },
+    "fit\/lintera" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.27
+      },
+      "characterId" : "moliboo.192",
+      "eyeClearance" : 0.2398,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.803,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.4816,
+      "zIndex" : 30
+    },
     "fit\/liora" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -1237,7 +2497,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.834,
+        "attachedFraction" : 0.83,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1255,6 +2515,36 @@
       "width" : 0.494,
       "zIndex" : 30
     },
+    "fit\/loopin" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.202",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.695,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/lulli" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -1267,7 +2557,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.726,
+        "attachedFraction" : 0.738,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1297,7 +2587,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.936,
+        "attachedFraction" : 0.941,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1315,6 +2605,36 @@
       "width" : 0.4428,
       "zIndex" : 30
     },
+    "fit\/lumaine" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.159",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 1,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/lyra" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -1327,7 +2647,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.958,
+        "attachedFraction" : 0.959,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1345,6 +2665,36 @@
       "width" : 0.4264,
       "zIndex" : 30
     },
+    "fit\/magmi" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.28
+      },
+      "characterId" : "moliboo.139",
+      "eyeClearance" : 0.2498,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.824,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.4625,
+      "zIndex" : 30
+    },
     "fit\/mallow" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -1357,8 +2707,8 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.998,
-        "eyeCover" : 0.019,
+        "attachedFraction" : 0.98,
+        "eyeCover" : 0.003,
         "phasesChecked" : [
           "still",
           "t=0.0",
@@ -1375,6 +2725,66 @@
       "width" : 0.4232,
       "zIndex" : 30
     },
+    "fit\/marvello" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.34
+      },
+      "characterId" : "moliboo.211",
+      "eyeClearance" : 0.2498,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.83,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/masqora" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.36
+      },
+      "characterId" : "moliboo.207",
+      "eyeClearance" : 0.2698,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.865,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/meteo" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -1387,7 +2797,7 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.704,
+        "attachedFraction" : 0.696,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1417,7 +2827,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.836,
+        "attachedFraction" : 0.837,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1447,7 +2857,7 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.789,
+        "attachedFraction" : 0.783,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1465,6 +2875,36 @@
       "width" : 0.4232,
       "zIndex" : 30
     },
+    "fit\/mintra" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.36
+      },
+      "characterId" : "moliboo.167",
+      "eyeClearance" : 0.2698,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.83,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/mochi" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -1477,7 +2917,7 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.643,
+        "attachedFraction" : 0.635,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1493,6 +2933,36 @@
       "sink" : 0.06,
       "validated" : true,
       "width" : 0.46,
+      "zIndex" : 30
+    },
+    "fit\/mochiri" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.28
+      },
+      "characterId" : "moliboo.177",
+      "eyeClearance" : 0.1898,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.764,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
       "zIndex" : 30
     },
     "fit\/moona" : {
@@ -1536,7 +3006,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.397,
+        "attachedFraction" : 0.389,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1554,6 +3024,36 @@
       "width" : 0.5528,
       "zIndex" : 30
     },
+    "fit\/mossini" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.28
+      },
+      "characterId" : "moliboo.151",
+      "eyeClearance" : 0.1898,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.996,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/nebbi" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -1566,8 +3066,8 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.965,
-        "eyeCover" : 0.019,
+        "attachedFraction" : 0.938,
+        "eyeCover" : 0.003,
         "phasesChecked" : [
           "still",
           "t=0.0",
@@ -1584,6 +3084,66 @@
       "width" : 0.513,
       "zIndex" : 30
     },
+    "fit\/necti" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.150",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.689,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/nerlo" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.120",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.973,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/nimbus" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -1595,7 +3155,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.309,
+        "attachedFraction" : 0.301,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1613,6 +3173,36 @@
       "width" : 0.74,
       "zIndex" : 30
     },
+    "fit\/nimbuski" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.29
+      },
+      "characterId" : "moliboo.129",
+      "eyeClearance" : 0.1998,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.893,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/nocta" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -1625,7 +3215,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.747,
+        "attachedFraction" : 0.738,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1643,6 +3233,36 @@
       "width" : 0.494,
       "zIndex" : 30
     },
+    "fit\/noctali" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.37
+      },
+      "characterId" : "moliboo.214",
+      "eyeClearance" : 0.2798,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.476,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.4865,
+      "zIndex" : 30
+    },
     "fit\/novael" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -1655,7 +3275,7 @@
       "layer" : "front",
       "maxWidth" : 0.48,
       "measured" : {
-        "attachedFraction" : 0.767,
+        "attachedFraction" : 0.792,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1685,8 +3305,8 @@
       "layer" : "front",
       "maxWidth" : 0.48,
       "measured" : {
-        "attachedFraction" : 0.986,
-        "eyeCover" : 0.03,
+        "attachedFraction" : 0.983,
+        "eyeCover" : 0.008,
         "phasesChecked" : [
           "still",
           "t=0.0",
@@ -1715,7 +3335,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.498,
+        "attachedFraction" : 0.535,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1733,6 +3353,36 @@
       "width" : 0.513,
       "zIndex" : 30
     },
+    "fit\/opaliq" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.28
+      },
+      "characterId" : "moliboo.160",
+      "eyeClearance" : 0.1898,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.624,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/orbit" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -1744,7 +3394,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.445,
+        "attachedFraction" : 0.442,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1762,6 +3412,126 @@
       "width" : 0.612,
       "zIndex" : 30
     },
+    "fit\/origra" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.34
+      },
+      "characterId" : "moliboo.190",
+      "eyeClearance" : 0.3098,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.674,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.4712,
+      "zIndex" : 30
+    },
+    "fit\/ostra" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.28
+      },
+      "characterId" : "moliboo.123",
+      "eyeClearance" : 0.1898,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.663,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/papillo" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.187",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.671,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/paradi" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.28
+      },
+      "characterId" : "moliboo.213",
+      "eyeClearance" : 0.1898,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.743,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/pebble" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -1773,7 +3543,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.679,
+        "attachedFraction" : 0.61,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1791,6 +3561,66 @@
       "width" : 0.74,
       "zIndex" : 30
     },
+    "fit\/pendli" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.34
+      },
+      "characterId" : "moliboo.169",
+      "eyeClearance" : 0.2498,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.537,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/petalia" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.146",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.825,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/pip" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -1803,7 +3633,7 @@
       "layer" : "front",
       "maxWidth" : 0.62,
       "measured" : {
-        "attachedFraction" : 0.466,
+        "attachedFraction" : 0.458,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1821,6 +3651,66 @@
       "width" : 0.62,
       "zIndex" : 30
     },
+    "fit\/pixori" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.3
+      },
+      "characterId" : "moliboo.196",
+      "eyeClearance" : 0.2098,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.891,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/poffa" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.29
+      },
+      "characterId" : "moliboo.131",
+      "eyeClearance" : 0.1998,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.517,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/pogo" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -1832,7 +3722,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.6,
+        "attachedFraction" : 0.611,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1850,6 +3740,36 @@
       "width" : 0.5093,
       "zIndex" : 30
     },
+    "fit\/polari" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.164",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.569,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/polaris" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -1862,7 +3782,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.944,
+        "attachedFraction" : 0.95,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1892,7 +3812,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.83,
+        "attachedFraction" : 0.825,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1921,7 +3841,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.404,
+        "attachedFraction" : 0.386,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1939,6 +3859,36 @@
       "width" : 0.4917,
       "zIndex" : 30
     },
+    "fit\/prismel" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.157",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.98,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/puff" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -1950,7 +3900,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.51,
+        "attachedFraction" : 0.513,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1968,6 +3918,36 @@
       "width" : 0.6477,
       "zIndex" : 30
     },
+    "fit\/puffumi" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.29
+      },
+      "characterId" : "moliboo.180",
+      "eyeClearance" : 0.1998,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.586,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/pulsa" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -1980,7 +3960,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.951,
+        "attachedFraction" : 0.949,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -1998,6 +3978,66 @@
       "width" : 0.513,
       "zIndex" : 30
     },
+    "fit\/pyvra" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.145",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.969,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/quibby" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.121",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.785,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/quill" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -2009,7 +4049,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.885,
+        "attachedFraction" : 0.881,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2027,6 +4067,36 @@
       "width" : 0.6252,
       "zIndex" : 30
     },
+    "fit\/quilli" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.36
+      },
+      "characterId" : "moliboo.188",
+      "eyeClearance" : 0.2698,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.507,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/quori" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -2039,7 +4109,7 @@
       "layer" : "front",
       "maxWidth" : 0.48,
       "measured" : {
-        "attachedFraction" : 0.741,
+        "attachedFraction" : 0.73,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2057,6 +4127,66 @@
       "width" : 0.4416,
       "zIndex" : 30
     },
+    "fit\/rhuvi" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.155",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.901,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/ribbika" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.210",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.75,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/riff" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -2069,7 +4199,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.578,
+        "attachedFraction" : 0.562,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2087,6 +4217,36 @@
       "width" : 0.513,
       "zIndex" : 30
     },
+    "fit\/riveti" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.3
+      },
+      "characterId" : "moliboo.172",
+      "eyeClearance" : 0.2098,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.613,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/rolo" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -2098,7 +4258,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.795,
+        "attachedFraction" : 0.788,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2128,7 +4288,7 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.727,
+        "attachedFraction" : 0.685,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2158,7 +4318,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.977,
+        "attachedFraction" : 0.976,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2176,6 +4336,96 @@
       "width" : 0.513,
       "zIndex" : 30
     },
+    "fit\/scrolli" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.194",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.728,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/searli" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.37
+      },
+      "characterId" : "moliboo.144",
+      "eyeClearance" : 0.2798,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.523,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.4865,
+      "zIndex" : 30
+    },
+    "fit\/selka" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.23
+      },
+      "characterId" : "moliboo.162",
+      "eyeClearance" : 0.1398,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.582,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/sera" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -2188,7 +4438,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.958,
+        "attachedFraction" : 0.959,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2206,6 +4456,66 @@
       "width" : 0.4264,
       "zIndex" : 30
     },
+    "fit\/shelumi" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.28
+      },
+      "characterId" : "moliboo.119",
+      "eyeClearance" : 0.1898,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.861,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/shivera" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.34
+      },
+      "characterId" : "moliboo.158",
+      "eyeClearance" : 0.2498,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 1,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.4613,
+      "zIndex" : 30
+    },
     "fit\/skid" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -2218,7 +4528,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.565,
+        "attachedFraction" : 0.564,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2236,6 +4546,36 @@
       "width" : 0.4752,
       "zIndex" : 30
     },
+    "fit\/smudgi" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.191",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.578,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/snoomi" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -2248,7 +4588,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.964,
+        "attachedFraction" : 0.963,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2278,7 +4618,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.844,
+        "attachedFraction" : 0.84,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2296,6 +4636,36 @@
       "width" : 0.513,
       "zIndex" : 30
     },
+    "fit\/solviq" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.135",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.837,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/somna" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -2308,7 +4678,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.946,
+        "attachedFraction" : 0.944,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2338,8 +4708,8 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.955,
-        "eyeCover" : 0.056,
+        "attachedFraction" : 0.93,
+        "eyeCover" : 0.02,
         "phasesChecked" : [
           "still",
           "t=0.0",
@@ -2356,6 +4726,36 @@
       "width" : 0.513,
       "zIndex" : 30
     },
+    "fit\/sorbelle" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.181",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.568,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/spindle" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -2368,7 +4768,7 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.65,
+        "attachedFraction" : 0.665,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2386,6 +4786,66 @@
       "width" : 0.513,
       "zIndex" : 30
     },
+    "fit\/spoolen" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.28
+      },
+      "characterId" : "moliboo.174",
+      "eyeClearance" : 0.1898,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.857,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/spriggo" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.36
+      },
+      "characterId" : "moliboo.147",
+      "eyeClearance" : 0.2698,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.507,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/sprout" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -2397,7 +4857,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.627,
+        "attachedFraction" : 0.623,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2415,6 +4875,36 @@
       "width" : 0.5705,
       "zIndex" : 30
     },
+    "fit\/stampo" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.3
+      },
+      "characterId" : "moliboo.193",
+      "eyeClearance" : 0.2098,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.614,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/static" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -2426,7 +4916,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.92,
+        "attachedFraction" : 0.919,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2456,7 +4946,7 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.986,
+        "attachedFraction" : 0.985,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2486,7 +4976,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.696,
+        "attachedFraction" : 0.687,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2502,6 +4992,126 @@
       "sink" : 0.06,
       "validated" : true,
       "width" : 0.494,
+      "zIndex" : 30
+    },
+    "fit\/synki" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.36
+      },
+      "characterId" : "moliboo.203",
+      "eyeClearance" : 0.2698,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.98,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/tappi" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.28
+      },
+      "characterId" : "moliboo.201",
+      "eyeClearance" : 0.1898,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.581,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/tavaroo" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.36
+      },
+      "characterId" : "moliboo.122",
+      "eyeClearance" : 0.2698,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.521,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/tempoo" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.175",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.623,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
       "zIndex" : 30
     },
     "fit\/thimble" : {
@@ -2534,6 +5144,96 @@
       "width" : 0.432,
       "zIndex" : 30
     },
+    "fit\/ticklet" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.171",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.569,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/tindle" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.36
+      },
+      "characterId" : "moliboo.153",
+      "eyeClearance" : 0.2698,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.96,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/tocko" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.166",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.844,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/tofu" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -2545,7 +5245,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.466,
+        "attachedFraction" : 0.45,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2605,7 +5305,7 @@
       "layer" : "front",
       "maxWidth" : 0.5,
       "measured" : {
-        "attachedFraction" : 0.586,
+        "attachedFraction" : 0.571,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2665,7 +5365,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.753,
+        "attachedFraction" : 0.744,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2683,6 +5383,66 @@
       "width" : 0.494,
       "zIndex" : 30
     },
+    "fit\/vaeli" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.37
+      },
+      "characterId" : "moliboo.124",
+      "eyeClearance" : 0.2798,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.52,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.4865,
+      "zIndex" : 30
+    },
+    "fit\/veilo" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.165",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.863,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/vela" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -2695,7 +5455,7 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.88,
+        "attachedFraction" : 0.878,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2713,6 +5473,36 @@
       "width" : 0.3772,
       "zIndex" : 30
     },
+    "fit\/velloo" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.34
+      },
+      "characterId" : "moliboo.209",
+      "eyeClearance" : 0.2498,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.567,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.4613,
+      "zIndex" : 30
+    },
     "fit\/velvi" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -2725,7 +5515,7 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.97,
+        "attachedFraction" : 0.968,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2755,7 +5545,7 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.768,
+        "attachedFraction" : 0.765,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2785,7 +5575,7 @@
       "layer" : "front",
       "maxWidth" : 0.46,
       "measured" : {
-        "attachedFraction" : 0.994,
+        "attachedFraction" : 0.993,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2803,6 +5593,126 @@
       "width" : 0.3772,
       "zIndex" : 30
     },
+    "fit\/veyla" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.34
+      },
+      "characterId" : "moliboo.152",
+      "eyeClearance" : 0.2498,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.935,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.4613,
+      "zIndex" : 30
+    },
+    "fit\/voltae" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.197",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.648,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/whirlo" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.170",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.849,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/whispel" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.34
+      },
+      "characterId" : "moliboo.133",
+      "eyeClearance" : 0.2498,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.929,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.4613,
+      "zIndex" : 30
+    },
     "fit\/willow" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -2815,8 +5725,8 @@
       "layer" : "front",
       "maxWidth" : 0.54,
       "measured" : {
-        "attachedFraction" : 0.955,
-        "eyeCover" : 0.017,
+        "attachedFraction" : 0.93,
+        "eyeCover" : 0.003,
         "phasesChecked" : [
           "still",
           "t=0.0",
@@ -2845,7 +5755,7 @@
       "layer" : "front",
       "maxWidth" : 0.58,
       "measured" : {
-        "attachedFraction" : 0.549,
+        "attachedFraction" : 0.534,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2874,7 +5784,7 @@
       "followHeadMotion" : true,
       "layer" : "front",
       "measured" : {
-        "attachedFraction" : 0.801,
+        "attachedFraction" : 0.796,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",
@@ -2904,8 +5814,8 @@
       "layer" : "front",
       "maxWidth" : 0.52,
       "measured" : {
-        "attachedFraction" : 0.98,
-        "eyeCover" : 0.006,
+        "attachedFraction" : 0.951,
+        "eyeCover" : 0,
         "phasesChecked" : [
           "still",
           "t=0.0",
@@ -2952,6 +5862,96 @@
       "width" : 0.4232,
       "zIndex" : 30
     },
+    "fit\/zeppi" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.126",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.57,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/zestiq" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.178",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.801,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
+    "fit\/zingra" : {
+      "accessoryId" : "cap.moliboo.signature",
+      "anchor" : {
+        "x" : 0,
+        "y" : -0.31
+      },
+      "characterId" : "moliboo.205",
+      "eyeClearance" : 0.2198,
+      "followHeadMotion" : true,
+      "layer" : "front",
+      "maxWidth" : 0.56,
+      "measured" : {
+        "attachedFraction" : 0.57,
+        "eyeCover" : 0,
+        "phasesChecked" : [
+          "still",
+          "t=0.0",
+          "t=0.7",
+          "t=1.9",
+          "t=3.3"
+        ]
+      },
+      "occlusion" : "head-top props hide while a hat is worn; ears, horns and halos stay in their own layers",
+      "rotation" : 0,
+      "scale" : 0.9,
+      "sink" : 0.06,
+      "validated" : true,
+      "width" : 0.504,
+      "zIndex" : 30
+    },
     "fit\/zip" : {
       "accessoryId" : "cap.moliboo.signature",
       "anchor" : {
@@ -2964,7 +5964,7 @@
       "layer" : "front",
       "maxWidth" : 0.5,
       "measured" : {
-        "attachedFraction" : 0.739,
+        "attachedFraction" : 0.73,
         "eyeCover" : 0,
         "phasesChecked" : [
           "still",

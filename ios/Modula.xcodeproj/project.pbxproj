@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		96DA263BD3723355FEFE450F /* MolibooItems.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 871415A14FBB877B8C0CA458 /* MolibooItems.xcassets */; };
+		F5003DD59FBC27DF486453CF /* MolibooGameViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE96EEAB00C7A774D48A9B7D /* MolibooGameViews.swift */; };
+		D75CD231946A0F1252949B43 /* MolibooGameAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A54942E84AED2B93F05F2B8 /* MolibooGameAPI.swift */; };
+		8D063F2E17A0A5B96C97FC7B /* MolibooGameModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00800010D11651D7DAE87F5E /* MolibooGameModels.swift */; };
+		7E2057FB3D96701A3D58CF77 /* MolibooGameFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B93F3400D4A9CE5594AA802 /* MolibooGameFlags.swift */; };
 		BA0200000000000000000011 /* GameFixtures in Resources */ = {isa = PBXBuildFile; fileRef = BA0200000000000000000012 /* GameFixtures */; };
 		87FB5D4511AF4A7D9FCA8B8E /* PDFReaderV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 259E9F3382BC4EA5811690EC /* PDFReaderV2Tests.swift */; };
 		5446F9A7CFA04E0D940811DD /* PDFImmersiveReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA5B12DBD0541F38FC76EC2 /* PDFImmersiveReader.swift */; };
@@ -93,6 +98,7 @@
 		3F68A564E6A09107514875CE /* MolibooFeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = A278B9E952CA3FF760FDDDB0 /* MolibooFeatureFlags.swift */; };
 		6EA21C08BAFDA513CD756C41 /* PremiumHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 764C7E4089A3806C2B0799D5 /* PremiumHubView.swift */; };
 		A5E2B1160215000000000002 /* MolibooMarketplaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E2B1160215000000000001 /* MolibooMarketplaceView.swift */; };
+		A5E2B1160215000000000012 /* MolibooStickers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E2B1160215000000000011 /* MolibooStickers.swift */; };
 		BF5BBBE86AB44BDEA70CAEB4 /* PremiumBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DD3E515E9E54852907CC4E9 /* PremiumBadge.swift */; };
 		61D623D830EA4436B9AD5E72 /* PremiumPlanViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28B4436085AE4A97BCEE5293 /* PremiumPlanViews.swift */; };
 		E65FF55E8BBD46009836B8A6 /* PremiumMemberViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30AD405C7D9A41FA8A2A97D5 /* PremiumMemberViews.swift */; };
@@ -124,6 +130,7 @@
 		C16C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift */; };
 		C18E871C00879B8E66C5673FB3 /* MascotRig.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08E871C00879B8E66C5673FB3 /* MascotRig.swift */; };
 		C18E871C00879B8E66C5673FC4 /* MolibooLegends.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08E871C00879B8E66C5673FC4 /* MolibooLegends.swift */; };
+		C18E871C00879B8E66C5674A02 /* MolibooSeries2.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08E871C00879B8E66C5674A02 /* MolibooSeries2.swift */; };
 		C14B413EE2CA03DFFC2B64FF /* CommentRichContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */; };
 		C1E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */; };
 		C13029B25B9DB3676F028E7B /* ModulaGlassShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */; };
@@ -503,6 +510,11 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		871415A14FBB877B8C0CA458 /* MolibooItems.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = MolibooItems.xcassets; path = Resources/MolibooGame/MolibooItems.xcassets; sourceTree = "<group>"; };
+		EE96EEAB00C7A774D48A9B7D /* MolibooGameViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooGameViews.swift; path = Features/MolibooGame/MolibooGameViews.swift; sourceTree = "<group>"; };
+		2A54942E84AED2B93F05F2B8 /* MolibooGameAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooGameAPI.swift; path = Features/MolibooGame/MolibooGameAPI.swift; sourceTree = "<group>"; };
+		00800010D11651D7DAE87F5E /* MolibooGameModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooGameModels.swift; path = Features/MolibooGame/MolibooGameModels.swift; sourceTree = "<group>"; };
+		2B93F3400D4A9CE5594AA802 /* MolibooGameFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooGameFlags.swift; path = Features/MolibooGame/MolibooGameFlags.swift; sourceTree = "<group>"; };
 		BA0200000000000000000012 /* GameFixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; path = GameFixtures; sourceTree = "<group>"; };
 		259E9F3382BC4EA5811690EC /* PDFReaderV2Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PDFReaderV2Tests.swift; sourceTree = "<group>"; };
 		DAA5B12DBD0541F38FC76EC2 /* PDFImmersiveReader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PDFImmersiveReader.swift; path = Features/Social/PDFImmersiveReader.swift; sourceTree = "<group>"; };
@@ -589,6 +601,7 @@
 		A278B9E952CA3FF760FDDDB0 /* MolibooFeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooFeatureFlags.swift; path = Features/Moliboo3D/MolibooFeatureFlags.swift; sourceTree = "<group>"; };
 		764C7E4089A3806C2B0799D5 /* PremiumHubView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PremiumHubView.swift; path = Features/Premium/PremiumHubView.swift; sourceTree = "<group>"; };
 		A5E2B1160215000000000001 /* MolibooMarketplaceView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MolibooMarketplaceView.swift; path = Features/MolibooMarketplace/MolibooMarketplaceView.swift; sourceTree = "<group>"; };
+		A5E2B1160215000000000011 /* MolibooStickers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MolibooStickers.swift; path = Features/MolibooMarketplace/MolibooStickers.swift; sourceTree = "<group>"; };
 		8DD3E515E9E54852907CC4E9 /* PremiumBadge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PremiumBadge.swift; path = Features/Premium/PremiumBadge.swift; sourceTree = "<group>"; };
 		28B4436085AE4A97BCEE5293 /* PremiumPlanViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PremiumPlanViews.swift; path = Features/Premium/PremiumPlanViews.swift; sourceTree = "<group>"; };
 		30AD405C7D9A41FA8A2A97D5 /* PremiumMemberViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PremiumMemberViews.swift; path = Features/Premium/PremiumMemberViews.swift; sourceTree = "<group>"; };
@@ -620,6 +633,7 @@
 		C06C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotProgress.swift; path = DesignSystem/Mascot/MascotProgress.swift; sourceTree = "<group>"; };
 		C08E871C00879B8E66C5673FB3 /* MascotRig.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotRig.swift; path = DesignSystem/Mascot/MascotRig.swift; sourceTree = "<group>"; };
 		C08E871C00879B8E66C5673FC4 /* MolibooLegends.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MolibooLegends.swift; path = DesignSystem/Mascot/MolibooLegends.swift; sourceTree = "<group>"; };
+		C08E871C00879B8E66C5674A02 /* MolibooSeries2.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MolibooSeries2.swift; path = DesignSystem/Mascot/MolibooSeries2.swift; sourceTree = "<group>"; };
 		C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommentRichContent.swift; path = Features/Social/CommentRichContent.swift; sourceTree = "<group>"; };
 		C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaComposerExtras.swift; path = DesignSystem/AdvancedInteraction/ModulaComposerExtras.swift; sourceTree = "<group>"; };
 		C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = ModulaGlassShaders.metal; path = DesignSystem/Glass/ModulaGlassShaders.metal; sourceTree = "<group>"; };
@@ -1320,6 +1334,11 @@
 				DD1C353C8D3FB917EE061C6D /* MolibooWardrobeRig.swift */,
 				705C3E2D9930469B26F5FD65 /* MolibooWardrobe.swift */,
 				F3CD08F382212E1E9B48925E /* MolibooCollection.swift */,
+				871415A14FBB877B8C0CA458 /* MolibooItems.xcassets */,
+				EE96EEAB00C7A774D48A9B7D /* MolibooGameViews.swift */,
+				2A54942E84AED2B93F05F2B8 /* MolibooGameAPI.swift */,
+				00800010D11651D7DAE87F5E /* MolibooGameModels.swift */,
+				2B93F3400D4A9CE5594AA802 /* MolibooGameFlags.swift */,
 				EA033189BDB5AB2FC7D7EDD5 /* MOL03DebugHarness.swift */,
 				E8E9CF55CA02F191FF46098C /* MolibooStyleSheet.swift */,
 				9314CE791544C1730331AF7B /* MolibooLivingStudioView.swift */,
@@ -1340,6 +1359,7 @@
 				A278B9E952CA3FF760FDDDB0 /* MolibooFeatureFlags.swift */,
 				764C7E4089A3806C2B0799D5 /* PremiumHubView.swift */,
 				A5E2B1160215000000000001 /* MolibooMarketplaceView.swift */,
+				A5E2B1160215000000000011 /* MolibooStickers.swift */,
 				8DD3E515E9E54852907CC4E9 /* PremiumBadge.swift */,
 				28B4436085AE4A97BCEE5293 /* PremiumPlanViews.swift */,
 				30AD405C7D9A41FA8A2A97D5 /* PremiumMemberViews.swift */,
@@ -1362,6 +1382,7 @@
 				C06C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift */,
 				C08E871C00879B8E66C5673FB3 /* MascotRig.swift */,
 				C08E871C00879B8E66C5673FC4 /* MolibooLegends.swift */,
+				C08E871C00879B8E66C5674A02 /* MolibooSeries2.swift */,
 				C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */,
 				C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */,
 				C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */,
@@ -1699,6 +1720,7 @@
 				083850E345065E6A6AB4731F /* PrivacyInfo.xcprivacy in Resources */,
 				D5010000000000000000001A /* Assets.xcassets in Resources */,
 				23F9F9582ACCE39AAB61C618 /* MolibooBrand.xcassets in Resources */,
+				96DA263BD3723355FEFE450F /* MolibooItems.xcassets in Resources */,
 				7BDF21E5F8D2925DD163E0DF /* moliboo_manifest.json in Resources */,
 				2E3050F2410271342EDE5828 /* moliboo_accessory_fits.json in Resources */,
 				2AAC3B5CB443680E8DE5081B /* moliboo_registry.json in Resources */,
@@ -2051,6 +2073,10 @@
 				35949C05BE1A250059BC6A55 /* MolibooWardrobeRig.swift in Sources */,
 				EA6BB58C599561872BE6C207 /* MolibooWardrobe.swift in Sources */,
 				1B4920D7D792FF504F5D09D2 /* MolibooCollection.swift in Sources */,
+				F5003DD59FBC27DF486453CF /* MolibooGameViews.swift in Sources */,
+				D75CD231946A0F1252949B43 /* MolibooGameAPI.swift in Sources */,
+				8D063F2E17A0A5B96C97FC7B /* MolibooGameModels.swift in Sources */,
+				7E2057FB3D96701A3D58CF77 /* MolibooGameFlags.swift in Sources */,
 				7184C8F2BFE567A89081CA56 /* MOL03DebugHarness.swift in Sources */,
 				B0365ACD3EC316AD18CF61C8 /* MolibooStyleSheet.swift in Sources */,
 				FB9FA99D6A97B00F5C6A8D47 /* MolibooLivingStudioView.swift in Sources */,
@@ -2071,6 +2097,7 @@
 				3F68A564E6A09107514875CE /* MolibooFeatureFlags.swift in Sources */,
 				6EA21C08BAFDA513CD756C41 /* PremiumHubView.swift in Sources */,
 				A5E2B1160215000000000002 /* MolibooMarketplaceView.swift in Sources */,
+				A5E2B1160215000000000012 /* MolibooStickers.swift in Sources */,
 				BF5BBBE86AB44BDEA70CAEB4 /* PremiumBadge.swift in Sources */,
 				61D623D830EA4436B9AD5E72 /* PremiumPlanViews.swift in Sources */,
 				E65FF55E8BBD46009836B8A6 /* PremiumMemberViews.swift in Sources */,
@@ -2093,6 +2120,7 @@
 				C16C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift in Sources */,
 				C18E871C00879B8E66C5673FB3 /* MascotRig.swift in Sources */,
 				C18E871C00879B8E66C5673FC4 /* MolibooLegends.swift in Sources */,
+				C18E871C00879B8E66C5674A02 /* MolibooSeries2.swift in Sources */,
 				C14B413EE2CA03DFFC2B64FF /* CommentRichContent.swift in Sources */,
 				C1E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift in Sources */,
 				C13029B25B9DB3676F028E7B /* ModulaGlassShaders.metal in Sources */,

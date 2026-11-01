@@ -10,7 +10,7 @@ final class SproutStickerPackTests: XCTestCase {
         XCTAssertEqual(Set(SproutStickerPack.all.map(\.id)).count, 65)
     }
 
-    func testKnownStickerRoundTripsAsACommentToken() {
+    func testKnownStickerRoundTripsAsACommentToken() throws {
         let sticker = try XCTUnwrap(SproutStickerPack.sticker(id: "02_21_security_engineer"))
         let parsed = ModulaLocalSticker.extract("Hello \(sticker.local.token)")
         XCTAssertEqual(parsed.stickers.map(\.value), ["02_21_security_engineer"])

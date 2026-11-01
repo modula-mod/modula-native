@@ -731,7 +731,7 @@
         125
       ],
       "world": "Tideborn",
-      "wearable": false,
+      "wearable": true,
       "motionProfile": "tideborn.swell",
       "series": 2,
       "availability": "draft",
@@ -748,7 +748,7 @@
         135
       ],
       "world": "Skyweavers",
-      "wearable": false,
+      "wearable": true,
       "motionProfile": "skyweavers.glide",
       "series": 2,
       "availability": "draft",
@@ -765,7 +765,7 @@
         145
       ],
       "world": "Cinderlings",
-      "wearable": false,
+      "wearable": true,
       "motionProfile": "cinderlings.flicker",
       "series": 2,
       "availability": "draft",
@@ -782,7 +782,7 @@
         155
       ],
       "world": "Mosslight Grove",
-      "wearable": false,
+      "wearable": true,
       "motionProfile": "mosslight-grove.settle",
       "series": 2,
       "availability": "draft",
@@ -799,7 +799,7 @@
         165
       ],
       "world": "Aurora Vale",
-      "wearable": false,
+      "wearable": true,
       "motionProfile": "aurora-vale.shimmer",
       "series": 2,
       "availability": "draft",
@@ -816,7 +816,7 @@
         175
       ],
       "world": "Clocklings",
-      "wearable": false,
+      "wearable": true,
       "motionProfile": "clocklings.tick",
       "series": 2,
       "availability": "draft",
@@ -833,7 +833,7 @@
         185
       ],
       "world": "Sugarvale",
-      "wearable": false,
+      "wearable": true,
       "motionProfile": "sugarvale.bob",
       "series": 2,
       "availability": "draft",
@@ -850,7 +850,7 @@
         195
       ],
       "world": "Inkbound Atelier",
-      "wearable": false,
+      "wearable": true,
       "motionProfile": "inkbound-atelier.drift",
       "series": 2,
       "availability": "draft",
@@ -867,7 +867,7 @@
         205
       ],
       "world": "Neon Arcade",
-      "wearable": false,
+      "wearable": true,
       "motionProfile": "neon-arcade.pulse",
       "series": 2,
       "availability": "draft",
@@ -884,7 +884,7 @@
         215
       ],
       "world": "Lantern Parade",
-      "wearable": false,
+      "wearable": true,
       "motionProfile": "lantern-parade.glow",
       "series": 2,
       "availability": "draft",
@@ -4784,7 +4784,7 @@
         "longPress",
         "greeting",
         "equip",
-        "signature/leafRustle"
+        "signature/haloSpin"
       ],
       "reactionSet": "dovee.reactions",
       "reactions": {
@@ -4838,12 +4838,12 @@
           "durationMs": 800
         },
         "signature": {
-          "id": "leafRustle",
+          "id": "haloSpin",
           "mood": "happy",
           "primitive": "layerOffset",
           "burst": "sparkle",
           "durationMs": 1500,
-          "line": "Dovee rustles its leaves"
+          "line": "Dovee spins its halo"
         }
       },
       "personality": {
@@ -5547,7 +5547,7 @@
           "primitive": "layerOffset",
           "burst": "sparkle",
           "durationMs": 1500,
-          "line": "Riff nods to the beat"
+          "line": "Riff pulses its speakers"
         }
       },
       "personality": {
@@ -11305,7 +11305,7 @@
         "longPress",
         "greeting",
         "equip",
-        "signature/hornNod"
+        "signature/shellPeek"
       ],
       "reactionSet": "hushby.reactions",
       "reactions": {
@@ -11359,12 +11359,12 @@
           "durationMs": 800
         },
         "signature": {
-          "id": "hornNod",
+          "id": "shellPeek",
           "mood": "happy",
           "primitive": "layerOffset",
           "burst": "sparkle",
           "durationMs": 1500,
-          "line": "Hushby nods its horns"
+          "line": "Hushby peeks from its shell"
         }
       },
       "personality": {
@@ -11769,7 +11769,7 @@
         "longPress",
         "greeting",
         "equip",
-        "signature/earTwitch"
+        "signature/wingFlutter"
       ],
       "reactionSet": "minku.reactions",
       "reactions": {
@@ -11823,12 +11823,12 @@
           "durationMs": 800
         },
         "signature": {
-          "id": "earTwitch",
+          "id": "wingFlutter",
           "mood": "happy",
           "primitive": "layerOffset",
           "burst": "sparkle",
           "durationMs": 1500,
-          "line": "Minku twitches its ears"
+          "line": "Minku flutters its wings"
         }
       },
       "personality": {
@@ -12232,7 +12232,7 @@
         "longPress",
         "greeting",
         "equip",
-        "signature/blanketSnuggle"
+        "signature/capFlop"
       ],
       "reactionSet": "comfi.reactions",
       "reactions": {
@@ -12286,12 +12286,12 @@
           "durationMs": 800
         },
         "signature": {
-          "id": "blanketSnuggle",
+          "id": "capFlop",
           "mood": "happy",
           "primitive": "layerOffset",
           "burst": "sparkle",
           "durationMs": 1500,
-          "line": "Comfi snuggles its blanket"
+          "line": "Comfi flops its nightcap"
         }
       },
       "personality": {
@@ -14214,11 +14214,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.116/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/brinlo",
+      "thumbnail": "package:moliboo.character.116/portrait.png",
+      "body": "drop",
+      "parts": [
+        "topper",
+        "mark",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/brinlo",
       "expressions": [
         "neutral",
         "happy",
@@ -14234,7 +14240,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft116"
       ],
       "reactionSet": "brinlo.reactions",
@@ -14271,10 +14277,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -14327,11 +14332,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.117/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/calyra",
+      "thumbnail": "package:moliboo.character.117/portrait.png",
+      "body": "round",
+      "parts": [
+        "frill",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/calyra",
       "expressions": [
         "neutral",
         "happy",
@@ -14347,7 +14357,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft117"
       ],
       "reactionSet": "calyra.reactions",
@@ -14383,11 +14393,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -14440,11 +14449,15 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.118/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/dovvi",
+      "thumbnail": "package:moliboo.character.118/portrait.png",
+      "body": "wide",
+      "parts": [
+        "fins",
+        "tail"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/dovvi",
       "expressions": [
         "neutral",
         "happy",
@@ -14460,7 +14473,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft118"
       ],
       "reactionSet": "dovvi.reactions",
@@ -14497,10 +14510,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -14553,11 +14565,18 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.119/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/shelumi",
+      "thumbnail": "package:moliboo.character.119/portrait.png",
+      "body": "round",
+      "parts": [
+        "hood",
+        "topper",
+        "prop",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/shelumi",
       "expressions": [
         "neutral",
         "happy",
@@ -14573,7 +14592,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft119"
       ],
       "reactionSet": "shelumi.reactions",
@@ -14610,10 +14629,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -14666,11 +14684,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.120/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/nerlo",
+      "thumbnail": "package:moliboo.character.120/portrait.png",
+      "body": "round",
+      "parts": [
+        "glow",
+        "topper",
+        "tentacles",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/nerlo",
       "expressions": [
         "neutral",
         "happy",
@@ -14686,7 +14710,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft120"
       ],
       "reactionSet": "nerlo.reactions",
@@ -14723,10 +14747,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -14779,11 +14802,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.121/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/quibby",
+      "thumbnail": "package:moliboo.character.121/portrait.png",
+      "body": "round",
+      "parts": [
+        "spines",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/quibby",
       "expressions": [
         "neutral",
         "happy",
@@ -14799,7 +14827,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft121"
       ],
       "reactionSet": "quibby.reactions",
@@ -14835,11 +14863,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -14892,11 +14919,18 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.122/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/tavaroo",
+      "thumbnail": "package:moliboo.character.122/portrait.png",
+      "body": "tall",
+      "parts": [
+        "ears",
+        "scarf",
+        "sparkles",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/tavaroo",
       "expressions": [
         "neutral",
         "happy",
@@ -14912,7 +14946,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft122"
       ],
       "reactionSet": "tavaroo.reactions",
@@ -14949,10 +14983,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -15005,11 +15038,18 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.123/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/ostra",
+      "thumbnail": "package:moliboo.character.123/portrait.png",
+      "body": "round",
+      "parts": [
+        "shell",
+        "prop",
+        "prop",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/ostra",
       "expressions": [
         "neutral",
         "happy",
@@ -15025,7 +15065,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft123"
       ],
       "reactionSet": "ostra.reactions",
@@ -15062,10 +15102,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -15118,11 +15157,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.124/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/vaeli",
+      "thumbnail": "package:moliboo.character.124/portrait.png",
+      "body": "tall",
+      "parts": [
+        "fins",
+        "tail",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/vaeli",
       "expressions": [
         "neutral",
         "happy",
@@ -15138,7 +15182,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft124"
       ],
       "reactionSet": "vaeli.reactions",
@@ -15174,11 +15218,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -15231,11 +15274,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.125/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/driftu",
+      "thumbnail": "package:moliboo.character.125/portrait.png",
+      "body": "wide",
+      "parts": [
+        "ears",
+        "topper",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/driftu",
       "expressions": [
         "neutral",
         "happy",
@@ -15251,7 +15300,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft125"
       ],
       "reactionSet": "driftu.reactions",
@@ -15288,10 +15337,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -15344,11 +15392,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.126/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/zeppi",
+      "thumbnail": "package:moliboo.character.126/portrait.png",
+      "body": "round",
+      "parts": [
+        "prop",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/zeppi",
       "expressions": [
         "neutral",
         "happy",
@@ -15364,7 +15417,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft126"
       ],
       "reactionSet": "zeppi.reactions",
@@ -15401,10 +15454,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -15457,11 +15509,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.127/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/cirra",
+      "thumbnail": "package:moliboo.character.127/portrait.png",
+      "body": "cloud",
+      "parts": [
+        "ears",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/cirra",
       "expressions": [
         "neutral",
         "happy",
@@ -15477,7 +15534,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft127"
       ],
       "reactionSet": "cirra.reactions",
@@ -15514,10 +15571,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -15570,11 +15626,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.128/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/flaro",
+      "thumbnail": "package:moliboo.character.128/portrait.png",
+      "body": "tall",
+      "parts": [
+        "wings",
+        "featherCrest",
+        "feet"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/flaro",
       "expressions": [
         "neutral",
         "happy",
@@ -15590,7 +15651,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft128"
       ],
       "reactionSet": "flaro.reactions",
@@ -15627,10 +15688,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -15683,11 +15743,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.129/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/nimbuski",
+      "thumbnail": "package:moliboo.character.129/portrait.png",
+      "body": "cloud",
+      "parts": [
+        "lightning",
+        "topper",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/nimbuski",
       "expressions": [
         "neutral",
         "happy",
@@ -15703,7 +15768,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft129"
       ],
       "reactionSet": "nimbuski.reactions",
@@ -15740,10 +15805,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -15796,11 +15860,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.130/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/breezo",
+      "thumbnail": "package:moliboo.character.130/portrait.png",
+      "body": "round",
+      "parts": [
+        "topper",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/breezo",
       "expressions": [
         "neutral",
         "happy",
@@ -15816,7 +15885,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft130"
       ],
       "reactionSet": "breezo.reactions",
@@ -15853,10 +15922,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -15909,11 +15977,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.131/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/poffa",
+      "thumbnail": "package:moliboo.character.131/portrait.png",
+      "body": "cloud",
+      "parts": [
+        "sparkles",
+        "mark",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/poffa",
       "expressions": [
         "neutral",
         "happy",
@@ -15929,7 +16003,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft131"
       ],
       "reactionSet": "poffa.reactions",
@@ -15966,10 +16040,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -16022,11 +16095,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.132/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/aerin",
+      "thumbnail": "package:moliboo.character.132/portrait.png",
+      "body": "tall",
+      "parts": [
+        "wings",
+        "windSwirl",
+        "topper",
+        "feet"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/aerin",
       "expressions": [
         "neutral",
         "happy",
@@ -16042,7 +16121,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft132"
       ],
       "reactionSet": "aerin.reactions",
@@ -16079,10 +16158,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -16135,11 +16213,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.133/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/whispel",
+      "thumbnail": "package:moliboo.character.133/portrait.png",
+      "body": "dome",
+      "parts": [
+        "windSwirl",
+        "topper",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/whispel",
       "expressions": [
         "neutral",
         "happy",
@@ -16155,7 +16238,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft133"
       ],
       "reactionSet": "whispel.reactions",
@@ -16192,10 +16275,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -16248,11 +16330,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.134/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/gustra",
+      "thumbnail": "package:moliboo.character.134/portrait.png",
+      "body": "round",
+      "parts": [
+        "wings",
+        "blanket",
+        "feet"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/gustra",
       "expressions": [
         "neutral",
         "happy",
@@ -16268,7 +16355,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft134"
       ],
       "reactionSet": "gustra.reactions",
@@ -16305,10 +16392,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -16361,11 +16447,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.135/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/solviq",
+      "thumbnail": "package:moliboo.character.135/portrait.png",
+      "body": "round",
+      "parts": [
+        "rays",
+        "glow",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/solviq",
       "expressions": [
         "neutral",
         "happy",
@@ -16381,7 +16473,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft135"
       ],
       "reactionSet": "solviq.reactions",
@@ -16418,10 +16510,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -16474,11 +16565,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.136/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/ashumo",
+      "thumbnail": "package:moliboo.character.136/portrait.png",
+      "body": "pebble",
+      "parts": [
+        "topper",
+        "mark",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/ashumo",
       "expressions": [
         "neutral",
         "happy",
@@ -16494,7 +16591,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft136"
       ],
       "reactionSet": "ashumo.reactions",
@@ -16531,10 +16628,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -16587,11 +16683,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.137/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/fizzra",
+      "thumbnail": "package:moliboo.character.137/portrait.png",
+      "body": "round",
+      "parts": [
+        "flame",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/fizzra",
       "expressions": [
         "neutral",
         "happy",
@@ -16607,7 +16708,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft137"
       ],
       "reactionSet": "fizzra.reactions",
@@ -16643,11 +16744,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -16700,11 +16800,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.138/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/cindoo",
+      "thumbnail": "package:moliboo.character.138/portrait.png",
+      "body": "round",
+      "parts": [
+        "wings",
+        "flame",
+        "feet"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/cindoo",
       "expressions": [
         "neutral",
         "happy",
@@ -16720,7 +16825,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft138"
       ],
       "reactionSet": "cindoo.reactions",
@@ -16756,11 +16861,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -16813,11 +16917,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.139/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/magmi",
+      "thumbnail": "package:moliboo.character.139/portrait.png",
+      "body": "drop",
+      "parts": [
+        "glow",
+        "mark",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/magmi",
       "expressions": [
         "neutral",
         "happy",
@@ -16833,7 +16943,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft139"
       ],
       "reactionSet": "magmi.reactions",
@@ -16869,11 +16979,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -16926,11 +17035,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.140/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/kohli",
+      "thumbnail": "package:moliboo.character.140/portrait.png",
+      "body": "pebble",
+      "parts": [
+        "mark",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/kohli",
       "expressions": [
         "neutral",
         "happy",
@@ -16946,7 +17060,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft140"
       ],
       "reactionSet": "kohli.reactions",
@@ -16982,11 +17096,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -17039,11 +17152,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.141/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/brasa",
+      "thumbnail": "package:moliboo.character.141/portrait.png",
+      "body": "round",
+      "parts": [
+        "ramHorns",
+        "mark",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/brasa",
       "expressions": [
         "neutral",
         "happy",
@@ -17059,7 +17178,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft141"
       ],
       "reactionSet": "brasa.reactions",
@@ -17095,11 +17214,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -17152,11 +17270,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.142/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/flinti",
+      "thumbnail": "package:moliboo.character.142/portrait.png",
+      "body": "round",
+      "parts": [
+        "hood",
+        "rockSeams",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/flinti",
       "expressions": [
         "neutral",
         "happy",
@@ -17172,7 +17296,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft142"
       ],
       "reactionSet": "flinti.reactions",
@@ -17208,11 +17332,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -17265,11 +17388,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.143/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/lavajo",
+      "thumbnail": "package:moliboo.character.143/portrait.png",
+      "body": "wide",
+      "parts": [
+        "mane",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/lavajo",
       "expressions": [
         "neutral",
         "happy",
@@ -17285,7 +17413,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft143"
       ],
       "reactionSet": "lavajo.reactions",
@@ -17321,11 +17449,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -17378,11 +17505,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.144/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/searli",
+      "thumbnail": "package:moliboo.character.144/portrait.png",
+      "body": "tall",
+      "parts": [
+        "prop",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/searli",
       "expressions": [
         "neutral",
         "happy",
@@ -17398,7 +17530,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft144"
       ],
       "reactionSet": "searli.reactions",
@@ -17434,11 +17566,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -17491,11 +17622,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.145/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/pyvra",
+      "thumbnail": "package:moliboo.character.145/portrait.png",
+      "body": "round",
+      "parts": [
+        "mane",
+        "mark",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/pyvra",
       "expressions": [
         "neutral",
         "happy",
@@ -17511,7 +17648,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft145"
       ],
       "reactionSet": "pyvra.reactions",
@@ -17548,10 +17685,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -17604,11 +17740,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.146/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/petalia",
+      "thumbnail": "package:moliboo.character.146/portrait.png",
+      "body": "round",
+      "parts": [
+        "rays",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/petalia",
       "expressions": [
         "neutral",
         "happy",
@@ -17624,7 +17765,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft146"
       ],
       "reactionSet": "petalia.reactions",
@@ -17661,10 +17802,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -17717,11 +17857,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.147/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/spriggo",
+      "thumbnail": "package:moliboo.character.147/portrait.png",
+      "body": "tall",
+      "parts": [
+        "leaves",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/spriggo",
       "expressions": [
         "neutral",
         "happy",
@@ -17737,7 +17882,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft147"
       ],
       "reactionSet": "spriggo.reactions",
@@ -17774,10 +17919,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -17830,11 +17974,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.148/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/floressa",
+      "thumbnail": "package:moliboo.character.148/portrait.png",
+      "body": "round",
+      "parts": [
+        "rays",
+        "glow",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/floressa",
       "expressions": [
         "neutral",
         "happy",
@@ -17850,7 +18000,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft148"
       ],
       "reactionSet": "floressa.reactions",
@@ -17887,10 +18037,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -17943,11 +18092,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.149/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/berru",
+      "thumbnail": "package:moliboo.character.149/portrait.png",
+      "body": "drop",
+      "parts": [
+        "leaves",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/berru",
       "expressions": [
         "neutral",
         "happy",
@@ -17963,7 +18117,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft149"
       ],
       "reactionSet": "berru.reactions",
@@ -18000,10 +18154,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -18056,11 +18209,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.150/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/necti",
+      "thumbnail": "package:moliboo.character.150/portrait.png",
+      "body": "round",
+      "parts": [
+        "wings",
+        "mark",
+        "antennae",
+        "feet"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/necti",
       "expressions": [
         "neutral",
         "happy",
@@ -18076,7 +18235,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft150"
       ],
       "reactionSet": "necti.reactions",
@@ -18113,10 +18272,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -18169,11 +18327,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.151/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/mossini",
+      "thumbnail": "package:moliboo.character.151/portrait.png",
+      "body": "round",
+      "parts": [
+        "mushroomCap",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/mossini",
       "expressions": [
         "neutral",
         "happy",
@@ -18189,7 +18352,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft151"
       ],
       "reactionSet": "mossini.reactions",
@@ -18226,10 +18389,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -18282,11 +18444,15 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.152/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/veyla",
+      "thumbnail": "package:moliboo.character.152/portrait.png",
+      "body": "dome",
+      "parts": [
+        "topper",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/veyla",
       "expressions": [
         "neutral",
         "happy",
@@ -18302,7 +18468,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft152"
       ],
       "reactionSet": "veyla.reactions",
@@ -18339,10 +18505,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -18395,11 +18560,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.153/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/tindle",
+      "thumbnail": "package:moliboo.character.153/portrait.png",
+      "body": "tall",
+      "parts": [
+        "topper",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/tindle",
       "expressions": [
         "neutral",
         "happy",
@@ -18415,7 +18585,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft153"
       ],
       "reactionSet": "tindle.reactions",
@@ -18452,10 +18622,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -18508,11 +18677,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.154/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/clovey",
+      "thumbnail": "package:moliboo.character.154/portrait.png",
+      "body": "wide",
+      "parts": [
+        "topper",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/clovey",
       "expressions": [
         "neutral",
         "happy",
@@ -18528,7 +18702,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft154"
       ],
       "reactionSet": "clovey.reactions",
@@ -18565,10 +18739,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -18621,11 +18794,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.155/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/rhuvi",
+      "thumbnail": "package:moliboo.character.155/portrait.png",
+      "body": "round",
+      "parts": [
+        "topper",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/rhuvi",
       "expressions": [
         "neutral",
         "happy",
@@ -18641,7 +18819,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft155"
       ],
       "reactionSet": "rhuvi.reactions",
@@ -18678,10 +18856,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -18734,11 +18911,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.156/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/boreli",
+      "thumbnail": "package:moliboo.character.156/portrait.png",
+      "body": "tall",
+      "parts": [
+        "crystals",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/boreli",
       "expressions": [
         "neutral",
         "happy",
@@ -18754,7 +18936,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft156"
       ],
       "reactionSet": "boreli.reactions",
@@ -18791,10 +18973,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -18847,11 +19028,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.157/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/prismel",
+      "thumbnail": "package:moliboo.character.157/portrait.png",
+      "body": "round",
+      "parts": [
+        "glow",
+        "crystals",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/prismel",
       "expressions": [
         "neutral",
         "happy",
@@ -18867,7 +19054,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft157"
       ],
       "reactionSet": "prismel.reactions",
@@ -18904,10 +19091,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -18960,11 +19146,15 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.158/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/shivera",
+      "thumbnail": "package:moliboo.character.158/portrait.png",
+      "body": "dome",
+      "parts": [
+        "topper",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/shivera",
       "expressions": [
         "neutral",
         "happy",
@@ -18980,7 +19170,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft158"
       ],
       "reactionSet": "shivera.reactions",
@@ -19017,10 +19207,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -19073,11 +19262,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.159/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/lumaine",
+      "thumbnail": "package:moliboo.character.159/portrait.png",
+      "body": "round",
+      "parts": [
+        "aurora",
+        "sparkles",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/lumaine",
       "expressions": [
         "neutral",
         "happy",
@@ -19093,7 +19288,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft159"
       ],
       "reactionSet": "lumaine.reactions",
@@ -19130,10 +19325,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -19186,11 +19380,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.160/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/opaliq",
+      "thumbnail": "package:moliboo.character.160/portrait.png",
+      "body": "round",
+      "parts": [
+        "topper",
+        "mark",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/opaliq",
       "expressions": [
         "neutral",
         "happy",
@@ -19206,7 +19406,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft160"
       ],
       "reactionSet": "opaliq.reactions",
@@ -19243,10 +19443,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -19299,11 +19498,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.161/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/glacchi",
+      "thumbnail": "package:moliboo.character.161/portrait.png",
+      "body": "round",
+      "parts": [
+        "topper",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/glacchi",
       "expressions": [
         "neutral",
         "happy",
@@ -19319,7 +19523,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft161"
       ],
       "reactionSet": "glacchi.reactions",
@@ -19356,10 +19560,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -19412,11 +19615,15 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.162/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/selka",
+      "thumbnail": "package:moliboo.character.162/portrait.png",
+      "body": "wide",
+      "parts": [
+        "tail",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/selka",
       "expressions": [
         "neutral",
         "happy",
@@ -19432,7 +19639,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft162"
       ],
       "reactionSet": "selka.reactions",
@@ -19469,10 +19676,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -19525,11 +19731,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.163/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/kivvi",
+      "thumbnail": "package:moliboo.character.163/portrait.png",
+      "body": "tall",
+      "parts": [
+        "antlers",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/kivvi",
       "expressions": [
         "neutral",
         "happy",
@@ -19545,7 +19756,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft163"
       ],
       "reactionSet": "kivvi.reactions",
@@ -19582,10 +19793,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -19638,11 +19848,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.164/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/polari",
+      "thumbnail": "package:moliboo.character.164/portrait.png",
+      "body": "round",
+      "parts": [
+        "headphones",
+        "scarf",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/polari",
       "expressions": [
         "neutral",
         "happy",
@@ -19658,7 +19874,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft164"
       ],
       "reactionSet": "polari.reactions",
@@ -19695,10 +19911,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -19751,11 +19966,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.165/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/veilo",
+      "thumbnail": "package:moliboo.character.165/portrait.png",
+      "body": "round",
+      "parts": [
+        "hood",
+        "sparkles",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/veilo",
       "expressions": [
         "neutral",
         "happy",
@@ -19771,7 +19992,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft165"
       ],
       "reactionSet": "veilo.reactions",
@@ -19808,10 +20029,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -19864,11 +20084,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.166/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/tocko",
+      "thumbnail": "package:moliboo.character.166/portrait.png",
+      "body": "round",
+      "parts": [
+        "goggles",
+        "ears",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/tocko",
       "expressions": [
         "neutral",
         "happy",
@@ -19884,7 +20110,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft166"
       ],
       "reactionSet": "tocko.reactions",
@@ -19921,10 +20147,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -19977,11 +20202,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.167/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/mintra",
+      "thumbnail": "package:moliboo.character.167/portrait.png",
+      "body": "tall",
+      "parts": [
+        "mark",
+        "topper",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/mintra",
       "expressions": [
         "neutral",
         "happy",
@@ -19997,7 +20228,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft167"
       ],
       "reactionSet": "mintra.reactions",
@@ -20033,11 +20264,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -20090,11 +20320,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.168/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/cogsy",
+      "thumbnail": "package:moliboo.character.168/portrait.png",
+      "body": "round",
+      "parts": [
+        "topper",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/cogsy",
       "expressions": [
         "neutral",
         "happy",
@@ -20110,7 +20345,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft168"
       ],
       "reactionSet": "cogsy.reactions",
@@ -20147,10 +20382,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -20203,11 +20437,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.169/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/pendli",
+      "thumbnail": "package:moliboo.character.169/portrait.png",
+      "body": "pear",
+      "parts": [
+        "prop",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/pendli",
       "expressions": [
         "neutral",
         "happy",
@@ -20223,7 +20462,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft169"
       ],
       "reactionSet": "pendli.reactions",
@@ -20260,10 +20499,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -20316,11 +20554,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.170/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/whirlo",
+      "thumbnail": "package:moliboo.character.170/portrait.png",
+      "body": "square",
+      "parts": [
+        "topper",
+        "prop",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/whirlo",
       "expressions": [
         "neutral",
         "happy",
@@ -20336,7 +20580,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft170"
       ],
       "reactionSet": "whirlo.reactions",
@@ -20372,11 +20616,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -20429,11 +20672,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.171/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/ticklet",
+      "thumbnail": "package:moliboo.character.171/portrait.png",
+      "body": "round",
+      "parts": [
+        "mark",
+        "prop",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/ticklet",
       "expressions": [
         "neutral",
         "happy",
@@ -20449,7 +20698,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft171"
       ],
       "reactionSet": "ticklet.reactions",
@@ -20486,10 +20735,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -20542,11 +20790,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.172/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/riveti",
+      "thumbnail": "package:moliboo.character.172/portrait.png",
+      "body": "square",
+      "parts": [
+        "ramHorns",
+        "mark",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/riveti",
       "expressions": [
         "neutral",
         "happy",
@@ -20562,7 +20816,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft172"
       ],
       "reactionSet": "riveti.reactions",
@@ -20599,10 +20853,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -20655,11 +20908,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.173/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/dialli",
+      "thumbnail": "package:moliboo.character.173/portrait.png",
+      "body": "round",
+      "parts": [
+        "mark",
+        "ears",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/dialli",
       "expressions": [
         "neutral",
         "happy",
@@ -20675,7 +20934,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft173"
       ],
       "reactionSet": "dialli.reactions",
@@ -20712,10 +20971,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -20768,11 +21026,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.174/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/spoolen",
+      "thumbnail": "package:moliboo.character.174/portrait.png",
+      "body": "round",
+      "parts": [
+        "topper",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/spoolen",
       "expressions": [
         "neutral",
         "happy",
@@ -20788,7 +21051,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft174"
       ],
       "reactionSet": "spoolen.reactions",
@@ -20825,10 +21088,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -20881,11 +21143,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.175/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/tempoo",
+      "thumbnail": "package:moliboo.character.175/portrait.png",
+      "body": "round",
+      "parts": [
+        "ears",
+        "mark",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/tempoo",
       "expressions": [
         "neutral",
         "happy",
@@ -20901,7 +21169,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft175"
       ],
       "reactionSet": "tempoo.reactions",
@@ -20938,10 +21206,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -20994,11 +21261,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.176/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/caramie",
+      "thumbnail": "package:moliboo.character.176/portrait.png",
+      "body": "drop",
+      "parts": [
+        "mark",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/caramie",
       "expressions": [
         "neutral",
         "happy",
@@ -21014,7 +21286,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft176"
       ],
       "reactionSet": "caramie.reactions",
@@ -21051,10 +21323,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -21107,11 +21378,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.177/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/mochiri",
+      "thumbnail": "package:moliboo.character.177/portrait.png",
+      "body": "round",
+      "parts": [
+        "petals",
+        "mark",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/mochiri",
       "expressions": [
         "neutral",
         "happy",
@@ -21127,7 +21404,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft177"
       ],
       "reactionSet": "mochiri.reactions",
@@ -21164,10 +21441,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -21220,11 +21496,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.178/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/zestiq",
+      "thumbnail": "package:moliboo.character.178/portrait.png",
+      "body": "round",
+      "parts": [
+        "topper",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/zestiq",
       "expressions": [
         "neutral",
         "happy",
@@ -21240,7 +21521,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft178"
       ],
       "reactionSet": "zestiq.reactions",
@@ -21276,11 +21557,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -21333,11 +21613,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.179/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/churli",
+      "thumbnail": "package:moliboo.character.179/portrait.png",
+      "body": "round",
+      "parts": [
+        "topper",
+        "mark",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/churli",
       "expressions": [
         "neutral",
         "happy",
@@ -21353,7 +21639,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft179"
       ],
       "reactionSet": "churli.reactions",
@@ -21390,10 +21676,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -21446,11 +21731,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.180/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/puffumi",
+      "thumbnail": "package:moliboo.character.180/portrait.png",
+      "body": "cloud",
+      "parts": [
+        "ears",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/puffumi",
       "expressions": [
         "neutral",
         "happy",
@@ -21466,7 +21756,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft180"
       ],
       "reactionSet": "puffumi.reactions",
@@ -21503,10 +21793,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -21559,11 +21848,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.181/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/sorbelle",
+      "thumbnail": "package:moliboo.character.181/portrait.png",
+      "body": "round",
+      "parts": [
+        "prop",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/sorbelle",
       "expressions": [
         "neutral",
         "happy",
@@ -21579,7 +21873,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft181"
       ],
       "reactionSet": "sorbelle.reactions",
@@ -21615,11 +21909,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -21672,11 +21965,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.182/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/biskin",
+      "thumbnail": "package:moliboo.character.182/portrait.png",
+      "body": "square",
+      "parts": [
+        "mark",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/biskin",
       "expressions": [
         "neutral",
         "happy",
@@ -21692,7 +21990,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft182"
       ],
       "reactionSet": "biskin.reactions",
@@ -21729,10 +22027,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -21785,11 +22082,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.183/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/jellune",
+      "thumbnail": "package:moliboo.character.183/portrait.png",
+      "body": "dome",
+      "parts": [
+        "ears",
+        "glow",
+        "topper",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/jellune",
       "expressions": [
         "neutral",
         "happy",
@@ -21805,7 +22108,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft183"
       ],
       "reactionSet": "jellune.reactions",
@@ -21841,11 +22144,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -21898,11 +22200,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.184/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/bonbiri",
+      "thumbnail": "package:moliboo.character.184/portrait.png",
+      "body": "tall",
+      "parts": [
+        "prop",
+        "mark",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/bonbiri",
       "expressions": [
         "neutral",
         "happy",
@@ -21918,7 +22226,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft184"
       ],
       "reactionSet": "bonbiri.reactions",
@@ -21955,10 +22263,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -22011,11 +22318,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.185/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/crembo",
+      "thumbnail": "package:moliboo.character.185/portrait.png",
+      "body": "round",
+      "parts": [
+        "mark",
+        "sparkles",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/crembo",
       "expressions": [
         "neutral",
         "happy",
@@ -22031,7 +22344,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft185"
       ],
       "reactionSet": "crembo.reactions",
@@ -22068,10 +22381,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -22124,11 +22436,15 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.186/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/inkaro",
+      "thumbnail": "package:moliboo.character.186/portrait.png",
+      "body": "drop",
+      "parts": [
+        "mark",
+        "paintDrips"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/inkaro",
       "expressions": [
         "neutral",
         "happy",
@@ -22144,7 +22460,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft186"
       ],
       "reactionSet": "inkaro.reactions",
@@ -22180,11 +22496,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -22237,11 +22552,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.187/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/papillo",
+      "thumbnail": "package:moliboo.character.187/portrait.png",
+      "body": "round",
+      "parts": [
+        "ears",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/papillo",
       "expressions": [
         "neutral",
         "happy",
@@ -22257,7 +22577,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft187"
       ],
       "reactionSet": "papillo.reactions",
@@ -22294,10 +22614,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -22350,11 +22669,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.188/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/quilli",
+      "thumbnail": "package:moliboo.character.188/portrait.png",
+      "body": "tall",
+      "parts": [
+        "prop",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/quilli",
       "expressions": [
         "neutral",
         "happy",
@@ -22370,7 +22694,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft188"
       ],
       "reactionSet": "quilli.reactions",
@@ -22407,10 +22731,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -22463,11 +22786,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.189/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/dottori",
+      "thumbnail": "package:moliboo.character.189/portrait.png",
+      "body": "round",
+      "parts": [
+        "mark",
+        "topper",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/dottori",
       "expressions": [
         "neutral",
         "happy",
@@ -22483,7 +22812,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft189"
       ],
       "reactionSet": "dottori.reactions",
@@ -22520,10 +22849,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -22576,11 +22904,15 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.190/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/origra",
+      "thumbnail": "package:moliboo.character.190/portrait.png",
+      "body": "star",
+      "parts": [
+        "topper",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/origra",
       "expressions": [
         "neutral",
         "happy",
@@ -22596,7 +22928,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft190"
       ],
       "reactionSet": "origra.reactions",
@@ -22633,10 +22965,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -22689,11 +23020,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.191/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/smudgi",
+      "thumbnail": "package:moliboo.character.191/portrait.png",
+      "body": "round",
+      "parts": [
+        "ears",
+        "tail",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/smudgi",
       "expressions": [
         "neutral",
         "happy",
@@ -22709,7 +23046,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft191"
       ],
       "reactionSet": "smudgi.reactions",
@@ -22746,10 +23083,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -22802,11 +23138,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.192/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/lintera",
+      "thumbnail": "package:moliboo.character.192/portrait.png",
+      "body": "drop",
+      "parts": [
+        "bowtie",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/lintera",
       "expressions": [
         "neutral",
         "happy",
@@ -22822,7 +23163,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft192"
       ],
       "reactionSet": "lintera.reactions",
@@ -22859,10 +23200,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -22915,11 +23255,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.193/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/stampo",
+      "thumbnail": "package:moliboo.character.193/portrait.png",
+      "body": "square",
+      "parts": [
+        "prop",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/stampo",
       "expressions": [
         "neutral",
         "happy",
@@ -22935,7 +23280,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft193"
       ],
       "reactionSet": "stampo.reactions",
@@ -22972,10 +23317,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -23028,11 +23372,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.194/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/scrolli",
+      "thumbnail": "package:moliboo.character.194/portrait.png",
+      "body": "round",
+      "parts": [
+        "ears",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/scrolli",
       "expressions": [
         "neutral",
         "happy",
@@ -23048,7 +23397,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft194"
       ],
       "reactionSet": "scrolli.reactions",
@@ -23085,10 +23434,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -23141,11 +23489,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.195/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/chalko",
+      "thumbnail": "package:moliboo.character.195/portrait.png",
+      "body": "cloud",
+      "parts": [
+        "topper",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/chalko",
       "expressions": [
         "neutral",
         "happy",
@@ -23161,7 +23514,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft195"
       ],
       "reactionSet": "chalko.reactions",
@@ -23198,10 +23551,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -23254,11 +23606,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.196/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/pixori",
+      "thumbnail": "package:moliboo.character.196/portrait.png",
+      "body": "square",
+      "parts": [
+        "topper",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/pixori",
       "expressions": [
         "neutral",
         "happy",
@@ -23274,7 +23631,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft196"
       ],
       "reactionSet": "pixori.reactions",
@@ -23310,11 +23667,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -23367,11 +23723,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.197/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/voltae",
+      "thumbnail": "package:moliboo.character.197/portrait.png",
+      "body": "round",
+      "parts": [
+        "ears",
+        "lightning",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/voltae",
       "expressions": [
         "neutral",
         "happy",
@@ -23387,7 +23749,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft197"
       ],
       "reactionSet": "voltae.reactions",
@@ -23423,11 +23785,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -23480,11 +23841,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.198/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/glitcho",
+      "thumbnail": "package:moliboo.character.198/portrait.png",
+      "body": "square",
+      "parts": [
+        "mark",
+        "pixels",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/glitcho",
       "expressions": [
         "neutral",
         "happy",
@@ -23500,7 +23867,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft198"
       ],
       "reactionSet": "glitcho.reactions",
@@ -23536,11 +23903,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -23593,11 +23959,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.199/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/cybri",
+      "thumbnail": "package:moliboo.character.199/portrait.png",
+      "body": "round",
+      "parts": [
+        "ears",
+        "visor",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/cybri",
       "expressions": [
         "neutral",
         "happy",
@@ -23613,7 +23985,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft199"
       ],
       "reactionSet": "cybri.reactions",
@@ -23649,11 +24021,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -23706,11 +24077,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.200/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/bippi",
+      "thumbnail": "package:moliboo.character.200/portrait.png",
+      "body": "round",
+      "parts": [
+        "headphones",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/bippi",
       "expressions": [
         "neutral",
         "happy",
@@ -23726,7 +24102,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft200"
       ],
       "reactionSet": "bippi.reactions",
@@ -23762,11 +24138,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -23819,11 +24194,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.201/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/tappi",
+      "thumbnail": "package:moliboo.character.201/portrait.png",
+      "body": "round",
+      "parts": [
+        "paws",
+        "prop",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/tappi",
       "expressions": [
         "neutral",
         "happy",
@@ -23839,7 +24220,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft201"
       ],
       "reactionSet": "tappi.reactions",
@@ -23875,11 +24256,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -23932,11 +24312,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.202/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/loopin",
+      "thumbnail": "package:moliboo.character.202/portrait.png",
+      "body": "round",
+      "parts": [
+        "ring",
+        "halo",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/loopin",
       "expressions": [
         "neutral",
         "happy",
@@ -23952,7 +24338,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft202"
       ],
       "reactionSet": "loopin.reactions",
@@ -23988,11 +24374,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -24045,11 +24430,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.203/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/synki",
+      "thumbnail": "package:moliboo.character.203/portrait.png",
+      "body": "tall",
+      "parts": [
+        "ears",
+        "crystals",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/synki",
       "expressions": [
         "neutral",
         "happy",
@@ -24065,7 +24456,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft203"
       ],
       "reactionSet": "synki.reactions",
@@ -24101,11 +24492,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -24158,11 +24548,18 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.204/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/datto",
+      "thumbnail": "package:moliboo.character.204/portrait.png",
+      "body": "wide",
+      "parts": [
+        "fins",
+        "pixels",
+        "mark",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/datto",
       "expressions": [
         "neutral",
         "happy",
@@ -24178,7 +24575,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft204"
       ],
       "reactionSet": "datto.reactions",
@@ -24214,11 +24611,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -24271,11 +24667,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.205/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/zingra",
+      "thumbnail": "package:moliboo.character.205/portrait.png",
+      "body": "round",
+      "parts": [
+        "orbiters",
+        "lightning",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/zingra",
       "expressions": [
         "neutral",
         "happy",
@@ -24291,7 +24693,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft205"
       ],
       "reactionSet": "zingra.reactions",
@@ -24327,11 +24729,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -24384,11 +24785,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.206/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/lanterni",
+      "thumbnail": "package:moliboo.character.206/portrait.png",
+      "body": "round",
+      "parts": [
+        "lantern",
+        "prop",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/lanterni",
       "expressions": [
         "neutral",
         "happy",
@@ -24404,7 +24811,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft206"
       ],
       "reactionSet": "lanterni.reactions",
@@ -24440,11 +24847,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -24497,11 +24903,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.207/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/masqora",
+      "thumbnail": "package:moliboo.character.207/portrait.png",
+      "body": "tall",
+      "parts": [
+        "hood",
+        "carnivalMask",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/masqora",
       "expressions": [
         "neutral",
         "happy",
@@ -24517,7 +24929,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft207"
       ],
       "reactionSet": "masqora.reactions",
@@ -24553,11 +24965,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -24610,11 +25021,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.208/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/confira",
+      "thumbnail": "package:moliboo.character.208/portrait.png",
+      "body": "round",
+      "parts": [
+        "ears",
+        "prop",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/confira",
       "expressions": [
         "neutral",
         "happy",
@@ -24630,7 +25047,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft208"
       ],
       "reactionSet": "confira.reactions",
@@ -24667,10 +25084,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -24723,11 +25139,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.209/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/velloo",
+      "thumbnail": "package:moliboo.character.209/portrait.png",
+      "body": "dome",
+      "parts": [
+        "blanket",
+        "sparkles",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/velloo",
       "expressions": [
         "neutral",
         "happy",
@@ -24743,7 +25164,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft209"
       ],
       "reactionSet": "velloo.reactions",
@@ -24780,10 +25201,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -24836,11 +25256,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.210/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/ribbika",
+      "thumbnail": "package:moliboo.character.210/portrait.png",
+      "body": "round",
+      "parts": [
+        "topper",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/ribbika",
       "expressions": [
         "neutral",
         "happy",
@@ -24856,7 +25281,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft210"
       ],
       "reactionSet": "ribbika.reactions",
@@ -24893,10 +25318,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -24949,11 +25373,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.211/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/marvello",
+      "thumbnail": "package:moliboo.character.211/portrait.png",
+      "body": "pear",
+      "parts": [
+        "topper",
+        "ears",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/marvello",
       "expressions": [
         "neutral",
         "happy",
@@ -24969,7 +25399,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft211"
       ],
       "reactionSet": "marvello.reactions",
@@ -25006,10 +25436,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -25062,11 +25491,18 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.212/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/glimora",
+      "thumbnail": "package:moliboo.character.212/portrait.png",
+      "body": "round",
+      "parts": [
+        "prop",
+        "sparkles",
+        "blanket",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/glimora",
       "expressions": [
         "neutral",
         "happy",
@@ -25082,7 +25518,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft212"
       ],
       "reactionSet": "glimora.reactions",
@@ -25119,10 +25555,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -25175,11 +25610,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.213/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/paradi",
+      "thumbnail": "package:moliboo.character.213/portrait.png",
+      "body": "round",
+      "parts": [
+        "topper",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/paradi",
       "expressions": [
         "neutral",
         "happy",
@@ -25195,7 +25635,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft213"
       ],
       "reactionSet": "paradi.reactions",
@@ -25231,11 +25671,10 @@
           "durationMs": 1400
         },
         "equip": {
-          "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "mood": "excited",
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -25289,11 +25728,17 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.214/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/noctali",
+      "thumbnail": "package:moliboo.character.214/portrait.png",
+      "body": "tall",
+      "parts": [
+        "crescent",
+        "sparkles",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/noctali",
       "expressions": [
         "neutral",
         "happy",
@@ -25309,7 +25754,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft214"
       ],
       "reactionSet": "noctali.reactions",
@@ -25346,10 +25791,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",
@@ -25402,11 +25846,16 @@
       ],
       "assetVersion": "0.1.0",
       "rendering": "2d",
-      "baseAsset": "package:moliboo.character.215/portrait.png",
-      "body": "portrait",
-      "parts": [],
-      "wearable": false,
-      "accessoryProfile": null,
+      "baseAsset": "native2d:spec/jubilo",
+      "thumbnail": "package:moliboo.character.215/portrait.png",
+      "body": "round",
+      "parts": [
+        "prop",
+        "feet",
+        "nubs"
+      ],
+      "wearable": true,
+      "accessoryProfile": "fit/jubilo",
       "expressions": [
         "neutral",
         "happy",
@@ -25422,7 +25871,7 @@
         "doubleTap",
         "longPress",
         "greeting",
-        "admire",
+        "equip",
         "signature/draft215"
       ],
       "reactionSet": "jubilo.reactions",
@@ -25459,10 +25908,9 @@
         },
         "equip": {
           "mood": "pleased",
-          "primitive": "glowIntensity",
-          "burst": "aura",
-          "durationMs": 1100,
-          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."
+          "primitive": "accessoryFollow",
+          "burst": "outfit",
+          "durationMs": 1100
         },
         "idleTimeout": {
           "mood": "sleepy",

@@ -1,0 +1,482 @@
+// MARK: - Series 2 parts kit
+
+/// Head-top signature pieces (drawn in the top layer; hidden while a hat is worn so wardrobe always fits).
+enum MolibooTopper: Sendable {
+    case wave, scallop, jellyBell, sailorHat, raincloud, propeller, windTuft, smoke, bellHat, acorn, clover, curls, icicles, gem
+    case twinBuns, swirl, gearEars, spring, spool, lemon, gumdrop, beret, paperCrane, pixelCrown, bigBow, partyHat, plumeHat
+}
+/// Held or floating props beside the body.
+enum MolibooProp: Sendable { case pearl, kite, torch, pendulum, windKey, monocle, lollipop, wrapper, quill, stamp, controller, floatLantern, pinwheel }
+/// Markings painted on the body (front layer, under the face, clipped to the silhouette).
+enum MolibooMark: Sendable { case belly, embers, lavaGlow, cracks, stripes, bubbles, clockDial, rivets, gearSpots, drip, cookieDots, polka, glitch }
+
+extension ModulaMascotFigure {
+    /// Glossy 2D fill used by the Series 2 kit: white base, colour gradient, outline.
+    func s2Gloss<S: Shape>(_ shape: S, _ c: Color, _ pal: ModulaMascotKind.Palette, _ line: CGFloat) -> some View {
+        ZStack {
+            shape.fill(Color.white)
+            shape.fill(LinearGradient(colors: [c.opacity(0.72), c, c], startPoint: .top, endPoint: .bottom))
+            shape.stroke(pal.outline.opacity(0.55), lineWidth: line)
+        }
+    }
+
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    @ViewBuilder
+    func series2Part(_ part: MolibooPart, spec: MolibooSpec, layer: SpecLayer, s: CGFloat, pal: ModulaMascotKind.Palette, t: Double, a: CGFloat, seed: Double) -> some View {
+        let da = Double(a)
+        let line = max(s * 0.024, 0.9)
+        let bw = s * spec.size.width, bh = s * spec.size.height
+        let top = -s * (spec.size.height / 2 - kind.bodyOffsetY)
+        let cy = s * kind.bodyOffsetY
+        let hatless = worn.item(for: .hat) == nil && worn.item(for: .seasonal) == nil
+        switch (part, layer) {
+        // ── Back ─────────────────────────────────────────────────
+        case (.nubs(let c), .back):
+            // Stubby poster arms tucked behind the body edge; one gives a slow little wave.
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                let waveArm = side > 0 ? 10 * sin(t * 2.4) * da : 0
+                s2Gloss(Ellipse(), c, pal, line)
+                    .frame(width: s * 0.17, height: s * 0.24)
+                    .rotationEffect(.degrees(side * -38 + waveArm), anchor: .top)
+                    .offset(x: side * (bw * 0.47 + s * 0.02), y: cy + bh * 0.1)
+            }
+        case (.aurora(let c1, let c2), .back):
+            ZStack {
+                ForEach(0..<3, id: \.self) { k in
+                    MascotRingHalf(front: false)
+                        .stroke(LinearGradient(colors: [[c1, c2, .white][k].opacity(0.9), [c2, c1, c1][k].opacity(0.75)], startPoint: .leading, endPoint: .trailing), lineWidth: s * 0.07)
+                        .frame(width: bw * (1.42 - CGFloat(k) * 0.16), height: bh * (1.2 - CGFloat(k) * 0.14))
+                }
+            }
+            .opacity(0.8 + 0.2 * sin(t * 1.1))
+            .offset(y: cy - bh * 0.1)
+        case (.windSwirl(let c), .back):
+            ForEach(0..<3, id: \.self) { k in
+                Circle().trim(from: 0.05, to: 0.42)
+                    .stroke(c.opacity(0.85), style: StrokeStyle(lineWidth: s * 0.045, lineCap: .round))
+                    .frame(width: bw * (1.25 + CGFloat(k) * 0.14))
+                    .rotationEffect(.degrees(Double(k) * 120 + t * 25 * da))
+                    .offset(y: cy)
+            }
+        case (.prop(.windKey, let c, _), .back):
+            HStack(spacing: 0) {
+                Capsule().fill(c).overlay(Capsule().stroke(pal.outline.opacity(0.5), lineWidth: line)).frame(width: s * 0.22, height: s * 0.06)
+                VStack(spacing: s * 0.01) {
+                    s2Gloss(Ellipse(), c, pal, line).frame(width: s * 0.13, height: s * 0.15)
+                    s2Gloss(Ellipse(), c, pal, line).frame(width: s * 0.13, height: s * 0.15)
+                }
+            }
+            .rotation3DEffect(.degrees(t * 60 * da), axis: (x: 1, y: 0, z: 0))
+            .offset(x: bw * 0.56, y: cy - s * 0.02)
+        case (.prop(.kite, let c, let tail), .back):
+            ZStack {
+                Path { p in p.move(to: CGPoint(x: 0, y: s * 0.32)); p.addQuadCurve(to: CGPoint(x: -s * 0.18, y: s * 0.62), control: CGPoint(x: s * 0.06, y: s * 0.5)) }
+                    .stroke(pal.outline.opacity(0.6), lineWidth: line * 0.8)
+                s2Gloss(Rectangle(), c, pal, line).frame(width: s * 0.26, height: s * 0.26).rotationEffect(.degrees(45))
+                Rectangle().fill((tail ?? .white).opacity(0.9)).frame(width: s * 0.02, height: s * 0.36).rotationEffect(.degrees(45))
+                ForEach(0..<3, id: \.self) { k in
+                    MascotHeartShape().fill(tail ?? pal.accent).frame(width: s * 0.06, height: s * 0.05)
+                        .offset(x: s * (0.02 - CGFloat(k) * 0.05), y: s * (0.24 + CGFloat(k) * 0.08))
+                }
+            }
+            .rotationEffect(.degrees(8 * sin(t * 1.6) * da))
+            .offset(x: bw * 0.58, y: top - s * 0.06)
+        case (.prop(.pendulum, let c, _), .back):
+            VStack(spacing: 0) {
+                Capsule().fill(c).frame(width: s * 0.03, height: s * 0.36)
+                s2Gloss(Circle(), c, pal, line).frame(width: s * 0.16)
+            }
+            .rotationEffect(.degrees(16 * sin(t * 2.0) * da), anchor: .top)
+            .offset(x: bw * 0.54, y: cy + s * 0.12)
+        // ── Front (on the body, under the face) ──────────────────
+        case (.mark(let m, let c), .front):
+            series2Mark(m, c, spec: spec, s: s, pal: pal, t: t, da: da, line: line, bw: bw, bh: bh, cy: cy)
+        case (.prop(let p, let c, let c2), .front):
+            series2Prop(p, c, c2, s: s, pal: pal, t: t, da: da, line: line, bw: bw, bh: bh, cy: cy, top: top)
+        // ── Top (over the face) ──────────────────────────────────
+        case (.topper(let k, let c), .top) where hatless:
+            series2Topper(k, c, s: s, pal: pal, t: t, da: da, line: line, bw: bw, top: top)
+        case (.carnivalMask(let c, let trim), .top):
+            // Masqora: a bold masquerade mask with eye holes, gold trim and a feather plume.
+            let ey = s * kind.eyeY, ex = s * kind.eyeSpread, er = s * kind.eyeSize * 0.62
+            let mw = ex * 2 + er * 3.2, mh = er * 2.6
+            ZStack {
+                Path { p in
+                    p.addRoundedRect(in: CGRect(x: -mw / 2, y: -mh / 2, width: mw, height: mh), cornerSize: CGSize(width: mh / 2, height: mh / 2))
+                    for side in [-1.0, 1.0] as [CGFloat] { p.addEllipse(in: CGRect(x: side * ex - er * 1.05, y: -er * 1.05, width: er * 2.1, height: er * 2.1)) }
+                }
+                .fill(LinearGradient(colors: [c.opacity(0.8), c], startPoint: .top, endPoint: .bottom), style: FillStyle(eoFill: true))
+                .frame(width: 0, height: 0)
+                Capsule().stroke(trim, lineWidth: line * 1.6).frame(width: mw, height: mh)
+                ForEach([-1.0, 1.0], id: \.self) { side in Circle().stroke(trim, lineWidth: line * 1.3).frame(width: er * 2.1).offset(x: side * ex) }
+                MascotLeaf().fill(LinearGradient(colors: [c.opacity(0.75), c], startPoint: .leading, endPoint: .trailing))
+                    .overlay(MascotLeaf().stroke(pal.outline.opacity(0.5), lineWidth: line))
+                    .frame(width: s * 0.36, height: s * 0.12).rotationEffect(.degrees(-62 + 4 * sin(t * 1.5) * da), anchor: .leading)
+                    .offset(x: ex + er * 1.5, y: -er * 0.6)
+            }
+            .offset(y: ey)
+        default:
+            EmptyView()
+        }
+    }
+}
+
+extension ModulaMascotFigure {
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    @ViewBuilder
+    func series2Mark(_ m: MolibooMark, _ c: Color, spec: MolibooSpec, s: CGFloat, pal: ModulaMascotKind.Palette, t: Double, da: Double, line: CGFloat, bw: CGFloat, bh: CGFloat, cy: CGFloat) -> some View {
+        let silhouette = specBodyShape(spec.body)
+        Group {
+            switch m {
+            case .belly:
+                Ellipse().fill(c.opacity(0.9)).frame(width: bw * 0.52, height: bh * 0.32).offset(y: bh * 0.26)
+            case .embers:
+                ForEach(0..<5, id: \.self) { k in
+                    let xs: [CGFloat] = [-0.3, 0.32, -0.12, 0.2, 0.0]
+                    let ys: [CGFloat] = [0.2, 0.28, 0.38, 0.14, 0.42]
+                    let phase: Double = (t * 0.4 + Double(k) * 0.2).truncatingRemainder(dividingBy: 1)
+                    let rise: CGFloat = CGFloat(phase * da) * s * 0.06
+                    Circle().fill(c).frame(width: s * 0.04).shadow(color: c, radius: s * 0.03)
+                        .offset(x: bw * xs[k], y: bh * ys[k] - rise)
+                }
+            case .lavaGlow:
+                Ellipse().fill(RadialGradient(colors: [c.opacity(0.95), c.opacity(0)], center: .center, startRadius: 0, endRadius: bw * 0.36))
+                    .frame(width: bw * 0.7, height: bh * 0.44).offset(y: bh * 0.26).opacity(0.75 + 0.25 * sin(t * 1.8))
+            case .cracks:
+                Path { p in
+                    p.move(to: CGPoint(x: -bw * 0.32, y: bh * 0.22)); p.addLine(to: CGPoint(x: -bw * 0.2, y: bh * 0.3)); p.addLine(to: CGPoint(x: -bw * 0.26, y: bh * 0.4))
+                    p.move(to: CGPoint(x: bw * 0.3, y: bh * 0.18)); p.addLine(to: CGPoint(x: bw * 0.2, y: bh * 0.28)); p.addLine(to: CGPoint(x: bw * 0.28, y: bh * 0.36))
+                }
+                .stroke(c, style: StrokeStyle(lineWidth: s * 0.03, lineCap: .round, lineJoin: .round)).shadow(color: c, radius: s * 0.03)
+                .frame(width: 0, height: 0)
+            case .stripes:
+                VStack(spacing: bh * 0.1) { ForEach(0..<4, id: \.self) { _ in Rectangle().fill(c.opacity(0.85)).frame(height: bh * 0.09) } }
+                    .frame(width: bw, height: bh).offset(y: bh * 0.12)
+            case .bubbles:
+                ForEach(0..<4, id: \.self) { k in
+                    Circle().stroke(c.opacity(0.85), lineWidth: line).background(Circle().fill(Color.white.opacity(0.35)))
+                        .frame(width: s * [0.06, 0.09, 0.05, 0.07][k]).offset(x: bw * [-0.34, 0.34, 0.24, -0.2][k], y: bh * [0.18, 0.1, 0.34, 0.36][k])
+                }
+            case .clockDial:
+                ZStack {
+                    s2Gloss(Circle(), Color(red: 0.99, green: 0.97, blue: 0.9), pal, line)
+                    ForEach(0..<12, id: \.self) { k in Capsule().fill(pal.outline.opacity(0.6)).frame(width: s * 0.008, height: s * 0.02).offset(y: -s * 0.08).rotationEffect(.degrees(Double(k) * 30)) }
+                    Capsule().fill(c).frame(width: s * 0.014, height: s * 0.07).offset(y: -s * 0.03).rotationEffect(.degrees(t * 30 * da))
+                    Capsule().fill(pal.outline).frame(width: s * 0.014, height: s * 0.05).offset(y: -s * 0.02).rotationEffect(.degrees(120))
+                }
+                .frame(width: s * 0.2, height: s * 0.2).offset(y: bh * 0.3)
+            case .rivets:
+                ForEach(0..<4, id: \.self) { k in
+                    s2Gloss(Circle(), c, pal, line * 0.6).frame(width: s * 0.05).offset(x: bw * (k % 2 == 0 ? -0.36 : 0.36), y: bh * (k < 2 ? -0.32 : 0.34))
+                }
+            case .gearSpots:
+                ForEach(0..<3, id: \.self) { k in
+                    Circle().stroke(c, style: StrokeStyle(lineWidth: s * 0.03, dash: [s * 0.018, s * 0.012])).frame(width: s * 0.09)
+                        .rotationEffect(.degrees(t * 40 * da * (k % 2 == 0 ? 1 : -1)))
+                        .offset(x: bw * [-0.3, 0.3, 0.05][k], y: bh * [0.26, 0.22, 0.38][k])
+                }
+            case .drip:
+                ForEach(0..<5, id: \.self) { k in
+                    Capsule().fill(c).overlay(Capsule().stroke(pal.outline.opacity(0.4), lineWidth: line * 0.7))
+                        .frame(width: s * 0.08, height: s * [0.16, 0.24, 0.13, 0.2, 0.15][k])
+                        .offset(x: bw * (-0.34 + CGFloat(k) * 0.17), y: -bh * 0.36 + s * [0.08, 0.12, 0.06, 0.1, 0.07][k])
+                }
+                Ellipse().fill(c).frame(width: bw * 0.86, height: bh * 0.26).offset(y: -bh * 0.4)
+            case .cookieDots:
+                ForEach(0..<6, id: \.self) { k in
+                    Circle().fill(c).frame(width: s * 0.045).offset(x: bw * [-0.34, 0.3, -0.18, 0.36, 0.1, -0.36][k], y: bh * [-0.3, -0.28, 0.3, 0.12, 0.38, 0.12][k])
+                }
+            case .polka:
+                ForEach(0..<6, id: \.self) { k in
+                    Circle().fill(c.opacity(0.95)).frame(width: s * 0.07).offset(x: bw * [-0.34, 0.32, -0.26, 0.28, 0.0, 0.4][k], y: bh * [-0.24, -0.3, 0.3, 0.26, 0.4, 0.02][k])
+                }
+            case .glitch:
+                ForEach(0..<3, id: \.self) { k in
+                    Rectangle().fill(c.opacity(0.7)).frame(width: bw * [0.3, 0.2, 0.26][k], height: s * 0.03)
+                        .offset(x: bw * [-0.2, 0.24, 0.0][k] + CGFloat(sin(t * 9 + Double(k))) * s * 0.02 * CGFloat(da), y: bh * [0.18, 0.3, 0.4][k])
+                }
+            }
+        }
+        .frame(width: bw, height: bh)
+        .mask(silhouette.frame(width: bw, height: bh))
+        .offset(y: cy)
+        .allowsHitTesting(false)
+    }
+
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    @ViewBuilder
+    func series2Prop(_ p: MolibooProp, _ c: Color, _ c2: Color?, s: CGFloat, pal: ModulaMascotKind.Palette, t: Double, da: Double, line: CGFloat, bw: CGFloat, bh: CGFloat, cy: CGFloat, top: CGFloat) -> some View {
+        let hand = CGPoint(x: bw * 0.52, y: cy + bh * 0.12)
+        switch p {
+        case .pearl:
+            s2Gloss(Circle(), c, pal, line).frame(width: s * 0.12).offset(x: hand.x - s * 0.04, y: hand.y + s * 0.04)
+        case .torch:
+            VStack(spacing: 0) {
+                MascotDropShape().fill(LinearGradient(colors: [Color(red: 1, green: 0.92, blue: 0.5), c], startPoint: .top, endPoint: .bottom))
+                    .frame(width: s * 0.12, height: s * 0.16).scaleEffect(1 + 0.06 * sin(t * 8) * CGFloat(da)).shadow(color: c, radius: s * 0.05)
+                Capsule().fill(Color(red: 0.55, green: 0.36, blue: 0.22)).frame(width: s * 0.045, height: s * 0.2)
+            }
+            .offset(x: hand.x + s * 0.02, y: hand.y - s * 0.14)
+        case .monocle:
+            ZStack {
+                Circle().stroke(c, lineWidth: line * 1.4).frame(width: s * kind.eyeSize * 1.4)
+                Capsule().fill(c).frame(width: line, height: s * 0.2).offset(x: s * kind.eyeSize * 0.62, y: s * 0.14)
+            }
+            .offset(x: s * kind.eyeSpread, y: s * kind.eyeY)
+        case .lollipop:
+            VStack(spacing: 0) {
+                ZStack {
+                    s2Gloss(Circle(), c, pal, line)
+                    Circle().trim(from: 0, to: 0.8).stroke(c2 ?? .white, style: StrokeStyle(lineWidth: s * 0.018, lineCap: .round)).frame(width: s * 0.1)
+                    Circle().trim(from: 0, to: 0.7).stroke(c2 ?? .white, style: StrokeStyle(lineWidth: s * 0.018, lineCap: .round)).frame(width: s * 0.05)
+                }
+                .frame(width: s * 0.2, height: s * 0.2).rotationEffect(.degrees(t * 20 * da))
+                Capsule().fill(Color.white).overlay(Capsule().stroke(pal.outline.opacity(0.4), lineWidth: line * 0.6)).frame(width: s * 0.03, height: s * 0.22)
+            }
+            .offset(x: hand.x + s * 0.04, y: hand.y - s * 0.16)
+        case .wrapper:
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                MascotTriangle().fill(c).overlay(MascotTriangle().stroke(pal.outline.opacity(0.5), lineWidth: line))
+                    .frame(width: s * 0.2, height: s * 0.2).rotationEffect(.degrees(side * 90))
+                    .offset(x: side * (bw * 0.5 + s * 0.06), y: cy)
+            }
+        case .quill:
+            MascotLeaf().fill(LinearGradient(colors: [Color.white, c], startPoint: .leading, endPoint: .trailing))
+                .overlay(MascotLeaf().stroke(pal.outline.opacity(0.5), lineWidth: line))
+                .frame(width: s * 0.42, height: s * 0.12)
+                .rotationEffect(.degrees(-70 + 5 * sin(t * 1.4) * da), anchor: .leading)
+                .offset(x: hand.x + s * 0.06, y: hand.y - s * 0.02)
+        case .stamp:
+            VStack(spacing: 0) {
+                s2Gloss(Circle(), Color(red: 0.55, green: 0.36, blue: 0.22), pal, line).frame(width: s * 0.1)
+                Capsule().fill(Color(red: 0.55, green: 0.36, blue: 0.22)).frame(width: s * 0.05, height: s * 0.1)
+                s2Gloss(RoundedRectangle(cornerRadius: s * 0.02), c, pal, line).frame(width: s * 0.18, height: s * 0.07)
+            }
+            .offset(x: hand.x + s * 0.04, y: hand.y - s * 0.06)
+        case .controller:
+            ZStack {
+                s2Gloss(Capsule(), c, pal, line).frame(width: s * 0.36, height: s * 0.16)
+                Image(systemName: "plus").font(.system(size: s * 0.07, weight: .black)).foregroundStyle(pal.outline).offset(x: -s * 0.09)
+                HStack(spacing: s * 0.02) { Circle().fill(Color(red: 1, green: 0.4, blue: 0.5)); Circle().fill(Color(red: 0.4, green: 0.8, blue: 1)) }
+                    .frame(width: s * 0.08, height: s * 0.04).offset(x: s * 0.09)
+            }
+            .offset(y: cy + bh * 0.3)
+        case .floatLantern:
+            VStack(spacing: 0) {
+                Capsule().fill(pal.outline.opacity(0.6)).frame(width: s * 0.01, height: s * 0.1)
+                s2Gloss(Capsule(), c, pal, line).frame(width: s * 0.14, height: s * 0.18).shadow(color: c.opacity(0.9), radius: s * 0.06)
+            }
+            .offset(x: -bw * 0.62, y: top + s * 0.04 + CGFloat(sin(t * 1.3)) * s * 0.03 * CGFloat(da))
+        case .pinwheel:
+            VStack(spacing: 0) {
+                ZStack {
+                    ForEach(0..<4, id: \.self) { k in
+                        MascotTriangle().fill(k % 2 == 0 ? c : (c2 ?? .white))
+                            .overlay(MascotTriangle().stroke(pal.outline.opacity(0.5), lineWidth: line * 0.8))
+                            .frame(width: s * 0.16, height: s * 0.16).offset(x: s * 0.05, y: -s * 0.06)
+                            .rotationEffect(.degrees(Double(k) * 90))
+                    }
+                    Circle().fill(Color.white).overlay(Circle().stroke(pal.outline.opacity(0.5), lineWidth: line)).frame(width: s * 0.05)
+                }
+                .frame(width: s * 0.36, height: s * 0.36)
+                .rotationEffect(.degrees(t * 90 * da))
+                Capsule().fill(Color(red: 0.84, green: 0.67, blue: 0.44)).frame(width: s * 0.035, height: s * 0.3)
+            }
+            .offset(x: hand.x + s * 0.06, y: hand.y - s * 0.3)
+        case .kite, .pendulum, .windKey:
+            EmptyView()
+        }
+    }
+
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    @ViewBuilder
+    func series2Topper(_ k: MolibooTopper, _ c: Color, s: CGFloat, pal: ModulaMascotKind.Palette, t: Double, da: Double, line: CGFloat, bw: CGFloat, top: CGFloat) -> some View {
+        let sway = 4 * sin(t * 1.3) * da
+        switch k {
+        case .wave:
+            // Brinlo: a curling wave crest with a foam lip.
+            ZStack {
+                Circle().trim(from: 0.5, to: 0.98).stroke(LinearGradient(colors: [c.opacity(0.7), c], startPoint: .leading, endPoint: .trailing), style: StrokeStyle(lineWidth: s * 0.11, lineCap: .round))
+                    .frame(width: s * 0.36)
+                Circle().trim(from: 0.5, to: 0.98).stroke(pal.outline.opacity(0.35), style: StrokeStyle(lineWidth: line, lineCap: .round)).frame(width: s * 0.47)
+                ForEach(0..<3, id: \.self) { i in
+                    Circle().fill(Color.white).overlay(Circle().stroke(pal.outline.opacity(0.3), lineWidth: line * 0.6))
+                        .frame(width: s * [0.07, 0.055, 0.045][i]).offset(x: s * [0.18, 0.21, 0.16][i], y: s * [-0.02, 0.05, 0.1][i])
+                }
+            }
+            .rotationEffect(.degrees(sway)).offset(x: s * 0.02, y: top - s * 0.02)
+        case .scallop:
+            ForEach(0..<5, id: \.self) { i in
+                Capsule().fill(pal.outline.opacity(0.3)).frame(width: line, height: s * 0.16)
+                    .rotationEffect(.degrees(Double(i - 2) * 22), anchor: .bottom).offset(y: top + s * 0.02)
+            }
+        case .jellyBell:
+            s2Gloss(MascotDomeShape(), c.opacity(0.85), pal, line).frame(width: bw * 1.08, height: s * 0.34).offset(y: top + s * 0.06)
+        case .sailorHat:
+            ZStack {
+                s2Gloss(MascotDomeShape(), c, pal, line).frame(width: s * 0.36, height: s * 0.14)
+                Capsule().fill(Color(red: 0.2, green: 0.3, blue: 0.6)).frame(width: s * 0.38, height: s * 0.04).offset(y: s * 0.06)
+            }
+            .rotationEffect(.degrees(-10)).offset(x: s * 0.08, y: top - s * 0.02)
+        case .raincloud:
+            ZStack {
+                s2Gloss(MascotCloudShape(), c, pal, line).frame(width: s * 0.4, height: s * 0.2)
+                ForEach(0..<3, id: \.self) { i in
+                    let phase: Double = (t * 0.8 + Double(i) * 0.3).truncatingRemainder(dividingBy: 1)
+                    let fall: CGFloat = CGFloat(phase * da) * s * 0.06
+                    Capsule().fill(Color(red: 0.55, green: 0.78, blue: 1)).frame(width: s * 0.018, height: s * 0.05)
+                        .offset(x: s * (CGFloat(i) - 1) * 0.1, y: s * 0.14 + fall)
+                }
+            }
+            .offset(y: top - s * 0.18)
+        case .propeller:
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    s2Gloss(MascotLeaf(), c, pal, line).frame(width: s * 0.22, height: s * 0.09).scaleEffect(x: -1, y: 1)
+                    s2Gloss(MascotLeaf(), c, pal, line).frame(width: s * 0.22, height: s * 0.09)
+                }
+                .rotation3DEffect(.degrees(t * 220 * da), axis: (x: 0, y: 1, z: 0))
+                Capsule().fill(pal.dark).frame(width: s * 0.03, height: s * 0.1)
+            }
+            .offset(y: top - s * 0.08)
+        case .windTuft:
+            ForEach(0..<3, id: \.self) { i in
+                Circle().trim(from: 0.55, to: 0.95).stroke(c, style: StrokeStyle(lineWidth: s * 0.04, lineCap: .round))
+                    .frame(width: s * [0.22, 0.16, 0.12][i]).offset(x: s * [0.0, 0.1, -0.1][i], y: top - s * [0.02, 0.06, 0.04][i])
+                    .rotationEffect(.degrees(sway))
+            }
+        case .smoke:
+            ForEach(0..<3, id: \.self) { i in
+                let ws: [CGFloat] = [0.16, 0.12, 0.09], xs: [CGFloat] = [0.0, 0.08, 0.02], ys: [CGFloat] = [0.04, 0.14, 0.23]
+                let bob: CGFloat = CGFloat(sin(t + Double(i)) * da) * s * 0.01
+                s2Gloss(Circle(), c, pal, line * 0.7).frame(width: s * ws[i])
+                    .offset(x: s * xs[i], y: top - s * ys[i] - bob)
+            }
+        case .bellHat:
+            ZStack {
+                s2Gloss(MascotBellShape(), c, pal, line).frame(width: s * 0.36, height: s * 0.3)
+                s2Gloss(Circle(), Color(red: 1, green: 0.84, blue: 0.42), pal, line).frame(width: s * 0.07).offset(y: s * 0.16)
+            }
+            .offset(y: top - s * 0.06)
+        case .acorn:
+            ZStack {
+                s2Gloss(MascotDomeShape(), c, pal, line).frame(width: bw * 0.92, height: s * 0.26)
+                Capsule().fill(c).overlay(Capsule().stroke(pal.outline.opacity(0.5), lineWidth: line)).frame(width: s * 0.04, height: s * 0.1).offset(y: -s * 0.15)
+            }
+            .offset(y: top + s * 0.04)
+        case .clover:
+            ZStack {
+                ForEach(0..<4, id: \.self) { i in
+                    MascotHeartShape().fill(c).overlay(MascotHeartShape().stroke(pal.outline.opacity(0.5), lineWidth: line * 0.8))
+                        .frame(width: s * 0.1, height: s * 0.09).offset(y: -s * 0.05).rotationEffect(.degrees(Double(i) * 90 + 45))
+                }
+                Capsule().fill(c).frame(width: s * 0.02, height: s * 0.1).offset(y: s * 0.08)
+            }
+            .rotationEffect(.degrees(sway)).offset(y: top - s * 0.1)
+        case .curls:
+            ForEach(0..<4, id: \.self) { i in
+                s2Gloss(Circle(), c, pal, line * 0.8).frame(width: s * 0.13).offset(x: s * (CGFloat(i) - 1.5) * 0.1, y: top + s * (i == 1 || i == 2 ? -0.04 : 0.0))
+            }
+        case .icicles:
+            ForEach(0..<5, id: \.self) { i in
+                MascotCrystalShape().fill(LinearGradient(colors: [Color.white, c], startPoint: .top, endPoint: .bottom))
+                    .overlay(MascotCrystalShape().stroke(pal.outline.opacity(0.4), lineWidth: line * 0.7))
+                    .frame(width: s * 0.08, height: s * [0.14, 0.2, 0.26, 0.2, 0.14][i])
+                    .offset(x: s * (CGFloat(i) - 2) * 0.1, y: top - s * [0.04, 0.07, 0.1, 0.07, 0.04][i])
+            }
+        case .gem:
+            MascotCrystalShape().fill(LinearGradient(colors: [Color.white, c], startPoint: .top, endPoint: .bottom))
+                .overlay(MascotCrystalShape().stroke(pal.outline.opacity(0.5), lineWidth: line)).shadow(color: c.opacity(0.7), radius: s * 0.03)
+                .frame(width: s * 0.12, height: s * 0.16).offset(y: top + s * 0.04)
+        case .twinBuns:
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                ZStack {
+                    s2Gloss(Circle(), c, pal, line)
+                    Circle().trim(from: 0, to: 0.75).stroke(pal.outline.opacity(0.45), style: StrokeStyle(lineWidth: line, lineCap: .round)).frame(width: s * 0.1)
+                    Circle().trim(from: 0, to: 0.7).stroke(pal.outline.opacity(0.45), style: StrokeStyle(lineWidth: line, lineCap: .round)).frame(width: s * 0.05)
+                }
+                .frame(width: s * 0.2, height: s * 0.2).offset(x: side * bw * 0.3, y: top + s * 0.02)
+            }
+        case .swirl:
+            VStack(spacing: -s * 0.03) {
+                s2Gloss(MascotDropShape(), c, pal, line).frame(width: s * 0.1, height: s * 0.1)
+                s2Gloss(Capsule(), c, pal, line).frame(width: s * 0.18, height: s * 0.08)
+                s2Gloss(Capsule(), c, pal, line).frame(width: s * 0.26, height: s * 0.09)
+            }
+            .offset(y: top - s * 0.08)
+        case .gearEars:
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                ZStack {
+                    Circle().stroke(c, style: StrokeStyle(lineWidth: s * 0.05, dash: [s * 0.03, s * 0.02])).frame(width: s * 0.2)
+                    s2Gloss(Circle(), c, pal, line).frame(width: s * 0.14)
+                    Circle().fill(pal.dark).frame(width: s * 0.04)
+                }
+                .rotationEffect(.degrees(t * 30 * da * side)).offset(x: side * bw * 0.36, y: top + s * 0.02)
+            }
+        case .spring:
+            VStack(spacing: -s * 0.012) {
+                ForEach(0..<4, id: \.self) { _ in Ellipse().stroke(c, lineWidth: s * 0.025).frame(width: s * 0.14, height: s * 0.05) }
+                s2Gloss(Circle(), c, pal, line).frame(width: s * 0.08)
+            }
+            .scaleEffect(x: 1, y: 1 + 0.08 * sin(t * 4) * CGFloat(da), anchor: .bottom).offset(y: top - s * 0.1)
+        case .spool:
+            ZStack {
+                s2Gloss(RoundedRectangle(cornerRadius: s * 0.02), c, pal, line).frame(width: s * 0.14, height: s * 0.14)
+                ForEach([-1.0, 1.0], id: \.self) { side in
+                    s2Gloss(Capsule(), Color(red: 0.84, green: 0.67, blue: 0.44), pal, line).frame(width: s * 0.22, height: s * 0.05).offset(y: side * s * 0.08)
+                }
+            }
+            .offset(y: top - s * 0.06)
+        case .lemon:
+            ZStack {
+                s2Gloss(Circle().trim(from: 0.5, to: 1), c, pal, line).frame(width: s * 0.26, height: s * 0.26)
+                ForEach(0..<4, id: \.self) { i in Capsule().fill(Color.white.opacity(0.8)).frame(width: line, height: s * 0.1).offset(y: -s * 0.05).rotationEffect(.degrees(-67 + Double(i) * 45), anchor: .bottom) }
+            }
+            .offset(x: s * 0.06, y: top + s * 0.02)
+        case .gumdrop:
+            s2Gloss(MascotDomeShape(), c, pal, line).frame(width: s * 0.2, height: s * 0.16).offset(x: s * 0.1, y: top - s * 0.04)
+        case .beret:
+            ZStack {
+                s2Gloss(Ellipse(), c, pal, line).frame(width: s * 0.46, height: s * 0.16)
+                Capsule().fill(c).frame(width: s * 0.03, height: s * 0.06).offset(y: -s * 0.09)
+            }
+            .rotationEffect(.degrees(-12)).offset(x: s * 0.04, y: top - s * 0.01)
+        case .paperCrane:
+            ZStack {
+                MascotTriangle().fill(c).overlay(MascotTriangle().stroke(pal.outline.opacity(0.5), lineWidth: line)).frame(width: s * 0.3, height: s * 0.16)
+                MascotTriangle().fill(Color.white).overlay(MascotTriangle().stroke(pal.outline.opacity(0.5), lineWidth: line))
+                    .frame(width: s * 0.16, height: s * 0.2).rotationEffect(.degrees(-28)).offset(x: -s * 0.08, y: -s * 0.05)
+                MascotTriangle().fill(c.opacity(0.8)).frame(width: s * 0.08, height: s * 0.14).rotationEffect(.degrees(40)).offset(x: s * 0.15, y: -s * 0.06)
+            }
+            .rotationEffect(.degrees(sway)).offset(y: top - s * 0.12)
+        case .pixelCrown:
+            HStack(alignment: .bottom, spacing: s * 0.01) {
+                ForEach(0..<5, id: \.self) { i in
+                    s2Gloss(Rectangle(), c, pal, line * 0.7).frame(width: s * 0.06, height: s * [0.08, 0.13, 0.18, 0.13, 0.08][i])
+                }
+            }
+            .offset(y: top - s * 0.06)
+        case .bigBow:
+            HStack(spacing: -s * 0.02) {
+                s2Gloss(Ellipse(), c, pal, line).frame(width: s * 0.18, height: s * 0.13).rotationEffect(.degrees(-20))
+                s2Gloss(Circle(), c, pal, line).frame(width: s * 0.07)
+                s2Gloss(Ellipse(), c, pal, line).frame(width: s * 0.18, height: s * 0.13).rotationEffect(.degrees(20))
+            }
+            .offset(x: s * 0.14, y: top + s * 0.0)
+        case .partyHat:
+            ZStack {
+                s2Gloss(MascotTriangle(), c, pal, line).frame(width: s * 0.24, height: s * 0.3)
+                Circle().fill(Color.white).overlay(Circle().stroke(pal.outline.opacity(0.4), lineWidth: line * 0.7)).frame(width: s * 0.07).offset(y: -s * 0.16)
+            }
+            .rotationEffect(.degrees(12 + sway)).offset(x: s * 0.06, y: top - s * 0.1)
+        case .plumeHat:
+            ZStack {
+                s2Gloss(MascotDomeShape(), c, pal, line).frame(width: s * 0.32, height: s * 0.14)
+                MascotLeaf().fill(LinearGradient(colors: [Color(red: 1, green: 0.84, blue: 0.4), Color(red: 1, green: 0.6, blue: 0.3)], startPoint: .leading, endPoint: .trailing))
+                    .overlay(MascotLeaf().stroke(pal.outline.opacity(0.4), lineWidth: line))
+                    .frame(width: s * 0.3, height: s * 0.1).rotationEffect(.degrees(-55 + sway), anchor: .leading).offset(x: s * 0.06, y: -s * 0.04)
+            }
+            .offset(x: s * 0.04, y: top - s * 0.02)
+        }
+    }
+}

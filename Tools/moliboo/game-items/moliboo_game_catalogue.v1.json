@@ -1,0 +1,3394 @@
+{
+ "schema": "modula.moliboo.game-catalogue.v1",
+ "version": 1,
+ "families": {
+  "angels": {
+   "label": "Angels",
+   "pal": [
+    "#EDB94A",
+    "#8CCBFF",
+    "#FFF4D6",
+    "#9A6B1F"
+   ]
+  },
+  "underground": {
+   "label": "Underground",
+   "pal": [
+    "#FF4FA3",
+    "#36E3F0",
+    "#2B2B3D",
+    "#B6FF5C"
+   ]
+  },
+  "enchanted": {
+   "label": "Enchanted",
+   "pal": [
+    "#5BAE6A",
+    "#B0306A",
+    "#8FCB7B",
+    "#3E6B3A"
+   ]
+  },
+  "stardust": {
+   "label": "Stardust",
+   "pal": [
+    "#3A3FA8",
+    "#FFD45C",
+    "#8A6BE8",
+    "#1E2160"
+   ]
+  },
+  "dreamers": {
+   "label": "Dreamers",
+   "pal": [
+    "#B9A7F2",
+    "#8EC5FF",
+    "#FFC9A8",
+    "#6B5BB5"
+   ]
+  }
+ },
+ "items": [
+  {
+   "itemId": "moliboo.item.halo_ring",
+   "name": "Halo Ring",
+   "slot": "headwear",
+   "rarity": "common",
+   "access": "free",
+   "family": "angels",
+   "setId": "moliboo.outfit.halo_choir",
+   "iconKey": "item_halo_ring",
+   "shape": "halo",
+   "palette": [
+    "#EDB94A",
+    "#8CCBFF",
+    "#FFF4D6",
+    "#9A6B1F"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.cloud_curls",
+   "name": "Cloud Curls",
+   "slot": "hair",
+   "rarity": "common",
+   "access": "free",
+   "family": "angels",
+   "setId": "moliboo.outfit.halo_choir",
+   "iconKey": "item_cloud_curls",
+   "shape": "curls",
+   "palette": [
+    "#EDB94A",
+    "#8CCBFF",
+    "#FFF4D6",
+    "#9A6B1F"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.pearl_tunic",
+   "name": "Pearl Tunic",
+   "slot": "top",
+   "rarity": "common",
+   "access": "free",
+   "family": "angels",
+   "setId": "moliboo.outfit.halo_choir",
+   "iconKey": "item_pearl_tunic",
+   "shape": "tunic",
+   "palette": [
+    "#EDB94A",
+    "#8CCBFF",
+    "#FFF4D6",
+    "#9A6B1F"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.feather_wings",
+   "name": "Feather Wings",
+   "slot": "back",
+   "rarity": "common",
+   "access": "free",
+   "family": "angels",
+   "setId": "moliboo.outfit.halo_choir",
+   "iconKey": "item_feather_wings",
+   "shape": "wings",
+   "palette": [
+    "#EDB94A",
+    "#8CCBFF",
+    "#FFF4D6",
+    "#9A6B1F"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.soft_glow",
+   "name": "Soft Glow",
+   "slot": "aura",
+   "rarity": "common",
+   "access": "free",
+   "family": "angels",
+   "setId": "moliboo.outfit.halo_choir",
+   "iconKey": "item_soft_glow",
+   "shape": "glow",
+   "palette": [
+    "#EDB94A",
+    "#8CCBFF",
+    "#FFF4D6",
+    "#9A6B1F"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.sunray_crown",
+   "name": "Sunray Crown",
+   "slot": "headwear",
+   "rarity": "rare",
+   "access": "earnable",
+   "family": "angels",
+   "setId": "moliboo.outfit.sunrise_herald",
+   "iconKey": "item_sunray_crown",
+   "shape": "crown",
+   "palette": [
+    "#EDB94A",
+    "#8CCBFF",
+    "#FFF4D6",
+    "#9A6B1F"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.golden_sweep",
+   "name": "Golden Sweep",
+   "slot": "hair",
+   "rarity": "rare",
+   "access": "earnable",
+   "family": "angels",
+   "setId": "moliboo.outfit.sunrise_herald",
+   "iconKey": "item_golden_sweep",
+   "shape": "sweep",
+   "palette": [
+    "#EDB94A",
+    "#8CCBFF",
+    "#FFF4D6",
+    "#9A6B1F"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.dawn_cape_top",
+   "name": "Dawn Cape Top",
+   "slot": "top",
+   "rarity": "rare",
+   "access": "earnable",
+   "family": "angels",
+   "setId": "moliboo.outfit.sunrise_herald",
+   "iconKey": "item_dawn_cape_top",
+   "shape": "tunic",
+   "palette": [
+    "#EDB94A",
+    "#8CCBFF",
+    "#FFF4D6",
+    "#9A6B1F"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.little_trumpet",
+   "name": "Little Trumpet",
+   "slot": "handheld",
+   "rarity": "rare",
+   "access": "earnable",
+   "family": "angels",
+   "setId": "moliboo.outfit.sunrise_herald",
+   "iconKey": "item_little_trumpet",
+   "shape": "trumpet",
+   "palette": [
+    "#EDB94A",
+    "#8CCBFF",
+    "#FFF4D6",
+    "#9A6B1F"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.sunbeam_aura",
+   "name": "Sunbeam Aura",
+   "slot": "aura",
+   "rarity": "rare",
+   "access": "earnable",
+   "family": "angels",
+   "setId": "moliboo.outfit.sunrise_herald",
+   "iconKey": "item_sunbeam_aura",
+   "shape": "rays",
+   "palette": [
+    "#EDB94A",
+    "#8CCBFF",
+    "#FFF4D6",
+    "#9A6B1F"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.guardian_circlet",
+   "name": "Guardian Circlet",
+   "slot": "headwear",
+   "rarity": "legendary",
+   "access": "premium",
+   "family": "angels",
+   "setId": "moliboo.outfit.celestial_guardian",
+   "iconKey": "item_guardian_circlet",
+   "shape": "tiara",
+   "palette": [
+    "#EDB94A",
+    "#8CCBFF",
+    "#FFF4D6",
+    "#9A6B1F"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.pearl_locks",
+   "name": "Pearl Locks",
+   "slot": "hair",
+   "rarity": "legendary",
+   "access": "premium",
+   "family": "angels",
+   "setId": "moliboo.outfit.celestial_guardian",
+   "iconKey": "item_pearl_locks",
+   "shape": "locks",
+   "palette": [
+    "#EDB94A",
+    "#8CCBFF",
+    "#FFF4D6",
+    "#9A6B1F"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.guardian_mantle",
+   "name": "Guardian Mantle",
+   "slot": "outerwear",
+   "rarity": "legendary",
+   "access": "premium",
+   "family": "angels",
+   "setId": "moliboo.outfit.celestial_guardian",
+   "iconKey": "item_guardian_mantle",
+   "shape": "cape",
+   "palette": [
+    "#EDB94A",
+    "#8CCBFF",
+    "#FFF4D6",
+    "#9A6B1F"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.shield_wings",
+   "name": "Shield Wings",
+   "slot": "back",
+   "rarity": "legendary",
+   "access": "premium",
+   "family": "angels",
+   "setId": "moliboo.outfit.celestial_guardian",
+   "iconKey": "item_shield_wings",
+   "shape": "wings",
+   "palette": [
+    "#EDB94A",
+    "#8CCBFF",
+    "#FFF4D6",
+    "#9A6B1F"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.gilded_halo_fx",
+   "name": "Gilded Halo FX",
+   "slot": "aura",
+   "rarity": "legendary",
+   "access": "premium",
+   "family": "angels",
+   "setId": "moliboo.outfit.celestial_guardian",
+   "iconKey": "item_gilded_halo_fx",
+   "shape": "rays",
+   "palette": [
+    "#EDB94A",
+    "#8CCBFF",
+    "#FFF4D6",
+    "#9A6B1F"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.neon_cap",
+   "name": "Neon Cap",
+   "slot": "headwear",
+   "rarity": "common",
+   "access": "free",
+   "family": "underground",
+   "setId": "moliboo.outfit.neon_skater",
+   "iconKey": "item_neon_cap",
+   "shape": "cap",
+   "palette": [
+    "#FF4FA3",
+    "#36E3F0",
+    "#2B2B3D",
+    "#B6FF5C"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.spiky_tuft",
+   "name": "Spiky Tuft",
+   "slot": "hair",
+   "rarity": "common",
+   "access": "free",
+   "family": "underground",
+   "setId": "moliboo.outfit.neon_skater",
+   "iconKey": "item_spiky_tuft",
+   "shape": "spiky",
+   "palette": [
+    "#FF4FA3",
+    "#36E3F0",
+    "#2B2B3D",
+    "#B6FF5C"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.glow_hoodie",
+   "name": "Glow Hoodie",
+   "slot": "top",
+   "rarity": "common",
+   "access": "free",
+   "family": "underground",
+   "setId": "moliboo.outfit.neon_skater",
+   "iconKey": "item_glow_hoodie",
+   "shape": "hoodie",
+   "palette": [
+    "#FF4FA3",
+    "#36E3F0",
+    "#2B2B3D",
+    "#B6FF5C"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.light_up_kicks",
+   "name": "Light-up Kicks",
+   "slot": "footwear",
+   "rarity": "common",
+   "access": "free",
+   "family": "underground",
+   "setId": "moliboo.outfit.neon_skater",
+   "iconKey": "item_light_up_kicks",
+   "shape": "shoes",
+   "palette": [
+    "#FF4FA3",
+    "#36E3F0",
+    "#2B2B3D",
+    "#B6FF5C"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.mini_board",
+   "name": "Mini Board",
+   "slot": "handheld",
+   "rarity": "common",
+   "access": "free",
+   "family": "underground",
+   "setId": "moliboo.outfit.neon_skater",
+   "iconKey": "item_mini_board",
+   "shape": "board",
+   "palette": [
+    "#FF4FA3",
+    "#36E3F0",
+    "#2B2B3D",
+    "#B6FF5C"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.studio_headphones",
+   "name": "Studio Headphones",
+   "slot": "headwear",
+   "rarity": "rare",
+   "access": "earnable",
+   "family": "underground",
+   "setId": "moliboo.outfit.beat_crew",
+   "iconKey": "item_studio_headphones",
+   "shape": "headphones",
+   "palette": [
+    "#FF4FA3",
+    "#36E3F0",
+    "#2B2B3D",
+    "#B6FF5C"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.pixel_fringe",
+   "name": "Pixel Fringe",
+   "slot": "hair",
+   "rarity": "rare",
+   "access": "earnable",
+   "family": "underground",
+   "setId": "moliboo.outfit.beat_crew",
+   "iconKey": "item_pixel_fringe",
+   "shape": "fringe",
+   "palette": [
+    "#FF4FA3",
+    "#36E3F0",
+    "#2B2B3D",
+    "#B6FF5C"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.bass_tee",
+   "name": "Bass Tee",
+   "slot": "top",
+   "rarity": "rare",
+   "access": "earnable",
+   "family": "underground",
+   "setId": "moliboo.outfit.beat_crew",
+   "iconKey": "item_bass_tee",
+   "shape": "tee",
+   "palette": [
+    "#FF4FA3",
+    "#36E3F0",
+    "#2B2B3D",
+    "#B6FF5C"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.visor_shades",
+   "name": "Visor Shades",
+   "slot": "face",
+   "rarity": "rare",
+   "access": "earnable",
+   "family": "underground",
+   "setId": "moliboo.outfit.beat_crew",
+   "iconKey": "item_visor_shades",
+   "shape": "shades",
+   "palette": [
+    "#FF4FA3",
+    "#36E3F0",
+    "#2B2B3D",
+    "#B6FF5C"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.sound_rings",
+   "name": "Sound Rings",
+   "slot": "aura",
+   "rarity": "rare",
+   "access": "earnable",
+   "family": "underground",
+   "setId": "moliboo.outfit.beat_crew",
+   "iconKey": "item_sound_rings",
+   "shape": "rings",
+   "palette": [
+    "#FF4FA3",
+    "#36E3F0",
+    "#2B2B3D",
+    "#B6FF5C"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.holo_visor_band",
+   "name": "Holo Visor Band",
+   "slot": "headwear",
+   "rarity": "epic",
+   "access": "premium",
+   "family": "underground",
+   "setId": "moliboo.outfit.holo_runner",
+   "iconKey": "item_holo_visor_band",
+   "shape": "band",
+   "palette": [
+    "#FF4FA3",
+    "#36E3F0",
+    "#2B2B3D",
+    "#B6FF5C"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.circuit_mohawk",
+   "name": "Circuit Mohawk",
+   "slot": "hair",
+   "rarity": "epic",
+   "access": "premium",
+   "family": "underground",
+   "setId": "moliboo.outfit.holo_runner",
+   "iconKey": "item_circuit_mohawk",
+   "shape": "mohawk",
+   "palette": [
+    "#FF4FA3",
+    "#36E3F0",
+    "#2B2B3D",
+    "#B6FF5C"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.hologram_jacket",
+   "name": "Hologram Jacket",
+   "slot": "outerwear",
+   "rarity": "epic",
+   "access": "premium",
+   "family": "underground",
+   "setId": "moliboo.outfit.holo_runner",
+   "iconKey": "item_hologram_jacket",
+   "shape": "jacket",
+   "palette": [
+    "#FF4FA3",
+    "#36E3F0",
+    "#2B2B3D",
+    "#B6FF5C"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.spark_sneakers",
+   "name": "Spark Sneakers",
+   "slot": "footwear",
+   "rarity": "epic",
+   "access": "premium",
+   "family": "underground",
+   "setId": "moliboo.outfit.holo_runner",
+   "iconKey": "item_spark_sneakers",
+   "shape": "shoes",
+   "palette": [
+    "#FF4FA3",
+    "#36E3F0",
+    "#2B2B3D",
+    "#B6FF5C"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.glitch_trail",
+   "name": "Glitch Trail",
+   "slot": "aura",
+   "rarity": "epic",
+   "access": "premium",
+   "family": "underground",
+   "setId": "moliboo.outfit.holo_runner",
+   "iconKey": "item_glitch_trail",
+   "shape": "glitch",
+   "palette": [
+    "#FF4FA3",
+    "#36E3F0",
+    "#2B2B3D",
+    "#B6FF5C"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.leaf_cap",
+   "name": "Leaf Cap",
+   "slot": "headwear",
+   "rarity": "common",
+   "access": "free",
+   "family": "enchanted",
+   "setId": "moliboo.outfit.mossy_ranger",
+   "iconKey": "item_leaf_cap",
+   "shape": "leafcap",
+   "palette": [
+    "#5BAE6A",
+    "#B0306A",
+    "#8FCB7B",
+    "#3E6B3A"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.leaf_fringe",
+   "name": "Leaf Fringe",
+   "slot": "hair",
+   "rarity": "common",
+   "access": "free",
+   "family": "enchanted",
+   "setId": "moliboo.outfit.mossy_ranger",
+   "iconKey": "item_leaf_fringe",
+   "shape": "fringe",
+   "palette": [
+    "#5BAE6A",
+    "#B0306A",
+    "#8FCB7B",
+    "#3E6B3A"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.fern_vest",
+   "name": "Fern Vest",
+   "slot": "top",
+   "rarity": "common",
+   "access": "free",
+   "family": "enchanted",
+   "setId": "moliboo.outfit.mossy_ranger",
+   "iconKey": "item_fern_vest",
+   "shape": "tunic",
+   "palette": [
+    "#5BAE6A",
+    "#B0306A",
+    "#8FCB7B",
+    "#3E6B3A"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.acorn_pack",
+   "name": "Acorn Pack",
+   "slot": "back",
+   "rarity": "common",
+   "access": "free",
+   "family": "enchanted",
+   "setId": "moliboo.outfit.mossy_ranger",
+   "iconKey": "item_acorn_pack",
+   "shape": "pack",
+   "palette": [
+    "#5BAE6A",
+    "#B0306A",
+    "#8FCB7B",
+    "#3E6B3A"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.twig_wand",
+   "name": "Twig Wand",
+   "slot": "handheld",
+   "rarity": "common",
+   "access": "free",
+   "family": "enchanted",
+   "setId": "moliboo.outfit.mossy_ranger",
+   "iconKey": "item_twig_wand",
+   "shape": "wand",
+   "palette": [
+    "#5BAE6A",
+    "#B0306A",
+    "#8FCB7B",
+    "#3E6B3A"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.bramble_beret",
+   "name": "Bramble Beret",
+   "slot": "headwear",
+   "rarity": "uncommon",
+   "access": "earnable",
+   "family": "enchanted",
+   "setId": "moliboo.outfit.berry_bard",
+   "iconKey": "item_bramble_beret",
+   "shape": "beret",
+   "palette": [
+    "#5BAE6A",
+    "#B0306A",
+    "#8FCB7B",
+    "#3E6B3A"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.berry_buns",
+   "name": "Berry Buns",
+   "slot": "hair",
+   "rarity": "uncommon",
+   "access": "earnable",
+   "family": "enchanted",
+   "setId": "moliboo.outfit.berry_bard",
+   "iconKey": "item_berry_buns",
+   "shape": "buns",
+   "palette": [
+    "#5BAE6A",
+    "#B0306A",
+    "#8FCB7B",
+    "#3E6B3A"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.petal_blouse",
+   "name": "Petal Blouse",
+   "slot": "top",
+   "rarity": "uncommon",
+   "access": "earnable",
+   "family": "enchanted",
+   "setId": "moliboo.outfit.berry_bard",
+   "iconKey": "item_petal_blouse",
+   "shape": "tee",
+   "palette": [
+    "#5BAE6A",
+    "#B0306A",
+    "#8FCB7B",
+    "#3E6B3A"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.reed_flute",
+   "name": "Reed Flute",
+   "slot": "handheld",
+   "rarity": "uncommon",
+   "access": "earnable",
+   "family": "enchanted",
+   "setId": "moliboo.outfit.berry_bard",
+   "iconKey": "item_reed_flute",
+   "shape": "trumpet",
+   "palette": [
+    "#5BAE6A",
+    "#B0306A",
+    "#8FCB7B",
+    "#3E6B3A"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.petal_drift",
+   "name": "Petal Drift",
+   "slot": "aura",
+   "rarity": "uncommon",
+   "access": "earnable",
+   "family": "enchanted",
+   "setId": "moliboo.outfit.berry_bard",
+   "iconKey": "item_petal_drift",
+   "shape": "petals",
+   "palette": [
+    "#5BAE6A",
+    "#B0306A",
+    "#8FCB7B",
+    "#3E6B3A"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.antler_crown",
+   "name": "Antler Crown",
+   "slot": "headwear",
+   "rarity": "legendary",
+   "access": "premium",
+   "family": "enchanted",
+   "setId": "moliboo.outfit.elder_grove",
+   "iconKey": "item_antler_crown",
+   "shape": "antlers",
+   "palette": [
+    "#5BAE6A",
+    "#B0306A",
+    "#8FCB7B",
+    "#3E6B3A"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.moss_mane",
+   "name": "Moss Mane",
+   "slot": "hair",
+   "rarity": "legendary",
+   "access": "premium",
+   "family": "enchanted",
+   "setId": "moliboo.outfit.elder_grove",
+   "iconKey": "item_moss_mane",
+   "shape": "locks",
+   "palette": [
+    "#5BAE6A",
+    "#B0306A",
+    "#8FCB7B",
+    "#3E6B3A"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.bark_cloak",
+   "name": "Bark Cloak",
+   "slot": "outerwear",
+   "rarity": "legendary",
+   "access": "premium",
+   "family": "enchanted",
+   "setId": "moliboo.outfit.elder_grove",
+   "iconKey": "item_bark_cloak",
+   "shape": "cape",
+   "palette": [
+    "#5BAE6A",
+    "#B0306A",
+    "#8FCB7B",
+    "#3E6B3A"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.firefly_freckles",
+   "name": "Firefly Freckles",
+   "slot": "face",
+   "rarity": "legendary",
+   "access": "premium",
+   "family": "enchanted",
+   "setId": "moliboo.outfit.elder_grove",
+   "iconKey": "item_firefly_freckles",
+   "shape": "freckles",
+   "palette": [
+    "#5BAE6A",
+    "#B0306A",
+    "#8FCB7B",
+    "#3E6B3A"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.spore_sparkles",
+   "name": "Spore Sparkles",
+   "slot": "aura",
+   "rarity": "legendary",
+   "access": "premium",
+   "family": "enchanted",
+   "setId": "moliboo.outfit.elder_grove",
+   "iconKey": "item_spore_sparkles",
+   "shape": "sparkle",
+   "palette": [
+    "#5BAE6A",
+    "#B0306A",
+    "#8FCB7B",
+    "#3E6B3A"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.star_headband",
+   "name": "Star Headband",
+   "slot": "headwear",
+   "rarity": "common",
+   "access": "free",
+   "family": "stardust",
+   "setId": "moliboo.outfit.comet_cadet",
+   "iconKey": "item_star_headband",
+   "shape": "band",
+   "palette": [
+    "#3A3FA8",
+    "#FFD45C",
+    "#8A6BE8",
+    "#1E2160"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.star_parting",
+   "name": "Star Parting",
+   "slot": "hair",
+   "rarity": "common",
+   "access": "free",
+   "family": "stardust",
+   "setId": "moliboo.outfit.comet_cadet",
+   "iconKey": "item_star_parting",
+   "shape": "sweep",
+   "palette": [
+    "#3A3FA8",
+    "#FFD45C",
+    "#8A6BE8",
+    "#1E2160"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.cadet_jumpsuit",
+   "name": "Cadet Jumpsuit",
+   "slot": "top",
+   "rarity": "common",
+   "access": "free",
+   "family": "stardust",
+   "setId": "moliboo.outfit.comet_cadet",
+   "iconKey": "item_cadet_jumpsuit",
+   "shape": "hoodie",
+   "palette": [
+    "#3A3FA8",
+    "#FFD45C",
+    "#8A6BE8",
+    "#1E2160"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.moon_boots",
+   "name": "Moon Boots",
+   "slot": "footwear",
+   "rarity": "common",
+   "access": "free",
+   "family": "stardust",
+   "setId": "moliboo.outfit.comet_cadet",
+   "iconKey": "item_moon_boots",
+   "shape": "boots",
+   "palette": [
+    "#3A3FA8",
+    "#FFD45C",
+    "#8A6BE8",
+    "#1E2160"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.mini_jetpack",
+   "name": "Mini Jetpack",
+   "slot": "back",
+   "rarity": "common",
+   "access": "free",
+   "family": "stardust",
+   "setId": "moliboo.outfit.comet_cadet",
+   "iconKey": "item_mini_jetpack",
+   "shape": "pack",
+   "palette": [
+    "#3A3FA8",
+    "#FFD45C",
+    "#8A6BE8",
+    "#1E2160"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.explorer_helmet",
+   "name": "Explorer Helmet",
+   "slot": "headwear",
+   "rarity": "rare",
+   "access": "earnable",
+   "family": "stardust",
+   "setId": "moliboo.outfit.constellation_scout",
+   "iconKey": "item_explorer_helmet",
+   "shape": "helmet",
+   "palette": [
+    "#3A3FA8",
+    "#FFD45C",
+    "#8A6BE8",
+    "#1E2160"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.nebula_tuft",
+   "name": "Nebula Tuft",
+   "slot": "hair",
+   "rarity": "rare",
+   "access": "earnable",
+   "family": "stardust",
+   "setId": "moliboo.outfit.constellation_scout",
+   "iconKey": "item_nebula_tuft",
+   "shape": "curls",
+   "palette": [
+    "#3A3FA8",
+    "#FFD45C",
+    "#8A6BE8",
+    "#1E2160"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.star_map_poncho",
+   "name": "Star Map Poncho",
+   "slot": "outerwear",
+   "rarity": "rare",
+   "access": "earnable",
+   "family": "stardust",
+   "setId": "moliboo.outfit.constellation_scout",
+   "iconKey": "item_star_map_poncho",
+   "shape": "cape",
+   "palette": [
+    "#3A3FA8",
+    "#FFD45C",
+    "#8A6BE8",
+    "#1E2160"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.pocket_telescope",
+   "name": "Pocket Telescope",
+   "slot": "handheld",
+   "rarity": "rare",
+   "access": "earnable",
+   "family": "stardust",
+   "setId": "moliboo.outfit.constellation_scout",
+   "iconKey": "item_pocket_telescope",
+   "shape": "telescope",
+   "palette": [
+    "#3A3FA8",
+    "#FFD45C",
+    "#8A6BE8",
+    "#1E2160"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.star_trail",
+   "name": "Star Trail",
+   "slot": "aura",
+   "rarity": "rare",
+   "access": "earnable",
+   "family": "stardust",
+   "setId": "moliboo.outfit.constellation_scout",
+   "iconKey": "item_star_trail",
+   "shape": "sparkle",
+   "palette": [
+    "#3A3FA8",
+    "#FFD45C",
+    "#8A6BE8",
+    "#1E2160"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.aurora_tiara",
+   "name": "Aurora Tiara",
+   "slot": "headwear",
+   "rarity": "epic",
+   "access": "premium",
+   "family": "stardust",
+   "setId": "moliboo.outfit.aurora_navigator",
+   "iconKey": "item_aurora_tiara",
+   "shape": "tiara",
+   "palette": [
+    "#3A3FA8",
+    "#FFD45C",
+    "#8A6BE8",
+    "#1E2160"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.aurora_bangs",
+   "name": "Aurora Bangs",
+   "slot": "hair",
+   "rarity": "epic",
+   "access": "premium",
+   "family": "stardust",
+   "setId": "moliboo.outfit.aurora_navigator",
+   "iconKey": "item_aurora_bangs",
+   "shape": "fringe",
+   "palette": [
+    "#3A3FA8",
+    "#FFD45C",
+    "#8A6BE8",
+    "#1E2160"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.ribbon_coat",
+   "name": "Ribbon Coat",
+   "slot": "outerwear",
+   "rarity": "epic",
+   "access": "premium",
+   "family": "stardust",
+   "setId": "moliboo.outfit.aurora_navigator",
+   "iconKey": "item_ribbon_coat",
+   "shape": "jacket",
+   "palette": [
+    "#3A3FA8",
+    "#FFD45C",
+    "#8A6BE8",
+    "#1E2160"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.stardust_gems",
+   "name": "Stardust Gems",
+   "slot": "face",
+   "rarity": "epic",
+   "access": "premium",
+   "family": "stardust",
+   "setId": "moliboo.outfit.aurora_navigator",
+   "iconKey": "item_stardust_gems",
+   "shape": "freckles",
+   "palette": [
+    "#3A3FA8",
+    "#FFD45C",
+    "#8A6BE8",
+    "#1E2160"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.aurora_veil",
+   "name": "Aurora Veil",
+   "slot": "aura",
+   "rarity": "epic",
+   "access": "premium",
+   "family": "stardust",
+   "setId": "moliboo.outfit.aurora_navigator",
+   "iconKey": "item_aurora_veil",
+   "shape": "glow",
+   "palette": [
+    "#3A3FA8",
+    "#FFD45C",
+    "#8A6BE8",
+    "#1E2160"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.starry_nightcap",
+   "name": "Starry Nightcap",
+   "slot": "headwear",
+   "rarity": "common",
+   "access": "free",
+   "family": "dreamers",
+   "setId": "moliboo.outfit.sleepy_star",
+   "iconKey": "item_starry_nightcap",
+   "shape": "nightcap",
+   "palette": [
+    "#B9A7F2",
+    "#8EC5FF",
+    "#FFC9A8",
+    "#6B5BB5"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.fluffy_tuft",
+   "name": "Fluffy Tuft",
+   "slot": "hair",
+   "rarity": "common",
+   "access": "free",
+   "family": "dreamers",
+   "setId": "moliboo.outfit.sleepy_star",
+   "iconKey": "item_fluffy_tuft",
+   "shape": "curls",
+   "palette": [
+    "#B9A7F2",
+    "#8EC5FF",
+    "#FFC9A8",
+    "#6B5BB5"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.cloud_pyjamas",
+   "name": "Cloud Pyjamas",
+   "slot": "top",
+   "rarity": "common",
+   "access": "free",
+   "family": "dreamers",
+   "setId": "moliboo.outfit.sleepy_star",
+   "iconKey": "item_cloud_pyjamas",
+   "shape": "tee",
+   "palette": [
+    "#B9A7F2",
+    "#8EC5FF",
+    "#FFC9A8",
+    "#6B5BB5"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.bunny_slippers",
+   "name": "Bunny Slippers",
+   "slot": "footwear",
+   "rarity": "common",
+   "access": "free",
+   "family": "dreamers",
+   "setId": "moliboo.outfit.sleepy_star",
+   "iconKey": "item_bunny_slippers",
+   "shape": "slippers",
+   "palette": [
+    "#B9A7F2",
+    "#8EC5FF",
+    "#FFC9A8",
+    "#6B5BB5"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.plush_star",
+   "name": "Plush Star",
+   "slot": "handheld",
+   "rarity": "common",
+   "access": "free",
+   "family": "dreamers",
+   "setId": "moliboo.outfit.sleepy_star",
+   "iconKey": "item_plush_star",
+   "shape": "star",
+   "palette": [
+    "#B9A7F2",
+    "#8EC5FF",
+    "#FFC9A8",
+    "#6B5BB5"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.moon_bonnet",
+   "name": "Moon Bonnet",
+   "slot": "headwear",
+   "rarity": "uncommon",
+   "access": "earnable",
+   "family": "dreamers",
+   "setId": "moliboo.outfit.lullaby_lantern",
+   "iconKey": "item_moon_bonnet",
+   "shape": "nightcap",
+   "palette": [
+    "#B9A7F2",
+    "#8EC5FF",
+    "#FFC9A8",
+    "#6B5BB5"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.wavy_fringe",
+   "name": "Wavy Fringe",
+   "slot": "hair",
+   "rarity": "uncommon",
+   "access": "earnable",
+   "family": "dreamers",
+   "setId": "moliboo.outfit.lullaby_lantern",
+   "iconKey": "item_wavy_fringe",
+   "shape": "fringe",
+   "palette": [
+    "#B9A7F2",
+    "#8EC5FF",
+    "#FFC9A8",
+    "#6B5BB5"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.quilt_cape",
+   "name": "Quilt Cape",
+   "slot": "outerwear",
+   "rarity": "uncommon",
+   "access": "earnable",
+   "family": "dreamers",
+   "setId": "moliboo.outfit.lullaby_lantern",
+   "iconKey": "item_quilt_cape",
+   "shape": "cape",
+   "palette": [
+    "#B9A7F2",
+    "#8EC5FF",
+    "#FFC9A8",
+    "#6B5BB5"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.dream_lantern",
+   "name": "Dream Lantern",
+   "slot": "handheld",
+   "rarity": "uncommon",
+   "access": "earnable",
+   "family": "dreamers",
+   "setId": "moliboo.outfit.lullaby_lantern",
+   "iconKey": "item_dream_lantern",
+   "shape": "lantern",
+   "palette": [
+    "#B9A7F2",
+    "#8EC5FF",
+    "#FFC9A8",
+    "#6B5BB5"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.lullaby_notes",
+   "name": "Lullaby Notes",
+   "slot": "aura",
+   "rarity": "uncommon",
+   "access": "earnable",
+   "family": "dreamers",
+   "setId": "moliboo.outfit.lullaby_lantern",
+   "iconKey": "item_lullaby_notes",
+   "shape": "notes",
+   "palette": [
+    "#B9A7F2",
+    "#8EC5FF",
+    "#FFC9A8",
+    "#6B5BB5"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.moonring_crown",
+   "name": "Moonring Crown",
+   "slot": "headwear",
+   "rarity": "legendary",
+   "access": "premium",
+   "family": "dreamers",
+   "setId": "moliboo.outfit.dream_keeper",
+   "iconKey": "item_moonring_crown",
+   "shape": "crown",
+   "palette": [
+    "#B9A7F2",
+    "#8EC5FF",
+    "#FFC9A8",
+    "#6B5BB5"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.silver_drift_locks",
+   "name": "Silver Drift Locks",
+   "slot": "hair",
+   "rarity": "legendary",
+   "access": "premium",
+   "family": "dreamers",
+   "setId": "moliboo.outfit.dream_keeper",
+   "iconKey": "item_silver_drift_locks",
+   "shape": "locks",
+   "palette": [
+    "#B9A7F2",
+    "#8EC5FF",
+    "#FFC9A8",
+    "#6B5BB5"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.night_sky_robe",
+   "name": "Night-Sky Robe",
+   "slot": "outerwear",
+   "rarity": "legendary",
+   "access": "premium",
+   "family": "dreamers",
+   "setId": "moliboo.outfit.dream_keeper",
+   "iconKey": "item_night_sky_robe",
+   "shape": "cape",
+   "palette": [
+    "#B9A7F2",
+    "#8EC5FF",
+    "#FFC9A8",
+    "#6B5BB5"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.sleep_mask",
+   "name": "Sleep Mask",
+   "slot": "face",
+   "rarity": "legendary",
+   "access": "premium",
+   "family": "dreamers",
+   "setId": "moliboo.outfit.dream_keeper",
+   "iconKey": "item_sleep_mask",
+   "shape": "mask",
+   "palette": [
+    "#B9A7F2",
+    "#8EC5FF",
+    "#FFC9A8",
+    "#6B5BB5"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.dream_bubbles",
+   "name": "Dream Bubbles",
+   "slot": "aura",
+   "rarity": "legendary",
+   "access": "premium",
+   "family": "dreamers",
+   "setId": "moliboo.outfit.dream_keeper",
+   "iconKey": "item_dream_bubbles",
+   "shape": "bubbles",
+   "palette": [
+    "#B9A7F2",
+    "#8EC5FF",
+    "#FFC9A8",
+    "#6B5BB5"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.heart_cheeks",
+   "name": "Heart Cheeks",
+   "slot": "face",
+   "rarity": "common",
+   "access": "free",
+   "family": "angels",
+   "setId": null,
+   "iconKey": "item_heart_cheeks",
+   "shape": "freckles",
+   "palette": [
+    "#EDB94A",
+    "#8CCBFF",
+    "#FFF4D6",
+    "#9A6B1F"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.cloud_sandals",
+   "name": "Cloud Sandals",
+   "slot": "footwear",
+   "rarity": "common",
+   "access": "free",
+   "family": "angels",
+   "setId": null,
+   "iconKey": "item_cloud_sandals",
+   "shape": "slippers",
+   "palette": [
+    "#EDB94A",
+    "#8CCBFF",
+    "#FFF4D6",
+    "#9A6B1F"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.spray_can_pack",
+   "name": "Spray Can Pack",
+   "slot": "back",
+   "rarity": "common",
+   "access": "free",
+   "family": "underground",
+   "setId": null,
+   "iconKey": "item_spray_can_pack",
+   "shape": "pack",
+   "palette": [
+    "#FF4FA3",
+    "#36E3F0",
+    "#2B2B3D",
+    "#B6FF5C"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.cargo_shorts",
+   "name": "Cargo Shorts",
+   "slot": "bottom",
+   "rarity": "common",
+   "access": "free",
+   "family": "underground",
+   "setId": null,
+   "iconKey": "item_cargo_shorts",
+   "shape": "shorts",
+   "palette": [
+    "#FF4FA3",
+    "#36E3F0",
+    "#2B2B3D",
+    "#B6FF5C"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.mushroom_boots",
+   "name": "Mushroom Boots",
+   "slot": "footwear",
+   "rarity": "common",
+   "access": "free",
+   "family": "enchanted",
+   "setId": null,
+   "iconKey": "item_mushroom_boots",
+   "shape": "boots",
+   "palette": [
+    "#5BAE6A",
+    "#B0306A",
+    "#8FCB7B",
+    "#3E6B3A"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.leaf_skirt",
+   "name": "Leaf Skirt",
+   "slot": "bottom",
+   "rarity": "uncommon",
+   "access": "earnable",
+   "family": "enchanted",
+   "setId": null,
+   "iconKey": "item_leaf_skirt",
+   "shape": "skirt",
+   "palette": [
+    "#5BAE6A",
+    "#B0306A",
+    "#8FCB7B",
+    "#3E6B3A"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.star_glasses",
+   "name": "Star Glasses",
+   "slot": "face",
+   "rarity": "common",
+   "access": "free",
+   "family": "stardust",
+   "setId": null,
+   "iconKey": "item_star_glasses",
+   "shape": "shades",
+   "palette": [
+    "#3A3FA8",
+    "#FFD45C",
+    "#8A6BE8",
+    "#1E2160"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.orbit_shorts",
+   "name": "Orbit Shorts",
+   "slot": "bottom",
+   "rarity": "common",
+   "access": "free",
+   "family": "stardust",
+   "setId": null,
+   "iconKey": "item_orbit_shorts",
+   "shape": "shorts",
+   "palette": [
+    "#3A3FA8",
+    "#FFD45C",
+    "#8A6BE8",
+    "#1E2160"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.pillow_backpack",
+   "name": "Pillow Backpack",
+   "slot": "back",
+   "rarity": "common",
+   "access": "free",
+   "family": "dreamers",
+   "setId": null,
+   "iconKey": "item_pillow_backpack",
+   "shape": "pack",
+   "palette": [
+    "#B9A7F2",
+    "#8EC5FF",
+    "#FFC9A8",
+    "#6B5BB5"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.cosy_leggings",
+   "name": "Cosy Leggings",
+   "slot": "bottom",
+   "rarity": "uncommon",
+   "access": "earnable",
+   "family": "dreamers",
+   "setId": null,
+   "iconKey": "item_cosy_leggings",
+   "shape": "skirt",
+   "palette": [
+    "#B9A7F2",
+    "#8EC5FF",
+    "#FFC9A8",
+    "#6B5BB5"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.party_cone",
+   "name": "Party Cone",
+   "slot": "headwear",
+   "rarity": "common",
+   "access": "free",
+   "family": null,
+   "setId": null,
+   "iconKey": "item_party_cone",
+   "shape": "cone",
+   "palette": [
+    "#FF8FB1",
+    "#7FD3FF",
+    "#FFE17A",
+    "#6C63FF"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.knit_beanie",
+   "name": "Knit Beanie",
+   "slot": "headwear",
+   "rarity": "common",
+   "access": "free",
+   "family": null,
+   "setId": null,
+   "iconKey": "item_knit_beanie",
+   "shape": "beanie",
+   "palette": [
+    "#FF8FB1",
+    "#7FD3FF",
+    "#FFE17A",
+    "#6C63FF"
+   ]
+  },
+  {
+   "itemId": "moliboo.item.round_glasses",
+   "name": "Round Glasses",
+   "slot": "face",
+   "rarity": "common",
+   "access": "free",
+   "family": null,
+   "setId": null,
+   "iconKey": "item_round_glasses",
+   "shape": "glasses",
+   "palette": [
+    "#FF8FB1",
+    "#7FD3FF",
+    "#FFE17A",
+    "#6C63FF"
+   ]
+  }
+ ],
+ "outfits": [
+  {
+   "setId": "moliboo.outfit.halo_choir",
+   "name": "Halo Choir",
+   "family": "angels",
+   "access": "free",
+   "rarity": "common",
+   "itemIds": [
+    "moliboo.item.halo_ring",
+    "moliboo.item.cloud_curls",
+    "moliboo.item.pearl_tunic",
+    "moliboo.item.feather_wings",
+    "moliboo.item.soft_glow"
+   ],
+   "iconKey": "outfit_halo_choir",
+   "setBonus": {
+    "buffId": "moliboo.buff.set_halo_choir",
+    "label": "Halo Choir set glow",
+    "kind": "cosmetic"
+   }
+  },
+  {
+   "setId": "moliboo.outfit.sunrise_herald",
+   "name": "Sunrise Herald",
+   "family": "angels",
+   "access": "earnable",
+   "rarity": "rare",
+   "itemIds": [
+    "moliboo.item.sunray_crown",
+    "moliboo.item.golden_sweep",
+    "moliboo.item.dawn_cape_top",
+    "moliboo.item.little_trumpet",
+    "moliboo.item.sunbeam_aura"
+   ],
+   "iconKey": "outfit_sunrise_herald",
+   "setBonus": {
+    "buffId": "moliboo.buff.set_sunrise_herald",
+    "label": "Sunrise Herald set glow",
+    "kind": "cosmetic"
+   }
+  },
+  {
+   "setId": "moliboo.outfit.celestial_guardian",
+   "name": "Celestial Guardian",
+   "family": "angels",
+   "access": "premium",
+   "rarity": "legendary",
+   "itemIds": [
+    "moliboo.item.guardian_circlet",
+    "moliboo.item.pearl_locks",
+    "moliboo.item.guardian_mantle",
+    "moliboo.item.shield_wings",
+    "moliboo.item.gilded_halo_fx"
+   ],
+   "iconKey": "outfit_celestial_guardian",
+   "setBonus": {
+    "buffId": "moliboo.buff.set_celestial_guardian",
+    "label": "Celestial Guardian set glow",
+    "kind": "cosmetic"
+   }
+  },
+  {
+   "setId": "moliboo.outfit.neon_skater",
+   "name": "Neon Skater",
+   "family": "underground",
+   "access": "free",
+   "rarity": "common",
+   "itemIds": [
+    "moliboo.item.neon_cap",
+    "moliboo.item.spiky_tuft",
+    "moliboo.item.glow_hoodie",
+    "moliboo.item.light_up_kicks",
+    "moliboo.item.mini_board"
+   ],
+   "iconKey": "outfit_neon_skater",
+   "setBonus": {
+    "buffId": "moliboo.buff.set_neon_skater",
+    "label": "Neon Skater set glow",
+    "kind": "cosmetic"
+   }
+  },
+  {
+   "setId": "moliboo.outfit.beat_crew",
+   "name": "Beat Crew",
+   "family": "underground",
+   "access": "earnable",
+   "rarity": "rare",
+   "itemIds": [
+    "moliboo.item.studio_headphones",
+    "moliboo.item.pixel_fringe",
+    "moliboo.item.bass_tee",
+    "moliboo.item.visor_shades",
+    "moliboo.item.sound_rings"
+   ],
+   "iconKey": "outfit_beat_crew",
+   "setBonus": {
+    "buffId": "moliboo.buff.set_beat_crew",
+    "label": "Beat Crew set glow",
+    "kind": "cosmetic"
+   }
+  },
+  {
+   "setId": "moliboo.outfit.holo_runner",
+   "name": "Holo Runner",
+   "family": "underground",
+   "access": "premium",
+   "rarity": "epic",
+   "itemIds": [
+    "moliboo.item.holo_visor_band",
+    "moliboo.item.circuit_mohawk",
+    "moliboo.item.hologram_jacket",
+    "moliboo.item.spark_sneakers",
+    "moliboo.item.glitch_trail"
+   ],
+   "iconKey": "outfit_holo_runner",
+   "setBonus": {
+    "buffId": "moliboo.buff.set_holo_runner",
+    "label": "Holo Runner set glow",
+    "kind": "cosmetic"
+   }
+  },
+  {
+   "setId": "moliboo.outfit.mossy_ranger",
+   "name": "Mossy Ranger",
+   "family": "enchanted",
+   "access": "free",
+   "rarity": "common",
+   "itemIds": [
+    "moliboo.item.leaf_cap",
+    "moliboo.item.leaf_fringe",
+    "moliboo.item.fern_vest",
+    "moliboo.item.acorn_pack",
+    "moliboo.item.twig_wand"
+   ],
+   "iconKey": "outfit_mossy_ranger",
+   "setBonus": {
+    "buffId": "moliboo.buff.set_mossy_ranger",
+    "label": "Mossy Ranger set glow",
+    "kind": "cosmetic"
+   }
+  },
+  {
+   "setId": "moliboo.outfit.berry_bard",
+   "name": "Berry Bard",
+   "family": "enchanted",
+   "access": "earnable",
+   "rarity": "uncommon",
+   "itemIds": [
+    "moliboo.item.bramble_beret",
+    "moliboo.item.berry_buns",
+    "moliboo.item.petal_blouse",
+    "moliboo.item.reed_flute",
+    "moliboo.item.petal_drift"
+   ],
+   "iconKey": "outfit_berry_bard",
+   "setBonus": {
+    "buffId": "moliboo.buff.set_berry_bard",
+    "label": "Berry Bard set glow",
+    "kind": "cosmetic"
+   }
+  },
+  {
+   "setId": "moliboo.outfit.elder_grove",
+   "name": "Elder Grove",
+   "family": "enchanted",
+   "access": "premium",
+   "rarity": "legendary",
+   "itemIds": [
+    "moliboo.item.antler_crown",
+    "moliboo.item.moss_mane",
+    "moliboo.item.bark_cloak",
+    "moliboo.item.firefly_freckles",
+    "moliboo.item.spore_sparkles"
+   ],
+   "iconKey": "outfit_elder_grove",
+   "setBonus": {
+    "buffId": "moliboo.buff.set_elder_grove",
+    "label": "Elder Grove set glow",
+    "kind": "cosmetic"
+   }
+  },
+  {
+   "setId": "moliboo.outfit.comet_cadet",
+   "name": "Comet Cadet",
+   "family": "stardust",
+   "access": "free",
+   "rarity": "common",
+   "itemIds": [
+    "moliboo.item.star_headband",
+    "moliboo.item.star_parting",
+    "moliboo.item.cadet_jumpsuit",
+    "moliboo.item.moon_boots",
+    "moliboo.item.mini_jetpack"
+   ],
+   "iconKey": "outfit_comet_cadet",
+   "setBonus": {
+    "buffId": "moliboo.buff.set_comet_cadet",
+    "label": "Comet Cadet set glow",
+    "kind": "cosmetic"
+   }
+  },
+  {
+   "setId": "moliboo.outfit.constellation_scout",
+   "name": "Constellation Scout",
+   "family": "stardust",
+   "access": "earnable",
+   "rarity": "rare",
+   "itemIds": [
+    "moliboo.item.explorer_helmet",
+    "moliboo.item.nebula_tuft",
+    "moliboo.item.star_map_poncho",
+    "moliboo.item.pocket_telescope",
+    "moliboo.item.star_trail"
+   ],
+   "iconKey": "outfit_constellation_scout",
+   "setBonus": {
+    "buffId": "moliboo.buff.set_constellation_scout",
+    "label": "Constellation Scout set glow",
+    "kind": "cosmetic"
+   }
+  },
+  {
+   "setId": "moliboo.outfit.aurora_navigator",
+   "name": "Aurora Navigator",
+   "family": "stardust",
+   "access": "premium",
+   "rarity": "epic",
+   "itemIds": [
+    "moliboo.item.aurora_tiara",
+    "moliboo.item.aurora_bangs",
+    "moliboo.item.ribbon_coat",
+    "moliboo.item.stardust_gems",
+    "moliboo.item.aurora_veil"
+   ],
+   "iconKey": "outfit_aurora_navigator",
+   "setBonus": {
+    "buffId": "moliboo.buff.set_aurora_navigator",
+    "label": "Aurora Navigator set glow",
+    "kind": "cosmetic"
+   }
+  },
+  {
+   "setId": "moliboo.outfit.sleepy_star",
+   "name": "Sleepy Star",
+   "family": "dreamers",
+   "access": "free",
+   "rarity": "common",
+   "itemIds": [
+    "moliboo.item.starry_nightcap",
+    "moliboo.item.fluffy_tuft",
+    "moliboo.item.cloud_pyjamas",
+    "moliboo.item.bunny_slippers",
+    "moliboo.item.plush_star"
+   ],
+   "iconKey": "outfit_sleepy_star",
+   "setBonus": {
+    "buffId": "moliboo.buff.set_sleepy_star",
+    "label": "Sleepy Star set glow",
+    "kind": "cosmetic"
+   }
+  },
+  {
+   "setId": "moliboo.outfit.lullaby_lantern",
+   "name": "Lullaby Lantern",
+   "family": "dreamers",
+   "access": "earnable",
+   "rarity": "uncommon",
+   "itemIds": [
+    "moliboo.item.moon_bonnet",
+    "moliboo.item.wavy_fringe",
+    "moliboo.item.quilt_cape",
+    "moliboo.item.dream_lantern",
+    "moliboo.item.lullaby_notes"
+   ],
+   "iconKey": "outfit_lullaby_lantern",
+   "setBonus": {
+    "buffId": "moliboo.buff.set_lullaby_lantern",
+    "label": "Lullaby Lantern set glow",
+    "kind": "cosmetic"
+   }
+  },
+  {
+   "setId": "moliboo.outfit.dream_keeper",
+   "name": "Dream Keeper",
+   "family": "dreamers",
+   "access": "premium",
+   "rarity": "legendary",
+   "itemIds": [
+    "moliboo.item.moonring_crown",
+    "moliboo.item.silver_drift_locks",
+    "moliboo.item.night_sky_robe",
+    "moliboo.item.sleep_mask",
+    "moliboo.item.dream_bubbles"
+   ],
+   "iconKey": "outfit_dream_keeper",
+   "setBonus": {
+    "buffId": "moliboo.buff.set_dream_keeper",
+    "label": "Dream Keeper set glow",
+    "kind": "cosmetic"
+   }
+  }
+ ],
+ "skills": [
+  {
+   "skillId": "moliboo.skill.aura",
+   "characterId": "moliboo.angels.aura",
+   "characterName": "Aura",
+   "family": "angels",
+   "name": "Guiding Glow",
+   "description": "Creates illuminated paths through darkness and mist.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_angels"
+  },
+  {
+   "skillId": "moliboo.skill.soli",
+   "characterId": "moliboo.angels.soli",
+   "characterName": "Soli",
+   "family": "angels",
+   "name": "Sunshine Burst",
+   "description": "Illuminates its surroundings with a cheerful warm pulse.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_angels"
+  },
+  {
+   "skillId": "moliboo.skill.luma",
+   "characterId": "moliboo.angels.luma",
+   "characterName": "Luma",
+   "family": "angels",
+   "name": "Moonveil",
+   "description": "Creates a calming field of moonlight.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_angels"
+  },
+  {
+   "skillId": "moliboo.skill.vela",
+   "characterId": "moliboo.angels.vela",
+   "characterName": "Vela",
+   "family": "angels",
+   "name": "Skytrail",
+   "description": "Leaves temporary floating trails that reveal otherwise inaccessible paths.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_angels"
+  },
+  {
+   "skillId": "moliboo.skill.cheri",
+   "characterId": "moliboo.angels.cheri",
+   "characterName": "Cheri",
+   "family": "angels",
+   "name": "Heartlink",
+   "description": "Creates visible light links between cooperating friends.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_angels"
+  },
+  {
+   "skillId": "moliboo.skill.hush",
+   "characterId": "moliboo.angels.hush",
+   "characterName": "Hush",
+   "family": "angels",
+   "name": "Featherfall",
+   "description": "Creates soft floating platforms and cushioned landings.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_angels"
+  },
+  {
+   "skillId": "moliboo.skill.haloa",
+   "characterId": "moliboo.angels.haloa",
+   "characterName": "Haloa",
+   "family": "angels",
+   "name": "Orbiting Light",
+   "description": "Creates temporary circular barriers and floating rings.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_angels"
+  },
+  {
+   "skillId": "moliboo.skill.lyra",
+   "characterId": "moliboo.angels.lyra",
+   "characterName": "Lyra",
+   "family": "angels",
+   "name": "Harmony Notes",
+   "description": "Creates musical patterns that interact with the environment.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_angels"
+  },
+  {
+   "skillId": "moliboo.skill.celio",
+   "characterId": "moliboo.angels.celio",
+   "characterName": "Celio",
+   "family": "angels",
+   "name": "Skycurrent",
+   "description": "Creates currents of air that carry companions and objects.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_angels"
+  },
+  {
+   "skillId": "moliboo.skill.dovee",
+   "characterId": "moliboo.angels.dovee",
+   "characterName": "Dovee",
+   "family": "angels",
+   "name": "Peacewind",
+   "description": "Generates a gentle wind to calm unstable environments.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_angels"
+  },
+  {
+   "skillId": "moliboo.skill.twila",
+   "characterId": "moliboo.angels.twila",
+   "characterName": "Twila",
+   "family": "angels",
+   "name": "Duskveil",
+   "description": "Reveals faint patterns visible only in twilight.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_angels"
+  },
+  {
+   "skillId": "moliboo.skill.gleam",
+   "characterId": "moliboo.angels.gleam",
+   "characterName": "Gleam",
+   "family": "angels",
+   "name": "Radiant Ripple",
+   "description": "Creates expanding waves of coloured light.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_angels"
+  },
+  {
+   "skillId": "moliboo.skill.novael",
+   "characterId": "moliboo.angels.novael",
+   "characterName": "Novael",
+   "family": "angels",
+   "name": "Starbound",
+   "description": "Executes short bursts of spectacular high-speed movement.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_angels"
+  },
+  {
+   "skillId": "moliboo.skill.sera",
+   "characterId": "moliboo.angels.sera",
+   "characterName": "Sera",
+   "family": "angels",
+   "name": "Guardian Embrace",
+   "description": "Creates a temporary protective field around companions.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_angels"
+  },
+  {
+   "skillId": "moliboo.skill.auri",
+   "characterId": "moliboo.angels.auri",
+   "characterName": "Auri",
+   "family": "angels",
+   "name": "Aurora Bloom",
+   "description": "Creates shifting ribbons of colourful light across the sky.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_angels"
+  },
+  {
+   "skillId": "moliboo.skill.riff",
+   "characterId": "moliboo.underground.riff",
+   "characterName": "Riff",
+   "family": "underground",
+   "name": "Beatwave",
+   "description": "Sends short visible sound pulses through nearby objects to reveal rhythm patterns.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_underground"
+  },
+  {
+   "skillId": "moliboo.skill.graff",
+   "characterId": "moliboo.underground.graff",
+   "characterName": "Graff",
+   "family": "underground",
+   "name": "Colourburst",
+   "description": "Paints temporary visible routes and symbols that vanish without leaving permanent marks.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_underground"
+  },
+  {
+   "skillId": "moliboo.skill.nyx",
+   "characterId": "moliboo.underground.nyx",
+   "characterName": "Nyx",
+   "family": "underground",
+   "name": "Shadow Slip",
+   "description": "Moves through connected patches of shade inside the fictional world.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_underground"
+  },
+  {
+   "skillId": "moliboo.skill.zip",
+   "characterId": "moliboo.underground.zip",
+   "characterName": "Zip",
+   "family": "underground",
+   "name": "Neon Dash",
+   "description": "Follows temporary light-tracks at high speed.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_underground"
+  },
+  {
+   "skillId": "moliboo.skill.vex",
+   "characterId": "moliboo.underground.vex",
+   "characterName": "Vex",
+   "family": "underground",
+   "name": "Shortcut Sense",
+   "description": "Spots hidden routes and overlooked entrances in puzzle environments.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_underground"
+  },
+  {
+   "skillId": "moliboo.skill.koda",
+   "characterId": "moliboo.underground.koda",
+   "characterName": "Koda",
+   "family": "underground",
+   "name": "Hidden Cache",
+   "description": "Reveals optional objects and collectible clues tucked away in scenes.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_underground"
+  },
+  {
+   "skillId": "moliboo.skill.glitch",
+   "characterId": "moliboo.underground.glitch",
+   "characterName": "Glitch",
+   "family": "underground",
+   "name": "Pixel Shift",
+   "description": "Rearranges simple virtual shapes to complete puzzles inside games.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_underground"
+  },
+  {
+   "skillId": "moliboo.skill.jinx",
+   "characterId": "moliboo.underground.jinx",
+   "characterName": "Jinx",
+   "family": "underground",
+   "name": "Moonstep",
+   "description": "Creates short faint footprints visible only in nighttime environments.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_underground"
+  },
+  {
+   "skillId": "moliboo.skill.static",
+   "characterId": "moliboo.underground.static",
+   "characterName": "Static",
+   "family": "underground",
+   "name": "Spark Jump",
+   "description": "Activates small fictional switches and conductive puzzle paths.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_underground"
+  },
+  {
+   "skillId": "moliboo.skill.holo",
+   "characterId": "moliboo.underground.holo",
+   "characterName": "Holo",
+   "family": "underground",
+   "name": "Light Double",
+   "description": "Projects temporary decoy shapes for harmless game puzzles.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_underground"
+  },
+  {
+   "skillId": "moliboo.skill.fuse",
+   "characterId": "moliboo.underground.fuse",
+   "characterName": "Fuse",
+   "family": "underground",
+   "name": "Charge Share",
+   "description": "Supplies temporary energy to non-dangerous in-game gadgets and puzzles.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_underground"
+  },
+  {
+   "skillId": "moliboo.skill.skid",
+   "characterId": "moliboo.underground.skid",
+   "characterName": "Skid",
+   "family": "underground",
+   "name": "Rail Ride",
+   "description": "Traverses designated skate rails and surfaces within the game world.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_underground"
+  },
+  {
+   "skillId": "moliboo.skill.mica",
+   "characterId": "moliboo.underground.mica",
+   "characterName": "Mica",
+   "family": "underground",
+   "name": "Crystal Sense",
+   "description": "Detects hidden mineral patterns and creates clues in underground exploration puzzles.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_underground"
+  },
+  {
+   "skillId": "moliboo.skill.rumble",
+   "characterId": "moliboo.underground.rumble",
+   "characterName": "Rumble",
+   "family": "underground",
+   "name": "Groundbeat",
+   "description": "Creates controlled, harmless tremors that rearrange puzzle platforms.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_underground"
+  },
+  {
+   "skillId": "moliboo.skill.flick",
+   "characterId": "moliboo.underground.flick",
+   "characterName": "Flick",
+   "family": "underground",
+   "name": "Glowtrail",
+   "description": "Leaves short luminous signposts and patterns useful for routes and puzzles.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_underground"
+  },
+  {
+   "skillId": "moliboo.skill.bramble",
+   "characterId": "moliboo.enchanted.bramble",
+   "characterName": "Bramble",
+   "family": "enchanted",
+   "name": "Bramble Bridge",
+   "description": "Grows temporary thorn-vines that safely connect short gaps in a forest puzzle.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_enchanted"
+  },
+  {
+   "skillId": "moliboo.skill.ferni",
+   "characterId": "moliboo.enchanted.ferni",
+   "characterName": "Ferni",
+   "family": "enchanted",
+   "name": "Frond Finder",
+   "description": "Unfurls leaves that reveal hidden markers or lightly covered trail signs.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_enchanted"
+  },
+  {
+   "skillId": "moliboo.skill.truffle",
+   "characterId": "moliboo.enchanted.truffle",
+   "characterName": "Truffle",
+   "family": "enchanted",
+   "name": "Spore Spark",
+   "description": "Releases benign glowing spores that highlight safe mushroom paths in game scenes.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_enchanted"
+  },
+  {
+   "skillId": "moliboo.skill.rootle",
+   "characterId": "moliboo.enchanted.rootle",
+   "characterName": "Rootle",
+   "family": "enchanted",
+   "name": "Root Route",
+   "description": "Grows a simple root-path along designated surfaces for a short duration.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_enchanted"
+  },
+  {
+   "skillId": "moliboo.skill.willow",
+   "characterId": "moliboo.enchanted.willow",
+   "characterName": "Willow",
+   "family": "enchanted",
+   "name": "Willow Whisper",
+   "description": "Reveals hidden lore marks by letting the leaves sway in the direction of an ancient story.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_enchanted"
+  },
+  {
+   "skillId": "moliboo.skill.pollen",
+   "characterId": "moliboo.enchanted.pollen",
+   "characterName": "Pollen",
+   "family": "enchanted",
+   "name": "Seed Sail",
+   "description": "Rides gentle drafts across small gaps and carries lightweight quest objects.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_enchanted"
+  },
+  {
+   "skillId": "moliboo.skill.mallow",
+   "characterId": "moliboo.enchanted.mallow",
+   "characterName": "Mallow",
+   "family": "enchanted",
+   "name": "Bloom Circle",
+   "description": "Makes a small patch of flowers bloom, revealing a friendly cooperative clue.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_enchanted"
+  },
+  {
+   "skillId": "moliboo.skill.acora",
+   "characterId": "moliboo.enchanted.acora",
+   "characterName": "Acora",
+   "family": "enchanted",
+   "name": "Oakbound",
+   "description": "Plants an acorn marker which briefly grows into a stable stepping platform.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_enchanted"
+  },
+  {
+   "skillId": "moliboo.skill.spindle",
+   "characterId": "moliboo.enchanted.spindle",
+   "characterName": "Spindle",
+   "family": "enchanted",
+   "name": "Silkline",
+   "description": "Weaves temporary shimmering lines between approved puzzle anchors.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_enchanted"
+  },
+  {
+   "skillId": "moliboo.skill.glade",
+   "characterId": "moliboo.enchanted.glade",
+   "characterName": "Glade",
+   "family": "enchanted",
+   "name": "Grove Step",
+   "description": "Highlights safe pathways and calm crossing points through forest terrain.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_enchanted"
+  },
+  {
+   "skillId": "moliboo.skill.lichen",
+   "characterId": "moliboo.enchanted.lichen",
+   "characterName": "Lichen",
+   "family": "enchanted",
+   "name": "Shell Shelter",
+   "description": "Becomes a temporary sturdy platform or a safe waiting point in cooperative challenges.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_enchanted"
+  },
+  {
+   "skillId": "moliboo.skill.thimble",
+   "characterId": "moliboo.enchanted.thimble",
+   "characterName": "Thimble",
+   "family": "enchanted",
+   "name": "Nest Nook",
+   "description": "Builds temporary safe rest spots from found leaves during longer explorations.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_enchanted"
+  },
+  {
+   "skillId": "moliboo.skill.wyrmi",
+   "characterId": "moliboo.enchanted.wyrmi",
+   "characterName": "Wyrmi",
+   "family": "enchanted",
+   "name": "Autumn Gust",
+   "description": "Sends a gentle swirl of leaves that activates seasonal switches and uncovers small objects.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_enchanted"
+  },
+  {
+   "skillId": "moliboo.skill.kiko",
+   "characterId": "moliboo.enchanted.kiko",
+   "characterName": "Kiko",
+   "family": "enchanted",
+   "name": "Jewel Glint",
+   "description": "Reflects nearby light beams to reveal hidden carved symbols or collectible clues.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_enchanted"
+  },
+  {
+   "skillId": "moliboo.skill.eldra",
+   "characterId": "moliboo.enchanted.eldra",
+   "characterName": "Eldra",
+   "family": "enchanted",
+   "name": "Ancient Ring",
+   "description": "Reveals fragments of past forest scenes at designated narrative landmarks.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_enchanted"
+  },
+  {
+   "skillId": "moliboo.skill.astra",
+   "characterId": "moliboo.stardust.astra",
+   "characterName": "Astra",
+   "family": "stardust",
+   "name": "Starlane",
+   "description": "Sketches short-lived guiding constellations through fog or darkness.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_stardust"
+  },
+  {
+   "skillId": "moliboo.skill.nebbi",
+   "characterId": "moliboo.stardust.nebbi",
+   "characterName": "Nebbi",
+   "family": "stardust",
+   "name": "Dreamcloud",
+   "description": "Reveals hidden shapes by forming temporary nebula pictures.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_stardust"
+  },
+  {
+   "skillId": "moliboo.skill.quori",
+   "characterId": "moliboo.stardust.quori",
+   "characterName": "Quori",
+   "family": "stardust",
+   "name": "Orbit Step",
+   "description": "Creates brief looping platforms for other characters to hop across.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_stardust"
+  },
+  {
+   "skillId": "moliboo.skill.vesper",
+   "characterId": "moliboo.stardust.vesper",
+   "characterName": "Vesper",
+   "family": "stardust",
+   "name": "Duskstream",
+   "description": "Leaves a temporary illuminated wake through dark terrain.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_stardust"
+  },
+  {
+   "skillId": "moliboo.skill.pulsa",
+   "characterId": "moliboo.stardust.pulsa",
+   "characterName": "Pulsa",
+   "family": "stardust",
+   "name": "Pulse Ring",
+   "description": "Sends rhythmic shockwaves that activate nearby mechanisms.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_stardust"
+  },
+  {
+   "skillId": "moliboo.skill.stellan",
+   "characterId": "moliboo.stardust.stellan",
+   "characterName": "Stellan",
+   "family": "stardust",
+   "name": "Starstep",
+   "description": "Summons brief footholds made from gathered starlight.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_stardust"
+  },
+  {
+   "skillId": "moliboo.skill.cosmi",
+   "characterId": "moliboo.stardust.cosmi",
+   "characterName": "Cosmi",
+   "family": "stardust",
+   "name": "Galaxy Bounce",
+   "description": "Chains safe gravity-defying hops between nearby platforms.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_stardust"
+  },
+  {
+   "skillId": "moliboo.skill.eclipa",
+   "characterId": "moliboo.stardust.eclipa",
+   "characterName": "Eclipa",
+   "family": "stardust",
+   "name": "Eclipse Veil",
+   "description": "Alternates soft light and shadow to expose hidden clues.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_stardust"
+  },
+  {
+   "skillId": "moliboo.skill.meteo",
+   "characterId": "moliboo.stardust.meteo",
+   "characterName": "Meteo",
+   "family": "stardust",
+   "name": "Meteor Dash",
+   "description": "Performs controlled short bursts over marked speed tracks.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_stardust"
+  },
+  {
+   "skillId": "moliboo.skill.asteri",
+   "characterId": "moliboo.stardust.asteri",
+   "characterName": "Asteri",
+   "family": "stardust",
+   "name": "Star Pattern",
+   "description": "Aligns fragments to unlock map puzzles and reflective surfaces.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_stardust"
+  },
+  {
+   "skillId": "moliboo.skill.zenith",
+   "characterId": "moliboo.stardust.zenith",
+   "characterName": "Zenith",
+   "family": "stardust",
+   "name": "Sunward",
+   "description": "Projects a stable field that shields companions from environmental hazards.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_stardust"
+  },
+  {
+   "skillId": "moliboo.skill.liora",
+   "characterId": "moliboo.stardust.liora",
+   "characterName": "Liora",
+   "family": "stardust",
+   "name": "Aurora Bloom",
+   "description": "Paints the sky with changing paths of light and colour.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_stardust"
+  },
+  {
+   "skillId": "moliboo.skill.nocta",
+   "characterId": "moliboo.stardust.nocta",
+   "characterName": "Nocta",
+   "family": "stardust",
+   "name": "Nightweave",
+   "description": "Uncovers hidden constellations as the wings flutter in darkness.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_stardust"
+  },
+  {
+   "skillId": "moliboo.skill.glint",
+   "characterId": "moliboo.stardust.glint",
+   "characterName": "Glint",
+   "family": "stardust",
+   "name": "Sparktrail",
+   "description": "Marks interactive surfaces with temporary glittering dots.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_stardust"
+  },
+  {
+   "skillId": "moliboo.skill.polaris",
+   "characterId": "moliboo.stardust.polaris",
+   "characterName": "Polaris",
+   "family": "stardust",
+   "name": "Northlight",
+   "description": "Reveals a safe direction through unfamiliar cosmic routes.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_stardust"
+  },
+  {
+   "skillId": "moliboo.skill.dozi",
+   "characterId": "moliboo.dreamers.dozi",
+   "characterName": "Dozi",
+   "family": "dreamers",
+   "name": "Drowsy Glow",
+   "description": "Makes a soothing lantern-like light around a safe resting place.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_dreamers"
+  },
+  {
+   "skillId": "moliboo.skill.lulli",
+   "characterId": "moliboo.dreamers.lulli",
+   "characterName": "Lulli",
+   "family": "dreamers",
+   "name": "Humming Haze",
+   "description": "Projects visual music-notes that reveal gentle rhythmic paths.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_dreamers"
+  },
+  {
+   "skillId": "moliboo.skill.moona",
+   "characterId": "moliboo.dreamers.moona",
+   "characterName": "Moona",
+   "family": "dreamers",
+   "name": "Moonpath",
+   "description": "Creates temporary crescent platforms over dream chasms.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_dreamers"
+  },
+  {
+   "skillId": "moliboo.skill.nuzzle",
+   "characterId": "moliboo.dreamers.nuzzle",
+   "characterName": "Nuzzle",
+   "family": "dreamers",
+   "name": "Cloud Cushion",
+   "description": "Provides a temporary soft landing surface for others.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_dreamers"
+  },
+  {
+   "skillId": "moliboo.skill.drifty",
+   "characterId": "moliboo.dreamers.drifty",
+   "characterName": "Drifty",
+   "family": "dreamers",
+   "name": "Blanket Bounce",
+   "description": "Springs between floating quilt pads.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_dreamers"
+  },
+  {
+   "skillId": "moliboo.skill.hushby",
+   "characterId": "moliboo.dreamers.hushby",
+   "characterName": "Hushby",
+   "family": "dreamers",
+   "name": "Woolway",
+   "description": "Spins small cloud stepping stones from loose wool tufts.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_dreamers"
+  },
+  {
+   "skillId": "moliboo.skill.swayla",
+   "characterId": "moliboo.dreamers.swayla",
+   "characterName": "Swayla",
+   "family": "dreamers",
+   "name": "Lantern Trail",
+   "description": "Lights temporary safe waypoints in a dream maze.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_dreamers"
+  },
+  {
+   "skillId": "moliboo.skill.snoomi",
+   "characterId": "moliboo.dreamers.snoomi",
+   "characterName": "Snoomi",
+   "family": "dreamers",
+   "name": "Cozy Pause",
+   "description": "Briefly settles moving platforms in gentle puzzle scenes.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_dreamers"
+  },
+  {
+   "skillId": "moliboo.skill.velvi",
+   "characterId": "moliboo.dreamers.velvi",
+   "characterName": "Velvi",
+   "family": "dreamers",
+   "name": "Dreamweave",
+   "description": "Reveals hidden pathways by tracing light across wing patterns.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_dreamers"
+  },
+  {
+   "skillId": "moliboo.skill.minku",
+   "characterId": "moliboo.dreamers.minku",
+   "characterName": "Minku",
+   "family": "dreamers",
+   "name": "Whisperwing",
+   "description": "Creates brief silent wind routes through dream caves.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_dreamers"
+  },
+  {
+   "skillId": "moliboo.skill.tufti",
+   "characterId": "moliboo.dreamers.tufti",
+   "characterName": "Tufti",
+   "family": "dreamers",
+   "name": "Soft Step",
+   "description": "Moves across delicate dream surfaces without disturbing them.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_dreamers"
+  },
+  {
+   "skillId": "moliboo.skill.winkle",
+   "characterId": "moliboo.dreamers.winkle",
+   "characterName": "Winkle",
+   "family": "dreamers",
+   "name": "Dream Current",
+   "description": "Carries friends along a slow safe arc of floating starlight.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_dreamers"
+  },
+  {
+   "skillId": "moliboo.skill.sonata",
+   "characterId": "moliboo.dreamers.sonata",
+   "characterName": "Sonata",
+   "family": "dreamers",
+   "name": "Melody Stair",
+   "description": "Builds a temporary note-step pattern in rhythmic sequences.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_dreamers"
+  },
+  {
+   "skillId": "moliboo.skill.comfi",
+   "characterId": "moliboo.dreamers.comfi",
+   "characterName": "Comfi",
+   "family": "dreamers",
+   "name": "Blanket Fort",
+   "description": "Creates a short-lived safe space for cooperative dream puzzles.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_dreamers"
+  },
+  {
+   "skillId": "moliboo.skill.somna",
+   "characterId": "moliboo.dreamers.somna",
+   "characterName": "Somna",
+   "family": "dreamers",
+   "name": "Dream Atlas",
+   "description": "Briefly connects scattered dream paths into a navigable constellation.",
+   "cooldownSeconds": 14400,
+   "grantsBuffId": "moliboo.buff.signature_dreamers"
+  }
+ ],
+ "buffs": [
+  {
+   "buffId": "moliboo.buff.well_fed",
+   "name": "Well Fed",
+   "description": "Your Moliboo is content after a snack.",
+   "durationSeconds": 10800,
+   "stackRule": "refresh",
+   "maxStacks": 1,
+   "exclusiveGroup": null,
+   "effects": {
+    "fx": "cheek_glow",
+    "friendshipXpBonusPct": 10,
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.playful",
+   "name": "Playful",
+   "description": "Bouncy and ready for mini-games.",
+   "durationSeconds": 7200,
+   "stackRule": "stack",
+   "maxStacks": 3,
+   "exclusiveGroup": null,
+   "effects": {
+    "fx": "bounce_sparkle",
+    "friendshipXpBonusPct": 5,
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.well_rested",
+   "name": "Well Rested",
+   "description": "A good nap; calm idle animations.",
+   "durationSeconds": 21600,
+   "stackRule": "refresh",
+   "maxStacks": 1,
+   "exclusiveGroup": "mood",
+   "effects": {
+    "fx": "calm_idle",
+    "friendshipXpBonusPct": 10,
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.fresh_groomed",
+   "name": "Freshly Groomed",
+   "description": "Shiny and fluffy.",
+   "durationSeconds": 14400,
+   "stackRule": "refresh",
+   "maxStacks": 1,
+   "exclusiveGroup": null,
+   "effects": {
+    "fx": "shine",
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.chatty",
+   "name": "Chatty",
+   "description": "Enjoyed a chat with you.",
+   "durationSeconds": 7200,
+   "stackRule": "stack",
+   "maxStacks": 2,
+   "exclusiveGroup": "mood",
+   "effects": {
+    "fx": "speech_hearts",
+    "friendshipXpBonusPct": 5,
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.signature_angels",
+   "name": "Angels Signature Glow",
+   "description": "Afterglow from a signature skill.",
+   "durationSeconds": 2700,
+   "stackRule": "refresh",
+   "maxStacks": 1,
+   "exclusiveGroup": "signature",
+   "effects": {
+    "fx": "signature_angels",
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.signature_underground",
+   "name": "Underground Signature Glow",
+   "description": "Afterglow from a signature skill.",
+   "durationSeconds": 2700,
+   "stackRule": "refresh",
+   "maxStacks": 1,
+   "exclusiveGroup": "signature",
+   "effects": {
+    "fx": "signature_underground",
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.signature_enchanted",
+   "name": "Enchanted Signature Glow",
+   "description": "Afterglow from a signature skill.",
+   "durationSeconds": 2700,
+   "stackRule": "refresh",
+   "maxStacks": 1,
+   "exclusiveGroup": "signature",
+   "effects": {
+    "fx": "signature_enchanted",
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.signature_stardust",
+   "name": "Stardust Signature Glow",
+   "description": "Afterglow from a signature skill.",
+   "durationSeconds": 2700,
+   "stackRule": "refresh",
+   "maxStacks": 1,
+   "exclusiveGroup": "signature",
+   "effects": {
+    "fx": "signature_stardust",
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.signature_dreamers",
+   "name": "Dreamers Signature Glow",
+   "description": "Afterglow from a signature skill.",
+   "durationSeconds": 2700,
+   "stackRule": "refresh",
+   "maxStacks": 1,
+   "exclusiveGroup": "signature",
+   "effects": {
+    "fx": "signature_dreamers",
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.set_halo_choir",
+   "name": "Halo Choir set glow",
+   "description": "Active while the complete set is equipped.",
+   "durationSeconds": null,
+   "stackRule": "while_equipped",
+   "maxStacks": 1,
+   "exclusiveGroup": "set",
+   "effects": {
+    "fx": "set_halo_choir",
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.set_sunrise_herald",
+   "name": "Sunrise Herald set glow",
+   "description": "Active while the complete set is equipped.",
+   "durationSeconds": null,
+   "stackRule": "while_equipped",
+   "maxStacks": 1,
+   "exclusiveGroup": "set",
+   "effects": {
+    "fx": "set_sunrise_herald",
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.set_celestial_guardian",
+   "name": "Celestial Guardian set glow",
+   "description": "Active while the complete set is equipped.",
+   "durationSeconds": null,
+   "stackRule": "while_equipped",
+   "maxStacks": 1,
+   "exclusiveGroup": "set",
+   "effects": {
+    "fx": "set_celestial_guardian",
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.set_neon_skater",
+   "name": "Neon Skater set glow",
+   "description": "Active while the complete set is equipped.",
+   "durationSeconds": null,
+   "stackRule": "while_equipped",
+   "maxStacks": 1,
+   "exclusiveGroup": "set",
+   "effects": {
+    "fx": "set_neon_skater",
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.set_beat_crew",
+   "name": "Beat Crew set glow",
+   "description": "Active while the complete set is equipped.",
+   "durationSeconds": null,
+   "stackRule": "while_equipped",
+   "maxStacks": 1,
+   "exclusiveGroup": "set",
+   "effects": {
+    "fx": "set_beat_crew",
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.set_holo_runner",
+   "name": "Holo Runner set glow",
+   "description": "Active while the complete set is equipped.",
+   "durationSeconds": null,
+   "stackRule": "while_equipped",
+   "maxStacks": 1,
+   "exclusiveGroup": "set",
+   "effects": {
+    "fx": "set_holo_runner",
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.set_mossy_ranger",
+   "name": "Mossy Ranger set glow",
+   "description": "Active while the complete set is equipped.",
+   "durationSeconds": null,
+   "stackRule": "while_equipped",
+   "maxStacks": 1,
+   "exclusiveGroup": "set",
+   "effects": {
+    "fx": "set_mossy_ranger",
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.set_berry_bard",
+   "name": "Berry Bard set glow",
+   "description": "Active while the complete set is equipped.",
+   "durationSeconds": null,
+   "stackRule": "while_equipped",
+   "maxStacks": 1,
+   "exclusiveGroup": "set",
+   "effects": {
+    "fx": "set_berry_bard",
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.set_elder_grove",
+   "name": "Elder Grove set glow",
+   "description": "Active while the complete set is equipped.",
+   "durationSeconds": null,
+   "stackRule": "while_equipped",
+   "maxStacks": 1,
+   "exclusiveGroup": "set",
+   "effects": {
+    "fx": "set_elder_grove",
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.set_comet_cadet",
+   "name": "Comet Cadet set glow",
+   "description": "Active while the complete set is equipped.",
+   "durationSeconds": null,
+   "stackRule": "while_equipped",
+   "maxStacks": 1,
+   "exclusiveGroup": "set",
+   "effects": {
+    "fx": "set_comet_cadet",
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.set_constellation_scout",
+   "name": "Constellation Scout set glow",
+   "description": "Active while the complete set is equipped.",
+   "durationSeconds": null,
+   "stackRule": "while_equipped",
+   "maxStacks": 1,
+   "exclusiveGroup": "set",
+   "effects": {
+    "fx": "set_constellation_scout",
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.set_aurora_navigator",
+   "name": "Aurora Navigator set glow",
+   "description": "Active while the complete set is equipped.",
+   "durationSeconds": null,
+   "stackRule": "while_equipped",
+   "maxStacks": 1,
+   "exclusiveGroup": "set",
+   "effects": {
+    "fx": "set_aurora_navigator",
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.set_sleepy_star",
+   "name": "Sleepy Star set glow",
+   "description": "Active while the complete set is equipped.",
+   "durationSeconds": null,
+   "stackRule": "while_equipped",
+   "maxStacks": 1,
+   "exclusiveGroup": "set",
+   "effects": {
+    "fx": "set_sleepy_star",
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.set_lullaby_lantern",
+   "name": "Lullaby Lantern set glow",
+   "description": "Active while the complete set is equipped.",
+   "durationSeconds": null,
+   "stackRule": "while_equipped",
+   "maxStacks": 1,
+   "exclusiveGroup": "set",
+   "effects": {
+    "fx": "set_lullaby_lantern",
+    "capPct": 25
+   }
+  },
+  {
+   "buffId": "moliboo.buff.set_dream_keeper",
+   "name": "Dream Keeper set glow",
+   "description": "Active while the complete set is equipped.",
+   "durationSeconds": null,
+   "stackRule": "while_equipped",
+   "maxStacks": 1,
+   "exclusiveGroup": "set",
+   "effects": {
+    "fx": "set_dream_keeper",
+    "capPct": 25
+   }
+  }
+ ],
+ "quests": [
+  {
+   "questId": "moliboo.quest.daily_care_trio",
+   "kind": "daily",
+   "title": "Care trio",
+   "description": "Do any 3 care actions with any Moliboo.",
+   "eventType": "care",
+   "target": 3,
+   "reward": {
+    "type": "friendship_xp",
+    "amount": 30
+   }
+  },
+  {
+   "questId": "moliboo.quest.daily_signature",
+   "kind": "daily",
+   "title": "Show-off",
+   "description": "Use one signature skill.",
+   "eventType": "skill_use",
+   "target": 1,
+   "reward": {
+    "type": "friendship_xp",
+    "amount": 20
+   }
+  },
+  {
+   "questId": "moliboo.quest.daily_dressup",
+   "kind": "daily",
+   "title": "Dress-up",
+   "description": "Equip an outfit or change one item.",
+   "eventType": "equip",
+   "target": 1,
+   "reward": {
+    "type": "friendship_xp",
+    "amount": 15
+   }
+  },
+  {
+   "questId": "moliboo.quest.weekly_caretaker",
+   "kind": "weekly",
+   "title": "Weekly caretaker",
+   "description": "Do 15 care actions this week (no streak needed).",
+   "eventType": "care",
+   "target": 15,
+   "reward": {
+    "type": "surprise_item",
+    "pool": [
+     "moliboo.item.sunray_crown",
+     "moliboo.item.golden_sweep",
+     "moliboo.item.dawn_cape_top",
+     "moliboo.item.little_trumpet",
+     "moliboo.item.sunbeam_aura",
+     "moliboo.item.studio_headphones",
+     "moliboo.item.pixel_fringe",
+     "moliboo.item.bass_tee",
+     "moliboo.item.visor_shades",
+     "moliboo.item.sound_rings",
+     "moliboo.item.bramble_beret",
+     "moliboo.item.berry_buns",
+     "moliboo.item.petal_blouse",
+     "moliboo.item.reed_flute",
+     "moliboo.item.petal_drift",
+     "moliboo.item.explorer_helmet",
+     "moliboo.item.nebula_tuft",
+     "moliboo.item.star_map_poncho",
+     "moliboo.item.pocket_telescope",
+     "moliboo.item.star_trail",
+     "moliboo.item.moon_bonnet",
+     "moliboo.item.wavy_fringe",
+     "moliboo.item.quilt_cape",
+     "moliboo.item.dream_lantern",
+     "moliboo.item.lullaby_notes",
+     "moliboo.item.leaf_skirt",
+     "moliboo.item.cosy_leggings"
+    ],
+    "disclosed": true
+   }
+  },
+  {
+   "questId": "moliboo.quest.ach_first_outfit",
+   "kind": "achievement",
+   "title": "First Outfit",
+   "description": "Save your first own outfit.",
+   "eventType": "outfit_saved",
+   "target": 1,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.cloud_curls"
+   }
+  },
+  {
+   "questId": "moliboo.quest.ach_stylist",
+   "kind": "achievement",
+   "title": "Stylist",
+   "description": "Save 5 outfits.",
+   "eventType": "outfit_saved",
+   "target": 5,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.petal_drift"
+   }
+  },
+  {
+   "questId": "moliboo.quest.ach_skill_explorer",
+   "kind": "achievement",
+   "title": "Skill explorer",
+   "description": "Use 10 signature skills.",
+   "eventType": "skill_use",
+   "target": 10,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.star_trail"
+   }
+  },
+  {
+   "questId": "moliboo.quest.ach_caretaker_50",
+   "kind": "achievement",
+   "title": "Devoted friend",
+   "description": "Do 50 care actions in total.",
+   "eventType": "care",
+   "target": 50,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.lullaby_notes"
+   }
+  },
+  {
+   "questId": "moliboo.quest.ach_mini_games",
+   "kind": "achievement",
+   "title": "Mini-game fan",
+   "description": "Finish 5 mini-activities (Bubble Pop, Star Catch, Memory Match).",
+   "eventType": "activity_complete",
+   "target": 5,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.sound_rings"
+   }
+  },
+  {
+   "questId": "moliboo.quest.daily_activity",
+   "kind": "daily",
+   "title": "Play time",
+   "description": "Finish one mini-activity.",
+   "eventType": "activity_complete",
+   "target": 1,
+   "reward": {
+    "type": "friendship_xp",
+    "amount": 20
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_sunray_crown",
+   "kind": "collection",
+   "title": "Unlock Sunray Crown",
+   "description": "Do 8 care actions with a Angels Moliboo.",
+   "eventType": "care",
+   "familyFilter": "angels",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.sunray_crown"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_golden_sweep",
+   "kind": "collection",
+   "title": "Unlock Golden Sweep",
+   "description": "Do 8 care actions with a Angels Moliboo.",
+   "eventType": "care",
+   "familyFilter": "angels",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.golden_sweep"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_dawn_cape_top",
+   "kind": "collection",
+   "title": "Unlock Dawn Cape Top",
+   "description": "Do 8 care actions with a Angels Moliboo.",
+   "eventType": "care",
+   "familyFilter": "angels",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.dawn_cape_top"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_little_trumpet",
+   "kind": "collection",
+   "title": "Unlock Little Trumpet",
+   "description": "Do 8 care actions with a Angels Moliboo.",
+   "eventType": "care",
+   "familyFilter": "angels",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.little_trumpet"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_sunbeam_aura",
+   "kind": "collection",
+   "title": "Unlock Sunbeam Aura",
+   "description": "Do 8 care actions with a Angels Moliboo.",
+   "eventType": "care",
+   "familyFilter": "angels",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.sunbeam_aura"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_studio_headphones",
+   "kind": "collection",
+   "title": "Unlock Studio Headphones",
+   "description": "Do 8 care actions with a Underground Moliboo.",
+   "eventType": "care",
+   "familyFilter": "underground",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.studio_headphones"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_pixel_fringe",
+   "kind": "collection",
+   "title": "Unlock Pixel Fringe",
+   "description": "Do 8 care actions with a Underground Moliboo.",
+   "eventType": "care",
+   "familyFilter": "underground",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.pixel_fringe"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_bass_tee",
+   "kind": "collection",
+   "title": "Unlock Bass Tee",
+   "description": "Do 8 care actions with a Underground Moliboo.",
+   "eventType": "care",
+   "familyFilter": "underground",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.bass_tee"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_visor_shades",
+   "kind": "collection",
+   "title": "Unlock Visor Shades",
+   "description": "Do 8 care actions with a Underground Moliboo.",
+   "eventType": "care",
+   "familyFilter": "underground",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.visor_shades"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_bramble_beret",
+   "kind": "collection",
+   "title": "Unlock Bramble Beret",
+   "description": "Do 8 care actions with a Enchanted Moliboo.",
+   "eventType": "care",
+   "familyFilter": "enchanted",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.bramble_beret"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_berry_buns",
+   "kind": "collection",
+   "title": "Unlock Berry Buns",
+   "description": "Do 8 care actions with a Enchanted Moliboo.",
+   "eventType": "care",
+   "familyFilter": "enchanted",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.berry_buns"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_petal_blouse",
+   "kind": "collection",
+   "title": "Unlock Petal Blouse",
+   "description": "Do 8 care actions with a Enchanted Moliboo.",
+   "eventType": "care",
+   "familyFilter": "enchanted",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.petal_blouse"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_reed_flute",
+   "kind": "collection",
+   "title": "Unlock Reed Flute",
+   "description": "Do 8 care actions with a Enchanted Moliboo.",
+   "eventType": "care",
+   "familyFilter": "enchanted",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.reed_flute"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_explorer_helmet",
+   "kind": "collection",
+   "title": "Unlock Explorer Helmet",
+   "description": "Do 8 care actions with a Stardust Moliboo.",
+   "eventType": "care",
+   "familyFilter": "stardust",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.explorer_helmet"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_nebula_tuft",
+   "kind": "collection",
+   "title": "Unlock Nebula Tuft",
+   "description": "Do 8 care actions with a Stardust Moliboo.",
+   "eventType": "care",
+   "familyFilter": "stardust",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.nebula_tuft"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_star_map_poncho",
+   "kind": "collection",
+   "title": "Unlock Star Map Poncho",
+   "description": "Do 8 care actions with a Stardust Moliboo.",
+   "eventType": "care",
+   "familyFilter": "stardust",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.star_map_poncho"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_pocket_telescope",
+   "kind": "collection",
+   "title": "Unlock Pocket Telescope",
+   "description": "Do 8 care actions with a Stardust Moliboo.",
+   "eventType": "care",
+   "familyFilter": "stardust",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.pocket_telescope"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_moon_bonnet",
+   "kind": "collection",
+   "title": "Unlock Moon Bonnet",
+   "description": "Do 8 care actions with a Dreamers Moliboo.",
+   "eventType": "care",
+   "familyFilter": "dreamers",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.moon_bonnet"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_wavy_fringe",
+   "kind": "collection",
+   "title": "Unlock Wavy Fringe",
+   "description": "Do 8 care actions with a Dreamers Moliboo.",
+   "eventType": "care",
+   "familyFilter": "dreamers",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.wavy_fringe"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_quilt_cape",
+   "kind": "collection",
+   "title": "Unlock Quilt Cape",
+   "description": "Do 8 care actions with a Dreamers Moliboo.",
+   "eventType": "care",
+   "familyFilter": "dreamers",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.quilt_cape"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_dream_lantern",
+   "kind": "collection",
+   "title": "Unlock Dream Lantern",
+   "description": "Do 8 care actions with a Dreamers Moliboo.",
+   "eventType": "care",
+   "familyFilter": "dreamers",
+   "target": 8,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.dream_lantern"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_leaf_skirt",
+   "kind": "collection",
+   "title": "Unlock Leaf Skirt",
+   "description": "Finish 3 mini-activities.",
+   "eventType": "activity_complete",
+   "target": 3,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.leaf_skirt"
+   }
+  },
+  {
+   "questId": "moliboo.quest.collect_cosy_leggings",
+   "kind": "collection",
+   "title": "Unlock Cosy Leggings",
+   "description": "Finish 3 mini-activities.",
+   "eventType": "activity_complete",
+   "target": 3,
+   "reward": {
+    "type": "item",
+    "itemId": "moliboo.item.cosy_leggings"
+   }
+  }
+ ],
+ "careActions": {
+  "feed": "moliboo.buff.well_fed",
+  "play": "moliboo.buff.playful",
+  "rest": "moliboo.buff.well_rested",
+  "groom": "moliboo.buff.fresh_groomed",
+  "talk": "moliboo.buff.chatty"
+ },
+ "activities": [
+  "bubble_pop",
+  "star_catch",
+  "memory_match"
+ ]
+}
