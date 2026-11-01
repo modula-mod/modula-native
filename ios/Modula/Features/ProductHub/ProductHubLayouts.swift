@@ -130,32 +130,52 @@ struct ProductHubVariantView: View {
     }
 
     @ViewBuilder private var story: some View {
-        if let featured = ProductHubCatalogue.featured(in: scoped, installed: installedIDs) {
-            ProductHero(product: featured) { onOpen(featured) }
-        }
-        if !installed.isEmpty {
-            sectionHeader("Installed on your account", action: "Manage all", handler: onUpdates)
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                ForEach(installed) { product in
-                    ProductHubInstalledTile(product: product, installed: true) { onOpen(product) }
-                }
-            }
-            updatesButton
-        }
-        purposeGrid
-        categorySprout
-        if !discover.isEmpty {
-            sectionHeader("Discover next")
+        ProductHubFeaturedCarousel(products: featuredRail, installedIDs: installedIDs, onOpen: onOpen)
+        ProductHubChipRow(purposes: purposes, total: products.count, selected: category, onCategory: onCategory)
+        if !discover.isEmpty || !installed.isEmpty {
+            sectionHeader("Recommended for you")
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
-                    ForEach(discover.prefix(8)) { product in
-                        ProductHubDiscoverCard(product: product, installed: false) { onOpen(product) }
-                            .frame(width: 168)
+                    ForEach((discover + installed).prefix(10)) { product in
+                        ProductHubRecommendedCard(product: product, installed: installedIDs.contains(product.id)) { onOpen(product) }
                     }
                 }
             }
             .scrollClipDisabled()
         }
+        if !installed.isEmpty {
+            HStack(spacing: 8) {
+                Text("Installed").font(.title3.bold()).accessibilityAddTraits(.isHeader)
+                Text("\(installed.count)")
+                    .font(.caption.weight(.bold).monospacedDigit())
+                    .padding(.horizontal, 8).frame(height: 22)
+                    .modulaGlass(in: Capsule(), interactive: false)
+                Spacer()
+                Button(action: onUpdates) {
+                    Label("Manage", systemImage: "slider.horizontal.3")
+                        .font(.footnote.weight(.semibold))
+                        .padding(.horizontal, 12).frame(height: 34)
+                        .frame(minHeight: 44)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .modulaGlass(in: Capsule(), interactive: true)
+            }
+            VStack(spacing: 10) {
+                ForEach(installed) { product in
+                    ProductHubInstalledRow(product: product, version: installations[product.id]?.version ?? product.latestVersion) { onOpen(product) }
+                }
+            }
+            updatesButton
+        }
+        categorySprout
+    }
+
+    private var featuredRail: [CatalogueProduct] {
+        var out: [CatalogueProduct] = []
+        if let f = ProductHubCatalogue.featured(in: scoped, installed: installedIDs) { out.append(f) }
+        for p in scoped where !out.contains(where: { $0.id == p.id }) && out.count < 5 { out.append(p) }
+        return out
     }
 
     @ViewBuilder private var list: some View {
@@ -456,5 +476,186 @@ struct ProductHubVersionRow: View {
             return "\(publisher) · \(latest)"
         }
         return publisher
+    }
+}
+
+
+// MARK: - Reference-style Product Hub pieces (real registry + installation data only)
+
+struct ProductHubFeaturedCarousel: View {
+    let products: [CatalogueProduct]
+    let installedIDs: Set<String>
+    var onOpen: (CatalogueProduct) -> Void
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var page = 0
+
+    var body: some View {
+        if !products.isEmpty {
+            VStack(spacing: 8) {
+                TabView(selection: $page) {
+                    ForEach(Array(products.enumerated()), id: \.element.id) { index, product in
+                        card(product).tag(index).padding(.horizontal, 2)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .frame(height: 220)
+                HStack(spacing: 6) {
+                    ForEach(products.indices, id: \.self) { i in
+                        Capsule().fill(i == page ? app.appearance.liveAccent : Color.primary.opacity(0.18))
+                            .frame(width: i == page ? 18 : 6, height: 6)
+                            .animation(reduceMotion ? nil : .snappy, value: page)
+                    }
+                }
+                .accessibilityHidden(true)
+            }
+        }
+    }
+
+    private func card(_ product: CatalogueProduct) -> some View {
+        Button { onOpen(product); HapticEngine.shared.play(.navigation) } label: {
+            ZStack(alignment: .leading) {
+                ProductBackdrop(product: product)
+                LinearGradient(colors: [.black.opacity(0.6), .black.opacity(0.1)], startPoint: .leading, endPoint: .trailing)
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(installedIDs.contains(product.id) ? "INSTALLED" : "FEATURED")
+                            .font(.caption2.weight(.bold)).foregroundStyle(.white)
+                            .padding(.horizontal, 10).frame(height: 24)
+                            .modulaGlass(in: Capsule(), interactive: false)
+                        Text(product.name).font(.system(size: 30, weight: .bold, design: .rounded)).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.6)
+                        Text(product.description).font(.subheadline).foregroundStyle(.white.opacity(0.88)).lineLimit(3)
+                        HStack(spacing: 8) { Text("View module"); Image(systemName: "arrow.right") }
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.black.opacity(0.85))
+                            .padding(.horizontal, 16).frame(height: 40)
+                            .background(.white, in: Capsule())
+                    }
+                    Spacer(minLength: 8)
+                    ProductArtwork(product: product, size: 96)
+                        .shadow(color: .black.opacity(0.3), radius: 12, y: 6)
+                }
+                .padding(20)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(.white.opacity(0.25), lineWidth: 0.8))
+        }
+        .buttonStyle(.modulaPressTilt)
+        .accessibilityLabel("Featured: \(product.name)")
+    }
+}
+
+struct ProductHubChipRow: View {
+    let purposes: [ProductHubPurpose]
+    let total: Int
+    let selected: String?
+    var onCategory: (String) -> Void
+    @Environment(AppEnvironment.self) private var app
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                chip(title: "All", symbol: "square.grid.2x2", count: total, on: selected == nil) {
+                    if let selected { onCategory(selected) }
+                }
+                ForEach(purposes) { p in
+                    chip(title: p.title, symbol: p.symbol, count: nil, on: selected == p.kind) { onCategory(p.kind) }
+                }
+            }
+        }
+        .scrollClipDisabled()
+    }
+    private func chip(title: String, symbol: String, count: Int?, on: Bool, action: @escaping () -> Void) -> some View {
+        Button { action(); HapticEngine.shared.play(.selection) } label: {
+            HStack(spacing: 6) {
+                Image(systemName: symbol)
+                Text(title)
+                if let count {
+                    Text("\(count)").font(.caption2.weight(.bold).monospacedDigit())
+                        .padding(.horizontal, 6).frame(height: 18)
+                        .background((on ? Color.white : Color.primary).opacity(0.2), in: Capsule())
+                }
+            }
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(on ? Color.white : Color.primary)
+            .padding(.horizontal, 14).frame(height: 38)
+            .background(on ? app.appearance.liveAccent : .clear, in: Capsule())
+            .modulaGlass(in: Capsule(), interactive: true)
+            .frame(minHeight: 44)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+}
+
+struct ProductHubRecommendedCard: View {
+    let product: CatalogueProduct
+    let installed: Bool
+    var action: () -> Void
+    @Environment(AppEnvironment.self) private var app
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 6) {
+                ProductArtwork(product: product, size: 72)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(app.appearance.liveAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                Text(product.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                Text(product.productKind.replacingOccurrences(of: "-", with: " ").capitalized).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Group {
+                    if installed {
+                        Label("Installed", systemImage: "checkmark.circle.fill")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.green)
+                            .frame(maxWidth: .infinity).frame(height: 30)
+                            .background(Color.green.opacity(0.12), in: Capsule())
+                    } else {
+                        Text(product.installable ? "Install" : "Soon")
+                            .font(.caption.weight(.bold))
+                            .frame(maxWidth: .infinity).frame(height: 30)
+                            .modulaAccentCTA()
+                            .disabled(!product.installable)
+                    }
+                }
+                .padding(.top, 2)
+            }
+            .padding(10)
+            .frame(width: 150)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: true)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(product.name), \(installed ? "installed" : "not installed")")
+    }
+}
+
+struct ProductHubInstalledRow: View {
+    let product: CatalogueProduct
+    let version: String?
+    var action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                ProductArtwork(product: product, size: 56)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(product.name).font(.headline).lineLimit(1)
+                    Text(product.description).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.seal.fill").font(.caption2)
+                        Text([product.publisherName, version.map { "v\($0)" }].compactMap { $0 }.joined(separator: " · "))
+                    }
+                    .font(.caption2).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 6)
+                Text("Open")
+                    .font(.caption.weight(.bold))
+                    .padding(.horizontal, 14).frame(height: 32)
+                    .modulaAccentCTA()
+            }
+            .padding(12)
+            .frame(minHeight: 80)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(product.name), open")
     }
 }
