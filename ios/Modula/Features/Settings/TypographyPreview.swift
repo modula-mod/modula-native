@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum FontSampleKind: String, CaseIterable, Identifiable, EdgeLoopItem {
+enum FontSampleKind: String, CaseIterable, Identifiable, Hashable {
     case letters
     case numbers
     case body
@@ -35,7 +35,7 @@ struct TypographyPreviewCard: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        HStack(alignment: .center, spacing: 8) {
+        VStack(alignment: .leading, spacing: ModulaSpacing.sm) {
             VStack(alignment: .leading, spacing: 10) {
                 Text(sampleTitle)
                     .font(.system(size: 42, weight: .bold, design: design))
@@ -52,17 +52,17 @@ struct TypographyPreviewCard: View {
                     .foregroundStyle(.tertiary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.trailing, 8)
 
-            ContainedLoopPicker(
-                items: Array(FontSampleKind.allCases),
-                selection: Binding(
-                    get: { sample.id },
-                    set: { sample = FontSampleKind(rawValue: $0) ?? .letters }
-                ),
-                behavior: .bounded
-            )
-            .frame(width: 52, height: 168)
+            // Standard segmented control (replaces the retired ContainedLoopPicker / EdgeLoop reel).
+            Picker("Sample", selection: $sample) {
+                ForEach(FontSampleKind.allCases) { kind in
+                    Label(kind.label, systemImage: kind.icon)
+                        .labelStyle(.titleOnly)
+                        .tag(kind)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("typography.sample.picker")
         }
         // Grow with the sample instead of clipping the last line at larger text sizes.
         .frame(minHeight: 176)

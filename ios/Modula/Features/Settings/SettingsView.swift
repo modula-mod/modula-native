@@ -1004,9 +1004,6 @@ struct AppearanceSettingsView: View {
             AppearanceMenuRow(title: "Icon Style", symbol: "circle.grid.cross", selection: $store.iconStyle, options: AppearanceStore.IconStyle.allCases, label: display)
             AppearanceMenuRow(title: "Interface Shape", symbol: "rectangle.roundedtop", selection: $store.interfaceShape, options: AppearanceStore.InterfaceShape.allCases, label: display)
             AppearanceMenuRow(title: "Module Branding", symbol: "paintbrush", selection: $store.moduleBranding, options: AppearanceStore.ModuleBranding.allCases, label: display)
-            SettingsNavigationRow(title: "Edge Picker", subtitle: "Position, size, side, glass", symbol: "rectangle.trailinghalf.inset.filled") {
-                app.navigation.open(.settings(.appearance(.edgePicker)))
-            }
         }
     }
 
@@ -1099,10 +1096,6 @@ struct AppearanceSettingsView: View {
                         AppearanceMenuRow(title: "Interface Shape", symbol: "rectangle.roundedtop", selection: $store.interfaceShape, options: AppearanceStore.InterfaceShape.allCases, label: display)
                         SettingsDivider()
                         AppearanceMenuRow(title: "Module Branding", symbol: "paintbrush", selection: $store.moduleBranding, options: AppearanceStore.ModuleBranding.allCases, label: display)
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Edge Picker", subtitle: "Position, size, side, glass", symbol: "rectangle.trailinghalf.inset.filled") {
-                            app.navigation.open(.settings(.appearance(.edgePicker)))
-                        }
                     }
                 }
                 SettingsGroup(title: "Preview & Defaults") {
@@ -1361,7 +1354,6 @@ struct AppearancePreviewScreen: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                ModulaSection(title: "Edge Picker") { HStack { Spacer(); ShellEdgeLoop(route: .home(.following)) } }
                 ModulaSection(title: "Module sample") {
                     ModulaCard {
                         VStack(alignment: .leading, spacing: 10) {
@@ -1537,28 +1529,13 @@ struct ComponentCatalogView: View {
                 }
                 catalog("Global sidebar") {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Leading overlay for library and account destinations. The five root tabs stay in the tab bar; Edge Picker stays on the content edge.")
+                        Text("Leading overlay for library and account destinations. The five root tabs stay in the tab bar; route contexts live in the tab accessory.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                         ShellSidebarTrigger()
                         ForEach(ShellSidebarDestination.allCases) { item in
                             ModulaListRow(title: item.title, subtitle: item.subtitle, symbol: item.symbol)
                         }
-                    }
-                }
-                catalog("Edge Picker") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Canonical carved-edge channel — orange-reference geometry. Outer silhouette stays fixed; the selection aperture expands vertically with whole-phrase rotated labels.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        HStack {
-                            Spacer(minLength: 0)
-                            ShellEdgeLoop(route: .home(.following))
-                                .frame(height: 280)
-                        }
-                        Text("Tune Position / Size / Side / Labels / Glass under Appearance → Edge Picker. ContainedLoopPicker (Typography) does not use the shell carve.")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
                     }
                 }
                 catalog("Messages, stories, profile accent") {

@@ -482,7 +482,6 @@ struct HomeView: View {
                         }
                     ))
                     .padding(.horizontal, ModulaLayout.postBleedGutter)
-                    .modulaEdgeFlow()
                     .modulaScrollReveal()
                     .onScrollVisibilityChange(threshold: 0.55) { visible in
                         if visible, ambient.postID != resolved.id { ambient.postID = resolved.id }
