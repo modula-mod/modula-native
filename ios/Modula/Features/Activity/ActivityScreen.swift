@@ -61,11 +61,18 @@ struct ActivityScreen: View {
         } description: {
             Text("Mentions, reactions, and requests appear here after you sign in.")
         } actions: {
-            Button("Sign In") {
+            Button {
                 app.navigation.requestAuthentication(returningTo: .activity(mode))
                 HapticEngine.shared.play(.navigation)
+            } label: {
+                Text("Sign In")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, GeneratedDesignContract.Spacing.lg)
+                    .frame(minHeight: GeneratedDesignContract.Layout.minimumTouchTarget)
+                    .contentShape(Capsule())
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
+            .modulaAccentCTA()
             .accessibilityIdentifier("activity.sign-in")
         }
         .padding(.horizontal, ModulaLayout.contentInset)

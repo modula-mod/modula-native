@@ -161,16 +161,30 @@ struct ActivityRequestActions: View {
     let onDecline: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
-            Button("Accept", action: onAccept)
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .disabled(busy)
-                .accessibilityIdentifier("activity.request.accept")
-            Button("Decline", role: .destructive, action: onDecline)
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .disabled(busy)
+        HStack(spacing: GeneratedDesignContract.Spacing.xs) {
+            Button(action: onAccept) {
+                Text("Accept")
+                    .font(.footnote.weight(.semibold))
+                    .padding(.horizontal, GeneratedDesignContract.Spacing.md)
+                    .frame(minHeight: GeneratedDesignContract.Layout.minimumTouchTarget)
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+            .modulaAccentCTA()
+            .disabled(busy)
+            .accessibilityIdentifier("activity.request.accept")
+            // Secondary action stays quiet (glass, no fill) so Accept is the one obvious choice.
+            Button(role: .destructive, action: onDecline) {
+                Text("Decline")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, GeneratedDesignContract.Spacing.md)
+                    .frame(minHeight: GeneratedDesignContract.Layout.minimumTouchTarget)
+                    .contentShape(Capsule())
+                    .modulaGlass(in: Capsule(), interactive: true)
+            }
+            .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+            .disabled(busy)
                 .accessibilityIdentifier("activity.request.decline")
         }
     }
