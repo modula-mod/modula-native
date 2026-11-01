@@ -244,7 +244,8 @@ struct ImmersivePostCard: View {
 
     /// Native aspect, clamped so photos fill the card: 4:5 tallest, 1.2:1 widest (rail always fits).
     private func stageRatio(_ attachment: ModulaAttachment?) -> CGFloat {
-        guard let size = attachment?.dimensions, size.width > 0, size.height > 0 else { return 0.86 }
+        // Unknown size (e.g. media still loading or missing): a shorter landscape stage instead of a tall dark slab.
+        guard let size = attachment?.dimensions, size.width > 0, size.height > 0 else { return 1.2 }
         return min(max(size.width / size.height, 0.8), 1.2)
     }
 
@@ -328,7 +329,7 @@ struct ImmersivePostCard: View {
 
     private var glow: Color {
         if let hex = post.glowColour, let color = Color(immersiveHex: hex) { return color }
-        return app.appearance.accent.color
+        return app.appearance.liveAccent
     }
 
     @ViewBuilder
@@ -548,7 +549,7 @@ struct ImmersivePostCard: View {
                 Text(PostTextLinks.attributed(text))
                     .font(.system(.subheadline, design: font))
                     .foregroundStyle(.white)
-                    .tint(app.appearance.accent.color.mix(with: .white, by: 0.55))
+                    .tint(app.appearance.liveAccent.mix(with: .white, by: 0.55))
                     .lineLimit(captionExpanded ? 8 : 2)
                     .multilineTextAlignment(.leading)
                     .shadow(color: .black.opacity(0.45), radius: 3, y: 1)
@@ -681,7 +682,7 @@ struct ImmersivePostCard: View {
             VStack(spacing: 1) {
                 Image(systemName: symbol)
                     .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(active ? (tint ?? app.appearance.accent.color) : .white)
+                    .foregroundStyle(active ? (tint ?? app.appearance.liveAccent) : .white)
                     .contentTransition(.symbolEffect(.replace))
                     .symbolEffect(.bounce, value: symbol.contains("bookmark") ? saveBounce : 0)
                     .scaleEffect(railPressed == title ? 0.82 : 1)
@@ -1265,7 +1266,7 @@ struct ImmersivePostCard: View {
                         .contentTransition(.numericText())
                 }
             }
-            .foregroundStyle(active ? app.appearance.accent.color : .secondary)
+            .foregroundStyle(active ? app.appearance.liveAccent : .secondary)
             .frame(minWidth: 40, minHeight: 40)
             .padding(.horizontal, 2)
             .contentShape(Rectangle())
@@ -1301,7 +1302,7 @@ struct RingedAvatar: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         ModulaAvatar(initials: author?.initials ?? "M", url: author?.avatarURL, size: size - 6, name: author?.displayName)
             .padding(3)
             .overlay {
@@ -1603,7 +1604,7 @@ struct ImmersiveMusicPlayer: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         HStack(spacing: 12) {
             ZStack {
                 LinearGradient(colors: [accent, accent.mix(with: .purple, by: 0.5), .pink], startPoint: .topLeading, endPoint: .bottomTrailing)

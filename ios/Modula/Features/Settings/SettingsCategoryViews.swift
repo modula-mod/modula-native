@@ -313,7 +313,7 @@ struct AppLockSettingsView: View {
                             Spacer()
                             if lock.settings.interval == interval {
                                 Image(systemName: "checkmark")
-                                    .foregroundStyle(app.appearance.accent.color)
+                                    .foregroundStyle(app.appearance.liveAccent)
                             }
                         }
                     }
@@ -820,7 +820,9 @@ private struct PackageStorageDownloadsView: View {
                         SettingsDivider()
                         LabeledContent("Total Optional Storage", value: bytes(usage.optionalBytes)).fontWeight(.semibold)
                     }
-                    .padding(14)
+                    .labeledContentStyle(StorageUsageRowStyle())
+                    .padding(.horizontal, ModulaSpacing.md)
+                    .padding(.vertical, ModulaSpacing.xxs)
                 }
                 SettingsGroup(title: "Downloaded packages") {
                     if usage.packages.isEmpty {
@@ -1169,5 +1171,23 @@ struct AboutSettingsHost: View {
         .modulaSoftScrollEdge()
         .navigationTitle(route == .root ? "About" : settingsDisplayTitle(route.rawValue))
         .accessibilityIdentifier("settings.about")
+    }
+}
+
+
+/// Storage usage rows: full-contrast label, readable secondary value, 44pt rows (was low-contrast grey caption text).
+private struct StorageUsageRowStyle: LabeledContentStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: ModulaSpacing.sm) {
+            configuration.label
+                .font(.body)
+                .foregroundStyle(.primary)
+            Spacer(minLength: ModulaSpacing.xs)
+            configuration.content
+                .font(.body.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+        .frame(minHeight: ModulaLayout.minimumTouch)
+        .accessibilityElement(children: .combine)
     }
 }

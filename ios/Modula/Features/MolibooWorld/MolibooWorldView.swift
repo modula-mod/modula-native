@@ -117,10 +117,13 @@ struct MolibooWorldView: View {
             )
             .ignoresSafeArea()
             .allowsHitTesting(false)
-            ShellSceneImage(scene: .misty)
-                .scaledToFill()
+            // Scene art is drawn inside a fixed-size, clipped box: a bare `scaledToFill()` image widened the
+            // whole ZStack past the screen, clipping every Moliboo page off the left/right edges.
+            Color.clear
+                .frame(maxWidth: .infinity)
                 .frame(height: 220)
-                .frame(maxWidth: .infinity, alignment: .top)
+                .overlay(alignment: .top) { ShellSceneImage(scene: .misty).scaledToFill() }
+                .clipped()
                 .mask(
                     LinearGradient(colors: [.white, .white.opacity(0.92), .clear], startPoint: .top, endPoint: .bottom)
                 )
@@ -675,7 +678,7 @@ struct MolibooWorldView: View {
                             }
                             .buttonStyle(.plain)
                             .modulaGlass(in: Capsule(), interactive: true,
-                                         tint: selected ? f.chipTint : glassTint, prominent: selected, specular: true)
+                                         tint: selected ? app.appearance.liveAccent : glassTint, prominent: selected, specular: true)
                             .id(f)
                             .accessibilityIdentifier("world.family.tab.\(f.rawValue)")
                             .accessibilityLabel(f.displayTitle)

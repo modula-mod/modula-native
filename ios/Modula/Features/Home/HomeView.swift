@@ -55,11 +55,11 @@ struct HomeView: View {
                                             .foregroundStyle(.white)
                                             .padding(.horizontal, 10)
                                             .frame(height: 26)
-                                            .background(app.appearance.accent.color.gradient, in: Capsule())
+                                            .background(app.appearance.liveAccent.gradient, in: Capsule())
                                             .contentShape(Capsule())
                                     }
                                     .buttonStyle(.plain)
-                                    .shadow(color: app.appearance.accent.color.opacity(0.25), radius: 5, y: 2)
+                                    .shadow(color: app.appearance.liveAccent.opacity(0.25), radius: 5, y: 2)
                                     // 44pt hit area without shifting the pill off the content edge.
                                     .padding(.vertical, 9)
                                     .contentShape(Rectangle())
@@ -92,7 +92,7 @@ struct HomeView: View {
                         greetingHero
                             .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
                             .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
-                            .padding(.bottom, 14)
+                            .padding(.bottom, ModulaSpacing.xs)
 
                         feedContent(state)
                     }
@@ -205,7 +205,7 @@ struct HomeView: View {
         }
         .overlay(alignment: .bottomTrailing) {
             if let bubble = commentsBubble {
-                CommentsFloatingBubble(post: app.posts.resolved(bubble), accent: app.appearance.accent.color) {
+                CommentsFloatingBubble(post: app.posts.resolved(bubble), accent: app.appearance.liveAccent) {
                     reopenComments(bubble)
                 } onClose: {
                     withAnimation(.spring(duration: 0.3)) { commentsBubble = nil }
@@ -261,7 +261,7 @@ struct HomeView: View {
         return VStack(alignment: .leading, spacing: 12) {
             ZStack(alignment: .bottomLeading) {
                 LinearGradient(
-                    colors: [Color(hex: "#369CAA"), app.appearance.accent.color, Color(hex: "#1B3A4B")],
+                    colors: [Color(hex: "#369CAA"), app.appearance.liveAccent, Color(hex: "#1B3A4B")],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -387,7 +387,7 @@ struct HomeView: View {
                 .font(.caption.weight(.bold))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(app.appearance.accent.color, in: Capsule())
+                .background(app.appearance.liveAccent, in: Capsule())
                 .foregroundStyle(.white)
         }
         .buttonStyle(.plain)
@@ -470,7 +470,7 @@ struct HomeView: View {
                     .modifier(PostSwipeActions(
                         enabled: resolved.media.count <= 1,
                         saved: resolved.saved,
-                        accent: app.appearance.accent.color,
+                        accent: app.appearance.liveAccent,
                         onSave: {
                             if !resolved.saved { ModulaMascotEvent.post(.save) }
                             Task { await app.home.toggleSave(resolved, mode: mode) }
@@ -541,7 +541,7 @@ struct HomeView: View {
                 HapticEngine.shared.play(.navigation)
             }
             .buttonStyle(.borderedProminent)
-            .tint(app.appearance.accent.color)
+            .tint(app.appearance.liveAccent)
             .accessibilityIdentifier("home.sign-in")
         }
         .padding(.horizontal, ModulaLayout.contentInset)
@@ -561,7 +561,7 @@ struct HomeView: View {
                         HapticEngine.shared.play(.navigation)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(app.appearance.accent.color)
+                    .tint(app.appearance.liveAccent)
                     .accessibilityIdentifier("home.empty.discover")
                 }
             } else {
@@ -660,7 +660,7 @@ struct HomeView: View {
                             .padding(1.5)
                             .background(
                                 Circle().strokeBorder(
-                                    group.ring == .unseen ? app.appearance.accent.color : Color.secondary.opacity(0.4),
+                                    group.ring == .unseen ? app.appearance.liveAccent : Color.secondary.opacity(0.4),
                                     lineWidth: 1.5
                                 )
                             )
