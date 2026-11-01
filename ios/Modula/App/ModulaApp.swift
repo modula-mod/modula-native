@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import CoreSpotlight
+import UserNotifications
 
 @main
 struct ModulaApp: App {
@@ -59,11 +60,16 @@ struct ModulaApp: App {
                     environment.openRouted(.search(.root(nil)))
                 }
             )
+            ModulaPolishKeyboardCommands(environment: environment)
         }
     }
 
     private func handleSpotlight(_ identifier: String) {
         guard environment.gate.state == .ready else { return }
+        if let route = ModulaSpotlightDestinations.route(for: identifier) {
+            environment.openRouted(route)
+            return
+        }
         if identifier.hasPrefix("module:") {
             let moduleID = String(identifier.dropFirst("module:".count))
             guard environment.catalogue.installedIDs.contains(moduleID) else { return }
@@ -91,7 +97,18 @@ final class ModulaAppDelegate: NSObject, UIApplicationDelegate {
         if let shortcut = launchOptions?[.shortcutItem] as? UIApplicationShortcutItem {
             pendingShortcut = shortcut
         }
+        // Set before launch finishes so a notification that cold-launched the app is delivered.
+        UNUserNotificationCenter.current().delegate = PushNotificationDelegate.shared
         return true
+    }
+
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Task { @MainActor in await PushNotificationController.current?.didRegister(deviceToken: deviceToken) }
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        let message = error.localizedDescription
+        Task { @MainActor in PushNotificationController.current?.didFailToRegister(message) }
     }
 
     func applicationDidReceiveMemoryWarning(_ application: UIApplication) {

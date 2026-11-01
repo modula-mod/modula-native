@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		96DA263BD3723355FEFE450F /* MolibooItems.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 871415A14FBB877B8C0CA458 /* MolibooItems.xcassets */; };
+		F5003DD59FBC27DF486453CF /* MolibooGameViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE96EEAB00C7A774D48A9B7D /* MolibooGameViews.swift */; };
+		D75CD231946A0F1252949B43 /* MolibooGameAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A54942E84AED2B93F05F2B8 /* MolibooGameAPI.swift */; };
+		8D063F2E17A0A5B96C97FC7B /* MolibooGameModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00800010D11651D7DAE87F5E /* MolibooGameModels.swift */; };
+		7E2057FB3D96701A3D58CF77 /* MolibooGameFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B93F3400D4A9CE5594AA802 /* MolibooGameFlags.swift */; };
 		BA0200000000000000000011 /* GameFixtures in Resources */ = {isa = PBXBuildFile; fileRef = BA0200000000000000000012 /* GameFixtures */; };
 		87FB5D4511AF4A7D9FCA8B8E /* PDFReaderV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 259E9F3382BC4EA5811690EC /* PDFReaderV2Tests.swift */; };
 		5446F9A7CFA04E0D940811DD /* PDFImmersiveReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA5B12DBD0541F38FC76EC2 /* PDFImmersiveReader.swift */; };
@@ -100,6 +105,14 @@
 		E65FF55E8BBD46009836B8A6 /* PremiumMemberViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30AD405C7D9A41FA8A2A97D5 /* PremiumMemberViews.swift */; };
 		F9D985BB789D45D9B832DE4F /* PremiumPurchaseViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC6CE29063B242A68557B7DA /* PremiumPurchaseViews.swift */; };
 		4A0F657603DE75A0977546FE /* PremiumModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC4ED8693B1B0C39DC054732 /* PremiumModels.swift */; };
+		15FE0BF535EA9C5CCFAF99DF /* GubicModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 961C2CB05DCED97163C563F7 /* GubicModels.swift */; };
+		E9AC0D009EA08991BB0FA405 /* GubicRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E69982BCF7EA9655DE1CD8E /* GubicRuntime.swift */; };
+		5ED25DE0358D13C6C4883086 /* GubicSampleGame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9D4D9AF7EB2A7E578CC2C4 /* GubicSampleGame.swift */; };
+		DDC172E4D08AA51097A722E8 /* GubicPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C244DADF6DE5080FA3EB006 /* GubicPlayerView.swift */; };
+		169200C114BF8943306E416D /* GubicHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D63C5DAADAE6066D7FEE4C64 /* GubicHubView.swift */; };
+		B7FC48499189FD7E19EBA869 /* GubicGameDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F116CE9426BECFA39C036D2 /* GubicGameDetailView.swift */; };
+		B3DD983EB3E6C094487BB195 /* GubicLobbiesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39540277A8958BFBCEF74A79 /* GubicLobbiesView.swift */; };
+		DABD39DB92DEED971C634729 /* GubicCreatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3830ADE5A4975947DACB0690 /* GubicCreatorView.swift */; };
 		C1DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift */; };
 		C12F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift */; };
 		C17A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift in Sources */ = {isa = PBXBuildFile; fileRef = C07A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift */; };
@@ -126,6 +139,8 @@
 		C11D7B0B13F8243B07F10A44 /* ComposerServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = C01D7B0B13F8243B07F10A44 /* ComposerServices.swift */; };
 		C14CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift */; };
 		C16FA2EE1AB23C72883DE0F4 /* ModulaGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06FA2EE1AB23C72883DE0F4 /* ModulaGlass.swift */; };
+		E10D878678BB29171537E410 /* ModulaPolishIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = E00D878678BB29171537E410 /* ModulaPolishIntegration.swift */; };
+		E1F95CDB2C2504B6A2FBC88D /* ModulaPolishKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0F95CDB2C2504B6A2FBC88D /* ModulaPolishKit.swift */; };
 		B50100000000000000000001 /* ModulaIslandBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40100000000000000000001 /* ModulaIslandBanner.swift */; };
 		A03200000000000000000008 /* ModulaAttachmentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000008 /* ModulaAttachmentPicker.swift */; };
 		A03200000000000000000007 /* POST03Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000007 /* POST03Tests.swift */; };
@@ -340,6 +355,7 @@
 		DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */; };
 		D98B000000000000000000B3 /* ProductHubLayouts.swift in Sources */ = {isa = PBXBuildFile; fileRef = D98B000000000000000000A3 /* ProductHubLayouts.swift */; };
 		D98B000000000000000000B4 /* ProductHubLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D98B000000000000000000A4 /* ProductHubLayoutTests.swift */; };
+		37A0D700A836919B30D8D080 /* GubicBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15B9B9C7623E5312951F7AA3 /* GubicBridgeTests.swift */; };
 		E0D95AA46131E2250F52B55D /* NodusKnowledgeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC3695AE2813EB68FE1AE272 /* NodusKnowledgeModels.swift */; };
 		E20100000000000000000001 /* DiscoverModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000001 /* DiscoverModels.swift */; };
 		E20100000000000000000002 /* DiscoverRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000002 /* DiscoverRepository.swift */; };
@@ -360,6 +376,7 @@
 		E40100000000000000000007 /* HomeTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000007 /* HomeTools.swift */; };
 		E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000008 /* ModulaProgressiveHeader.swift */; };
 		E40100000000000000000009 /* HomeFeedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000009 /* HomeFeedTests.swift */; };
+		PU5H00000000000000000013 /* PushNotificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = PU5H00000000000000000003 /* PushNotificationTests.swift */; };
 		E4010000000000000000000A /* ModulaContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3010000000000000000000A /* ModulaContextMenu.swift */; };
 		E4010000000000000000000B /* ModulaMediaViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3010000000000000000000B /* ModulaMediaViewer.swift */; };
 		E40100000000000000000010 /* PostGestureThresholds.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000010 /* PostGestureThresholds.swift */; };
@@ -464,6 +481,8 @@
 		R50100000000000000000020 /* SettingsDecisionPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000020 /* SettingsDecisionPages.swift */; };
 		R50100000000000000000012 /* DownloadedMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000012 /* DownloadedMedia.swift */; };
 		R50100000000000000000011 /* SettingsNotificationPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000011 /* SettingsNotificationPages.swift */; };
+		PU5H00000000000000000011 /* PushNotificationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PU5H00000000000000000001 /* PushNotificationController.swift */; };
+		PU5H00000000000000000012 /* PushNotificationSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = PU5H00000000000000000002 /* PushNotificationSettingsView.swift */; };
 		R50100000000000000000010 /* SettingsCreatorPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000010 /* SettingsCreatorPages.swift */; };
 		R50100000000000000000009 /* SettingsAccountPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000009 /* SettingsAccountPages.swift */; };
 		R50100000000000000000008 /* SettingsRemoteModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000008 /* SettingsRemoteModels.swift */; };
@@ -504,6 +523,11 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		871415A14FBB877B8C0CA458 /* MolibooItems.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = MolibooItems.xcassets; path = Resources/MolibooGame/MolibooItems.xcassets; sourceTree = "<group>"; };
+		EE96EEAB00C7A774D48A9B7D /* MolibooGameViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooGameViews.swift; path = Features/MolibooGame/MolibooGameViews.swift; sourceTree = "<group>"; };
+		2A54942E84AED2B93F05F2B8 /* MolibooGameAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooGameAPI.swift; path = Features/MolibooGame/MolibooGameAPI.swift; sourceTree = "<group>"; };
+		00800010D11651D7DAE87F5E /* MolibooGameModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooGameModels.swift; path = Features/MolibooGame/MolibooGameModels.swift; sourceTree = "<group>"; };
+		2B93F3400D4A9CE5594AA802 /* MolibooGameFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooGameFlags.swift; path = Features/MolibooGame/MolibooGameFlags.swift; sourceTree = "<group>"; };
 		BA0200000000000000000012 /* GameFixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; path = GameFixtures; sourceTree = "<group>"; };
 		259E9F3382BC4EA5811690EC /* PDFReaderV2Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PDFReaderV2Tests.swift; sourceTree = "<group>"; };
 		DAA5B12DBD0541F38FC76EC2 /* PDFImmersiveReader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PDFImmersiveReader.swift; path = Features/Social/PDFImmersiveReader.swift; sourceTree = "<group>"; };
@@ -597,6 +621,14 @@
 		30AD405C7D9A41FA8A2A97D5 /* PremiumMemberViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PremiumMemberViews.swift; path = Features/Premium/PremiumMemberViews.swift; sourceTree = "<group>"; };
 		EC6CE29063B242A68557B7DA /* PremiumPurchaseViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PremiumPurchaseViews.swift; path = Features/Premium/PremiumPurchaseViews.swift; sourceTree = "<group>"; };
 		FC4ED8693B1B0C39DC054732 /* PremiumModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PremiumModels.swift; path = Features/Premium/PremiumModels.swift; sourceTree = "<group>"; };
+		961C2CB05DCED97163C563F7 /* GubicModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GubicModels.swift; path = Features/GUBIC/GubicModels.swift; sourceTree = "<group>"; };
+		9E69982BCF7EA9655DE1CD8E /* GubicRuntime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GubicRuntime.swift; path = Features/GUBIC/GubicRuntime.swift; sourceTree = "<group>"; };
+		0B9D4D9AF7EB2A7E578CC2C4 /* GubicSampleGame.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GubicSampleGame.swift; path = Features/GUBIC/GubicSampleGame.swift; sourceTree = "<group>"; };
+		7C244DADF6DE5080FA3EB006 /* GubicPlayerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GubicPlayerView.swift; path = Features/GUBIC/GubicPlayerView.swift; sourceTree = "<group>"; };
+		D63C5DAADAE6066D7FEE4C64 /* GubicHubView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GubicHubView.swift; path = Features/GUBIC/GubicHubView.swift; sourceTree = "<group>"; };
+		8F116CE9426BECFA39C036D2 /* GubicGameDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GubicGameDetailView.swift; path = Features/GUBIC/GubicGameDetailView.swift; sourceTree = "<group>"; };
+		39540277A8958BFBCEF74A79 /* GubicLobbiesView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GubicLobbiesView.swift; path = Features/GUBIC/GubicLobbiesView.swift; sourceTree = "<group>"; };
+		3830ADE5A4975947DACB0690 /* GubicCreatorView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GubicCreatorView.swift; path = Features/GUBIC/GubicCreatorView.swift; sourceTree = "<group>"; };
 		C0DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommentAttachExtras.swift; path = Features/Social/CommentAttachExtras.swift; sourceTree = "<group>"; };
 		C02F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaStickerExtras.swift; path = DesignSystem/AdvancedInteraction/ModulaStickerExtras.swift; sourceTree = "<group>"; };
 		C07A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaInlineCamera.swift; path = DesignSystem/AdvancedInteraction/ModulaInlineCamera.swift; sourceTree = "<group>"; };
@@ -623,6 +655,8 @@
 		C01D7B0B13F8243B07F10A44 /* ComposerServices.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ComposerServices.swift; path = Core/Composer/ComposerServices.swift; sourceTree = "<group>"; };
 		C04CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaComposerMediaPanel.swift; path = DesignSystem/AdvancedInteraction/ModulaComposerMediaPanel.swift; sourceTree = "<group>"; };
 		C06FA2EE1AB23C72883DE0F4 /* ModulaGlass.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaGlass.swift; path = DesignSystem/Glass/ModulaGlass.swift; sourceTree = "<group>"; };
+		E00D878678BB29171537E410 /* ModulaPolishIntegration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaPolishIntegration.swift; path = Features/SystemIntegration/ModulaPolishIntegration.swift; sourceTree = "<group>"; };
+		E0F95CDB2C2504B6A2FBC88D /* ModulaPolishKit.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaPolishKit.swift; path = DesignSystem/Polish/ModulaPolishKit.swift; sourceTree = "<group>"; };
 		B40100000000000000000001 /* ModulaIslandBanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaIslandBanner.swift; path = DesignSystem/Glass/ModulaIslandBanner.swift; sourceTree = "<group>"; };
 		A03100000000000000000008 /* ModulaAttachmentPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaAttachmentPicker.swift; path = Features/Media/ModulaAttachmentPicker.swift; sourceTree = "<group>"; };
 		A03100000000000000000007 /* POST03Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = POST03Tests.swift; sourceTree = "<group>"; };
@@ -830,6 +864,7 @@
 		DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductHubView.swift; path = Features/ProductHub/ProductHubView.swift; sourceTree = "<group>"; };
 		D98B000000000000000000A3 /* ProductHubLayouts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductHubLayouts.swift; path = Features/ProductHub/ProductHubLayouts.swift; sourceTree = "<group>"; };
 		D98B000000000000000000A4 /* ProductHubLayoutTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProductHubLayoutTests.swift; sourceTree = "<group>"; };
+		15B9B9C7623E5312951F7AA3 /* GubicBridgeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GubicBridgeTests.swift; sourceTree = "<group>"; };
 		DC4EF43E9E96C1202C4F7E36 /* Debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		DE7A82A7615F703ED7EFABC2 /* libPods-ModulaTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ModulaTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E024B7E018DE17EDE324AD6D /* NodusDeepReasoningCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusDeepReasoningCoordinator.swift; path = Core/Intelligence/Nodus/Reasoning/NodusDeepReasoningCoordinator.swift; sourceTree = "<group>"; };
@@ -855,6 +890,7 @@
 		E30100000000000000000007 /* HomeTools.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeTools.swift; path = Features/Home/HomeTools.swift; sourceTree = "<group>"; };
 		E30100000000000000000008 /* ModulaProgressiveHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaProgressiveHeader.swift; path = DesignSystem/ModulaProgressiveHeader.swift; sourceTree = "<group>"; };
 		E30100000000000000000009 /* HomeFeedTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeFeedTests.swift; sourceTree = "<group>"; };
+		PU5H00000000000000000003 /* PushNotificationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushNotificationTests.swift; sourceTree = "<group>"; };
 		E3010000000000000000000A /* ModulaContextMenu.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaContextMenu.swift; path = DesignSystem/ModulaContextMenu.swift; sourceTree = "<group>"; };
 		E3010000000000000000000B /* ModulaMediaViewer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaMediaViewer.swift; path = DesignSystem/ModulaMediaViewer.swift; sourceTree = "<group>"; };
 		F80100000000000000000001 /* ModulaIndicators.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaIndicators.swift; path = DesignSystem/AdvancedInteraction/ModulaIndicators.swift; sourceTree = "<group>"; };
@@ -965,6 +1001,9 @@
 		R40100000000000000000020 /* SettingsDecisionPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsDecisionPages.swift; path = Features/Settings/Real/SettingsDecisionPages.swift; sourceTree = "<group>"; };
 		R40100000000000000000012 /* DownloadedMedia.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DownloadedMedia.swift; path = Features/Media/DownloadedMedia.swift; sourceTree = "<group>"; };
 		R40100000000000000000011 /* SettingsNotificationPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsNotificationPages.swift; path = Features/Settings/Real/SettingsNotificationPages.swift; sourceTree = "<group>"; };
+		PU5H00000000000000000001 /* PushNotificationController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PushNotificationController.swift; path = Core/Notifications/PushNotificationController.swift; sourceTree = "<group>"; };
+		PU5H00000000000000000002 /* PushNotificationSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PushNotificationSettingsView.swift; path = Features/Settings/Real/PushNotificationSettingsView.swift; sourceTree = "<group>"; };
+		PU5H00000000000000000004 /* Modula.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = Modula.entitlements; path = Modula.entitlements; sourceTree = "<group>"; };
 		R40100000000000000000010 /* SettingsCreatorPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsCreatorPages.swift; path = Features/Settings/Real/SettingsCreatorPages.swift; sourceTree = "<group>"; };
 		R40100000000000000000009 /* SettingsAccountPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsAccountPages.swift; path = Features/Settings/Real/SettingsAccountPages.swift; sourceTree = "<group>"; };
 		R40100000000000000000008 /* SettingsRemoteModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsRemoteModels.swift; path = Features/Settings/Real/SettingsRemoteModels.swift; sourceTree = "<group>"; };
@@ -1079,6 +1118,7 @@
 				E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */,
 				D98B000000000000000000A1 /* AppearanceExperienceTests.swift */,
 				D98B000000000000000000A4 /* ProductHubLayoutTests.swift */,
+				15B9B9C7623E5312951F7AA3 /* GubicBridgeTests.swift */,
 				04756B524E52AA56A61D2E0D /* LocalizationCatalogTests.swift */,
 				BFC9EF1CC67951AB29E6F94B /* ModuleSecurityTests.swift */,
 				T80100000000000000000001 /* ModuleHostEcosystemTests.swift */,
@@ -1087,6 +1127,7 @@
 				61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */,
 				E1010000000000000000000A /* DiscoverTests.swift */,
 				E30100000000000000000009 /* HomeFeedTests.swift */,
+				PU5H00000000000000000003 /* PushNotificationTests.swift */,
 				E30100000000000000000019 /* PostSystemTests.swift */,
 				AA7F7ED971B64DE79A592E1E /* PDFInlineCarouselTests.swift */,
 				259E9F3382BC4EA5811690EC /* PDFReaderV2Tests.swift */,
@@ -1324,6 +1365,11 @@
 				DD1C353C8D3FB917EE061C6D /* MolibooWardrobeRig.swift */,
 				705C3E2D9930469B26F5FD65 /* MolibooWardrobe.swift */,
 				F3CD08F382212E1E9B48925E /* MolibooCollection.swift */,
+				871415A14FBB877B8C0CA458 /* MolibooItems.xcassets */,
+				EE96EEAB00C7A774D48A9B7D /* MolibooGameViews.swift */,
+				2A54942E84AED2B93F05F2B8 /* MolibooGameAPI.swift */,
+				00800010D11651D7DAE87F5E /* MolibooGameModels.swift */,
+				2B93F3400D4A9CE5594AA802 /* MolibooGameFlags.swift */,
 				EA033189BDB5AB2FC7D7EDD5 /* MOL03DebugHarness.swift */,
 				E8E9CF55CA02F191FF46098C /* MolibooStyleSheet.swift */,
 				9314CE791544C1730331AF7B /* MolibooLivingStudioView.swift */,
@@ -1350,6 +1396,14 @@
 				30AD405C7D9A41FA8A2A97D5 /* PremiumMemberViews.swift */,
 				EC6CE29063B242A68557B7DA /* PremiumPurchaseViews.swift */,
 				FC4ED8693B1B0C39DC054732 /* PremiumModels.swift */,
+				961C2CB05DCED97163C563F7 /* GubicModels.swift */,
+				9E69982BCF7EA9655DE1CD8E /* GubicRuntime.swift */,
+				0B9D4D9AF7EB2A7E578CC2C4 /* GubicSampleGame.swift */,
+				7C244DADF6DE5080FA3EB006 /* GubicPlayerView.swift */,
+				D63C5DAADAE6066D7FEE4C64 /* GubicHubView.swift */,
+				8F116CE9426BECFA39C036D2 /* GubicGameDetailView.swift */,
+				39540277A8958BFBCEF74A79 /* GubicLobbiesView.swift */,
+				3830ADE5A4975947DACB0690 /* GubicCreatorView.swift */,
 				C08E3F07060BD5F1C2F6D22C8A /* MascotWardrobeLayers.swift */,
 				C0403BE7599E95D561F435C27E /* MascotCustom.swift */,
 				C0BAD833BF4AA294710BD47644 /* MascotAssistant.swift */,
@@ -1367,10 +1421,15 @@
 				C01D7B0B13F8243B07F10A44 /* ComposerServices.swift */,
 				C04CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift */,
 				C06FA2EE1AB23C72883DE0F4 /* ModulaGlass.swift */,
+				E00D878678BB29171537E410 /* ModulaPolishIntegration.swift */,
+				E0F95CDB2C2504B6A2FBC88D /* ModulaPolishKit.swift */,
 				B40100000000000000000001 /* ModulaIslandBanner.swift */,
 				R40100000000000000000020 /* SettingsDecisionPages.swift */,
 				R40100000000000000000012 /* DownloadedMedia.swift */,
 				R40100000000000000000011 /* SettingsNotificationPages.swift */,
+				PU5H00000000000000000001 /* PushNotificationController.swift */,
+				PU5H00000000000000000002 /* PushNotificationSettingsView.swift */,
+				PU5H00000000000000000004 /* Modula.entitlements */,
 				R40100000000000000000010 /* SettingsCreatorPages.swift */,
 				R40100000000000000000009 /* SettingsAccountPages.swift */,
 				R40100000000000000000008 /* SettingsRemoteModels.swift */,
@@ -1701,6 +1760,7 @@
 				083850E345065E6A6AB4731F /* PrivacyInfo.xcprivacy in Resources */,
 				D5010000000000000000001A /* Assets.xcassets in Resources */,
 				23F9F9582ACCE39AAB61C618 /* MolibooBrand.xcassets in Resources */,
+				96DA263BD3723355FEFE450F /* MolibooItems.xcassets in Resources */,
 				7BDF21E5F8D2925DD163E0DF /* moliboo_manifest.json in Resources */,
 				2E3050F2410271342EDE5828 /* moliboo_accessory_fits.json in Resources */,
 				2AAC3B5CB443680E8DE5081B /* moliboo_registry.json in Resources */,
@@ -1892,6 +1952,7 @@
 				C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */,
 				D98B000000000000000000B1 /* AppearanceExperienceTests.swift in Sources */,
 				D98B000000000000000000B4 /* ProductHubLayoutTests.swift in Sources */,
+				37A0D700A836919B30D8D080 /* GubicBridgeTests.swift in Sources */,
 				5900B968FE1D07B3EE4DAEA0 /* LocalizationCatalogTests.swift in Sources */,
 				6ACC1709897F66B0E80839F2 /* ModuleSecurityTests.swift in Sources */,
 				T90100000000000000000001 /* ModuleHostEcosystemTests.swift in Sources */,
@@ -1900,6 +1961,7 @@
 				FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */,
 				E2010000000000000000000A /* DiscoverTests.swift in Sources */,
 				E40100000000000000000009 /* HomeFeedTests.swift in Sources */,
+				PU5H00000000000000000013 /* PushNotificationTests.swift in Sources */,
 				E40100000000000000000019 /* PostSystemTests.swift in Sources */,
 				647C9C0055154B72875252C7 /* PDFInlineCarouselTests.swift in Sources */,
 				87FB5D4511AF4A7D9FCA8B8E /* PDFReaderV2Tests.swift in Sources */,
@@ -2055,6 +2117,10 @@
 				35949C05BE1A250059BC6A55 /* MolibooWardrobeRig.swift in Sources */,
 				EA6BB58C599561872BE6C207 /* MolibooWardrobe.swift in Sources */,
 				1B4920D7D792FF504F5D09D2 /* MolibooCollection.swift in Sources */,
+				F5003DD59FBC27DF486453CF /* MolibooGameViews.swift in Sources */,
+				D75CD231946A0F1252949B43 /* MolibooGameAPI.swift in Sources */,
+				8D063F2E17A0A5B96C97FC7B /* MolibooGameModels.swift in Sources */,
+				7E2057FB3D96701A3D58CF77 /* MolibooGameFlags.swift in Sources */,
 				7184C8F2BFE567A89081CA56 /* MOL03DebugHarness.swift in Sources */,
 				B0365ACD3EC316AD18CF61C8 /* MolibooStyleSheet.swift in Sources */,
 				FB9FA99D6A97B00F5C6A8D47 /* MolibooLivingStudioView.swift in Sources */,
@@ -2081,6 +2147,14 @@
 				E65FF55E8BBD46009836B8A6 /* PremiumMemberViews.swift in Sources */,
 				F9D985BB789D45D9B832DE4F /* PremiumPurchaseViews.swift in Sources */,
 				4A0F657603DE75A0977546FE /* PremiumModels.swift in Sources */,
+				15FE0BF535EA9C5CCFAF99DF /* GubicModels.swift in Sources */,
+				E9AC0D009EA08991BB0FA405 /* GubicRuntime.swift in Sources */,
+				5ED25DE0358D13C6C4883086 /* GubicSampleGame.swift in Sources */,
+				DDC172E4D08AA51097A722E8 /* GubicPlayerView.swift in Sources */,
+				169200C114BF8943306E416D /* GubicHubView.swift in Sources */,
+				B7FC48499189FD7E19EBA869 /* GubicGameDetailView.swift in Sources */,
+				B3DD983EB3E6C094487BB195 /* GubicLobbiesView.swift in Sources */,
+				DABD39DB92DEED971C634729 /* GubicCreatorView.swift in Sources */,
 				C18E3F07060BD5F1C2F6D22C8A /* MascotWardrobeLayers.swift in Sources */,
 				C1403BE7599E95D561F435C27E /* MascotCustom.swift in Sources */,
 				C1BAD833BF4AA294710BD47644 /* MascotAssistant.swift in Sources */,
@@ -2098,10 +2172,14 @@
 				C11D7B0B13F8243B07F10A44 /* ComposerServices.swift in Sources */,
 				C14CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift in Sources */,
 				C16FA2EE1AB23C72883DE0F4 /* ModulaGlass.swift in Sources */,
+				E10D878678BB29171537E410 /* ModulaPolishIntegration.swift in Sources */,
+				E1F95CDB2C2504B6A2FBC88D /* ModulaPolishKit.swift in Sources */,
 				B50100000000000000000001 /* ModulaIslandBanner.swift in Sources */,
 				R50100000000000000000020 /* SettingsDecisionPages.swift in Sources */,
 				R50100000000000000000012 /* DownloadedMedia.swift in Sources */,
 				R50100000000000000000011 /* SettingsNotificationPages.swift in Sources */,
+				PU5H00000000000000000011 /* PushNotificationController.swift in Sources */,
+				PU5H00000000000000000012 /* PushNotificationSettingsView.swift in Sources */,
 				R50100000000000000000010 /* SettingsCreatorPages.swift in Sources */,
 				R50100000000000000000009 /* SettingsAccountPages.swift in Sources */,
 				R50100000000000000000008 /* SettingsRemoteModels.swift in Sources */,
@@ -2349,6 +2427,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = digital.modula.app.native;
+				CODE_SIGN_ENTITLEMENTS = Modula/Modula.entitlements;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
@@ -2457,6 +2536,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = digital.modula.app.native;
+				CODE_SIGN_ENTITLEMENTS = Modula/Modula.entitlements;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;

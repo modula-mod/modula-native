@@ -53,6 +53,7 @@ struct RootView: View {
         // Ideas30 #18: offline banner. #27: one-time "What's new" sheet (opens the 30-ideas gallery).
         .overlay(alignment: .top) { Lab30OfflineBanner() }
         .modifier(Lab30WhatsNewPresenter())
+        .modulaConsumesIntentRoutes()
         .background(palette.canvas.ignoresSafeArea())
         .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
             ModulaRuntimePreferences.apply()
@@ -86,6 +87,7 @@ struct RootView: View {
                 return (id, product.name)
             }
             SpotlightIndexPreparation.refresh(installedModules: installed)
+            ModulaSpotlightDestinations.refresh()
         }
         .modulaCommandKeyboard(
             onCommandK: {
@@ -176,7 +178,23 @@ struct RootView: View {
     /// bar underneath Modula's own floating chrome (duplicate tab bar).
     private func tabs(navigation: NavigationCoordinator, hidesSystemTabBar: Bool = false, accessoryClearance: CGFloat = 0) -> some View {
         @Bindable var navigation = navigation
-        return TabView(selection: $navigation.selectedTab) {
+        // Enhancements-50: re-tapping the selected tab pops to its root, then scrolls to top.
+        let reselectable = Binding<AppTab>(
+            get: { navigation.selectedTab },
+            set: { tab in
+                if tab == navigation.selectedTab {
+                    if navigation.path(for: tab).isEmpty {
+                        ModulaTabReselect.post(tab)
+                    } else {
+                        navigation.binding(for: tab).wrappedValue = []
+                        HapticEngine.shared.play(.selection)
+                    }
+                } else {
+                    navigation.selectedTab = tab
+                }
+            }
+        )
+        return TabView(selection: reselectable) {
             ForEach(AppTab.allCases) { tab in
                 NavigationStack(path: navigation.binding(for: tab)) {
                     RouteView(route: navigation.root(for: tab))

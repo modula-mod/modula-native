@@ -177,6 +177,7 @@ final class MessagingStore {
             }
             let preview = confirmed.body.text.isEmpty ? text : confirmed.body.text
             noteLocalSend(stored, preview: preview)
+            NotificationCenter.default.post(name: .modulaPushMoment, object: PushPrePromptMoment.messageSent.rawValue)
             return true
         } catch {
             actionError = "Couldn't send message."
@@ -232,6 +233,74 @@ final class MessagingStore {
             actionError = "Couldn't send message."
             HapticEngine.shared.play(.failure)
         }
+    }
+
+    /// Local key for a chat that doesn't exist on the server yet (drafts + optimistic bubbles).
+    static func pendingDirectKey(_ handle: String) -> ConversationID {
+        "pending-direct:" + handle.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "@"))
+    }
+
+    /// First send to someone with no chat yet: shows an optimistic bubble, creates the
+    /// conversation with the message via `POST /v1/conversations`, then moves the thread
+    /// under the real id. Returns the conversation on success; on failure the bubble is
+    /// marked failed (tap to retry) and the draft is restored.
+    func startDirect(handle: String, viewer: ConversationParticipant) async -> Conversation? {
+        let key = Self.pendingDirectKey(handle)
+        let text = (drafts[key] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let inFlight = (threads[key] ?? []).contains { sendingIDs.contains($0.id) }
+        guard !text.isEmpty, !inFlight else { return nil }
+        guard capabilities.startConversation else {
+            actionError = "Couldn't start this chat."
+            return nil
+        }
+        HapticEngine.shared.play(.lightImpact)
+        let localID = "local-\(UUID().uuidString)"
+        var items = threads[key] ?? []
+        items.append(Message(id: localID, conversationID: key, sender: viewer, body: .text(text),
+                             sentAt: Date(), delivery: .sending, isOwn: true, localDraft: text))
+        threads[key] = items
+        threadState[key] = .loaded
+        drafts[key] = ""
+        sendingIDs.insert(localID)
+        do {
+            let clean = handle.trimmingCharacters(in: CharacterSet(charactersIn: "@"))
+            let conversation = try await repository.startConversation(handle: clean, text: text)
+            sendingIDs.remove(localID)
+            conversations.removeAll { $0.id == conversation.id }
+            conversations.insert(conversation, at: 0)
+            conversationState = .loaded
+            // Carry the sent bubble over so the thread isn't blank while it reloads.
+            let sent = (threads[key] ?? []).map { m -> Message in
+                Message(id: m.id, conversationID: conversation.id, sender: m.sender, body: m.body,
+                        sentAt: m.sentAt, delivery: .sent, isOwn: true, localDraft: nil)
+            }
+            if threads[conversation.id] == nil { threads[conversation.id] = sent }
+            threads[key] = nil
+            threadState[key] = nil
+            HapticEngine.shared.play(.success)
+            Task { await self.refreshThread(conversation.id) }
+            return conversation
+        } catch {
+            sendingIDs.remove(localID)
+            markFailed(localID: localID, in: key)
+            drafts[key] = text
+            if let api = error as? APIError {
+                actionError = userMessage(api, fallback: "Couldn't send message.")
+            } else {
+                actionError = "Couldn't send message."
+            }
+            HapticEngine.shared.play(.failure)
+            return nil
+        }
+    }
+
+    /// Retry a failed first message to `handle`.
+    func retryStartDirect(message: Message, handle: String, viewer: ConversationParticipant) async -> Conversation? {
+        guard message.delivery == .failed, let draft = message.localDraft, !draft.isEmpty else { return nil }
+        let key = Self.pendingDirectKey(handle)
+        remove(messageID: message.id, in: key)
+        drafts[key] = draft
+        return await startDirect(handle: handle, viewer: viewer)
     }
 
     func retry(message: Message, viewer: ConversationParticipant) async {

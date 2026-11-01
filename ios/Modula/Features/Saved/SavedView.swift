@@ -38,7 +38,7 @@ struct SavedView: View {
         .navigationTitle(title)
         .accessibilityIdentifier("saved.root")
         .task { await app.saved.load() }
-        .refreshable { await app.saved.load(force: true) }
+        .modulaRefreshable { await app.saved.load(force: true) }
     }
 
     private var showsPosts: Bool { section == .root || section == .posts }

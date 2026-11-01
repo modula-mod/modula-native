@@ -28,6 +28,11 @@ struct ActivityScreen: View {
             await app.activity.loadIfNeeded(mode, signedIn: app.auth.isSignedIn)
             if mode == .all { await app.activity.loadIfNeeded(.requests, signedIn: app.auth.isSignedIn) }
             captureNew()
+            // Value moment for the push soft pre-prompt (policy decides; never on first launch).
+            if mode == .all {
+                try? await Task.sleep(for: .seconds(1.2))
+                app.push.noteMoment(.activityViewed)
+            }
             #if DEBUG
             if let c = ActivityDebugFixture.initialChip { chip = c }
             if ActivityDebugFixture.startsScrolled {
@@ -143,6 +148,7 @@ struct ActivityScreen: View {
             .animation(calm ? nil : .snappy(duration: 0.3), value: chip)
             .padding(.bottom, 110)
             .modulaPullContentEffects()
+            .modulaScrollsToTopOnReselect(.activity)
         }
         .scrollPosition($scrollPosition)
         .environment(\.modulaHeroScope, "activity.\(mode.rawValue)")

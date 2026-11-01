@@ -142,6 +142,7 @@ struct DiscoverScreen: View {
             // Clear the floating Tools pill and the tab bar.
             .padding(.bottom, 140)
             .modulaPullContentEffects()
+            .modulaScrollsToTopOnReselect(.discover)
         }
         .onScrollGeometryChange(for: Bool.self) { [collapsed] geo in
             DiscoverHeaderCollapse.isCollapsed(offset: geo.contentOffset.y + geo.contentInsets.top, current: collapsed)

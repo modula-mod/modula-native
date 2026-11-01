@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Modula's share sheet: a list of people, then a horizontal row of real share actions.
-/// Selecting someone checks them, slides that row away, and brings up a message field
-/// with a widening Send button. Two or more people retitle it "Send separately".
+/// Modula's share sheet (X-style, dense): search, a horizontal people row, then two rows of
+/// real share actions. Selecting someone checks them, slides the action rows away, and brings
+/// up a message field with an accent Send button. Two or more people retitle it "Send separately".
 struct ModulaShareSheet: View {
     let payload: SharePayload
     /// Richer code card for a profile (verified badge, avatar) than the payload alone carries.
@@ -89,7 +89,14 @@ struct ModulaShareSheet: View {
                     if canMessage {
                         peopleSection
                     }
+                    // Enhancements-50: X-style dense layout — two action rows live in the sheet
+                    // body; the bottom bar only appears (with Send) once someone is selected.
+                    if selectedKeys.isEmpty {
+                        actionRows
+                            .transition(slide)
+                    }
                 }
+                .animation(motion, value: selectedKeys.isEmpty)
                 .padding(.horizontal, 20)
                 .padding(.top, 4)
                 .padding(.bottom, 12)
@@ -97,7 +104,10 @@ struct ModulaShareSheet: View {
             .scrollBounceBehavior(.basedOnSize)
             .scrollDismissesKeyboard(.interactively)
             .modulaSoftScrollEdge()
-            .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if canMessage && !selectedKeys.isEmpty { bottomBar.transition(slide) }
+            }
+            .animation(motion, value: selectedKeys.isEmpty)
             .navigationTitle("Share")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -150,11 +160,16 @@ struct ModulaShareSheet: View {
                     .padding(.vertical, 12)
                     .accessibilityIdentifier("share.people.empty")
             } else {
-                VStack(spacing: 0) {
-                    ForEach(visiblePeople) { person in
-                        personRow(person)
+                // Enhancements-50: dense horizontal people row (avatar + name, check badge).
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(alignment: .top, spacing: 4) {
+                        ForEach(visiblePeople) { person in
+                            personCell(person)
+                        }
                     }
+                    .padding(.vertical, 4)
                 }
+                .scrollClipDisabled()
                 .accessibilityIdentifier("share.people")
             }
         }
@@ -165,6 +180,44 @@ struct ModulaShareSheet: View {
         if searching && !trimmed.isEmpty { return "Searching…" }
         if !trimmed.isEmpty { return "No one matches that." }
         return "People you chat with show up here."
+    }
+
+    private func personCell(_ person: ShareRecipient) -> some View {
+        let on = selectedKeys.contains(person.key)
+        return Button {
+            toggle(person)
+        } label: {
+            VStack(spacing: 6) {
+                ModulaAvatar(initials: initials(person.displayName), url: person.avatarURL, size: 58, name: person.displayName)
+                    .overlay(Circle().strokeBorder(on ? accent : Color.clear, lineWidth: 2.5).padding(-3))
+                    .overlay(alignment: .bottomTrailing) {
+                        if on {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.title3)
+                                .symbolRenderingMode(.palette)
+                                .foregroundStyle(.white, accent)
+                                .background(Circle().fill(Color(uiColor: .systemBackground)).padding(2))
+                                .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
+                        }
+                    }
+                    .scaleEffect(on && !reduceMotion ? 0.94 : 1)
+                Text(person.displayName)
+                    .font(.caption)
+                    .foregroundStyle(on ? .primary : .secondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .frame(width: 72)
+            }
+            .padding(.horizontal, 2)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .animation(motion, value: on)
+        .accessibilityLabel(person.displayName)
+        .accessibilityValue(on ? "Selected" : "Not selected")
+        .accessibilityHint(person.hasDirectChat ? "Adds them to this send" : "No direct chat yet")
+        .accessibilityAddTraits(on ? [.isSelected, .isButton] : .isButton)
+        .accessibilityIdentifier("share.person.\(person.key)")
     }
 
     private func personRow(_ person: ShareRecipient) -> some View {
@@ -250,16 +303,8 @@ struct ModulaShareSheet: View {
                     .accessibilityIdentifier("share.send.error")
             }
             HStack(alignment: .center, spacing: 10) {
-                Group {
-                    if canMessage && !selectedKeys.isEmpty {
-                        messageField
-                            .transition(slide)
-                    } else {
-                        appRow
-                            .transition(slide)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                messageField
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 if canMessage { sendButton }
             }
             .animation(motion, value: selectedKeys.isEmpty)
@@ -318,13 +363,12 @@ struct ModulaShareSheet: View {
                         .contentTransition(.opacity)
                 }
             }
-            .foregroundStyle(canSend ? Color.white : Color.secondary)
             .padding(.horizontal, selectedKeys.isEmpty ? 0 : 16)
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .modulaGlass(in: Capsule(), interactive: true, tint: hasRecipients ? accent : nil, prominent: hasRecipients, specular: true)
+        .modulaAccentCTA()
         .disabled(!canSend)
         .accessibilityLabel(sendLabel)
         .accessibilityIdentifier(selectedKeys.count >= 2 ? "share.sendSeparately" : "share.send")
@@ -347,14 +391,20 @@ struct ModulaShareSheet: View {
         .accessibilityHidden(true)
     }
 
-    private var appRow: some View {
+    private var actionRows: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Share to").font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+                .accessibilityAddTraits(.isHeader)
+            modulaActionRow
+            linkActionRow
+        }
+    }
+
+    /// Row 1: actions inside Modula.
+    private var modulaActionRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             ModulaGlassGroup(spacing: 12) {
                 HStack(alignment: .top, spacing: 6) {
-                    ShareActionTile(title: copied ? "Copied" : "Copy Link", symbol: copied ? "checkmark" : "link", accent: accent, highlighted: copied) {
-                        copyLink()
-                    }
-                    .accessibilityIdentifier("share.destination.copyLink")
                     if has(.qr) {
                         ShareActionTile(title: "QR Code", symbol: "qrcode", accent: accent) {
                             HapticEngine.shared.play(.selection)
@@ -383,6 +433,22 @@ struct ModulaShareSheet: View {
                         }
                         .accessibilityIdentifier("share.destination.inMail")
                     }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .scrollClipDisabled()
+    }
+
+    /// Row 2: link-level actions (copy, system share targets).
+    private var linkActionRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            ModulaGlassGroup(spacing: 12) {
+                HStack(alignment: .top, spacing: 6) {
+                    ShareActionTile(title: copied ? "Copied" : "Copy Link", symbol: copied ? "checkmark" : "link", accent: accent, highlighted: copied) {
+                        copyLink()
+                    }
+                    .accessibilityIdentifier("share.destination.copyLink")
                     ShareLink(item: payload.canonicalURL, subject: Text(payload.title), message: Text(payload.title)) {
                         ShareActionTileLabel(title: "More", symbol: "ellipsis", accent: accent, highlighted: false)
                     }

@@ -8,20 +8,26 @@ struct MolibooLivingStudioView: View {
     let characterID: String
 
     enum Panel: String, Identifiable, CaseIterable {
-        case wardrobe, style, faces
+        case wardrobe, outfits, style, faces, care
         var id: String { rawValue }
+        /// Outfits / Care are the Moliboo game systems; hidden until their backend is live (MolibooGameFlags).
+        static var visible: [Panel] { MolibooGameFlags.enabled ? allCases : [.wardrobe, .style, .faces] }
         var title: String {
             switch self {
             case .style: "Style"
             case .wardrobe: "Wardrobe"
+            case .outfits: "Outfits"
             case .faces: "Faces"
+            case .care: "Care"
             }
         }
         var symbol: String {
             switch self {
             case .style: "paintpalette.fill"
             case .wardrobe: "tshirt.fill"
+            case .outfits: "rectangle.stack.person.crop.fill"
             case .faces: "face.smiling"
+            case .care: "heart.circle.fill"
             }
         }
     }
@@ -288,7 +294,7 @@ struct MolibooLivingStudioView: View {
 
     private var rail: some View {
         HStack(spacing: 6) {
-            ForEach(Panel.allCases) { p in
+            ForEach(Panel.visible) { p in
                 railButton(p.title, p.symbol, id: "studio.rail.\(p.rawValue)", selected: panel == p) {
                     panel = panel == p ? nil : p
                 }
@@ -424,6 +430,10 @@ struct MolibooLivingStudioView: View {
             }
         case .faces:
             facesSheet
+        case .outfits:
+            MolibooOutfitsPanel(characterID: characterID)
+        case .care:
+            MolibooCareQuestsPanel(characterID: characterID)
         }
     }
 

@@ -106,12 +106,16 @@ struct ModulaErrorBanner: View {
         }
         .padding(.leading, 14)
         .padding(.trailing, 2)
-        .background(.regularMaterial, in: Capsule())
+        // Enhancements-50: Modula glass (solid under Reduce Transparency) + a warning tick.
+        .modulaGlass(in: Capsule(), interactive: false)
         .padding(.horizontal, ModulaSpacing.md)
         .padding(.bottom, 12)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(identifier)
-        .onAppear { AccessibilityNotification.Announcement(message).post() }
+        .onAppear {
+            AccessibilityNotification.Announcement(message).post()
+            HapticEngine.shared.play(.warning)
+        }
         .onChange(of: message) { _, next in AccessibilityNotification.Announcement(next).post() }
     }
 }
@@ -179,6 +183,10 @@ final class Lab30Connectivity {
 struct Lab30OfflineBanner: View {
     @State private var net = Lab30Connectivity.shared
     @State private var showBackOnline = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var bannerAnimation: Animation? {
+        ModulaEffectGate.reduceMotion(reduceMotion) ? nil : .spring(response: 0.35, dampingFraction: 0.8)
+    }
     var body: some View {
         Group {
             if !net.isOnline {
@@ -195,9 +203,12 @@ struct Lab30OfflineBanner: View {
         }
         .font(.footnote.weight(.semibold))
         .padding(.top, 6)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: net.isOnline)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showBackOnline)
+        .animation(bannerAnimation, value: net.isOnline)
+        .animation(bannerAnimation, value: showBackOnline)
         .onChange(of: net.isOnline) { was, now in
+            // Enhancements-50: VoiceOver hears connectivity changes; a soft haptic marks them.
+            UIAccessibility.post(notification: .announcement, argument: now ? "Back online" : "You're offline. Showing saved content")
+            HapticEngine.shared.play(now ? .success : .warning)
             guard !was, now else { return }
             showBackOnline = true
             Task { try? await Task.sleep(for: .seconds(2)); showBackOnline = false }
@@ -214,7 +225,11 @@ struct Lab30OfflineState: View {
                 .symbolEffect(.pulse, options: .repeating)
             Text("No connection").font(.headline)
             Text("We'll refresh as soon as you're back online.").font(.subheadline).foregroundStyle(.secondary)
-            Button("Try again", action: retry).buttonStyle(.bordered)
+            Button("Try again", action: retry)
+                .font(.body.weight(.semibold))
+                .padding(.horizontal, ModulaSpacing.lg).frame(minHeight: 44)
+                .buttonStyle(.plain)
+                .modulaAccentCTA()
         }
         .multilineTextAlignment(.center).padding(32)
     }

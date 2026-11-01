@@ -150,6 +150,8 @@ struct MessagingBackendCapabilities: Sendable, Equatable {
     var listConversations = false
     var listMessages = false
     var send = false
+    /// `POST /v1/conversations` {handle, text?} — start (or reuse) a 1:1 chat.
+    var startConversation = false
     var markRead = false
     var messageRequests = false
     var acceptRequest = false
@@ -172,6 +174,7 @@ struct MessagingBackendCapabilities: Sendable, Equatable {
         listConversations: true,
         listMessages: true,
         send: true,
+        startConversation: true,
         markRead: true,
         messageRequests: true,
         acceptRequest: true,
@@ -205,6 +208,7 @@ struct MessagingBackendCapabilities: Sendable, Equatable {
             "/v1/conversations/\(escape(conversationID))/read"
         }
 
+        static let startConversation = "/v1/conversations"
         static let requests = "/v1/message-requests"
         static func acceptRequest(id: String) -> String { "/v1/message-requests/\(escape(id))/accept" }
         static func declineRequest(id: String) -> String { "/v1/message-requests/\(escape(id))/decline" }
