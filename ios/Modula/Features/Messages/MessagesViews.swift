@@ -1601,14 +1601,18 @@ struct MessageStarterView: View {
 // MARK: - Direct (profile → chat)
 
 /// Opens the 1:1 chat with `person`. Looks the thread up in the inbox (loading it if needed) and swaps
-/// itself for the live conversation. With no thread yet, the server has no "start a conversation"
-/// endpoint, so this shows a starter addressed to them (In-Mail when it can send) instead of the inbox.
+/// itself for the live conversation. With no thread yet it is a real new chat: the composer is always
+/// there, and the first send creates the conversation (`POST /v1/conversations` with the text), then
+/// swaps in the live thread. Failed first sends stay as a red bubble with tap-to-retry.
 struct DirectMessageView: View {
     let person: String
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var resolving = true
+    @State private var composerFocused = false
 
     private var handle: String { person.trimmingCharacters(in: CharacterSet(charactersIn: "@")) }
+    private var key: ConversationID { MessagingStore.pendingDirectKey(handle) }
     private var profile: ModulaProfile? {
         let key = handle.lowercased()
         return app.profile.sessions.values.lazy.compactMap(\.profile)
@@ -1620,6 +1624,7 @@ struct DirectMessageView: View {
         if parts.count >= 2 { return String(parts[0].prefix(1) + parts[1].prefix(1)).uppercased() }
         return String(name.trimmingCharacters(in: CharacterSet(charactersIn: "@")).prefix(2)).uppercased()
     }
+    private var pending: [Message] { app.messaging.messages(for: key) }
 
     var body: some View {
         Group {
@@ -1631,11 +1636,14 @@ struct DirectMessageView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .accessibilityIdentifier("messages.direct.resolving")
             } else {
-                starter
+                newChat
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .safeAreaInset(edge: .bottom, spacing: 0) { composer }
             }
         }
         .navigationTitle(name)
         .navigationBarTitleDisplayMode(.inline)
+        .modulaSoftScrollEdge()
         .task(id: person) { await resolve() }
         .accessibilityIdentifier("messages.direct")
         .accessibilityValue(RouteSerializer.serialize(.messages(.direct(person))))
@@ -1645,7 +1653,7 @@ struct DirectMessageView: View {
         if let found = app.messaging.directConversation(with: person) { open(found); return }
         await app.messaging.loadInboxIfNeeded()
         if let found = app.messaging.directConversation(with: person) { open(found); return }
-        // Older threads may sit beyond the first page; one refresh before giving up.
+        // Older threads may sit beyond the first page; one refresh before showing a new chat.
         await app.messaging.refreshInbox()
         if let found = app.messaging.directConversation(with: person) { open(found); return }
         withAnimation(.smooth(duration: 0.2)) { resolving = false }
@@ -1655,57 +1663,116 @@ struct DirectMessageView: View {
         app.navigation.replaceTop(with: .messages(.conversation(conversation.id)))
     }
 
-    private var starter: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                ModulaAvatar(initials: initials, url: profile?.avatarURL, size: 88, name: name)
-                    .padding(.top, 36)
-                VStack(spacing: 4) {
-                    Text(name).font(.title3.weight(.bold))
-                    if profile != nil { Text("@\(handle)").font(.subheadline).foregroundStyle(.secondary) }
+    private var viewer: ConversationParticipant {
+        ConversationParticipant(
+            id: app.auth.account?.accountId ?? "me",
+            handle: app.auth.account?.primaryHandle ?? "",
+            displayName: app.auth.account?.displayName ?? "You",
+            avatarURL: nil
+        )
+    }
+
+    private var composer: some View {
+        MessageComposer(
+            text: Binding(
+                get: { app.messaging.drafts[key] ?? "" },
+                set: { app.messaging.drafts[key] = $0 }
+            ),
+            canSend: app.messaging.capabilities.startConversation,
+            showsAttachments: false,
+            largeText: dynamicTypeSize.isAccessibilitySize,
+            focus: $composerFocused
+        ) {
+            Task {
+                if let conversation = await app.messaging.startDirect(handle: handle, viewer: viewer) {
+                    IslandSendEffect.shared.fire("Message sent", accent: app.appearance.liveAccent)
+                    open(conversation)
                 }
-                Text("No chat with \(profile?.displayName ?? "them") yet. When either of you starts one, it opens right here.")
-                    .font(.subheadline).foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-                ModulaGlassGroup(spacing: 10) {
-                    VStack(spacing: 10) {
-                        if app.inMail.capabilities.send {
-                            Button {
-                                app.inMail.draft.toHandle = handle
-                                app.navigation.replaceTop(with: .messages(.inMail(.compose)))
-                                HapticEngine.shared.play(.navigation)
-                            } label: {
-                                Label("Write an In-Mail to \(profile?.displayName ?? "@\(handle)")", systemImage: "envelope.badge.fill")
-                                    .font(.body.weight(.semibold))
-                                    .foregroundStyle(.white)
-                                    .frame(maxWidth: .infinity).frame(height: 50)
-                                    .contentShape(Capsule())
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var newChat: some View {
+        if pending.isEmpty {
+            ScrollView {
+                VStack(spacing: 14) {
+                    ModulaAvatar(initials: initials, url: profile?.avatarURL, size: 88, name: name)
+                        .padding(.top, 36)
+                    VStack(spacing: 4) {
+                        Text(name).font(.title3.weight(.bold))
+                        if profile != nil { Text("@\(handle)").font(.subheadline).foregroundStyle(.secondary) }
+                    }
+                    Text("Say hi — your first message starts the chat.")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                    ModulaGlassGroup(spacing: 8) {
+                        HStack(spacing: 8) {
+                            ForEach(["👋", "Hey!", "How’s it going?"], id: \.self) { opener in
+                                Button {
+                                    app.messaging.drafts[key] = opener
+                                    composerFocused = true
+                                    HapticEngine.shared.play(.selection)
+                                } label: {
+                                    Text(opener)
+                                        .font(.subheadline.weight(.medium))
+                                        .foregroundStyle(.primary)
+                                        .lineLimit(1)
+                                        .padding(.horizontal, 12)
+                                        .frame(height: 36)
+                                        .contentShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+                                .modulaGlass(in: Capsule(), interactive: true)
                             }
-                            .buttonStyle(.plain)
-                            .modulaAccentCTA()
-                            .accessibilityIdentifier("messages.direct.inmail")
                         }
-                        Button {
-                            app.navigation.replaceTop(with: .profile(handle, .overview))
-                            HapticEngine.shared.play(.navigation)
-                        } label: {
-                            Label("View profile", systemImage: "person.crop.circle")
-                                .font(.body.weight(.semibold))
-                                .foregroundStyle(.primary)
-                                .frame(maxWidth: .infinity).frame(height: 50)
-                                .contentShape(Capsule())
+                    }
+                    Button {
+                        app.navigation.push(.profile(handle, .overview))
+                        HapticEngine.shared.play(.navigation)
+                    } label: {
+                        Label("View profile", systemImage: "person.crop.circle")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 4)
+                    .accessibilityIdentifier("messages.direct.profile")
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .accessibilityIdentifier("messages.direct.starter")
+        } else {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 4) {
+                    ForEach(pending) { message in
+                        MessageBubble(message: message, showsStatus: true) { action in
+                            if action.id == "retry" { retry(message) }
+                            if action.id == "copy" { UIPasteboard.general.string = message.body.text }
                         }
-                        .buttonStyle(.plain)
-                        .modulaGlass(in: Capsule(), interactive: true)
-                        .accessibilityIdentifier("messages.direct.profile")
+                        .onTapGesture { if message.delivery == .failed { retry(message) } }
+                        .accessibilityHint(message.delivery == .failed ? "Not sent. Double tap to retry." : "")
+                    }
+                    if pending.contains(where: { $0.delivery == .failed }) {
+                        Text("Not sent — tap the message to try again.")
+                            .font(.caption).foregroundStyle(.red)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .accessibilityIdentifier("messages.direct.failed")
                     }
                 }
                 .padding(.horizontal, ModulaLayout.contentInset)
-                .padding(.top, 8)
+                .padding(.vertical, 12)
             }
-            .frame(maxWidth: .infinity)
+            .defaultScrollAnchor(.bottom)
         }
-        .accessibilityIdentifier("messages.direct.starter")
+    }
+
+    private func retry(_ message: Message) {
+        Task {
+            if let conversation = await app.messaging.retryStartDirect(message: message, handle: handle, viewer: viewer) {
+                open(conversation)
+            }
+        }
     }
 }

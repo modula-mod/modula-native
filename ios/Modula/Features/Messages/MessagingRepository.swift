@@ -4,6 +4,7 @@ protocol MessagingRepository: Sendable {
     func conversations(cursor: String?) async throws -> ConversationPage
     func conversation(_ id: ConversationID, cursor: String?) async throws -> MessagePage
     func send(conversation: ConversationID, message: MessageDraft) async throws -> Message
+    func startConversation(handle: String, text: String?) async throws -> Conversation
     func markRead(conversation: ConversationID) async throws
     func messageRequests() async throws -> [MessageRequest]
     func acceptRequest(id: String) async throws -> Conversation
@@ -69,6 +70,28 @@ actor GreenfieldMessagingRepository: MessagingRepository {
         let payload = value["message"] ?? value
         if let decoded = MessagingPayloadDecoder.message(payload, conversationID: conversation, viewerID: nil) {
             return decoded
+        }
+        throw APIError.invalidResponse
+    }
+
+    /// Starts (or reuses) the direct conversation with `handle`. When `text` is set the server
+    /// sends it as the first message in the same request.
+    func startConversation(handle: String, text: String?) async throws -> Conversation {
+        guard capabilities.startConversation else {
+            throw APIError.unavailable("Couldn't start this chat.")
+        }
+        let started = Date()
+        var body: [String: JSONValue] = ["handle": .string(handle)]
+        if let text, !text.isEmpty { body["text"] = .string(text) }
+        let value: JSONValue = try await client.authenticatedJSON(
+            "POST",
+            path: MessagingBackendCapabilities.Paths.startConversation,
+            body: .object(body)
+        )
+        log(op: "start", id: nil, started: started)
+        if let conversation = MessagingPayloadDecoder.conversation(value["conversation"] ?? value) {
+            conversationMemory["root"] = nil
+            return conversation
         }
         throw APIError.invalidResponse
     }
