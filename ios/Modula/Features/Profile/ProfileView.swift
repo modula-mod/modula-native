@@ -1430,12 +1430,18 @@ struct ProfileView: View {
             } description: {
                 Text("Share your first post.")
             } actions: {
-                Button("Create Post") {
+                Button {
                     app.navigation.open(.compose(.post))
                     HapticEngine.shared.play(.navigation)
+                } label: {
+                    Text("Create Post")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, GeneratedDesignContract.Spacing.lg)
+                        .frame(minHeight: GeneratedDesignContract.Layout.minimumTouchTarget)
+                        .contentShape(Capsule())
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(app.appearance.liveAccent)
+                .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
+                .modulaAccentCTA()
                 .accessibilityIdentifier("profile.empty.compose")
             }
             .frame(maxWidth: .infinity)
@@ -1458,12 +1464,18 @@ struct ProfileView: View {
                 } description: {
                     Text("Feature the modules that represent what you use, build or share.")
                 } actions: {
-                    Button("Choose Modules") {
+                    Button {
                         app.navigation.open(.productHub(.featured))
                         HapticEngine.shared.play(.navigation)
+                    } label: {
+                        Text("Choose Modules")
+                            .font(.subheadline.weight(.semibold))
+                            .padding(.horizontal, GeneratedDesignContract.Spacing.lg)
+                            .frame(minHeight: GeneratedDesignContract.Layout.minimumTouchTarget)
+                            .contentShape(Capsule())
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(app.appearance.liveAccent)
+                    .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
+                    .modulaAccentCTA()
                     .accessibilityIdentifier("profile.empty.modules.choose")
                 }
                 .frame(maxWidth: .infinity)

@@ -258,33 +258,31 @@ struct ActivityFollowBackButton: View {
     let actor: ActivityActor
     var compact = false
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var state: Phase = .idle
     enum Phase { case idle, busy, following }
     var body: some View {
-        let accent = app.appearance.liveAccent
         Button {
             guard state == .idle else { return }
-            withAnimation(.snappy) { state = .busy }
+            withAnimation(reduceMotion ? nil : .snappy) { state = .busy }
             Task {
                 let ok = await app.profile.follow(profileID: actor.id, handle: actor.handle ?? actor.id)
-                withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) { state = ok ? .following : .idle }
+                withAnimation(reduceMotion ? nil : .spring(response: GeneratedDesignContract.Motion.standardDuration, dampingFraction: 0.72)) { state = ok ? .following : .idle }
                 if ok { app.navigation.flash("Following \(actor.displayName)", symbol: "person.badge.plus") }
             }
         } label: {
             HStack(spacing: 4) {
-                if state == .busy { ProgressView().controlSize(.mini).tint(.white) }
+                if state == .busy { ProgressView().controlSize(.mini) }
                 else if state == .following { Image(systemName: "checkmark").font(.caption2.weight(.bold)).transition(.scale.combined(with: .opacity)) }
                 Text(state == .following ? "Following" : "Follow back").font(.footnote.weight(.semibold)).lineLimit(1)
             }
-            .foregroundStyle(state == .following ? Color.primary : Color.white)
-            .padding(.horizontal, compact ? 12 : 14)
-            .frame(height: 32)
-            .background {
-                if state != .following { Capsule().fill(accent) }
-            }
-            .modulaGlass(in: Capsule(), interactive: true, tint: state == .following ? nil : accent.opacity(0.4))
+            .padding(.horizontal, compact ? GeneratedDesignContract.Spacing.sm : GeneratedDesignContract.Spacing.md)
+            .frame(minHeight: GeneratedDesignContract.Layout.minimumTouchTarget)
+            .contentShape(Capsule())
         }
         .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: .lightImpact))
+        // Disabled state of the shared CTA renders as an accent outline ("Following" / busy).
+        .modulaAccentCTA()
         .disabled(state != .idle)
         .accessibilityIdentifier("activity.follow-back")
     }
@@ -628,9 +626,12 @@ struct ActivityLivelyEmptyState: View {
             if let actionTitle, let action {
                 Button(action: action) {
                     Text(actionTitle).font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 18).frame(height: 40)
-                        .modulaGlass(in: Capsule(), interactive: true, tint: accent.opacity(0.2))
-                }.buttonStyle(ModulaPressStyle(scale: 0.94))
+                        .padding(.horizontal, GeneratedDesignContract.Spacing.lg)
+                        .frame(minHeight: GeneratedDesignContract.Layout.minimumTouchTarget)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.94))
+                .modulaAccentCTA()
             }
         }
         .frame(maxWidth: .infinity).padding(.horizontal, 24).padding(.vertical, 12)
@@ -872,9 +873,13 @@ struct ActivitySuggestedPeople: View {
                         } label: {
                             Text(done ? "Following" : (person.followsViewer ? "Follow back" : "Follow"))
                                 .font(.footnote.weight(.semibold))
-                                .padding(.horizontal, 14).frame(height: 32)
-                                .modulaGlass(in: Capsule(), interactive: true, tint: done ? nil : app.appearance.liveAccent.opacity(0.25))
-                        }.buttonStyle(.plain).disabled(done)
+                                .padding(.horizontal, GeneratedDesignContract.Spacing.md)
+                                .frame(minHeight: GeneratedDesignContract.Layout.minimumTouchTarget)
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .modulaAccentCTA()
+                        .disabled(done)
                     }
                     .padding(.vertical, 6)
                 }
