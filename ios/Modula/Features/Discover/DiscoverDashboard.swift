@@ -48,12 +48,10 @@ struct DiscoverDashboardView: View {
 
     var body: some View {
         LazyVStack(alignment: .leading, spacing: 28) {
-            if !heroItems.isEmpty {
-                DiscoverHeroCarousel(items: heroItems, onTopic: onTopic, onPost: onPost, onModule: onModule)
-                    .modulaPageEntrance()
-            }
+            DiscoverHeroCarousel(items: [.welcome] + heroItems, onTopic: onTopic, onPost: onPost, onModule: onModule, onExplore: onSeeModules)
+                .modulaPageEntrance()
             if !dashboard.topics.isEmpty {
-                DiscoverBentoTopics(topics: Array(dashboard.topics.prefix(6)), onOpen: onTopic)
+                DiscoverTopicRail(topics: Array(dashboard.topics.prefix(8)), onOpen: onTopic)
             }
             if !shelfPeople.isEmpty {
                 DiscoverPeopleShelf(people: shelfPeople, followBusyID: followBusyID, onSeeAll: onSeePeople, onOpen: onPerson, onFollow: onFollow)
@@ -71,7 +69,7 @@ struct DiscoverDashboardView: View {
                 )
             }
             if !featuredProducts.isEmpty {
-                DiscoverModuleSpotlight(products: Array(featuredProducts.prefix(4)), installedIDs: installedIDs, onSeeAll: onSeeModules, onOpen: onModule)
+                DiscoverFeaturedModulesRail(products: Array(featuredProducts.prefix(8)), installedIDs: installedIDs, onSeeAll: onSeeModules, onOpen: onModule)
             }
             if !previewPosts.isEmpty {
                 DiscoverPostShelf(posts: Array(previewPosts.prefix(3)), onOpen: onPost)
@@ -92,9 +90,11 @@ struct DiscoverDashboardView: View {
 }
 
 enum DiscoverHeroItem: Identifiable, Hashable {
+    case welcome
     case topic(DiscoverTopic), post(DiscoverPost), module(CatalogueProduct)
     var id: String {
         switch self {
+        case .welcome: "welcome"
         case .topic(let t): "topic.\(t.id)"
         case .post(let p): "post.\(p.id)"
         case .module(let m): "module.\(m.id)"
@@ -107,20 +107,30 @@ struct DiscoverHeroCarousel: View {
     var onTopic: (DiscoverTopic) -> Void
     var onPost: (DiscoverPost) -> Void
     var onModule: (CatalogueProduct) -> Void
+    var onExplore: () -> Void = {}
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var page = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ModulaSectionHeader(title: "Today on Modula")
             TabView(selection: $page) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                     heroCard(item).tag(index).padding(.horizontal, 2)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 210)
+            .frame(height: 220)
+            .overlay(alignment: .bottomTrailing) {
+                Text("\(page + 1) / \(items.count)")
+                    .font(.caption2.weight(.bold).monospacedDigit())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 9)
+                    .frame(height: 24)
+                    .modulaGlass(in: Capsule(), interactive: false)
+                    .padding(14)
+                    .accessibilityHidden(true)
+            }
             HStack(spacing: 6) {
                 ForEach(items.indices, id: \.self) { i in
                     Capsule()
@@ -138,6 +148,7 @@ struct DiscoverHeroCarousel: View {
         let accent = app.appearance.liveAccent
         return Button {
             switch item {
+            case .welcome: onExplore()
             case .topic(let t): onTopic(t)
             case .post(let p): onPost(p)
             case .module(let m): onModule(m)
@@ -156,6 +167,18 @@ struct DiscoverHeroCarousel: View {
                         Text(sub).font(.subheadline).foregroundStyle(.white.opacity(0.8)).lineLimit(2)
                     }
                     if case .post(let post) = item { heroPostMeta(post) }
+                    if case .welcome = item {
+                        HStack(spacing: 8) {
+                            Text("Explore now")
+                            Image(systemName: "arrow.right")
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.black.opacity(0.85))
+                        .padding(.horizontal, 16)
+                        .frame(height: 40)
+                        .background(.white, in: Capsule())
+                        .padding(.top, 6)
+                    }
                 }
                 .padding(18)
             }
@@ -189,6 +212,11 @@ struct DiscoverHeroCarousel: View {
 
     @ViewBuilder private func heroBackdrop(_ item: DiscoverHeroItem) -> some View {
         switch item {
+        case .welcome:
+            ZStack(alignment: .trailing) {
+                Image("SceneMountainLake").resizable().scaledToFill()
+                Image("SproutBuilder").resizable().scaledToFit().frame(width: 130).padding(.trailing, 16).offset(y: -10)
+            }
         case .topic(let topic):
             DiscoverTopicArtwork(seed: topic.id)
         case .post(let post):
@@ -208,10 +236,11 @@ struct DiscoverHeroCarousel: View {
     }
 
     private func eyebrow(_ item: DiscoverHeroItem) -> String {
-        switch item { case .topic: "TRENDING"; case .post: "POPULAR"; case .module: "MODULE" }
+        switch item { case .welcome: "TODAY"; case .topic: "TRENDING"; case .post: "POPULAR"; case .module: "MODULE" }
     }
     private func title(_ item: DiscoverHeroItem) -> String {
         switch item {
+        case .welcome: "Welcome to Modula"
         case .topic(let t): t.label
         case .post(let p): p.text.map { String($0.prefix(80)) } ?? "Post"
         case .module(let m): m.name
@@ -219,6 +248,7 @@ struct DiscoverHeroCarousel: View {
     }
     private func subtitle(_ item: DiscoverHeroItem) -> String? {
         switch item {
+        case .welcome: "Your space. Your people. Your modules."
         case .topic(let t): t.summary ?? t.postCountLabel
         case .post(let p): p.author.map { "@\($0.handle)" }
         case .module(let m): m.description
@@ -563,5 +593,128 @@ private final class MosaicPlayerView: UIView {
         looper = nil
         (layer as? AVPlayerLayer)?.player = nil
         player = nil
+    }
+}
+
+
+// MARK: - Reference-style section header + rails
+
+/// Section header with a leading accent glyph and a "See all →" trailing link (44pt target).
+struct DiscoverRailHeader: View {
+    let title: String
+    let symbol: String
+    var onSeeAll: (() -> Void)? = nil
+    @Environment(AppEnvironment.self) private var app
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol)
+                .font(.headline)
+                .foregroundStyle(app.appearance.liveAccent)
+            Text(title).font(.title3.bold()).accessibilityAddTraits(.isHeader)
+            Spacer()
+            if let onSeeAll {
+                Button(action: onSeeAll) {
+                    HStack(spacing: 4) { Text("See all"); Image(systemName: "arrow.right") }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(app.appearance.liveAccent)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+/// Horizontal trending-topic cards: rank, big "#" watermark, real post count, arrow affordance.
+struct DiscoverTopicRail: View {
+    let topics: [DiscoverTopic]
+    var onOpen: (DiscoverTopic) -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            DiscoverRailHeader(title: "Trending topics", symbol: "flame.fill")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(Array(topics.enumerated()), id: \.element.id) { index, topic in
+                        Button { onOpen(topic); HapticEngine.shared.play(.navigation) } label: {
+                            ZStack(alignment: .bottomLeading) {
+                                DiscoverTopicArtwork(seed: topic.id)
+                                LinearGradient(colors: [.clear, .black.opacity(0.55)], startPoint: .top, endPoint: .bottom)
+                                Text("#")
+                                    .font(.system(size: 96, weight: .black, design: .rounded))
+                                    .foregroundStyle(.white.opacity(0.14))
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                                    .offset(x: 8, y: -14)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("#\(index + 1)").font(.caption.weight(.bold)).foregroundStyle(.white.opacity(0.85))
+                                    Text(topic.label).font(.headline).foregroundStyle(.white).lineLimit(2)
+                                    HStack {
+                                        if let count = topic.postCountLabel {
+                                            Text(count).font(.caption).foregroundStyle(.white.opacity(0.85))
+                                        }
+                                        Spacer(minLength: 4)
+                                        Image(systemName: "arrow.right")
+                                            .font(.caption.weight(.bold))
+                                            .foregroundStyle(.white)
+                                            .frame(width: 26, height: 26)
+                                            .modulaGlass(in: Circle(), interactive: false)
+                                    }
+                                }
+                                .padding(12)
+                            }
+                            .frame(width: 150, height: 120)
+                            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        }
+                        .buttonStyle(.modulaPressTilt)
+                        .accessibilityLabel([topic.label, topic.postCountLabel].compactMap { $0 }.joined(separator: ", "))
+                        .modulaCarouselReveal()
+                    }
+                }
+            }
+            .scrollClipDisabled()
+        }
+    }
+}
+
+/// Two-up compact module cards with an Open / Install pill (accent), like the reference.
+struct DiscoverFeaturedModulesRail: View {
+    let products: [CatalogueProduct]
+    let installedIDs: Set<String>
+    var onSeeAll: () -> Void
+    var onOpen: (CatalogueProduct) -> Void
+    @Environment(AppEnvironment.self) private var app
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            DiscoverRailHeader(title: "Featured modules", symbol: "shippingbox.fill", onSeeAll: onSeeAll)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(products) { product in
+                        let installed = installedIDs.contains(product.id)
+                        Button { onOpen(product); HapticEngine.shared.play(.navigation) } label: {
+                            HStack(alignment: .center, spacing: 10) {
+                                ProductArtwork(product: product, size: 48)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(product.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                                    Text(product.description).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
+                                }
+                                Spacer(minLength: 4)
+                                Text(installed ? "Open" : "Get")
+                                    .font(.caption.weight(.bold))
+                                    .padding(.horizontal, 12)
+                                    .frame(height: 30)
+                                    .modulaAccentCTA()
+                            }
+                            .padding(12)
+                            .frame(width: 270, alignment: .leading)
+                            .frame(minHeight: 76)
+                            .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(product.name), \(installed ? "installed, open" : "get")")
+                    }
+                }
+            }
+            .scrollClipDisabled()
+        }
     }
 }
