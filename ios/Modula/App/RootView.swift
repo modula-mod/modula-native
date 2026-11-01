@@ -23,7 +23,7 @@ struct RootView: View {
         let edgeSide = appearance.edgePicker.side
         let clearance = EdgeInteractionSafeArea.contentClearance(
             side: edgeSide,
-            pickerVisible: policy.contextRailVisible
+            pickerVisible: false  // Edge picker removed; contexts live in the swipeable tab accessory.
         )
         shell(navigation: navigation, policy: policy)
         .fontDesign(appearance.fontDesign)
@@ -31,14 +31,6 @@ struct RootView: View {
         .environment(\.leadingInteractionInset, clearance.leading)
         .environment(\.edgePickerSide, edgeSide)
         .environment(\.shellChromeMetrics, ShellChromeMetrics.resolve(policy: policy))
-        .overlay(alignment: edgeSide == .right ? .trailing : .leading) {
-            if policy.contextRailVisible, !navigation.sidebarPresented {
-                ShellEdgeLoop(route: navigation.currentRoute)
-                    .ignoresSafeArea(edges: edgeSide == .right ? .trailing : .leading)
-                    .padding(.bottom, 80)
-                    .padding(.top, 48)
-            }
-        }
         // ChatGPT-style push sidebar: the shell becomes a rounded card that slides right.
         .modulaSidebarContainer()
         // Pull menu frost covers the entire screen (header, tab bar, Tools bar, edge rail).
@@ -150,7 +142,7 @@ struct RootView: View {
                     }
                 }
         } else if #available(iOS 26.1, *) {
-            tabs(navigation: navigation)
+            tabs(navigation: navigation, accessoryClearance: policy.shellAccessoryVisible ? ModulaLayout.accessoryClearance : 0)
                 .toolbar(policy.bottomBarVisible ? .visible : .hidden, for: .tabBar)
                 .tabViewBottomAccessory(isEnabled: policy.shellAccessoryVisible) {
                     ShellAccessorySystemSlot(route: navigation.currentRoute)
@@ -159,7 +151,7 @@ struct RootView: View {
                 // (bottom-left), which read as a stray notifications button — keep it expanded there.
                 .tabBarMinimizeBehavior(navigation.selectedTab == .activity ? .never : .onScrollDown)
         } else if #available(iOS 26.0, *) {
-            tabs(navigation: navigation)
+            tabs(navigation: navigation, accessoryClearance: policy.shellAccessoryVisible ? ModulaLayout.accessoryClearance : 0)
                 .toolbar(policy.bottomBarVisible ? .visible : .hidden, for: .tabBar)
                 .tabViewBottomAccessory {
                     if policy.shellAccessoryVisible {
@@ -182,7 +174,7 @@ struct RootView: View {
     /// `.toolbar(.hidden, for: .tabBar)` only hides the system bar when applied inside a
     /// tab's content; on the `TabView` itself iOS 26+ ignores it, which drew the system
     /// bar underneath Modula's own floating chrome (duplicate tab bar).
-    private func tabs(navigation: NavigationCoordinator, hidesSystemTabBar: Bool = false) -> some View {
+    private func tabs(navigation: NavigationCoordinator, hidesSystemTabBar: Bool = false, accessoryClearance: CGFloat = 0) -> some View {
         @Bindable var navigation = navigation
         return TabView(selection: $navigation.selectedTab) {
             ForEach(AppTab.allCases) { tab in
@@ -190,11 +182,14 @@ struct RootView: View {
                     RouteView(route: navigation.root(for: tab))
                         .navigationDestination(for: AppRoute.self) {
                             RouteView(route: $0)
-                                .modifier(SystemTabBarHidden(hidden: hidesSystemTabBar))
+                                // Pushed Settings / Premium pages: no minimised tab bubble (the profile avatar
+                                // floated bottom-left over plan cards). Back is the one way out.
+                                .modifier(SystemTabBarHidden(hidden: hidesSystemTabBar || Self.hidesTabBar(on: $0)))
                         }
                         .background(EdgeSwipeBackConfigurator().frame(width: 0, height: 0).accessibilityHidden(true))
                         .modifier(SystemTabBarHidden(hidden: hidesSystemTabBar))
                 }
+                .contentMargins(.bottom, accessoryClearance, for: .scrollContent)
                 .environment(\.routeTransitionNamespace, routeTransitions)
                 .modulaSoftScrollEdge()
                 .tabItem {
@@ -229,6 +224,11 @@ struct RootView: View {
             .allowsHitTesting(false)
             .accessibilityHidden(true)
         }
+    }
+
+    private static func hidesTabBar(on route: AppRoute) -> Bool {
+        if case .settings = route { return true }
+        return false
     }
 
     /// Unread Activity, quietened by an iOS Focus filter per Settings → Focus.
