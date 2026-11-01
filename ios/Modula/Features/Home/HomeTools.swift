@@ -89,7 +89,7 @@ struct ModulaGlassToggleRow: View {
                 }
             }
         }
-        .tint(app.appearance.accent.color)
+        .tint(app.appearance.liveAccent)
         .padding(.horizontal, 16).padding(.vertical, 12)
     }
 }
@@ -125,9 +125,9 @@ struct ModulaGlassSheetIcon: View {
     var body: some View {
         Image(systemName: symbol)
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(app.appearance.accent.color)
+            .foregroundStyle(app.appearance.liveAccent)
             .frame(width: 32, height: 32)
-            .background(Circle().fill(app.appearance.accent.color.opacity(0.12)))
+            .background(Circle().fill(app.appearance.liveAccent.opacity(0.12)))
             .accessibilityHidden(true)
     }
 }
@@ -286,7 +286,7 @@ struct HomeFeedsSheet: View {
 
     private func feedCard(_ feed: HomeMode) -> some View {
         let selected = feed == mode
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         return Button {
             app.navigation.replaceContext(with: .home(feed))
             HapticEngine.shared.play(.navigation)

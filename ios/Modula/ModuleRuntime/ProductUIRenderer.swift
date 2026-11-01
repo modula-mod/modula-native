@@ -314,12 +314,12 @@ struct ProductUINode: View {
                 Text(copy)
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 8).padding(.vertical, 4)
-                    .background(app.appearance.accent.color.opacity(0.14), in: Capsule())
+                    .background(app.appearance.liveAccent.opacity(0.14), in: Capsule())
             }
         case "divider":
             Divider()
         case "icon":
-            Image(systemName: node["icon"]?.string ?? "square.stack.3d.up").foregroundStyle(app.appearance.accent.color)
+            Image(systemName: node["icon"]?.string ?? "square.stack.3d.up").foregroundStyle(app.appearance.liveAccent)
         case "image", "media":
             RoundedRectangle(cornerRadius: 12).fill(.quaternary).frame(height: 120)
                 .overlay(Image(systemName: "photo").foregroundStyle(.secondary))
@@ -408,7 +408,7 @@ struct ProductUINode: View {
         let button = Button(runtime.boundText(node).isEmpty ? "Continue" : runtime.boundText(node)) {
             if let action = node["action"]?.string { runtime.perform(actionId: action) }
         }
-        .tint(app.appearance.accent.color)
+        .tint(app.appearance.liveAccent)
         .accessibilityIdentifier("product-ui.button.\(node["action"]?.string ?? "none")")
         if compact {
             button.buttonStyle(.bordered).controlSize(.small)

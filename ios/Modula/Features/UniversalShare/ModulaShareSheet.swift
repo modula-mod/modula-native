@@ -30,7 +30,7 @@ struct ModulaShareSheet: View {
     @State private var sendError: String?
 
     private var reduceMotion: Bool { ModulaEffectGate.reduceMotion(systemReduceMotion) }
-    private var accent: Color { app.appearance.accent.color }
+    private var accent: Color { app.appearance.liveAccent }
     private var canMessage: Bool { app.messaging.capabilities.send }
 
     private var motion: Animation {
@@ -564,7 +564,7 @@ private struct ShareHeroPreview: View {
                 Text(kind.uppercased())
                     .font(.caption2.weight(.bold))
                     .tracking(1)
-                    .foregroundStyle(app.appearance.accent.color)
+                    .foregroundStyle(app.appearance.liveAccent)
                 Text(payload.title)
                     .font(.headline)
                     .lineLimit(2)
@@ -625,7 +625,7 @@ private struct ShareHeroPreview: View {
             .font(.title2.weight(.semibold))
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(app.appearance.accent.color.gradient, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(app.appearance.liveAccent.gradient, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 

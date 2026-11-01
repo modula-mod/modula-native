@@ -15,7 +15,7 @@ struct ProfileAboutField: View {
             if let action {
                 Button(value, action: action)
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(profileAccent ?? app.appearance.accent.color)
+                    .foregroundStyle(profileAccent ?? app.appearance.liveAccent)
                     .buttonStyle(.plain)
             } else {
                 Text(value)

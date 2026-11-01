@@ -39,7 +39,7 @@ struct DigestsSettingsView: View {
                             ForEach(digests.recent) { delivery in
                                 HStack {
                                     Image(systemName: delivery.outcome == "queued" ? "paperplane.fill" : "moon.zzz")
-                                        .foregroundStyle(delivery.outcome == "queued" ? AnyShapeStyle(app.appearance.accent.color) : AnyShapeStyle(.secondary))
+                                        .foregroundStyle(delivery.outcome == "queued" ? AnyShapeStyle(app.appearance.liveAccent) : AnyShapeStyle(.secondary))
                                         .frame(width: 28)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(delivery.kind == "weekly" ? "Weekly recap · \(delivery.period)" : "Morning summary · \(delivery.period)")

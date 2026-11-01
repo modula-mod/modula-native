@@ -35,7 +35,7 @@ struct SettingsToggleCard<Content: View>: View {
             }
         }
         .toggleStyle(.switch)
-        .tint(app.appearance.accent.color)
+        .tint(app.appearance.liveAccent)
     }
 }
 
@@ -72,11 +72,11 @@ private struct AppearanceChoice<Value: Hashable>: View {
             }
             .font(.subheadline.weight(.semibold))
             // Text/checkmark colour picked by the accent's luminance (white on yellow was unreadable).
-            .foregroundStyle(selection == value ? Self.onColor(app.appearance.accent.color) : Color.primary)
+            .foregroundStyle(selection == value ? Self.onColor(app.appearance.liveAccent) : Color.primary)
             .padding(.horizontal, 14)
             .padding(.vertical, 4)
             .frame(maxWidth: .infinity, minHeight: 46)
-            .background(selection == value ? app.appearance.accent.color : Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .background(selection == value ? app.appearance.liveAccent : Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selection == value ? .isSelected : [])
@@ -443,7 +443,7 @@ struct SettingsView: View {
 
     private var settingsCoverFallback: some View {
         LinearGradient(
-            colors: [Color(hex: app.profile.ownProfile?.coverColour ?? "#369CAA"), app.appearance.accent.color.opacity(0.85)],
+            colors: [Color(hex: app.profile.ownProfile?.coverColour ?? "#369CAA"), app.appearance.liveAccent.opacity(0.85)],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -1566,9 +1566,9 @@ struct ComponentCatalogView: View {
                         MessageBubble(message: MessagingFixtures.thread()[1]) { _ in }
                         MessageBubble(message: MessagingFixtures.thread()[0]) { _ in }
                         HStack(spacing: 16) {
-                            StoryRing(state: .unseen, accent: app.appearance.accent.color)
-                            StoryRing(state: .seen, accent: app.appearance.accent.color)
-                            StoryRing(state: .own, accent: app.appearance.accent.color)
+                            StoryRing(state: .unseen, accent: app.appearance.liveAccent)
+                            StoryRing(state: .seen, accent: app.appearance.liveAccent)
+                            StoryRing(state: .own, accent: app.appearance.liveAccent)
                         }
                         StoryProgressBar(count: 4, index: 1, progress: 0.4)
                         ProfileAccentPicker(selection: .constant(.violet), writable: true)
@@ -1582,7 +1582,7 @@ struct ComponentCatalogView: View {
                             kind: .post,
                             capabilities: .production,
                             developerMode: true,
-                            accent: app.appearance.accent.color,
+                            accent: app.appearance.liveAccent,
                             photoPicker: { EmptyView() },
                             videoPicker: { EmptyView() },
                             onTool: { _ in }

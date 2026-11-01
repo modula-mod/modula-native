@@ -511,7 +511,7 @@ struct ShellSidebarView: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .modulaGlass(in: Circle(), tint: app.appearance.accent.color, prominent: true)
+        .modulaGlass(in: Circle(), tint: app.appearance.liveAccent, prominent: true)
         .accessibilityLabel("New post")
         .accessibilityIdentifier("shell.sidebar.create")
     }

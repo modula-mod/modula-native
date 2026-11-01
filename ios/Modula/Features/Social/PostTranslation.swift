@@ -29,7 +29,7 @@ struct PostTranslationControl: View {
                         .foregroundStyle(.primary)
                         .padding(10)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(app.appearance.accent.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .background(app.appearance.liveAccent.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .transition(.opacity)
                 }
                 Button {
@@ -48,7 +48,7 @@ struct PostTranslationControl: View {
                         .font(.caption.weight(.semibold))
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(app.appearance.accent.color)
+                .foregroundStyle(app.appearance.liveAccent)
                 .accessibilityHint("Translates this post on your iPhone")
                 if failed {
                     Text("Couldn’t translate this post.").font(.caption2).foregroundStyle(.secondary)

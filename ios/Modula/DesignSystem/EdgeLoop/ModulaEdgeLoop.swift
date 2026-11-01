@@ -327,7 +327,7 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
             )
             shellShape
                 .fill(bodyFill)
-                .overlay(shellShape.fill(app.appearance.accent.color.opacity(0.18)))
+                .overlay(shellShape.fill(app.appearance.liveAccent.opacity(0.18)))
                 .overlay(
                     shellShape.stroke(
                         Color.primary.opacity(higherContrast ? 0.28 : 0.12),
@@ -344,13 +344,13 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
                 .fill(Color.clear)
                 .modulaChrome(in: shellShape, opaque: false)
                 .overlay(shellShape.fill(Color.black.opacity(sink)))
-                .overlay(shellShape.fill(app.appearance.accent.color.opacity(bodyAccent)))
+                .overlay(shellShape.fill(app.appearance.liveAccent.opacity(bodyAccent)))
                 .overlay(
                     shellShape.stroke(
                         LinearGradient(
                             colors: [
                                 Color.white.opacity((colorScheme == .dark ? 0.16 : 0.24) * edgeBoost),
-                                app.appearance.accent.color.opacity(0.12 * edgeBoost),
+                                app.appearance.liveAccent.opacity(0.12 * edgeBoost),
                                 Color.white.opacity(0.02)
                             ],
                             startPoint: position == .trailing ? .leading : .trailing,
@@ -383,7 +383,7 @@ struct ModulaEdgeLoop<Item: EdgeLoopItem>: View {
     private var selectionAperture: some View {
         let height = max(apertureHeight, metrics.selectionWidth * 1.4)
         let width = metrics.selectionWidth
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         // Accent-led glass pill (reference reads as tinted liquid glass, not a grey circle).
         let accentFill = opaque ? 0.55 : (awake ? 0.48 : 0.42)
         return Capsule()

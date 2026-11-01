@@ -320,7 +320,7 @@ struct AuthPasswordRequirement: View {
         let met = password.count >= 8
         Label("At least 8 characters", systemImage: met ? "checkmark.circle.fill" : "circle")
             .font(.footnote)
-            .foregroundStyle(met ? app.appearance.accent.color : Color.secondary)
+            .foregroundStyle(met ? app.appearance.liveAccent : Color.secondary)
             .accessibilityLabel(met ? "Password meets the 8 character minimum" : "Password needs at least 8 characters")
     }
 }
@@ -360,7 +360,7 @@ struct AuthPrimaryButton: View {
             .foregroundStyle(.white)
             .frame(maxWidth: contracted ? Self.height : .infinity)
             .frame(minHeight: Self.height)
-            .background(app.appearance.accent.color.opacity(enabled || busy ? 1 : 0.4), in: Capsule())
+            .background(app.appearance.liveAccent.opacity(enabled || busy ? 1 : 0.4), in: Capsule())
             .contentShape(Capsule())
             .frame(maxWidth: .infinity)
         }

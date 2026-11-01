@@ -81,7 +81,7 @@ struct ProfileCover: View {
                 }
 
                 // Animated banner overlay (v2) — aurora drift + spark particles.
-                ProfileBannerFX(accent: tint ?? app.appearance.accent.color)
+                ProfileBannerFX(accent: tint ?? app.appearance.liveAccent)
                     .frame(width: width, height: coverHeight + stretch)
                     .opacity(0.55 + 0.25 * Double(1 - dissolve))
                     .blendMode(.plusLighter)
@@ -125,7 +125,7 @@ struct ProfileCover: View {
                     ProfileCoverNotchRim(
                         centerX: pocketCenterX,
                         radius: pocketRadius,
-                        tint: tint ?? app.appearance.accent.color
+                        tint: tint ?? app.appearance.liveAccent
                     )
                 }
             }
@@ -240,7 +240,7 @@ struct ProfileCover: View {
             )
             // Soft Modula geometry — intentional, not empty lavender disks.
             RoundedRectangle(cornerRadius: 48, style: .continuous)
-                .fill(app.appearance.accent.color.opacity(0.14))
+                .fill(app.appearance.liveAccent.opacity(0.14))
                 .frame(width: 220, height: 120)
                 .rotationEffect(.degrees(-18))
                 .offset(x: 70, y: -28)
@@ -450,7 +450,7 @@ struct ProfileAvatarPocket: View {
                         .shadow(color: .black.opacity(0.22), radius: 10, y: 3)
 
                     if let storyRing {
-                        StoryRing(state: storyRing, size: avatarSize, accent: app.appearance.accent.color, showsAddBadge: false)
+                        StoryRing(state: storyRing, size: avatarSize, accent: app.appearance.liveAccent, showsAddBadge: false)
                     }
                 }
             }
@@ -525,7 +525,7 @@ struct ProfileIdentityBlock: View {
     @State private var premiumStore = PremiumEntitlementStore.shared
 
     private var bioIsLong: Bool { profile.bio.count > 160 || profile.bio.contains("\n") }
-    private var accent: Color { profileAccent ?? app.appearance.accent.color }
+    private var accent: Color { profileAccent ?? app.appearance.liveAccent }
 
     /// Own profile only. Other profiles have no membership field we are allowed to read.
     private var showsOwnPremiumBadge: Bool {
@@ -710,10 +710,10 @@ struct ProfileActionsRow: View {
             VStack(spacing: 2) {
                 ModulaCountUpText(value: value, format: ProfileCountFormatter.compact)
                     .font(.title3.weight(.bold))
-                    .foregroundStyle(selected ? app.appearance.accent.color : .primary)
+                    .foregroundStyle(selected ? app.appearance.liveAccent : .primary)
                 Text(label)
                     .font(.caption2.weight(selected ? .semibold : .medium))
-                    .foregroundStyle(selected ? app.appearance.accent.color : .secondary)
+                    .foregroundStyle(selected ? app.appearance.liveAccent : .secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
@@ -723,7 +723,7 @@ struct ProfileActionsRow: View {
             .overlay(alignment: .bottom) {
                 if selected {
                     Capsule()
-                        .fill(app.appearance.accent.color)
+                        .fill(app.appearance.liveAccent)
                         .frame(width: 18, height: 3)
                         .offset(y: 2)
                 }
@@ -801,7 +801,7 @@ struct ProfileToolActions: View {
     }
 
     private var primaryBackground: some ShapeStyle {
-        AnyShapeStyle(isFollowing ? Color.primary.opacity(0.08) : app.appearance.accent.color)
+        AnyShapeStyle(isFollowing ? Color.primary.opacity(0.08) : app.appearance.liveAccent)
     }
 
     private var primaryStroke: Color {
@@ -856,7 +856,7 @@ struct ProfileAboutGrid: View {
                         if let action = row.2 {
                             Button(row.1, action: action)
                                 .font(.subheadline.weight(.medium))
-                                .foregroundStyle(app.appearance.accent.color)
+                                .foregroundStyle(app.appearance.liveAccent)
                                 .buttonStyle(.plain)
                                 .lineLimit(2)
                         } else {
@@ -904,7 +904,7 @@ struct ProfileInfoChips: View {
         let action: (() -> Void)?
     }
 
-    private var accent: Color { profileAccent ?? app.appearance.accent.color }
+    private var accent: Color { profileAccent ?? app.appearance.liveAccent }
 
     private var chips: [Chip] {
         var items: [Chip] = []
@@ -1432,7 +1432,7 @@ struct ProfilePeopleRow: View {
                             if person.isVerified {
                                 Image(systemName: "checkmark.seal.fill")
                                     .font(.caption)
-                                    .foregroundStyle(app.appearance.accent.color)
+                                    .foregroundStyle(app.appearance.liveAccent)
                                     .accessibilityLabel("Verified")
                             }
                         }
@@ -1470,7 +1470,7 @@ struct ProfilePeopleRow: View {
                         .frame(minHeight: ModulaLayout.minimumTouch)
                         .foregroundStyle(person.isFollowing ? Color.secondary : Color.white)
                         .background(
-                            Capsule().fill(person.isFollowing ? Color.primary.opacity(0.08) : app.appearance.accent.color)
+                            Capsule().fill(person.isFollowing ? Color.primary.opacity(0.08) : app.appearance.liveAccent)
                         )
                 }
                 .buttonStyle(.plain)
@@ -1599,7 +1599,7 @@ struct ProfilePrimaryCTA: View {
             .frame(minHeight: 44)
             .foregroundStyle(prominent ? Color.white : Color.primary)
             .background(
-                Capsule().fill(prominent ? app.appearance.accent.color : Color.primary.opacity(0.08))
+                Capsule().fill(prominent ? app.appearance.liveAccent : Color.primary.opacity(0.08))
             )
             .overlay(
                 Capsule().stroke(Color.primary.opacity(prominent ? 0 : 0.12), lineWidth: 1)
@@ -2294,7 +2294,7 @@ struct ProfileAvatarOverlayEditor: View {
     private static let swatches = ["#2E8B3E", "#7A3FE0", "#0A66C2", "#0E9A94", "#E8641B", "#D23C86", "#D99A00", "#1C1C1E"]
 
     private var reduce: Bool { ModulaEffectGate.reduceMotion(systemReduceMotion) }
-    private var accent: Color { app.appearance.accent.color }
+    private var accent: Color { app.appearance.liveAccent }
     private var selectionSpring: Animation? { reduce ? nil : .spring(response: 0.38, dampingFraction: 0.78) }
 
     private var hasChanges: Bool {
@@ -3044,14 +3044,8 @@ private struct ProfilePillSurface: ViewModifier {
 
     func body(content: Content) -> some View {
         if prominent {
-            content
-                .background {
-                    Capsule()
-                        .fill(tint)
-                        .overlay(Capsule().fill(Color.black.opacity(0.22)))
-                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 0.6))
-                }
-                .shadow(color: tint.opacity(0.35), radius: 8, y: 3)
+            // Same filled accent CTA as the rest of the app (was a darkened cover tint).
+            content.modulaAccentCTA()
         } else {
             content.modulaGlass(in: Capsule(), interactive: true, specular: true)
         }

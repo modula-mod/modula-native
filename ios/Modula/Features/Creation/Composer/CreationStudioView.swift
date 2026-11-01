@@ -122,7 +122,7 @@ struct CreationStudioView: View {
         .sheet(isPresented: $showMoreOptions) {
             CreationMoreOptionsSheet(
                 capabilities: store.capabilities,
-                accent: app.appearance.accent.color,
+                accent: app.appearance.liveAccent,
                 onFiles: { showFileImporter = true },
                 onLink: {
                     localLinkURL = "https://"
@@ -166,7 +166,7 @@ struct CreationStudioView: View {
     }
 
     private func header(_ store: CreationStudioStore) -> some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         return HStack(spacing: 12) {
             Button {
                 if store.draft.isPublishing {
@@ -241,7 +241,7 @@ struct CreationStudioView: View {
     }
 
     private func composer(_ store: CreationStudioStore) -> some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         return VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
@@ -436,7 +436,7 @@ struct CreationStudioView: View {
                     }
                     ModulaRecordingPill(recorder: recorder, cancelProgress: 0)
                         .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
-                    ModulaGlassSendButton(title: "Add voice note", systemImage: "checkmark", ready: true, busy: false, size: ModulaLayout.minimumTouch, tint: app.appearance.accent.color) {
+                    ModulaGlassSendButton(title: "Add voice note", systemImage: "checkmark", ready: true, busy: false, size: ModulaLayout.minimumTouch, tint: app.appearance.liveAccent) {
                         finishVoiceNote(store)
                     }
                     .accessibilityIdentifier("compose.voice.done")
@@ -610,7 +610,7 @@ struct CreationStudioView: View {
 
     /// Compact Liquid Glass bar pinned above the keyboard.
     private func accessoryBar(_ store: CreationStudioStore) -> some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         let caps = store.capabilities
         return ModulaGlassGroup(spacing: 6) {
             HStack(spacing: 4) {
@@ -743,7 +743,7 @@ struct CreationStudioView: View {
     }
 
     private func writingCanvas(_ store: CreationStudioStore) -> some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         _ = accent
         return ModulaRichTextEditor(
             text: Binding(

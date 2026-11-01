@@ -376,7 +376,7 @@ struct ProfileView: View {
         if let avatarTint { return avatarTint }
         if let accent = profile?.presentation.accent?.color { return accent }
         if let hex = profile?.coverColour, !hex.isEmpty { return Color(hex: hex) }
-        return app.appearance.accent.color
+        return app.appearance.liveAccent
     }
 
     private var postLayout: Binding<ProfilePostLayout> {
@@ -888,7 +888,7 @@ struct ProfileView: View {
                     .contentShape(Capsule())
             }
             .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
-            .modulaGlass(in: Capsule(), interactive: true, tint: heroTint, prominent: true, specular: true)
+            .modulaAccentCTA()
             .padding(.top, 4)
             .accessibilityIdentifier("profile.saved.open")
         }
@@ -1366,7 +1366,7 @@ struct ProfileView: View {
         .modifier(PostSwipeActions(
             enabled: resolved.media.count <= 1,
             saved: resolved.saved,
-            accent: app.appearance.accent.color,
+            accent: app.appearance.liveAccent,
             onSave: {
                 Task {
                     app.postActions.ingest(resolved)
@@ -1395,7 +1395,7 @@ struct ProfileView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "link")
-                    .foregroundStyle(app.appearance.accent.color)
+                    .foregroundStyle(app.appearance.liveAccent)
                     .frame(width: 28)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(link.label)
@@ -1436,7 +1436,7 @@ struct ProfileView: View {
                     HapticEngine.shared.play(.navigation)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(app.appearance.accent.color)
+                .tint(app.appearance.liveAccent)
                 .accessibilityIdentifier("profile.empty.compose")
             }
             .frame(maxWidth: .infinity)
@@ -1464,7 +1464,7 @@ struct ProfileView: View {
                         HapticEngine.shared.play(.navigation)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(app.appearance.accent.color)
+                    .tint(app.appearance.liveAccent)
                     .accessibilityIdentifier("profile.empty.modules.choose")
                 }
                 .frame(maxWidth: .infinity)

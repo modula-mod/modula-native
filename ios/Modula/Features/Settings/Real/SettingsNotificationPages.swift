@@ -91,7 +91,7 @@ struct NotificationCategoriesView: View {
                 Text(error).font(.footnote).foregroundStyle(.red)
             }
         }
-        .tint(app.appearance.accent.color)
+        .tint(app.appearance.liveAccent)
         .modulaSoftScrollEdge()
         .navigationTitle(scope == .social ? "Social Notifications" : "Module Notifications")
         .navigationBarTitleDisplayMode(.inline)
@@ -161,7 +161,7 @@ struct QuietHoursSettingsView: View {
                 Text(error).font(.footnote).foregroundStyle(.red)
             }
         }
-        .tint(app.appearance.accent.color)
+        .tint(app.appearance.liveAccent)
         .modulaSoftScrollEdge()
         .navigationTitle("Quiet Hours")
         .navigationBarTitleDisplayMode(.inline)

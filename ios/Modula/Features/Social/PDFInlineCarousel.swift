@@ -179,7 +179,7 @@ struct ModulaPDFInlineCarousel: View {
 
     private var knownPages: Int { pageCount > 0 ? pageCount : (attachment.metadata.pageCount ?? 0) }
     private var currentSlide: Int { slide ?? 0 }
-    private var accent: Color { app.appearance.accent.color }
+    private var accent: Color { app.appearance.liveAccent }
 
     var body: some View {
         VStack(spacing: 0) {

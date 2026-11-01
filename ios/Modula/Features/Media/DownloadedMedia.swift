@@ -175,9 +175,9 @@ struct MediaDownloadsView: View {
         HStack(spacing: 12) {
             Image(systemName: item.symbol)
                 .font(.title3)
-                .foregroundStyle(app.appearance.accent.color)
+                .foregroundStyle(app.appearance.liveAccent)
                 .frame(width: 36, height: 36)
-                .background(app.appearance.accent.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .background(app.appearance.liveAccent.opacity(0.12), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title).font(.subheadline.weight(.medium)).lineLimit(1)
                 Text("\(ByteCountFormatter.string(fromByteCount: item.bytes, countStyle: .file)) · \(item.savedAt.formatted(.relative(presentation: .named)))")

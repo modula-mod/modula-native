@@ -118,8 +118,8 @@ struct PostActionRail: View {
             VStack(spacing: 1) {
                 Image(systemName: symbol)
                     .font(.system(size: 21, weight: .regular))
-                    .foregroundStyle(active ? app.appearance.accent.color : .white)
-                    .shadow(color: active ? app.appearance.accent.color.opacity(0.6) : .black.opacity(0.25), radius: active ? 6 : 2)
+                    .foregroundStyle(active ? app.appearance.liveAccent : .white)
+                    .shadow(color: active ? app.appearance.liveAccent.opacity(0.6) : .black.opacity(0.25), radius: active ? 6 : 2)
                     .contentTransition(.symbolEffect(.replace))
                     .symbolEffect(.bounce, value: active)
                 if let count {

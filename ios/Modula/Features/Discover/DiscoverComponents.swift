@@ -189,7 +189,7 @@ struct DiscoverPersonRow: View {
                             if person.isVerified {
                                 Image(systemName: "checkmark.seal.fill")
                                     .font(.caption)
-                                    .foregroundStyle(app.appearance.accent.color)
+                                    .foregroundStyle(app.appearance.liveAccent)
                                     .accessibilityLabel("Verified")
                             }
                         }
@@ -217,7 +217,7 @@ struct DiscoverPersonRow: View {
                     .padding(.horizontal, 12)
                     .frame(minHeight: 44)
                     .background(
-                        Capsule().fill(person.isFollowing ? Color.primary.opacity(0.08) : app.appearance.accent.color)
+                        Capsule().fill(person.isFollowing ? Color.primary.opacity(0.08) : app.appearance.liveAccent)
                     )
             }
             .buttonStyle(.modulaPress)
@@ -240,7 +240,7 @@ struct DiscoverPersonCard: View {
     @Environment(\.modulaHeroScope) private var heroScope
 
     var body: some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         VStack(spacing: 10) {
             Button {
                 ModulaHeroMorph.arm(ModulaHeroMorph.sourceID(scope: heroScope, kind: "person-card", key: person.routeID), for: .profile(person.routeID, .overview))
@@ -528,7 +528,7 @@ struct DiscoverSearchIdle: View {
                         Button { onPickSuggestion(item); HapticEngine.shared.play(.selection) } label: {
                             Text(item).font(.subheadline.weight(.semibold))
                                 .padding(.horizontal, 14).padding(.vertical, 9)
-                                .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color.opacity(0.12))
+                                .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.liveAccent.opacity(0.12))
                         }.buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
                     }
                 }

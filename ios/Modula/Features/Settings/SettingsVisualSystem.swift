@@ -39,7 +39,7 @@ struct SettingsAnchorHighlight: ViewModifier {
             .id(anchor)
             .background {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(app.appearance.accent.color.opacity(emphasized ? 0.18 : 0))
+                    .fill(app.appearance.liveAccent.opacity(emphasized ? 0.18 : 0))
             }
             .onAppear { flashIfNeeded() }
             .onChange(of: app.navigation.settingsFocusAnchor) { _, _ in flashIfNeeded() }
@@ -181,7 +181,7 @@ struct SettingsCoverHeader: View {
                         Circle().stroke(canvas, lineWidth: SettingsVisualMetrics.avatarBorder)
                     }
                     .overlay {
-                        ModulaGlowRing(tint: app.appearance.accent.color, lineWidth: 2.5)
+                        ModulaGlowRing(tint: app.appearance.liveAccent, lineWidth: 2.5)
                             .padding(-2)
                     }
                     .matchedGeometryEffect(id: "settings.identity.avatar", in: namespace, isSource: clamped < 0.55)
@@ -210,7 +210,7 @@ struct SettingsCoverHeader: View {
 
     private var fallback: some View {
         ZStack {
-            ModulaAuroraBackground(tint: app.appearance.accent.color, intensity: 1)
+            ModulaAuroraBackground(tint: app.appearance.liveAccent, intensity: 1)
             ShellSceneImage(scene: .library)
                 .scaledToFill()
         }
@@ -221,15 +221,15 @@ struct SettingsCoverHeader: View {
         ZStack {
             LinearGradient(
                 colors: [
-                    app.appearance.accent.color.opacity(scheme == .dark ? 0.85 : 0.95),
-                    app.appearance.accent.color.opacity(scheme == .dark ? 0.35 : 0.45),
+                    app.appearance.liveAccent.opacity(scheme == .dark ? 0.85 : 0.95),
+                    app.appearance.liveAccent.opacity(scheme == .dark ? 0.35 : 0.45),
                     canvas
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             Circle()
-                .fill(app.appearance.accent.color.opacity(0.35))
+                .fill(app.appearance.liveAccent.opacity(0.35))
                 .frame(width: 180, height: 180)
                 .blur(radius: 8)
                 .offset(x: 90, y: -20)
@@ -274,7 +274,7 @@ struct SettingsIntelligenceCard: View {
                 HStack {
                     Text(status)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(app.appearance.accent.color)
+                        .foregroundStyle(app.appearance.liveAccent)
                     Spacer()
                     Text(detail)
                         .font(.subheadline.weight(.semibold))
@@ -288,7 +288,7 @@ struct SettingsIntelligenceCard: View {
             .background(ModulaPalette.resolve(app.appearance, scheme: scheme).surface, in: RoundedRectangle(cornerRadius: SettingsVisualMetrics.cardRadius, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: SettingsVisualMetrics.cardRadius, style: .continuous)
-                    .strokeBorder(app.appearance.accent.color.opacity(0.22), lineWidth: 1)
+                    .strokeBorder(app.appearance.liveAccent.opacity(0.22), lineWidth: 1)
             }
         }
         .buttonStyle(.plain)
@@ -304,7 +304,7 @@ struct SettingsNodusMark: View {
 
     var body: some View {
         Canvas { context, size in
-            let accent = app.appearance.accent.color
+            let accent = app.appearance.liveAccent
             let center = CGPoint(x: size.width / 2, y: size.height / 2)
             var ring = Path()
             ring.addEllipse(in: CGRect(x: center.x - 54, y: center.y - 22, width: 108, height: 44))
@@ -360,11 +360,11 @@ struct FocusAdaptationGraphic: View {
             HStack(spacing: 18) {
                 node("Activity", "bell", dimmed: dimActivity)
                 ZStack {
-                    Circle().stroke(app.appearance.accent.color.opacity(0.35), lineWidth: 1).frame(width: 78, height: 78)
-                    Circle().stroke(app.appearance.accent.color.opacity(0.55), lineWidth: 1.5).frame(width: 48, height: 48)
+                    Circle().stroke(app.appearance.liveAccent.opacity(0.35), lineWidth: 1).frame(width: 78, height: 78)
+                    Circle().stroke(app.appearance.liveAccent.opacity(0.55), lineWidth: 1.5).frame(width: 48, height: 48)
                     Image(systemName: "moon.stars.fill")
                         .font(.title2)
-                        .foregroundStyle(app.appearance.accent.color)
+                        .foregroundStyle(app.appearance.liveAccent)
                 }
                 VStack(spacing: 16) {
                     node("Feed", "rectangle.stack", dimmed: hideBadges)
@@ -384,9 +384,9 @@ struct FocusAdaptationGraphic: View {
         VStack(spacing: 6) {
             Image(systemName: symbol)
                 .font(.body.weight(.semibold))
-                .foregroundStyle(dimmed ? Color.secondary : app.appearance.accent.color)
+                .foregroundStyle(dimmed ? Color.secondary : app.appearance.liveAccent)
                 .frame(width: 36, height: 36)
-                .background((dimmed ? Color.secondary : app.appearance.accent.color).opacity(0.14), in: Circle())
+                .background((dimmed ? Color.secondary : app.appearance.liveAccent).opacity(0.14), in: Circle())
             Text(title).font(.caption2).foregroundStyle(dimmed ? Color.secondary : Color.primary)
             Text(dimmed ? "Adapted" : "Open").font(.caption2).foregroundStyle(.secondary)
         }
@@ -419,15 +419,15 @@ struct SharingFlowGraphic: View {
     private func tile(_ title: String, _ symbol: String, emphasized: Bool) -> some View {
         VStack(spacing: 6) {
             Image(systemName: symbol)
-                .foregroundStyle(emphasized ? app.appearance.accent.color : Color.secondary)
+                .foregroundStyle(emphasized ? app.appearance.liveAccent : Color.secondary)
             Text(title).font(.caption.weight(.semibold))
             Text(emphasized ? "Preferred" : "Available").font(.caption2).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, minHeight: 78)
-        .background((emphasized ? app.appearance.accent.color : Color.primary).opacity(emphasized ? 0.14 : 0.05), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background((emphasized ? app.appearance.liveAccent : Color.primary).opacity(emphasized ? 0.14 : 0.05), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(emphasized ? app.appearance.accent.color.opacity(0.45) : Color.clear, lineWidth: 1.5)
+                .strokeBorder(emphasized ? app.appearance.liveAccent.opacity(0.45) : Color.clear, lineWidth: 1.5)
         }
         .animation(.spring(response: 0.32, dampingFraction: 0.86), value: emphasized)
     }
@@ -448,16 +448,16 @@ struct FeedCompositionGraphic: View {
                             .font(.caption.weight(.semibold))
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .background(item.0 == mode ? app.appearance.accent.color : Color.primary.opacity(0.06), in: Capsule())
+                            .background(item.0 == mode ? app.appearance.liveAccent : Color.primary.opacity(0.06), in: Capsule())
                             .foregroundStyle(item.0 == mode ? Color.white : Color.primary)
                     }
                 }
                 HStack(alignment: .top, spacing: 10) {
-                    Circle().fill(app.appearance.accent.color.opacity(0.35)).frame(width: 28, height: 28)
+                    Circle().fill(app.appearance.liveAccent.opacity(0.35)).frame(width: 28, height: 28)
                     VStack(alignment: .leading, spacing: 6) {
                         RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.18)).frame(width: 120, height: 8)
                         RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.1)).frame(width: 180, height: 8)
-                        RoundedRectangle(cornerRadius: 8).fill(app.appearance.accent.color.opacity(0.2)).frame(height: 36)
+                        RoundedRectangle(cornerRadius: 8).fill(app.appearance.liveAccent.opacity(0.2)).frame(height: 36)
                     }
                 }
             }
@@ -488,7 +488,7 @@ struct BatteryDataGraphic: View {
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.primary.opacity(0.08))
                     Capsule()
-                        .fill(app.appearance.accent.color)
+                        .fill(app.appearance.liveAccent)
                         .frame(width: max(12, proxy.size.width * fraction))
                 }
             }
@@ -517,7 +517,7 @@ struct MediaQualityGraphic: View {
     private func bar(_ title: String, height: CGFloat, selected: Bool) -> some View {
         VStack(spacing: 6) {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(selected ? app.appearance.accent.color : app.appearance.accent.color.opacity(0.2))
+                .fill(selected ? app.appearance.liveAccent : app.appearance.liveAccent.opacity(0.2))
                 .frame(width: 42, height: height)
             Text(title).font(.caption2.weight(selected ? .semibold : .regular))
             Text(selected ? "Selected" : " ").font(.caption2).foregroundStyle(.secondary)
@@ -536,7 +536,7 @@ struct ChatsPrivacyGraphic: View {
                 bubble("You", leading: true)
                 Image(systemName: "lock.fill")
                     .font(.caption)
-                    .foregroundStyle(app.appearance.accent.color)
+                    .foregroundStyle(app.appearance.liveAccent)
                     .frame(width: 36)
                 bubble(receipts ? "Seen" : "Private", leading: false)
             }
@@ -548,7 +548,7 @@ struct ChatsPrivacyGraphic: View {
             .font(.caption.weight(.semibold))
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background((leading ? Color.primary : app.appearance.accent.color).opacity(leading ? 0.08 : 0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background((leading ? Color.primary : app.appearance.liveAccent).opacity(leading ? 0.08 : 0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .frame(maxWidth: .infinity)
     }
 }
@@ -567,7 +567,7 @@ struct NotificationStackGraphic: View {
 
     private func card(_ title: String, _ body: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "bell.fill").foregroundStyle(app.appearance.accent.color)
+            Image(systemName: "bell.fill").foregroundStyle(app.appearance.liveAccent)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.caption.weight(.semibold))
                 Text(body).font(.caption).foregroundStyle(.secondary)
@@ -588,7 +588,7 @@ struct PrivacyLayersGraphic: View {
                 ForEach(Array(["Identity", "Permissions", "Local data", "Network"].enumerated()), id: \.offset) { index, title in
                     HStack(spacing: 10) {
                         Image(systemName: index == 0 ? "person" : (index == 3 ? "network" : "lock"))
-                            .foregroundStyle(app.appearance.accent.color)
+                            .foregroundStyle(app.appearance.liveAccent)
                             .frame(width: 22)
                         Text(title).font(.subheadline.weight(.medium))
                         Spacer()
@@ -614,7 +614,7 @@ struct ModuleOrbitGraphic: View {
                             .font(.caption2.weight(.semibold))
                             .padding(.horizontal, 10)
                             .padding(.vertical, 8)
-                            .background(app.appearance.accent.color.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .background(app.appearance.liveAccent.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
                 }
             }
@@ -634,7 +634,7 @@ struct AccessibilityPreviewGraphic: View {
                 .scaleEffect(scale, anchor: .leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(8)
-                .background(app.appearance.accent.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(app.appearance.liveAccent.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .animation(.spring(response: 0.3, dampingFraction: 0.9), value: scale)
         }
     }

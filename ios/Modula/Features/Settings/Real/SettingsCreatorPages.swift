@@ -93,7 +93,7 @@ struct CreatorInsightsView: View {
                             x: .value("Day", point.day, unit: .day),
                             y: .value(metric.rawValue, revealed ? metric.value(point) : 0)
                         )
-                        .foregroundStyle(app.appearance.accent.color.gradient)
+                        .foregroundStyle(app.appearance.liveAccent.gradient)
                         .cornerRadius(3)
                     }
                     .chartYAxis { AxisMarks(position: .leading) }

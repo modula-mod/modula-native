@@ -999,7 +999,7 @@ struct PostMenuLongPress: ViewModifier {
                     onSelect: run
                 )
             } preview: {
-                PostLivePreview(post: app.posts.resolved(sample.post), accent: app.appearance.accent.color)
+                PostLivePreview(post: app.posts.resolved(sample.post), accent: app.appearance.liveAccent)
             }
         } else {
             content

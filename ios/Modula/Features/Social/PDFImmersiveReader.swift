@@ -275,7 +275,7 @@ struct ModulaPDFImmersiveReader: View {
                 .accessibilityIdentifier("pdf.reader.search")
                 ModulaGlassIconButton(title: model.isBookmarked ? "Remove bookmark" : "Bookmark page",
                                       systemImage: model.isBookmarked ? "bookmark.fill" : "bookmark",
-                                      size: 40, tint: model.isBookmarked ? app.appearance.accent.color : nil) { model.toggleBookmark() }
+                                      size: 40, tint: model.isBookmarked ? app.appearance.liveAccent : nil) { model.toggleBookmark() }
                     .accessibilityIdentifier("pdf.reader.bookmark")
                 moreMenu
             }
@@ -335,11 +335,11 @@ struct ModulaPDFImmersiveReader: View {
                         Button { model.go(to: index) } label: {
                             PDFThumbnailCell(url: model.url, page: index, width: 34)
                                 .overlay {
-                                    RoundedRectangle(cornerRadius: 4).stroke(index == model.currentPage ? app.appearance.accent.color : .clear, lineWidth: 2)
+                                    RoundedRectangle(cornerRadius: 4).stroke(index == model.currentPage ? app.appearance.liveAccent : .clear, lineWidth: 2)
                                 }
                                 .overlay(alignment: .topTrailing) {
                                     if model.bookmarks.contains(index) {
-                                        Image(systemName: "bookmark.fill").font(.system(size: 8)).foregroundStyle(app.appearance.accent.color).padding(2)
+                                        Image(systemName: "bookmark.fill").font(.system(size: 8)).foregroundStyle(app.appearance.liveAccent).padding(2)
                                     }
                                 }
                         }
@@ -366,7 +366,7 @@ struct ModulaPDFImmersiveReader: View {
             let fraction = PDFReadingMath.fraction(forPage: scrubPage ?? model.currentPage, pageCount: model.pageCount)
             ZStack(alignment: .leading) {
                 Capsule().fill(.white.opacity(0.18)).frame(height: 4)
-                Capsule().fill(app.appearance.accent.color).frame(width: max(4, proxy.size.width * fraction), height: 4)
+                Capsule().fill(app.appearance.liveAccent).frame(width: max(4, proxy.size.width * fraction), height: 4)
                 Circle().fill(.white).frame(width: scrubPage == nil ? 14 : 20, height: scrubPage == nil ? 14 : 20)
                     .shadow(radius: 3)
                     .offset(x: max(0, proxy.size.width * fraction - 10))

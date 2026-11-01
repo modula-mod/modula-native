@@ -24,6 +24,8 @@ enum ModulaLayout {
     static let postBleedGutter = 4.0
     /// Home top-chrome wordmark. Fits an inline nav bar without hitting hamburger / + / chat.
     static let homeWordmarkHeight = 28.0
+    /// Extra bottom scroll margin so the floating tab accessory never covers the last rows.
+    static let accessoryClearance = 56.0
     static let railRestingWidth = 46.0
     static let railRevealedWidth = 96.0
 }
@@ -297,7 +299,7 @@ struct ModulaButton: View {
             .frame(minHeight: max(ModulaLayout.minimumTouch, height))
             .contentShape(Capsule())
         }
-        .buttonStyle(ModulaPrimaryButtonStyle(accent: app.appearance.accent.color, isLoading: isLoading))
+        .buttonStyle(ModulaPrimaryButtonStyle(accent: app.appearance.liveAccent, isLoading: isLoading))
         .accessibilityValue(isLoading ? (loadingTitle ?? "In progress") : "")
     }
 }
@@ -451,17 +453,17 @@ struct ModulaFormField<Focus: Hashable>: View {
 
     private var iconColor: Color {
         if hasError { return .red }
-        return isFocused ? app.appearance.accent.color : .secondary
+        return isFocused ? app.appearance.liveAccent : .secondary
     }
 
     private var fill: Color {
-        if isFocused { return app.appearance.accent.color.opacity(scheme == .dark ? 0.14 : 0.07) }
+        if isFocused { return app.appearance.liveAccent.opacity(scheme == .dark ? 0.14 : 0.07) }
         return Color.primary.opacity(scheme == .dark ? 0.08 : 0.045)
     }
 
     private var borderColor: Color {
         if hasError { return .red.opacity(0.85) }
-        if isFocused { return app.appearance.accent.color }
+        if isFocused { return app.appearance.liveAccent }
         return Color.primary.opacity(contrast == .increased ? 0.28 : 0.1)
     }
 }
@@ -517,7 +519,7 @@ struct ModulaAvatar: View {
 
     private var initialsView: some View {
         Circle()
-            .fill(app.appearance.accent.color.gradient)
+            .fill(app.appearance.liveAccent.gradient)
             .overlay(Text(initials).font(.headline).foregroundStyle(.white))
     }
 
@@ -546,7 +548,7 @@ struct ProfileTabIcon: View {
         Image(uiImage: app.profile.tabBarAvatar ?? ProfileTabAvatarRenderer.fallback(
             profile: app.profile.ownProfile,
             account: app.auth.account,
-            accent: UIColor(app.appearance.accent.color),
+            accent: UIColor(app.appearance.liveAccent),
             pointSize: size
         ))
         .renderingMode(.original)
@@ -965,7 +967,7 @@ struct ModulaBadge: View {
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
-    private var color: Color { tone.color(accent: app.appearance.accent.color) }
+    private var color: Color { tone.color(accent: app.appearance.liveAccent) }
     private var background: Color {
         switch style {
         case .filled: color
@@ -1019,7 +1021,7 @@ struct ModulaChip: View {
         Button(title, action: action)
             .buttonStyle(.bordered)
             .buttonBorderShape(.capsule)
-            .tint(selected ? app.appearance.accent.color : .secondary)
+            .tint(selected ? app.appearance.liveAccent : .secondary)
             .frame(minHeight: ModulaLayout.minimumTouch)
             .accessibilityAddTraits(selected ? .isSelected : [])
     }
@@ -1040,7 +1042,7 @@ struct ModulaEmptyState: View {
                 if let illustration {
                     SproutIllustrationView(illustration: illustration, height: 168)
                 } else {
-                    ModulaEffectSymbol(symbol: symbol, tint: app.appearance.accent.color, size: 40)
+                    ModulaEffectSymbol(symbol: symbol, tint: app.appearance.liveAccent, size: 40)
                 }
                 Text(title).font(.title3.weight(.semibold))
             }

@@ -1187,9 +1187,9 @@ struct ProductBackdrop: View {
     private func placeholder(_ size: CGSize) -> some View {
         ZStack {
             Color(hex: "#171827")
-            LinearGradient(colors: [app.appearance.accent.color.opacity(0.55), .clear], startPoint: .topTrailing, endPoint: .bottomLeading)
+            LinearGradient(colors: [app.appearance.liveAccent.opacity(0.55), .clear], startPoint: .topTrailing, endPoint: .bottomLeading)
             Circle()
-                .fill(app.appearance.accent.color.opacity(0.2))
+                .fill(app.appearance.liveAccent.opacity(0.2))
                 .frame(width: size.width * 0.8)
                 .offset(x: size.width * 0.34, y: -size.height * 0.24)
             if let sprout = SproutIllustration.matching(text: "\(product.name) \(product.moduleId) \(product.productKind)") {
@@ -1297,7 +1297,7 @@ struct ProductCard: View {
                     RoundedRectangle(cornerRadius: 21, style: .continuous).fill(surface)
                     // Faint accent wash from the icon side ties the card to its artwork.
                     RoundedRectangle(cornerRadius: 21, style: .continuous)
-                        .fill(LinearGradient(colors: [app.appearance.accent.color.opacity(scheme == .dark ? 0.10 : 0.06), .clear], startPoint: .leading, endPoint: .center))
+                        .fill(LinearGradient(colors: [app.appearance.liveAccent.opacity(scheme == .dark ? 0.10 : 0.06), .clear], startPoint: .leading, endPoint: .center))
                 }
             }
             .overlay(
@@ -1329,7 +1329,7 @@ struct ProductGetOpenControl: View {
         }
     }
     var body: some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         ZStack {
             if busy {
                 Circle().trim(from: 0, to: 0.72)
@@ -1342,7 +1342,7 @@ struct ProductGetOpenControl: View {
             } else {
                 Group {
                     if installed || product.installable {
-                        Text(installed ? "OPEN" : "GET")
+                        Text(installed ? "Open" : "Get")
                     } else {
                         Label("Soon", systemImage: "clock").labelStyle(.titleAndIcon)
                     }
@@ -1373,7 +1373,7 @@ struct ProductCategoryChips: View {
         return out
     }
     var body: some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         // No kinds → no orphan "Categories" header.
         if !kinds.isEmpty {
         VStack(alignment: .leading, spacing: 10) {
@@ -1410,7 +1410,7 @@ struct ProductRankedList: View {
                 Button { action(product) } label: {
                     HStack(spacing: 12) {
                         Text("\(index + 1)").font(.title3.weight(.bold)).monospacedDigit()
-                            .foregroundStyle(index < 3 ? app.appearance.accent.color : .secondary).frame(width: 28)
+                            .foregroundStyle(index < 3 ? app.appearance.liveAccent : .secondary).frame(width: 28)
                         ProductArtwork(product: product, size: 52)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(product.name).font(.headline).foregroundStyle(.primary).lineLimit(1)
@@ -1495,7 +1495,7 @@ struct ProductHero: View {
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
                     .stroke(LinearGradient(colors: [.white.opacity(0.32), .white.opacity(0.04)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.8)
             )
-            .shadow(color: app.appearance.accent.color.opacity(0.22), radius: 18, y: 10)
+            .shadow(color: app.appearance.liveAccent.opacity(0.22), radius: 18, y: 10)
             .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
             .modulaHeroSource("product-hero", key: product.id)
         }

@@ -191,7 +191,7 @@ struct IntelligenceModelsSettingsView: View {
                                 HStack(spacing: 13) {
                                     Image(systemName: row.executionKind == .local ? "iphone" : "cloud")
                                         .frame(width: 28)
-                                        .foregroundStyle(app.appearance.accent.color)
+                                        .foregroundStyle(app.appearance.liveAccent)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(displayName(for: row.id))
                                             .font(.body.weight(.medium))
@@ -399,7 +399,7 @@ struct IntelligenceToolsSettingsView: View {
                                 HStack(spacing: 13) {
                                     Image(systemName: "wrench.and.screwdriver")
                                         .frame(width: 28)
-                                        .foregroundStyle(app.appearance.accent.color)
+                                        .foregroundStyle(app.appearance.liveAccent)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(row.title)
                                             .font(.body.weight(.medium))

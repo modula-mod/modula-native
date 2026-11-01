@@ -183,7 +183,7 @@ struct IntelligenceChatView: View {
             .background {
                 if message.role != .status {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(isUser ? app.appearance.accent.color : Color(uiColor: .secondarySystemBackground))
+                        .fill(isUser ? app.appearance.liveAccent : Color(uiColor: .secondarySystemBackground))
                 }
             }
             .frame(maxWidth: 320, alignment: isUser ? .trailing : .leading)

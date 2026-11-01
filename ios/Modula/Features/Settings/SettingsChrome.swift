@@ -19,8 +19,8 @@ struct SettingsHeroBanner: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                app.appearance.accent.color.opacity(0.95),
-                                app.appearance.accent.color.opacity(0.45)
+                                app.appearance.liveAccent.opacity(0.95),
+                                app.appearance.liveAccent.opacity(0.45)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -34,7 +34,7 @@ struct SettingsHeroBanner: View {
                             .foregroundStyle(.white)
                             .symbolEffect(.bounce.up.byLayer, value: appeared)
                     }
-                    .shadow(color: app.appearance.accent.color.opacity(0.28), radius: 16, y: 8)
+                    .shadow(color: app.appearance.liveAccent.opacity(0.28), radius: 16, y: 8)
                     .scaleEffect(appeared || reduceMotion ? 1 : 0.86)
                 SettingsHeroSparkles(spinning: appeared && !reduceMotion)
                     .frame(width: 96, height: 96)
@@ -89,11 +89,11 @@ private struct SettingsHeroSparkles: View {
     private var sparkles: some View {
         ZStack {
             Circle()
-                .stroke(app.appearance.accent.color.opacity(0.18), lineWidth: 1)
+                .stroke(app.appearance.liveAccent.opacity(0.18), lineWidth: 1)
                 .frame(width: 88, height: 88)
             ForEach(0..<6, id: \.self) { index in
                 Circle()
-                    .fill(app.appearance.accent.color.opacity(0.35))
+                    .fill(app.appearance.liveAccent.opacity(0.35))
                     .frame(width: 4, height: 4)
                     .offset(y: -44)
                     .rotationEffect(.degrees(Double(index) * 60))
@@ -210,7 +210,7 @@ struct SettingsDesignedUnavailableCanvas: View {
                     HStack(alignment: .top, spacing: 14) {
                         Image(systemName: "circle.dashed")
                             .font(.title2)
-                            .foregroundStyle(app.appearance.accent.color)
+                            .foregroundStyle(app.appearance.liveAccent)
                             .symbolEffect(.rotate, options: .nonRepeating)
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Not available in this version")
@@ -315,8 +315,8 @@ struct SettingsSceneGraphic: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            app.appearance.accent.color.opacity(0.14),
-                            app.appearance.accent.color.opacity(0.04)
+                            app.appearance.liveAccent.opacity(0.14),
+                            app.appearance.liveAccent.opacity(0.04)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -325,7 +325,7 @@ struct SettingsSceneGraphic: View {
         }
         .overlay {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(app.appearance.accent.color.opacity(0.12), lineWidth: 1)
+                .strokeBorder(app.appearance.liveAccent.opacity(0.12), lineWidth: 1)
         }
         .accessibilityHidden(true)
     }
@@ -338,7 +338,7 @@ struct SettingsWaveBarsGraphic: View {
         HStack(alignment: .center, spacing: 5) {
             ForEach(0..<22, id: \.self) { index in
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .fill(app.appearance.accent.color.opacity(0.3 + Double(index % 5) * 0.12))
+                    .fill(app.appearance.liveAccent.opacity(0.3 + Double(index % 5) * 0.12))
                     .frame(width: 7, height: CGFloat(16 + (index * 7 % 11) * 6))
             }
         }
@@ -353,11 +353,11 @@ struct SettingsRingsGraphic: View {
         ZStack {
             ForEach(0..<4, id: \.self) { ring in
                 Circle()
-                    .stroke(app.appearance.accent.color.opacity(0.45 - Double(ring) * 0.1), lineWidth: 2)
+                    .stroke(app.appearance.liveAccent.opacity(0.45 - Double(ring) * 0.1), lineWidth: 2)
                     .frame(width: CGFloat(36 + ring * 22), height: CGFloat(36 + ring * 22))
             }
             Circle()
-                .fill(app.appearance.accent.color.gradient)
+                .fill(app.appearance.liveAccent.gradient)
                 .frame(width: 18, height: 18)
         }
     }
@@ -379,13 +379,13 @@ struct SettingsConstellationGraphic: View {
                 path.move(to: first)
                 for point in mapped.dropFirst() { path.addLine(to: point) }
             }
-            .stroke(app.appearance.accent.color.opacity(0.35), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+            .stroke(app.appearance.liveAccent.opacity(0.35), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
             ForEach(Array(mapped.enumerated()), id: \.offset) { _, point in
                 Circle()
-                    .fill(app.appearance.accent.color)
+                    .fill(app.appearance.liveAccent)
                     .frame(width: 8, height: 8)
                     .position(point)
-                    .shadow(color: app.appearance.accent.color.opacity(0.4), radius: 4)
+                    .shadow(color: app.appearance.liveAccent.opacity(0.4), radius: 4)
             }
         }
         .padding(16)
@@ -405,7 +405,7 @@ struct SettingsMeterGraphic: View {
                 .trim(from: 0, to: progress)
                 .stroke(
                     AngularGradient(
-                        colors: [app.appearance.accent.color.opacity(0.35), app.appearance.accent.color],
+                        colors: [app.appearance.liveAccent.opacity(0.35), app.appearance.liveAccent],
                         center: .center
                     ),
                     style: StrokeStyle(lineWidth: 12, lineCap: .round)
@@ -430,7 +430,7 @@ struct SettingsFilmstripGraphic: View {
         HStack(spacing: 8) {
             ForEach(0..<5, id: \.self) { index in
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(app.appearance.accent.color.opacity(0.18 + Double(index) * 0.08))
+                    .fill(app.appearance.liveAccent.opacity(0.18 + Double(index) * 0.08))
                     .frame(width: 52, height: 72)
                     .overlay(alignment: .bottom) {
                         Capsule()
@@ -450,17 +450,17 @@ struct SettingsOrbitGraphic: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(app.appearance.accent.color.opacity(0.2), lineWidth: 1)
+                .stroke(app.appearance.liveAccent.opacity(0.2), lineWidth: 1)
                 .frame(width: 88, height: 88)
             Circle()
-                .stroke(app.appearance.accent.color.opacity(0.28), lineWidth: 1)
+                .stroke(app.appearance.liveAccent.opacity(0.28), lineWidth: 1)
                 .frame(width: 56, height: 56)
             Circle()
-                .fill(app.appearance.accent.color)
+                .fill(app.appearance.liveAccent)
                 .frame(width: 14, height: 14)
             ForEach(0..<3, id: \.self) { index in
                 Circle()
-                    .fill(app.appearance.accent.color.opacity(0.8))
+                    .fill(app.appearance.liveAccent.opacity(0.8))
                     .frame(width: 8, height: 8)
                     .offset(y: index == 0 ? -44 : (index == 1 ? -28 : 0))
                     .offset(x: index == 2 ? 44 : 0)
@@ -477,7 +477,7 @@ struct SettingsTileGridGraphic: View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
             ForEach(0..<8, id: \.self) { index in
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(app.appearance.accent.color.opacity(index.isMultiple(of: 3) ? 0.4 : 0.16))
+                    .fill(app.appearance.liveAccent.opacity(index.isMultiple(of: 3) ? 0.4 : 0.16))
                     .frame(height: 36)
             }
         }
@@ -506,8 +506,8 @@ struct SettingsPulseGraphic: View {
                     up.toggle()
                 }
             }
-            .stroke(app.appearance.accent.color, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
-            .shadow(color: app.appearance.accent.color.opacity(0.35), radius: 6)
+            .stroke(app.appearance.liveAccent, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+            .shadow(color: app.appearance.liveAccent.opacity(0.35), radius: 6)
         }
         .padding(.horizontal, 16)
     }
@@ -522,9 +522,9 @@ struct SettingsStatChip: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: symbol)
-                .foregroundStyle(app.appearance.accent.color)
+                .foregroundStyle(app.appearance.liveAccent)
                 .frame(width: 28, height: 28)
-                .background(app.appearance.accent.color.opacity(0.12), in: Circle())
+                .background(app.appearance.liveAccent.opacity(0.12), in: Circle())
             VStack(alignment: .leading, spacing: 1) {
                 Text(value).font(.headline.monospacedDigit())
                 Text(label).font(.caption2).foregroundStyle(.secondary)
@@ -540,7 +540,7 @@ struct SettingsRadarGraphic: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        ModulaRadarScope(tint: app.appearance.accent.color, energy: 0.8)
+        ModulaRadarScope(tint: app.appearance.liveAccent, energy: 0.8)
             .frame(width: 112, height: 112)
     }
 }
@@ -553,7 +553,7 @@ struct SettingsStaticRadarGraphic: View {
         ZStack {
             ForEach(0..<3, id: \.self) { ring in
                 Circle()
-                    .stroke(app.appearance.accent.color.opacity(0.2), lineWidth: 1)
+                    .stroke(app.appearance.liveAccent.opacity(0.2), lineWidth: 1)
                     .frame(width: CGFloat(40 + ring * 28), height: CGFloat(40 + ring * 28))
             }
             Path { path in
@@ -562,10 +562,10 @@ struct SettingsStaticRadarGraphic: View {
                 path.addLine(to: .init(x: 92, y: 42))
                 path.closeSubpath()
             }
-            .fill(app.appearance.accent.color.opacity(0.28))
+            .fill(app.appearance.liveAccent.opacity(0.28))
             .frame(width: 120, height: 120)
             Circle()
-                .fill(app.appearance.accent.color)
+                .fill(app.appearance.liveAccent)
                 .frame(width: 8, height: 8)
         }
         .frame(width: 120, height: 120)
@@ -579,7 +579,7 @@ struct SettingsCardStackGraphic: View {
         ZStack {
             ForEach(0..<3, id: \.self) { index in
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(app.appearance.accent.color.opacity(0.18 + Double(index) * 0.12))
+                    .fill(app.appearance.liveAccent.opacity(0.18 + Double(index) * 0.12))
                     .frame(width: 150 - CGFloat(index) * 12, height: 78)
                     .offset(y: CGFloat(index) * -10)
                     .rotationEffect(.degrees(Double(index) * -4))
@@ -596,7 +596,7 @@ struct SettingsRibbonGraphic: View {
         HStack(spacing: 0) {
             ForEach(0..<7, id: \.self) { index in
                 Capsule()
-                    .fill(app.appearance.accent.color.opacity(0.2 + Double(index % 3) * 0.18))
+                    .fill(app.appearance.liveAccent.opacity(0.2 + Double(index % 3) * 0.18))
                     .frame(width: 18, height: CGFloat(28 + (index % 4) * 14))
                     .rotationEffect(.degrees(-18))
                     .offset(y: index.isMultiple(of: 2) ? -6 : 8)
@@ -615,10 +615,10 @@ struct SettingsBadgesGraphic: View {
             ForEach(Array(symbols.enumerated()), id: \.offset) { index, symbol in
                 ZStack {
                     Circle()
-                        .fill(app.appearance.accent.color.opacity(0.16 + Double(index) * 0.06))
+                        .fill(app.appearance.liveAccent.opacity(0.16 + Double(index) * 0.06))
                         .frame(width: 44, height: 44)
                     Image(systemName: symbol)
-                        .foregroundStyle(app.appearance.accent.color)
+                        .foregroundStyle(app.appearance.liveAccent)
                 }
                 .offset(y: index.isMultiple(of: 2) ? -8 : 10)
             }

@@ -149,7 +149,7 @@ private struct AttachmentRemoteStateSurface: View {
         HStack(spacing: ModulaSpacing.sm) {
             Image(systemName: symbol)
                 .font(.title3)
-                .foregroundStyle(attachment.resolvedRemoteState.isTerminalFailure ? Color.secondary : app.appearance.accent.color)
+                .foregroundStyle(attachment.resolvedRemoteState.isTerminalFailure ? Color.secondary : app.appearance.liveAccent)
                 .frame(width: 44, height: 44)
                 .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: ModulaRadius.small))
             VStack(alignment: .leading, spacing: 3) {
@@ -546,16 +546,16 @@ struct ModulaDocumentCard: View {
         if let previewURL = attachment.bestPreviewURL {
             ModulaRemoteImage(url: previewURL, cacheKey: "attachment:\(attachment.id):document-preview", maximumPixelSize: 320) { phase in
                 if case .success(let image) = phase { Image(uiImage: image).resizable().scaledToFill() }
-                else { Image(systemName: attachment.kind.defaultSystemImage).font(.title2).foregroundStyle(app.appearance.accent.color) }
+                else { Image(systemName: attachment.kind.defaultSystemImage).font(.title2).foregroundStyle(app.appearance.liveAccent) }
             }
             .frame(width: 48, height: 52).clipped()
-            .background(app.appearance.accent.color.opacity(0.1), in: RoundedRectangle(cornerRadius: ModulaRadius.small))
+            .background(app.appearance.liveAccent.opacity(0.1), in: RoundedRectangle(cornerRadius: ModulaRadius.small))
             .clipShape(RoundedRectangle(cornerRadius: ModulaRadius.small))
         } else {
             Image(systemName: attachment.kind.defaultSystemImage)
-                .font(.title2).foregroundStyle(app.appearance.accent.color)
+                .font(.title2).foregroundStyle(app.appearance.liveAccent)
                 .frame(width: 48, height: 52)
-                .background(app.appearance.accent.color.opacity(0.1), in: RoundedRectangle(cornerRadius: ModulaRadius.small))
+                .background(app.appearance.liveAccent.opacity(0.1), in: RoundedRectangle(cornerRadius: ModulaRadius.small))
         }
     }
 }
@@ -576,7 +576,7 @@ struct ModulaAudioSurface: View {
                 } label: {
                     Image(systemName: audio.isPlaying ? "pause.fill" : "play.fill")
                         .font(.title3.bold()).foregroundStyle(.white).frame(width: 48, height: 48)
-                        .background(app.appearance.accent.color, in: Circle())
+                        .background(app.appearance.liveAccent, in: Circle())
                 }
                 .accessibilityLabel(audio.isPlaying ? "Pause" : "Play")
                 .disabled(playableURL == nil)
@@ -585,7 +585,7 @@ struct ModulaAudioSurface: View {
                     Text(attachment.metadata.creator ?? "Audio").font(.caption).foregroundStyle(.secondary)
                     HStack(spacing: 3) {
                         ForEach(0..<22, id: \.self) { index in
-                            Capsule().fill(index < Int(audio.progress * 22) ? app.appearance.accent.color : Color.secondary.opacity(0.3))
+                            Capsule().fill(index < Int(audio.progress * 22) ? app.appearance.liveAccent : Color.secondary.opacity(0.3))
                                 .frame(width: 3, height: CGFloat(7 + ((index * 7) % 13)))
                         }
                     }
@@ -651,7 +651,7 @@ struct ModulaLinkPreview: View {
                     .clipShape(RoundedRectangle(cornerRadius: ModulaRadius.small))
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(content.domain ?? content.destination?.host ?? "Link").font(.caption2.weight(.bold)).foregroundStyle(app.appearance.accent.color)
+                    Text(content.domain ?? content.destination?.host ?? "Link").font(.caption2.weight(.bold)).foregroundStyle(app.appearance.liveAccent)
                     if let title = content.title { Text(title).font(.subheadline.weight(.semibold)).lineLimit(2) }
                     if let description = content.description { Text(description).font(.caption).foregroundStyle(.secondary).lineLimit(2) }
                 }

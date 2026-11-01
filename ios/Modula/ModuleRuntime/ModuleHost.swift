@@ -37,7 +37,7 @@ struct ModuleHost: View {
                     } description: {
                         Text(session.error ?? "Module unavailable")
                     } actions: {
-                        Button("Retry") { retry() }.buttonStyle(.borderedProminent).tint(app.appearance.accent.color)
+                        Button("Retry") { retry() }.buttonStyle(.borderedProminent).tint(app.appearance.liveAccent)
                         Button("Close") { app.navigation.close() }
                     }
                     .accessibilityIdentifier("module.host.failed")
@@ -62,7 +62,7 @@ struct ModuleHost: View {
                         .background(palette.canvas)
                         .overlay {
                             if session.state == .loadingModule || session.state == .startingRuntime {
-                                ModuleOpeningOverlay(name: session.manifest.name, accent: app.appearance.accent.color, reduceMotion: reduceMotion)
+                                ModuleOpeningOverlay(name: session.manifest.name, accent: app.appearance.liveAccent, reduceMotion: reduceMotion)
                                     .transition(reduceMotion ? .identity : .opacity)
                             }
                         }
@@ -182,7 +182,7 @@ struct ModuleHost: View {
         } actions: {
             Button(retryTitle) { retry() }
                 .buttonStyle(.borderedProminent)
-                .tint(app.appearance.accent.color)
+                .tint(app.appearance.liveAccent)
                 .frame(minHeight: ModulaLayout.minimumTouch)
             if showsProductHub {
                 Button("View in Product Hub") {

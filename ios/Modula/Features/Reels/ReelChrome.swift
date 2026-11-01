@@ -60,7 +60,7 @@ struct ReelTikTokRail: View {
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(.white)
                         .frame(width: 22, height: 22)
-                        .background(Circle().fill(app.appearance.accent.color))
+                        .background(Circle().fill(app.appearance.liveAccent))
                         .overlay(Circle().stroke(.white, lineWidth: 1.5))
                 }
                 .buttonStyle(.plain)

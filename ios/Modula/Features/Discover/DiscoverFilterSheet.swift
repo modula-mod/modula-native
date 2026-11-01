@@ -66,7 +66,7 @@ struct DiscoverFilterSheet: View {
 
     @ViewBuilder private var postFilters: some View {
         let current = app.discover.posts.filter
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         ModulaGlassSheetSection(title: "Show") {
             ForEach(Array(PostFilters.Kind.allCases.enumerated()), id: \.element) { i, kind in
                 if i > 0 { ModulaGlassRowDivider() }

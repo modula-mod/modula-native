@@ -106,7 +106,7 @@ struct ModulaPullActionsChooser: View {
 
     private func slot(_ item: ModulaPullDestination) -> some View {
         let selected = destination == item
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         let appear = slotAppear(item)
         return VStack(spacing: 2) {
             if refreshing, item == .refresh {

@@ -25,7 +25,7 @@ struct PremiumMasthead: View {
             Text(eyebrow)
                 .font(.caption2.weight(.semibold))
                 .tracking(2.2)
-                .foregroundStyle(app.appearance.accent.color)
+                .foregroundStyle(app.appearance.liveAccent)
             Text(title)
                 .font(.largeTitle.weight(.bold))
                 .multilineTextAlignment(.center)
@@ -76,15 +76,30 @@ struct PremiumCompareView: View {
             .pickerStyle(.segmented)
             .accessibilityIdentifier("premium.comparePicker")
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            // Sticky first column: the feature names stay put while the plan columns scroll
+            // horizontally, so no row is ever truncated off-screen.
+            HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 0) {
-                    header
+                    Color.clear.frame(width: Self.areaWidth, height: Self.headerHeight)
                     ForEach(PremiumCatalog.comparison) { row in
-                        rowView(row)
+                        Text(row.area)
+                            .font(.caption.weight(.semibold))
+                            .lineLimit(2)
+                            .frame(width: Self.areaWidth, height: Self.rowHeight, alignment: .leading)
                     }
                 }
-                .padding(.vertical, 8)
+                .padding(.leading, ModulaSpacing.sm)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        header
+                        ForEach(PremiumCatalog.comparison) { row in
+                            rowView(row)
+                        }
+                    }
+                }
+                .modulaHorizontalEdgeFade()
             }
+            .padding(.vertical, ModulaSpacing.xs)
             .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
             .accessibilityIdentifier("premium.compare.table")
 
@@ -115,9 +130,13 @@ struct PremiumCompareView: View {
         return save > 0 ? "Yearly · \(save)%" : "Yearly"
     }
 
+    private static let areaWidth: CGFloat = 84
+    private static let columnWidth: CGFloat = 80
+    private static let headerHeight: CGFloat = 64
+    private static let rowHeight: CGFloat = 48
+
     private var header: some View {
         HStack(alignment: .top, spacing: 0) {
-            Color.clear.frame(width: 88, height: 1)
             ForEach(plans) { plan in
                 Button {
                     withAnimation(ModulaMotion.animation(.selection, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
@@ -128,7 +147,7 @@ struct PremiumCompareView: View {
                         if plan == .recommended {
                             Text("Recommended")
                                 .font(.caption2.weight(.semibold))
-                                .foregroundStyle(app.appearance.accent.color)
+                                .foregroundStyle(app.appearance.liveAccent)
                         }
                         Text(plan.shortTitle)
                             .font(.caption.weight(.semibold))
@@ -139,9 +158,8 @@ struct PremiumCompareView: View {
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                     }
-                    .frame(width: 84)
-                    .padding(.vertical, 8)
-                    .background(plan == store.selectedPlan ? app.appearance.accent.color.opacity(0.14) : Color.clear)
+                    .frame(width: Self.columnWidth, height: Self.headerHeight)
+                    .background(plan == store.selectedPlan ? app.appearance.liveAccent.opacity(0.14) : Color.clear)
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(plan == store.selectedPlan ? .isSelected : [])
@@ -162,20 +180,18 @@ struct PremiumCompareView: View {
 
     private func rowView(_ row: PremiumComparisonRow) -> some View {
         HStack(alignment: .top, spacing: 0) {
-            Text(row.area)
-                .font(.caption.weight(.semibold))
-                .frame(width: 88, alignment: .leading)
-                .padding(.vertical, 8)
             ForEach(plans) { plan in
                 Text(row.value(for: plan))
                     .font(.caption2)
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.85)
                     .multilineTextAlignment(.center)
-                    .frame(width: 84, alignment: .center)
-                    .padding(.vertical, 8)
-                    .background(plan == store.selectedPlan ? app.appearance.accent.color.opacity(0.08) : Color.clear)
+                    .frame(width: Self.columnWidth, height: Self.rowHeight, alignment: .center)
+                    .background(plan == store.selectedPlan ? app.appearance.liveAccent.opacity(0.08) : Color.clear)
             }
         }
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(row.area)
     }
 }
 
@@ -212,7 +228,7 @@ struct PremiumIntroView: View {
                     .frame(maxWidth: .infinity, minHeight: 52)
             }
             .buttonStyle(ModulaPressStyle(scale: 0.97))
-            .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color, prominent: true, specular: true)
+            .modulaAccentCTA()
             .accessibilityIdentifier("premium.intro.explore")
             Button("Maybe later") { app.navigation.close() }
                 .font(.body.weight(.semibold))
@@ -247,9 +263,9 @@ private struct PremiumIntroRow: View {
             HStack(spacing: 12) {
                 Image(systemName: symbol)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(app.appearance.accent.color)
+                    .foregroundStyle(app.appearance.liveAccent)
                     .frame(width: 32, height: 32)
-                    .background(app.appearance.accent.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(app.appearance.liveAccent.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
                     Text(detail).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)

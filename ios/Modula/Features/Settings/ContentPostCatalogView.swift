@@ -210,7 +210,7 @@ private struct ContentPostCatalogPage: View {
             )
         case .actionRail:
             ZStack(alignment: .trailing) {
-                LinearGradient(colors: [app.appearance.accent.color.opacity(0.65), .black], startPoint: .topLeading, endPoint: .bottomTrailing)
+                LinearGradient(colors: [app.appearance.liveAccent.opacity(0.65), .black], startPoint: .topLeading, endPoint: .bottomTrailing)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Content first").font(.title2.bold())
                     Text(railNotice).font(.footnote).foregroundStyle(.white.opacity(0.8))
@@ -236,7 +236,7 @@ private struct ContentPostCatalogPage: View {
             }
         case .comments:
             Button("Open comments sheet", systemImage: "bubble.right") { commentsPresented = true }
-                .buttonStyle(.borderedProminent).tint(app.appearance.accent.color)
+                .buttonStyle(.borderedProminent).tint(app.appearance.liveAccent)
         case .postDetail:
             ModulaPostContentRenderer(
                 post: PostCatalogFixtures.mixedPost,
@@ -390,7 +390,7 @@ private struct ContentPostCatalogPage: View {
         HStack(spacing: ModulaSpacing.sm) {
             ModulaAvatar(initials: "AR", size: 40)
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) { Text("Alex Rivers").font(.subheadline.bold()); Image(systemName: "checkmark.seal.fill").foregroundStyle(app.appearance.accent.color) }
+                HStack(spacing: 4) { Text("Alex Rivers").font(.subheadline.bold()); Image(systemName: "checkmark.seal.fill").foregroundStyle(app.appearance.liveAccent) }
                 Text("Bali, Indonesia · 2h").font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
@@ -527,7 +527,7 @@ private struct DraftAttachmentCatalogCard: View {
                 if state == .uploading { ProgressView(value: progress) }
             }
             Spacer(minLength: 0)
-            if state == .ready { Image(systemName: "checkmark.circle.fill").foregroundStyle(app.appearance.accent.color) }
+            if state == .ready { Image(systemName: "checkmark.circle.fill").foregroundStyle(app.appearance.liveAccent) }
         }
         .padding(ModulaSpacing.sm)
         .background(.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: ModulaRadius.medium))

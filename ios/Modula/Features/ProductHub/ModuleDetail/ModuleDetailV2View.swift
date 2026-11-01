@@ -278,15 +278,15 @@ struct ModuleDetailV2View: View {
         } label: {
             HStack(spacing: 8) {
                 if action.isBusy { ProgressView().controlSize(.small).tint(.white) }
-                Text(action == .open || action == .install || action == .update ? action.title.uppercased() : action.title)
+                Text(action.title)
                     .font(.subheadline.weight(.bold))
             }
-            .padding(.horizontal, 20)
-            .frame(minWidth: 84, minHeight: 34)
-            .foregroundStyle(action.isEnabled || action.isBusy ? Color.white : Color.secondary)
-            .background(action.isEnabled || action.isBusy ? brand : Color.primary.opacity(0.08), in: Capsule())
+            .padding(.horizontal, ModulaSpacing.lg)
+            .frame(minWidth: 84, minHeight: ModulaLayout.minimumTouch)
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        .modulaAccentCTA()
         .disabled(!action.isEnabled)
         .animation(.snappy, value: action)
         .accessibilityLabel(action.title)
@@ -295,7 +295,7 @@ struct ModuleDetailV2View: View {
     }
 
     private var brand: Color {
-        app.appearance.accent.color
+        app.appearance.liveAccent
     }
 
     private func lifecycleNotice(_ message: String) -> some View {

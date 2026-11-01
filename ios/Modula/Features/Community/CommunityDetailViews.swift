@@ -4,7 +4,7 @@ struct CommunitySettingsView: View {
     @Environment(AppEnvironment.self) private var app
     @State private var settings = CommunityLocalSettings.load()
 
-    private var accent: Color { app.appearance.accent.color }
+    private var accent: Color { app.appearance.liveAccent }
 
     var body: some View {
         ScrollView {
@@ -69,7 +69,7 @@ struct CommunitySettingsView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.white)
-                .modulaGlass(in: Capsule(), interactive: true, tint: accent, prominent: true, specular: true)
+                .modulaAccentCTA()
                 .accessibilityIdentifier("community.settings.save")
             }
             .padding(.horizontal, ModulaLayout.contentInset)
@@ -194,7 +194,7 @@ struct CommunityPollView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.white)
-                    .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color, prominent: true, specular: true)
+                    .modulaAccentCTA()
                     .disabled(loading || !CommunityPollListing.acceptsPostID(postID))
                     .accessibilityIdentifier("community.poll.load")
                     if !app.auth.isSignedIn {
@@ -280,7 +280,7 @@ struct CommunityEventView: View {
     @Environment(AppEnvironment.self) private var app
     @State private var settings = CommunityLocalSettings.load()
 
-    private var accent: Color { app.appearance.accent.color }
+    private var accent: Color { app.appearance.liveAccent }
 
     var body: some View {
         ScrollView {

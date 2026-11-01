@@ -70,7 +70,7 @@ struct NodusChatView: View {
     }
 
     /// AppearanceStore accent (not the asset-catalog accent) so curated accents apply.
-    private var accent: Color { app.appearance.accent.color }
+    private var accent: Color { app.appearance.liveAccent }
 
     /// All chat motion goes through ModulaMotion so the Motion personality and
     /// iOS Reduce Motion are respected.
@@ -408,7 +408,7 @@ struct NodusChatView: View {
             .background {
                 if message.role == .user {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(chatTint.color(accent: app.appearance.accent.color).opacity(0.22))
+                        .fill(chatTint.color(accent: app.appearance.liveAccent).opacity(0.22))
                 } else if presentation.showsDeveloperDiagnostics {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .fill(Color.secondary.opacity(0.11))
@@ -628,10 +628,10 @@ struct NodusChatView: View {
                 NodusComposerPulse(
                     active: model.isGenerating,
                     corner: composerCorner,
-                    color: app.appearance.accent.color
+                    color: app.appearance.liveAccent
                 )
                 RoundedRectangle(cornerRadius: composerCorner, style: .continuous)
-                    .strokeBorder(app.appearance.accent.color.opacity(composerFocused && !model.isGenerating ? 0.32 : 0), lineWidth: 1)
+                    .strokeBorder(app.appearance.liveAccent.opacity(composerFocused && !model.isGenerating ? 0.32 : 0), lineWidth: 1)
             }
             .scaleEffect(composerFocused && !reduceMotion ? 1.015 : 1, anchor: .bottom)
             .animation(motion(.morph), value: composerCorner)

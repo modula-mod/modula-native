@@ -153,7 +153,7 @@ struct SignInView: View {
                     HapticEngine.shared.play(.navigation)
                 }
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(app.appearance.accent.color)
+                .foregroundStyle(app.appearance.liveAccent)
                 .frame(minHeight: ModulaLayout.minimumTouch)
                 .disabled(app.auth.busy)
                 .accessibilityIdentifier("auth.forgot-password")
@@ -262,7 +262,7 @@ struct SignInView: View {
             HapticEngine.shared.play(.navigation)
         }
         .font(.subheadline.weight(.semibold))
-        .foregroundStyle(app.appearance.accent.color)
+        .foregroundStyle(app.appearance.liveAccent)
         .frame(minHeight: ModulaLayout.minimumTouch)
         .disabled(app.auth.busy)
         .accessibilityIdentifier("auth.create-account")
@@ -361,7 +361,7 @@ private struct SignInBrandMark: View {
                 RoundedRectangle(cornerRadius: side * 0.225, style: .continuous)
                     .strokeBorder(Color.white.opacity(0.22), lineWidth: 0.75)
             }
-            .shadow(color: app.appearance.accent.color.opacity(reduceTransparency ? 0.2 : 0.45), radius: side * 0.32, y: side * 0.12)
+            .shadow(color: app.appearance.liveAccent.opacity(reduceTransparency ? 0.2 : 0.45), radius: side * 0.32, y: side * 0.12)
             .accessibilityHidden(true)
     }
 }
@@ -375,7 +375,7 @@ private struct SignInBackdrop: View {
 
     var body: some View {
         let palette = ModulaPalette.resolve(app.appearance, scheme: scheme)
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         let opaque = reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
         let strength = (scheme == .dark ? 0.34 : 0.22) * (opaque ? 0.5 : 1)
         ZStack {

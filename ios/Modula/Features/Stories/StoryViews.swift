@@ -174,7 +174,7 @@ struct StoryTray: View {
                                     reportedRing: .own
                                 ),
                                 size: avatarSize,
-                                accent: app.appearance.accent.color
+                                accent: app.appearance.liveAccent
                             ),
                             title: "Your story"
                         )
@@ -192,7 +192,7 @@ struct StoryTray: View {
                         HapticEngine.shared.play(.selection)
                     } label: {
                         trayCell(
-                            avatar: StoryAvatar(group: group, size: avatarSize, accent: app.appearance.accent.color)
+                            avatar: StoryAvatar(group: group, size: avatarSize, accent: app.appearance.liveAccent)
                                 .modulaHeroSource("story", key: group.id),
                             title: trayTitle(group)
                         )
@@ -209,7 +209,7 @@ struct StoryTray: View {
                                     .font(.system(size: 12, weight: .bold))
                                     .foregroundStyle(.white)
                                     .frame(width: 22, height: 22)
-                                    .background(app.appearance.accent.color, in: Circle())
+                                    .background(app.appearance.liveAccent, in: Circle())
                                     .overlay(Circle().stroke(Color.black.opacity(0.35), lineWidth: 2))
                                     .frame(width: 44, height: 44)
                                     .contentShape(Circle())
@@ -245,7 +245,7 @@ struct StoryTray: View {
                                             .font(.system(size: 10, weight: .bold))
                                             .foregroundStyle(.white)
                                             .frame(width: 22, height: 22)
-                                            .background(app.appearance.accent.color, in: Circle())
+                                            .background(app.appearance.liveAccent, in: Circle())
                                             .overlay(Circle().strokeBorder(Color(uiColor: .systemBackground), lineWidth: 2))
                                     },
                                 title: author.displayName.split(whereSeparator: \.isWhitespace).first.map(String.init) ?? author.displayName,
@@ -2094,7 +2094,7 @@ struct StoryCreateView: View {
         if collageLayout != nil && collageImages.isEmpty { return false }
         return prepared != nil
     }
-    private var accent: Color { app.appearance.accent.color }
+    private var accent: Color { app.appearance.liveAccent }
     private var spring: Animation { reduceMotion ? .easeOut(duration: 0.14) : .spring(response: 0.3, dampingFraction: 0.84) }
 
     var body: some View {
@@ -2685,7 +2685,7 @@ struct StoryCreateView: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 16)
                         .frame(height: 40)
-                        .modulaGlass(in: Capsule(), interactive: true, tint: accent, prominent: true)
+                        .modulaAccentCTA()
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 16)
@@ -3118,7 +3118,7 @@ struct StoryCreateView: View {
                 Text("Add to story").font(.headline).frame(maxWidth: .infinity).frame(height: 48)
             }
             .buttonStyle(.plain)
-            .modulaGlass(in: Capsule(), interactive: true, tint: accent, prominent: true, specular: true)
+            .modulaAccentCTA()
             .disabled(![.question, .countdown, .poll, .slider, .quiz, .addYours, .reply].contains(item) && formA.trimmingCharacters(in: .whitespaces).isEmpty)
         }
         .padding(20)
@@ -3402,7 +3402,7 @@ struct StoryCreateView: View {
                     .padding(.horizontal, 10)
                 }
                 .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
-                .modulaGlass(in: Capsule(), interactive: true, tint: accent, prominent: true, specular: true)
+                .modulaAccentCTA()
                 .disabled(!canShare || busy || showsCamera)
                 .opacity(!canShare || showsCamera ? 0.45 : 1)
                 .accessibilityIdentifier("story.create.share")

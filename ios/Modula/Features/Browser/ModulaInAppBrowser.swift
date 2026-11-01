@@ -66,7 +66,7 @@ final class ModulaBrowserPresenter {
             host?.dismiss(animated: false)
         }
         .environment(environment)
-        .tint(environment.appearance.accent.color)
+        .tint(environment.appearance.liveAccent)
         .preferredColorScheme(environment.appearance.colorScheme)
         let controller = UIHostingController(rootView: root)
         controller.modalPresentationStyle = .overFullScreen

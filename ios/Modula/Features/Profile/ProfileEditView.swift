@@ -23,7 +23,7 @@ struct ProfileEditView: View {
     private var liveProfile: ModulaProfile? {
         app.profile.session(for: .me, handleHint: app.auth.account?.primaryHandle).profile
     }
-    private var accent: Color { app.appearance.accent.color }
+    private var accent: Color { app.appearance.liveAccent }
     private var spring: Animation? { reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.82) }
     private var canSave: Bool {
         editing.isDirty

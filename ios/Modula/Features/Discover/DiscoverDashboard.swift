@@ -124,7 +124,7 @@ struct DiscoverHeroCarousel: View {
             HStack(spacing: 6) {
                 ForEach(items.indices, id: \.self) { i in
                     Capsule()
-                        .fill(i == page ? app.appearance.accent.color : Color.primary.opacity(0.18))
+                        .fill(i == page ? app.appearance.liveAccent : Color.primary.opacity(0.18))
                         .frame(width: i == page ? 18 : 6, height: 6)
                         .animation(ModulaEffectGate.reduceMotion(reduceMotion) ? nil : .snappy, value: page)
                 }
@@ -135,7 +135,7 @@ struct DiscoverHeroCarousel: View {
     }
 
     private func heroCard(_ item: DiscoverHeroItem) -> some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         return Button {
             switch item {
             case .topic(let t): onTopic(t)
@@ -337,7 +337,7 @@ struct DiscoverMosaic: View {
                         Label("Open #\(selected.label) feed", systemImage: "arrow.up.right")
                             .font(.subheadline.weight(.semibold))
                             .padding(.horizontal, 14).padding(.vertical, 9)
-                            .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color.opacity(0.2))
+                            .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.liveAccent.opacity(0.2))
                     }
                     .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: .navigation))
                 }
@@ -363,7 +363,7 @@ struct DiscoverMosaic: View {
                         Image(systemName: "xmark.circle.fill").font(.subheadline).foregroundStyle(.secondary)
                     }
                     .padding(.horizontal, 14).padding(.vertical, 7)
-                    .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color.opacity(0.22))
+                    .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.liveAccent.opacity(0.22))
                     .matchedGeometryEffect(id: "tag.\(selected.id)", in: tagSpace)
                 }
                 .buttonStyle(.plain)
