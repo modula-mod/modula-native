@@ -130,7 +130,7 @@ export const designContract = {
     "listRowMinHeight": 48,
     "heroHeight": 260,
     "heroPadding": 20,
-    "mediaUnavailableHeight": 148,
+    "mediaUnavailableHeight": 212,
     "ctaHeight": 52
   },
   "premium": {

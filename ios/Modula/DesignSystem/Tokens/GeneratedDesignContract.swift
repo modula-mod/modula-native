@@ -134,7 +134,7 @@ enum GeneratedDesignContract {
         static let listRowMinHeight = 48.0
         static let heroHeight = 260.0
         static let heroPadding = 20.0
-        static let mediaUnavailableHeight = 148.0
+        static let mediaUnavailableHeight = 212.0
         static let ctaHeight = 52.0
     }
     enum Premium {
