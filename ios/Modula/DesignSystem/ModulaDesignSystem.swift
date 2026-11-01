@@ -2,11 +2,24 @@ import SwiftUI
 import UIKit
 import CoreHaptics
 
-enum ModulaSpacing { static let xxs = 4.0; static let xs = 8.0; static let sm = 12.0; static let md = 16.0; static let lg = 24.0; static let xl = 32.0 }
-enum ModulaRadius { static let small = 10.0; static let medium = 16.0; static let large = 24.0 }
+enum ModulaSpacing { static let hairline = GeneratedDesignContract.Spacing.hairline; static let xxs = GeneratedDesignContract.Spacing.xxs; static let xs = GeneratedDesignContract.Spacing.xs; static let sm = GeneratedDesignContract.Spacing.sm; static let md = GeneratedDesignContract.Spacing.md; static let lg = GeneratedDesignContract.Spacing.lg; static let xl = GeneratedDesignContract.Spacing.xl }
+enum ModulaRadius {
+    static let small = GeneratedDesignContract.Radius.small; static let medium = GeneratedDesignContract.Radius.medium; static let large = GeneratedDesignContract.Radius.large
+    /// Card corner for the `.balanced` interface shape.
+    static let balanced = GeneratedDesignContract.Radius.balanced
+    /// Hero / large media corner.
+    static let xl = GeneratedDesignContract.Radius.xl
+}
 enum ModulaLayout {
-    static let minimumTouch = 44.0
-    static let contentInset = 18.0
+    static let minimumTouch = GeneratedDesignContract.Layout.minimumTouchTarget
+    static let contentInset = GeneratedDesignContract.Layout.contentInset
+    static let fieldHorizontalPadding = GeneratedDesignContract.Layout.fieldHorizontalPadding
+    static let listRowSpacing = GeneratedDesignContract.Layout.listRowSpacing
+    static let listRowIconWidth = GeneratedDesignContract.Layout.listRowIconWidth
+    static let listRowMinHeight = GeneratedDesignContract.Layout.listRowMinHeight
+    static let heroHeight = GeneratedDesignContract.Layout.heroHeight
+    static let heroPadding = GeneratedDesignContract.Layout.heroPadding
+    static let hairlineOpacity = GeneratedDesignContract.Elevation.hairlineOpacity
     /// Near-edge gutter for full-width Home/Profile posts (Edge Picker still carves the trailing edge).
     static let postBleedGutter = 4.0
     /// Home top-chrome wordmark. Fits an inline nav bar without hitting hamburger / + / chat.
@@ -216,24 +229,28 @@ enum ModulaIconRegistry {
 
 struct ModulaPalette {
     var canvas: Color; var surface: Color; var elevated: Color; var primary: Color; var secondary: Color; var separator: Color; var accent: Color
+    var tertiary: Color = GeneratedDesignContract.Theme.light.textTertiary
+    var onAccent: Color = GeneratedDesignContract.Theme.light.onAccent
+    var success: Color = GeneratedDesignContract.Theme.light.success
+    var warning: Color = GeneratedDesignContract.Theme.light.warning
+    var danger: Color = GeneratedDesignContract.Theme.light.danger
+
+    /// Picks the generated theme for the current scheme / dark style. Accent stays user-selectable.
+    @MainActor static func theme(_ store: AppearanceStore, scheme: ColorScheme) -> GeneratedDesignContract.ThemeColors {
+        guard scheme == .dark else { return GeneratedDesignContract.Theme.light }
+        switch store.darkStyle {
+        case .oled: return GeneratedDesignContract.Theme.oled
+        case .dim: return GeneratedDesignContract.Theme.dim
+        default: return GeneratedDesignContract.Theme.dark
+        }
+    }
+
     @MainActor static func resolve(_ store: AppearanceStore, scheme: ColorScheme, increasedContrast: Bool = false) -> Self {
-        let dark = scheme == .dark
-        let accent = store.liveAccent
-        if dark && store.darkStyle == .oled {
-            return Self(canvas: .black, surface: Color.white.opacity(0.055), elevated: Color.white.opacity(0.1), primary: .white,
-                        secondary: Color.white.opacity(increasedContrast ? 0.78 : 0.66), separator: Color.white.opacity(0.14), accent: accent)
-        }
-        if dark && store.darkStyle == .dim {
-            return Self(canvas: Color(red: 0.075, green: 0.085, blue: 0.10), surface: Color(red: 0.105, green: 0.12, blue: 0.14),
-                        elevated: Color(red: 0.14, green: 0.155, blue: 0.18), primary: Color.white.opacity(0.92),
-                        secondary: Color.white.opacity(increasedContrast ? 0.76 : 0.58), separator: Color.white.opacity(0.1), accent: accent)
-        }
-        if dark {
-            return Self(canvas: Color(uiColor: .systemBackground), surface: Color(uiColor: .secondarySystemBackground), elevated: Color(uiColor: .tertiarySystemBackground),
-                        primary: .primary, secondary: .secondary, separator: Color.white.opacity(0.12), accent: accent)
-        }
-        return Self(canvas: Color(red: 0.975, green: 0.982, blue: 0.988), surface: .white, elevated: Color(uiColor: .secondarySystemBackground),
-                    primary: .primary, secondary: .secondary, separator: Color.black.opacity(increasedContrast ? 0.16 : 0.08), accent: accent)
+        let t = theme(store, scheme: scheme)
+        return Self(canvas: t.canvas, surface: t.surface, elevated: t.elevated, primary: t.textPrimary,
+                    secondary: increasedContrast ? t.textSecondaryHighContrast : t.textSecondary,
+                    separator: increasedContrast ? t.separatorHighContrast : t.separator, accent: store.liveAccent,
+                    tertiary: t.textTertiary, onAccent: t.onAccent, success: t.success, warning: t.warning, danger: t.danger)
     }
 }
 
@@ -241,11 +258,12 @@ struct ModulaText: View {
     enum Role { case hero, title, headline, body, callout, caption, metric }
     let text: String; var role: Role = .body; var color: Color? = nil
     @Environment(AppEnvironment.self) private var app
-    @ScaledMetric(relativeTo: .body) private var baseSize = 17.0
+    @ScaledMetric(relativeTo: .body) private var baseSize = GeneratedDesignContract.Typography.baseSize
     var body: some View { Text(text).font(font).fontDesign(design).foregroundStyle(color ?? .primary).dynamicTypeSize(...DynamicTypeSize.accessibility5) }
     private var font: Font { .system(size: baseSize * multiplier * app.appearance.textSize.scale, weight: weight, design: design) }
-    private var multiplier: Double { switch role { case .hero: 2; case .title: 1.35; case .headline: 1; case .body: 1; case .callout: 0.94; case .caption: 0.76; case .metric: 1.18 } }
-    private var weight: Font.Weight { switch role { case .hero, .title: .bold; case .headline, .metric: .semibold; default: .regular } }
+    private var multiplier: Double { token.scale }
+    private var weight: Font.Weight { token.weight }
+    private var token: GeneratedDesignContract.TypeRole { switch role { case .hero: GeneratedDesignContract.Typography.hero; case .title: GeneratedDesignContract.Typography.title; case .headline: GeneratedDesignContract.Typography.headline; case .body: GeneratedDesignContract.Typography.body; case .callout: GeneratedDesignContract.Typography.callout; case .caption: GeneratedDesignContract.Typography.caption; case .metric: GeneratedDesignContract.Typography.metric } }
     private var design: Font.Design { switch app.appearance.fontFamily { case .rounded, .geometric: .rounded; case .editorial: .serif; case .mono: .monospaced; default: .default } }
 }
 struct ModulaIcon: View { var role: ModulaIconRole; var selected = false; @Environment(AppEnvironment.self) private var app; var body: some View { Image(systemName: ModulaIconRegistry.symbol(role, style: app.appearance.iconStyle, selected: selected)).imageScale(.large) } }
@@ -447,7 +465,7 @@ struct ModulaFormField<Focus: Hashable>: View {
         return Color.primary.opacity(contrast == .increased ? 0.28 : 0.1)
     }
 }
-struct ModulaIconButton: View { let title: String; let symbol: String; var action: () -> Void; var body: some View { Button(action: action) { Image(systemName: symbol).frame(width: 44, height: 44) }.accessibilityLabel(title) } }
+struct ModulaIconButton: View { let title: String; let symbol: String; var action: () -> Void; var body: some View { Button(action: action) { Image(systemName: symbol).frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch) }.accessibilityLabel(title) } }
 struct ModulaAvatar: View {
     var initials: String
     var url: URL? = nil
@@ -957,7 +975,7 @@ struct ModulaBadge: View {
     }
     private var foreground: Color { style == .filled ? .white : color }
 }
-struct ModulaCard<Content: View>: View { @ViewBuilder var content: Content; @Environment(AppEnvironment.self) private var app; @Environment(\.colorScheme) private var scheme; var body: some View { content.padding(16 * app.appearance.density.spacingScale).frame(maxWidth: .infinity, alignment: .leading).background(ModulaPalette.resolve(app.appearance, scheme: scheme).surface, in: RoundedRectangle(cornerRadius: radius, style: .continuous)).overlay(RoundedRectangle(cornerRadius: radius).stroke(.primary.opacity(0.07))).accessibilityElement(children: .contain) }; private var radius: Double { switch app.appearance.interfaceShape { case .soft: 24; case .balanced: 17; case .precise: 10 } } }
+struct ModulaCard<Content: View>: View { @ViewBuilder var content: Content; @Environment(AppEnvironment.self) private var app; @Environment(\.colorScheme) private var scheme; var body: some View { content.padding(ModulaSpacing.md * app.appearance.density.spacingScale).frame(maxWidth: .infinity, alignment: .leading).background(ModulaPalette.resolve(app.appearance, scheme: scheme).surface, in: RoundedRectangle(cornerRadius: radius, style: .continuous)).overlay(RoundedRectangle(cornerRadius: radius).stroke(.primary.opacity(ModulaLayout.hairlineOpacity))).accessibilityElement(children: .contain) }; private var radius: Double { switch app.appearance.interfaceShape { case .soft: ModulaRadius.large; case .balanced: ModulaRadius.balanced; case .precise: ModulaRadius.small } } }
 
 private struct ModulaCanvasModifier: ViewModifier {
     @Environment(AppEnvironment.self) private var app
@@ -989,11 +1007,11 @@ extension View {
             .toolbarBackground(.hidden, for: .navigationBar)
     }
 }
-struct ModulaListRow: View { var title: String; var subtitle: String?; var symbol: String; var action: (() -> Void)?; @State private var taps = 0; @Environment(\.accessibilityReduceMotion) private var reduceMotion; var body: some View { Button { taps += 1; action?() } label: { HStack(spacing: 14) { Image(systemName: symbol).frame(width: 28).foregroundStyle(.tint).symbolEffect(.bounce, value: reduceMotion ? 0 : taps); VStack(alignment: .leading, spacing: 2) { Text(title).font(.body.weight(.medium)); if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary) } }; Spacer(); if action != nil { Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) } }.frame(minHeight: 48).contentShape(Rectangle()) }.buttonStyle(ModulaPressStyle(scale: 0.985, haptic: nil)).disabled(action == nil).accessibilityLabel(title).accessibilityValue(subtitle ?? "") } }
-struct ModulaSection<Content: View>: View { var title: String; @ViewBuilder var content: Content; var body: some View { VStack(alignment: .leading, spacing: 12) { Text(title).font(.headline); content }.frame(maxWidth: .infinity, alignment: .leading) } }
-struct ModulaSearchField: View { @Binding var text: String; var prompt = "Search"; var body: some View { TextField(prompt, text: $text).textFieldStyle(.plain).padding(.horizontal, 14).frame(minHeight: 44).background(.thinMaterial, in: Capsule()).accessibilityLabel(prompt) } }
-struct ModulaMetric: View { var value: String; var label: String; var body: some View { VStack(alignment: .leading, spacing: 2) { Text(value).font(.title3.bold()); Text(label).font(.caption).foregroundStyle(.secondary) }.accessibilityElement(children: .combine) } }
-struct ModulaMetricPicker<Value: Hashable, Content: View>: View { @Binding var selection: Value; var values: [Value]; @ViewBuilder var label: (Value) -> Content; var body: some View { Picker("Selection", selection: $selection) { ForEach(values, id: \.self) { label($0).tag($0) } }.pickerStyle(.segmented) } }
+struct ModulaListRow: View { var title: String; var subtitle: String?; var symbol: String; var action: (() -> Void)?; @State private var taps = 0; @Environment(\.accessibilityReduceMotion) private var reduceMotion; var body: some View { Button { taps += 1; action?() } label: { HStack(spacing: ModulaLayout.listRowSpacing) { Image(systemName: symbol).frame(width: ModulaLayout.listRowIconWidth).foregroundStyle(.tint).symbolEffect(.bounce, value: reduceMotion ? 0 : taps); VStack(alignment: .leading, spacing: ModulaSpacing.hairline) { Text(title).font(.body.weight(.medium)); if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary) } }; Spacer(); if action != nil { Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) } }.frame(minHeight: ModulaLayout.listRowMinHeight).contentShape(Rectangle()) }.buttonStyle(ModulaPressStyle(scale: 0.985, haptic: nil)).disabled(action == nil).accessibilityLabel(title).accessibilityValue(subtitle ?? "") } }
+struct ModulaSection<Content: View>: View { var title: String; @ViewBuilder var content: Content; var body: some View { VStack(alignment: .leading, spacing: ModulaSpacing.sm) { ModulaText(text: title, role: .headline).accessibilityAddTraits(.isHeader); content }.frame(maxWidth: .infinity, alignment: .leading) } }
+struct ModulaSearchField: View { @Binding var text: String; var prompt = "Search"; var body: some View { TextField(prompt, text: $text).textFieldStyle(.plain).padding(.horizontal, ModulaLayout.fieldHorizontalPadding).frame(minHeight: ModulaLayout.minimumTouch).background(.thinMaterial, in: Capsule()).accessibilityLabel(prompt) } }
+struct ModulaMetric: View { var value: String; var label: String; var body: some View { VStack(alignment: .leading, spacing: ModulaSpacing.hairline) { ModulaText(text: value, role: .metric); ModulaText(text: label, role: .caption, color: .secondary) }.accessibilityElement(children: .combine) } }
+struct ModulaMetricPicker<Value: Hashable, Content: View>: View { var title: String = "Selection"; @Binding var selection: Value; var values: [Value]; @ViewBuilder var label: (Value) -> Content; var body: some View { Picker(title, selection: $selection) { ForEach(values, id: \.self) { label($0).tag($0) } }.pickerStyle(.segmented) } }
 struct ModulaChip: View {
     var title: String; var selected = false; var action: () -> Void
     @Environment(AppEnvironment.self) private var app
@@ -1007,7 +1025,7 @@ struct ModulaChip: View {
     }
 }
 struct ModulaToolbar<Content: View>: View { @ViewBuilder var content: Content; var body: some View { HStack(spacing: 8) { content }.padding(6).background(.regularMaterial, in: Capsule()) } }
-struct ModulaTopBar: View { var title: String; var trailing: (() -> Void)?; var body: some View { HStack { Text(title).font(.largeTitle.bold()); Spacer(); if let trailing { ModulaIconButton(title: "Settings", symbol: "gearshape", action: trailing) } }.padding(.horizontal, ModulaLayout.contentInset) } }
+struct ModulaTopBar: View { var title: String; var trailingLabel: String = "Settings"; var trailingSymbol: String = "gearshape"; var trailing: (() -> Void)?; var body: some View { HStack { Text(title).font(.largeTitle.bold()).accessibilityAddTraits(.isHeader); Spacer(); if let trailing { ModulaIconButton(title: trailingLabel, symbol: trailingSymbol, action: trailing) } }.padding(.horizontal, ModulaLayout.contentInset) } }
 struct ModulaMenu<Content: View>: View { var title: String; @ViewBuilder var content: Content; var body: some View { Menu(title, content: { content }) } }
 struct ModulaEmptyState: View {
     var title: String
@@ -1036,7 +1054,7 @@ struct ModulaEmptyState: View {
 }
 struct ModulaLoadingState: View { var title = "Loading…"; var body: some View { ProgressView(title).frame(maxWidth: .infinity, minHeight: 180) } }
 struct ModulaErrorState: View { var message: String; var retry: (() -> Void)?; var body: some View { ContentUnavailableView { Label("Something went wrong", systemImage: "exclamationmark.triangle") } description: { Text(message) } actions: { if let retry { Button("Try Again", action: retry) } } } }
-struct ModulaHero<Content: View>: View { var title: String; var subtitle: String; @ViewBuilder var artwork: Content; var body: some View { ZStack(alignment: .bottomLeading) { artwork.frame(maxWidth: .infinity).frame(height: 260).clipped(); LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .center, endPoint: .bottom); VStack(alignment: .leading) { Text(title).font(.largeTitle.bold()); Text(subtitle) }.foregroundStyle(.white).padding(20) }.clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous)) } }
+struct ModulaHero<Content: View>: View { var title: String; var subtitle: String; @ViewBuilder var artwork: Content; var body: some View { ZStack(alignment: .bottomLeading) { artwork.frame(maxWidth: .infinity).frame(height: ModulaLayout.heroHeight).clipped(); LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .center, endPoint: .bottom); VStack(alignment: .leading) { Text(title).font(.largeTitle.bold()); Text(subtitle) }.foregroundStyle(.white).padding(ModulaLayout.heroPadding) }.clipShape(RoundedRectangle(cornerRadius: ModulaRadius.xl, style: .continuous)) } }
 struct ModulaMetadataRail: View { var values: [(String, String)]; var body: some View { HStack { ForEach(Array(values.enumerated()), id: \.offset) { _, value in ModulaMetric(value: value.0, label: value.1); Spacer() } }.padding(.vertical, 8) } }
 
 /// Shared section header: one title weight and one subtitle style across Home, Product Hub,
