@@ -194,7 +194,7 @@ struct CreationStudioView: View {
                     .foregroundStyle(.red)
                     .accessibilityLabel(app.drafts.saveError ?? "Draft not saved")
             } else {
-                DraftStatusView(saved: app.drafts.showSavedIndicator, publishing: store.draft.isPublishing)
+                DraftStatusView(saved: app.drafts.showSavedIndicator, publishing: store.draft.isPublishing, savedAt: app.drafts.lastSavedAt)
                     .accessibilitySortPriority(20)
             }
 

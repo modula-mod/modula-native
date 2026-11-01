@@ -155,6 +155,13 @@ struct CollectionDetailView: View {
                 .modulaCanvas()
                 .navigationTitle(collection.name)
                 .task(id: collection.itemIDs) { await loadPosts(collection.itemIDs) }
+                // Enhancements-50: pull to re-fetch every saved post from Greenfield.
+                .refreshable {
+                    unavailable.removeAll()
+                    posts.removeAll()
+                    await loadPosts(collection.itemIDs)
+                    HapticEngine.shared.play(.success)
+                }
             } else {
                 ModulaEmptyState(title: "Collection", message: "This collection is no longer available.", symbol: "rectangle.stack")
             }
@@ -204,29 +211,54 @@ struct CollectionDetailView: View {
             .accessibilityElement(children: .combine)
             .accessibilityHint("Opens the post")
             .accessibilityIdentifier("collections.post.\(id)")
+            // Enhancements-50: long-press and swipe shortcuts for the two real row actions.
+            .contextMenu {
+                Button("Open Post", systemImage: "arrow.up.forward.square") {
+                    app.navigation.push(.post(resolved.id, .root))
+                }
+                Button("Remove from Collection", systemImage: "minus.circle", role: .destructive) {
+                    app.collections.remove(postID: id, from: collectionID)
+                    HapticEngine.shared.play(.warning)
+                }
+            }
+            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                Button("Remove", systemImage: "minus.circle", role: .destructive) {
+                    app.collections.remove(postID: id, from: collectionID)
+                    HapticEngine.shared.play(.warning)
+                }
+            }
         } else if unavailable.contains(id) {
             Label("This post is no longer available", systemImage: "exclamationmark.bubble")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .frame(minHeight: ModulaLayout.minimumTouch)
         } else {
-            HStack(spacing: ModulaSpacing.xs) {
-                ProgressView()
-                Text("Loading post…").font(.subheadline).foregroundStyle(.secondary)
-            }
-            .frame(minHeight: ModulaLayout.minimumTouch)
-            .accessibilityElement(children: .combine)
+            ModulaSkeletonRow()
+                .frame(minHeight: ModulaLayout.minimumTouch)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Loading post")
         }
     }
 
+    /// Enhancements-50: fetch in parallel batches of 4 instead of one-by-one.
     private func loadPosts(_ ids: [SocialPostID]) async {
-        for id in ids where posts[id] == nil && !unavailable.contains(id) {
+        let pending = ids.filter { posts[$0] == nil && !unavailable.contains($0) }
+        var index = 0
+        while index < pending.count {
             guard !Task.isCancelled else { return }
-            do {
-                posts[id] = try await app.postActions.loadPost(id: id)
-            } catch {
-                if Task.isCancelled { return }
-                unavailable.insert(id)
+            let batch = Array(pending[index..<min(index + 4, pending.count)])
+            index += batch.count
+            await withTaskGroup(of: Void.self) { group in
+                for id in batch {
+                    group.addTask { @MainActor in
+                        do {
+                            let post = try await app.postActions.loadPost(id: id)
+                            posts[id] = post
+                        } catch {
+                            if !Task.isCancelled { unavailable.insert(id) }
+                        }
+                    }
+                }
             }
         }
     }

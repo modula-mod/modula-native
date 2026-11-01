@@ -630,11 +630,15 @@ struct LinkPreviewEditor: View {
 struct DraftStatusView: View {
     var saved: Bool
     var publishing: Bool
+    /// Enhancements-50: when known, show a ticking "Saved · 12s ago" autosave indicator.
+    var savedAt: Date? = nil
 
     var body: some View {
         Group {
             if publishing {
                 Text("Publishing")
+            } else if let savedAt {
+                ModulaAutosaveIndicator(savedAt: savedAt)
             } else if saved {
                 Text("Draft saved")
             }
