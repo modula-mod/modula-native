@@ -428,9 +428,14 @@ struct StoryInsightsView: View {
                     Text("There isn’t a views-over-time chart. Marking a story viewed doesn’t return a series.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                    Button("View your story") { dismiss() }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Color(hex: "#369CAA"))
+                    Button { dismiss() } label: {
+                        Text("View your story")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
+                            .contentShape(Capsule())
+                    }
+                        .buttonStyle(.plain)
+                        .modulaAccentCTA()
                         .accessibilityIdentifier("story.insights.view")
                 }
                 .padding(16)
@@ -770,8 +775,8 @@ struct StoryViewer: View {
         }
         // Hold to pause also clears the chrome so the story can be seen unobstructed.
         .opacity(holding && !replyFocused ? 0 : 1)
-        .animation(.easeOut(duration: 0.15), value: holding)
-        .animation(.snappy, value: replyFocused)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: holding)
+        .animation(reduceMotion ? nil : .snappy, value: replyFocused)
         .overlay {
             if let burstEmoji {
                 Text(burstEmoji)
@@ -928,11 +933,11 @@ struct StoryViewer: View {
                     LocalEmojiReactionStore.shared.set(emoji, for: "story:\(item.id)")
                     reactedLocally = true
                     replyFocused = false
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) { burstEmoji = emoji }
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.6)) { burstEmoji = emoji }
                     HapticEngine.shared.play(.success)
                     Task {
                         try? await Task.sleep(for: .seconds(1.1))
-                        withAnimation(.easeOut(duration: 0.25)) { burstEmoji = nil }
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { burstEmoji = nil }
                     }
                 } label: {
                     Text(emoji).font(.system(size: 30)).frame(maxWidth: .infinity, minHeight: 44)
@@ -2251,10 +2256,9 @@ struct StoryCreateView: View {
         Label(title, systemImage: symbol)
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(.white)
-            .padding(.horizontal, 16)
-            .frame(height: 44)
-            .background(.ultraThinMaterial, in: Capsule())
-            .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 0.8))
+            .padding(.horizontal, ModulaSpacing.md)
+            .frame(height: ModulaLayout.minimumTouch)
+            .modulaGlass(in: Capsule(), interactive: false)
     }
 
     // MARK: Edit stage
@@ -3374,8 +3378,7 @@ struct StoryCreateView: View {
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(width: 48, height: 48)
-                            .background(.ultraThinMaterial, in: Circle())
-                            .overlay(Circle().strokeBorder(.white.opacity(0.22), lineWidth: 0.8))
+                            .modulaGlass(in: Circle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Photo library")
