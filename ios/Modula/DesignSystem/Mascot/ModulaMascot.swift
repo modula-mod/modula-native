@@ -727,7 +727,7 @@ struct ModulaMascotFigure: View {
             shape.stroke(LinearGradient(colors: [.white.opacity(0.7), .clear], startPoint: .top, endPoint: .center), lineWidth: s * 0.03)
                 .blur(radius: s * 0.01)
                 .mask(shape)
-            shape.stroke(pal.outline.opacity(0.6), lineWidth: max(s * 0.03, 1.1))
+            shape.stroke(pal.outline.opacity(0.72), lineWidth: max(s * 0.032, 1.2))
             // Specular.
             Ellipse().fill(LinearGradient(colors: [.white.opacity(0.9), .white.opacity(0.2)], startPoint: .top, endPoint: .bottom))
                 .frame(width: s * 0.26, height: s * 0.12)
@@ -962,17 +962,21 @@ struct ModulaMascotFigure: View {
             originalsFront(s: s, pal: pal, t: t, a: a)
         }
         if kind != .tuck && kind != .bolt {
-            let blush: Double = pose.conditions.shy ? 0.95 : (pose.eyes == .happy ? 0.85 : (pose.conditions.morning ? 0.7 : 0.5))
+            let blush: Double = pose.conditions.shy ? 0.95 : (pose.eyes == .happy ? 0.88 : (pose.conditions.morning ? 0.74 : 0.62))
             ForEach([-1.0, 1.0], id: \.self) { side in
                 Ellipse().fill(RadialGradient(colors: [pal.accent.opacity(blush), .clear], center: .center, startRadius: 0, endRadius: s * 0.1))
                     .frame(width: s * 0.22, height: s * 0.14)
                     .offset(x: side * s * 0.31, y: s * (kind.eyeY + 0.17))
+                // Tiny glossy sheen on each blush (cuter, reads at grid size).
+                Ellipse().fill(.white.opacity(0.55))
+                    .frame(width: s * 0.045, height: s * 0.025)
+                    .offset(x: side * s * 0.29 - s * 0.02, y: s * (kind.eyeY + 0.155))
             }
         }
     }
 
     private func face(s: CGFloat, pal: ModulaMascotKind.Palette, t: Double) -> some View {
-        let eye = s * kind.eyeSize
+        let eye = s * kind.eyeSize * 1.06  // slightly bigger beads: more expressive, same positions
         let widen: CGFloat = pose.mood == .surprised ? 1.22 : 1
         // Dark-bodied Moliboos (Nyx, Jinx, Fuse…) get luminous eyes so they read, like the sheets.
         let darkBody = kind.hasDarkBody
@@ -1019,7 +1023,7 @@ struct ModulaMascotFigure: View {
                 } else if kind.typingFriendly && pose.mood == .typing {
                     Capsule().fill(ink).frame(width: s * 0.08, height: s * 0.03)
                 } else {
-                    MascotSmile().stroke(ink, style: line).frame(width: s * (pose.conditions.morning ? 0.17 : 0.15), height: s * 0.06)
+                    MascotSmile().stroke(ink, style: line).frame(width: s * (pose.conditions.morning ? 0.18 : 0.165), height: s * 0.065)
                 }
             }
         }
@@ -1127,8 +1131,8 @@ struct MascotEye: View {
                                                  center: UnitPoint(x: 0.45, y: 0.35), startRadius: 0, endRadius: size * 0.6))
                     // A hint of the character's iris colour glowing up from the bottom of the bead.
                     Circle().fill(RadialGradient(colors: [iris.opacity(glow ? 0.95 : 0.55), .clear], center: UnitPoint(x: 0.5, y: 0.9), startRadius: 0, endRadius: size * (glow ? 0.62 : 0.45)))
-                    Circle().fill(.white).frame(width: size * (glow ? 0.42 : 0.38)).offset(x: -size * 0.15 + lx * travel * 0.3, y: -size * 0.16 + ly * travel * 0.3)
-                    Circle().fill(.white.opacity(0.9)).frame(width: size * 0.14).offset(x: size * 0.16, y: size * 0.15)
+                    Circle().fill(.white).frame(width: size * (glow ? 0.44 : 0.41)).offset(x: -size * 0.15 + lx * travel * 0.3, y: -size * 0.16 + ly * travel * 0.3)
+                    Circle().fill(.white.opacity(0.95)).frame(width: size * 0.17).offset(x: size * 0.16, y: size * 0.15)
                     Circle().stroke(outline.opacity(0.35), lineWidth: max(size * 0.05, 0.7))
                 }
                 .clipShape(Circle())
