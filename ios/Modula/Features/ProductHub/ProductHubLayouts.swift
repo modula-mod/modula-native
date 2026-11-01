@@ -783,10 +783,10 @@ struct ProductHubPreviewCard: View {
 
 /// Collections derived from registry fields (publisher, kind, installability). There is no
 /// editorial collections route, so nothing is hand-picked.
-struct ProductHubCollection: Identifiable { let id: String; let title: String; let products: [CatalogueProduct] }
+struct ProductHubDerivedCollection: Identifiable { let id: String; let title: String; let products: [CatalogueProduct] }
 enum ProductHubCollections {
-    static func make(_ products: [CatalogueProduct]) -> [ProductHubCollection] {
-        var out: [ProductHubCollection] = []
+    static func make(_ products: [CatalogueProduct]) -> [ProductHubDerivedCollection] {
+        var out: [ProductHubDerivedCollection] = []
         let modula = products.filter { $0.publisherName.localizedCaseInsensitiveContains("modula") }
         if modula.count >= 2 { out.append(.init(id: "modula", title: "Made by Modula", products: modula)) }
         let games = products.filter { $0.productKind.lowercased() == "game" }
