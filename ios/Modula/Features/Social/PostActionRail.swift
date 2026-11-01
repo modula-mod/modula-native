@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /// Vertical action rail for media-rich posts. Drag down (rail hit-region only) morphs into context actions.
-/// Semantically distinct from `ModulaEdgeLoop` — this controls a content object, not screen context.
+/// This controls a content object, not screen context.
 struct PostActionRail: View {
     let post: SocialPost
     var onLike: () -> Void

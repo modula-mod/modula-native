@@ -65,7 +65,7 @@ final class ModulaSurfaceSystemTests: XCTestCase {
 }
 
 final class N4GChromeContractTests: XCTestCase {
-    func testHomeActivityProfileKeepEdgeLoopWithoutDuplicateTabs() {
+    func testHomeKeepsContextRailWithoutDuplicateTabs() {
         XCTAssertTrue(ShellChromePolicy.policy(for: .home(.following)).contextRailVisible)
         XCTAssertFalse(ShellChromePolicy.policy(for: .activity(.all)).contextRailVisible)
         XCTAssertFalse(ShellChromePolicy.policy(for: .me(.overview)).contextRailVisible)

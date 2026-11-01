@@ -1383,7 +1383,6 @@ struct ProfileView: View {
         .padding(.leading, -leadingInteractionInset)
         .padding(.trailing, -trailingInteractionInset)
         .padding(.horizontal, ModulaLayout.postBleedGutter)
-        .modulaEdgeFlow()
         .accessibilityIdentifier("profile.post.\(resolved.id)")
     }
 
