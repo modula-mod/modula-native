@@ -286,18 +286,29 @@ struct CommunityEventView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 ZStack(alignment: .bottomLeading) {
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .fill(LinearGradient(colors: [accent.opacity(0.9), Color.orange.opacity(0.55)], startPoint: .top, endPoint: .bottom))
-                        .frame(height: 180)
+                    Image("SceneMoonLake")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(height: 230)
+                        .frame(maxWidth: .infinity)
+                        .clipped()
+                        .accessibilityHidden(true)
+                    LinearGradient(colors: [.clear, .black.opacity(0.65)], startPoint: .center, endPoint: .bottom)
                     VStack(alignment: .leading, spacing: 6) {
                         Text("COMMUNITY EVENT")
-                            .font(.caption.weight(.bold))
+                            .font(.caption2.weight(.bold))
+                            .padding(.horizontal, 10).frame(height: 24)
+                            .modulaGlass(in: Capsule(), interactive: false)
                         Text(CommunityCopy.comingSoon)
-                            .font(.title.bold())
+                            .font(.system(size: 30, weight: .bold, design: .rounded))
                     }
                     .foregroundStyle(.white)
                     .padding(18)
                 }
+                .frame(height: 230)
+                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(.white.opacity(0.25), lineWidth: 0.8))
+                .shadow(color: .black.opacity(0.18), radius: 16, y: 8)
                 HStack(alignment: .top, spacing: 12) {
                     VStack(spacing: 2) {
                         Text("—")
@@ -306,7 +317,7 @@ struct CommunityEventView: View {
                             .font(.caption2.weight(.semibold))
                     }
                     .frame(width: 64, height: 64)
-                    .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: false, specular: true)
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel("Not scheduled")
                     VStack(alignment: .leading, spacing: 4) {

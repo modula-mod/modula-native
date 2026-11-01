@@ -80,6 +80,7 @@ struct CommunityHubView: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(accent)
         }
+        .task { await app.discover.loadIfNeeded(.trending) }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 4)
     }
@@ -141,20 +142,22 @@ struct CommunityHubView: View {
     private var scopeBody: some View {
         switch scope {
         case .forYou:
-            CommunityPanel {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Featured")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.secondary)
-                    Text("Share your space")
-                        .font(.title2.bold())
-                    Text(CommunityCopy.noRoutes)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    CommunityComingSoonButton(title: "Join the conversation")
-                }
+            CommunityScenicCard(
+                scene: "SceneMeadow",
+                eyebrow: "FEATURED",
+                title: "Share your space",
+                message: "Communities are coming to Modula. Start with people and topics that are already here.",
+                accent: accent
+            ) {
+                app.navigation.open(.discover(.people))
             }
-            section("Trending", message: "Topics will show up here when communities exist.")
+            if let topics = app.discover.dashboard?.topics, !topics.isEmpty {
+                DiscoverTopicRail(topics: Array(topics.prefix(8))) { topic in
+                    app.navigation.open(.search(.root(topic.query)))
+                }
+            } else {
+                section("Trending", message: "Topics will show up here when communities exist.")
+            }
             buildersLink
             section("Posts", message: CommunityCopy.postsEmpty)
             pollLink
@@ -313,12 +316,19 @@ struct CommunityBuildersView: View {
 
     private var hero: some View {
         ZStack(alignment: .bottomLeading) {
-            RoundedRectangle(cornerRadius: GeneratedDesignContract.Radius.xl, style: .continuous)
-                .fill(LinearGradient(colors: [accent, accent.opacity(0.55)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                .frame(height: 168)
+            Image("SceneStudio")
+                .resizable()
+                .scaledToFill()
+                .frame(height: 190)
+                .frame(maxWidth: .infinity)
+                .clipped()
+                .accessibilityHidden(true)
+            LinearGradient(colors: [.clear, .black.opacity(0.6)], startPoint: .center, endPoint: .bottom)
             VStack(alignment: .leading, spacing: 6) {
                 Text("MODULA BUILDERS")
-                    .font(.caption.weight(.bold))
+                    .font(.caption2.weight(.bold))
+                    .padding(.horizontal, 10).frame(height: 24)
+                    .modulaGlass(in: Capsule(), interactive: false)
                 Text("Build together when this community exists.")
                     .font(.title3.bold())
                     .fixedSize(horizontal: false, vertical: true)
@@ -326,6 +336,10 @@ struct CommunityBuildersView: View {
             .foregroundStyle(.white)
             .padding(18)
         }
+        .frame(height: 190)
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(.white.opacity(0.25), lineWidth: 0.8))
+        .shadow(color: .black.opacity(0.15), radius: 14, y: 6)
         .accessibilityElement(children: .combine)
     }
 
@@ -511,3 +525,46 @@ struct CommunityDeveloperEntry: View {
     }
 }
 #endif
+
+
+/// Scenic glass hero used across Community surfaces (bundled scene art, no fabricated stats).
+struct CommunityScenicCard: View {
+    let scene: String
+    let eyebrow: String
+    let title: String
+    let message: String
+    let accent: Color
+    var cta: String = "Find people"
+    var action: () -> Void
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            Image(scene).resizable().scaledToFill().accessibilityHidden(true)
+            LinearGradient(colors: [.black.opacity(0.05), .black.opacity(0.65)], startPoint: .top, endPoint: .bottom)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(eyebrow)
+                    .font(.caption2.weight(.bold))
+                    .padding(.horizontal, 10).frame(height: 24)
+                    .modulaGlass(in: Capsule(), interactive: false)
+                Text(title).font(.system(size: 28, weight: .bold, design: .rounded))
+                Text(message).font(.subheadline).foregroundStyle(.white.opacity(0.88)).fixedSize(horizontal: false, vertical: true)
+                Button {
+                    action()
+                    HapticEngine.shared.play(.navigation)
+                } label: {
+                    HStack(spacing: 6) { Text(cta); Image(systemName: "arrow.right") }
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 16).frame(height: 44)
+                        .modulaAccentCTA()
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
+            }
+            .foregroundStyle(.white)
+            .padding(18)
+        }
+        .frame(maxWidth: .infinity, minHeight: 240)
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(.white.opacity(0.25), lineWidth: 0.8))
+        .shadow(color: accent.opacity(0.2), radius: 16, y: 8)
+    }
+}
