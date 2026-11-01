@@ -33,8 +33,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "657975900f132908d1ee0b72557428bf6f2cb909ad83d7900afb092bb0cce057",
-          "bytes": 144359,
+          "sha256": "eb1228fa33f833dc9372bb1e916f0ec8451e2284db2aae1d5d7c724f835fd783",
+          "bytes": 110284,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -67,8 +67,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "5bf6c0c9a3b1e0e8ce7d26481f8c5cf62332b1b3cd9eb8dec11882a2b02226a5",
-          "bytes": 116472,
+          "sha256": "b16e621a904a7d57d6a70a82d179e05c04b3413d32f66275e60a05595cc59e3f",
+          "bytes": 123517,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -101,8 +101,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "8c24d1350b33c92fa4059363655d3d48a6a7d8ffc99c1c181c7ba5aae8ebd648",
-          "bytes": 99716,
+          "sha256": "a69a6e72e374d3b48da3d7d2cdcc1acd3a2b34c2d6a958d51b1d30daa33358ac",
+          "bytes": 112006,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -135,8 +135,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "caf21e1971fcaffb62d90977dbc3e2bf14a985d821bc0c14810a47ed55560b35",
-          "bytes": 146703,
+          "sha256": "f277a01d64e616c11dc30b9ee4751aa35e9efd4bbe2caa00531b9372e41461f2",
+          "bytes": 107929,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -169,8 +169,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "c2eeac6b05d8ca134b3c55ba944ad0fdf8c6658ec7ce3fba837f5fa5b4e1adbe",
-          "bytes": 177149,
+          "sha256": "2ff7a73ad7d40bab17c5afb6ab95bd71bd517f875ea328fe4c687be359bde7eb",
+          "bytes": 185016,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -203,8 +203,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "cc90fd7e8fc1f6e268002a181e32146648591047dff5e884deb2db51a46da9f1",
-          "bytes": 147758,
+          "sha256": "4a34955c5a1cd8136a258c12d7291ef28ffe0770c911bdb5f09e3549a681564c",
+          "bytes": 127685,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -237,8 +237,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "fab00097341fd74460d205e06f3bea94aefd7725e4df7196b8818513e0e1b2dc",
-          "bytes": 148397,
+          "sha256": "bf51f1466e556b2aa9b8d0dba6bc1ae297f6baf881329ba95519d9bcdd4f5b81",
+          "bytes": 127488,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -271,8 +271,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "ca2d0d5c0fd0b6df2bfc32a74330dabfa4c3ea7fb9e3607813f1b13f6a4b2c08",
-          "bytes": 123168,
+          "sha256": "b6210129cfaaca89996b6815e5b0036b0a3559967cc796c59daa35dc9be24b8c",
+          "bytes": 132347,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -305,8 +305,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "be81f97a419224d3c1c75542ab41e2d588b587c95ad13282ec334ce9ad9a9488",
-          "bytes": 132764,
+          "sha256": "98912dc8d4f7fded3754cadf07916fed8330c9741c12dc2a2b6dafa84433b376",
+          "bytes": 114645,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -339,8 +339,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "5f8936632690c87836df3e66a08630a88fe435e4afdffc6a57940dda1ea5f0cc",
-          "bytes": 130645,
+          "sha256": "e58fb9598fdc9794319c5fee461185f1c739a2f6ed40c7cc59ed85b1f9989411",
+          "bytes": 139422,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -373,8 +373,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "f3f0b7c209d7f964da4cf500ab6abc3ed909a7dac7119af8dd6c57daa9ca52e3",
-          "bytes": 138118,
+          "sha256": "b9f8ba07c792ac3e77bd765b0a0a8d332b591354746c95a231f3c612c7d358cf",
+          "bytes": 122320,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -407,8 +407,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "9a83a38d6e5f008fadc05e46f95ce4962771bd50a368b94f80701c21b486c502",
-          "bytes": 142764,
+          "sha256": "eadfe02e644095dc4640ef89e18a4264ad83f2437141b47b51558f2e0dfcca93",
+          "bytes": 116312,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -441,8 +441,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "6cb94a66b5e81b530e5f857bbe8e8c25a9ac6670ca581e099802d6e7a328a74c",
-          "bytes": 129321,
+          "sha256": "33cc2ad12148c559b80cd327ccd742e43c6aecd4d2a33959e8049710410dfa45",
+          "bytes": 144303,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -475,8 +475,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "ec9fa4b7e361cd9e91179c924c00643c06e0a09a5fde5fb7c8c3f96f61169ad9",
-          "bytes": 136579,
+          "sha256": "95da54fdef9115dfeaf044e234b562ac28970c60da91f44714f4251c54348013",
+          "bytes": 114619,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -509,8 +509,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "c12209aa3b63f012ff1b9ed3f4dd820542b3fd81efc1b006b8be1e89c425e27f",
-          "bytes": 131701,
+          "sha256": "0626638d4eda4ab39e6a90002a1bdd279291d1f1039352170affde9c7cf0bf48",
+          "bytes": 112019,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -543,8 +543,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "8ed13ca9f139ecc4152def1ad0f1c3bfd5e76103ff85bd58a29711fe645954e7",
-          "bytes": 147104,
+          "sha256": "00d7503209d24c831ac4bdc7407019fe2c5815a57bd4bbcbb95525c1136c4d7c",
+          "bytes": 103096,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -577,8 +577,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "be663ec2db9ef57279f6e68119adc79b87b0531eb919ecff2272ba9f885bd2b9",
-          "bytes": 138294,
+          "sha256": "a357d0372aa5913262a201255539b3ea30d5c1392994dc744d41c2c3f3b83a5a",
+          "bytes": 163068,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -611,8 +611,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "572c87ae063e5f66f09da323b0dd7ffa60d0b0c70f08528ce56c1f7e8cf5657c",
-          "bytes": 181402,
+          "sha256": "e921bd67a7c01448f6f6e2a00bc5d734e37958fd915a782449448a8d447f6bbf",
+          "bytes": 118166,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -645,8 +645,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "d91d4167aa4f5b36b3ec0a6ca22b2ea3549a1bdcbf79a571b076b3f1e14ed06f",
-          "bytes": 120149,
+          "sha256": "d0485bd24e7490d6c607d7d0a1ffcb65f67664a6cdd4e9a0002d73b12b0461f8",
+          "bytes": 134940,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -679,8 +679,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "7d636a511d6e5b2edb0b3a13f1ce870b9ba12df3c59b007f9b22d76de57b9168",
-          "bytes": 149315,
+          "sha256": "70f031faac3be5d46de65578678f35fa9dc91c5f4eac9d99369a4c97c4d4d558",
+          "bytes": 221641,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -713,8 +713,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "c7f278708ce41249aa2ce73eba2b52005421de08499f0a3949b653e8890059f2",
-          "bytes": 128489,
+          "sha256": "68680fc3943df2a269f799c0d41bb8081b4d78e28ce954fa68d99518588c509d",
+          "bytes": 124698,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -747,8 +747,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "c2115d6392c4d6ddb8ce4ac442d3bc9d5ba403ade1ea5c0729ca4d8e81a07332",
-          "bytes": 123136,
+          "sha256": "f18e0877bfee5fc401252d4b6d5dbbec1702ff6c43c4d179e8d18424872c6344",
+          "bytes": 119558,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -781,8 +781,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "8132706be9057d8336941d871fe3ac1907b96f3f25a47280ee661b81adb4d9c5",
-          "bytes": 116790,
+          "sha256": "2606e0ce268da94b3aebc249ea9c415d80f1afb398aeaa48ecf7cd1b377e3495",
+          "bytes": 117302,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -815,8 +815,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "f5afe3f27e06facb948dc778fa3ab225734e4dbb9225774cc2c5dc6b2e414c11",
-          "bytes": 143042,
+          "sha256": "5eb702f164e2d0da8e4b23f6754cfda1effa39bc2f3c9b3b6b3aed733c23b413",
+          "bytes": 169466,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -849,8 +849,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "440e9d433373c99aa46de9bd2f1913c0bd9b5849a037a5dea372e02b68afd954",
-          "bytes": 146214,
+          "sha256": "4aa729e05a3c9dd96f53a59b3054dbb25a8510aa92fb3edf118a885dcda0c7e1",
+          "bytes": 112655,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -883,8 +883,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "ac8198f231bb458fad9123271be095e7aa3f3c3d9a55d9fbe25c9b9498b92523",
-          "bytes": 147315,
+          "sha256": "6b06ba18ac9d7e91c2aabc4acaebefe48c3ab8c8c622889e96a6a21f1c9e8684",
+          "bytes": 113640,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -917,8 +917,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "ddb9429bb2d6605bec986f4dfca71f1250ee9da75d99241f0e2034e302ae80ad",
-          "bytes": 132772,
+          "sha256": "31cf9a04f5c77a18ae6cf8c32d88e8e2a7e4ab00d1706046eb3b6df0bd96db49",
+          "bytes": 104922,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -951,8 +951,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "f1f3c3bcb7e2e8de82bfbcc451f8b9362f6c71dfd0dc4c619a9b961cd7a521dd",
-          "bytes": 138480,
+          "sha256": "7edc5f160d7aa0789e17e25c41362b43f798248c0505279dd2ebe0214bc8cb30",
+          "bytes": 146241,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -985,8 +985,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "11ab84bb77f81079c90bc5c77bc7167886e11167f0fffef73fa0782e0e38941d",
-          "bytes": 114470,
+          "sha256": "c9dfe05a363f72519d7c958306a90d57d92c66a47750259d69eb692f28aa815c",
+          "bytes": 118605,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1019,8 +1019,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "58ddb6690369a461a67e7c6e93b88ee639b87c88deb2d8722bc2a11818338a75",
-          "bytes": 160295,
+          "sha256": "b012c3e57fe666a90634b42edb109ec3ce96d3ebe61e6da75eb4a998e3c69364",
+          "bytes": 144092,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1053,8 +1053,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "7d6ff7904e91b673cb3144a65226a9fe500a50200216bcb8f38882381b973dc2",
-          "bytes": 150793,
+          "sha256": "9e9665cbc10c9e9a445f26708960dff369ce1369bbe50e857bdb19d8889ac1ef",
+          "bytes": 155898,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1087,8 +1087,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "0e936d9c86542b5e5ad7f221514e31dca442f908e3ea03d714fa266096dedf5c",
-          "bytes": 135399,
+          "sha256": "f91fed4924938245cc7e5051410beadc3b78ade35a40e8271aa1cfe99c42dfca",
+          "bytes": 117541,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1121,8 +1121,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "fc948c608cb7ca59e7ec6530ca5932a2a6d9732bd80388a4f1c4038987eff30d",
-          "bytes": 166019,
+          "sha256": "1d3ba42a88e491b3aee1b9f80fd4e2bbb8715f4eec5f20e8142c6fbc2522eb6c",
+          "bytes": 238193,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1155,8 +1155,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "5d62fa1a685d05ea8466e902e2bedf9ba4c7ff809541ebd98ca58c5f7dd1ffb3",
-          "bytes": 142500,
+          "sha256": "2b1851634e5b9c936bb1fe4f532da8b10f9671fe70660673e7fd853639c6b289",
+          "bytes": 104764,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1189,8 +1189,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "c2a07426393a90e47363fabe2de1b8993d5a309e7b51e29a2ac6c0d03e30822d",
-          "bytes": 147463,
+          "sha256": "9cc2484296e67d7f2d999284edb532305c0eee0f68b830a8d3953e198ee09a74",
+          "bytes": 101184,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1223,8 +1223,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "2ac8bb53f5b8d5630b361658129b7a08d80e1d8996642daee55cb2d83b9160b6",
-          "bytes": 138092,
+          "sha256": "b969895782580a0144f5a4b2064cea18dd70be4e47e4e3f5972815062b88842d",
+          "bytes": 122538,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1257,8 +1257,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "853d749841b2e2bcb401992e7da2d271ed3d7ba7fde8f3b59b85ef1b172677ea",
-          "bytes": 128370,
+          "sha256": "cb4767883514ca63912d1e4fdf1488d188cee0bef73dfab5aa6b484c6f60b606",
+          "bytes": 102508,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1291,8 +1291,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "3cb9c10c4eafb8098310a87b4bbc16d836035be1fd1ec42730839bc5da005f84",
-          "bytes": 152253,
+          "sha256": "2b5e9dd72f20f611f6452bef010397c5c1d09607b11090c6438de89be1b6e172",
+          "bytes": 114999,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1325,8 +1325,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "44e941ab303565de2a71e36835649a15963971eaaeb65a33b3919796809d26ff",
-          "bytes": 120769,
+          "sha256": "a3223f499b89ce46bec333c716e2644fd082635a46a40c68e290c4e69da2a1d8",
+          "bytes": 117306,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1359,8 +1359,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "2587335d9e5e63cf06901ded8042da2c31dff77fd27e51e6bc6031a81c97be48",
-          "bytes": 170694,
+          "sha256": "73180d1cb53a86c8e48fece04870e457ab6f2c5190f8cda9225f5cdc617cce3e",
+          "bytes": 115444,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1393,8 +1393,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "6f0731c493c67c1cbdb7a7570f09584330f25af296829fb9b46556c41d9bd5b7",
-          "bytes": 139868,
+          "sha256": "20cab0baa8e456c8a023790f6382352589f3d4741b10a933f61babf0d942b08b",
+          "bytes": 143049,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1427,8 +1427,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "fc2e60ad058d77609f919a87a879743afff93645e1baa863d20ef9cdd1b8b323",
-          "bytes": 115779,
+          "sha256": "5fdd5b960159f9236ceba11e55004253631c4cc5fd0ec58e8678bd6c4783f32c",
+          "bytes": 207640,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1461,8 +1461,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "ded084f97a770c35036ab42c5483e22bb83d99d9114e13cfcf124aa3e5f10157",
-          "bytes": 138874,
+          "sha256": "9480f8e26931e90fbfdb670c04ac1852f7243dc65eb08e9e2a17b12fd5cd08bb",
+          "bytes": 108172,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1495,8 +1495,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "ab2b2330e1dd3563e51d0b5dbd6652a060193af5167be34d1373f36a62ccad38",
-          "bytes": 166560,
+          "sha256": "9fcb27f657ad269932b5fd8c29a4a1ec8ded54996cc40c97ab2ff0d777d786b6",
+          "bytes": 158777,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1529,8 +1529,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "92b6037ff324f7ecda1b8f650835acbb2c64c4667d6a315cad73842e85f43f21",
-          "bytes": 140473,
+          "sha256": "7dcfbbac2b6416fe0fee123c4eedb68f5a5f0d9a87bb762c59d42d4b6866d429",
+          "bytes": 118126,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1563,8 +1563,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "c1bd25c9cde46b847c9d272ba3175f08a3a50ff49decdfcfff0bb322487dd5bf",
-          "bytes": 140468,
+          "sha256": "c2e1387697c1c66f40fd4b34e2f6f69a74da62252f065cc30657b88d9d7ef829",
+          "bytes": 117816,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1597,8 +1597,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "159b28c942a9b5dd9bfcb4feac7e26735ff79ecc8d3e41d4a1b2a3a3187c1d52",
-          "bytes": 76342,
+          "sha256": "23dca024f49934bae7f9b03bf9fc2f12de9adb0d82be1b4f9f92afa077b1272d",
+          "bytes": 111176,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1631,8 +1631,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "ce43fabc9ea4a38fa2c38bc2c4993cb90c45da8a19f53364356256cffd8aac9e",
-          "bytes": 132857,
+          "sha256": "90bba2edb9fc02beeb31ca7f6f42a04eca54aa83e7579d0c39f5716c327c325a",
+          "bytes": 117344,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1665,8 +1665,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "0d49606172ba02ab1359b6e703479f97b25115d06675bf352fd087d32c4c3ce8",
-          "bytes": 150572,
+          "sha256": "1eecf707c603c2d6fbb06e1d7bd7f33c3576033a1b53593cf30c783c86fb26a4",
+          "bytes": 90774,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1699,8 +1699,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "5444cb826445688bda5ef939746ea01106433da01c8ed1696e92c671604d9dfb",
-          "bytes": 125447,
+          "sha256": "4db4c6548539dc609443adcf2255886cdc50ede862e5baea96f68c88abd2cc40",
+          "bytes": 105946,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1733,8 +1733,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "dddb7ea3ba2f505b592d8049e368aeb139008f688aae2b332b003c659bf470e1",
-          "bytes": 139418,
+          "sha256": "9dc55721ad8e547eec017e420d0b884e865bfb1d1d34f30d6f85013f87b4455c",
+          "bytes": 133790,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1767,8 +1767,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "3e601e1bf51398e67428cfef130b3b11743c50fda5c62e9bf0c0d3b1f8ed52b1",
-          "bytes": 150799,
+          "sha256": "9a20c38ce3f96155536d7595cf93c9108d6c906b1863bcbc090c5de6d8fdba29",
+          "bytes": 120739,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1801,8 +1801,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "3905ec6e14882f5a1d66b4b335ce775bb7a243f7a848b7ca50564823861655de",
-          "bytes": 154978,
+          "sha256": "174433007b4f43a65caf82193d2d23330c1d2ad64d67c3c9ffcb61077eb24165",
+          "bytes": 119704,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1835,8 +1835,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "def2984369b898739f36a41cc567154da2eb056b2083f96c731d34025e0d753c",
-          "bytes": 121119,
+          "sha256": "7f5e3683bb249156e21686c685b49e0e68c9b1cc9639fee9cf055e6f9be492db",
+          "bytes": 113739,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1869,8 +1869,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "ac218574eb7bd90e7169b9be594cc45663608e6c4fc05976c90978e6e6b49578",
-          "bytes": 130102,
+          "sha256": "4ddbd8dda9b1f0caf18813ce324e60657b18f298e90100c05cc36815eca638c1",
+          "bytes": 126639,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1903,8 +1903,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "2c15ab5287732d44474b6e59a3c3bc2c5f73691f45386ec95ffd6b9aa51dc733",
-          "bytes": 124081,
+          "sha256": "db9d89bb65fb3b833a206f07f90db9249668809da2e893ce3f2d6f24f587586b",
+          "bytes": 113295,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1937,8 +1937,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "828f63d152d01b5233c523fdfdeb60393934f2fb4fd9f92f947acc4e66a0bb73",
-          "bytes": 119911,
+          "sha256": "141a16bc0f2187daea6f0763fd2ff117ac39822bc0edfd933496a86f407299c5",
+          "bytes": 123096,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -1971,8 +1971,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "7f29b640392aa14d8a0c822b399a8dbabc8579325c660370ad2aaacb09f21fd8",
-          "bytes": 121861,
+          "sha256": "b3c0e6dfccf6104c9174bc8e2457c2fd4b62ba17d363027fde46c606490e3df2",
+          "bytes": 139901,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2005,8 +2005,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "a2267479a7e0f040c1492afa76008a07ab263d1c780a886ddca876fcd5e95f3a",
-          "bytes": 139030,
+          "sha256": "9bccab90409333ad65b59f72b103521fa04e214a27570f9de0d5d7ea96b2aef8",
+          "bytes": 114936,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2039,8 +2039,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "222245aa5a1ebbc75762606125795602f6bc4f942bbc43fb7d0153939a89f557",
-          "bytes": 138026,
+          "sha256": "a3975746e8e4b8f4763ee641b7a8c5725d1e8dae12c576fc7e6d600456726031",
+          "bytes": 120298,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2073,8 +2073,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "142612876b8bd9cf7fb0160f97556430870843f623dafce52d03e435aaf73ea7",
-          "bytes": 142432,
+          "sha256": "9b606828dc78684c8b0f66e31ab2dcbae8caae131515e7996028072811cd1775",
+          "bytes": 94618,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2107,8 +2107,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "19f7ed847f6d084696d49b1d439c87bd55f107f1c869511e834713fa525c795f",
-          "bytes": 136725,
+          "sha256": "eae1d89068fd8d42e7ed9025c214dd5d3e8243b0844fd189060df6eee3b7134d",
+          "bytes": 108573,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2141,8 +2141,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "2846c3352ef24b757fd3fc44dba0a003fd7e3e7485ccce3aeefd2861c017804b",
-          "bytes": 126535,
+          "sha256": "1ac6cede3b174e36f3762bbe8f70160b6cad601b6b7e9d7a37b382c21310f169",
+          "bytes": 114225,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2175,8 +2175,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "9e979e3e86a9611960547ece4bb8adf88402a7a0d7fb4473277b5fdb341ac260",
-          "bytes": 144433,
+          "sha256": "2b6b9f02e816c60f66fd335bc9408b8391912bb91533027bd80aaa5f06b18474",
+          "bytes": 112363,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2209,8 +2209,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "43c21611787df419ff994b37f0bdf7a43ed5dcf53c8ced21d7d8b274a1440b9a",
-          "bytes": 116176,
+          "sha256": "33835f15f4410ed082d5b7e0e8ac66c3b78b17fad0f8e2abd22d6812b36ba9d7",
+          "bytes": 136657,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2243,8 +2243,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "896d229ceb1c830362724cdad4ff98a2c46d235fdc8e6ee92cf16e7235e40d9f",
-          "bytes": 135006,
+          "sha256": "daf238a783ed857fa39051f75d4659cac6ab11dc3b40b4485f96002c3d37c6f1",
+          "bytes": 116587,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2277,8 +2277,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "a9e0973c43062da0252e91dd4e885e61f65c20cc6cf3b87a306b67fc5e2a9070",
-          "bytes": 124276,
+          "sha256": "42a6eed9ce49c6e056dd51f4730a872b3755e55fe999896475680a8e6f5cbf77",
+          "bytes": 114303,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2311,8 +2311,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "ee0e0513a49ba28369b1b2c2ccfd7cc084401ca63eda97e9e46967beae306411",
-          "bytes": 135185,
+          "sha256": "16ea3b2a285e0f4215e3835508ce901dfbc9df721cf94eeb9a40efac08631c1f",
+          "bytes": 218020,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2345,8 +2345,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "b407e1ead14d458b82d3c9a5bcd7be6478b1b23f69f94f347bf333997f3e53e7",
-          "bytes": 139889,
+          "sha256": "1a5e65d2798d51eb5cf0fd3bd790bfcbf53b58e638ff62c4df7b0bd0cdd921cf",
+          "bytes": 98802,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2379,8 +2379,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "74994e18e78e5c4204534231f7efcb546ba97784c50b483b03812d6c127e4b80",
-          "bytes": 122385,
+          "sha256": "f1b65e6bb67c6016957219b28fee6354b591335ccdb5a353af0269b68889d652",
+          "bytes": 96706,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2413,8 +2413,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "8769927e98c690eae22e33a7f9503e2b5d3be2a15f734e0bff4342b143e93474",
-          "bytes": 143417,
+          "sha256": "057c4cca31f6d2a9b2370903b2c8e91c74bcbc62516048e417060f142400eba2",
+          "bytes": 91942,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2447,8 +2447,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "2267ad7b9b30ed18d2e16778559c6fcf75a75a55d131c3d45069a6e162513428",
-          "bytes": 135150,
+          "sha256": "3ce6491ce41557c62f5e3701458218b3c53c5b02e2e40a367a71752e919b2ddb",
+          "bytes": 124444,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2481,8 +2481,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "af3c7a95066a98d5474f5ee96e02d7d86a35bdc40eb1cd5468c9dfead20e92e9",
-          "bytes": 102547,
+          "sha256": "48716b0ea32c6ddb212142b3272fd27d86e876b6f80945d0fa12bd68ff3c80e2",
+          "bytes": 114808,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2515,8 +2515,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "96cd0f57626e3e25f363ddd97cfd8d69e5128e6b47555d6e1752555aff436b4b",
-          "bytes": 155560,
+          "sha256": "d0f49503e39a631daa1a7591fbbcf36c0178425d2d4cc2ca94a67151d2045d47",
+          "bytes": 121443,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2549,8 +2549,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "d0b3006bbbf0861a67a1c842c3d81322f2c73559b7ca3893218e4da121dd245c",
-          "bytes": 108466,
+          "sha256": "a648cf189248d54043ac7326521029550640999b32b01a31857061a60d2c8fd1",
+          "bytes": 103240,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2583,8 +2583,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "a1511c54f5ab518e63dedc74bad667ab186daef50ac4034a3152eeaa95584b90",
-          "bytes": 137432,
+          "sha256": "0e3d69c249b3fdd84e6134d5da72e5ed4c1f3604ae7b727311a471f58d2935a3",
+          "bytes": 130624,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2617,8 +2617,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "9562506654d6a73fd5984e2fde876f3de458ae81b3f1ae3efe43f6ff48ae9b46",
-          "bytes": 128164,
+          "sha256": "4cfdfd894a14baf471b4a735e6aa2a14b9ba7dfe07ed02cea0a42c738a3e5506",
+          "bytes": 100586,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2651,8 +2651,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "deee96c59b67c899d73b7d1e7cd20e9e24cb5a668bba87857d996a0723a5ec81",
-          "bytes": 126635,
+          "sha256": "51337ca9b91bc7830af1d660715aebfc8e0a1471788464e9ee14ddd858188393",
+          "bytes": 113252,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2685,8 +2685,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "a34f7f23adeec5bab7a68f94a5ef6251d6df224a1d7649bbc9a62ddf66c820fb",
-          "bytes": 159872,
+          "sha256": "c4dd0017384ec9107926def6d5223297d4af285b8c0ec597267ef2cfd60b9a76",
+          "bytes": 121941,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2719,8 +2719,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "d389248b33210f3b53cba15ed6a5234fc7f29b351d94915654932258fab5d5e8",
-          "bytes": 154322,
+          "sha256": "e0b39df99fe37fb067ba982b329ee30370d24befbbf681812057ba3c373739d1",
+          "bytes": 116016,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2753,8 +2753,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "e18a8a8578406e6a0cd3131f9a2cb0653828fe0d8e26715f7cef49f03a2d7d1e",
-          "bytes": 114797,
+          "sha256": "b253eb7e78267b4bb6419087cfd06fbb02832e55a27e284ade34d98a2fe3c07a",
+          "bytes": 115121,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2787,8 +2787,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "64d263cbe88d9fcbb67d8355177407ff0a3f7affe10d515a6d15a3d30090ed68",
-          "bytes": 137410,
+          "sha256": "bf5b3bb1fee1e7329789f6da346a5af93ce57487d9aab16daafec3a02316d03c",
+          "bytes": 127690,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2821,8 +2821,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "ccb752b2b30aecb135eb228a72d06030b01a87a4bf4338da1fa29d89efcb91a5",
-          "bytes": 110298,
+          "sha256": "df8a23a28fd5793fc4b95ca6b00bbbaf2f61edadfc65e097bcaaa18c2e66d723",
+          "bytes": 116014,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2855,8 +2855,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "cb8aa3d9d33c90665c9e5f245aa1ebdf74ecd6e01ea1d0f6686dbb78b9139811",
-          "bytes": 148266,
+          "sha256": "021c442b10117b7c39c81b74f128c92e591e7d63cb83a023809630f2ae5489a5",
+          "bytes": 124095,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2889,8 +2889,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "f04e9580c9c08c09e5f72456e15a7e7276ed919fadd44432d86d2740129ccd70",
-          "bytes": 155654,
+          "sha256": "53fec4ab1c45c57d3f02977d71bc92a2a8c33075f1532680ebd8a524d9a69c19",
+          "bytes": 99984,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2923,8 +2923,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "65fc58baa851ac5dd814b523cdc96bb5c7cf57a368fecf8e1808d5c5352fbf19",
-          "bytes": 149641,
+          "sha256": "9fd0f48ce6add4e21635209805c3c46fca5af4aaa832a3750c4eca9aa80c444b",
+          "bytes": 107006,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2957,8 +2957,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "ab2d19c7253041912a72625fd86132abb5be11b37a46004e2abd026d4e0da85c",
-          "bytes": 140736,
+          "sha256": "68dd7ee4a0dff909ef801b210a61f6698c8093a137de16c6f83d2ef76a11de8c",
+          "bytes": 134852,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -2991,8 +2991,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "c22e8a28e4eaab311e0a45ecaabe99b04bc8419bbe201303dc798babe0c43c33",
-          "bytes": 166617,
+          "sha256": "c93bf6d4a704c7e7c85f99fd97c0ee5b13ada050b92e8ff5b4fc565535e1e3fb",
+          "bytes": 149604,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -3025,8 +3025,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "8c612f696324a0475cfe33f95e25569929b4bc877697dccf0c09ab655656d9cc",
-          "bytes": 119508,
+          "sha256": "48391b99fb76ef0a55dbc8310356e9c4c16a71e5d96bbdafc503206581686952",
+          "bytes": 119002,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -3059,8 +3059,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "406a3cafc49bf07abd8fec2c36cfb982652ea12c342a2873f00b88807b026e45",
-          "bytes": 154413,
+          "sha256": "cb8bee5d7693c8de33cb38be71ee2aede35c6914f34e61d72319f0b2e3d47251",
+          "bytes": 112667,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -3093,8 +3093,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "cae793bd355a9a869ce3c9346b107709c93bcdcff285e90bfa6f0a6355ceea97",
-          "bytes": 135389,
+          "sha256": "c7b378ee17ed9ffa1a47bfa4df9c0d11901f169bce7d00dfcabc28389fd00ea7",
+          "bytes": 143499,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -3127,8 +3127,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "5c7aa175e784eccd0cc4caea5066e83969ca30dd2a7b192c30b609d2a78760c9",
-          "bytes": 174948,
+          "sha256": "6d7f4e940cacbe8ec7120c7b44c8541fc65e31e46da2733ce534b72cd73fab44",
+          "bytes": 105224,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -3161,8 +3161,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "2ca5aa7293d2a1d4ae48438e9d6911f2b1297f4322c3e863d14c8b13e584b24c",
-          "bytes": 141515,
+          "sha256": "de7f37e0f60118dbd9a564caf02a163c34cc02526e8196260d7c4631f8c2b423",
+          "bytes": 164144,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -3195,8 +3195,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "07da75fb5f27fdeae35c0c95016038bd870a3d2479f67e3e996f6df88b368c45",
-          "bytes": 129248,
+          "sha256": "353620823af6fdb6caf780e7474858925ee542fffdb6aa6f5103db3688b9fb05",
+          "bytes": 103066,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -3229,8 +3229,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "07e4b2bef0f75761390b57dd7cdf638991aac492849e0859f966fbc388bfbacd",
-          "bytes": 135474,
+          "sha256": "61b9dfb760d3219544e513031aaa8de5446e89a99e15b72a17bb59374dfea6b8",
+          "bytes": 115887,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -3263,8 +3263,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "8e0d38060062cb27ea3e833ba20ad942053023143ad724f1d7a4e77956d38f79",
-          "bytes": 129121,
+          "sha256": "f7048b7df7bdb72eb5fc568e083f1f66c22b34d9f5e34496f723053dc89abc5f",
+          "bytes": 141489,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -3297,8 +3297,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "d8364232ab9b4d6d8e2555908ca4fc6c8d98c5e328ba44118e511e7fe10f889b",
-          "bytes": 151464,
+          "sha256": "8566060f287707ade28089e00969b9db651df6d986cb9e299e8a9defe12cce56",
+          "bytes": 145878,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -3331,8 +3331,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "0c1a9c88ef44acb847fe623654776b789bbbe5a15e3994ec1a99332c2551b453",
-          "bytes": 112983,
+          "sha256": "afcb5ccf9ee0124f8c34fbbf79f068d7659aa7fde8e3ba8d10a0c40c138f8322",
+          "bytes": 118740,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -3365,8 +3365,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "7dd053931044274b0bbb825ef7f8a17985fd242924e58ad30c8fe6d1ee6e40dd",
-          "bytes": 145861,
+          "sha256": "a2a94e65d4abea7ed86c81bfa3a540ae3ee2f558135bd2ffafedbf943df56583",
+          "bytes": 163182,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
@@ -3399,8 +3399,8 @@
         {
           "path": "portrait.png",
           "mediaType": "image/png",
-          "sha256": "597755f71fe26400b8d4a21b2b066e98e9a0954d8d5b4b9b60caa4600fb694aa",
-          "bytes": 128467,
+          "sha256": "29a343f04415323f542ed44a45bb767c7c5fc2046eaafa5e4fe2e0d5156f29a8",
+          "bytes": 118442,
           "width": 640,
           "height": 640,
           "art": "glossy-figure"
