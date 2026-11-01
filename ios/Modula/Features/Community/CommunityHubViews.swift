@@ -151,7 +151,7 @@ struct CommunityHubView: View {
             ) {
                 app.navigation.open(.discover(.people))
             }
-            if let topics = app.discover.dashboard?.topics, !topics.isEmpty {
+            if let topics = app.discover.trending.dashboard?.topics, !topics.isEmpty {
                 DiscoverTopicRail(topics: Array(topics.prefix(8))) { topic in
                     app.navigation.open(.search(.root(topic.query)))
                 }
