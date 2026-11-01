@@ -136,6 +136,7 @@ struct SettingsView: View {
     @State private var showsQR = false
     @State private var intelligenceStatus = "Checking local providers"
     @State private var quickPane: SettingsQuickPane?
+    @State private var showsPrivacyDashboard = false
     @AppStorage("settings.battery.dataSaver") private var dataSaver = false
     @AppStorage("settings.battery.pauseAutoplayOnLowPower") private var pauseAutoplay = true
     @AppStorage("settings.audio.hapticOnPlay") private var hapticOnPlay = true
@@ -160,7 +161,8 @@ struct SettingsView: View {
                             if index < filteredSearchItems.count - 1 { SettingsDivider() }
                         }
                         if filteredSearchItems.isEmpty {
-                            ContentUnavailableView.search(text: query).frame(minHeight: 220)
+                            ModulaEmptyState(title: "No settings for “\(query)”", message: "Try a broader word, like privacy or theme.", symbol: "magnifyingglass")
+                                .frame(minHeight: 220)
                         }
                     }
                 } else {
@@ -217,10 +219,17 @@ struct SettingsView: View {
                         TelegramRow(title: "Storage & Downloads", symbol: "square.stack.3d.up.fill", tint: .yellow) { app.navigation.open(.settings(.dataStorage(.packages))) }
                     }
 
+                    settingsSection("Look & Feel") {
+                        SettingsLiveAppearanceCard { app.navigation.open(.settings(.appearance(.root))) }
+                    }
+
                     settingsSection("Experience") {
                         TelegramRow(title: "Notifications and Sounds", symbol: "bell.fill", tint: .red) { app.navigation.open(.settings(.notifications(.root))) }
                         TelegramDivider()
                         TelegramRow(title: "Privacy and Security", symbol: "lock.fill", tint: .gray) { app.navigation.open(.settings(.privacy(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Privacy Dashboard", symbol: "checkmark.shield.fill", tint: .indigo) { showsPrivacyDashboard = true }
+                            .accessibilityIdentifier("settings.privacy-dashboard.open")
                         TelegramDivider()
                         TelegramRow(title: "Appearance", symbol: "paintbrush.fill", tint: .cyan, value: themeValue) { app.navigation.open(.settings(.appearance(.root))) }
                         TelegramDivider()
@@ -322,6 +331,10 @@ struct SettingsView: View {
             }
         }
         .animation(.easeOut(duration: 0.18), value: collapse > 0.85 || scrollY < -40)
+        .sheet(isPresented: $showsPrivacyDashboard) {
+            SettingsPrivacyDashboard()
+                .presentationDetents([.large])
+        }
         .fullScreenCover(isPresented: $showsQR) {
             SettingsQRModal { showsQR = false }
                 .transition(.scale)
