@@ -156,11 +156,12 @@ struct CollectionDetailView: View {
                 .navigationTitle(collection.name)
                 .task(id: collection.itemIDs) { await loadPosts(collection.itemIDs) }
                 // Enhancements-50: pull to re-fetch every saved post from Greenfield.
-                .refreshable {
-                    unavailable.removeAll()
-                    posts.removeAll()
+                .modulaRefreshable {
+                    await MainActor.run {
+                        unavailable.removeAll()
+                        posts.removeAll()
+                    }
                     await loadPosts(collection.itemIDs)
-                    HapticEngine.shared.play(.success)
                 }
             } else {
                 ModulaEmptyState(title: "Collection", message: "This collection is no longer available.", symbol: "rectangle.stack")

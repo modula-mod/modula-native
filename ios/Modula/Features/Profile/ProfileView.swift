@@ -1198,9 +1198,9 @@ struct ProfileView: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 switch collection.loadState {
                 case .loading where collection.items.isEmpty:
-                    ProgressView()
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 40)
+                    // Enhancements-50: people-shaped skeleton instead of a spinner.
+                    ModulaSkeletonList(title: "Loading people", rows: 5, showsMedia: false)
+                        .padding(.horizontal, ModulaLayout.contentInset)
                 case .failed where collection.items.isEmpty:
                     ModulaErrorState(message: collection.lastError ?? "Unable to load people.") {
                         Task {

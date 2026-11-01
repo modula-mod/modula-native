@@ -106,12 +106,16 @@ struct ModulaErrorBanner: View {
         }
         .padding(.leading, 14)
         .padding(.trailing, 2)
-        .background(.regularMaterial, in: Capsule())
+        // Enhancements-50: Modula glass (solid under Reduce Transparency) + a warning tick.
+        .modulaGlass(in: Capsule(), interactive: false)
         .padding(.horizontal, ModulaSpacing.md)
         .padding(.bottom, 12)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(identifier)
-        .onAppear { AccessibilityNotification.Announcement(message).post() }
+        .onAppear {
+            AccessibilityNotification.Announcement(message).post()
+            HapticEngine.shared.play(.warning)
+        }
         .onChange(of: message) { _, next in AccessibilityNotification.Announcement(next).post() }
     }
 }

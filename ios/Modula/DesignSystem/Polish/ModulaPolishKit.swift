@@ -325,3 +325,19 @@ extension View {
     /// Follow buttons: accent CTA when it is the primary action, quiet glass once following.
     func modulaFollowCTA(isFollowing: Bool) -> some View { modifier(FollowCTA(isFollowing: isFollowing)) }
 }
+
+// MARK: - Refresh with feedback
+
+extension View {
+    /// `refreshable` plus closure: a soft success haptic and a VoiceOver "Updated"
+    /// announcement when the pull finishes (goal-gradient: the gesture visibly completes).
+    func modulaRefreshable(_ action: @escaping @Sendable () async -> Void) -> some View {
+        refreshable {
+            await action()
+            await MainActor.run {
+                HapticEngine.shared.play(.drop)
+                UIAccessibility.post(notification: .announcement, argument: "Updated")
+            }
+        }
+    }
+}

@@ -508,9 +508,12 @@ struct HomeView: View {
                     .padding(.bottom, 24)
                 }
                 if state.loadState == .loadingMore {
-                    ProgressView()
-                        .frame(maxWidth: .infinity)
+                    // Enhancements-50: a post-shaped skeleton holds the slot the next page fills.
+                    ModulaSkeletonRow(showsMedia: false)
+                        .padding(.horizontal, ModulaLayout.contentInset)
                         .padding(.vertical, 12)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("Loading more posts")
                         .accessibilityIdentifier("home.loading-more")
                 }
                 if state.loadState == .loaded, let message = state.loadMoreError {
@@ -519,11 +522,16 @@ struct HomeView: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
-                        Button("Retry") {
+                        Button {
                             HapticEngine.shared.play(.selection)
                             Task { await app.home.loadMore(mode) }
+                        } label: {
+                            Label("Retry", systemImage: "arrow.clockwise")
+                                .font(.subheadline.weight(.semibold))
+                                .padding(.horizontal, ModulaSpacing.lg).frame(minHeight: 44)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.plain)
+                        .modulaAccentCTA()
                         .accessibilityLabel("Retry loading more posts")
                         .accessibilityIdentifier("home.load-more-retry")
                     }

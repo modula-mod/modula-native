@@ -336,16 +336,21 @@ struct ActivityTimeline: View {
             }
             if hasMore {
                 Button {
+                    HapticEngine.shared.play(.selection)
                     onLoadMore()
                 } label: {
-                    HStack {
-                        Spacer()
-                        if loadingMore { ProgressView() } else { Text("Load more") }
-                        Spacer()
+                    HStack(spacing: ModulaSpacing.xs) {
+                        if loadingMore { ProgressView().tint(.white) } else { Text("Load more").font(.subheadline.weight(.semibold)) }
                     }
-                    .padding(.vertical, 16)
+                    .padding(.horizontal, ModulaSpacing.lg)
+                    .frame(minHeight: 44)
                 }
                 .buttonStyle(.plain)
+                .modulaAccentCTA()
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .disabled(loadingMore)
+                .accessibilityLabel(loadingMore ? "Loading more" : "Load more activity")
                 .accessibilityIdentifier("activity.load-more")
             }
         }

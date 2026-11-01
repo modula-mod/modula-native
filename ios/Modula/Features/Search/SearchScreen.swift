@@ -70,12 +70,17 @@ struct SearchScreen: View {
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.bottom, 28)
         }
+        // Enhancements-50: dragging results tucks the keyboard away; a tick confirms a submitted search.
+        .scrollDismissesKeyboard(.immediately)
         .modulaSoftScrollEdge()
         .modulaCanvas()
         .navigationTitle("Search")
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $query, prompt: "Search people, posts, modules")
-        .onSubmit(of: .search) { DiscoverSearchRecents.record(query) }
+        .onSubmit(of: .search) {
+            DiscoverSearchRecents.record(query)
+            HapticEngine.shared.play(.selection)
+        }
         .modulaMinimizedSearchToolbar()
         .onChange(of: query) { _, _ in scheduleSearch() }
         .onChange(of: chromeScope) { _, _ in
