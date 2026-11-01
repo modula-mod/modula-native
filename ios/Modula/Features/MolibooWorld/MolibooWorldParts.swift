@@ -420,26 +420,48 @@ struct MolibooCareSheet: View {
     }
 }
 
-/// Stickers: the companion's portrait in each mood. Tapping copies a real PNG sticker to the clipboard.
+/// Stickers: the companion's live figure in every expression (MolibooStickers.swift). Tapping copies a PNG sticker.
 struct MolibooStickerSheet: View {
     let characterID: String
     let name: String
     let notify: (String) -> Void
     private let moods: [MolibooEmotion] = [.happy, .excited, .curious, .calm, .sleepy, .sad]
+    private var kind: ModulaMascotKind? { ModulaMascotKind(rawValue: characterID) }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 12)], spacing: 12) {
-                    ForEach(moods, id: \.self) { m in
-                        Button { copy(m) } label: { sticker(m).frame(width: 96, height: 96) }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("\(name) \(m.label) sticker")
-                            .accessibilityIdentifier("stickers.\(m.rawValue)")
+                VStack(alignment: .leading, spacing: 12) {
+                    if let kind {
+                        Text("\(MolibooStickerExpression.all.count) stickers · tap to copy, then paste in any chat.")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 10)], spacing: 10) {
+                            ForEach(MolibooStickerExpression.all) { e in
+                                Button {
+                                    notify(MolibooStickerExpression.copy(kind: kind, e) ? "\(e.label) sticker copied" : "Couldn't make that sticker")
+                                } label: {
+                                    MolibooStickerArt(kind: kind, expression: e, size: 100)
+                                        .padding(4)
+                                        .background(kind.palette.mid.opacity(0.12), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("\(name) \(e.label) sticker")
+                                .accessibilityIdentifier("stickers.\(e.id)")
+                            }
+                        }
+                    } else {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 12)], spacing: 12) {
+                            ForEach(moods, id: \.self) { m in
+                                Button { copy(m) } label: { sticker(m).frame(width: 96, height: 96) }
+                                    .buttonStyle(.plain)
+                                    .accessibilityLabel("\(name) \(m.label) sticker")
+                                    .accessibilityIdentifier("stickers.\(m.rawValue)")
+                            }
+                        }
+                        Text("Tap a sticker to copy it, then paste it in any chat.").font(.footnote).foregroundStyle(.secondary)
                     }
                 }
                 .padding()
-                Text("Tap a sticker to copy it, then paste it in any chat.").font(.footnote).foregroundStyle(.secondary)
             }
             .navigationTitle("\(name) stickers").navigationBarTitleDisplayMode(.inline)
         }
