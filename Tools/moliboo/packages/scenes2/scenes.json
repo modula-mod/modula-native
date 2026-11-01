@@ -1,0 +1,107 @@
+{
+  "schemaVersion": "modula.moliboo.scenes.1",
+  "status": "draft \u2014 not in the local scene catalog, no price, no unlock, no ownership",
+  "groundYConvention": "fraction of image height where a standing figure's feet rest",
+  "scenes": [
+    {
+      "id": "scene2.ocean",
+      "slot": "background",
+      "family": "tideborn",
+      "name": "Seaside cove",
+      "file": "scene2.ocean.png",
+      "width": 1280,
+      "height": 960,
+      "groundY": 0.8
+    },
+    {
+      "id": "scene2.sky",
+      "slot": "background",
+      "family": "skyweavers",
+      "name": "Cloud harbour",
+      "file": "scene2.sky.png",
+      "width": 1280,
+      "height": 960,
+      "groundY": 0.8
+    },
+    {
+      "id": "scene2.volcano",
+      "slot": "background",
+      "family": "cinderlings",
+      "name": "Ember peak",
+      "file": "scene2.volcano.png",
+      "width": 1280,
+      "height": 960,
+      "groundY": 0.8
+    },
+    {
+      "id": "scene2.garden",
+      "slot": "background",
+      "family": "mosslight-grove",
+      "name": "Petal meadow",
+      "file": "scene2.garden.png",
+      "width": 1280,
+      "height": 960,
+      "groundY": 0.8
+    },
+    {
+      "id": "scene2.ice",
+      "slot": "background",
+      "family": "aurora-vale",
+      "name": "Aurora snowfield",
+      "file": "scene2.ice.png",
+      "width": 1280,
+      "height": 960,
+      "groundY": 0.8
+    },
+    {
+      "id": "scene2.clockwork",
+      "slot": "background",
+      "family": "clocklings",
+      "name": "Clock tower loft",
+      "file": "scene2.clockwork.png",
+      "width": 1280,
+      "height": 960,
+      "groundY": 0.8
+    },
+    {
+      "id": "scene2.sweets",
+      "slot": "background",
+      "family": "sugarvale",
+      "name": "Candy hills",
+      "file": "scene2.sweets.png",
+      "width": 1280,
+      "height": 960,
+      "groundY": 0.8
+    },
+    {
+      "id": "scene2.ink",
+      "slot": "background",
+      "family": "inkbound-atelier",
+      "name": "Ink atelier",
+      "file": "scene2.ink.png",
+      "width": 1280,
+      "height": 960,
+      "groundY": 0.8
+    },
+    {
+      "id": "scene2.arcade",
+      "slot": "background",
+      "family": "neon-arcade",
+      "name": "Neon arcade",
+      "file": "scene2.arcade.png",
+      "width": 1280,
+      "height": 960,
+      "groundY": 0.8
+    },
+    {
+      "id": "scene2.lantern",
+      "slot": "background",
+      "family": "lantern-parade",
+      "name": "Lantern night",
+      "file": "scene2.lantern.png",
+      "width": 1280,
+      "height": 960,
+      "groundY": 0.8
+    }
+  ]
+}

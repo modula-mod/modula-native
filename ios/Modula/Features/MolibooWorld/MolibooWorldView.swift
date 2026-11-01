@@ -218,7 +218,7 @@ struct MolibooWorldView: View {
             stage.wake(allowed: motionAllowed, for: MolibooStageState.launchWakeSeconds)   // brief hello, then settle
             stage.startAmbient { motionAllowed && route == nil && sheet == nil }
             // Prefetch static roster thumbs so family grids never ImageRenderer mid-scroll.
-            let ids = MolibooFamily.allCases.flatMap { $0.kinds.map(\.rawValue) }
+            let ids = MolibooFamily.allCases.filter { !$0.isDraft }.flatMap { $0.kinds.map(\.rawValue) }
             Task(priority: .utility) { MolibooPortrait.warmThumbs(ids: ids) }
         }
         .onChange(of: scenePhase) { _, p in
@@ -626,7 +626,7 @@ struct MolibooWorldView: View {
     // MARK: Collection
 
     /// Families with members, read from data (new families such as Legends appear automatically).
-    private var pickerFamilies: [MolibooFamily] { MolibooFamily.allCases.filter { !$0.kinds.isEmpty } }
+    private var pickerFamilies: [MolibooFamily] { MolibooFamily.allCases.filter { !$0.isDraft && !$0.kinds.isEmpty } }
     private var currentPickerFamily: MolibooFamily { pickerFamily ?? kind?.family ?? pickerFamilies.first ?? .originals }
 
     private static let pickerColumns = 4

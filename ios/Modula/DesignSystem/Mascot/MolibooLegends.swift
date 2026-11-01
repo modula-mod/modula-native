@@ -335,7 +335,7 @@ extension ModulaMascotFigure {
                 .offset(x: side * bw * 0.12, y: top - s * 0.16)
             }
         default:
-            EmptyView()
+            series2Part(part, spec: spec, layer: layer, s: s, pal: pal, t: t, a: a, seed: seed)
         }
     }
 }

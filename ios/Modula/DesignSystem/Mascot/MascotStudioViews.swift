@@ -1385,7 +1385,7 @@ struct MascotAssistantSettingsSection: View {
             Text("Assistant Moliboo").font(.subheadline.weight(.semibold))
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(ModulaMascotKind.allCases) { kind in
+                    ForEach(ModulaMascotKind.roster) { kind in
                         let on = store.kindRaw == kind.rawValue
                         Button {
                             guard MascotEntitlements.canUse(kind) else { return }

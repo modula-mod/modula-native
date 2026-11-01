@@ -7,7 +7,8 @@ ios/Modula/Resources/Moliboo/moliboo_registry.json (schema modula.moliboo.regist
 
 Series 2 keeps draft concept order: concept 101 becomes catalogue #116 and concept 200
 becomes #215. Originals 001–100 and Legends 101–115 are never renumbered. Series 2 stays
-draft and not purchasable; artwork is package: only (not bundled).
+draft and not purchasable. Series 2 is drawn natively by the same 2D rig (native2d:spec/<key>) so
+wardrobe, expressions and motion work identically; package portrait.png files are thumbnails only.
 
 Identity facts (key, number, name, family, title, traits, description, parts) come from code and are
 never renamed. Personality numbers and signature reactions are derived deterministically from the
@@ -257,6 +258,8 @@ seen = set()
 for key in keys:
     if key not in prof: raise SystemExit(f"{key}: no profile")
     number, title, traits = prof[key]
+    if number >= 116:
+        continue  # Series 2: identity comes from the concept file in append_series2()
     fam = family_of(number)
     w = words(traits, title)
     be, bc, bs = FAMILY_BIAS[fam[0]]
@@ -323,7 +326,8 @@ for key in keys:
     })
 
 # Series 2 drafts. Concept numbers 101–200 stay in the source file; catalogue numbers are +15
-# so they sit after Legends 101–115. Nothing here is purchasable and no artwork is native2d.
+# so they sit after Legends 101–115. Nothing here is purchasable. Artwork is the native rig
+# (MolibooSeries2.swift); the enum key must match the concept name and the Swift profile number.
 SERIES2_OFFSET = 15
 SERIES2_MOTION = {
     "tideborn": ("tideborn.swell", "drifting"),
@@ -377,7 +381,7 @@ def append_series2():
         families_out.append({
             "id": fid, "name": col["name"], "label": col["name"],
             "range": [concept_lo + SERIES2_OFFSET, concept_hi + SERIES2_OFFSET],
-            "world": col["name"], "wearable": False, "motionProfile": motion,
+            "world": col["name"], "wearable": True, "motionProfile": motion,
             "series": 2, "availability": "draft",
             "palette": col["palette"], "artDirection": col["art_direction"],
             "accentHex": first_accent,
@@ -390,8 +394,10 @@ def append_series2():
             if not re.fullmatch(r"[a-z][a-z0-9]*", key):
                 raise SystemExit(f"unsafe Series 2 key {key}")
             if key in existing_keys:
-                raise SystemExit(f"Series 2 key {key} collides with the built-in roster")
+                raise SystemExit(f"Series 2 key {key} collides with an existing registry character")
             existing_keys.add(key)
+            if key not in keys or key not in prof or prof[key][0] != number or key not in spec:
+                raise SystemExit(f"{key}: no native Series 2 spec/profile with number {number} (MolibooSeries2.swift)")
             if concept.get("registry_character_id") is not None:
                 raise SystemExit(f"{key} already has a registry id in the concept file")
             if concept.get("marketplace_status") != "draft" or concept.get("purchasable") is not False:
@@ -429,8 +435,7 @@ def append_series2():
                 "longPress": {"mood": "shy" if social < 0.45 else "pleased", "primitive": "scale", "burst": "aura", "durationMs": 1600},
                 "horizontalDrag": {"mood": "dizzy" if energy >= 0.6 else "curious", "primitive": "rotate", "burst": None, "durationMs": 700},
                 "greeting": {"mood": "wave", "primitive": "translate", "burst": "sparkle", "durationMs": 1400},
-                "equip": {"mood": "pleased", "primitive": "glowIntensity", "burst": "aura", "durationMs": 1100,
-                          "note": "Series 2 drafts are not wearable and not purchasable; equip never changes a saved outfit."},
+                "equip": {"mood": "excited" if energy >= 0.6 else "pleased", "primitive": "accessoryFollow", "burst": "outfit", "durationMs": 1100},
                 "idleTimeout": {"mood": "sleepy", "primitive": "scale", "burst": None, "durationMs": 2400, "afterSeconds": 45},
                 "foreground": {"mood": "happy", "primitive": "translate", "burst": None, "durationMs": 800},
                 "signature": {"id": f"draft{number}", "mood": "excited" if energy >= 0.6 else "happy",
@@ -440,11 +445,12 @@ def append_series2():
                 "id": f"moliboo.{number:03d}", "number": number, "key": key, "name": concept["name"],
                 "familyId": fid, "title": title, "traits": traits,
                 "assetVersion": "0.1.0", "rendering": "2d",
-                "baseAsset": f"package:moliboo.character.{number:03d}/portrait.png",
-                "body": "portrait", "parts": [],
-                "wearable": False, "accessoryProfile": None,
+                "baseAsset": f"native2d:spec/{key}",
+                "thumbnail": f"package:moliboo.character.{number:03d}/portrait.png",
+                "body": spec[key]["body"], "parts": spec[key]["parts"],
+                "wearable": True, "accessoryProfile": f"fit/{key}",
                 "expressions": ["neutral", "happy", "excited", "curious", "sleepy", "surprised", "sad"],
-                "animations": [f"idle/{motion}", "tap", "doubleTap", "longPress", "greeting", "admire", f"signature/draft{number}"],
+                "animations": [f"idle/{motion}", "tap", "doubleTap", "longPress", "greeting", "equip", f"signature/draft{number}"],
                 "reactionSet": f"{key}.reactions", "reactions": reactions,
                 "personality": {"archetype": archetype, "energy": energy, "curiosity": curiosity, "sociability": social,
                                 "description": appearance,

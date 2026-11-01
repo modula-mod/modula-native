@@ -561,7 +561,7 @@ struct ModulaStickerPicker: View {
             }
         case "mascots":
             LazyVGrid(columns: columns, spacing: 10) {
-                ForEach(ModulaMascotKind.allCases) { kind in
+                ForEach(ModulaMascotKind.roster) { kind in
                     let locked = !MascotEntitlements.canUse(kind)
                     Button {
                         if locked { premiumKind = kind; HapticEngine.shared.play(.lightImpact) }
