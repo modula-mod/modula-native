@@ -548,7 +548,7 @@ struct ActivitySwipeRow<Content: View>: View {
 
 // MARK: - Requests entry
 
-/// "Follow requests" entry at the top of All, from `GET /v1/connections/requests`.
+/// "Follow requests" entry at the top of All, from `GET /v1/profiles/me/follow-requests`.
 struct ActivityRequestsEntry: View {
     let requests: [ActivityEvent]
     let action: () -> Void
