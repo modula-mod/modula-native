@@ -179,7 +179,7 @@ struct MolibooQuest: Codable, Hashable, Sendable, Identifiable {
 
 struct MolibooQuestBoard: Codable, Sendable { let quests: [MolibooQuest] }
 
-enum MolibooCareAction: String, CaseIterable, Identifiable, Sendable {
+enum MolibooGameCareAction: String, CaseIterable, Identifiable, Sendable {
     case feed, play, rest, groom, talk
     var id: String { rawValue }
     var title: String {
@@ -202,7 +202,7 @@ enum MolibooCareAction: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-enum MolibooActivity: String, CaseIterable, Identifiable, Sendable {
+enum MolibooGameActivity: String, CaseIterable, Identifiable, Sendable {
     case bubblePop = "bubble_pop", starCatch = "star_catch", memoryMatch = "memory_match"
     var id: String { rawValue }
     var title: String {

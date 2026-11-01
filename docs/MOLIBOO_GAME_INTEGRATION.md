@@ -28,3 +28,10 @@ While the flag is off, the new Studio panels show a "coming" state and make no n
 `Resources/MolibooGame/MolibooItems.xcassets` holds 103 glossy 2D icons (88 items + 15 outfits) generated from SVG
 (`Tools/moliboo/game-items/`). The catalogue seed `moliboo_game_catalogue.v1.json` is a copy of the backend seed and is kept only for tooling and the contact sheet.
 The app does not read ownership from it.
+
+## Rebase note: PR #243 (design/moliboo-redraw, full code rig for all 215)
+The public figure there is `ModulaMascotFigure(kind:pose:size:outfit: MascotOutfit)`, defined in ModulaMascot.swift, which this branch does not edit.
+For integration, add a small adapter in the rig stream: `extension MascotOutfit { init(gameSet: MolibooOutfitSet) }`.
+It should map each game `itemId` to that rig's wearable ids, or to new fitted art, and skip slots it can't fit.
+Then the Studio stage renders `ModulaMascotFigure(kind:, outfit: MascotOutfit(gameSet: store.state!.outfitSet))`.
+Until that adapter exists, the game UI shows the server-equipped set as icons, and the figure keeps the local wardrobe look.

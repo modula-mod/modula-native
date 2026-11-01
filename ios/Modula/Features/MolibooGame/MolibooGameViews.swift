@@ -370,7 +370,7 @@ struct MolibooSkillsBuffsCard: View {
 
     private var careRow: some View {
         HStack(spacing: 8) {
-            ForEach(MolibooCareAction.allCases) { a in
+            ForEach(MolibooGameCareAction.allCases) { a in
                 Button { Task { await store.care(a) } } label: {
                     VStack(spacing: 3) { Image(systemName: a.symbol).font(.body.weight(.semibold)); Text(a.title).font(.caption2.weight(.semibold)) }
                         .frame(maxWidth: .infinity, minHeight: 52)
@@ -472,7 +472,7 @@ struct MolibooQuestsPanel: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Mini-activities").font(.headline)
             HStack(spacing: 8) {
-                ForEach(MolibooActivity.allCases) { a in
+                ForEach(MolibooGameActivity.allCases) { a in
                     NavigationLink { MolibooMiniActivityView(activity: a, store: store) } label: {
                         Text(a.title).font(.caption.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 44)
                     }
@@ -487,7 +487,7 @@ struct MolibooQuestsPanel: View {
 /// Tiny, non-timed tap activity (Bubble Pop / Star Catch / Memory Match share one gentle mechanic for v1):
 /// tap 8 glossy bubbles. No score pressure, no timer; Reduce Motion keeps everything static.
 struct MolibooMiniActivityView: View {
-    let activity: MolibooActivity
+    let activity: MolibooGameActivity
     @Bindable var store: MolibooGameStore
     @State private var popped: Set<Int> = []
     @State private var reported = false

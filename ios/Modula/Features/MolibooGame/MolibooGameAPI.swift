@@ -56,7 +56,7 @@ struct MolibooGameAPI: Sendable {
         if let itemIds { body["itemIds"] = .array(itemIds.map(JSONValue.string)) }
         return try decode(await client.authenticatedJSON("POST", path: Path.equip(characterId), body: .object(body)), as: StateEnvelope.self).state
     }
-    func care(_ characterId: String, action: MolibooCareAction) async throws -> (counted: Bool, state: MolibooCharacterState) {
+    func care(_ characterId: String, action: MolibooGameCareAction) async throws -> (counted: Bool, state: MolibooCharacterState) {
         struct R: Decodable { let counted: Bool; let state: MolibooCharacterState }
         let r: R = try decode(await client.authenticatedJSON("POST", path: Path.care(characterId),
                                                             body: .object(["action": .string(action.rawValue), "idempotencyKey": .string(key())])))
@@ -72,7 +72,7 @@ struct MolibooGameAPI: Sendable {
     func claim(_ questId: String, characterId: String) async throws {
         _ = try await client.authenticatedJSON("POST", path: Path.claim(questId), body: .object(["characterId": .string(characterId)]))
     }
-    func completeActivity(_ activity: MolibooActivity, characterId: String) async throws {
+    func completeActivity(_ activity: MolibooGameActivity, characterId: String) async throws {
         _ = try await client.authenticatedJSON("POST", path: Path.activities, body: .object([
             "activityId": .string(activity.rawValue), "characterId": .string(characterId), "idempotencyKey": .string(key()),
         ]))
@@ -129,7 +129,7 @@ final class MolibooGameStore {
     func delete(_ outfit: MolibooSavedOutfit) async {
         await run(nil) { try await self.api.deleteOutfit(outfit.outfitId); self.saved = try await self.api.savedOutfits() }
     }
-    func care(_ action: MolibooCareAction) async {
+    func care(_ action: MolibooGameCareAction) async {
         await run(nil) {
             let r = try await self.api.care(self.characterId, action: action)
             self.state = r.state
@@ -148,7 +148,7 @@ final class MolibooGameStore {
             (self.quests, self.inventory, self.state, self.sets) = try await (q, i, s, sets)
         }
     }
-    func finish(_ activity: MolibooActivity) async {
+    func finish(_ activity: MolibooGameActivity) async {
         await run("\(activity.title) done") { try await self.api.completeActivity(activity, characterId: self.characterId); self.quests = try await self.api.quests() }
     }
 
