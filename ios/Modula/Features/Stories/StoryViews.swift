@@ -3378,7 +3378,9 @@ struct StoryCreateView: View {
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(width: 48, height: 48)
-                            .modulaGlass(in: Circle())
+                            // PhotosPicker's label is nonisolated; modulaGlass is main-actor, so use material here.
+                            .background(.ultraThinMaterial, in: Circle())
+                            .overlay(Circle().strokeBorder(.white.opacity(0.22), lineWidth: 0.8))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Photo library")
