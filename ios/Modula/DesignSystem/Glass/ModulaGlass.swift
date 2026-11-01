@@ -206,8 +206,9 @@ struct ModulaGlassSearchField: View {
 //
 // One style for every primary/filled call to action: a solid fill in the user's live accent
 // (custom or preset) with white text, so the single strongest action on a screen always looks
-// the same (Von Restorff). On iOS 26 the fill sits under interactive Liquid Glass tinted with the
-// same accent; with Reduce Transparency or on iOS 18–25 it is a plain solid capsule.
+// the same (Von Restorff). On iOS 26 the fill stays fully opaque with a thin specular glass rim
+// (tinted Liquid Glass over the fill read as a washed-out, disabled-looking pastel on device);
+// with Reduce Transparency or on iOS 18–25 it is a plain solid capsule.
 private struct ModulaAccentCTAModifier<S: InsettableShape>: ViewModifier {
     let shape: S
     @Environment(AppEnvironment.self) private var app
@@ -225,14 +226,21 @@ private struct ModulaAccentCTAModifier<S: InsettableShape>: ViewModifier {
             styled
                 .background(accent.opacity(0.10), in: shape)
                 .overlay(shape.strokeBorder(accent.opacity(contrast == .increased ? 1 : 0.6), lineWidth: 1.2))
-        } else if #available(iOS 26.0, *), !reduceTransparency {
+        } else if !reduceTransparency {
             styled
                 .background(shape.fill(accent))
-                .glassEffect(.regular.tint(accent).interactive(), in: shape)
+                .overlay(
+                    shape.strokeBorder(
+                        LinearGradient(colors: [.white.opacity(0.45), .white.opacity(0.05)], startPoint: .top, endPoint: .bottom),
+                        lineWidth: 0.8
+                    )
+                    .allowsHitTesting(false)
+                )
+                .shadow(color: accent.opacity(0.28), radius: GeneratedDesignContract.Elevation.medium.radius, y: GeneratedDesignContract.Elevation.medium.y)
         } else {
             styled
                 .background(shape.fill(accent))
-                .shadow(color: accent.opacity(0.28), radius: 10, y: 4)
+                .shadow(color: accent.opacity(0.28), radius: GeneratedDesignContract.Elevation.medium.radius, y: GeneratedDesignContract.Elevation.medium.y)
         }
     }
 }

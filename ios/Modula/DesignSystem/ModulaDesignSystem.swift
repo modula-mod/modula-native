@@ -28,7 +28,19 @@ enum ModulaLayout {
     static let accessoryClearance = 56.0
     static let railRestingWidth = 46.0
     static let railRevealedWidth = 96.0
+    /// Height of the shared filled accent CTA.
+    static let ctaHeight = GeneratedDesignContract.Layout.ctaHeight
+    /// Stage height for a post whose media is missing or has no declared size.
+    static let mediaUnavailableHeight = GeneratedDesignContract.Layout.mediaUnavailableHeight
 }
+/// Named brand colours from the design contract (soft lavender behind Premium glass).
+enum ModulaBrandPalette {
+    static let lavenderMist = GeneratedDesignContract.Palette.lavenderMist
+    static let lavender = GeneratedDesignContract.Palette.lavender
+    static let lavenderDeep = GeneratedDesignContract.Palette.lavenderDeep
+}
+/// Premium screen metrics from the design contract.
+typealias ModulaPremiumMetrics = GeneratedDesignContract.Premium
 enum ModulaMotion {
     enum Role {
         case instantFeedback, selection, navigation, contentTransition
