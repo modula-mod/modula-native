@@ -611,20 +611,11 @@ struct DataStorageHost: View {
         case .packages:
             PackageStorageDownloadsView(accountID: app.catalogue.accountID)
         case .storage:
-            Form {
-                if let usage {
-                    LabeledContent("Caches", value: usage.caches)
-                    LabeledContent("Temporary", value: usage.temporary)
-                    LabeledContent("Application support", value: usage.applicationSupport)
-                    LabeledContent("Draft Media", value: usage.draftMedia)
-                    Text("Figures are measured from this device. Drafts, draft media, and Keychain sessions are not included as cache.")
-                        .foregroundStyle(.secondary)
-                } else {
-                    ProgressView("Measuring…")
-                }
+            ModulaStorageOverview(usage: usage) {
+                usage = await Task.detached(priority: .utility) { StorageUsageSnapshot.measure() }.value
             }
-            .modulaSoftScrollEdge()
             .navigationTitle("Storage")
+            .navigationBarTitleDisplayMode(.inline)
             // Walking the cache folders can take a while; measure off the main thread.
             .task { usage = await Task.detached(priority: .utility) { StorageUsageSnapshot.measure() }.value }
         case .cache:
@@ -673,18 +664,37 @@ struct StorageUsageSnapshot: Sendable {
     var temporary: String
     var applicationSupport: String
     var draftMedia: String
+    var cachesBytes: Int64 = 0
+    var temporaryBytes: Int64 = 0
+    var applicationSupportBytes: Int64 = 0
+    var draftMediaBytes: Int64 = 0
+    var deviceTotalBytes: Int64? = nil
+    var deviceAvailableBytes: Int64? = nil
+    var totalBytes: Int64 { cachesBytes + temporaryBytes + applicationSupportBytes + draftMediaBytes }
 
     static func measure() -> StorageUsageSnapshot {
         let fm = FileManager.default
-        func size(of directory: FileManager.SearchPathDirectory) -> String {
-            guard let url = fm.urls(for: directory, in: .userDomainMask).first else { return "—" }
-            return byteCount(folderSize(url))
+        func bytes(of directory: FileManager.SearchPathDirectory) -> Int64 {
+            guard let url = fm.urls(for: directory, in: .userDomainMask).first else { return 0 }
+            return folderSize(url)
         }
+        let caches = bytes(of: .cachesDirectory)
+        let temp = folderSize(URL(fileURLWithPath: NSTemporaryDirectory()))
+        let support = bytes(of: .applicationSupportDirectory)
+        let drafts = DraftMediaStore().byteCount()
+        let home = URL(fileURLWithPath: NSHomeDirectory())
+        let volume = try? home.resourceValues(forKeys: [.volumeTotalCapacityKey, .volumeAvailableCapacityForImportantUsageKey])
         return StorageUsageSnapshot(
-            caches: size(of: .cachesDirectory),
-            temporary: byteCount(folderSize(URL(fileURLWithPath: NSTemporaryDirectory()))),
-            applicationSupport: size(of: .applicationSupportDirectory),
-            draftMedia: byteCount(DraftMediaStore().byteCount())
+            caches: byteCount(caches),
+            temporary: byteCount(temp),
+            applicationSupport: byteCount(support),
+            draftMedia: byteCount(drafts),
+            cachesBytes: caches,
+            temporaryBytes: temp,
+            applicationSupportBytes: support,
+            draftMediaBytes: drafts,
+            deviceTotalBytes: volume?.volumeTotalCapacity.map(Int64.init),
+            deviceAvailableBytes: volume?.volumeAvailableCapacityForImportantUsage
         )
     }
 
@@ -1187,5 +1197,184 @@ private struct StorageUsageRowStyle: LabeledContentStyle {
         }
         .frame(minHeight: ModulaLayout.minimumTouch)
         .accessibilityElement(children: .combine)
+    }
+}
+
+
+// MARK: - Storage overview (reference: ring chart, breakdown, quick actions, premium card)
+//
+// Every figure is measured on this device. There is no account cloud-storage endpoint, so the
+// ring shows how Modula's own on-device footprint splits up, plus real device free space.
+struct ModulaStorageOverview: View {
+    let usage: StorageUsageSnapshot?
+    var refresh: () async -> Void
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var appeared = false
+
+    private struct Slice: Identifiable { let id: String; let title: String; let symbol: String; let color: Color; let bytes: Int64 }
+
+    private func slices(_ u: StorageUsageSnapshot) -> [Slice] {
+        [
+            Slice(id: "support", title: "Modules & app data", symbol: "shippingbox.fill", color: app.appearance.liveAccent, bytes: u.applicationSupportBytes),
+            Slice(id: "caches", title: "Cached media", symbol: "photo.fill", color: .blue, bytes: u.cachesBytes),
+            Slice(id: "drafts", title: "Draft media", symbol: "doc.richtext.fill", color: .pink, bytes: u.draftMediaBytes),
+            Slice(id: "temp", title: "Temporary", symbol: "clock.fill", color: .orange, bytes: u.temporaryBytes)
+        ]
+    }
+
+    private func fmt(_ v: Int64) -> String { ByteCountFormatter.string(fromByteCount: v, countStyle: .file) }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                header
+                if let usage {
+                    ringCard(usage)
+                } else {
+                    ProgressView("Measuring storage…")
+                        .frame(maxWidth: .infinity, minHeight: 200)
+                        .modulaGlass(in: RoundedRectangle(cornerRadius: 26, style: .continuous), interactive: false)
+                }
+                premiumCard
+                quickActions
+            }
+            .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.bottom, 40)
+        }
+        .modulaCanvas()
+        .modulaSoftScrollEdge()
+        .refreshable { await refresh() }
+        .onAppear { appeared = true }
+    }
+
+    private var header: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Storage").font(.largeTitle.bold()).accessibilityAddTraits(.isHeader)
+                Text("More room for what matters.").font(.subheadline).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            Image("SceneStorageCloud")
+                .resizable().scaledToFit()
+                .frame(width: 130, height: 100)
+                .accessibilityHidden(true)
+        }
+        .padding(.top, 8)
+    }
+
+    private func ringCard(_ u: StorageUsageSnapshot) -> some View {
+        let parts = slices(u)
+        let total = max(u.totalBytes, 1)
+        var start = 0.0
+        let arcs: [(Slice, Double, Double)] = parts.map { slice in
+            let len = Double(slice.bytes) / Double(total)
+            defer { start += len }
+            return (slice, start, start + len)
+        }
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 18) {
+                ZStack {
+                    Circle().stroke(Color.primary.opacity(0.08), lineWidth: 16)
+                    ForEach(arcs, id: \.0.id) { arc in
+                        Circle()
+                            .trim(from: arc.1, to: appeared || reduceMotion ? max(arc.1, arc.2 - 0.004) : arc.1)
+                            .stroke(arc.0.color.gradient, style: StrokeStyle(lineWidth: 16, lineCap: .butt))
+                            .rotationEffect(.degrees(-90))
+                    }
+                    VStack(spacing: 2) {
+                        Text(fmt(u.totalBytes)).font(.title3.bold().monospacedDigit()).minimumScaleFactor(0.6).lineLimit(1)
+                        Text("used by Modula").font(.caption2).foregroundStyle(.secondary)
+                    }
+                    .padding(18)
+                }
+                .frame(width: 140, height: 140)
+                .animation(reduceMotion ? nil : .easeOut(duration: 0.9), value: appeared)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Modula uses \(fmt(u.totalBytes)) on this device")
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(parts) { slice in
+                        HStack(spacing: 8) {
+                            Image(systemName: slice.symbol)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .frame(width: 24, height: 24)
+                                .background(slice.color, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                            Text(slice.title).font(.caption).lineLimit(1).minimumScaleFactor(0.8)
+                            Spacer(minLength: 4)
+                            Text(fmt(slice.bytes)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+            }
+            if let totalDevice = u.deviceTotalBytes, let free = u.deviceAvailableBytes {
+                Divider()
+                Label("\(fmt(free)) free of \(fmt(totalDevice)) on this iPhone", systemImage: "iphone")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(16)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 26, style: .continuous), interactive: false, specular: true)
+    }
+
+    private var premiumCard: some View {
+        Button {
+            app.navigation.open(.settings(.premium(.root)))
+            HapticEngine.shared.play(.navigation)
+        } label: {
+            HStack(spacing: 12) {
+                Image("SceneStorageCloud").resizable().scaledToFit().frame(width: 72).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("MODULA PREMIUM").font(.caption2.weight(.bold)).foregroundStyle(app.appearance.liveAccent)
+                    Text("More room. More freedom.").font(.headline)
+                    Text("Horizon adds unlimited modules and exclusive scenes.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .frame(minHeight: 96)
+            .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: true, tint: app.appearance.liveAccent.opacity(0.18), specular: true)
+    }
+
+    private var quickActions: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Manage space").font(.title3.bold()).accessibilityAddTraits(.isHeader)
+            action("Clear cache", "Free cached images and responses", "sparkles", .green) { app.navigation.open(.settings(.dataStorage(.cache))) }
+            action("Downloads", "Media saved for offline", "arrow.down.circle.fill", .blue) { app.navigation.open(.settings(.dataStorage(.downloads))) }
+            action("Packages & runtimes", "Optional module content", "square.stack.3d.up.fill", .purple) { app.navigation.open(.settings(.dataStorage(.packages))) }
+            action("Export your data", "Download a copy of your account", "square.and.arrow.up.fill", .pink) { app.navigation.open(.settings(.dataStorage(.export))) }
+        }
+    }
+
+    private func action(_ title: String, _ subtitle: String, _ symbol: String, _ tint: Color, _ run: @escaping () -> Void) -> some View {
+        Button {
+            run()
+            HapticEngine.shared.play(.navigation)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: symbol)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 40, height: 40)
+                    .background(tint.gradient, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.subheadline.weight(.semibold))
+                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(12)
+            .frame(minHeight: 64)
+            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true)
     }
 }
