@@ -53,15 +53,9 @@ struct SettingsHeroBanner: View {
             .opacity(appeared || reduceMotion ? 1 : 0)
             Spacer(minLength: 0)
         }
-        .padding(16)
-        .background {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
-                }
-        }
+        .padding(ModulaSpacing.md)
+        // Shared glass surface (honours Reduce Transparency + Glass Intensity) instead of a bespoke material.
+        .modulaGlass(in: RoundedRectangle(cornerRadius: ModulaRadius.xl, style: .continuous), interactive: false)
         .accessibilityElement(children: .combine)
         .onAppear {
             guard !appeared else { return }

@@ -254,9 +254,19 @@ struct ModuleDetailV2View: View {
                 HStack(spacing: 10) {
                     primaryButton(state)
                     if state.primaryAction == .update {
-                        Button("Open") { open() }
-                            .font(.subheadline.weight(.semibold))
-                            .accessibilityIdentifier("module.open")
+                        // Secondary to the accent Update CTA: one strong action per screen (Von Restorff),
+                        // the alternative reads as neutral glass so the choice is obvious (Hick's law).
+                        Button { open() } label: {
+                            Text("Open")
+                                .font(.subheadline.weight(.semibold))
+                                .padding(.horizontal, ModulaSpacing.md)
+                                .frame(minHeight: ModulaLayout.minimumTouch)
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(brand)
+                        .modulaGlass(in: Capsule())
+                        .accessibilityIdentifier("module.open")
                     }
                     Spacer(minLength: 0)
                 }
@@ -308,8 +318,8 @@ struct ModuleDetailV2View: View {
             } label: { Image(systemName: "xmark").font(.caption.bold()) }
             .accessibilityLabel("Dismiss")
         }
-        .padding(12)
-        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(ModulaSpacing.sm)
+        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("module.lifecycle-error")
     }
@@ -530,10 +540,17 @@ struct ModuleDetailV2View: View {
                 Text("\(missing.count) of \(declared.count) permissions are not granted for this installation.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                Button(allowingPermissions ? "Allowing…" : "Allow the \(missing.count) remaining") {
+                Button {
                     Task { await allowRemaining(declared.map(\.permission)) }
+                } label: {
+                    Text(allowingPermissions ? "Allowing…" : "Allow the \(missing.count) remaining")
+                        .font(.subheadline.weight(.bold))
+                        .padding(.horizontal, ModulaSpacing.lg)
+                        .frame(minHeight: ModulaLayout.minimumTouch)
+                        .contentShape(Capsule())
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.plain)
+                .modulaAccentCTA()
                 .disabled(allowingPermissions)
                 .accessibilityIdentifier("module.permissions.allow-remaining")
             } else if installationGrants != nil, !declared.isEmpty {
@@ -641,7 +658,7 @@ struct ModuleDetailV2View: View {
     private var uninstallButton: some View {
         Button(role: .destructive) { confirmUninstall = true } label: {
             Label("Uninstall \(product?.name ?? "Module")", systemImage: "trash")
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
         }
         .buttonStyle(.bordered)
         .tint(.red)
@@ -941,13 +958,16 @@ private struct ModulePermissionReviewSheet: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                Button(title) { onConfirm(plan) }
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, minHeight: 48)
-                    .buttonStyle(.borderedProminent)
-                    .tint(ModulaColor.accent)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 8)
+                Button { onConfirm(plan) } label: {
+                    Text(title)
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
+                        .contentShape(Capsule())
+                }
+                    .buttonStyle(.plain)
+                    .modulaAccentCTA()
+                    .padding(.horizontal, ModulaLayout.contentInset)
+                    .padding(.vertical, ModulaSpacing.xs)
                     .background(.bar)
                     .accessibilityIdentifier(operation == .download ? "module.download.confirm" : "module.install.confirm")
                     .disabled(!planLoaded || planError != nil)

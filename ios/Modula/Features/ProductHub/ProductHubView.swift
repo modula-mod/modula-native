@@ -1349,7 +1349,7 @@ struct ProductGetOpenControl: View {
                 }
                     .font(.footnote.weight(.bold))
                     .foregroundStyle(product.installable || installed ? accent : Color.primary.opacity(0.6))
-                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .padding(.horizontal, ModulaSpacing.sm).padding(.vertical, ModulaSpacing.xxs)
                     .modulaGlass(in: Capsule(), interactive: false, tint: (product.installable || installed) ? accent.opacity(0.14) : nil)
             }
         }
@@ -1627,8 +1627,8 @@ struct ProductHubView: View {
             // Signed-in state no longer needs a chip; the account lives in the menu.
             EmptyView()
         } else {
-            Button("Sign in to Modula") { app.navigation.open(.auth(.login)) }
-                .buttonStyle(.bordered)
+            // The only action available while signed out, so it gets the shared accent CTA.
+            ModulaButton(title: "Sign in to Modula", symbol: "person.crop.circle") { app.navigation.open(.auth(.login)) }
         }
     }
 
