@@ -13,7 +13,7 @@ struct HelpSettingsHost: View {
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Help", subtitle: "Guides, support requests, and live service status.", symbol: "questionmark.circle")
                 SettingsSceneGraphic(style: .badges)
-                SettingsGroup(title: "Open") {
+                SettingsGroup(title: "Get help", subtitle: "Start with a guide; if it doesn’t answer your question, open a case and a person replies by email. Check Status first if something looks broken for everyone.") {
                     VStack(spacing: 0) {
                         SettingsNavigationRow(title: "Guides", subtitle: "How the main settings work", symbol: "book") {
                             app.navigation.open(.settings(.help(.guides)))
@@ -25,6 +25,13 @@ struct HelpSettingsHost: View {
                         SettingsDivider()
                         SettingsNavigationRow(title: "Status", subtitle: "Live service health", symbol: "waveform.path.ecg") {
                             app.navigation.open(.settings(.help(.status)))
+                        }
+                    }
+                }
+                SettingsGroup(title: "About this app", subtitle: "Legal documents, version details and what changed in this build.") {
+                    VStack(spacing: 0) {
+                        SettingsNavigationRow(title: "About & Legal", subtitle: "Version, privacy policy, terms", symbol: "info.circle") {
+                            app.navigation.open(.settings(.about(.root)))
                         }
                     }
                 }

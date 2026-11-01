@@ -938,51 +938,78 @@ struct AccessibilitySettingsHost: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
+    @Environment(\.legibilityWeight) private var legibilityWeight
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.openURL) private var openURL
 
+    // Psychology: "status, then explanation, then the one place to change it" lowers decision cost; every row
+    // shows the live system value (visibility of system status) and nothing here overrides an iOS setting.
     var body: some View {
         Form {
             switch route {
             case .root, .text:
-                AccessibilityPreviewGraphic(
-                    sample: "Modula text follows the system size you choose.",
-                    scale: dynamicTypeSize.isAccessibilitySize ? 1.35 : 1
-                )
-                LabeledContent("Dynamic Type", value: dynamicTypeSize.settingsLabel)
-                Text("Modula follows system text size. Appearance Text Size is an additional product scale and does not override Dynamic Type.")
-                    .foregroundStyle(.secondary)
-                if route == .root {
-                    Section("More") {
-                        Button {
-                            app.navigation.open(.settings(.accessibility(.contrast)))
-                        } label: {
-                            LabeledContent { Text(contrast == .increased ? "Increased" : "Standard") } label: { Label("Contrast", systemImage: "circle.lefthalf.filled") }
-                        }
-                        Button {
-                            app.navigation.open(.settings(.accessibility(.motion)))
-                        } label: {
-                            LabeledContent { Text(reduceMotion ? "Reduced" : "Full") } label: { Label("Motion", systemImage: "figure.walk.motion") }
-                        }
-                        Button {
-                            app.navigation.open(.settings(.appearance(.textSize)))
-                        } label: {
+                Section {
+                    AccessibilityPreviewGraphic(
+                        sample: "Modula text follows the system size you choose.",
+                        scale: dynamicTypeSize.isAccessibilitySize ? 1.35 : 1
+                    )
+                    LabeledContent("Dynamic Type", value: dynamicTypeSize.settingsLabel)
+                    LabeledContent("Bold Text", value: legibilityWeight == .bold ? "On" : "Off")
+                    if route == .root {
+                        Button { app.navigation.open(.settings(.appearance(.textSize))) } label: {
                             Label("Modula Text Size", systemImage: "textformat.size")
                         }
+                        .foregroundStyle(.primary)
+                    }
+                } header: { Text("Text") } footer: {
+                    Text("Modula follows the text size and Bold Text you set in iOS. Modula Text Size adds a small extra scale on top and never overrides Dynamic Type.")
+                }
+                if route == .root {
+                    Section {
+                        Button { app.navigation.open(.settings(.accessibility(.motion))) } label: {
+                            LabeledContent { Text(reduceMotion ? "Reduced" : "Full") } label: { Label("Motion", systemImage: "figure.walk.motion") }
+                        }
+                        LabeledContent { Text(reduceTransparency ? "On" : "Off") } label: { Label("Reduce Transparency", systemImage: "square.on.square.intersection.dashed") }
+                        Button { app.navigation.open(.settings(.accessibility(.contrast))) } label: {
+                            LabeledContent { Text(contrast == .increased ? "Increased" : "Standard") } label: { Label("Contrast", systemImage: "circle.lefthalf.filled") }
+                        }
+                    } header: { Text("Vision & motion") } footer: {
+                        Text("With Reduce Motion on, Moliboos hold a still pose and screens fade instead of sliding. With Reduce Transparency on, glass surfaces become solid so text stays readable.")
                     }
                     .foregroundStyle(.primary)
+                    Section {
+                        LabeledContent { Text(voiceOver ? "Running" : "Off") } label: { Label("VoiceOver", systemImage: "speaker.wave.2") }
+                    } header: { Text("Screen reader") } footer: {
+                        Text("Buttons, Moliboos and list rows have spoken labels, and long-press actions are also offered in the VoiceOver rotor.")
+                    }
+                    Section {
+                        Button("Open iOS Accessibility Settings") {
+                            if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                        }
+                    } footer: {
+                        Text("These are system settings, so changing them affects every app on your iPhone.")
+                    }
                 }
             case .contrast:
-                LabeledContent("System contrast", value: contrast == .increased ? "Increased" : "Standard")
-                Text("Increase Contrast in iOS Settings is respected. Appearance Contrast & Transparency can raise contrast further without disabling system settings.")
-                    .foregroundStyle(.secondary)
+                Section {
+                    LabeledContent("System contrast", value: contrast == .increased ? "Increased" : "Standard")
+                    LabeledContent("Reduce Transparency", value: reduceTransparency ? "On" : "Off")
+                } footer: {
+                    Text("Increase Contrast in iOS Settings is respected. Appearance › Contrast & Transparency can raise contrast further without disabling system settings.")
+                }
             case .motion:
-                LabeledContent("Reduce Motion", value: reduceMotion ? "On" : "Off")
-                Text("Modula does not override Reduce Motion. Motion Personality only applies when the system allows motion.")
-                    .foregroundStyle(.secondary)
+                Section {
+                    LabeledContent("Reduce Motion", value: reduceMotion ? "On" : "Off")
+                } footer: {
+                    Text("Modula never overrides Reduce Motion. Motion Personality only applies when the system allows motion; otherwise animations become simple fades.")
+                }
             }
         }
         .modulaSoftScrollEdge()
         .navigationTitle(route == .root ? "Accessibility" : settingsDisplayTitle(route.rawValue))
+        .accessibilityIdentifier("settings.accessibility")
     }
 }
 
@@ -1159,17 +1186,24 @@ struct AboutSettingsHost: View {
                     LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")
                     LabeledContent("Build", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—")
                     LabeledContent("Name", value: "Modula")
+                } header: { Text("This app") } footer: {
+                    Text("Include the version and build when you contact support so we can find the right fix faster.")
                 }
                 if route == .root {
-                    Section("Legal") {
-                        Button { app.navigation.open(.settings(.about(.licenses))) } label: { Label("Licenses", systemImage: "doc.plaintext") }
+                    Section {
                         Button { app.navigation.open(.settings(.about(.privacy))) } label: { Label("Privacy Policy", systemImage: "hand.raised") }
                         Button { app.navigation.open(.settings(.about(.terms))) } label: { Label("Terms of Service", systemImage: "doc.text") }
+                        Button { app.navigation.open(.settings(.about(.licenses))) } label: { Label("Open-source licenses", systemImage: "doc.plaintext") }
+                    } header: { Text("Legal") } footer: {
+                        Text("The Privacy Policy explains what Modula stores and why; the Terms explain the rules for using it. Both open inside the app.")
                     }
                     .foregroundStyle(.primary)
-                    Section("Service") {
+                    Section {
                         Button { app.navigation.open(.settings(.help(.status))) } label: { Label("Service Status", systemImage: "waveform.path.ecg") }
                         Button { app.navigation.open(.settings(.whatsNew(.root))) } label: { Label("What’s New", systemImage: "sparkles") }
+                        Button { app.navigation.open(.settings(.help(.root))) } label: { Label("Help & Support", systemImage: "questionmark.circle") }
+                    } header: { Text("Service") } footer: {
+                        Text("Status shows live health from Modula’s servers, so you can tell whether a problem is on our side.")
                     }
                     .foregroundStyle(.primary)
                 }

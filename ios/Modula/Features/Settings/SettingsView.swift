@@ -882,9 +882,13 @@ struct AppearanceSettingsView: View {
                     select(store, theme: .system)
                 }
             }
+            Text(store.theme == .system ? "System follows your iPhone, switching to dark at night if you've set that up in iOS." : "Modula stays \(store.theme == .dark ? "dark" : "light") whatever your iPhone is set to.")
+                .font(.footnote).foregroundStyle(.secondary)
             if store.theme == .dark || (store.theme == .system && scheme == .dark) {
                 Text("Dark canvas").font(.subheadline.weight(.semibold))
                 darkCanvasChoices(store)
+                Text("Dim is softer on the eyes; OLED uses true black, which saves battery on iPhone OLED screens.")
+                    .font(.footnote).foregroundStyle(.secondary)
             }
         }
     }
@@ -957,6 +961,9 @@ struct AppearanceSettingsView: View {
                     }
             }
         }
+            Text("Your accent colours every button, toggle and highlight. Pick a custom colour and Modula keeps text on it readable.")
+                .font(.footnote).foregroundStyle(.secondary)
+        }
         .padding(16)
         .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
@@ -976,6 +983,8 @@ struct AppearanceSettingsView: View {
                     }
                 }
             }
+            Text("The wordmark at the top of Home. It only changes how Modula looks to you.")
+                .font(.footnote).foregroundStyle(.secondary)
         }
     }
 
