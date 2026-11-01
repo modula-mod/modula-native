@@ -52,12 +52,8 @@ struct PremiumHubView: View {
 
     var body: some View {
         SettingsScrollCanvas {
-            // Reference order: brand + promise + Unit on its pedestal first, then the member status.
-            PremiumMasthead(
-                eyebrow: "PREMIUM",
-                title: "Choose your plan",
-                subtitle: "Find the right level for you."
-            )
+            // Reference order: promise + Unit stage, billing toggle, side-by-side plans, benefits grid.
+            PremiumPromiseMasthead()
             PremiumHeroCard(plan: store.plan, previewing: store.isPreviewing)
 
             Picker("Audience", selection: $audience) {
@@ -70,42 +66,47 @@ struct PremiumHubView: View {
                 store.selectedPlan = value == .personal ? .recommended : .studio
             }
 
-            VStack(alignment: .leading, spacing: ModulaSpacing.sm) {
-                HStack {
-                    Text("Billing").font(.headline)
-                    Spacer()
-                    Picker("Billing", selection: $store.selectedBilling) {
-                        ForEach(PremiumBilling.allCases) { billing in
-                            Text(billingLabel(billing)).tag(billing)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(maxWidth: 220)
+            HStack {
+                PremiumBillingToggle(selection: $store.selectedBilling)
                     .accessibilityIdentifier("premium.billing")
+                Spacer(minLength: 8)
+                if PremiumPricing.annualSaveUpTo > 0 {
+                    Text("Save up to \(PremiumPricing.annualSaveUpTo)%")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.green)
+                        .padding(.horizontal, 10).frame(height: 28)
+                        .background(Color.green.opacity(0.12), in: Capsule())
                 }
-                ModulaGlassGroup(spacing: ModulaSpacing.sm) {
-                    VStack(spacing: ModulaSpacing.sm) {
-                        ForEach(audience.plans) { plan in
-                            PremiumPlanCard(
-                                plan: plan,
-                                billing: store.selectedBilling,
-                                selected: store.selectedPlan == plan,
-                                current: store.plan == plan
-                            ) {
-                                withAnimation(ModulaMotion.animation(.selection, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
-                                    store.selectedPlan = plan
-                                }
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: 10) {
+                    ForEach(audience.plans) { plan in
+                        PremiumPlanColumn(
+                            plan: plan,
+                            billing: store.selectedBilling,
+                            selected: store.selectedPlan == plan,
+                            current: store.plan == plan
+                        ) {
+                            withAnimation(ModulaMotion.animation(.selection, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
+                                store.selectedPlan = plan
                             }
+                            HapticEngine.shared.play(.selection)
                         }
                     }
                 }
-                PremiumPrimaryButton(plan: store.selectedPlan, currentPlan: store.plan, comingSoon: false) {
-                    app.navigation.open(.settings(.premium(.compare)))
-                }
-                Text(PremiumPricing.placeholderNote)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("premium.placeholderNote")
+                .padding(.vertical, 12)
+            }
+            .scrollClipDisabled()
+            .accessibilityIdentifier("premium.plans")
+
+            Text(PremiumPricing.placeholderNote)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("premium.placeholderNote")
+
+            PremiumWhatYouGetGrid {
+                app.navigation.open(.settings(.premium(.compare)))
             }
 
             TelegramSettingsCard {
@@ -142,6 +143,11 @@ struct PremiumHubView: View {
             #if DEBUG
             PremiumDeveloperCard(store: store)
             #endif
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            PremiumStickyCTA(plan: store.selectedPlan, billing: store.selectedBilling, currentPlan: store.plan) {
+                app.navigation.open(.settings(.premium(.compare)))
+            }
         }
         .navigationTitle("Modula Premium")
         .navigationBarTitleDisplayMode(.inline)
@@ -442,3 +448,233 @@ struct PremiumDeveloperCard: View {
     }
 }
 #endif
+
+
+// MARK: - Reference redesign pieces
+
+struct PremiumPromiseMasthead: View {
+    @Environment(AppEnvironment.self) private var app
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("MODULA PREMIUM")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(app.appearance.liveAccent)
+                    .padding(.horizontal, 10).frame(height: 24)
+                    .background(app.appearance.liveAccent.opacity(0.12), in: Capsule())
+                (Text("More possibilities with ") + Text("Modula.").foregroundStyle(app.appearance.liveAccent))
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
+                Text("More reach. More room. More expression.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            ZStack {
+                Circle().fill(app.appearance.liveAccent.opacity(0.18)).blur(radius: 24)
+                ModulaUnitMark(style: .glass(ModulaBrandPalette.lavenderDeep))
+                    .frame(width: 92, height: 92)
+                Image(PremiumBadgeAsset.crown.rawValue).resizable().scaledToFit().frame(width: 34).offset(x: 40, y: -44)
+                Image(PremiumBadgeAsset.analytics.rawValue).resizable().scaledToFit().frame(width: 30).offset(x: -46, y: -30)
+                Image(PremiumBadgeAsset.sparkle.rawValue).resizable().scaledToFit().frame(width: 28).offset(x: 46, y: 40)
+            }
+            .frame(width: 130, height: 140)
+            .accessibilityHidden(true)
+        }
+        .padding(.top, 8)
+    }
+}
+
+struct PremiumBillingToggle: View {
+    @Binding var selection: PremiumBilling
+    @Environment(AppEnvironment.self) private var app
+    @Namespace private var ns
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(PremiumBilling.allCases) { billing in
+                let on = selection == billing
+                Button {
+                    withAnimation(.snappy) { selection = billing }
+                    HapticEngine.shared.play(.selection)
+                } label: {
+                    Text(billing == .monthly ? "Monthly" : "Yearly")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(on ? Color.white : Color.primary)
+                        .frame(width: 100, height: 40)
+                        .background {
+                            if on { Capsule().fill(app.appearance.liveAccent).matchedGeometryEffect(id: "pill", in: ns) }
+                        }
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(on ? .isSelected : [])
+            }
+        }
+        .padding(3)
+        .modulaGlass(in: Capsule(), interactive: true)
+    }
+}
+
+struct PremiumPlanColumn: View {
+    let plan: PremiumPlan
+    let billing: PremiumBilling
+    let selected: Bool
+    let current: Bool
+    var action: () -> Void
+    @Environment(AppEnvironment.self) private var app
+
+    private var perks: [String] {
+        let included = PremiumFeature.allCases.filter { $0.minimumPlan.rank <= plan.rank && $0.minimumPlan != .core }
+        if plan == .core { return ["The full social OS", "Modules & Product Hub", "Moliboos & Studio"] }
+        return Array(included.suffix(4).map(\.title))
+    }
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .center, spacing: 8) {
+                Group {
+                    if let mark = PremiumBadgeAsset.profileMark(for: plan) {
+                        Image(mark.rawValue).resizable().scaledToFit()
+                    } else {
+                        ModulaUnitMark(style: .glass(nil))
+                    }
+                }
+                .frame(width: 52, height: 52)
+                .accessibilityHidden(true)
+                Text(plan.shortTitle).font(.headline)
+                Text(PremiumPricing.priceLine(plan, billing: billing))
+                    .font(.subheadline.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(plan == .core ? Color.primary : app.appearance.liveAccent)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                Text(plan.tagline).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center).lineLimit(2)
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(perks, id: \.self) { perk in
+                        Label {
+                            Text(perk).font(.caption2).lineLimit(2)
+                        } icon: {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.caption2)
+                                .foregroundStyle(plan == .recommended ? app.appearance.liveAccent : .secondary)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 4)
+                Spacer(minLength: 6)
+                Text(current ? "Current plan" : (selected ? "Selected" : "Choose"))
+                    .font(.footnote.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 40)
+                    .modulaAccentCTA()
+                    .disabled(current || !selected)
+            }
+            .padding(12)
+            .frame(width: 150, height: 330)
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.98))
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: true, tint: selected ? app.appearance.liveAccent.opacity(0.18) : nil, specular: true)
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(selected ? app.appearance.liveAccent : .clear, lineWidth: 1.5)
+                .allowsHitTesting(false)
+        }
+        .overlay(alignment: .top) {
+            if plan == .recommended {
+                Text("Recommended")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8).frame(height: 20)
+                    .background(app.appearance.liveAccent, in: Capsule())
+                    .offset(y: -10)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityIdentifier("premium.plan.\(plan.rawValue)")
+    }
+}
+
+struct PremiumWhatYouGetGrid: View {
+    var onSeeAll: () -> Void
+    @Environment(AppEnvironment.self) private var app
+    private let items: [(String, String, PremiumBadgeAsset)] = [
+        ("Premium mark", "Shown on your profile", .pearl),
+        ("Profile plate", "Exclusive frames", .frame),
+        ("In-Mail", "Message beyond follows", .inMail),
+        ("Visitors", "See who viewed you", .analytics),
+        ("Modules", "Unlimited installs", .tokens),
+        ("Scenes", "Exclusive Studio scenes", .sparkle),
+        ("Early access", "New features first", .ticket),
+        ("Moliboos", "Premium companions", .gift)
+    ]
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("What you get").font(.title3.bold()).accessibilityAddTraits(.isHeader)
+                Spacer()
+                Button(action: onSeeAll) {
+                    HStack(spacing: 4) { Text("See all features"); Image(systemName: "chevron.right") }
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(app.appearance.liveAccent)
+                        .padding(.horizontal, 12).frame(height: 30)
+                        .overlay(Capsule().strokeBorder(app.appearance.liveAccent.opacity(0.4)))
+                        .frame(minHeight: 44)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8, alignment: .top), count: 4), spacing: 14) {
+                ForEach(items, id: \.0) { item in
+                    VStack(spacing: 6) {
+                        Image(item.2.rawValue)
+                            .resizable().scaledToFit()
+                            .frame(width: 34, height: 34)
+                            .frame(width: 54, height: 54)
+                            .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: false, specular: true)
+                        Text(item.0).font(.caption.weight(.semibold)).multilineTextAlignment(.center).lineLimit(1).minimumScaleFactor(0.8)
+                        Text(item.1).font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center).lineLimit(2)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
+        }
+    }
+}
+
+struct PremiumStickyCTA: View {
+    let plan: PremiumPlan
+    let billing: PremiumBilling
+    let currentPlan: PremiumPlan
+    var action: () -> Void
+    @Environment(AppEnvironment.self) private var app
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(currentPlan == plan ? "You’re on \(plan.shortTitle)" : "Get \(plan.title)")
+                        .font(.headline)
+                    Text("\(PremiumPricing.priceLine(plan, billing: billing)) · Cancel anytime")
+                        .font(.caption)
+                        .opacity(0.85)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "arrow.right")
+                    .font(.body.weight(.bold))
+                    .frame(width: 44, height: 44)
+                    .background(.white.opacity(0.22), in: Circle())
+            }
+            .padding(.leading, 20).padding(.trailing, 8)
+            .frame(maxWidth: .infinity, minHeight: 62)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.98))
+        .modulaAccentCTA()
+        .disabled(currentPlan == plan)
+        .padding(.horizontal, ModulaLayout.contentInset)
+        .padding(.bottom, 8)
+        .accessibilityIdentifier("premium.continue")
+    }
+}
