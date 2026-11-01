@@ -101,6 +101,7 @@ struct HomeView: View {
                     .padding(.top, ModulaSpacing.xxs)
                     .padding(.bottom, shellChromeMetrics.contentBottomInset)
                     .modulaPullContentEffects()
+                    .modulaScrollsToTopOnReselect(.home)
                 }
             }
             .modulaSoftScrollEdge()
@@ -1162,11 +1163,7 @@ private struct HomeCatchUpSection: View {
                         }
                         Spacer(minLength: 0)
                         if let thumb = post.media.lazy.compactMap({ $0.thumbnailURL ?? $0.previewURL ?? $0.url }).first {
-                            AsyncImage(url: thumb) { image in
-                                image.resizable().scaledToFill()
-                            } placeholder: {
-                                Color.primary.opacity(0.06)
-                            }
+                            ModulaDownsampledImage(url: thumb, pointSize: 56)
                             .frame(width: 56, height: 56)
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                             .accessibilityHidden(true)

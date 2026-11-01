@@ -230,6 +230,7 @@ struct ProfileView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     ModulaScrollProgressReader()
+                        .modulaScrollsToTopOnReselect(.profile)
                     content
                         .padding(.top, -(ProfileFullBleedMetrics.windowSafeAreaTop + 44))
                         // Clear the tab bar + home indicator so the last post never hides under chrome.

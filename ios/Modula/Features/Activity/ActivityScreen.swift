@@ -143,6 +143,7 @@ struct ActivityScreen: View {
             .animation(calm ? nil : .snappy(duration: 0.3), value: chip)
             .padding(.bottom, 110)
             .modulaPullContentEffects()
+            .modulaScrollsToTopOnReselect(.activity)
         }
         .scrollPosition($scrollPosition)
         .environment(\.modulaHeroScope, "activity.\(mode.rawValue)")
