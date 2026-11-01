@@ -16,7 +16,13 @@ final class MessagingStore {
     private(set) var threadCursors: [ConversationID: String?] = [:]
     private(set) var threadHasMore: [ConversationID: Bool] = [:]
     private(set) var threadState: [ConversationID: MessagingLoadState] = [:]
-    var drafts: [ConversationID: String] = [:]
+    /// Unsent text per chat. Persisted on this device so a half-written reply survives leaving the chat or
+    /// relaunching (loss aversion: losing typed words feels worse than the effort of writing them).
+    var drafts: [ConversationID: String] = MessagingDraftStore.load() {
+        didSet { MessagingDraftStore.save(drafts) }
+    }
+    /// Chats pinned to the top of the inbox. Device-only: Greenfield has no conversation pin route.
+    private(set) var pinnedIDs: [ConversationID] = MessagingPinStore.load()
     private(set) var sendingIDs: Set<MessageID> = []
 
     private(set) var requests: [MessageRequest] = []
@@ -32,8 +38,24 @@ final class MessagingStore {
         self.capabilities = capabilities
     }
 
+    func isPinned(_ id: ConversationID) -> Bool { pinnedIDs.contains(id) }
+
+    func togglePin(_ id: ConversationID) {
+        if let i = pinnedIDs.firstIndex(of: id) { pinnedIDs.remove(at: i) }
+        else { pinnedIDs.insert(id, at: 0); if pinnedIDs.count > MessagingPinStore.limit { pinnedIDs.removeLast() } }
+        MessagingPinStore.save(pinnedIDs)
+    }
+
+    func draftPreview(for id: ConversationID) -> String? {
+        let text = (drafts[id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? nil : text
+    }
+
     var visibleConversations: [Conversation] {
-        let ordered = MessagingOrdering.conversationsNewestFirst(conversations)
+        let newest = MessagingOrdering.conversationsNewestFirst(conversations)
+        // Pinned chats first in pin order, then everything else newest first.
+        let pinned = pinnedIDs.compactMap { id in newest.first { $0.id == id } }
+        let ordered = pinned + newest.filter { !pinnedIDs.contains($0.id) }
         let query = conversationQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !query.isEmpty else { return ordered }
         return ordered.filter {
@@ -386,5 +408,37 @@ final class MessagingStore {
         case .unconfigured: api.userFacingMessage
         default: fallback
         }
+    }
+}
+
+
+/// Device-local persistence for composer drafts. Bounded (50 chats, 4,000 characters each), never synced.
+enum MessagingDraftStore {
+    static let key = "messages.drafts.v1"
+    static let maxChats = 50
+    static let maxLength = 4000
+
+    static func load(_ defaults: UserDefaults = .standard) -> [ConversationID: String] {
+        (defaults.dictionary(forKey: key) as? [String: String]) ?? [:]
+    }
+
+    static func save(_ drafts: [ConversationID: String], _ defaults: UserDefaults = .standard) {
+        let kept = drafts
+            .filter { !$0.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .prefix(maxChats)
+            .reduce(into: [String: String]()) { $0[$1.key] = String($1.value.prefix(maxLength)) }
+        if kept.isEmpty { defaults.removeObject(forKey: key) } else { defaults.set(kept, forKey: key) }
+    }
+}
+
+/// Device-local pinned chats (max 9, like system Messages). Greenfield has no pin route.
+enum MessagingPinStore {
+    static let key = "messages.pinned.v1"
+    static let limit = 9
+    static func load(_ defaults: UserDefaults = .standard) -> [ConversationID] {
+        Array((defaults.stringArray(forKey: key) ?? []).prefix(limit))
+    }
+    static func save(_ ids: [ConversationID], _ defaults: UserDefaults = .standard) {
+        defaults.set(Array(ids.prefix(limit)), forKey: key)
     }
 }
