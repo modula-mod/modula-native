@@ -1702,6 +1702,7 @@ struct ProductHubView: View {
     }
 
     private func open(_ product: CatalogueProduct) {
+        ProductHubRecents.note(product.id)
         app.navigation.open(.productHub(.module(product.id, .overview)))
     }
 }

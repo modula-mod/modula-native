@@ -132,11 +132,59 @@ struct ProductHubVariantView: View {
     @ViewBuilder private var story: some View {
         ProductHubFeaturedCarousel(products: featuredRail, installedIDs: installedIDs, onOpen: onOpen)
         ProductHubChipRow(purposes: purposes, total: products.count, selected: category, onCategory: onCategory)
+        let recent = ProductHubRecents.load().compactMap { id in installed.first { $0.id == id } }
+        if !recent.isEmpty {
+            sectionHeader("Continue where you left off")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(recent.prefix(6)) { product in
+                        ProductHubContinueCard(product: product) { onOpen(product) }
+                    }
+                }
+            }
+            .scrollClipDisabled()
+        }
+        if !updates.isEmpty {
+            HStack(spacing: 8) {
+                Text("Updates available").font(.title3.bold()).accessibilityAddTraits(.isHeader)
+                Text("\(updates.count)").font(.caption.weight(.bold)).foregroundStyle(.white)
+                    .padding(.horizontal, 8).frame(height: 22).modulaAccentCTA()
+                Spacer()
+            }
+            VStack(spacing: 8) {
+                ForEach(updates) { product in
+                    ProductHubVersionRow(product: product, installation: installations[product.id]) { onOpen(product) }
+                }
+            }
+        }
         if !discover.isEmpty || !installed.isEmpty {
             sectionHeader("Recommended for you")
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach((discover + installed).prefix(10)) { product in
+                        ProductHubRecommendedCard(product: product, installed: installedIDs.contains(product.id)) { onOpen(product) }
+                    }
+                }
+            }
+            .scrollClipDisabled()
+        }
+        let withShots = scoped.filter { !($0.presentation?.screenshots ?? []).compactMap(\.url).isEmpty }
+        if !withShots.isEmpty {
+            sectionHeader("Module previews")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(withShots.prefix(6)) { product in
+                        ProductHubPreviewCard(product: product) { onOpen(product) }
+                    }
+                }
+            }
+            .scrollClipDisabled()
+        }
+        ForEach(ProductHubCollections.make(scoped)) { collection in
+            sectionHeader(collection.title)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(collection.products.prefix(8)) { product in
                         ProductHubRecommendedCard(product: product, installed: installedIDs.contains(product.id)) { onOpen(product) }
                     }
                 }
@@ -657,5 +705,94 @@ struct ProductHubInstalledRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(product.name), open")
+    }
+}
+
+
+// MARK: - Continue / previews / collections (real data; on-device recents)
+
+/// Modules the user opened from the Hub, newest first. Stored on this iPhone only — there is no
+/// "recently used modules" route.
+enum ProductHubRecents {
+    static let key = "productHub.recentModules"
+    static func load() -> [String] { UserDefaults.standard.stringArray(forKey: key) ?? [] }
+    static func note(_ id: String) {
+        var list = load().filter { $0 != id }
+        list.insert(id, at: 0)
+        UserDefaults.standard.set(Array(list.prefix(12)), forKey: key)
+    }
+}
+
+struct ProductHubContinueCard: View {
+    let product: CatalogueProduct
+    var action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                ProductArtwork(product: product, size: 44)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(product.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                    Text("Resume").font(.caption).foregroundStyle(.secondary)
+                }
+                Image(systemName: "play.fill").font(.caption.weight(.bold))
+                    .frame(width: 32, height: 32).modulaAccentCTA(in: Circle())
+            }
+            .padding(10)
+            .frame(minHeight: 64)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Continue \(product.name)")
+    }
+}
+
+/// Registry screenshots only. Ratings aren't shown: the registry has no ratings field or route.
+struct ProductHubPreviewCard: View {
+    let product: CatalogueProduct
+    var action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(Array((product.presentation?.screenshots ?? []).compactMap { $0.url.flatMap(URL.init(string:)) }.prefix(3).enumerated()), id: \.offset) { _, url in
+                            ModulaRemoteImage(url: url, cacheKey: "hub-shot:\(url.absoluteString)", maximumPixelSize: 600) { phase in
+                                switch phase {
+                                case .success(let image): Image(uiImage: image).resizable().scaledToFill()
+                                default: Color.primary.opacity(0.06)
+                                }
+                            }
+                            .frame(width: 96, height: 180)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
+                    }
+                }
+                HStack(spacing: 8) {
+                    ProductArtwork(product: product, size: 32)
+                    Text(product.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                }
+            }
+            .padding(10)
+            .frame(width: 320, alignment: .leading)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: true)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(product.name) previews")
+    }
+}
+
+/// Collections derived from registry fields (publisher, kind, installability). There is no
+/// editorial collections route, so nothing is hand-picked.
+struct ProductHubCollection: Identifiable { let id: String; let title: String; let products: [CatalogueProduct] }
+enum ProductHubCollections {
+    static func make(_ products: [CatalogueProduct]) -> [ProductHubCollection] {
+        var out: [ProductHubCollection] = []
+        let modula = products.filter { $0.publisherName.localizedCaseInsensitiveContains("modula") }
+        if modula.count >= 2 { out.append(.init(id: "modula", title: "Made by Modula", products: modula)) }
+        let games = products.filter { $0.productKind.lowercased() == "game" }
+        if games.count >= 2 { out.append(.init(id: "games", title: "Games", products: games)) }
+        let soon = products.filter { !$0.installable }
+        if soon.count >= 2 { out.append(.init(id: "soon", title: "Coming soon", products: soon)) }
+        return out
     }
 }
