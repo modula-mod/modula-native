@@ -12,11 +12,12 @@ protocol ActivityRepository: Sendable {
 ///
 /// Contract (public probe + auth inventory, VPS source pending):
 /// - `GET /v1/notifications` — authenticated timeline (All / Mentions)
-/// - `GET /v1/profiles/me/follow-requests` — authenticated Requests mode
+/// - `GET /v1/profiles/me/follow-requests` — authenticated Requests mode (cursor page)
 /// - `POST /v1/notifications/:id/read`
 /// - `POST /v1/notifications/read-all`
-/// - Accept: `POST /v1/profiles/:id/follow`
-/// - Decline: `DELETE /v1/profiles/:id/follow`
+/// - Accept: `POST /v1/follow-requests/:requestId/accept`
+/// - Decline: `POST /v1/follow-requests/:requestId/reject`
+///   (falls back to the actor follow routes only when a payload carries no request id)
 ///
 /// Public `GET /v1/activity` is a static demo seed and is **not** used for signed-in acceptance.
 actor GreenfieldActivityRepository: ActivityRepository {
@@ -87,6 +88,15 @@ actor GreenfieldActivityRepository: ActivityRepository {
     }
 
     func acceptRequest(event: ActivityEvent) async throws {
+        if let requestID = event.requestID, !requestID.isEmpty {
+            let _: JSONValue = try await client.authenticatedJSON(
+                "POST",
+                path: "/v1/follow-requests/\(Self.pathEscaped(requestID))/accept",
+                body: .object([:])
+            )
+            removeFromCache(id: event.id, mode: .requests)
+            return
+        }
         guard let actorID = event.actor?.id ?? event.actors.first?.id else {
             throw APIError.invalidResponse
         }
@@ -99,6 +109,15 @@ actor GreenfieldActivityRepository: ActivityRepository {
     }
 
     func declineRequest(event: ActivityEvent) async throws {
+        if let requestID = event.requestID, !requestID.isEmpty {
+            let _: JSONValue = try await client.authenticatedJSON(
+                "POST",
+                path: "/v1/follow-requests/\(Self.pathEscaped(requestID))/reject",
+                body: .object([:])
+            )
+            removeFromCache(id: event.id, mode: .requests)
+            return
+        }
         guard let actorID = event.actor?.id ?? event.actors.first?.id else {
             throw APIError.invalidResponse
         }

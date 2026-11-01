@@ -29,6 +29,10 @@ struct OnboardingView: View {
                                 .frame(maxWidth: .infinity)
                         }
                         content
+                        if step == .moliboo {
+                            OnboardingMolibooPicker()
+                                .modulaSurfaceTransition()
+                        }
                         points
                     }
                     .padding(.horizontal, 24)

@@ -12,19 +12,20 @@ struct SearchScreen: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private enum ChromeScope: Hashable, CaseIterable {
-        case all, people, posts, modules, topics
+        case all, people, posts, modules, moliboos, topics
         var title: String {
             switch self {
             case .all: "All"
             case .people: "People"
             case .posts: "Posts"
             case .modules: "Modules"
+            case .moliboos: "Moliboos"
             case .topics: "Topics"
             }
         }
         var section: SearchSection? {
             switch self {
-            case .all: nil
+            case .all, .moliboos: nil
             case .people: .people
             case .posts: .posts
             case .modules: .modules
@@ -61,9 +62,14 @@ struct SearchScreen: View {
                 if !typeahead.isEmpty {
                     typeaheadRow
                 }
-                if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && chromeScope != .topics {
+                if chromeScope == .moliboos {
+                    molibooResults(limit: nil)
+                } else if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && chromeScope != .topics {
                     DiscoverSearchIdle(onPickRecent: { query = $0 }, onPickSuggestion: { query = $0 })
                 } else {
+                    if chromeScope == .all, !molibooMatches.isEmpty {
+                        molibooResults(limit: 3)
+                    }
                     results
                 }
             }
@@ -76,7 +82,7 @@ struct SearchScreen: View {
         .modulaCanvas()
         .navigationTitle("Search")
         .navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $query, prompt: "Search people, posts, modules")
+        .searchable(text: $query, prompt: "Search people, posts, modules, Moliboos")
         .onSubmit(of: .search) {
             DiscoverSearchRecents.record(query)
             HapticEngine.shared.play(.selection)
@@ -86,6 +92,7 @@ struct SearchScreen: View {
         .onChange(of: chromeScope) { _, _ in
             // Scope is local state: replacing the route here re-created (popped + pushed) the
             // whole screen, which flashed the bar, dropped the tabs and looked like Search reopening.
+            guard chromeScope != .moliboos else { return }
             Task { await app.discover.performSearch(query: query, section: chromeScope.section) }
         }
         .onChange(of: app.discover.search.results.count) { _, _ in
@@ -119,7 +126,7 @@ struct SearchScreen: View {
             }
         case _ where visibleResults.isEmpty:
             VStack(spacing: 14) {
-                ContentUnavailableView.search(text: query)
+                ModulaEmptyState(title: "No results for “\(query)”", message: "Check the spelling or try a broader search.", symbol: "magnifyingglass")
                     .frame(minHeight: 200)
                 if chromeScope != .all {
                     Button("Search everything instead") {
@@ -153,6 +160,48 @@ struct SearchScreen: View {
         case .posts: return results.filter { $0.entityType == "post" }
         case .modules: return results.filter { $0.entityType == "module" || $0.entityType == "module-release" }
         case .topics: return results.filter { $0.entityType == "topic" }
+        case .moliboos: return []
+        }
+    }
+
+    /// Moliboos are an on-device catalogue (no search endpoint), so they are matched locally by
+    /// name and personality. Premium kinds are listed but stay locked behind Premium.
+    private var molibooMatches: [ModulaMascotKind] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let all = ModulaMascotKind.allCases
+        guard !q.isEmpty else { return chromeScope == .moliboos ? all.filter { !$0.isPremium } : [] }
+        return all.filter { $0.name.lowercased().contains(q) || $0.personality.lowercased().contains(q) }
+            .sorted { a, b in
+                let ap = a.name.lowercased().hasPrefix(q), bp = b.name.lowercased().hasPrefix(q)
+                if ap != bp { return ap }
+                return MascotEntitlements.canUse(a) && !MascotEntitlements.canUse(b)
+            }
+    }
+
+    @ViewBuilder private func molibooResults(limit: Int?) -> some View {
+        let matches = limit.map { Array(molibooMatches.prefix($0)) } ?? molibooMatches
+        if matches.isEmpty {
+            ModulaEmptyState(title: "No Moliboos match “\(query)”", message: "Try a name like Pip or a trait like sleepy.", symbol: "pawprint")
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                if limit != nil {
+                    HStack {
+                        ModulaSectionHeader(title: "Moliboos")
+                        Button("See all") {
+                            withAnimation(ModulaSurfaceMotion.animation(reduce: reduceMotion)) { chromeScope = .moliboos }
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(app.appearance.liveAccent)
+                    }
+                }
+                ForEach(matches) { kind in
+                    SearchMolibooRow(kind: kind) {
+                        HapticEngine.shared.play(.navigation)
+                        app.navigation.open(.settings(.moliboo))
+                    }
+                }
+            }
+            .modulaSurfaceTransition()
         }
     }
 
@@ -232,7 +281,7 @@ struct SearchScreen: View {
         searchTask?.cancel()
         searchTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 280_000_000)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, chromeScope != .moliboos else { return }
             await app.discover.performSearch(query: query, section: chromeScope.section)
         }
     }
@@ -325,5 +374,41 @@ struct SearchScreen: View {
         }
         .scrollClipDisabled()
         .transition(.opacity)
+    }
+}
+
+
+/// One Moliboo hit: glossy figure (never clipped), name, personality and a Premium lock when gated.
+private struct SearchMolibooRow: View {
+    let kind: ModulaMascotKind
+    let action: () -> Void
+    @Environment(AppEnvironment.self) private var app
+    var body: some View {
+        let usable = MascotEntitlements.canUse(kind)
+        Button(action: action) {
+            HStack(spacing: 12) {
+                MolibooEmptyArt(kind: kind, mood: .happy, size: 26, animated: false)
+                    .frame(width: 64, height: 56)
+                    .opacity(usable ? 1 : 0.55)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(kind.name).font(.body.weight(.semibold))
+                    Text(kind.personality).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                }
+                Spacer(minLength: 8)
+                if !usable {
+                    Label("Premium", systemImage: "lock.fill")
+                        .labelStyle(.iconOnly)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(app.appearance.liveAccent)
+                        .accessibilityLabel("Premium Moliboo")
+                }
+            }
+            .padding(.horizontal, 12).padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous), interactive: true)
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: nil))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("search.moliboo.\(kind.rawValue)")
     }
 }

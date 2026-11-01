@@ -334,12 +334,78 @@ struct ActivityPillButton: View {
         Button(action: action) {
             Label(title, systemImage: symbol)
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(prominent ? accent : Color.primary)
+                .foregroundStyle(prominent ? Color.white : accent)
                 .padding(.horizontal, 12)
                 .frame(height: 30)
-                .modulaGlass(in: Capsule(), interactive: true, tint: prominent ? accent.opacity(0.16) : nil)
+                .modifier(ActivityPillChrome(prominent: prominent))
         }
         .buttonStyle(ModulaPressStyle(scale: 0.93, haptic: .selection))
+    }
+}
+
+struct ActivityTypeGroup: Identifiable {
+    let chip: ActivityChip
+    let clusters: [ActivityCluster]
+    var id: ActivityChip { chip }
+}
+
+/// Prominent pills use the one accent CTA; quiet pills are accent-labelled glass.
+private struct ActivityPillChrome: ViewModifier {
+    let prominent: Bool
+    func body(content: Content) -> some View {
+        if prominent { content.modulaAccentCTA() } else { content.modulaGlass(in: Capsule(), interactive: true) }
+    }
+}
+
+/// "Like back": likes the actor's most recent post through real routes
+/// (`GET /v1/profiles/:handle/posts?limit=1` then `POST /v1/posts/:postId/like`).
+/// Reciprocity: answering a like with a like is the lowest-effort way to return the gesture.
+struct ActivityLikeBackButton: View {
+    let actor: ActivityActor
+    let handle: String
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var phase: Phase = .idle
+    enum Phase { case idle, busy, liked }
+    var body: some View {
+        Button {
+            guard phase == .idle else { return }
+            phase = .busy
+            Task { await likeBack() }
+        } label: {
+            HStack(spacing: 4) {
+                if phase == .busy { ProgressView().controlSize(.mini) }
+                else { Image(systemName: phase == .liked ? "heart.fill" : "heart").font(.caption.weight(.bold)) }
+                Text(phase == .liked ? "Liked" : "Like back").font(.footnote.weight(.semibold)).lineLimit(1)
+            }
+            .padding(.horizontal, GeneratedDesignContract.Spacing.sm)
+            .frame(minHeight: GeneratedDesignContract.Layout.minimumTouchTarget)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: .lightImpact))
+        .modulaAccentCTA()
+        .disabled(phase != .idle)
+        .accessibilityLabel(phase == .liked ? "Liked \(actor.displayName)'s latest post" : "Like \(actor.displayName)'s latest post")
+        .accessibilityIdentifier("activity.like-back")
+    }
+
+    private func likeBack() async {
+        do {
+            let path = "/v1/profiles/\(handle.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? handle)/posts?limit=1"
+            let page = ProfilePayloadDecoder.postPage(from: try await app.client.json("GET", path: path))
+            guard let post = page.items.first else {
+                phase = .idle
+                app.navigation.flash("\(actor.displayName) hasn't posted yet", symbol: "heart")
+                return
+            }
+            try await GreenfieldPostRepository(client: app.client).like(postID: post.id)
+            withAnimation(ModulaSurfaceMotion.animation(reduce: reduceMotion)) { phase = .liked }
+            HapticEngine.shared.play(.success)
+        } catch {
+            phase = .idle
+            HapticEngine.shared.play(.failure)
+            app.navigation.flash((error as? APIError)?.userFacingMessage ?? "Couldn't like that post", symbol: "exclamationmark.triangle")
+        }
     }
 }
 
@@ -446,6 +512,9 @@ struct ActivityClusterCard: View {
             EmptyView()
         } else if cluster.events.count == 1, lead.kind == .follow, let a = cluster.actors.first {
             ActivityFollowBackButton(actor: a, compact: true)
+        } else if cluster.actors.count == 1, lead.kind == .like || lead.kind == .reaction,
+                  let a = cluster.actors.first, let handle = a.handle, !handle.isEmpty {
+            ActivityLikeBackButton(actor: a, handle: handle)
         } else if cluster.expandsInline {
             Image(systemName: "chevron.down")
                 .font(.caption.weight(.bold))
@@ -684,10 +753,86 @@ struct ActivityClusterFeed: View {
     var busyEventID: ActivityEventID? = nil
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @State private var expanded: Set<String> = []
+    /// Timeline (default) or grouped by notification type. Persisted; purely a client-side view of the same feed.
+    @AppStorage("activity.groupByType") private var groupByType = false
     private var calm: Bool { ModulaEffectGate.reduceMotion(systemReduceMotion) }
 
     var body: some View {
         LazyVStack(alignment: .leading, spacing: 0) {
+            groupingToggle
+            if groupByType {
+                typeGroupedRows
+            } else {
+                timelineRows
+            }
+            loadMoreRow
+        }
+        .modulaSurfaceAnimation(value: groupByType)
+    }
+
+    /// Chunking (Miller): one header per type turns a long mixed feed into a few scannable groups.
+    private var groupingToggle: some View {
+        HStack {
+            Spacer(minLength: 0)
+            Button {
+                HapticEngine.shared.play(.selection)
+                groupByType.toggle()
+            } label: {
+                Label(groupByType ? "Grouped by type" : "Group by type",
+                      systemImage: groupByType ? "square.stack.3d.up.fill" : "square.stack.3d.up")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(groupByType ? Color.white : app.appearance.liveAccent)
+                    .padding(.horizontal, 12)
+                    .frame(height: 32)
+                    .modifier(ActivityPillChrome(prominent: groupByType))
+            }
+            .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+            .accessibilityAddTraits(groupByType ? .isSelected : [])
+            .accessibilityIdentifier("activity.group-by-type")
+        }
+        .padding(.top, 4)
+    }
+
+    private var typeGroups: [ActivityTypeGroup] {
+        let chips = ActivityChip.allCases.filter { $0 != .all }
+        var buckets: [ActivityChip: [ActivityEvent]] = [:]
+        var other: [ActivityEvent] = []
+        for e in events {
+            if let chip = chips.first(where: { $0.matches(e) }) { buckets[chip, default: []].append(e) } else { other.append(e) }
+        }
+        var out: [ActivityTypeGroup] = chips.compactMap { chip in
+            guard let ev = buckets[chip], !ev.isEmpty else { return nil }
+            return ActivityTypeGroup(chip: chip, clusters: ActivityCluster.build(ev))
+        }
+        if !other.isEmpty { out.append(ActivityTypeGroup(chip: .all, clusters: ActivityCluster.build(other))) }
+        return out
+    }
+
+    @ViewBuilder private var typeGroupedRows: some View {
+        ForEach(typeGroups) { group in
+            HStack(spacing: 8) {
+                Image(systemName: group.chip == .all ? "ellipsis.circle.fill" : group.chip.symbol)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(app.appearance.liveAccent)
+                Text(group.chip == .all ? "Other" : group.chip.title).font(.headline)
+                Text("\(group.clusters.reduce(0) { $0 + $1.events.count })")
+                    .font(.caption.weight(.bold)).monospacedDigit().foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+            }
+            .padding(.top, group.chip == typeGroups.first?.chip ? 6 : 22)
+            .padding(.bottom, 4)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+            ForEach(group.clusters) { cluster in
+                row(cluster)
+                if cluster.expandsInline && expanded.contains(cluster.id) {
+                    expandedFollowers(cluster)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var timelineRows: some View {
             ForEach(sections, id: \.section) { group in
                 sectionHeader(group.section, clusters: group.clusters)
                 ForEach(group.clusters) { cluster in
@@ -697,6 +842,9 @@ struct ActivityClusterFeed: View {
                     }
                 }
             }
+    }
+
+    @ViewBuilder private var loadMoreRow: some View {
             if hasMore {
                 HStack { Spacer(); if loadingMore { ProgressView() } else { Text("Load more").font(.subheadline.weight(.semibold)) }; Spacer() }
                     .frame(height: 48)
@@ -706,7 +854,6 @@ struct ActivityClusterFeed: View {
                     .accessibilityIdentifier("activity.load-more")
                     .onAppear { if !loadingMore { onLoadMore() } }
             }
-        }
     }
 
     private func sectionHeader(_ section: ActivityTimelineSection, clusters: [ActivityCluster]) -> some View {
@@ -751,7 +898,8 @@ struct ActivityClusterFeed: View {
             } label: {
                 ActivityClusterCard(
                     cluster: cluster,
-                    showRequestActions: mode == .requests && lead.kind.isRequest,
+                    // Follow requests are actionable wherever they appear (All or Requests).
+                    showRequestActions: lead.kind == .followRequest || (mode == .requests && lead.kind.isRequest),
                     busy: busy, expanded: isOpen,
                     onAccept: { onAccept(lead) }, onDecline: { onDecline(lead) },
                     onViewPost: { open(lead, cluster: cluster) }

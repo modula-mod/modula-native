@@ -110,7 +110,7 @@ struct LanguageSettingsHost: View {
                 )
                 // The in-app override was never applied anywhere. iOS already
                 // offers a per-app language picker, so link to it instead.
-                SettingsGroup(title: "App language") {
+                SettingsGroup(title: "App language", subtitle: "iOS keeps a separate language for each app. Tapping opens Modula in iOS Settings, where you pick it; Modula restarts in that language.") {
                     VStack(spacing: 0) {
                         SettingsNavigationRow(
                             title: "App Language",
@@ -121,10 +121,12 @@ struct LanguageSettingsHost: View {
                         }
                     }
                 }
-                SettingsToggleCard {
-                    Toggle("Show translation hints", isOn: $translationHints)
+                SettingsGroup(title: "Posts in other languages", subtitle: "When on, posts written in a language other than yours show a small “Translated from …” hint so you know what you’re reading.") {
+                    SettingsToggleCard {
+                        Toggle("Show translation hints", isOn: $translationHints)
+                    }
                 }
-                SettingsGroup(title: "Region") {
+                SettingsGroup(title: "Region", subtitle: "Translation options and how times and measurements are shown on this device.") {
                     VStack(spacing: 0) {
                         SettingsNavigationRow(title: "Translate", subtitle: "Translation hints", symbol: "character.book.closed") {
                             app.navigation.open(.settings(.translate(.root)))

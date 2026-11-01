@@ -232,6 +232,13 @@ struct PremiumManageView: View {
                 }
             }
             Text(billingNote).font(.footnote).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("What you can do here").font(.subheadline.weight(.semibold))
+                Text("Change plan compares what each plan includes before you switch. Billing and invoices lists past charges from your account. Badge visibility controls whether your membership mark shows on your profile.")
+                if store.isPreviewing { Text("You're previewing a plan on this device only; nothing has been charged.") }
+            }
+            .font(.footnote).foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             if store.plan.isPaid {
                 Button {

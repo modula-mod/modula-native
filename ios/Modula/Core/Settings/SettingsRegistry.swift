@@ -151,13 +151,13 @@ enum SettingsRegistry {
     private static func makeDestinations() -> [SettingsDestination] {
         [
             item(.root, "Settings", "Account, appearance, security and more", "gearshape", .implemented, terms: ["settings", "prefs"]),
-            item(.account(.root), "Account", "Personal information, sessions and sign out", "person.crop.circle", .implemented, terms: ["account", "login"]),
-            item(.account(.personalInformation), "Personal Information", "Private account details", "person.text.rectangle", .implemented, terms: ["name", "account id"]),
-            item(.account(.username), "Username", "Change your Greenfield handle", "at", .implemented, terms: ["username", "handle"]),
-            item(.account(.email), "Email", "Account email", "envelope", .capabilityUnavailable, terms: ["email"], reason: "Changing your email isn’t available in the app yet."),
-            item(.account(.password), "Password", "Reset through Greenfield", "key", .implemented, terms: ["password"]),
-            item(.account(.sessions), "Sessions", "Devices signed into this account", "laptopcomputer.and.iphone", .implemented, terms: ["sessions", "devices", "sign out"]),
-            item(.account(.deleteAccount), "Delete Account", "Schedule deletion with a 7-day grace period", "trash", .implemented, terms: ["delete", "close account"]),
+            item(.account(.root), "Account", "Personal information, sessions and sign out", "person.crop.circle", .implemented, terms: ["account", "login", "profile", "linked accounts", "sign in with apple", "deactivate"]),
+            item(.account(.personalInformation), "Personal Information", "Private account details", "person.text.rectangle", .implemented, terms: ["name", "account id", "profile info", "birthday", "phone"]),
+            item(.account(.username), "Username", "Change your Greenfield handle", "at", .implemented, terms: ["username", "handle", "@", "rename"]),
+            item(.account(.email), "Email", "Account email", "envelope", .capabilityUnavailable, terms: ["email", "email address", "change email"], reason: "Changing your email isn’t available in the app yet."),
+            item(.account(.password), "Password", "Reset through Greenfield", "key", .implemented, terms: ["password", "change password", "reset password", "forgot password"]),
+            item(.account(.sessions), "Sessions", "Devices signed into this account", "laptopcomputer.and.iphone", .implemented, terms: ["sessions", "devices", "sign out", "log out", "active sessions", "where you’re signed in"]),
+            item(.account(.deleteAccount), "Delete Account", "Schedule deletion with a 7-day grace period", "trash", .implemented, terms: ["delete", "close account", "deactivate", "remove account", "grace period"]),
             item(.appearance(.root), "Appearance", "Theme, type, motion and branding", "paintpalette", .implemented, terms: ["theme", "oled", "dim", "font", "accent", "dark", "light"]),
             item(.appearance(.theme), "Theme", "Light, dark or system", "circle.lefthalf.filled", .implemented, terms: ["light", "dark", "system theme"]),
             item(.appearance(.darkStyle), "Dark Style", "Standard, Dim or OLED", "moon", .implemented, terms: ["oled", "dim", "dark"]),
@@ -209,7 +209,7 @@ enum SettingsRegistry {
             item(.audio(.playback), "Playback", "Autoplay previews", "play.circle", .implemented, terms: ["autoplay"]),
             item(.audio(.voice), "Voice", "Voice note speed", "waveform", .implemented, terms: ["voice", "speed"]),
             item(.audio(.haptics), "Audio Haptics", "Haptic on play", "hand.tap", .implemented, terms: ["haptics", "haptic"], anchor: "audio.haptics"),
-            item(.language(.root), "Language", "App language on this device", "globe", .implemented, terms: ["language", "locale", "region"]),
+            item(.language(.root), "Language", "App language on this device", "globe", .implemented, terms: ["language", "locale", "region", "translate", "english"]),
             item(.media(.root), "Media", "Video and image quality", "photo.on.rectangle.angled", .implemented, terms: ["media", "video", "images"]),
             item(.media(.video), "Video", "Playback quality", "film", .implemented, terms: ["video quality"]),
             item(.media(.images), "Images", "Upload preferences", "photo", .implemented, terms: ["images", "upload"]),
@@ -234,7 +234,7 @@ enum SettingsRegistry {
             item(.photos(.root), "Photos", "Library access and save behaviour", "photo.on.rectangle", .implemented, terms: ["photos", "library"]),
             item(.network(.root), "Network", "Upload and preload behaviour", "network", .implemented, terms: ["network", "wifi", "preload"]),
             item(.digests(.root), "Digests", "Weekly and morning summaries", "envelope.open", .implemented, terms: ["digest", "email summary"]),
-            item(.help(.root), "Help", "Guides, contact and status", "questionmark.circle", .implemented, terms: ["help", "support"]),
+            item(.help(.root), "Help", "Guides, contact and status", "questionmark.circle", .implemented, terms: ["help", "support", "faq", "problem"]),
             item(.help(.guides), "Guides", "How the main settings work", "book", .implemented, terms: ["guides", "howto"]),
             item(.help(.contact), "Contact", "Open a case or email support", "envelope", .implemented, terms: ["contact", "support", "email", "bug", "report a problem"]),
             item(.help(.status), "Status", "Live service health", "waveform.path.ecg", .implemented, terms: ["status", "uptime", "outage"]),
@@ -243,7 +243,7 @@ enum SettingsRegistry {
             item(.creator(.studio), "Studio defaults", "Audience and hints", "slider.horizontal.2.square", .implemented, terms: ["audience"]),
             item(.creator(.insights), "Insights", "Engagement and followers from real activity", "chart.line.uptrend.xyaxis", .implemented, terms: ["insights", "analytics"]),
             item(.focus(.root), "Focus", "Behaviour during iOS Focus", "moon.stars", .implemented, terms: ["focus", "dnd"]),
-            item(.passkeys(.root), "Passkeys", "Passkeys on your account", "person.badge.key", .implemented, terms: ["passkey", "webauthn"]),
+            item(.passkeys(.root), "Passkeys", "Passkeys on your account", "person.badge.key", .implemented, terms: ["passkey", "webauthn", "face id sign in", "passwordless"]),
             item(.translate(.root), "Translate", "Translation hints for posts", "character.book.closed", .implemented, terms: ["translate", "language detect"]),
             item(.qrCode(.root), "Modula Code", "Profile QR and scanner", "qrcode", .implemented, terms: ["qr", "modula code"]),
             item(.family(.root), "Family", "Shared plans and parental controls", "figure.2.and.child.holdinghands", .capabilityUnavailable, terms: ["family", "parental"], reason: "Family controls aren’t available yet."),
@@ -262,7 +262,7 @@ enum SettingsRegistry {
             item(.notifications(.quietHours), "Quiet Hours", "Hide the badge and hold digests overnight", "moon.zzz", .implemented, terms: ["quiet hours", "dnd"]),
             item(.privacy(.root), "Privacy & Security", "App Lock, biometrics and blocked accounts", "lock.shield", .implemented, terms: ["privacy", "security", "face id", "app lock"]),
             item(.privacy(.privacy), "Privacy", "Profile visibility and data", "hand.raised", .implemented, terms: ["visibility"]),
-            item(.privacy(.security), "Security", "Account and device security", "lock", .implemented, terms: ["security"]),
+            item(.privacy(.security), "Security Center", "Passkeys, recovery codes, devices and App Lock", "lock.shield.fill", .implemented, terms: ["security", "security center", "2fa", "two-factor", "two factor", "recovery codes", "passkeys", "sign out other devices", "login alerts", "sign in with apple", "authenticator", "totp", "add passkey", "link apple"]),
             item(.privacy(.glassPrivacy), "Glass Privacy", "Conversation privacy levels", "bubble.left.and.bubble.right", .capabilityUnavailable, terms: ["protected chat", "vault chat", "glass"], reason: "Protected chats aren’t available yet."),
             item(.privacy(.blocked), "Blocked Accounts", "People you’ve blocked", "nosign", .implemented, terms: ["blocked", "block list"]),
             item(.privacy(.appLock), "App Lock", "Passcode lock for this device", "lock.fill", .implemented, terms: ["app lock", "passcode", "pin"]),
@@ -272,14 +272,14 @@ enum SettingsRegistry {
             item(.modules(.updates), "Module Updates", "Catalogue versions", "arrow.triangle.2.circlepath", .implemented, terms: ["updates"]),
             item(.modules(.autoUpdates), "Auto Updates", "Module auto-update policy", "arrow.clockwise", .capabilityUnavailable, terms: ["auto updates"], reason: "Automatic module updates aren’t available yet. App updates are managed by the App Store."),
             item(.modules(.permissions), "Module Permissions", "HostBridge grants", "switch.2", .implemented, terms: ["permissions"]),
-            item(.dataStorage(.root), "Data & Storage", "Cache, downloads, backup and export", "internaldrive", .implemented, terms: ["storage", "cache"]),
+            item(.dataStorage(.root), "Data & Storage", "Cache, downloads, backup and export", "internaldrive", .implemented, terms: ["storage", "cache", "data", "space", "free up"]),
             item(.dataStorage(.storage), "Storage", "Measured local usage", "externaldrive", .implemented, terms: ["storage", "mb"]),
             item(.dataStorage(.packages), "Storage & Downloads", "Downloaded packages and shared runtimes", "square.stack.3d.up", .implemented, terms: ["packages", "games", "runtimes", "models"]),
             item(.dataStorage(.cache), "Cache", "Clear rebuildable cache", "xmark.bin", .implemented, terms: ["cache", "clear"]),
             item(.dataStorage(.downloads), "Downloads", "Downloaded content", "arrow.down.to.line", .implemented, terms: ["downloads"]),
             item(.dataStorage(.backup), "Backup", "Account or module backup", "arrow.clockwise.icloud", .capabilityUnavailable, terms: ["backup"], reason: "Backup isn’t available yet."),
             item(.dataStorage(.export), "Export", "Account data export", "square.and.arrow.up", .implemented, terms: ["export", "download my data", "gdpr"]),
-            item(.accessibility(.root), "Accessibility", "Complements system accessibility", "accessibility", .implemented, terms: ["accessibility", "voiceover"]),
+            item(.accessibility(.root), "Accessibility", "Complements system accessibility", "accessibility", .implemented, terms: ["accessibility", "voiceover", "dynamic type", "text size", "reduce motion", "contrast", "reduce transparency"]),
             item(.accessibility(.text), "Text", "Uses system Dynamic Type", "textformat.size", .implemented, terms: ["dynamic type", "text"]),
             item(.accessibility(.contrast), "Contrast", "Follows system and appearance", "circle.righthalf.filled", .implemented, terms: ["contrast"]),
             item(.accessibility(.motion), "Motion", "Reduce Motion stays with the system", "figure.walk.motion", .implemented, terms: ["reduce motion"]),
@@ -301,7 +301,7 @@ enum SettingsRegistry {
             item(.developer(.diagnostics), "Diagnostics", "Runtime evidence", "stethoscope", .developerOnly, terms: ["diagnostics"]),
             item(.developer(.intelligence), "Local Intelligence", "Native intelligence diagnostics", "brain", .developerOnly, terms: ["intelligence", "ai", "local"]),
             item(.developer(.nodusChat), "Nodus Chat", "Local Nodus conversation testing", "bubble.left.and.bubble.right", .developerOnly, terms: ["nodus", "chat", "intelligence"]),
-            item(.about(.root), "About", "Version, licenses and legal", "info.circle", .implemented, terms: ["about"]),
+            item(.about(.root), "About", "Version, licenses and legal", "info.circle", .implemented, terms: ["about", "version", "build", "legal", "licenses", "terms", "privacy policy"]),
             item(.about(.version), "Version", "Bundle version and build", "number", .implemented, terms: ["version", "build"]),
             item(.about(.licenses), "Licenses", "Third-party notices", "doc.plaintext", .implemented, terms: ["licenses", "oss"]),
             item(.about(.privacy), "Privacy Policy", "What Modula keeps and how you control it", "hand.raised", .implemented, terms: ["privacy policy", "privacy", "data", "legal"]),
@@ -325,8 +325,13 @@ enum FeatureFlagRegistry {
         .init(id: "reactions.v2", title: "Multi-reactions", detail: "Capability-gated until Greenfield reaction types are verified.", exposedToProduction: false, enabled: false),
         .init(id: "app.lock", title: "App Lock", detail: "Local passcode and biometrics.", exposedToProduction: true, enabled: true),
         .init(id: "command.center", title: "Command Center", detail: "Native command palette.", exposedToProduction: true, enabled: true),
-        .init(id: "community.shell", title: "Community shell", detail: "Debug-only preview. Always off in Release. Greenfield has no communities routes.", exposedToProduction: false, enabled: false)
+        .init(id: "community.shell", title: "Community shell", detail: "Debug-only preview. Always off in Release. Greenfield has no communities routes.", exposedToProduction: false, enabled: false),
+        .init(id: "profile.progression", title: "Profile levels & badges", detail: "Level ring and achievement badges. Off until Greenfield serves profile progression.", exposedToProduction: false, enabled: false),
+        .init(id: "profile.pinnedPosts", title: "Pinned posts", detail: "Pinned posts shelf. Off until Greenfield exposes post pinning on profiles.", exposedToProduction: false, enabled: false)
     ]
+
+    /// Static gate for UI that waits on a backend capability. Unknown ids are off.
+    static func isEnabled(_ id: String) -> Bool { all.first { $0.id == id }?.enabled ?? false }
 
     static var productionVisible: [FeatureFlag] { all.filter(\.exposedToProduction) }
     static var experimentalVisible: [FeatureFlag] { all.filter { $0.exposedToProduction == false } }

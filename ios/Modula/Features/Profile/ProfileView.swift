@@ -492,6 +492,17 @@ struct ProfileView: View {
                 highlights(profile)
                     .modulaPageEntrance(delay: 0.12)
 
+                // Levels & badges wait on Greenfield: flag-gated and fed `nil` until a producer exists.
+                if FeatureFlagRegistry.isEnabled("profile.progression"), let progression = profileProgression(profile) {
+                    ProfileProgressionCard(progression: progression)
+                        .modulaPageEntrance(delay: 0.13)
+                }
+
+                if isOwnProfile, !app.profile.visitorPreviewActive {
+                    ProfileShowcaseShelf()
+                        .modulaPageEntrance(delay: 0.13)
+                }
+
                 if !session.modules.items.isEmpty {
                     ProfileFeaturedModulesRow(
                         products: session.modules.items,
@@ -645,6 +656,9 @@ struct ProfileView: View {
         }
         return items
     }
+
+    /// No Greenfield producer for levels/badges yet (see PR backend gaps), so this is always nil.
+    private func profileProgression(_ profile: ModulaProfile) -> ProfileProgression? { nil }
 
     private func mutualFollowers(_ profile: ModulaProfile) -> [ModulaProfile] {
         guard !isOwnProfile, let accountHandle else { return [] }

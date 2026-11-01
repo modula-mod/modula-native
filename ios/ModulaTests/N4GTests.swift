@@ -88,7 +88,7 @@ final class N4GChromeContractTests: XCTestCase {
     }
 
     func testOnboardingStillHasFiveStepsAndThreeValueRows() {
-        XCTAssertEqual(OnboardingStep.count, 5)
+        XCTAssertEqual(OnboardingStep.count, 6)
         XCTAssertLessThanOrEqual(OnboardingStep.world.points.count, 3)
         XCTAssertEqual(OnboardingStep.world.next, .profile)
         XCTAssertNil(OnboardingStep.control.next)

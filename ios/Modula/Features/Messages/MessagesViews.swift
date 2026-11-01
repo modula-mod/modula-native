@@ -37,19 +37,24 @@ struct ConversationListView: View {
     @State private var filter: InboxFilter = .all
 
     enum InboxFilter: String, CaseIterable, Identifiable {
-        case all, unread, groups
+        case all, unread, needsReply, groups
         var id: Self { self }
         var title: String {
             switch self {
             case .all: "All"
             case .unread: "Unread"
+            case .needsReply: "Needs reply"
             case .groups: "Groups"
             }
         }
-        func matches(_ c: Conversation) -> Bool {
+        /// "Needs reply": the last message came from someone else (Zeigarnik effect: open loops are easy to
+        /// spot and close). Uses the real `lastMessage.senderID` from `GET /v1/conversations`.
+        func matches(_ c: Conversation, viewerID: String?) -> Bool {
             switch self {
             case .all: true
             case .unread: c.isUnread
+            case .needsReply:
+                if let sender = c.lastMessage?.senderID, let viewerID { sender != viewerID } else { false }
             case .groups: c.kind == .group || c.participants.count > 1
             }
         }
@@ -101,6 +106,7 @@ struct ConversationListView: View {
     private var filterRow: some View {
         let all = app.messaging.visibleConversations
         let unread = all.filter(\.isUnread).count
+        let needsReply = all.filter { InboxFilter.needsReply.matches($0, viewerID: app.auth.account?.accountId) }.count
         return ScrollView(.horizontal, showsIndicators: false) {
             ModulaGlassGroup(spacing: 6) {
                 HStack(spacing: 6) {
@@ -113,8 +119,8 @@ struct ConversationListView: View {
                         } label: {
                             HStack(spacing: 5) {
                                 Text(item.title).font(.subheadline.weight(.semibold))
-                                if item == .unread, unread > 0 {
-                                    Text("\(unread)").font(.caption2.weight(.bold)).monospacedDigit()
+                                if (item == .unread && unread > 0) || (item == .needsReply && needsReply > 0) {
+                                    Text("\(item == .unread ? unread : needsReply)").font(.caption2.weight(.bold)).monospacedDigit()
                                         .foregroundStyle(on ? Color.white.opacity(0.9) : app.appearance.liveAccent)
                                 }
                             }
@@ -136,7 +142,8 @@ struct ConversationListView: View {
 
     @ViewBuilder
     private var content: some View {
-        let items = app.messaging.visibleConversations.filter(filter.matches)
+        let viewerID = app.auth.account?.accountId
+        let items = app.messaging.visibleConversations.filter { filter.matches($0, viewerID: viewerID) }
         let searching = !app.messaging.conversationQuery.trimmingCharacters(in: .whitespaces).isEmpty
         if items.isEmpty {
             VStack(spacing: 0) {
@@ -155,7 +162,9 @@ struct ConversationListView: View {
                     Button {
                         open(conversation)
                     } label: {
-                        ConversationRow(conversation: conversation, viewerID: app.auth.account?.accountId)
+                        ConversationRow(conversation: conversation, viewerID: app.auth.account?.accountId,
+                                        pinned: app.messaging.isPinned(conversation.id),
+                                        draft: app.messaging.draftPreview(for: conversation.id))
                     }
                     .buttonStyle(.plain)
                     .listRowInsets(EdgeInsets(top: 6, leading: ModulaLayout.contentInset, bottom: 6, trailing: ModulaLayout.contentInset))
@@ -170,6 +179,13 @@ struct ConversationListView: View {
                         }
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button {
+                            togglePin(conversation)
+                        } label: {
+                            Label(app.messaging.isPinned(conversation.id) ? "Unpin" : "Pin",
+                                  systemImage: app.messaging.isPinned(conversation.id) ? "pin.slash.fill" : "pin.fill")
+                        }
+                        .tint(app.appearance.liveAccent)
                         if let person = conversation.participants.first {
                             Button {
                                 app.navigation.push(.profile(person.id, .overview))
@@ -202,12 +218,13 @@ struct ConversationListView: View {
                 await app.messaging.refreshInbox()
             }
         case _ where searching || filter != .all:
-            ContentUnavailableView {
-                Label(searching ? "No matching chats" : (filter == .unread ? "You're all caught up" : "No group chats"),
-                      systemImage: searching ? "magnifyingglass" : (filter == .unread ? "checkmark.bubble" : "person.3"))
-            } description: {
-                Text(searching ? "Search looks through the chats loaded on this device." : "Nothing here right now.")
-            }
+            ModulaEmptyState(
+                title: searching ? "No matching chats"
+                    : filter == .unread ? "You're all caught up"
+                    : filter == .needsReply ? "Nobody's waiting on you" : "No group chats",
+                message: searching ? "Search looks through the chats loaded on this device." : "Nothing here right now.",
+                symbol: searching ? "magnifyingglass" : (filter == .groups ? "person.3" : "sparkles")
+            )
             .frame(maxHeight: .infinity, alignment: .top)
             .padding(.top, 40)
         default:
@@ -218,6 +235,8 @@ struct ConversationListView: View {
     @ViewBuilder
     private func contextMenu(_ conversation: Conversation) -> some View {
         Button("Open Chat", systemImage: "bubble.left.and.bubble.right") { open(conversation) }
+        Button(app.messaging.isPinned(conversation.id) ? "Unpin" : "Pin",
+               systemImage: app.messaging.isPinned(conversation.id) ? "pin.slash" : "pin") { togglePin(conversation) }
         if conversation.isUnread, app.messaging.capabilities.markRead {
             Button("Mark as Read", systemImage: "checkmark.message") {
                 Task { await app.messaging.markConversationRead(conversation.id) }
@@ -229,6 +248,13 @@ struct ConversationListView: View {
         Button("Copy Name", systemImage: "doc.on.doc") {
             UIPasteboard.general.string = conversation.title
             HapticEngine.shared.play(.confirmation)
+        }
+    }
+
+    private func togglePin(_ conversation: Conversation) {
+        HapticEngine.shared.play(.selection)
+        withAnimation(ModulaSurfaceMotion.animation(reduce: ModulaEffectGate.reduceMotion(reduceMotion))) {
+            app.messaging.togglePin(conversation.id)
         }
     }
 
@@ -340,6 +366,9 @@ struct MessagesScopePicker: View {
 struct ConversationRow: View {
     let conversation: Conversation
     var viewerID: String? = nil
+    var pinned = false
+    /// Unsent text left in this chat's composer (device-local).
+    var draft: String? = nil
     @Environment(AppEnvironment.self) private var app
     @Environment(\.routeTransitionNamespace) private var routeTransitions
 
@@ -362,6 +391,10 @@ struct ConversationRow: View {
                         .lineLimit(1)
                     if isGroup {
                         Image(systemName: "person.2.fill").font(.caption2).foregroundStyle(.tertiary)
+                            .accessibilityHidden(true)
+                    }
+                    if pinned {
+                        Image(systemName: "pin.fill").font(.caption2).foregroundStyle(accent)
                             .accessibilityHidden(true)
                     }
                     Spacer(minLength: 6)
@@ -396,6 +429,9 @@ struct ConversationRow: View {
     }
 
     private var previewText: Text {
+        if let draft {
+            return Text("Draft: ").fontWeight(.semibold).foregroundStyle(app.appearance.liveAccent) + Text(draft)
+        }
         let body = conversation.lastMessage?.body ?? ""
         if body.isEmpty { return Text("No messages yet").italic() }
         if lastIsOwn { return Text("You: ").fontWeight(.medium) + Text(body) }
@@ -409,6 +445,8 @@ struct ConversationRow: View {
 
     private var accessibilityLabel: String {
         var parts = [conversation.title]
+        if pinned { parts.append("Pinned") }
+        if let draft { parts.append("Draft: \(draft)") }
         if let preview = conversation.lastMessage?.body { parts.append(lastIsOwn ? "You: \(preview)" : preview) }
         parts.append(Self.relative(conversation.updatedAt))
         if conversation.isUnread {

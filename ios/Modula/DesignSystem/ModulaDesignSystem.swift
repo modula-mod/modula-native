@@ -1054,7 +1054,17 @@ struct ModulaEmptyState: View {
                 if let illustration {
                     SproutIllustrationView(illustration: illustration, height: 168)
                 } else {
-                    ModulaEffectSymbol(symbol: symbol, tint: app.appearance.liveAccent, size: 40)
+                    // App-wide Moliboo empty state: the user's companion acts out the empty state,
+                    // with the context symbol as a small accent badge (keeps the meaning legible).
+                    MolibooEmptyArt(mood: MolibooEmptyMood.mood(for: symbol), size: 50)
+                        .overlay(alignment: .bottomTrailing) {
+                            Image(systemName: symbol)
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(app.appearance.liveAccent)
+                                .frame(width: 30, height: 30)
+                                .modulaGlass(in: Circle(), interactive: false)
+                                .offset(x: -6, y: -4)
+                        }
                 }
                 Text(title).font(.title3.weight(.semibold))
             }

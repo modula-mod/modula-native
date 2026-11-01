@@ -72,3 +72,44 @@ export function relativeTime(iso: string | undefined, now: number = Date.now()):
   const base = `${date.getDate()} ${MONTHS[date.getMonth()]}`;
   return date.getFullYear() === current.getFullYear() ? base : `${base} ${date.getFullYear()}`;
 }
+
+// MARK: List views over the loaded page (no extra backend calls; fields come from the note record).
+
+export type NoteFilter = 'all' | 'pinned' | 'favourites' | 'archived';
+
+/** All hides archived notes; Archived shows only them, so archiving is a safe, reversible "tidy" step. */
+export function filterNotes(rows: NoteRow[], filter: NoteFilter): NoteRow[] {
+  switch (filter) {
+    case 'pinned': return rows.filter(row => row.data.pinned && !row.data.archived);
+    case 'favourites': return rows.filter(row => row.data.favourite && !row.data.archived);
+    case 'archived': return rows.filter(row => row.data.archived);
+    default: return rows.filter(row => !row.data.archived);
+  }
+}
+
+export type NoteSection = {title: string; rows: NoteRow[]};
+
+/**
+ * Chunk the list into Pinned / Today / This week / Earlier (Miller's chunking: a few labelled groups
+ * scan faster than one long list). Only used for the "Recent" sort; other sorts keep one section.
+ */
+export function sectionsByRecency(rows: NoteRow[], now: number = Date.now()): NoteSection[] {
+  const day = 86_400_000;
+  const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
+  const today = startOfToday.getTime();
+  const buckets: Record<string, NoteRow[]> = {Pinned: [], Today: [], 'This week': [], Earlier: []};
+  for (const row of rows) {
+    if (row.data.pinned) { buckets.Pinned.push(row); continue; }
+    const time = row.updated_at ? Date.parse(row.updated_at) : NaN;
+    if (Number.isFinite(time) && time >= today) buckets.Today.push(row);
+    else if (Number.isFinite(time) && time >= today - 6 * day) buckets['This week'].push(row);
+    else buckets.Earlier.push(row);
+  }
+  return Object.entries(buckets).filter(([, list]) => list.length > 0).map(([title, list]) => ({title, rows: list}));
+}
+
+/** Words and reading time for the editor footer (immediate progress feedback while writing). */
+export function noteStats(text: string): {words: number; minutes: number} {
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  return {words, minutes: words === 0 ? 0 : Math.max(1, Math.round(words / 200))};
+}
