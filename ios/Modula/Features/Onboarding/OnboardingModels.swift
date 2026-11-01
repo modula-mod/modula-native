@@ -6,6 +6,8 @@ enum OnboardingStep: Int, CaseIterable, Hashable, Sendable {
     case profile
     case modules
     case connections
+    /// Pick your first Moliboo (endowment effect: a companion you chose is one you care about).
+    case moliboo
     case control
 
     var number: Int { rawValue }
@@ -20,6 +22,7 @@ enum OnboardingStep: Int, CaseIterable, Hashable, Sendable {
         case .profile: "Your profile is your platform"
         case .modules: "Add what you need"
         case .connections: "People, content & connections"
+        case .moliboo: "Pick your first Moliboo"
         case .control: "Your data. Your identity. Your rules."
         }
     }
@@ -30,6 +33,7 @@ enum OnboardingStep: Int, CaseIterable, Hashable, Sendable {
         case .profile: "Identity, not a page"
         case .modules: "You build the workspace"
         case .connections: "Social and modular together"
+        case .moliboo: "Meet your companion"
         case .control: "You’re in control"
         }
     }
@@ -44,6 +48,8 @@ enum OnboardingStep: Int, CaseIterable, Hashable, Sendable {
             "Modula doesn’t force one workspace. Add notes, tasks, CRM, AI, games and tools as you need them."
         case .connections:
             "People, places, perspectives and modules. Social and modular worlds coexist."
+        case .moliboo:
+            "Your Moliboo keeps you company across Modula. Pick one now — you can change it any time in Settings."
         case .control:
             "Privacy controls, native device security, module permissions and profile visibility stay yours. Modula does not claim cryptographic capabilities that are not implemented."
         }
@@ -59,6 +65,8 @@ enum OnboardingStep: Int, CaseIterable, Hashable, Sendable {
             [("note.text", "Notes"), ("checklist", "Tasks"), ("person.2", "CRM"), ("sparkles", "AI"), ("gamecontroller", "Games")]
         case .connections:
             [("person.3", "People"), ("mappin.and.ellipse", "Places"), ("eye", "Perspectives"), ("shippingbox", "Modules")]
+        case .moliboo:
+            []
         case .control:
             [("hand.raised", "Privacy controls"), ("faceid", "Native security"), ("switch.2", "Module permissions"), ("eye", "Profile visibility")]
         }
