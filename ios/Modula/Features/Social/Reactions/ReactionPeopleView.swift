@@ -41,15 +41,8 @@ struct ReactionPeopleView: View {
         return "People who reacted will appear here."
     }
 
+    /// Enhancements-50: shared accent chip (selection haptic, Dynamic Type height, press spring).
     private func filterChip(title: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(selected ? AnyShapeStyle(TintShapeStyle().opacity(0.2)) : AnyShapeStyle(Color.primary.opacity(0.06)), in: Capsule())
-                .overlay(Capsule().stroke(selected ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.clear), lineWidth: 1.5))
-        }
-        .buttonStyle(.plain)
+        ModulaAccentChip(title: title, selected: selected, action: action)
     }
 }

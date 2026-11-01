@@ -59,11 +59,16 @@ struct ModulaApp: App {
                     environment.openRouted(.search(.root(nil)))
                 }
             )
+            ModulaPolishKeyboardCommands(environment: environment)
         }
     }
 
     private func handleSpotlight(_ identifier: String) {
         guard environment.gate.state == .ready else { return }
+        if let route = ModulaSpotlightDestinations.route(for: identifier) {
+            environment.openRouted(route)
+            return
+        }
         if identifier.hasPrefix("module:") {
             let moduleID = String(identifier.dropFirst("module:".count))
             guard environment.catalogue.installedIDs.contains(moduleID) else { return }

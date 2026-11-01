@@ -33,24 +33,25 @@ struct DraftsView: View {
         List {
             if let error = app.drafts.saveError {
                 Section {
-                    Text(error)
-                    Button("Retry Save") { app.drafts.flush() }
+                    Label(error, systemImage: "exclamationmark.icloud")
+                    Button {
+                        HapticEngine.shared.play(app.drafts.flush() ? .success : .failure)
+                    } label: {
+                        Text("Retry Save").font(.body.weight(.semibold))
+                            .padding(.horizontal, ModulaSpacing.lg).frame(minHeight: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .modulaAccentCTA()
                 }
             }
             Section {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
+                        // Enhancements-50: accent chips with Dynamic Type height + press spring.
                         ForEach(DraftLibraryFilter.allCases) { option in
-                            Button(option.title) {
+                            ModulaAccentChip(title: option.title, selected: filter == option) {
                                 filter = option
-                                HapticEngine.shared.play(.selection)
                             }
-                            .font(.subheadline.weight(filter == option ? .semibold : .medium))
-                            .padding(.horizontal, 14)
-                            .frame(height: 34)
-                            .foregroundStyle(filter == option ? Color.white : Color.primary)
-                            .background(filter == option ? Color(hex: "#D66056") : Color(uiColor: .secondarySystemGroupedBackground), in: Capsule())
-                            .accessibilityAddTraits(filter == option ? .isSelected : [])
                         }
                     }
                     .padding(.vertical, 4)
@@ -78,6 +79,9 @@ struct DraftsView: View {
                 }
             }
             Section {
+                if let saved = app.drafts.lastSavedAt {
+                    ModulaAutosaveIndicator(savedAt: saved)
+                }
                 Text("Drafts are saved automatically. They’re stored on this device. There isn’t a drafts API.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -176,10 +180,14 @@ struct DraftRow: View {
         .accessibilityLabel("\(title) draft")
         .accessibilityValue("\(item.preview). Last edited \(ModulaTimeFormat.short(item.lastEdited))")
         .accessibilityHint("Continue draft")
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            Button("Continue", systemImage: "arrow.right.circle", action: onContinue)
+                .tint(.accentColor)
+        }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button("Delete", role: .destructive, action: onDelete)
             Button("Continue", action: onContinue)
-                .tint(Color(hex: "#D66056"))
+                .tint(.accentColor)
         }
         .contextMenu {
             Button("Continue", systemImage: "arrow.right.circle", action: onContinue)
@@ -223,11 +231,16 @@ struct DraftRestorePrompt: View {
                 }
                 .buttonStyle(.bordered)
                 Spacer()
-                Button("Continue Draft") {
+                Button {
+                    HapticEngine.shared.play(.navigation)
                     onContinue()
                     dismiss()
+                } label: {
+                    Text("Continue Draft").font(.body.weight(.semibold))
+                        .padding(.horizontal, ModulaSpacing.lg).frame(minHeight: 44)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.plain)
+                .modulaAccentCTA()
             }
         }
         .padding(20)

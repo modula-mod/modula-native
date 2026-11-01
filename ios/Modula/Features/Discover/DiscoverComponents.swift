@@ -216,16 +216,15 @@ struct DiscoverPersonRow: View {
                 DiscoverFollowLabel(person: person, busy: followBusy)
                     .padding(.horizontal, 12)
                     .frame(minHeight: 44)
-                    .background(
-                        Capsule().fill(person.isFollowing ? Color.primary.opacity(0.08) : app.appearance.liveAccent)
-                    )
             }
             .buttonStyle(.modulaPress)
+            .modulaFollowCTA(isFollowing: person.isFollowing)
             .disabled(followBusy)
             .accessibilityLabel(person.followState.title)
             .accessibilityIdentifier("discover.follow.\(person.routeID)")
         }
         .padding(.vertical, 6 * app.appearance.density.spacingScale)
+        .modulaPersonContextMenu(name: person.displayName, handle: person.handle, isFollowing: person.isFollowing, onOpen: onOpen, onFollow: onFollow)
         .accessibilityIdentifier("discover.person.\(person.routeID)")
     }
 }
@@ -272,8 +271,8 @@ struct DiscoverPersonCard: View {
                 DiscoverFollowLabel(person: person, busy: followBusy)
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
-            .buttonStyle(.bordered)
-            .tint(accent)
+            .buttonStyle(.modulaPress)
+            .modulaFollowCTA(isFollowing: person.isFollowing)
             .disabled(followBusy)
             .accessibilityLabel(person.followState.title)
         }
@@ -281,6 +280,7 @@ struct DiscoverPersonCard: View {
         .frame(width: 142)
         .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
         .modulaHeroSource("person-card", key: person.routeID)
+        .modulaPersonContextMenu(name: person.displayName, handle: person.handle, isFollowing: person.isFollowing, onOpen: onOpen, onFollow: onFollow)
         .modulaCarouselReveal()
         .accessibilityIdentifier("discover.person-card.\(person.routeID)")
     }
@@ -291,6 +291,8 @@ struct DiscoverFollowLabel: View {
     let person: DiscoverPerson
     var busy: Bool
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    private var reduceMotion: Bool { ModulaEffectGate.reduceMotion(systemReduceMotion) }
 
     var body: some View {
         HStack(spacing: 4) {
@@ -300,14 +302,18 @@ struct DiscoverFollowLabel: View {
                 Image(systemName: person.isFollowing ? "checkmark" : "plus")
                     .font(.caption2.weight(.bold))
                     .contentTransition(.symbolEffect(.replace))
-                    .symbolEffect(.bounce, value: person.isFollowing)
+                    // Enhancements-50: Reduce Motion skips the bounce and the snappy flip.
+                    .symbolEffect(.bounce, value: reduceMotion ? false : person.isFollowing)
             }
             Text(person.followState.title)
                 .font(.caption.weight(.semibold))
-                .contentTransition(.interpolate)
+                .contentTransition(reduceMotion ? .identity : .interpolate)
         }
         .foregroundStyle(person.isFollowing ? Color.secondary : Color.white)
-        .animation(.snappy, value: person.isFollowing)
+        .animation(reduceMotion ? nil : .snappy, value: person.isFollowing)
+        .onChange(of: person.isFollowing) { _, following in
+            if following { HapticEngine.shared.play(.followComplete) }
+        }
     }
 }
 
@@ -370,15 +376,7 @@ struct DiscoverMediaPreview: View {
     var body: some View {
         Group {
             if let url = media.url {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().scaledToFill()
-                    default:
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(Color.primary.opacity(0.08))
-                    }
-                }
+                ModulaDownsampledImage(url: url, pointSize: 440)
                 .frame(maxWidth: .infinity)
                 .frame(height: 180)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))

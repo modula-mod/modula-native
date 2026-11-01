@@ -113,6 +113,7 @@ struct HomeView: View {
                     .padding(.top, ModulaSpacing.xxs)
                     .padding(.bottom, shellChromeMetrics.contentBottomInset)
                     .modulaPullContentEffects()
+                    .modulaScrollsToTopOnReselect(.home)
                 }
             }
             .modulaSoftScrollEdge()
@@ -620,9 +621,12 @@ struct HomeView: View {
                     .padding(.bottom, 24)
                 }
                 if state.loadState == .loadingMore {
-                    ProgressView()
-                        .frame(maxWidth: .infinity)
+                    // Enhancements-50: a post-shaped skeleton holds the slot the next page fills.
+                    ModulaSkeletonRow(showsMedia: false)
+                        .padding(.horizontal, ModulaLayout.contentInset)
                         .padding(.vertical, 12)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("Loading more posts")
                         .accessibilityIdentifier("home.loading-more")
                 }
                 if state.loadState == .loaded, let message = state.loadMoreError {
@@ -631,11 +635,16 @@ struct HomeView: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
-                        Button("Retry") {
+                        Button {
                             HapticEngine.shared.play(.selection)
                             Task { await app.home.loadMore(mode) }
+                        } label: {
+                            Label("Retry", systemImage: "arrow.clockwise")
+                                .font(.subheadline.weight(.semibold))
+                                .padding(.horizontal, ModulaSpacing.lg).frame(minHeight: 44)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.plain)
+                        .modulaAccentCTA()
                         .accessibilityLabel("Retry loading more posts")
                         .accessibilityIdentifier("home.load-more-retry")
                     }
@@ -1275,11 +1284,7 @@ private struct HomeCatchUpSection: View {
                         }
                         Spacer(minLength: 0)
                         if let thumb = post.media.lazy.compactMap({ $0.thumbnailURL ?? $0.previewURL ?? $0.url }).first {
-                            AsyncImage(url: thumb) { image in
-                                image.resizable().scaledToFill()
-                            } placeholder: {
-                                Color.primary.opacity(0.06)
-                            }
+                            ModulaDownsampledImage(url: thumb, pointSize: 56)
                             .frame(width: 56, height: 56)
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                             .accessibilityHidden(true)

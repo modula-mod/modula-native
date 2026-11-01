@@ -1066,8 +1066,10 @@ struct ModulaEmptyState: View {
         .modulaPageEntrance()
     }
 }
-struct ModulaLoadingState: View { var title = "Loading…"; var body: some View { ProgressView(title).frame(maxWidth: .infinity, minHeight: 180) } }
-struct ModulaErrorState: View { var message: String; var retry: (() -> Void)?; var body: some View { ContentUnavailableView { Label("Something went wrong", systemImage: "exclamationmark.triangle") } description: { Text(message) } actions: { if let retry { Button("Try Again", action: retry) } } } }
+/// Enhancements-50: skeleton rows instead of a bare spinner (see ModulaPolishKit).
+struct ModulaLoadingState: View { var title = "Loading…"; var body: some View { ModulaSkeletonList(title: title, rows: 3) } }
+/// Enhancements-50: accent retry CTA, offline-aware copy, auto-retry on reconnect.
+struct ModulaErrorState: View { var message: String; var retry: (() -> Void)?; var body: some View { ModulaRetryState(message: message, retry: retry) } }
 struct ModulaHero<Content: View>: View { var title: String; var subtitle: String; @ViewBuilder var artwork: Content; var body: some View { ZStack(alignment: .bottomLeading) { artwork.frame(maxWidth: .infinity).frame(height: ModulaLayout.heroHeight).clipped(); LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .center, endPoint: .bottom); VStack(alignment: .leading) { Text(title).font(.largeTitle.bold()); Text(subtitle) }.foregroundStyle(.white).padding(ModulaLayout.heroPadding) }.clipShape(RoundedRectangle(cornerRadius: ModulaRadius.xl, style: .continuous)) } }
 struct ModulaMetadataRail: View { var values: [(String, String)]; var body: some View { HStack { ForEach(Array(values.enumerated()), id: \.offset) { _, value in ModulaMetric(value: value.0, label: value.1); Spacer() } }.padding(.vertical, 8) } }
 

@@ -114,15 +114,7 @@ struct ActivitySubjectPreview: View {
     var body: some View {
         Group {
             if let url = preview.thumbnailURL {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().scaledToFill()
-                    default:
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color.primary.opacity(0.08))
-                    }
-                }
+                ModulaDownsampledImage(url: url, pointSize: 52)
                 .frame(width: 52, height: 52)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
@@ -344,16 +336,21 @@ struct ActivityTimeline: View {
             }
             if hasMore {
                 Button {
+                    HapticEngine.shared.play(.selection)
                     onLoadMore()
                 } label: {
-                    HStack {
-                        Spacer()
-                        if loadingMore { ProgressView() } else { Text("Load more") }
-                        Spacer()
+                    HStack(spacing: ModulaSpacing.xs) {
+                        if loadingMore { ProgressView().tint(.white) } else { Text("Load more").font(.subheadline.weight(.semibold)) }
                     }
-                    .padding(.vertical, 16)
+                    .padding(.horizontal, ModulaSpacing.lg)
+                    .frame(minHeight: 44)
                 }
                 .buttonStyle(.plain)
+                .modulaAccentCTA()
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .disabled(loadingMore)
+                .accessibilityLabel(loadingMore ? "Loading more" : "Load more activity")
                 .accessibilityIdentifier("activity.load-more")
             }
         }
