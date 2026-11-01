@@ -62,6 +62,7 @@
 		86D1F11F366274A7E73231DC /* MolibooWorldScenes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63BCBE2AEE0E47DDA1E74D84 /* MolibooWorldScenes.swift */; };
 		A9C8944DC7FA9B1A14A3C93A /* MolibooAmbientBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF571B2F180AD7B3704B18E0 /* MolibooAmbientBackground.swift */; };
 		38AE6942919F29E720DDC06F /* MolibooShaderKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 372E9BE321ED1B53CDDC96D4 /* MolibooShaderKit.swift */; };
+		5BB6F34B08412046241B4B64 /* MolibooEmptyArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F1FB6F34B08412046241B4B /* MolibooEmptyArt.swift */; };
 		36529D3158094916D003470A /* MolibooSettingsHub.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E1EAEFFDEB08BE920109B5A /* MolibooSettingsHub.swift */; };
 		16D8D9F92EB4431EA055F602 /* MolibooCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D6B6F8530D8427FA49C358F /* MolibooCards.swift */; };
 		02E5B361C03A5E96E30FB139 /* MolibooWorldParts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699909A12EF8AE3B97932643 /* MolibooWorldParts.swift */; };
@@ -143,6 +144,7 @@
 		R3B100000000000000000005 /* Ecosystem01R3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R3A100000000000000000005 /* Ecosystem01R3Tests.swift */; };
 		R3B100000000000000000006 /* EcosystemBasicLifecycleUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R3A100000000000000000006 /* EcosystemBasicLifecycleUITests.swift */; };
 		0139D48F433333A6C105C394 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E9539623085AAA12077638F /* SettingsView.swift */; };
+		5B083A4720CF4F634590613D /* SettingsSurfaceCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F58083A4720CF4F63459061 /* SettingsSurfaceCards.swift */; };
 		02ED22D448BC35987DA41C41 /* RuntimeDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */; };
 		045022BFF07BCC1674A60821 /* NavigationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */; };
 		083850E345065E6A6AB4731F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 586EC2A3D1894A46296513D8 /* PrivacyInfo.xcprivacy */; };
@@ -213,6 +215,7 @@
 		A50100000000000000000003 /* AppGateHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000003 /* AppGateHost.swift */; };
 		A50100000000000000000004 /* OnboardingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000004 /* OnboardingModels.swift */; };
 		A50100000000000000000005 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000005 /* OnboardingView.swift */; };
+		5B5F77E631D19C97DDC98933 /* OnboardingMolibooPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FA65F77E631D19C97DDC989 /* OnboardingMolibooPicker.swift */; };
 		L50100000000000000000001 /* OnboardingLandingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = L40100000000000000000001 /* OnboardingLandingView.swift */; };
 		L50100000000000000000002 /* OnboardingLandingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = L40100000000000000000002 /* OnboardingLandingModels.swift */; };
 		L50100000000000000000003 /* OnboardingLandingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = L40100000000000000000003 /* OnboardingLandingTests.swift */; };
@@ -270,6 +273,7 @@
 		B6A6AE2B292755C9AEBA6A4F /* NodusContextBudget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A05D1CCD30E918E9BEC8E68 /* NodusContextBudget.swift */; };
 		B7E661790BD11DE3A721C204 /* ShellAccessory.swift in Sources */ = {isa = PBXBuildFile; fileRef = EECC47A5007CE1E5BB063A97 /* ShellAccessory.swift */; };
 		B9825B0168E160AB5B8411B9 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ECAD5355D79305D770912A /* ProfileView.swift */; };
+		5B481061A552391299474632 /* ProfileShowcase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FDF481061A5523912994746 /* ProfileShowcase.swift */; };
 		BB47BD84CB36684F9FB5C6D5 /* IntelligenceAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3907C2A83DF1A9C8AE1CAC40 /* IntelligenceAvailability.swift */; };
 		BEEBE251735247E8828B2F26 /* IntelligenceValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ED61D09324116C37F15191A /* IntelligenceValue.swift */; };
 		C2D2BC0654B3A4ABD668B498 /* NodusConversationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03112C0E692C6AF64E25BDB0 /* NodusConversationEngine.swift */; };
@@ -451,6 +455,7 @@
 		F70200000000000000000002 /* ModulaEffectKit.metal in Sources */ = {isa = PBXBuildFile; fileRef = F70100000000000000000002 /* ModulaEffectKit.metal */; };
 		B02C2D69C89A5323859EB646 /* MolibooShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 041747946D183AA6E7642E17 /* MolibooShaders.metal */; };
 		F70200000000000000000001 /* ModulaEffectKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70100000000000000000001 /* ModulaEffectKit.swift */; };
+		5B54E113B340B04A3A738180 /* ModulaSurfaceMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F5454E113B340B04A3A7381 /* ModulaSurfaceMotion.swift */; };
 		R50100000000000000000020 /* SettingsDecisionPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000020 /* SettingsDecisionPages.swift */; };
 		R50100000000000000000012 /* DownloadedMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000012 /* DownloadedMedia.swift */; };
 		R50100000000000000000011 /* SettingsNotificationPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000011 /* SettingsNotificationPages.swift */; };
@@ -549,6 +554,7 @@
 		63BCBE2AEE0E47DDA1E74D84 /* MolibooWorldScenes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooWorldScenes.swift; path = Features/MolibooWorld/MolibooWorldScenes.swift; sourceTree = "<group>"; };
 		AF571B2F180AD7B3704B18E0 /* MolibooAmbientBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooAmbientBackground.swift; path = DesignSystem/Moliboo/MolibooAmbientBackground.swift; sourceTree = "<group>"; };
 		372E9BE321ED1B53CDDC96D4 /* MolibooShaderKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooShaderKit.swift; path = DesignSystem/Moliboo/MolibooShaderKit.swift; sourceTree = "<group>"; };
+		5F1FB6F34B08412046241B4B /* MolibooEmptyArt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooEmptyArt.swift; path = DesignSystem/Moliboo/MolibooEmptyArt.swift; sourceTree = "<group>"; };
 		6E1EAEFFDEB08BE920109B5A /* MolibooSettingsHub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooSettingsHub.swift; path = Features/Moliboo3D/MolibooSettingsHub.swift; sourceTree = "<group>"; };
 		9D6B6F8530D8427FA49C358F /* MolibooCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooCards.swift; path = Features/Moliboo3D/MolibooCards.swift; sourceTree = "<group>"; };
 		699909A12EF8AE3B97932643 /* MolibooWorldParts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooWorldParts.swift; path = Features/MolibooWorld/MolibooWorldParts.swift; sourceTree = "<group>"; };
@@ -669,6 +675,7 @@
 		87FAF528B548627542BBEB0D /* Pods-Modula-ModulaTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modula-ModulaTests.debug.xcconfig"; path = "Target Support Files/Pods-Modula-ModulaTests/Pods-Modula-ModulaTests.debug.xcconfig"; sourceTree = "<group>"; };
 		8BB4C8A7DBAF1068946F2678 /* ActivityStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityStore.swift; path = Features/Activity/ActivityStore.swift; sourceTree = "<group>"; };
 		8E9539623085AAA12077638F /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsView.swift; path = Features/Settings/SettingsView.swift; sourceTree = "<group>"; };
+		5F58083A4720CF4F63459061 /* SettingsSurfaceCards.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsSurfaceCards.swift; path = Features/Settings/SettingsSurfaceCards.swift; sourceTree = "<group>"; };
 		8EA749138365B53444A18694 /* NodusConversationModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusConversationModels.swift; path = Core/Intelligence/Nodus/Conversation/NodusConversationModels.swift; sourceTree = "<group>"; };
 		9041733DFED31156EFEE81C2 /* ModulaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ModulaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		90EAE77878B8E7792468645E /* ModuleSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleSession.swift; path = ModuleRuntime/ModuleSession.swift; sourceTree = "<group>"; };
@@ -684,6 +691,7 @@
 		A40100000000000000000003 /* AppGateHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppGateHost.swift; path = Core/AppGate/AppGateHost.swift; sourceTree = "<group>"; };
 		A40100000000000000000004 /* OnboardingModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingModels.swift; path = Features/Onboarding/OnboardingModels.swift; sourceTree = "<group>"; };
 		A40100000000000000000005 /* OnboardingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingView.swift; path = Features/Onboarding/OnboardingView.swift; sourceTree = "<group>"; };
+		5FA65F77E631D19C97DDC989 /* OnboardingMolibooPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingMolibooPicker.swift; path = Features/Onboarding/OnboardingMolibooPicker.swift; sourceTree = "<group>"; };
 		L40100000000000000000001 /* OnboardingLandingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingLandingView.swift; path = Features/Onboarding/OnboardingLandingView.swift; sourceTree = "<group>"; };
 		L40100000000000000000002 /* OnboardingLandingModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingLandingModels.swift; path = Features/Onboarding/OnboardingLandingModels.swift; sourceTree = "<group>"; };
 		L40100000000000000000003 /* OnboardingLandingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingLandingTests.swift; sourceTree = "<group>"; };
@@ -771,6 +779,7 @@
 		C4010000000000000000000C /* N4FTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4FTests.swift; sourceTree = "<group>"; };
 		C727EBE1A122E68AE7538DFC /* IntelligenceResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceResponse.swift; path = Core/Intelligence/Contracts/IntelligenceResponse.swift; sourceTree = "<group>"; };
 		C8ECAD5355D79305D770912A /* ProfileView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileView.swift; path = Features/Profile/ProfileView.swift; sourceTree = "<group>"; };
+		5FDF481061A5523912994746 /* ProfileShowcase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileShowcase.swift; path = Features/Profile/ProfileShowcase.swift; sourceTree = "<group>"; };
 		C90100000000000000000001 /* NodusChatView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusChatView.swift; path = Features/Developer/NodusChatView.swift; sourceTree = "<group>"; };
 		C90100000000000000000002 /* NodusChatViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusChatViewModel.swift; path = Features/Developer/NodusChatViewModel.swift; sourceTree = "<group>"; };
 		C90100000000000000000021 /* NodusComposerStudio.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusComposerStudio.swift; path = Features/Developer/NodusComposerStudio.swift; sourceTree = "<group>"; };
@@ -942,6 +951,7 @@
 		F70100000000000000000002 /* ModulaEffectKit.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = ModulaEffectKit.metal; path = DesignSystem/Effects/ModulaEffectKit.metal; sourceTree = "<group>"; };
 		041747946D183AA6E7642E17 /* MolibooShaders.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = MolibooShaders.metal; path = DesignSystem/Moliboo/MolibooShaders.metal; sourceTree = "<group>"; };
 		F70100000000000000000001 /* ModulaEffectKit.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaEffectKit.swift; path = DesignSystem/Effects/ModulaEffectKit.swift; sourceTree = "<group>"; };
+		5F5454E113B340B04A3A7381 /* ModulaSurfaceMotion.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaSurfaceMotion.swift; path = DesignSystem/Effects/ModulaSurfaceMotion.swift; sourceTree = "<group>"; };
 		R40100000000000000000020 /* SettingsDecisionPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsDecisionPages.swift; path = Features/Settings/Real/SettingsDecisionPages.swift; sourceTree = "<group>"; };
 		R40100000000000000000012 /* DownloadedMedia.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DownloadedMedia.swift; path = Features/Media/DownloadedMedia.swift; sourceTree = "<group>"; };
 		R40100000000000000000011 /* SettingsNotificationPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsNotificationPages.swift; path = Features/Settings/Real/SettingsNotificationPages.swift; sourceTree = "<group>"; };
@@ -1241,6 +1251,7 @@
 				A40100000000000000000003 /* AppGateHost.swift */,
 				A40100000000000000000004 /* OnboardingModels.swift */,
 				A40100000000000000000005 /* OnboardingView.swift */,
+				5FA65F77E631D19C97DDC989 /* OnboardingMolibooPicker.swift */,
 				L40100000000000000000001 /* OnboardingLandingView.swift */,
 				L40100000000000000000002 /* OnboardingLandingModels.swift */,
 				A40100000000000000000006 /* FirstRunModels.swift */,
@@ -1276,6 +1287,7 @@
 				D0A1000000000000000000F1 /* SpectralDrape.metal */,
 				041747946D183AA6E7642E17 /* MolibooShaders.metal */,
 				F70100000000000000000001 /* ModulaEffectKit.swift */,
+				5F5454E113B340B04A3A7381 /* ModulaSurfaceMotion.swift */,
 				C0DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift */,
 				C02F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift */,
 				C07A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift */,
@@ -1290,6 +1302,7 @@
 				63BCBE2AEE0E47DDA1E74D84 /* MolibooWorldScenes.swift */,
 				AF571B2F180AD7B3704B18E0 /* MolibooAmbientBackground.swift */,
 				372E9BE321ED1B53CDDC96D4 /* MolibooShaderKit.swift */,
+				5F1FB6F34B08412046241B4B /* MolibooEmptyArt.swift */,
 				6E1EAEFFDEB08BE920109B5A /* MolibooSettingsHub.swift */,
 				9D6B6F8530D8427FA49C358F /* MolibooCards.swift */,
 				699909A12EF8AE3B97932643 /* MolibooWorldParts.swift */,
@@ -1370,12 +1383,14 @@
 				F00100000000000000000003 /* ProfileStore.swift */,
 				F00100000000000000000004 /* ProfileComponents.swift */,
 				C8ECAD5355D79305D770912A /* ProfileView.swift */,
+				5FDF481061A5523912994746 /* ProfileShowcase.swift */,
 				F00100000000000000000005 /* ProfileEditView.swift */,
 				F00100000000000000000007 /* ProfileContextActions.swift */,
 				F00100000000000000000008 /* ProfileShareViews.swift */,
 				F00100000000000000000009 /* ProfileMediaViews.swift */,
 				003916B967E1900F61DFB206 /* SettingsStore.swift */,
 				8E9539623085AAA12077638F /* SettingsView.swift */,
+				5F58083A4720CF4F63459061 /* SettingsSurfaceCards.swift */,
 				B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */,
 				2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */,
 				586EC2A3D1894A46296513D8 /* PrivacyInfo.xcprivacy */,
@@ -1912,6 +1927,7 @@
 				A50100000000000000000003 /* AppGateHost.swift in Sources */,
 				A50100000000000000000004 /* OnboardingModels.swift in Sources */,
 				A50100000000000000000005 /* OnboardingView.swift in Sources */,
+				5B5F77E631D19C97DDC98933 /* OnboardingMolibooPicker.swift in Sources */,
 				L50100000000000000000001 /* OnboardingLandingView.swift in Sources */,
 				L50100000000000000000002 /* OnboardingLandingModels.swift in Sources */,
 				A50100000000000000000006 /* FirstRunModels.swift in Sources */,
@@ -1998,6 +2014,7 @@
 				D0A1000000000000000000B1 /* SpectralDrape.metal in Sources */,
 				B02C2D69C89A5323859EB646 /* MolibooShaders.metal in Sources */,
 				F70200000000000000000001 /* ModulaEffectKit.swift in Sources */,
+				5B54E113B340B04A3A738180 /* ModulaSurfaceMotion.swift in Sources */,
 				C1DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift in Sources */,
 				C12F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift in Sources */,
 				C17A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift in Sources */,
@@ -2012,6 +2029,7 @@
 				86D1F11F366274A7E73231DC /* MolibooWorldScenes.swift in Sources */,
 				A9C8944DC7FA9B1A14A3C93A /* MolibooAmbientBackground.swift in Sources */,
 				38AE6942919F29E720DDC06F /* MolibooShaderKit.swift in Sources */,
+				5BB6F34B08412046241B4B64 /* MolibooEmptyArt.swift in Sources */,
 				36529D3158094916D003470A /* MolibooSettingsHub.swift in Sources */,
 				16D8D9F92EB4431EA055F602 /* MolibooCards.swift in Sources */,
 				02E5B361C03A5E96E30FB139 /* MolibooWorldParts.swift in Sources */,
@@ -2094,6 +2112,7 @@
 				F10100000000000000000003 /* ProfileStore.swift in Sources */,
 				F10100000000000000000004 /* ProfileComponents.swift in Sources */,
 				B9825B0168E160AB5B8411B9 /* ProfileView.swift in Sources */,
+				5B481061A552391299474632 /* ProfileShowcase.swift in Sources */,
 				F10100000000000000000005 /* ProfileEditView.swift in Sources */,
 				F10100000000000000000007 /* ProfileContextActions.swift in Sources */,
 				F10100000000000000000008 /* ProfileShareViews.swift in Sources */,
@@ -2113,6 +2132,7 @@
 				F8020000000000000000000B /* AdvancedInteractionMediaCatalog.swift in Sources */,
 				21638B169590129BA65823F1 /* SettingsStore.swift in Sources */,
 				0139D48F433333A6C105C394 /* SettingsView.swift in Sources */,
+				5B083A4720CF4F634590613D /* SettingsSurfaceCards.swift in Sources */,
 				90EC78DC1C87A9562EC08717 /* AppRoute.swift in Sources */,
 				045022BFF07BCC1674A60821 /* NavigationCoordinator.swift in Sources */,
 				490B3AA11BC41A7FD192FAA4 /* ModulaBridge.swift in Sources */,
