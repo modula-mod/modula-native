@@ -24,6 +24,7 @@ struct HomeView: View {
     @State private var commentsBubble: SocialPost?
     @State private var lastCommentsPost: SocialPost?
     @State private var bubbleExpiry: Task<Void, Never>?
+    @State private var feedFilter: HomeFeedFilter = .all
 
     var body: some View {
         let state = app.home.state(for: mode)
@@ -94,7 +95,10 @@ struct HomeView: View {
                         greetingHero
                             .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
                             .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
-                            .padding(.bottom, ModulaSpacing.xs)
+                            .padding(.bottom, ModulaSpacing.xxs)
+
+                        feedFilterChips
+                            .padding(.bottom, ModulaSpacing.xxs)
 
                         feedContent(state)
                     }
@@ -253,88 +257,130 @@ struct HomeView: View {
         return "Messages"
     }
 
-    /// Greeting card from the signed-in profile and the device clock. Actions open real destinations.
+    /// Greeting hero (reference: scenic card, name in display type, glass quick actions inside the card).
+    /// Name comes from the signed-in profile, the scene/greeting from the device clock.
     private var greetingHero: some View {
         let now = Date()
         let name = HomeGreeting.name(
             displayName: app.profile.ownProfile?.displayName,
             handle: app.profile.ownProfile?.handle ?? app.auth.account?.primaryHandle
         )
-        return VStack(alignment: .leading, spacing: ModulaSpacing.xs) {
-            ZStack(alignment: .bottomLeading) {
-                LinearGradient(
-                    colors: [Color(hex: "#369CAA"), app.appearance.liveAccent, Color(hex: "#1B3A4B")],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                VStack(alignment: .leading, spacing: ModulaSpacing.xs) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Label(HomeGreeting.line(for: now), systemImage: HomeGreeting.symbol(for: now))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.92))
-                        Spacer(minLength: 8)
-                        Text(HomeGreeting.dateChip(now))
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(.white.opacity(0.18), in: Capsule())
-                            .accessibilityLabel(HomeGreeting.dateChip(now))
-                    }
-                    Text(name)
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
+        let hour = Calendar.current.component(.hour, from: now)
+        let scene = (hour >= 20 || hour < 6) ? "SceneMoonLake" : "SceneMountainLake"
+        return VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .center) {
+                    Label(HomeGreeting.line(for: now), systemImage: HomeGreeting.symbol(for: now))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.95))
+                        .symbolRenderingMode(.multicolor)
+                    Spacer(minLength: 8)
+                    Text(HomeGreeting.dateChip(now))
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                    Text("Your space. Your people. Your modules.")
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.9))
-                    Button {
-                        app.navigation.open(.settings(.whatsNew(.root)))
-                        HapticEngine.shared.play(.navigation)
-                    } label: {
-                        Text("What’s new")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 14)
-                            .frame(height: 36)
-                            .background(.white.opacity(0.2), in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("home.greeting.whats-new")
+                        .padding(.horizontal, 10)
+                        .frame(height: 26)
+                        .modulaGlass(in: Capsule(), interactive: false)
                 }
-                .padding(ModulaLayout.contentInset)
+                Text(name)
+                    .font(.system(size: 40, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.55)
+                    .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
+                Text("Build. Create. Explore.")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                Text("Your space. Your people. Your modules.")
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.85))
+                Button {
+                    app.navigation.open(.settings(.whatsNew(.root)))
+                    HapticEngine.shared.play(.navigation)
+                } label: {
+                    HStack(spacing: 8) {
+                        Text("What’s new")
+                        Image(systemName: "arrow.right")
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.black.opacity(0.85))
+                    .padding(.horizontal, 16)
+                    .frame(height: 40)
+                    .background(.white, in: Capsule())
+                    .shadow(color: .black.opacity(0.15), radius: 6, y: 3)
+                    .frame(minHeight: 44)
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 6)
+                .accessibilityIdentifier("home.greeting.whats-new")
             }
-            .frame(maxWidth: .infinity, minHeight: 176, alignment: .bottomLeading)
-            .clipShape(RoundedRectangle(cornerRadius: ModulaRadius.xl, style: .continuous))
+            .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.top, ModulaLayout.contentInset)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
+            Spacer(minLength: 14)
             greetingActions
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
         }
+        .frame(maxWidth: .infinity, minHeight: 300, alignment: .topLeading)
+        .background {
+            ZStack {
+                LinearGradient(colors: [app.appearance.liveAccent, Color(hex: "#1B3A4B")], startPoint: .topLeading, endPoint: .bottomTrailing)
+                Image(scene)
+                    .resizable()
+                    .scaledToFill()
+                    .accessibilityHidden(true)
+                LinearGradient(colors: [.black.opacity(0.42), .black.opacity(0.05), .black.opacity(0.35)], startPoint: .top, endPoint: .bottom)
+            }
+        }
+        .overlay(alignment: .trailing) {
+            Image("SproutBuilder")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 120, height: 120)
+                .shadow(color: .black.opacity(0.3), radius: 10, y: 6)
+                .padding(.trailing, 12)
+                .offset(y: -6)
+                .accessibilityHidden(true)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder(LinearGradient(colors: [.white.opacity(0.5), .white.opacity(0.05)], startPoint: .top, endPoint: .bottom), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.18), radius: 16, y: 8)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.greeting")
     }
 
     private var greetingActions: some View {
-        HStack(spacing: 8) {
-            greetingAction("Write", "square.and.pencil", "home.greeting.write") {
-                app.navigation.open(.compose(.post))
-            }
-            greetingAction("Create", "sparkles", "home.greeting.create") {
-                if app.stories.capabilities.create {
-                    app.navigation.push(.stories(.create))
-                } else {
+        ModulaGlassGroup(spacing: 8) {
+            HStack(spacing: 8) {
+                greetingAction("Write", "square.and.pencil", "home.greeting.write") {
                     app.navigation.open(.compose(.post))
                 }
-            }
-            greetingAction("Vault", "note.text", "home.greeting.vault") {
-                if let product = app.catalogue.product("digital.modula.vault-notes") {
-                    app.navigation.open(.productHub(.module(product.id, .overview)))
-                } else {
-                    app.navigation.open(.productHub(.featured))
+                greetingAction("Create", "sparkles", "home.greeting.create") {
+                    if app.stories.capabilities.create {
+                        app.navigation.push(.stories(.create))
+                    } else {
+                        app.navigation.open(.compose(.post))
+                    }
                 }
-            }
-            greetingAction("Browse", "safari", "home.greeting.browse") {
-                app.navigation.open(.discover(.trending))
+                greetingAction("Vault", "doc.text", "home.greeting.vault") {
+                    if let product = app.catalogue.product("digital.modula.vault-notes") {
+                        app.navigation.open(.productHub(.module(product.id, .overview)))
+                    } else {
+                        app.navigation.open(.productHub(.featured))
+                    }
+                }
+                greetingAction("Moliboos", "pawprint", "home.greeting.moliboos") {
+                    app.navigation.open(.settings(.moliboo))
+                }
+                greetingAction("Browse", "safari", "home.greeting.browse") {
+                    app.navigation.open(.discover(.trending))
+                }
             }
         }
     }
@@ -346,19 +392,53 @@ struct HomeView: View {
         } label: {
             VStack(spacing: 6) {
                 Image(systemName: symbol)
-                    .font(.body.weight(.semibold))
+                    .font(.title3.weight(.semibold))
                 Text(title)
                     .font(.caption2.weight(.semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
-            .frame(maxWidth: .infinity, minHeight: 62)
-            .foregroundStyle(.primary)
-            .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, minHeight: 64)
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
         .buttonStyle(.plain)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true, tint: .white.opacity(0.08), specular: true)
         .accessibilityLabel(title)
         .accessibilityIdentifier(identifier)
+    }
+
+    /// Reference filter chips; each filters the loaded feed by real post fields.
+    private var feedFilterChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(HomeFeedFilter.allCases) { filter in
+                    let selected = feedFilter == filter
+                    Button {
+                        withAnimation(ModulaMotion.animation(.reveal, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
+                            feedFilter = filter
+                        }
+                        HapticEngine.shared.play(.selection)
+                    } label: {
+                        Label(filter.title, systemImage: filter.symbol)
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(selected ? app.appearance.liveAccent : Color.primary)
+                            .padding(.horizontal, 14)
+                            .frame(height: 36)
+                            .background(selected ? app.appearance.liveAccent.opacity(0.14) : .clear, in: Capsule())
+                            .overlay(Capsule().strokeBorder(selected ? app.appearance.liveAccent.opacity(0.45) : .clear, lineWidth: 1))
+                            .modulaGlass(in: Capsule(), interactive: true)
+                            .frame(minHeight: 44)
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                    .accessibilityIdentifier("home.filter.\(filter.rawValue)")
+                }
+            }
+            .padding(.horizontal, ModulaLayout.contentInset + leadingInteractionInset)
+        }
+        .scrollClipDisabled()
     }
 
     private var modeCaption: some View {
@@ -428,7 +508,12 @@ struct HomeView: View {
                 .padding(.top, 20)
             default:
                 // Perf: filter + resolve the feed once per body pass instead of three times.
-                let visiblePosts = app.home.visiblePosts(for: mode)
+                let visiblePosts = app.home.visiblePosts(for: mode).filter(feedFilter.matches)
+                if visiblePosts.isEmpty {
+                    ModulaEmptyState(title: "No \(feedFilter.title.lowercased()) yet", message: "Try another filter or pull to refresh.", symbol: feedFilter.symbol)
+                        .padding(.horizontal, ModulaLayout.contentInset)
+                        .padding(.top, 20)
+                }
                 ForEach(visiblePosts) { post in
                     let resolved = app.posts.resolved(post)
                     PostCard(
@@ -1180,5 +1265,41 @@ private struct HomeCatchUpSection: View {
         }
         .task { await app.home.loadIfNeeded(.forYou, signedIn: app.auth.isSignedIn) }
         .accessibilityIdentifier("home.catch-up")
+    }
+}
+
+/// Home feed filter chips. Every case filters on fields the feed API already returns.
+enum HomeFeedFilter: String, CaseIterable, Identifiable {
+    case all, media, video, links, modules, text
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .all: "All"
+        case .media: "Photos"
+        case .video: "Videos"
+        case .links: "Links"
+        case .modules: "Modules"
+        case .text: "Thoughts"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .all: "square.grid.2x2"
+        case .media: "photo.on.rectangle"
+        case .video: "play.rectangle"
+        case .links: "link"
+        case .modules: "shippingbox"
+        case .text: "text.quote"
+        }
+    }
+    func matches(_ post: SocialPost) -> Bool {
+        switch self {
+        case .all: true
+        case .media: post.hasMedia && !(post.kind == .video || post.kind == .movie)
+        case .video: post.kind == .video || post.kind == .movie
+        case .links: post.link != nil
+        case .modules: post.module != nil
+        case .text: !post.hasMedia && post.link == nil && post.module == nil
+        }
     }
 }
