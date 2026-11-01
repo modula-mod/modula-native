@@ -960,8 +960,7 @@ struct AppearanceSettingsView: View {
                         }
                     }
             }
-        }
-            Text("Your accent colours every button, toggle and highlight. Pick a custom colour and Modula keeps text on it readable.")
+            Text("Your accent colours every button, toggle and highlight. Use the wheel for any custom colour.")
                 .font(.footnote).foregroundStyle(.secondary)
         }
         .padding(16)

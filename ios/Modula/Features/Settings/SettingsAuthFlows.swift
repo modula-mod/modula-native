@@ -146,7 +146,7 @@ struct TOTPSetupSheet: View {
 
 /// `POST /v1/auth/passkeys/registration/options` (step-up) → ASAuthorization platform passkey → `.../registration/verify`.
 @MainActor
-final class PasskeyRegistrar: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
+fileprivate final class PasskeyRegistrar: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
     private var continuation: CheckedContinuation<ASAuthorizationPlatformPublicKeyCredentialRegistration, Error>?
 
     func register(rpID: String, challenge: Data, userID: Data, name: String) async throws -> ASAuthorizationPlatformPublicKeyCredentialRegistration {
@@ -240,7 +240,7 @@ enum PasskeyRegistrationFlow {
 /// `GET /v1/auth/apple/status` (server capability) → `POST /v1/auth/apple/link/options` (step-up, nonce)
 /// → Sign in with Apple with that nonce → `POST /v1/auth/apple/link` with the identity token.
 @MainActor
-final class AppleLinker: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
+fileprivate final class AppleLinker: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
     private var continuation: CheckedContinuation<ASAuthorizationAppleIDCredential, Error>?
 
     func authorize(nonce: String) async throws -> ASAuthorizationAppleIDCredential {
