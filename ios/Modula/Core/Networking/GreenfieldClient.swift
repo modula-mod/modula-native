@@ -590,6 +590,22 @@ actor GreenfieldClient {
         return temporaryURL
     }
 
+    /// Authenticated WebSocket request for Greenfield realtime routes (GUBIC lobbies).
+    /// The bearer travels in the header, never in the URL.
+    func webSocketRequest(path: String) async throws -> URLRequest {
+        guard let baseURL else { throw APIError.unconfigured }
+        guard path.hasPrefix("/v1/"), tokens != nil else { throw APIError.unauthenticated }
+        guard var components = URLComponents(url: baseURL.appendingPathComponent(String(path.dropFirst())),
+                                              resolvingAgainstBaseURL: false) else { throw APIError.invalidResponse }
+        components.scheme = components.scheme?.lowercased() == "http" ? "ws" : "wss"
+        guard let url = components.url else { throw APIError.invalidResponse }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 30
+        request.setValue("ModulaNative/0.1.0 (iOS)", forHTTPHeaderField: "User-Agent")
+        request.setValue("Bearer \(try await accessToken())", forHTTPHeaderField: "Authorization")
+        return request
+    }
+
     private func mediaRequest(for url: URL) async throws -> URLRequest {
         guard url.scheme?.lowercased() == "https", url.user == nil, url.password == nil else {
             throw APIError.invalidResponse
