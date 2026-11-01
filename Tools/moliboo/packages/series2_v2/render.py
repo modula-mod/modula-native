@@ -6,7 +6,8 @@ import numpy as np
 from PIL import Image
 sys.path.insert(0, str(Path(__file__).parent))
 from core import *
-from feats_c import FEAT
+from feats_d import FEAT, limbs
+from rig import export
 from specs import SPECS
 
 def hexc(h): h = h.lstrip("#"); return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
@@ -42,16 +43,23 @@ def palette(cutout, ov):
 
 def render(num, pal):
     body, feats, eyes, mth, _ = SPECS[num]
+    feats = [x for x in feats if x not in ("feet", "arms")]
+    if mth == "smile" and num % 4 == 1: mth = "open"
+    if eyes == "bead" and num % 5 == 2: eyes = "sparkle"
     rx, ry = 250, 240
     cx, cy = 500, 560
     f = Fig(pal)
     c = dict(mid=pal["mid"], dark=pal["dark"], acc=pal["acc"], acc2=pal["acc2"], body=body,
-             er=rx * 0.17, espread=rx * 0.4, eyey=ry * 0.02)
+             er=rx * 0.19, espread=rx * 0.4, eyey=ry * 0.02)
     b = (cx, cy, rx, ry)
     late = {"mask", "monocle", "visor"}
     for x in feats:
         if FEAT[x][1] == "back": FEAT[x][0](f, b, c)
-    f.part(body_mask(body, cx, cy, rx, ry), (pal["light"], pal["mid"], pal["dark"]), spec=True)
+    floats = limbs(f, b, c, num, feats)
+    bm = body_mask(body, cx, cy, rx, ry)
+    f.part(bm, (pal["light"], pal["mid"], pal["dark"]), spec=True)
+    f.geo = dict(body=body, bm=bm, cx=cx, cy=cy, rx=rx, ry=ry, eyey=cy + c["eyey"], er=c["er"], espread=c["espread"],
+                 mouthy=cy + ry * 0.3, floats=floats, feet_bottom=cy + ry * (1.04 if not floats else 0.95))
     for x in feats:
         if FEAT[x][1] == "front" and x not in late: FEAT[x][0](f, b, c)
     for sd in (-1, 1):
@@ -64,7 +72,8 @@ def render(num, pal):
     mouth(f, cx, cy + ry * 0.3, rx * 0.2, mth, pal["ink"])
     for x in feats:
         if x in late: FEAT[x][0](f, b, c)
-    return finish(f)
+    im = finish(f)
+    return im, f
 
 if __name__ == "__main__":
     src, old = Path(sys.argv[1]), Path(sys.argv[2])
@@ -72,7 +81,8 @@ if __name__ == "__main__":
     for n in nums:
         folder = next(src.glob(f"{n:03d}_*"))
         pal = palette(old / f"{folder.name}.png", SPECS[n][4])
-        im = render(n, pal)
+        im, _f = render(n, pal)
         check(im)
         im.save(folder / "portrait.png", optimize=True)
+        (folder / "rig.json").write_text(json.dumps(export(_f), indent=2, sort_keys=True) + "\n")
         print("ok", folder.name, flush=True)

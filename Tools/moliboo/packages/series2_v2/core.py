@@ -169,7 +169,9 @@ def finish(f):
     k = min((OUT - 2 * PAD) / crop.width, (OUT - 2 * PAD) / crop.height)
     crop = crop.resize((max(1, round(crop.width * k)), max(1, round(crop.height * k))), Image.Resampling.LANCZOS)
     canvas = Image.new("RGBA", (OUT, OUT), (0, 0, 0, 0))
-    canvas.paste(crop, ((OUT - crop.width) // 2, (OUT - crop.height) // 2), crop)
+    off = ((OUT - crop.width) // 2, (OUT - crop.height) // 2)
+    canvas.paste(crop, off, crop)
+    f.fit = (bb, k, off)   # design px -> out px: (p - bb[:2]) * k + off
     return canvas
 
 def check(im):
