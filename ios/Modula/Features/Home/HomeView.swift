@@ -25,6 +25,8 @@ struct HomeView: View {
     @State private var lastCommentsPost: SocialPost?
     @State private var bubbleExpiry: Task<Void, Never>?
     @State private var feedFilter: HomeFeedFilter = .all
+    @State private var editingQuickActions = false
+    @AppStorage(HomeQuickAction.storageKey) private var quickActionsRaw = HomeQuickAction.defaultRaw
 
     var body: some View {
         let state = app.home.state(for: mode)
@@ -96,6 +98,12 @@ struct HomeView: View {
                             .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
                             .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
                             .padding(.bottom, ModulaSpacing.xxs)
+
+                        if HomeTodayFlags.isEnabled {
+                            HomeTodayCard()
+                                .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
+                                .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
+                        }
 
                         feedFilterChips
                             .padding(.bottom, ModulaSpacing.xxs)
@@ -288,9 +296,18 @@ struct HomeView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.55)
                     .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
-                Text("Build. Create. Explore.")
+                Text(HomeMolibooGreeting.mood(hour: hour, streak: MascotProgressStore.shared.streak))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white)
+                if MascotProgressStore.shared.streak > 1 {
+                    Label("\(MascotProgressStore.shared.streak)-day streak", systemImage: "flame.fill")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white)
+                        .symbolRenderingMode(.multicolor)
+                        .padding(.horizontal, 10).frame(height: 26)
+                        .modulaGlass(in: Capsule(), interactive: false, tint: .orange.opacity(0.35))
+                        .accessibilityIdentifier("home.greeting.streak")
+                }
                 Text("Your space. Your people. Your modules.")
                     .font(.footnote)
                     .foregroundStyle(.white.opacity(0.85))
@@ -336,7 +353,7 @@ struct HomeView: View {
             }
         }
         .overlay(alignment: .trailing) {
-            Image("SproutBuilder")
+            Image(HomeMolibooGreeting.sprout(hour: hour))
                 .resizable()
                 .scaledToFit()
                 .frame(width: 120, height: 120)
@@ -358,30 +375,37 @@ struct HomeView: View {
     private var greetingActions: some View {
         ModulaGlassGroup(spacing: 8) {
             HStack(spacing: 8) {
-                greetingAction("Write", "square.and.pencil", "home.greeting.write") {
-                    app.navigation.open(.compose(.post))
-                }
-                greetingAction("Create", "sparkles", "home.greeting.create") {
-                    if app.stories.capabilities.create {
-                        app.navigation.push(.stories(.create))
-                    } else {
-                        app.navigation.open(.compose(.post))
-                    }
-                }
-                greetingAction("Vault", "doc.text", "home.greeting.vault") {
-                    if let product = app.catalogue.product("digital.modula.vault-notes") {
-                        app.navigation.open(.productHub(.module(product.id, .overview)))
-                    } else {
-                        app.navigation.open(.productHub(.featured))
-                    }
-                }
-                greetingAction("Moliboos", "pawprint", "home.greeting.moliboos") {
-                    app.navigation.open(.settings(.moliboo))
-                }
-                greetingAction("Browse", "safari", "home.greeting.browse") {
-                    app.navigation.open(.discover(.trending))
+                ForEach(HomeQuickAction.decode(quickActionsRaw)) { item in
+                    greetingAction(item.title, item.symbol, "home.greeting.\(item.rawValue)") { run(item) }
+                        .contextMenu {
+                            Button("Customise quick actions", systemImage: "slider.horizontal.3") { editingQuickActions = true }
+                        }
                 }
             }
+        }
+        .sheet(isPresented: $editingQuickActions) {
+            HomeQuickActionEditor(raw: $quickActionsRaw)
+                .presentationDetents([.medium, .large])
+        }
+    }
+
+    private func run(_ item: HomeQuickAction) {
+        switch item {
+        case .write: app.navigation.open(.compose(.post))
+        case .create:
+            if app.stories.capabilities.create { app.navigation.push(.stories(.create)) } else { app.navigation.open(.compose(.post)) }
+        case .vault:
+            if let product = app.catalogue.product("digital.modula.vault-notes") {
+                app.navigation.open(.productHub(.module(product.id, .overview)))
+            } else {
+                app.navigation.open(.productHub(.featured))
+            }
+        case .moliboos: app.navigation.open(.settings(.moliboo))
+        case .browse: app.navigation.open(.discover(.trending))
+        case .reels: app.navigation.push(.reels(.feed))
+        case .messages: app.navigation.push(.messages(.inbox))
+        case .modules: app.navigation.open(.productHub(.featured))
+        case .saved: app.navigation.open(.saved(.root))
         }
     }
 
@@ -508,7 +532,11 @@ struct HomeView: View {
                 .padding(.top, 20)
             default:
                 // Perf: filter + resolve the feed once per body pass instead of three times.
-                let visiblePosts = app.home.visiblePosts(for: mode).filter(feedFilter.matches)
+                let visiblePosts = HomeFeedOrdering.friendsFirst(
+                    app.home.visiblePosts(for: mode).filter(feedFilter.matches),
+                    friendIDs: mode == .following ? [] : Set(app.home.state(for: .following).items.compactMap { $0.author?.id }),
+                    ownID: app.auth.account?.accountId
+                )
                 if visiblePosts.isEmpty {
                     ModulaEmptyState(title: "No \(feedFilter.title.lowercased()) yet", message: "Try another filter or pull to refresh.", symbol: feedFilter.symbol)
                         .padding(.horizontal, ModulaLayout.contentInset)
@@ -1301,5 +1329,190 @@ enum HomeFeedFilter: String, CaseIterable, Identifiable {
         case .modules: post.module != nil
         case .text: !post.hasMedia && post.link == nil && post.module == nil
         }
+    }
+}
+
+
+// MARK: - Moliboo greeting (time of day + on-device streak from MascotProgressStore)
+
+enum HomeMolibooGreeting {
+    static func mood(hour: Int, streak: Int) -> String {
+        if streak >= 7 { return "A whole week together. Your Moliboo is glowing." }
+        if streak >= 3 { return "\(streak) days in a row. Keep it going." }
+        switch hour {
+        case 5..<12: return "Fresh start. What will you build today?"
+        case 12..<17: return "Build. Create. Explore."
+        case 17..<21: return "Golden hour. Catch up with your people."
+        default: return "Winding down. Your Moliboo is getting sleepy."
+        }
+    }
+    /// Bundled sprout art per part of the day.
+    static func sprout(hour: Int) -> String {
+        switch hour {
+        case 5..<12: "SproutSticker01_15_fitness"
+        case 12..<17: "SproutBuilder"
+        case 17..<21: "SproutSticker01_07_music_producer"
+        default: "SproutSticker01_29_meditation"
+        }
+    }
+}
+
+// MARK: - Friends-first ordering
+//
+// Accounts the viewer follows are taken from the authors in the loaded Following feed (no
+// separate follow-graph route is cached on device). Their posts from the last 24 hours move to
+// the top, keeping server order within each group.
+enum HomeFeedOrdering {
+    static func friendsFirst(_ posts: [SocialPost], friendIDs: Set<String>, ownID: String?, now: Date = .now) -> [SocialPost] {
+        guard !friendIDs.isEmpty else { return posts }
+        let cutoff = now.addingTimeInterval(-86_400)
+        var fresh: [SocialPost] = []
+        var rest: [SocialPost] = []
+        for post in posts {
+            if let id = post.author?.id, id != ownID, friendIDs.contains(id), post.createdAt > cutoff { fresh.append(post) } else { rest.append(post) }
+        }
+        return fresh + rest
+    }
+}
+
+// MARK: - Customisable quick actions
+
+enum HomeQuickAction: String, CaseIterable, Identifiable {
+    case write, create, vault, moliboos, browse, reels, messages, modules, saved
+    static let storageKey = "home.quickActions"
+    static let defaultRaw = "write,create,vault,moliboos,browse"
+    static let maxCount = 5
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .write: "Write"
+        case .create: "Create"
+        case .vault: "Vault"
+        case .moliboos: "Moliboos"
+        case .browse: "Browse"
+        case .reels: "Reels"
+        case .messages: "Messages"
+        case .modules: "Modules"
+        case .saved: "Saved"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .write: "square.and.pencil"
+        case .create: "sparkles"
+        case .vault: "doc.text"
+        case .moliboos: "pawprint"
+        case .browse: "safari"
+        case .reels: "play.rectangle"
+        case .messages: "message"
+        case .modules: "shippingbox"
+        case .saved: "bookmark"
+        }
+    }
+    static func decode(_ raw: String) -> [HomeQuickAction] {
+        let items = raw.split(separator: ",").compactMap { HomeQuickAction(rawValue: String($0)) }
+        return items.isEmpty ? decode(defaultRaw) : Array(items.prefix(maxCount))
+    }
+}
+
+struct HomeQuickActionEditor: View {
+    @Binding var raw: String
+    @Environment(\.dismiss) private var dismiss
+    @Environment(AppEnvironment.self) private var app
+    private var selected: [HomeQuickAction] { HomeQuickAction.decode(raw) }
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(HomeQuickAction.allCases) { item in
+                        let on = selected.contains(item)
+                        Button {
+                            var list = selected
+                            if on { if list.count > 1 { list.removeAll { $0 == item } } }
+                            else if list.count < HomeQuickAction.maxCount { list.append(item) }
+                            raw = list.map(\.rawValue).joined(separator: ",")
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            HStack {
+                                Label(item.title, systemImage: item.symbol).foregroundStyle(.primary)
+                                Spacer()
+                                Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(on ? app.appearance.liveAccent : .secondary)
+                            }
+                            .frame(minHeight: 44)
+                        }
+                        .disabled(!on && selected.count >= HomeQuickAction.maxCount)
+                        .accessibilityAddTraits(on ? .isSelected : [])
+                    }
+                } footer: {
+                    Text("Pick up to \(HomeQuickAction.maxCount). Saved on this iPhone.")
+                }
+            }
+            .navigationTitle("Quick actions")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Reset") { raw = HomeQuickAction.defaultRaw } }
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+            }
+        }
+    }
+}
+
+// MARK: - Today card (feature-flagged; game-systems routes are not live)
+
+enum HomeTodayFlags {
+    static let key = "dev.home.today"
+    /// Off by default until the game-systems routes (daily quests, buffs) exist on GreenField.
+    static var isEnabled: Bool { UserDefaults.standard.bool(forKey: key) }
+}
+
+/// Hook for the upcoming game-systems API. Returns nil until a route exists, so the card never
+/// invents quests or buffs.
+struct HomeTodaySnapshot: Equatable {
+    struct Quest: Identifiable, Equatable { let id: String; let title: String; let progress: Int; let goal: Int }
+    struct Buff: Identifiable, Equatable { let id: String; let title: String; let endsAt: Date }
+    var quests: [Quest]
+    var buffs: [Buff]
+}
+
+enum HomeTodayProvider {
+    static func load(client: GreenfieldClient) async -> HomeTodaySnapshot? { nil }
+}
+
+struct HomeTodayCard: View {
+    @Environment(AppEnvironment.self) private var app
+    @State private var snapshot: HomeTodaySnapshot?
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Today", systemImage: "sun.max.fill")
+                    .font(.headline)
+                    .symbolRenderingMode(.multicolor)
+                Spacer()
+                Label("\(MascotProgressStore.shared.streak)", systemImage: "flame.fill")
+                    .font(.caption.weight(.bold).monospacedDigit())
+                    .foregroundStyle(.orange)
+                    .accessibilityLabel("\(MascotProgressStore.shared.streak)-day streak")
+            }
+            if let snapshot, !(snapshot.quests.isEmpty && snapshot.buffs.isEmpty) {
+                ForEach(snapshot.quests) { quest in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(quest.title).font(.subheadline.weight(.semibold))
+                        ProgressView(value: Double(quest.progress), total: Double(max(quest.goal, 1))).tint(app.appearance.liveAccent)
+                    }
+                }
+                ForEach(snapshot.buffs) { buff in
+                    Label(buff.title, systemImage: "bolt.fill").font(.caption)
+                }
+            } else {
+                Text("Daily quests and active buffs appear here when Moliboo game systems launch.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(14)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
+        .task { snapshot = await HomeTodayProvider.load(client: app.client) }
+        .accessibilityIdentifier("home.today")
     }
 }
