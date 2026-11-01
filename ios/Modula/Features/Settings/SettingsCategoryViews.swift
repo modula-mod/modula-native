@@ -145,7 +145,7 @@ struct NotificationSettingsHost: View {
                 NotificationStackGraphic()
                 SettingsGroup(title: "Categories") {
                     VStack(spacing: 0) {
-                        SettingsNavigationRow(title: "Push", subtitle: "Device authorization", symbol: "iphone.radiowaves.left.and.right") {
+                        SettingsNavigationRow(title: "Push", subtitle: "Permission, categories and quiet hours", symbol: "iphone.radiowaves.left.and.right") {
                             app.navigation.open(.settings(.notifications(.push)))
                         }
                         SettingsDivider()
@@ -166,14 +166,14 @@ struct NotificationSettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Notification permission comes from iOS. More notification options are coming.")
+                SettingsAPIFootnote(text: "Notification permission comes from iOS. Push categories and quiet hours sync to your account.")
             }
             .modulaSoftScrollEdge()
             .navigationTitle("Notifications")
             .navigationBarTitleDisplayMode(.inline)
             .accessibilityIdentifier("settings.notifications")
         case .push:
-            PushAuthorizationView()
+            PushNotificationSettingsView()
         case .social:
             NotificationCategoriesView(scope: .social)
         case .modules:

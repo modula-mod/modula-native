@@ -6,6 +6,8 @@ final class AuthenticationStore {
     private let client: GreenfieldClient
     private(set) var account: GreenfieldAccount? { didSet { onAccountChange?(account) } }
     var onAccountChange: ((GreenfieldAccount?) -> Void)?
+    /// Runs before tokens are revoked (e.g. unregister this device's push token).
+    var willSignOut: (@MainActor () async -> Void)?
     private(set) var busy = false
     var error: String?
     #if DEBUG
@@ -95,6 +97,7 @@ final class AuthenticationStore {
 
     func signOut() async {
         guard !busy else { return }
+        await willSignOut?()
         busy = true; account = nil
         defer { busy = false }
         do {

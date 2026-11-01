@@ -31,6 +31,17 @@ struct AppGateHost: View {
         }
         .onChange(of: app.auth.account?.accountId) { _, _ in
             app.refreshLaunchState()
+            Task { await app.push.accountChanged(signedIn: app.auth.isSignedIn) }
+        }
+        .onChange(of: app.activity.state(for: .all).unreadCount) { _, unread in
+            app.push.syncBadge(unread: unread)
+        }
+        .sheet(isPresented: Binding(
+            get: { app.push.prePromptPresented && app.gate.state == .ready },
+            set: { presented in if !presented, app.push.prePromptPresented { app.push.dismissPrePrompt() } }
+        )) {
+            PushPrePromptSheet()
+                .environment(app)
         }
     }
 

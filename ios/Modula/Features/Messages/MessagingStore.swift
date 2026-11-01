@@ -155,6 +155,7 @@ final class MessagingStore {
             }
             let preview = confirmed.body.text.isEmpty ? text : confirmed.body.text
             noteLocalSend(stored, preview: preview)
+            NotificationCenter.default.post(name: .modulaPushMoment, object: PushPrePromptMoment.messageSent.rawValue)
             return true
         } catch {
             actionError = "Couldn't send message."
