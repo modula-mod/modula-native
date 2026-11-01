@@ -44,6 +44,8 @@ final class AppEnvironment {
     let nodusKnowledgeStore = NodusKnowledgeStore()
     let nodusMemoryStore = NodusMemoryStore()
     let nodusSearchCredentials = NodusSearchCredentialStore()
+    /// APNs registration, soft pre-prompt timing and notification responses.
+    let push: PushNotificationController
     /// Downloadable Nodus model lifecycle (verified download, install, remove, chat preference).
     let nodusModels: NodusModelManager
 
@@ -83,6 +85,8 @@ final class AppEnvironment {
         #endif
         runtime.activation = moduleActivation
         auth = AuthenticationStore(client: client)
+        push = PushNotificationController(client: client)
+        auth.willSignOut = { [push] in await push.unregisterForSignOut() }
         activity = ActivityStore(client: client)
         discover = DiscoverStore(client: client)
         posts = PostStateStore()
@@ -296,6 +300,7 @@ final class AppEnvironment {
         }
         refreshLaunchState()
         refreshQuickActions()
+        await push.attach(environment: self)
     }
 
     func refreshLaunchState() {

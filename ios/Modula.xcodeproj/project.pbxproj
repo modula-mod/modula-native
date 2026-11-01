@@ -369,6 +369,7 @@
 		E40100000000000000000007 /* HomeTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000007 /* HomeTools.swift */; };
 		E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000008 /* ModulaProgressiveHeader.swift */; };
 		E40100000000000000000009 /* HomeFeedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000009 /* HomeFeedTests.swift */; };
+		PU5H00000000000000000013 /* PushNotificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = PU5H00000000000000000003 /* PushNotificationTests.swift */; };
 		E4010000000000000000000A /* ModulaContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3010000000000000000000A /* ModulaContextMenu.swift */; };
 		E4010000000000000000000B /* ModulaMediaViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3010000000000000000000B /* ModulaMediaViewer.swift */; };
 		E40100000000000000000010 /* PostGestureThresholds.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000010 /* PostGestureThresholds.swift */; };
@@ -472,6 +473,8 @@
 		R50100000000000000000020 /* SettingsDecisionPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000020 /* SettingsDecisionPages.swift */; };
 		R50100000000000000000012 /* DownloadedMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000012 /* DownloadedMedia.swift */; };
 		R50100000000000000000011 /* SettingsNotificationPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000011 /* SettingsNotificationPages.swift */; };
+		PU5H00000000000000000011 /* PushNotificationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PU5H00000000000000000001 /* PushNotificationController.swift */; };
+		PU5H00000000000000000012 /* PushNotificationSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = PU5H00000000000000000002 /* PushNotificationSettingsView.swift */; };
 		R50100000000000000000010 /* SettingsCreatorPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000010 /* SettingsCreatorPages.swift */; };
 		R50100000000000000000009 /* SettingsAccountPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000009 /* SettingsAccountPages.swift */; };
 		R50100000000000000000008 /* SettingsRemoteModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000008 /* SettingsRemoteModels.swift */; };
@@ -872,6 +875,7 @@
 		E30100000000000000000007 /* HomeTools.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeTools.swift; path = Features/Home/HomeTools.swift; sourceTree = "<group>"; };
 		E30100000000000000000008 /* ModulaProgressiveHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaProgressiveHeader.swift; path = DesignSystem/ModulaProgressiveHeader.swift; sourceTree = "<group>"; };
 		E30100000000000000000009 /* HomeFeedTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeFeedTests.swift; sourceTree = "<group>"; };
+		PU5H00000000000000000003 /* PushNotificationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushNotificationTests.swift; sourceTree = "<group>"; };
 		E3010000000000000000000A /* ModulaContextMenu.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaContextMenu.swift; path = DesignSystem/ModulaContextMenu.swift; sourceTree = "<group>"; };
 		E3010000000000000000000B /* ModulaMediaViewer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaMediaViewer.swift; path = DesignSystem/ModulaMediaViewer.swift; sourceTree = "<group>"; };
 		F80100000000000000000001 /* ModulaIndicators.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaIndicators.swift; path = DesignSystem/AdvancedInteraction/ModulaIndicators.swift; sourceTree = "<group>"; };
@@ -981,6 +985,9 @@
 		R40100000000000000000020 /* SettingsDecisionPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsDecisionPages.swift; path = Features/Settings/Real/SettingsDecisionPages.swift; sourceTree = "<group>"; };
 		R40100000000000000000012 /* DownloadedMedia.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DownloadedMedia.swift; path = Features/Media/DownloadedMedia.swift; sourceTree = "<group>"; };
 		R40100000000000000000011 /* SettingsNotificationPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsNotificationPages.swift; path = Features/Settings/Real/SettingsNotificationPages.swift; sourceTree = "<group>"; };
+		PU5H00000000000000000001 /* PushNotificationController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PushNotificationController.swift; path = Core/Notifications/PushNotificationController.swift; sourceTree = "<group>"; };
+		PU5H00000000000000000002 /* PushNotificationSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PushNotificationSettingsView.swift; path = Features/Settings/Real/PushNotificationSettingsView.swift; sourceTree = "<group>"; };
+		PU5H00000000000000000004 /* Modula.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = Modula.entitlements; path = Modula.entitlements; sourceTree = "<group>"; };
 		R40100000000000000000010 /* SettingsCreatorPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsCreatorPages.swift; path = Features/Settings/Real/SettingsCreatorPages.swift; sourceTree = "<group>"; };
 		R40100000000000000000009 /* SettingsAccountPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsAccountPages.swift; path = Features/Settings/Real/SettingsAccountPages.swift; sourceTree = "<group>"; };
 		R40100000000000000000008 /* SettingsRemoteModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsRemoteModels.swift; path = Features/Settings/Real/SettingsRemoteModels.swift; sourceTree = "<group>"; };
@@ -1104,6 +1111,7 @@
 				61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */,
 				E1010000000000000000000A /* DiscoverTests.swift */,
 				E30100000000000000000009 /* HomeFeedTests.swift */,
+				PU5H00000000000000000003 /* PushNotificationTests.swift */,
 				E30100000000000000000019 /* PostSystemTests.swift */,
 				AA7F7ED971B64DE79A592E1E /* PDFInlineCarouselTests.swift */,
 				259E9F3382BC4EA5811690EC /* PDFReaderV2Tests.swift */,
@@ -1400,6 +1408,9 @@
 				R40100000000000000000020 /* SettingsDecisionPages.swift */,
 				R40100000000000000000012 /* DownloadedMedia.swift */,
 				R40100000000000000000011 /* SettingsNotificationPages.swift */,
+				PU5H00000000000000000001 /* PushNotificationController.swift */,
+				PU5H00000000000000000002 /* PushNotificationSettingsView.swift */,
+				PU5H00000000000000000004 /* Modula.entitlements */,
 				R40100000000000000000010 /* SettingsCreatorPages.swift */,
 				R40100000000000000000009 /* SettingsAccountPages.swift */,
 				R40100000000000000000008 /* SettingsRemoteModels.swift */,
@@ -1927,6 +1938,7 @@
 				FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */,
 				E2010000000000000000000A /* DiscoverTests.swift in Sources */,
 				E40100000000000000000009 /* HomeFeedTests.swift in Sources */,
+				PU5H00000000000000000013 /* PushNotificationTests.swift in Sources */,
 				E40100000000000000000019 /* PostSystemTests.swift in Sources */,
 				647C9C0055154B72875252C7 /* PDFInlineCarouselTests.swift in Sources */,
 				87FB5D4511AF4A7D9FCA8B8E /* PDFReaderV2Tests.swift in Sources */,
@@ -2140,6 +2152,8 @@
 				R50100000000000000000020 /* SettingsDecisionPages.swift in Sources */,
 				R50100000000000000000012 /* DownloadedMedia.swift in Sources */,
 				R50100000000000000000011 /* SettingsNotificationPages.swift in Sources */,
+				PU5H00000000000000000011 /* PushNotificationController.swift in Sources */,
+				PU5H00000000000000000012 /* PushNotificationSettingsView.swift in Sources */,
 				R50100000000000000000010 /* SettingsCreatorPages.swift in Sources */,
 				R50100000000000000000009 /* SettingsAccountPages.swift in Sources */,
 				R50100000000000000000008 /* SettingsRemoteModels.swift in Sources */,
@@ -2383,6 +2397,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = digital.modula.app.native;
+				CODE_SIGN_ENTITLEMENTS = Modula/Modula.entitlements;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
@@ -2491,6 +2506,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = digital.modula.app.native;
+				CODE_SIGN_ENTITLEMENTS = Modula/Modula.entitlements;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
