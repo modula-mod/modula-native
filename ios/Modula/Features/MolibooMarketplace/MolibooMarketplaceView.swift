@@ -332,12 +332,14 @@ struct MolibooMarketplaceDetail: View {
                     }
                 }
                 section("Artwork") {
-                    if let installedVersion {
+                    if character.kind != nil {
+                        Text("Drawn live by the Moliboo rig, like #001–115: wardrobe, expressions and motion work the same.")
+                    } else if let installedVersion {
                         Text("Installed pack \(installedVersion). The portrait is the full image from that pack.")
                     } else {
                         Text("Not installed. The figure above is a placeholder until the on-demand pack is installed.")
                     }
-                    Text(character.wearable ? "Wardrobe fits are not published for this draft." : "Not wearable while this character is a draft.")
+                    Text(character.wearable ? "Wardrobe items fit through the shared rig anchors. Outfits save once this draft is released." : "Not wearable while this character is a draft.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Button(action: {}) {
@@ -378,8 +380,16 @@ struct MolibooMarketplaceArtwork: View {
     private var store: MolibooPackageStore { MolibooPackageManager.shared.runtime.store }
 
     var body: some View {
+        // Native first: Series 2 is drawn by the same rig as #001–115. The package portrait is only a fallback.
+        if let kind = character.kind {
+            GeometryReader { geo in
+                let s = max(1, min(geo.size.width / 2.0, geo.size.height / 1.9))
+                ModulaMascotFigure(kind: kind, pose: .still(), size: s)
+                    .frame(width: geo.size.width, height: geo.size.height)
+            }
+            .accessibilityLabel("\(character.name)")
         // Fit the whole portrait. A fill would crop it, and a cropped Moliboo is not shipped.
-        if let data = store.activeMedia(packageId: character.packageId, path: "portrait.png"),
+        } else if let data = store.activeMedia(packageId: character.packageId, path: "portrait.png"),
            let image = UIImage(data: data), image.size.width > 0, image.size.height > 0 {
             Image(uiImage: image)
                 .resizable()

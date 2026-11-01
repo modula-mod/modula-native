@@ -47,7 +47,7 @@ struct MolibooSettingsView: View {
     private let grid = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
     private var kinds: [ModulaMascotKind] {
-        var ks = ModulaMascotKind.allCases.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.personality.localizedCaseInsensitiveContains(search) || $0.title.localizedCaseInsensitiveContains(search) }
+        var ks = ModulaMascotKind.roster.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.personality.localizedCaseInsensitiveContains(search) || $0.title.localizedCaseInsensitiveContains(search) }
         switch sort {
         case .catalogue: ks.sort { $0.number < $1.number }
         case .name: ks.sort { $0.name < $1.name }

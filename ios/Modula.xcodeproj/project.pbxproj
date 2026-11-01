@@ -116,6 +116,7 @@
 		C16C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift */; };
 		C18E871C00879B8E66C5673FB3 /* MascotRig.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08E871C00879B8E66C5673FB3 /* MascotRig.swift */; };
 		C18E871C00879B8E66C5673FC4 /* MolibooLegends.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08E871C00879B8E66C5673FC4 /* MolibooLegends.swift */; };
+		C18E871C00879B8E66C5674A02 /* MolibooSeries2.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08E871C00879B8E66C5674A02 /* MolibooSeries2.swift */; };
 		C14B413EE2CA03DFFC2B64FF /* CommentRichContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */; };
 		C1E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */; };
 		C13029B25B9DB3676F028E7B /* ModulaGlassShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */; };
@@ -609,6 +610,7 @@
 		C06C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotProgress.swift; path = DesignSystem/Mascot/MascotProgress.swift; sourceTree = "<group>"; };
 		C08E871C00879B8E66C5673FB3 /* MascotRig.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotRig.swift; path = DesignSystem/Mascot/MascotRig.swift; sourceTree = "<group>"; };
 		C08E871C00879B8E66C5673FC4 /* MolibooLegends.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MolibooLegends.swift; path = DesignSystem/Mascot/MolibooLegends.swift; sourceTree = "<group>"; };
+		C08E871C00879B8E66C5674A02 /* MolibooSeries2.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MolibooSeries2.swift; path = DesignSystem/Mascot/MolibooSeries2.swift; sourceTree = "<group>"; };
 		C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommentRichContent.swift; path = Features/Social/CommentRichContent.swift; sourceTree = "<group>"; };
 		C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaComposerExtras.swift; path = DesignSystem/AdvancedInteraction/ModulaComposerExtras.swift; sourceTree = "<group>"; };
 		C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = ModulaGlassShaders.metal; path = DesignSystem/Glass/ModulaGlassShaders.metal; sourceTree = "<group>"; };
@@ -1349,6 +1351,7 @@
 				C06C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift */,
 				C08E871C00879B8E66C5673FB3 /* MascotRig.swift */,
 				C08E871C00879B8E66C5673FC4 /* MolibooLegends.swift */,
+				C08E871C00879B8E66C5674A02 /* MolibooSeries2.swift */,
 				C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */,
 				C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */,
 				C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */,
@@ -2080,6 +2083,7 @@
 				C16C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift in Sources */,
 				C18E871C00879B8E66C5673FB3 /* MascotRig.swift in Sources */,
 				C18E871C00879B8E66C5673FC4 /* MolibooLegends.swift in Sources */,
+				C18E871C00879B8E66C5674A02 /* MolibooSeries2.swift in Sources */,
 				C14B413EE2CA03DFFC2B64FF /* CommentRichContent.swift in Sources */,
 				C1E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift in Sources */,
 				C13029B25B9DB3676F028E7B /* ModulaGlassShaders.metal in Sources */,

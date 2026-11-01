@@ -23,6 +23,26 @@ enum ModulaMascotKind: String, CaseIterable, Identifiable, Sendable {
     case dozi, lulli, moona, nuzzle, drifty, hushby, swayla, snoomi, velvi, minku, tufti, winkle, sonata, comfi, somna
     // Family 007 — Legends (myths and legends; wear their own look, never wardrobe items)
     case kringle, sasqui, lochie, yetti, krakie, pyra, unika, gryff, frostie, pearli, kitsu, chupi, motho, jacko, thundra
+    // Series 2 — Tideborn (#116–125, native rig, draft)
+    case brinlo, calyra, dovvi, shelumi, nerlo, quibby, tavaroo, ostra, vaeli, driftu
+    // Series 2 — Skyweavers (#126–135, native rig, draft)
+    case zeppi, cirra, flaro, nimbuski, breezo, poffa, aerin, whispel, gustra, solviq
+    // Series 2 — Cinderlings (#136–145, native rig, draft)
+    case ashumo, fizzra, cindoo, magmi, kohli, brasa, flinti, lavajo, searli, pyvra
+    // Series 2 — Mosslight Grove (#146–155, native rig, draft)
+    case petalia, spriggo, floressa, berru, necti, mossini, veyla, tindle, clovey, rhuvi
+    // Series 2 — Aurora Vale (#156–165, native rig, draft)
+    case boreli, prismel, shivera, lumaine, opaliq, glacchi, selka, kivvi, polari, veilo
+    // Series 2 — Clocklings (#166–175, native rig, draft)
+    case tocko, mintra, cogsy, pendli, whirlo, ticklet, riveti, dialli, spoolen, tempoo
+    // Series 2 — Sugarvale (#176–185, native rig, draft)
+    case caramie, mochiri, zestiq, churli, puffumi, sorbelle, biskin, jellune, bonbiri, crembo
+    // Series 2 — Inkbound Atelier (#186–195, native rig, draft)
+    case inkaro, papillo, quilli, dottori, origra, smudgi, lintera, stampo, scrolli, chalko
+    // Series 2 — Neon Arcade (#196–205, native rig, draft)
+    case pixori, voltae, glitcho, cybri, bippi, tappi, loopin, synki, datto, zingra
+    // Series 2 — Lantern Parade (#206–215, native rig, draft)
+    case lanterni, masqora, confira, velloo, ribbika, marvello, glimora, paradi, noctali, jubilo
     var id: String { rawValue }
 
     var isPremium: Bool {
@@ -1916,6 +1936,8 @@ extension Path {
 
 enum MolibooFamily: String, CaseIterable, Identifiable, Sendable {
     case originals, angels, underground, enchanted, stardust, dreamers, legends
+    // Series 2 (#116–215): raw values are the registry family ids.
+    case tideborn, skyweavers, cinderlings, mosslightGrove = "mosslight-grove", auroraVale = "aurora-vale", clocklings, sugarvale, inkboundAtelier = "inkbound-atelier", neonArcade = "neon-arcade", lanternParade = "lantern-parade"
     var id: String { rawValue }
     var name: String {
         switch self {
@@ -1926,6 +1948,16 @@ enum MolibooFamily: String, CaseIterable, Identifiable, Sendable {
         case .stardust: "Moliboo Stardust"
         case .dreamers: "Moliboo Dreamers"
         case .legends: "Moliboo Legends"
+        case .tideborn: "Moliboo Tideborn"
+        case .skyweavers: "Moliboo Skyweavers"
+        case .cinderlings: "Moliboo Cinderlings"
+        case .mosslightGrove: "Moliboo Mosslight Grove"
+        case .auroraVale: "Moliboo Aurora Vale"
+        case .clocklings: "Moliboo Clocklings"
+        case .sugarvale: "Moliboo Sugarvale"
+        case .inkboundAtelier: "Moliboo Inkbound Atelier"
+        case .neonArcade: "Moliboo Neon Arcade"
+        case .lanternParade: "Moliboo Lantern Parade"
         }
     }
     /// Working world names from the family bibles (Originals live in the home world).
@@ -1938,6 +1970,16 @@ enum MolibooFamily: String, CaseIterable, Identifiable, Sendable {
         case .stardust: "The Stardust Reach"
         case .dreamers: "The Dreaming Vale"
         case .legends: "The Mythic Wilds"
+        case .tideborn: "Tideborn"
+        case .skyweavers: "Skyweavers"
+        case .cinderlings: "Cinderlings"
+        case .mosslightGrove: "Mosslight Grove"
+        case .auroraVale: "Aurora Vale"
+        case .clocklings: "Clocklings"
+        case .sugarvale: "Sugarvale"
+        case .inkboundAtelier: "Inkbound Atelier"
+        case .neonArcade: "Neon Arcade"
+        case .lanternParade: "Lantern Parade"
         }
     }
     var range: ClosedRange<Int> {
@@ -1949,6 +1991,16 @@ enum MolibooFamily: String, CaseIterable, Identifiable, Sendable {
         case .stardust: 71...85
         case .dreamers: 86...100
         case .legends: 101...115
+        case .tideborn: 116...125
+        case .skyweavers: 126...135
+        case .cinderlings: 136...145
+        case .mosslightGrove: 146...155
+        case .auroraVale: 156...165
+        case .clocklings: 166...175
+        case .sugarvale: 176...185
+        case .inkboundAtelier: 186...195
+        case .neonArcade: 196...205
+        case .lanternParade: 206...215
         }
     }
     /// Short family label for chips, cards and the roster.
@@ -1961,10 +2013,23 @@ enum MolibooFamily: String, CaseIterable, Identifiable, Sendable {
         case .stardust: "Stardust"
         case .dreamers: "Dreamers"
         case .legends: "Legends"
+        case .tideborn: "Tideborn"
+        case .skyweavers: "Skyweavers"
+        case .cinderlings: "Cinderlings"
+        case .mosslightGrove: "Mosslight Grove"
+        case .auroraVale: "Aurora Vale"
+        case .clocklings: "Clocklings"
+        case .sugarvale: "Sugarvale"
+        case .inkboundAtelier: "Inkbound Atelier"
+        case .neonArcade: "Neon Arcade"
+        case .lanternParade: "Lantern Parade"
         }
     }
     /// Legends are complete characters (Santa's hat, Bigfoot's fur…): they never wear wardrobe items.
     var supportsWardrobe: Bool { self != .legends }
+    /// Series 2 (#116–215) is drawn natively but stays a non-purchasable draft until Andy releases it:
+    /// it shows in the Fit Lab and marketplace previews, never in user pickers.
+    var isDraft: Bool { range.lowerBound >= 116 }
     /// Precomputed once — filtering allCases on every World body eval was O(families × kinds).
     var kinds: [ModulaMascotKind] { Self.kindsByFamily[self] ?? [] }
     private static let kindsByFamily: [MolibooFamily: [ModulaMascotKind]] = {
@@ -2018,6 +2083,9 @@ extension ModulaMascotKind {
     var family: MolibooFamily { MolibooFamily.allCases.first { $0.range.contains(number) } ?? .originals }
     /// False for Legends: no hats, hair, face items, tops, outerwear or any other worn wardrobe item.
     var supportsWardrobe: Bool { family.supportsWardrobe }
+    var isDraft: Bool { family.isDraft }
+    /// Released, user-pickable roster (001–115). Series 2 drafts are excluded until released.
+    static let roster: [ModulaMascotKind] = allCases.filter { !$0.isDraft }
 }
 
 // MARK: - Family parts kit (Families 002–006)
@@ -2050,6 +2118,8 @@ enum MolibooPart: Sendable {
     case santaHat(Color), beard(Color), belt(Color), shag(Color), facePatch(Color), bigFeet(Color), humps(Color), waves(Color)
     case tentacles(Color), flameCrest(Color), horn(Color), rainbowMane, hookBeak(Color), snowflakes(Int), kitsuneTails(Color, Color)
     case kitsuneMarks(Color), fangs, spines(Color), glowEyes(Color), wand(Color), toothShine, thunderMark(Color), featherCrest(Color, Color), frostSpikes(Color), jackalopeAntlers(Color)
+    // Series 2 kit (MolibooSeries2.swift): head-top toppers hide under hats; props, body marks, stubby arms.
+    case topper(MolibooTopper, Color), prop(MolibooProp, Color, Color?), mark(MolibooMark, Color), nubs(Color), aurora(Color, Color), carnivalMask(Color, Color), windSwirl(Color)
 }
 
 struct MolibooSpec: Sendable {
@@ -2771,10 +2841,11 @@ enum MolibooFamilySpecs {
         addStardust(&t)
         addDreamers(&t)
         addLegends(&t)
+        addSeries2(&t)
         return t
     }()
 
-    static let profiles: [ModulaMascotKind: ModulaMascotKind.Profile] = angelProfiles.merging(undergroundProfiles) { a, _ in a }.merging(enchantedProfiles) { a, _ in a }.merging(stardustProfiles) { a, _ in a }.merging(dreamerProfiles) { a, _ in a }.merging(legendProfiles) { a, _ in a }
+    static let profiles: [ModulaMascotKind: ModulaMascotKind.Profile] = angelProfiles.merging(undergroundProfiles) { a, _ in a }.merging(enchantedProfiles) { a, _ in a }.merging(stardustProfiles) { a, _ in a }.merging(dreamerProfiles) { a, _ in a }.merging(legendProfiles) { a, _ in a }.merging(series2Profiles) { a, _ in a }
 
     static let angelProfiles: [ModulaMascotKind: ModulaMascotKind.Profile] = [
         .aura: .init(number: 26, title: "The Guiding Light", traits: ["Light", "Leader", "Calm"]),
