@@ -1,10 +1,85 @@
 {
-  "version": 1,
+  "version": 2,
   "colors": {
     "accent.default": "#369CAA",
     "canvas.oled": "#000000"
   },
+  "themes": {
+    "light": {
+      "canvas": "rgb(0.975, 0.982, 0.988)",
+      "surface": "semantic:white",
+      "elevated": "system:secondarySystemBackground",
+      "textPrimary": "semantic:primary",
+      "textSecondary": "semantic:secondary",
+      "textSecondaryHighContrast": "semantic:secondary",
+      "textTertiary": "system:tertiaryLabel",
+      "separator": "black(0.08)",
+      "separatorHighContrast": "black(0.16)",
+      "onAccent": "semantic:white",
+      "success": "system:systemGreen",
+      "warning": "system:systemOrange",
+      "danger": "system:systemRed"
+    },
+    "dark": {
+      "canvas": "system:systemBackground",
+      "surface": "system:secondarySystemBackground",
+      "elevated": "system:tertiarySystemBackground",
+      "textPrimary": "semantic:primary",
+      "textSecondary": "semantic:secondary",
+      "textSecondaryHighContrast": "semantic:secondary",
+      "textTertiary": "system:tertiaryLabel",
+      "separator": "white(0.12)",
+      "separatorHighContrast": "white(0.12)",
+      "onAccent": "semantic:white",
+      "success": "system:systemGreen",
+      "warning": "system:systemOrange",
+      "danger": "system:systemRed"
+    },
+    "dim": {
+      "canvas": "rgb(0.075, 0.085, 0.10)",
+      "surface": "rgb(0.105, 0.12, 0.14)",
+      "elevated": "rgb(0.14, 0.155, 0.18)",
+      "textPrimary": "white(0.92)",
+      "textSecondary": "white(0.58)",
+      "textSecondaryHighContrast": "white(0.76)",
+      "textTertiary": "white(0.42)",
+      "separator": "white(0.1)",
+      "separatorHighContrast": "white(0.1)",
+      "onAccent": "semantic:white",
+      "success": "system:systemGreen",
+      "warning": "system:systemOrange",
+      "danger": "system:systemRed"
+    },
+    "oled": {
+      "canvas": "semantic:black",
+      "surface": "white(0.055)",
+      "elevated": "white(0.1)",
+      "textPrimary": "semantic:white",
+      "textSecondary": "white(0.66)",
+      "textSecondaryHighContrast": "white(0.78)",
+      "textTertiary": "white(0.45)",
+      "separator": "white(0.14)",
+      "separatorHighContrast": "white(0.14)",
+      "onAccent": "semantic:white",
+      "success": "system:systemGreen",
+      "warning": "system:systemOrange",
+      "danger": "system:systemRed"
+    }
+  },
+  "typography": {
+    "baseSize": 17,
+    "roles": {
+      "hero": { "scale": 2, "weight": "bold" },
+      "title": { "scale": 1.35, "weight": "bold" },
+      "headline": { "scale": 1, "weight": "semibold" },
+      "body": { "scale": 1, "weight": "regular" },
+      "callout": { "scale": 0.94, "weight": "regular" },
+      "caption": { "scale": 0.76, "weight": "regular" },
+      "metric": { "scale": 1.18, "weight": "semibold" }
+    }
+  },
   "spacing": {
+    "hairline": 2,
     "xxs": 4,
     "xs": 8,
     "sm": 12,
@@ -15,7 +90,25 @@
   "radius": {
     "small": 10,
     "medium": 16,
-    "large": 24
+    "balanced": 17,
+    "large": 24,
+    "xl": 26
+  },
+  "layout": {
+    "minimumTouchTarget": 44,
+    "contentInset": 18,
+    "fieldHorizontalPadding": 14,
+    "listRowSpacing": 14,
+    "listRowIconWidth": 28,
+    "listRowMinHeight": 48,
+    "heroHeight": 260,
+    "heroPadding": 20
+  },
+  "elevation": {
+    "hairlineOpacity": 0.07,
+    "low": { "radius": 4, "y": 1, "opacity": 0.06 },
+    "medium": { "radius": 12, "y": 4, "opacity": 0.1 },
+    "high": { "radius": 24, "y": 10, "opacity": 0.16 }
   },
   "density": {
     "compact": 0.84,
@@ -25,6 +118,7 @@
   },
   "motion": {
     "railLabelSeconds": 2,
+    "instantDuration": 0.1,
     "calmDuration": 0.16,
     "standardDuration": 0.38,
     "expressiveDuration": 0.5
