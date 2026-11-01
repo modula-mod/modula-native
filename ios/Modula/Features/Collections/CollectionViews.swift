@@ -249,17 +249,12 @@ struct CollectionDetailView: View {
             guard !Task.isCancelled else { return }
             let batch = Array(pending[index..<min(index + 4, pending.count)])
             index += batch.count
-            await withTaskGroup(of: Void.self) { group in
-                for id in batch {
-                    group.addTask { @MainActor in
-                        do {
-                            let post = try await app.postActions.loadPost(id: id)
-                            posts[id] = post
-                        } catch {
-                            if !Task.isCancelled { unavailable.insert(id) }
-                        }
-                    }
-                }
+            let fetches = batch.map { id in
+                Task { @MainActor in (id, try? await app.postActions.loadPost(id: id)) }
+            }
+            for fetch in fetches {
+                let (id, post) = await fetch.value
+                if let post { posts[id] = post } else if !Task.isCancelled { unavailable.insert(id) }
             }
         }
     }
