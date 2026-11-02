@@ -40,6 +40,9 @@ final class MessagingStore {
     /// Server-owned unread total. Never summed from loaded rows.
     private(set) var accountUnreadCount: Int?
     private(set) var actionError: String?
+    /// Coalesces duplicate share/story requests for the same recipient and first
+    /// message while GreenField atomically creates or reuses the direct thread.
+    private var startingConversations: [String: Task<Conversation, Error>] = [:]
 
     init(client: GreenfieldClient, capabilities: MessagingBackendCapabilities = .production) {
         self.repository = GreenfieldMessagingRepository(client: client, capabilities: capabilities)
@@ -489,6 +492,55 @@ final class MessagingStore {
     /// Local key for a chat that doesn't exist on the server yet (drafts + optimistic bubbles).
     static func pendingDirectKey(_ handle: String) -> ConversationID {
         "pending-direct:" + handle.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "@"))
+    }
+
+    /// Creates or reuses a direct conversation through `POST /v1/conversations`.
+    /// When `text` is present GreenField persists it atomically as the first
+    /// message, so share callers must not follow this with a second send.
+    func startConversation(handle: String, text: String?) async -> Conversation? {
+        let cleanHandle = handle.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "@"))
+        let cleanText = text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let firstMessage = cleanText?.isEmpty == false ? cleanText : nil
+        guard !cleanHandle.isEmpty, capabilities.startConversation else {
+            actionError = "Couldn't start this chat."
+            return nil
+        }
+        let requestKey = cleanHandle.lowercased() + "\u{001F}" + (firstMessage ?? "")
+        if let pending = startingConversations[requestKey] {
+            do {
+                let conversation = try await pending.value
+                rememberStartedConversation(conversation)
+                return conversation
+            } catch {
+                actionError = directStartError(error)
+                return nil
+            }
+        }
+        let repository = self.repository
+        let task = Task { try await repository.startConversation(handle: cleanHandle, text: firstMessage) }
+        startingConversations[requestKey] = task
+        defer { startingConversations[requestKey] = nil }
+        do {
+            let conversation = try await task.value
+            rememberStartedConversation(conversation)
+            actionError = nil
+            return conversation
+        } catch {
+            actionError = directStartError(error)
+            return nil
+        }
+    }
+
+    private func rememberStartedConversation(_ conversation: Conversation) {
+        conversations.removeAll { $0.id == conversation.id }
+        conversations.insert(conversation, at: 0)
+        conversationState = .loaded
+    }
+
+    private func directStartError(_ error: Error) -> String {
+        if let api = error as? APIError { return userMessage(api, fallback: "Couldn't start this chat.") }
+        return "Couldn't start this chat."
     }
 
     /// First send to someone with no chat yet: shows an optimistic bubble, creates the

@@ -777,6 +777,13 @@ struct StoryViewer: View {
     @State private var videoCoordinator = FeedVideoCoordinator()
     @State private var expandedVideo: ModulaAttachment?
     @State private var replyDraft = ""
+    @State private var replySending = false
+    @State private var replyError: String?
+    @State private var replyRequestText: String?
+    @State private var replyIdempotencyKey: String?
+    @State private var replySent = false
+    @State private var replyConversationID: ConversationID?
+    @State private var openingConversation = false
     @State private var reactedLocally = false
     @State private var burstEmoji: String?
     @State private var confirmMute = false
@@ -888,6 +895,13 @@ struct StoryViewer: View {
         }
         .onChange(of: engine.index) { _, _ in
             replyDraft = ""
+            replySending = false
+            replyError = nil
+            replyRequestText = nil
+            replyIdempotencyKey = nil
+            replySent = false
+            replyConversationID = nil
+            openingConversation = false
             reactedLocally = false
             replyFocused = false
         }
@@ -1131,6 +1145,15 @@ struct StoryViewer: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
+            if let replyError {
+                Text(replyError)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .accessibilityIdentifier("story.reply.error")
+            }
+
             ModulaGlassGroup(spacing: 10) {
                 HStack(spacing: 10) {
                     replyField(item)
@@ -1151,16 +1174,34 @@ struct StoryViewer: View {
         let enabled = canReply && !own
         HStack(spacing: 8) {
             TextField(
-                own ? "Your story" : (enabled ? "Send a reply…" : "Replies unavailable"),
+                own ? "Your story" : (replySent ? "Reply sent" : (enabled ? "Send a reply…" : "Replies unavailable")),
                 text: $replyDraft
             )
             .textFieldStyle(.plain)
             .focused($replyFocused)
             .submitLabel(.send)
             .onSubmit { if let item { sendReply(item) } }
+            .onChange(of: replyDraft) { _, value in
+                if value != replyRequestText {
+                    replyRequestText = nil
+                    replyIdempotencyKey = nil
+                }
+                if !value.isEmpty {
+                    replySent = false
+                    replyError = nil
+                }
+            }
             .disabled(!enabled)
             .foregroundStyle(.white)
-            if enabled, !replyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if replySending {
+                ProgressView().controlSize(.small).tint(.white)
+                    .accessibilityLabel("Sending reply")
+            } else if replySent {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(teal)
+                    .accessibilityLabel("Reply sent")
+            } else if enabled, !replyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Button {
                     if let item { sendReply(item) }
                 } label: {
@@ -1286,23 +1327,68 @@ struct StoryViewer: View {
             app.navigation.flash("Replies aren’t available yet", symbol: "bubble.left")
             return
         }
-        app.navigation.open(.messages(.new))
-        app.navigation.flash("Reply in Messages", symbol: "bubble.left")
+        if let conversationID = replyConversationID
+            ?? app.messaging.directConversation(with: item.author.handle.isEmpty ? item.author.id : item.author.handle)?.id {
+            app.navigation.open(.messages(.conversation(conversationID)))
+            return
+        }
+        guard !openingConversation, !item.author.handle.isEmpty else {
+            replyError = "This conversation isn’t available right now."
+            return
+        }
+        openingConversation = true
+        Task { @MainActor in
+            defer { openingConversation = false }
+            if let conversation = await app.messaging.startConversation(handle: item.author.handle, text: nil) {
+                replyConversationID = conversation.id
+                app.navigation.open(.messages(.conversation(conversation.id)))
+            } else {
+                replyError = app.messaging.actionError ?? "Couldn’t open this conversation."
+            }
+        }
     }
 
     private func sendReply(_ item: StoryItem) {
         let text = replyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
+        guard !text.isEmpty, !replySending else { return }
         guard canReply else {
             app.navigation.flash("Replies aren’t available yet", symbol: "bubble.left")
             return
         }
-        replyDraft = ""
-        replyFocused = false
-        // No story-reply endpoint yet — open Messages with an honest island confirmation.
-        app.navigation.open(.messages(.new))
-        app.navigation.flash("Continue in Messages", symbol: "bubble.left")
-        _ = item
+        let idempotencyKey: String
+        if replyRequestText == text, let existing = replyIdempotencyKey {
+            idempotencyKey = existing
+        } else {
+            idempotencyKey = "story-reply-\(UUID().uuidString.lowercased())"
+            replyRequestText = text
+            replyIdempotencyKey = idempotencyKey
+        }
+        replySending = true
+        replyError = nil
+        Task { @MainActor in
+            defer { replySending = false }
+            guard let result = await app.stories.reply(
+                storyID: item.id,
+                text: text,
+                idempotencyKey: idempotencyKey
+            ) else {
+                replyError = app.stories.actionError ?? "Couldn’t send your reply. Your text is still here."
+                HapticEngine.shared.play(.failure)
+                return
+            }
+            await app.messaging.refreshInbox()
+            await app.messaging.refreshThread(result.conversationID)
+            replyDraft = ""
+            replyRequestText = nil
+            replyIdempotencyKey = nil
+            replyConversationID = result.conversationID
+            replyFocused = false
+            replySent = true
+            HapticEngine.shared.play(.success)
+            app.navigation.flash("Reply sent", symbol: "paperplane.fill", actionTitle: "View") {
+                app.navigation.open(.messages(.conversation(result.conversationID)))
+            }
+        }
     }
 
     private func share(_ item: StoryItem) {

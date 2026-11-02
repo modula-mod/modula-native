@@ -411,7 +411,7 @@ final class CollectionsDraftsShareTests: XCTestCase {
         XCTAssertEqual(people[1].conversationID, "convo-marcus")
         XCTAssertNil(people[2].conversationID)
         XCTAssertFalse(people[2].hasDirectChat)
-        XCTAssertEqual(people[2].subtitle, "@ada · No chat yet")
+        XCTAssertEqual(people[2].subtitle, "@ada · Start a chat")
         XCTAssertEqual(
             ShareAudience.directConversationID(matching: "@Sophia.Chen", in: [MessagingFixtures.unreadConversation]),
             "convo-sophia"
